@@ -2,7 +2,7 @@ package office
 
 /*
 	odp_reader.go - Parse an OpenDocument Presentation (.odp) into a
-	Presentation, scaled into the 960x540 editor space.
+	Presentation, scaled into the editor space (960 wide, the page's shape).
 
 	ODF states appearance the same way PresentationML does: almost never on
 	the element itself. A paragraph names a style, that style names a parent,
@@ -100,6 +100,7 @@ func ParseOdp(data []byte) (*Presentation, error) {
 		lists:  map[string]*onode{},
 		pageBg: map[string]string{},
 	}
+	pageW, pageH := slidePxW, slidePxH
 
 	var stylesRoot *onode
 	if raw, ok := files["styles.xml"]; ok {
@@ -108,7 +109,7 @@ func ParseOdp(data []byte) (*Presentation, error) {
 		}
 	}
 	if stylesRoot != nil {
-		// source page size -> scale into the 960x540 editor space
+		// source page size -> the editor's: 960 wide, the page's shape
 		for _, auto := range []*onode{stylesRoot.first("automatic-styles")} {
 			if auto == nil {
 				continue
@@ -118,11 +119,12 @@ func ParseOdp(data []byte) (*Presentation, error) {
 				if pp == nil {
 					continue
 				}
-				if wPx := odfLenToPx(pp.attr("page-width")); wPx > 0 {
-					cv.sx = float64(slidePxW) / wPx
-				}
-				if hPx := odfLenToPx(pp.attr("page-height")); hPx > 0 {
-					cv.sy = float64(slidePxH) / hPx
+				wPx := odfLenToPx(pp.attr("page-width"))
+				hPx := odfLenToPx(pp.attr("page-height"))
+				if wPx > 0 && hPx > 0 {
+					pageW, pageH = slideSizeFor(wPx, hPx)
+					cv.sx = float64(pageW) / wPx
+					cv.sy = float64(pageH) / hPx
 				}
 			}
 		}
@@ -141,7 +143,7 @@ func ParseOdp(data []byte) (*Presentation, error) {
 	if pres == nil {
 		return nil, errors.New("odp has no presentation body")
 	}
-	out := &Presentation{Size: []int{slidePxW, slidePxH}, Slides: []*Slide{}}
+	out := &Presentation{Size: []int{pageW, pageH}, Slides: []*Slide{}}
 	for pi, page := range pres.all("page") {
 		slide := &Slide{ID: fmt.Sprintf("s-odp-%d", pi+1), Objects: []*Object{}}
 		master := cv.masterOf(page)

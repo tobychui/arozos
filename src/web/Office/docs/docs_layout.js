@@ -216,11 +216,17 @@ var DocsLayout = (function () {
         if (!runs.length) {
             strut = lineHeightPx(baseSize, baseFamily, mult);
         } else {
-            var min = runs[0];
-            runs.forEach(function (r) { if (r.size < min.size) min = r; });
-            // the paragraph's own font (its mark) takes part in every line
+            var min = runs[0], direct = false;
+            runs.forEach(function (r) {
+                if (r.size < min.size) min = r;
+                if (r.el === block) direct = true;
+            });
+            // the paragraph's own font (its mark) takes part in every line;
+            // so does text standing in the block itself, which has no
+            // element to carry a height of its own - a heading with a small
+            // link in it would otherwise get the link's lines
             strut = Math.max(lineHeightPx(min.size, min.family, mult),
-                baseSize <= min.size + 0.01 ? lineHeightPx(baseSize, baseFamily, mult) : 0);
+                direct || baseSize <= min.size + 0.01 ? lineHeightPx(baseSize, baseFamily, mult) : 0);
             // bigger runs carry their own height so only their lines grow
             runs.forEach(function (r) {
                 if (r.el === block) return;
@@ -563,6 +569,14 @@ var DocsLayout = (function () {
         for (var i = 0; i < spans.length; i++) sizeTab(spans[i], root);
     }
 
+    function underlinedTab(span, block) {
+        for (var n = span; n && n !== block && n.nodeType === 1; n = n.parentNode) {
+            var d = window.getComputedStyle(n).textDecorationLine || "";
+            if (d.indexOf("underline") >= 0 || n.tagName === "U") return true;
+        }
+        return false;
+    }
+
     function sizeTab(span, root) {
         var block = lineBlockOf(span, root);
         var scale = scaleOf(root) || 1;
@@ -592,6 +606,13 @@ var DocsLayout = (function () {
         w = Math.max(0, w);
         if (Math.abs((parseFloat(span.style.width) || -1) - w) > 0.25) span.style.width = w + "px";
         var leader = stop && stop.leader && stop.leader !== "none" ? stop.leader : null;
+        // an underline does not reach into the tab's box (it is an inline
+        // block), so a tab inside underlined text draws its own - the blank
+        // to write on that a form's "Name: ____" is made of
+        if (!leader && underlinedTab(span, block)) leader = "underscore";
+        // a leader's marks are placed from a box of no height (docs.css)
+        var lh = leader ? "0" : "";
+        if (span.style.lineHeight !== lh) span.style.lineHeight = lh;
         if (span.getAttribute("data-leader") !== leader) {
             if (leader) span.setAttribute("data-leader", leader);
             else span.removeAttribute("data-leader");
@@ -956,6 +977,8 @@ var DocsLayout = (function () {
             var parent = el.parentNode;
             if (!parent) continue;
             var k = el.getAttribute("data-pair");
+            var rs = el.getAttribute("data-rowspans");
+            if (rs) joinRowspans(root, rs.split(","));
             var prev = el.previousSibling, next = el.nextSibling;
             while (prev && !meaningful(prev) && !isSpacer(prev)) prev = prev.previousSibling;
             while (next && !meaningful(next) && !isSpacer(next)) next = next.nextSibling;
@@ -1009,6 +1032,7 @@ var DocsLayout = (function () {
         try {
             removeSpacerList(root.querySelectorAll(".doc-autobreak"), root);
             repairSplits(root, true);
+            joinRowspans(root);
             unwrapColumns(root);
             var breaks = root.querySelectorAll(".doc-pagebreak");
             for (var i = 0; i < breaks.length; i++) breaks[i].style.height = "0px";
@@ -1590,6 +1614,83 @@ var DocsLayout = (function () {
         return el;
     }
 
+    /* A merged cell from a row above that reaches past a page cut would
+       stretch over the spacer row - its rules running down through the
+       footnotes - and leave the rows on the next page without it. It is cut
+       in two like the table: the cell keeps the rows above the break, and
+       an empty continuation cell of the layout's own (undone with the
+       spacer, never saved) carries it on the next page. Returns the tokens
+       of the cells it split. */
+    var rowspanSeq = 0;
+    function splitRowspans(tr) {
+        var tbl = tr.closest("table");
+        if (!tbl) return [];
+        var rows = rowsOf(tbl);
+        var idx = rows.indexOf(tr);
+        if (idx <= 0) return [];
+        // the grid column each cell starts in, rows 0..idx
+        var taken = [], start = [];
+        for (var r = 0; r <= idx; r++) {
+            start[r] = [];
+            var col = 0;
+            for (var c = 0; c < rows[r].cells.length; c++) {
+                while (taken[r] && taken[r][col]) col++;
+                var td = rows[r].cells[c];
+                start[r][c] = col;
+                for (var y = r; y < r + td.rowSpan; y++) {
+                    taken[y] = taken[y] || [];
+                    for (var x = col; x < col + td.colSpan; x++) taken[y][x] = true;
+                }
+                col += td.colSpan;
+            }
+        }
+        var out = [];
+        for (r = 0; r < idx; r++) {
+            for (c = 0; c < rows[r].cells.length; c++) {
+                var head = rows[r].cells[c];
+                if (r + head.rowSpan <= idx) continue;
+                var k = "rs" + (++rowspanSeq);
+                var tail = document.createElement("td");
+                if (head.getAttribute("style")) tail.setAttribute("style", head.getAttribute("style"));
+                tail.colSpan = head.colSpan;
+                tail.rowSpan = r + head.rowSpan - idx;
+                tail.className = "doc-rowspan-tail";
+                tail.setAttribute("contenteditable", "false");
+                tail.setAttribute("data-rowspan-of", k);
+                head.setAttribute("data-rowspan-split", k);
+                head.setAttribute("data-rowspan-orig", String(head.rowSpan));
+                head.rowSpan = idx - r;
+                // into the row after the cut, at the cell's own column
+                var before = null;
+                for (var j = 0; j < tr.cells.length; j++) {
+                    if (start[idx][j] > start[r][c]) { before = tr.cells[j]; break; }
+                }
+                tr.insertBefore(tail, before);
+                out.push(k);
+            }
+        }
+        return out;
+    }
+    // undo splitRowspans for the given tokens (or every split, with none)
+    function joinRowspans(root, tokens) {
+        var heads = tokens ? tokens.map(function (k) {
+            return root.querySelector('[data-rowspan-split="' + k + '"]');
+        }) : Array.prototype.slice.call(root.querySelectorAll("[data-rowspan-split]"));
+        heads.forEach(function (h) {
+            if (!h) return;
+            var k = h.getAttribute("data-rowspan-split");
+            var t = root.querySelector('[data-rowspan-of="' + k + '"]');
+            if (t && t.parentNode) t.parentNode.removeChild(t);
+            h.rowSpan = parseInt(h.getAttribute("data-rowspan-orig"), 10) || h.rowSpan;
+            h.removeAttribute("data-rowspan-split");
+            h.removeAttribute("data-rowspan-orig");
+        });
+        if (!tokens) {
+            var orphans = root.querySelectorAll("td.doc-rowspan-tail");
+            for (var i = 0; i < orphans.length; i++) orphans[i].parentNode.removeChild(orphans[i]);
+        }
+    }
+
     function marginTopOf(el) {
         return parseFloat(window.getComputedStyle(el).marginTop) || 0;
     }
@@ -1622,6 +1723,8 @@ var DocsLayout = (function () {
                     var cols = 0;
                     for (var c = 0; c < el.cells.length; c++) cols += el.cells[c].colSpan;
                     var sp = makeSpacer("row", cols);
+                    var spans = splitRowspans(el);
+                    if (spans.length) sp.setAttribute("data-rowspans", spans.join(","));
                     el.parentNode.insertBefore(sp, el);
                     var bw = parseFloat(window.getComputedStyle(el.cells[0] || el).borderTopWidth) || 0;
                     this.land(sp, nextC + bw / 2, function () { return self.top(el); });
@@ -1815,10 +1918,15 @@ var DocsLayout = (function () {
         }
     }
 
+    // forget what fonts measured: a stand-in for a missing font arrived
+    // (OfficeFonts.substitute), so the same family list draws differently
+    function clearMetrics() { ratioCache = {}; }
+
     return {
         PT: PT,
         MM: MM,
         fontRatios: fontRatios,
+        clearMetrics: clearMetrics,
         lineHeightPx: lineHeightPx,
         applyLineHeights: applyLineHeights,
         applyTableBorders: applyTableBorders,

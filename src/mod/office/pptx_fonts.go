@@ -178,3 +178,29 @@ func (d *pptxDoc) embeddedFontFaces(used map[string]bool) []*EmbeddedFont {
 	}
 	return out
 }
+
+// fontAscentRatios is where the baseline falls in a line of each font, as
+// ascent / (ascent + descent) from its Windows metrics - the split
+// PowerPoint lays a line out by. The same numbers are in common/fonts.js,
+// which the browser uses to set the line up; keep the two in step.
+var fontAscentRatios = map[string]float64{
+	"arial": 0.810, "helvetica": 0.809, "calibri": 0.780, "cambria": 0.811,
+	"times new roman": 0.805, "times": 0.805, "tinos": 0.805, "georgia": 0.807,
+	"garamond": 0.766, "century gothic": 0.815, "playfair display": 0.822,
+	"lato": 0.789, "open sans": 0.779, "roboto": 0.792, "montserrat": 0.710,
+	"raleway": 0.831, "poppins": 0.644, "verdana": 0.827, "tahoma": 0.829,
+	"trebuchet ms": 0.809, "segoe ui": 0.811, "courier new": 0.735,
+	"consolas": 0.743, "gill sans mt": 0.799, "gill sans": 0.799, "futura": 0.800,
+	"palatino linotype": 0.708, "book antiqua": 0.708, "palatino": 0.708,
+	"noto sans": 0.785, "source sans pro": 0.764, "pt sans": 0.787,
+	"comic sans ms": 0.791, "impact": 0.827, "arial narrow": 0.814,
+}
+
+// ascentRatio is fontAscentRatios for a family, 0.8 for one it does not
+// know (a value most text faces sit close to)
+func ascentRatio(family string) float64 {
+	if r, ok := fontAscentRatios[strings.ToLower(strings.TrimSpace(family))]; ok {
+		return r
+	}
+	return 0.8
+}

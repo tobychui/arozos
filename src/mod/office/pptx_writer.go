@@ -141,11 +141,12 @@ func buildPptxPackage(p *Presentation, readVpath func(string) ([]byte, error), w
 		sldIds.WriteString(fmt.Sprintf(`<p:sldId id="%d" r:id="%s"/>`, 256+i, rid))
 		presRels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide%d.xml"/>`, rid, i+1))
 	}
+	slideW, slideH := p.dims()
 	presentation := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<p:presentation ` + nsDecl + `>` +
 		`<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>` +
 		`<p:sldIdLst>` + sldIds.String() + `</p:sldIdLst>` +
-		fmt.Sprintf(`<p:sldSz cx="%d" cy="%d"/>`, pxToEmu(slidePxW), pxToEmu(slidePxH)) +
+		fmt.Sprintf(`<p:sldSz cx="%d" cy="%d"/>`, pxToEmu(float64(slideW)), pxToEmu(float64(slideH))) +
 		`<p:notesSz cx="6858000" cy="9144000"/>` +
 		`</p:presentation>`
 	if err := addFile("ppt/presentation.xml", presentation); err != nil {
@@ -244,12 +245,28 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaSet *pptxMediaSet, readVp
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<p:sld ` + nsDecl + `><p:cSld>`)
 
-	// slide background: explicit color, else theme approximation
+	// slide background: a gradient or a picture when the slide has one,
+	// else its colour, else the theme's approximation
 	bg := slide.Bg
 	if bg == "" {
 		bg = "#" + themeBgColor(p.Theme)
 	}
-	sb.WriteString(`<p:bg><p:bgPr><a:solidFill><a:srgbClr val="` + hexColor(bg, "FFFFFF") + `"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`)
+	bgFill := `<a:solidFill><a:srgbClr val="` + hexColor(bg, "FFFFFF") + `"/></a:solidFill>`
+	if g := slide.BgGrad; g != nil && len(g.Stops) > 0 {
+		bgFill = gradFillXML(g)
+	} else if im := slide.BgImage; im != nil && im.Src != "" {
+		if data, ext, ok := imageSrcBytes(im.Src, readVpath); ok {
+			idx, isNew := mediaSet.place(data)
+			rid := fmt.Sprintf("rId%d", relIdx)
+			relIdx++
+			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, idx, ext))
+			if isNew {
+				media = append(media, mediaEntry{index: idx, ext: ext, data: data})
+			}
+			bgFill = bgPictureXML(im, rid, p)
+		}
+	}
+	sb.WriteString(`<p:bg><p:bgPr>` + bgFill + `<a:effectLst/></p:bgPr></p:bg>`)
 
 	sb.WriteString(`<p:spTree>` +
 		`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
@@ -761,7 +778,9 @@ func bodyPrFor(p Props, defaultAnchor string) string {
 			pxToEmuRound(p.Pad[0]), pxToEmuRound(p.Pad[1]),
 			pxToEmuRound(p.Pad[2]), pxToEmuRound(p.Pad[3]))
 	}
-	return `<a:bodyPr wrap="square" anchor="` + anchor + `" anchorCtr="0" ` + ins + `><a:noAutofit/></a:bodyPr>`
+	// the HTML states each paragraph's spacing as drawn, the first
+	// paragraph's space before included, so PowerPoint must keep it all
+	return `<a:bodyPr wrap="square" anchor="` + anchor + `" anchorCtr="0" spcFirstLastPara="1" ` + ins + `><a:noAutofit/></a:bodyPr>`
 }
 
 func buildTextSp(id int, o *Object, theme string) string {
@@ -783,7 +802,15 @@ func buildTextSp(id int, o *Object, theme string) string {
 func buildShapeSp(id int, o *Object) string {
 	p := o.Props
 	prst := shapeKindPrst(p.Kind)
-	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
+	// the adjustments an imported preset came with go back as they were
+	geom := `<a:prstGeom prst="` + prst + `">` + avLstXML(p.Adj) + `</a:prstGeom>`
+	if prst != p.Kind {
+		// written as another preset: its guides do not mean the same
+		geom = `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
+	}
+	if p.Kind == "custom" && p.Geom != nil && len(p.Geom.Paths) > 0 {
+		geom = custGeomXML(p.Geom)
+	}
 	// a callout carries where its tip is (an old one is converted, and
 	// its frame shrinks to the body it drew - see pptx_adjust.go)
 	frameH := o.H
@@ -803,8 +830,10 @@ func buildShapeSp(id int, o *Object) string {
 		ln = strokeLn(p)
 	}
 	fill := `<a:noFill/>`
-	if p.Fill != "" && p.Fill != "none" {
-		fill = `<a:solidFill><a:srgbClr val="` + hexColor(p.Fill, "E07B1F") + `"/></a:solidFill>`
+	if p.FillGrad != nil && len(p.FillGrad.Stops) > 0 && p.Fill != "none" {
+		fill = gradFillXML(p.FillGrad)
+	} else if p.Fill != "" && p.Fill != "none" {
+		fill = `<a:solidFill>` + srgbClrXML(p.Fill, "E07B1F") + `</a:solidFill>`
 	} else if p.Fill == "" {
 		fill = `<a:solidFill><a:srgbClr val="E07B1F"/></a:solidFill>`
 	}
@@ -949,6 +978,13 @@ func buildPicSp(id int, o *Object, rid string) string {
 		}
 	}
 	blip := `<a:blip r:embed="` + rid + `">` + pictureEffects(p) + `</a:blip>`
+	// the frame's own fill shows through a transparent picture
+	fill := ""
+	if p.FillGrad != nil && len(p.FillGrad.Stops) > 0 && p.Fill != "none" {
+		fill = gradFillXML(p.FillGrad)
+	} else if p.Fill != "" && p.Fill != "none" {
+		fill = `<a:solidFill>` + srgbClrXML(p.Fill, "FFFFFF") + `</a:solidFill>`
+	}
 	// the picture's outline, when it has one (a picture has none by default)
 	ln := ""
 	if p.StrokeW > 0 && p.Stroke != "" && p.Stroke != "none" {
@@ -957,9 +993,9 @@ func buildPicSp(id int, o *Object, rid string) string {
 	return fmt.Sprintf(
 		`<p:pic><p:nvPicPr><p:cNvPr id="%d" name="Picture %d"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>`+
 			`<p:blipFill>%s%s<a:stretch><a:fillRect/></a:stretch></p:blipFill>`+
-			`<p:spPr>%s%s%s</p:spPr></p:pic>`,
+			`<p:spPr>%s%s%s%s</p:spPr></p:pic>`,
 		id, id, blip, srcRect,
-		xfrm(o.X, o.Y, o.W, o.H, o.Rot, p.FlipH, p.FlipV), geom, ln)
+		xfrm(o.X, o.Y, o.W, o.H, o.Rot, p.FlipH, p.FlipV), geom, fill, ln)
 }
 
 // strokeLn renders a solid (or dashed) <a:ln> from an object's stroke
@@ -1032,8 +1068,15 @@ func buildTableFrame(id int, o *Object) string {
 		id, id))
 	sb.WriteString(fmt.Sprintf(`<p:xfrm><a:off x="%d" y="%d"/><a:ext cx="%d" cy="%d"/></p:xfrm>`,
 		pxToEmu(o.X), pxToEmu(o.Y), pxToEmu(maxF(1, o.W)), pxToEmu(maxF(1, o.H))))
-	sb.WriteString(`<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="` +
-		boolAttr(p.HeaderRow) + `" bandRow="0"/><a:tblGrid>`)
+	// a styled table's cells state its whole look, so it names the style
+	// that adds none
+	tblPr := `<a:tblPr firstRow="` + boolAttr(p.HeaderRow) + `" bandRow="0"/>`
+	if p.Styled {
+		tblPr = `<a:tblPr firstRow="` + boolAttr(p.HeaderRow) + `" bandRow="0"><a:tableStyleId>` +
+			noTableStyleID + `</a:tableStyleId></a:tblPr>`
+	}
+	sb.WriteString(`<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>` +
+		tblPr + `<a:tblGrid>`)
 	totalW := pxToEmu(maxF(1, o.W))
 	for c := 0; c < cols; c++ {
 		w := totalW / int64(cols)
@@ -1043,6 +1086,37 @@ func buildTableFrame(id int, o *Object) string {
 		sb.WriteString(fmt.Sprintf(`<a:gridCol w="%d"/>`, w))
 	}
 	sb.WriteString(`</a:tblGrid>`)
+	// merged cells: the anchor states its spans, the cells it covers say
+	// which way they are covered
+	anchorSpan := map[[2]int][2]int{}
+	coveredBy := map[[2]int][2]bool{} // [hMerge, vMerge]
+	for _, m := range p.Merges {
+		if len(m) != 4 || m[2] < 1 || m[3] < 1 {
+			continue
+		}
+		anchorSpan[[2]int{m[0], m[1]}] = [2]int{m[2], m[3]}
+		for y := m[0]; y < m[0]+m[2]; y++ {
+			for x := m[1]; x < m[1]+m[3]; x++ {
+				if y != m[0] || x != m[1] {
+					coveredBy[[2]int{y, x}] = [2]bool{x > m[1], y > m[0]}
+				}
+			}
+		}
+	}
+	// a styled table's rules, on every cell edge
+	borders := ""
+	if p.Styled {
+		if p.Stroke == "none" || p.Stroke == "" || p.StrokeW <= 0 {
+			for _, side := range []string{"lnL", "lnR", "lnT", "lnB"} {
+				borders += `<a:` + side + `><a:noFill/></a:` + side + `>`
+			}
+		} else {
+			for _, side := range []string{"lnL", "lnR", "lnT", "lnB"} {
+				borders += fmt.Sprintf(`<a:%s w="%d"><a:solidFill>%s</a:solidFill></a:%s>`,
+					side, pxToEmuRound(p.StrokeW), srgbClrXML(p.Stroke, "FFFFFF"), side)
+			}
+		}
+	}
 	totalH := pxToEmu(maxF(1, o.H))
 	for ri, row := range rows {
 		h := totalH / int64(len(rows))
@@ -1059,7 +1133,8 @@ func buildTableFrame(id int, o *Object) string {
 			// per-cell bold / colour / font survive the round trip
 			base := inlineStyle{
 				sizePx: fs, color: color,
-				bold: p.HeaderRow && ri == 0,
+				// a styled table's heading weight is in its runs already
+				bold: p.HeaderRow && ri == 0 && !p.Styled,
 			}
 			var paras strings.Builder
 			for _, para := range parseStorageHTML(cell, base) {
@@ -1089,12 +1164,36 @@ func buildTableFrame(id int, o *Object) string {
 					pxToEmuRound(p.CellPad[0]), pxToEmuRound(p.CellPad[1]),
 					pxToEmuRound(p.CellPad[2]), pxToEmuRound(p.CellPad[3]))
 			}
-			tcPr := `<a:tcPr` + ins + `/>`
+			fill := ""
 			if ri < len(p.CellFill) && c < len(p.CellFill[ri]) && p.CellFill[ri][c] != "" {
-				tcPr = `<a:tcPr` + ins + `><a:solidFill><a:srgbClr val="` +
-					hexColor(p.CellFill[ri][c], "FFFFFF") + `"/></a:solidFill></a:tcPr>`
+				fill = `<a:solidFill>` + srgbClrXML(p.CellFill[ri][c], "FFFFFF") + `</a:solidFill>`
 			}
-			sb.WriteString(`<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>` + paras.String() +
+			if ri < len(p.CellAnchor) && c < len(p.CellAnchor[ri]) {
+				if a := map[string]string{"middle": "ctr", "bottom": "b"}[p.CellAnchor[ri][c]]; a != "" {
+					ins += ` anchor="` + a + `"`
+				}
+			}
+			tcPr := `<a:tcPr` + ins + `/>`
+			if borders != "" || fill != "" {
+				tcPr = `<a:tcPr` + ins + `>` + borders + fill + `</a:tcPr>`
+			}
+			span := ""
+			if sp, ok := anchorSpan[[2]int{ri, c}]; ok {
+				if sp[0] > 1 {
+					span += fmt.Sprintf(` rowSpan="%d"`, sp[0])
+				}
+				if sp[1] > 1 {
+					span += fmt.Sprintf(` gridSpan="%d"`, sp[1])
+				}
+			} else if cv, ok := coveredBy[[2]int{ri, c}]; ok {
+				if cv[0] {
+					span += ` hMerge="1"`
+				}
+				if cv[1] {
+					span += ` vMerge="1"`
+				}
+			}
+			sb.WriteString(`<a:tc` + span + `><a:txBody><a:bodyPr/><a:lstStyle/>` + paras.String() +
 				`</a:txBody>` + tcPr + `</a:tc>`)
 		}
 		sb.WriteString(`</a:tr>`)

@@ -170,7 +170,12 @@ func TestPptxSchemeColorsResolveThroughClrMap(t *testing.T) {
 		{"literal rgb", `<a:srgbClr val="FF8800"/>`, "#ff8800"},
 		{"preset name", `<a:prstClr val="red"/>`, "#ff0000"},
 		{"luminance modulated", `<a:schemeClr val="accent1"><a:lumMod val="50000"/></a:schemeClr>`, "#093c92"},
-		{"tinted toward white", `<a:srgbClr val="000000"><a:tint val="50000"/></a:srgbClr>`, "#808080"},
+		// tint and shade work in linear light, as PowerPoint does: its own
+		// PDF of a 40% tint of FBC01E is fde7cc, where the sRGB blend gives
+		// the far yellower fde6a5
+		{"tinted toward white", `<a:srgbClr val="000000"><a:tint val="50000"/></a:srgbClr>`, "#bcbcbc"},
+		{"tint in linear light", `<a:srgbClr val="FBC01E"><a:tint val="40000"/></a:srgbClr>`, "#fde8cc"},
+		{"shaded toward black", `<a:srgbClr val="FFFFFF"><a:shade val="50000"/></a:srgbClr>`, "#bcbcbc"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

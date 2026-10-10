@@ -16,6 +16,7 @@ package office
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -61,11 +62,12 @@ func BuildOdp(p *Presentation) ([]byte, error) {
 		`<office:body><office:presentation>` + body.String() + `</office:presentation></office:body>` +
 		`</office:document-content>`
 
-	// 960x540 px slide = 25.4 x 14.288 cm
+	// a 960x540 px slide = 25.4 x 14.288 cm (a css px is 1/96")
+	slideW, slideH := p.dims()
 	stylesXML := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 		`<office:document-styles ` + odfNs + `>` +
 		`<office:automatic-styles><style:page-layout style:name="PL1">` +
-		`<style:page-layout-properties fo:page-width="25.4cm" fo:page-height="14.288cm" ` +
+		`<style:page-layout-properties fo:page-width="` + odfPxCm(slideW) + `" fo:page-height="` + odfPxCm(slideH) + `" ` +
 		`fo:margin-top="0cm" fo:margin-right="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" ` +
 		`style:print-orientation="landscape"/></style:page-layout></office:automatic-styles>` +
 		`<office:master-styles><style:master-page style:name="Default" style:page-layout-name="PL1"/>` +
@@ -565,4 +567,9 @@ func (b *odpBuilder) emitTable(body *strings.Builder, o *Object) {
 		body.WriteString(`</table:table-row>`)
 	}
 	body.WriteString(`</table:table></draw:frame>`)
+}
+
+// odfPxCm states a length in css px (1/96") in centimetres
+func odfPxCm(px int) string {
+	return strconv.FormatFloat(float64(px)*2.54/96, 'f', 3, 64) + "cm"
 }

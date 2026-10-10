@@ -172,6 +172,9 @@ var prstClrTable = map[string]string{
 type colorCtx struct {
 	scheme map[string]string // dk1, lt1, dk2, lt2, accent1..6, hlink, folHlink
 	clrMap map[string]string // bg1/tx1/bg2/tx2/accent1.. -> scheme slot
+	// phClr: what a theme style's placeholder colour stands for where the
+	// style is used (the colour inside the fillRef / bgRef), "" = unknown
+	phClr string
 }
 
 // resolveColor turns any of the DrawingML colour elements (srgbClr,
@@ -226,8 +229,11 @@ func (cc *colorCtx) schemeHex(val string) string {
 		return ""
 	}
 	if val == "phClr" {
-		// the placeholder colour of a style matrix - there is no style
-		// context at this level, so treat it as the text colour
+		// the placeholder colour of a style matrix: the colour the style
+		// reference stated, when there is one, else the text colour
+		if cc.phClr != "" {
+			return cc.phClr
+		}
 		val = "tx1"
 	}
 	slot := val
@@ -270,9 +276,60 @@ func (cc *colorCtx) solidColorOf(parent *xnode) string {
 	return ""
 }
 
+// colorAlpha is the opacity a colour element states through its <a:alpha>
+// (and <a:alphaMod> / <a:alphaOff>) children, 1 when it states none
+func colorAlpha(n *xnode) float64 {
+	if n == nil {
+		return 1
+	}
+	a := 1.0
+	for i := range n.Nodes {
+		ch := &n.Nodes[i]
+		v := atofDefault(ch.attr("val"), 100000) / 100000.0
+		switch ch.XMLName.Local {
+		case "alpha":
+			a = v
+		case "alphaMod":
+			a *= v
+		case "alphaOff":
+			a += v
+		}
+	}
+	return clamp01(a)
+}
+
+// withAlpha adds an opacity below 1 to "#rrggbb" as "#rrggbbaa", which
+// CSS, SVG and the PDF exporter's colour parser all read. A colour that is
+// all but transparent stays a colour: "none" is for a stated noFill.
+func withAlpha(hex string, a float64) string {
+	if a >= 0.998 || len(hex) != 7 {
+		return hex
+	}
+	v := int(math.Round(clamp01(a) * 255))
+	const digits = "0123456789abcdef"
+	return hex + string([]byte{digits[(v>>4)&15], digits[v&15]})
+}
+
+// solidFillOf resolves the <a:solidFill> child of parent like solidColorOf,
+// keeping the colour's own transparency (a fill, unlike a line or a run,
+// can carry it)
+func (cc *colorCtx) solidFillOf(parent *xnode) string {
+	sf := parent.first("solidFill")
+	if sf == nil {
+		return ""
+	}
+	for i := range sf.Nodes {
+		if c := cc.resolveColor(&sf.Nodes[i]); c != "" {
+			return withAlpha(c, colorAlpha(&sf.Nodes[i]))
+		}
+	}
+	return ""
+}
+
 // fillColorOf resolves a fill container into a CSS colour. Gradients are
 // approximated by their first stop (the editor has no gradient object),
-// pattern fills by their foreground, and <a:noFill/> returns "none".
+// pattern fills by their foreground, and <a:noFill/> returns "none". A
+// solid fill's transparency comes back as "#rrggbbaa".
 func (cc *colorCtx) fillColorOf(parent *xnode) string {
 	if parent == nil {
 		return ""
@@ -280,7 +337,7 @@ func (cc *colorCtx) fillColorOf(parent *xnode) string {
 	if parent.first("noFill") != nil {
 		return "none"
 	}
-	if c := cc.solidColorOf(parent); c != "" {
+	if c := cc.solidFillOf(parent); c != "" {
 		return c
 	}
 	if gs := parent.path("gradFill", "gsLst"); gs != nil {
@@ -317,13 +374,14 @@ func applyColorMods(r, g, b float64, n *xnode) (float64, float64, float64) {
 			h, s, l := rgbToHSL(r, g, b)
 			r, g, b = hslToRGB(h, s, clamp01(l+v))
 		case "shade":
-			// shade multiplies toward black; the sRGB approximation used
-			// here is what LibreOffice does and is visually close enough
-			r, g, b = r*v, g*v, b*v
+			// shade darkens toward black and tint lightens toward white,
+			// both in linear light as PowerPoint does - done on the sRGB
+			// values a 40% tint of orange came out yellow, not peach
+			r, g, b = fromLinear(toLinear(r)*v), fromLinear(toLinear(g)*v), fromLinear(toLinear(b)*v)
 		case "tint":
-			r = r*v + 255*(1-v)
-			g = g*v + 255*(1-v)
-			b = b*v + 255*(1-v)
+			r = fromLinear(toLinear(r)*v + (1 - v))
+			g = fromLinear(toLinear(g)*v + (1 - v))
+			b = fromLinear(toLinear(b)*v + (1 - v))
 		case "satMod":
 			h, s, l := rgbToHSL(r, g, b)
 			r, g, b = hslToRGB(h, clamp01(s*v), l)
@@ -338,6 +396,24 @@ func applyColorMods(r, g, b float64, n *xnode) (float64, float64, float64) {
 		}
 	}
 	return r, g, b
+}
+
+// toLinear / fromLinear convert one sRGB channel (0..255) to linear light
+// (0..1) and back
+func toLinear(c float64) float64 {
+	c = clamp01(c / 255)
+	if c <= 0.04045 {
+		return c / 12.92
+	}
+	return math.Pow((c+0.055)/1.055, 2.4)
+}
+
+func fromLinear(l float64) float64 {
+	l = clamp01(l)
+	if l <= 0.0031308 {
+		return l * 12.92 * 255
+	}
+	return (1.055*math.Pow(l, 1/2.4) - 0.055) * 255
 }
 
 func hexToRGB(h string) (float64, float64, float64) {

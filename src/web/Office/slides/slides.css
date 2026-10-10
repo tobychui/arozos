@@ -56,7 +56,7 @@
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
-    aspect-ratio: 960 / 540;
+    aspect-ratio: var(--sl-ar, 960 / 540);
     overflow: hidden;
     border: 2px solid var(--of-border);
     border-radius: 4px;
@@ -76,8 +76,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 960px;
-    height: 540px;
+    width: var(--sl-w, 960px);
+    height: var(--sl-h, 540px);
     transform: scale(var(--sl-thumb-scale, 0.141667));
     transform-origin: 0 0;
     pointer-events: none;
@@ -119,8 +119,8 @@
 }
 #slCanvas {
     position: relative;
-    width: 960px;
-    height: 540px;
+    width: var(--sl-w, 960px);
+    height: var(--sl-h, 540px);
     transform-origin: 0 0;
     box-shadow: 0 3px 18px var(--of-paper-shadow);
     background: #fff;
@@ -187,11 +187,24 @@
 .sl-slidebase, #slCanvas {
     font-family: Arial, "Liberation Sans", Helvetica, "Noto Sans",
         "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif;
+    /* PowerPoint draws "ti" / "fi" as two letters; a browser would join
+       them wherever the font has the ligature (Carlito does) */
+    font-variant-ligatures: no-common-ligatures;
 }
 .sl-slidebase {
     position: absolute;
     inset: 0;
     overflow: hidden;
+}
+/* a picture or gradient background (slides.js applyBgLayer): under every
+   object, and not a child, so the surface's children stay its objects */
+.sl-slidebase.sl-hasbg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--sl-bgfill);
+    opacity: var(--sl-bgop, 1);
+    pointer-events: none;
 }
 #slSlideLayer { position: absolute; inset: 0; }
 #slOverlay {
@@ -541,7 +554,7 @@ body.sl-overview-on #slOverview {
 .sl-ov-view {
     position: relative;
     width: 100%;
-    aspect-ratio: 960 / 540;
+    aspect-ratio: var(--sl-ar, 960 / 540);
     overflow: hidden;
     border-radius: 4px;
     background: #fff;
@@ -555,8 +568,8 @@ body.sl-overview-on #slOverview {
     position: absolute;
     left: 0;
     top: 0;
-    width: 960px;
-    height: 540px;
+    width: var(--sl-w, 960px);
+    height: var(--sl-h, 540px);
     transform: scale(var(--sl-ov-scale, 0.229));
     transform-origin: 0 0;
     pointer-events: none;
@@ -587,7 +600,7 @@ body.sl-overview-on #slOverview {
 .sl-ov-card.drop-after::after { right: -17px; }
 .sl-ov-add {
     width: var(--sl-ov-w, 220px);
-    aspect-ratio: 960 / 540;
+    aspect-ratio: var(--sl-ar, 960 / 540);
     border: 2px dashed var(--of-border);
     border-radius: 4px;
     background: transparent;
@@ -686,8 +699,8 @@ body.sl-overview-on #slOverview {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 960px;
-    height: 540px;
+    width: var(--sl-w, 960px);
+    height: var(--sl-h, 540px);
     transform-origin: center center;
     background: #fff;
     overflow: hidden;
@@ -796,6 +809,10 @@ body.sl-overview-on #slOverview {
    the underline and recolors, so restore the classic link look on every
    slide surface (editor layer, thumbnails, print pages, present stage,
    presenter popup - they all carry .sl-slidebase). */
+/* a raised or lowered run leaves its line as tall as it was, as in
+   PowerPoint (the reader's spans say the same inline) */
+.sl-slidebase sup, .sl-slidebase sub { line-height: 0; }
+
 .sl-slidebase a[href] {
     color: #1a73e8;
     text-decoration: underline;
@@ -808,8 +825,8 @@ body.sl-overview-on #slOverview {
     #slPrintArea { display: block !important; }
     .sl-print-page {
         position: relative;
-        width: 960px;
-        height: 540px;
+        width: var(--sl-w, 960px);
+        height: var(--sl-h, 540px);
         overflow: hidden;
         page-break-after: always;
         break-inside: avoid;
@@ -904,7 +921,7 @@ body.of-narrow .sl-ov-card, body.of-narrow .sl-ov-add { width: 100%; }
 .sl-layoutpick-view {
     position: relative;
     width: 128px;
-    height: 72px;
+    height: calc(var(--sl-h, 540px) * 0.13333);
     margin: 0 auto;
     overflow: hidden;
     border: 1px solid var(--of-border);
@@ -917,8 +934,8 @@ body.of-narrow .sl-ov-card, body.of-narrow .sl-ov-add { width: 100%; }
     position: absolute;
     left: 0;
     top: 0;
-    width: 960px;
-    height: 540px;
+    width: var(--sl-w, 960px);
+    height: var(--sl-h, 540px);
     transform: scale(0.13333);
     transform-origin: 0 0;
     pointer-events: none;

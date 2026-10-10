@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,11 +33,36 @@ import (
 // EMU (English Metric Units) per pixel at 96 DPI
 const emuPerPx = 9525
 
-// Slide coordinate space used by the Slides webapp
+// Slide coordinate space used by the Slides webapp: always 960 px wide,
+// and 540 tall for the default 16:9 deck. A deck of another shape keeps
+// its shape (slideSizeFor) - a 4:3 PowerPoint deck is 960x720 - so nothing
+// on it is stretched to fit.
 const (
 	slidePxW = 960
 	slidePxH = 540
 )
+
+// slideSizeFor is the editor size of a slide whose source page is w x h
+// (in any one unit): 960 wide and as tall as the page's shape.
+func slideSizeFor(w, h float64) (int, int) {
+	if !(w > 0) || !(h > 0) {
+		return slidePxW, slidePxH
+	}
+	ph := int(math.Round(float64(slidePxW) * h / w))
+	if ph < 100 || ph > 4000 {
+		return slidePxW, slidePxH
+	}
+	return slidePxW, ph
+}
+
+// dims is the deck's slide size, the 16:9 default when it states none
+func (p *Presentation) dims() (int, int) {
+	if p != nil && len(p.Size) == 2 && p.Size[0] >= 100 && p.Size[1] >= 100 &&
+		p.Size[0] <= 4000 && p.Size[1] <= 4000 {
+		return p.Size[0], p.Size[1]
+	}
+	return slidePxW, slidePxH
+}
 
 // Presentation is the Slides document body
 type Presentation struct {
@@ -67,12 +93,47 @@ type Rect struct {
 
 // Slide is a single slide
 type Slide struct {
-	ID    string `json:"id,omitempty"`
-	Bg    string `json:"bg,omitempty"` // "" = theme default background
-	Notes string `json:"notes,omitempty"`
+	ID string `json:"id,omitempty"`
+	Bg string `json:"bg,omitempty"` // "" = theme default background
+	// a picture or gradient background, drawn over Bg (pptx p:bg with a
+	// blipFill / gradFill, directly or through the theme's bgRef). The
+	// editor keeps them until a colour is chosen for the slide.
+	BgImage *BgImage  `json:"bgImage,omitempty"`
+	BgGrad  *Gradient `json:"bgGrad,omitempty"`
+	Notes   string    `json:"notes,omitempty"`
 	// entry transition: "" / "none" | "fade" | "slide" | "zoom"
 	Transition string    `json:"transition,omitempty"`
 	Objects    []*Object `json:"objects"`
+}
+
+// BgImage is a picture that fills the slide background. X/Y/W/H place the
+// whole picture in slide px - it may reach past the slide's edges, which
+// clip it - or, when Tile is set, give the first tile of a repeating
+// pattern.
+type BgImage struct {
+	Src     string  `json:"src"`
+	X       float64 `json:"x"`
+	Y       float64 `json:"y"`
+	W       float64 `json:"w"`
+	H       float64 `json:"h"`
+	Tile    bool    `json:"tile,omitempty"`
+	Opacity float64 `json:"opacity,omitempty"` // 0..1, 0 = fully opaque
+}
+
+// Gradient is a gradient fill: linear along an angle, or radial about a
+// centre. Angle follows CSS (0 = towards the top, 90 = towards the right).
+type Gradient struct {
+	Kind  string         `json:"kind"` // "linear" | "radial"
+	Angle float64        `json:"angle,omitempty"`
+	CX    float64        `json:"cx,omitempty"` // radial centre, fraction of the box
+	CY    float64        `json:"cy,omitempty"`
+	Stops []GradientStop `json:"stops"`
+}
+
+// GradientStop is one colour of a gradient at a position from 0 to 1
+type GradientStop struct {
+	Pos   float64 `json:"pos"`
+	Color string  `json:"color"` // #rrggbb or #rrggbbaa
 }
 
 // Object is one visual element on a slide
@@ -129,12 +190,18 @@ type Props struct {
 	// Reset image can put it back. Editor state - no format stores it.
 	Orig *Rect `json:"orig,omitempty"`
 	// shape
-	Kind      string  `json:"kind,omitempty"`
-	Fill      string  `json:"fill,omitempty"`
-	Stroke    string  `json:"stroke,omitempty"`
-	StrokeW   float64 `json:"strokeW,omitempty"`
-	Text      string  `json:"text,omitempty"`
-	TextColor string  `json:"textColor,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	// the outline of a "custom" shape (pptx custGeom, pptx_custgeom.go)
+	Geom *CustomGeom `json:"geom,omitempty"`
+	Fill string      `json:"fill,omitempty"`
+	// a gradient fill; Fill then holds its first colour for anything that
+	// draws flat. On a picture, a fill (either) is painted behind it, where
+	// a transparent picture lets it through.
+	FillGrad  *Gradient `json:"fillGrad,omitempty"`
+	Stroke    string    `json:"stroke,omitempty"`
+	StrokeW   float64   `json:"strokeW,omitempty"`
+	Text      string    `json:"text,omitempty"`
+	TextColor string    `json:"textColor,omitempty"`
 	// line
 	Dash       bool `json:"dash,omitempty"`
 	ArrowEnd   bool `json:"arrowEnd,omitempty"`
@@ -163,6 +230,15 @@ type Props struct {
 	// set by the pptx reader so an imported table keeps its shading
 	CellFill [][]string `json:"cellFill,omitempty"`
 	CellPad  []float64  `json:"cellPad,omitempty"` // [t,r,b,l] px
+	// an imported table that came with a table style: the cell fills, text
+	// and rules are the style's (Stroke / StrokeW give the rule colour and
+	// width, "none" for no rules), so the editor adds no look of its own
+	Styled bool `json:"styled,omitempty"`
+	// merged cells: [row, col, rowSpan, colSpan] for each cell that covers
+	// more than itself; the cells it covers stay in Rows, empty
+	Merges [][]int `json:"merges,omitempty"`
+	// per-cell vertical alignment ("" = top, "middle", "bottom")
+	CellAnchor [][]string `json:"cellAnchor,omitempty"`
 	// chart (spec kept opaque; Png is a client-side raster for export)
 	Spec json.RawMessage `json:"spec,omitempty"`
 	Png  string          `json:"png,omitempty"`
@@ -231,11 +307,40 @@ func hexColor(c string, fallback string) string {
 	if len(c) == 3 {
 		c = string([]byte{c[0], c[0], c[1], c[1], c[2], c[2]})
 	}
+	// "#rrggbbaa": the colour part (hexAlpha reads the rest)
+	if len(c) == 8 {
+		c = c[:6]
+	}
 	ok, _ := regexp.MatchString("^[0-9a-fA-F]{6}$", c)
 	if !ok {
 		return fallback
 	}
 	return strings.ToUpper(c)
+}
+
+// hexAlpha is the opacity of a "#rrggbbaa" colour, 1 for any other form
+func hexAlpha(c string) float64 {
+	c = strings.TrimPrefix(strings.TrimSpace(c), "#")
+	if len(c) != 8 {
+		return 1
+	}
+	v, err := strconv.ParseUint(c[6:], 16, 8)
+	if err != nil {
+		return 1
+	}
+	return float64(v) / 255
+}
+
+// srgbClrXML writes a colour as <a:srgbClr>, with an <a:alpha> child when
+// it is "#rrggbbaa" and less than opaque
+func srgbClrXML(c, fallback string) string {
+	hex := hexColor(c, fallback)
+	a := hexAlpha(c)
+	if a >= 0.998 {
+		return `<a:srgbClr val="` + hex + `"/>`
+	}
+	return `<a:srgbClr val="` + hex + `"><a:alpha val="` +
+		strconv.Itoa(int(math.Round(a*100000))) + `"/></a:srgbClr>`
 }
 
 // xmlEscape escapes a string for use inside XML text nodes and attributes

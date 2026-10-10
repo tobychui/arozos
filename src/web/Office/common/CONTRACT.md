@@ -764,7 +764,26 @@ back to the stylesheet, so nothing here changes how a new deck looks.
 | `arrowStart` | line | arrow head at the first point |
 | `cellFill` | table | per-cell background colours, `rows`-shaped |
 | `cellPad` | table | cell insets `[t, r, b, l]` in px |
+| `cellAnchor` | table | per-cell vertical alignment: `""` (top), `middle`, `bottom` |
+| `merges` | table | merged cells, `[row, col, rowSpan, colSpan]` per anchor; covered cells stay in `rows`, empty |
+| `styled` | table | came with a table style: `cellFill`, the run colours / weights and the rules (`stroke`, `strokeW`, `"none"` = none) are the style's, and the editor adds no heading look |
 | `html` | shape | rich paragraph HTML, used in place of the plain `text` |
+| `fill` | shape, image | may be `#rrggbbaa` (a fill with alpha); on an image it is painted behind the picture |
+| `fillGrad` | shape, image | a gradient fill `{kind, angle, cx, cy, stops}` (`fill` then holds its first colour) |
+| `geom` | shape (`kind: "custom"`) | an imported freeform: `{paths: [{w, h, d, noFill, noStroke}]}`, M/L/C/Z in each path's own space |
+| `adj` | shape | the preset's guides, for the presets drawn to PowerPoint's formulas |
+
+A slide may carry `bgImage` (`{src, x, y, w, h, tile, opacity}`, placed in
+slide px) or `bgGrad` (as `fillGrad`) besides `bg`. They are painted by the
+slide surface's `::before` (`.sl-hasbg`, from `--sl-bgfill` / `--sl-bgop`),
+not by a child element, so a surface's children stay exactly its objects -
+`slides_pdf.js` and the hit testing count on that. The background dialog
+keeps them until a colour (or the theme's background) is chosen.
+
+The deck's `size` is 960 wide and as tall as the source's shape (960x720
+for a 4:3 PowerPoint deck). `setSlideSize()` publishes it as `--sl-w`,
+`--sl-h` and `--sl-ar`, which every slide surface in `slides.css` uses;
+`SlidesApp.slideSize()` answers it for `present.js` and the exporters.
 
 `props.html` is the same restricted HTML text objects use: one `<div>` per
 paragraph carrying `text-align` / `line-height` / margins / `padding-left`,
@@ -856,7 +875,35 @@ OfficeFonts.stack("Arial")          // -> "Arial, Noto Sans, Noto Sans TC, …"
 OfficeFonts.isShipped("Noto Sans TC")
 OfficeFonts.faceFor(family, bold, italic)   // -> { url, synthBold, … } | null
 OfficeFonts.preload(["Noto Sans TC"])       // -> Promise
+OfficeFonts.substitute(families, skip, { lines: "powerpoint" })  // -> Promise<changed>
+OfficeFonts.familiesIn(htmlOrJson)          // families its font-family rules name
+OfficeFonts.substituteOf(family)            // -> { via, adjust, kind, twin } | null
+OfficeFonts.ready()                         // -> Promise, substitutions in place
 ```
+
+**A missing font keeps its width.** `substitute()` gives every family a
+document names that this machine lacks an `@font-face` of its own. A family
+with a metric twin the suite ships (`TWINS`: Calibri -> Carlito) is drawn in
+that file, unscaled (`twin: true`). Any other is drawn from the closest
+installed face (a metric twin first - Liberation Sans for Arial - else one of
+the same kind) and scaled with `size-adjust` until its average advance on a
+fixed sample (pangrams plus plain prose, so letters weigh as in real text)
+matches the original's (`METRICS`, measured from the real font files). Lines then break
+where they did for the document's author. The stand-in is measured in this
+browser, so whatever face `local()` really resolved is what gets scaled.
+Vertical metrics come along: with `lines: "powerpoint"` (Slides) ascent and
+descent are stated so they add up to PowerPoint's 1.2 em line, which puts the
+baseline where PowerPoint does; without it (Docs) the stand-in keeps the
+fallback face's line height, the one the Docs layout was tuned to (a twin
+keeps the line height of its kind's usual stand-in, Arial for sans). A family
+the document embeds (`skip`) or one that is installed is left alone - except
+that under the PowerPoint line model an installed font in `METRICS` gets a
+face of itself to restate its metrics, kept only when every style draws
+exactly what the installed font does. The PDF core embeds a twin's shipped
+face and draws any other substituted family in the standard font of its
+stand-in's kind (`resolveChar`). Neither the editors nor the PDF core apply
+standard ligatures (`font-variant-ligatures: no-common-ligatures`,
+`embedFont(..., { features: { liga: false } })`): Office never joins "ti".
 
 **Every font-family a document carries must go through `stack()`.** A bare
 family name sends any character it has no glyph for to whatever the machine
@@ -874,7 +921,8 @@ what lets the canvas, `clip-path: path()` and the PDF exporter share one
 geometry.
 
 ```js
-SlidesShapes.path(kind, w, h)      // "M0 0L100 0..." ("" if unknown)
+SlidesShapes.path(kind, w, h, adj) // "M0 0L100 0..." ("" if unknown)
+SlidesShapes.customPath(geom, w, h, which) // a "custom" shape's paths, stretched over w x h
 SlidesShapes.detail(kind, w, h)    // markings to stroke, or ""
 SlidesShapes.points(kind, w, h)    // polygon corners, or null for a curved one
 SlidesShapes.icon(kind, size)      // the same outline as a small SVG
@@ -885,6 +933,14 @@ SlidesShapes.isOpen / evenOdd / label / defaultSize / CATEGORIES
 Adding a shape means adding it here and nowhere else - the picker, the
 crop-shape grid, the canvas and the export all read from this one table.
 Keep the names in step with `prstToShapeKind` (`mod/office/pptx_reader.go`).
+
+The common presets follow PowerPoint's own formulas (`presetShapeDefinitions`):
+their features are sized from the shorter side and read the guides a deck
+states (`av(adj, "adj", default)`), so a long flat chevron keeps a shallow
+point and a deck's own `<a:avLst>` is honoured - the triangle, parallelogram,
+trapezoid, hexagon, octagon, cross, the block arrows, chevron, pentagon arrow
+and can so far. A geometry function is called as `pts(w, h, adj)` /
+`path(w, h, adj)`; one that ignores `adj` draws at its defaults.
 
 `ALIASES` holds the three names the editor used before this file existed
 (`round`, `arrow`, `star`). They are not shapes any more - `normalizeBody()`

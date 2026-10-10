@@ -380,6 +380,17 @@
         comments = Array.isArray(b.comments) ?
             JSON.parse(JSON.stringify(b.comments)) : [];
         suggesting = !!b.trackChanges;
+        // fonts the document names that this machine lacks get a stand-in
+        // with the original's width and line metrics, so lines and pages
+        // break where they did in Word; once it is in, lay out again
+        if (window.OfficeFonts && OfficeFonts.substitute) {
+            OfficeFonts.substitute(OfficeFonts.familiesIn((b.html || "") + (b.headerHtml || "") +
+                (b.footerHtml || "") + JSON.stringify(b.footnotes || []))).then(function (changed) {
+                if (!changed) return;
+                DocsLayout.clearMetrics();
+                scheduleRelayout();
+            });
+        }
         applyPageSetup();
         updateCounts();
         renderCommentsPanel();
@@ -454,49 +465,192 @@
         }
         if (!noCommit) afterEdit(true);
     }
-    function applyFontSize(pt, noCommit) {
-        if (inHeaderFooter()) return;
-        restoreSel();
+    /* wrapSelection puts the selected text in spans of its own and hands
+       them back: execCommand marks it with the one size nothing else uses,
+       in as many pieces as the markup needs, and the marks become spans.
+       The selection is left over the new spans. */
+    function wrapSelection() {
         try {
             document.execCommand("styleWithCSS", false, false);
             document.execCommand("fontSize", false, "7");
         } catch (e) { }
         try { document.execCommand("styleWithCSS", false, true); } catch (e) { }
-        var i;
+        var out = [], i;
         var fonts = editor.querySelectorAll('font[size="7"]');
         for (i = 0; i < fonts.length; i++) {
             var f = fonts[i];
             var span = document.createElement("span");
-            span.style.fontSize = pt + "pt";
             while (f.firstChild) span.appendChild(f.firstChild);
             f.parentNode.replaceChild(span, f);
+            out.push(span);
         }
         var spans = editor.querySelectorAll("span");
         for (i = 0; i < spans.length; i++) {
             if (spans[i].style && spans[i].style.fontSize === "xxx-large") {
-                spans[i].style.fontSize = pt + "pt";
+                spans[i].style.fontSize = "";
+                out.push(spans[i]);
             }
         }
+        if (out.length) {
+            var r = document.createRange();
+            r.setStartBefore(out[0]);
+            r.setEndAfter(out[out.length - 1]);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
+            savedRange = r.cloneRange();
+        }
+        return out;
+    }
+    function applyFontSize(pt, noCommit) {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        var spans = wrapSelection();
+        spans.forEach(function (span) { span.style.fontSize = pt + "pt"; });
+        // (a preview while the size box is typed in commits nothing; the
+        // lines follow at once either way)
+        relayoutNow(spans.map(function (sp) { return sp.closest(BLOCK_SEL); }));
         if (!noCommit) afterEdit(true);
     }
+
+    /* A paragraph style applies to whole paragraphs, except when the
+       selection is part of one paragraph: then it styles just those
+       characters, the way Word's linked styles (Title, Heading 1-4) do. */
     function applyParagraphStyle(v) {
         if (inHeaderFooter()) return;
         restoreSel();
-        try {
-            if (v === "title") {
-                document.execCommand("formatBlock", false, "<h1>");
-                getSelectedBlocks().forEach(function (b) {
-                    if (b.tagName === "H1") b.classList.add("doc-title");
-                });
-            } else {
-                document.execCommand("formatBlock", false, "<" + v + ">");
-                getSelectedBlocks().forEach(function (b) {
-                    b.classList.remove("doc-title");
-                    if (!b.getAttribute("class")) b.removeAttribute("class");
-                });
-            }
-        } catch (e) { }
+        var sel = window.getSelection();
+        var range = sel && sel.rangeCount ? sel.getRangeAt(0) : savedRange;
+        var blocks = getSelectedBlocks();
+        if (range && !range.collapsed) {
+            // a block the selection only touches at its very start is not in it
+            blocks = blocks.filter(function (b) { return /\S/.test(partOf(range, b).toString()); });
+        }
+        var touched = blocks.slice();
+        if (range && !range.collapsed && blocks.length === 1 &&
+                partOf(range, blocks[0]).toString().trim().length < blocks[0].textContent.trim().length) {
+            applyCharStyle(v, blocks[0]);
+        } else if (range) {
+            var start = [range.startContainer, range.startOffset], end = [range.endContainer, range.endOffset];
+            touched = blocks.map(function (b) {
+                var nb = restyleBlock(b, v);
+                if (start[0] === b) start[0] = nb;
+                if (end[0] === b) end[0] = nb;
+                return nb;
+            });
+            // the block's children moved, which resets a live selection
+            try {
+                var r = document.createRange();
+                r.setStart(start[0], start[1]);
+                r.setEnd(end[0], end[1]);
+                sel.removeAllRanges();
+                sel.addRange(r);
+                savedRange = r.cloneRange();
+            } catch (e) { }
+        }
+        relayoutNow(touched);
         afterEdit(true);
+    }
+    // the part of a range that falls inside one block
+    function partOf(range, block) {
+        var r = document.createRange();
+        r.selectNodeContents(block);
+        if (range.compareBoundaryPoints(Range.START_TO_START, r) > 0) r.setStart(range.startContainer, range.startOffset);
+        if (range.compareBoundaryPoints(Range.END_TO_END, r) < 0) r.setEnd(range.endContainer, range.endOffset);
+        return r;
+    }
+    /* restyleBlock gives a paragraph a style. It is the same paragraph
+       afterwards: its spacing (data-ls), alignment, indents and everything
+       else it carries move to the new element (execCommand's formatBlock
+       makes a bare one, which is how a 1.5-spaced paragraph used to come
+       back single-spaced). Returns the block that holds the text now. */
+    function restyleBlock(b, v) {
+        var tag = v === "title" ? "H1" : v.toUpperCase();
+        if (!/^(P|H[1-6])$/.test(b.tagName)) {
+            // a list item, quote or cell keeps its own element
+            var r = document.createRange();
+            r.selectNodeContents(b);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
+            try { document.execCommand("formatBlock", false, "<" + tag.toLowerCase() + ">"); } catch (e) { }
+            var inner = b.querySelector(tag.toLowerCase());
+            if (inner) {
+                inner.classList.toggle("doc-title", v === "title");
+                if (!inner.getAttribute("class")) inner.removeAttribute("class");
+            }
+            return b;
+        }
+        var nb = b;
+        if (b.tagName !== tag) {
+            nb = document.createElement(tag);
+            for (var i = 0; i < b.attributes.length; i++) nb.setAttribute(b.attributes[i].name, b.attributes[i].value);
+            while (b.firstChild) nb.appendChild(b.firstChild);
+            b.parentNode.replaceChild(nb, b);
+        }
+        nb.classList.toggle("doc-title", v === "title");
+        if (!nb.getAttribute("class")) nb.removeAttribute("class");
+        return nb;
+    }
+    /* styleLook reads what a paragraph style looks like from the
+       stylesheet: a hidden paragraph of that style, measured in place */
+    function styleLook(v) {
+        var probe = document.createElement(v === "title" ? "h1" : v);
+        if (v === "title") probe.className = "doc-title";
+        probe.style.cssText = "position:absolute;left:-10000px;top:0;visibility:hidden;margin:0;";
+        probe.textContent = "x";
+        editor.appendChild(probe);
+        var cs = window.getComputedStyle(probe);
+        var look = {
+            size: Math.round(parseFloat(cs.fontSize) * 72 / 96 * 10) / 10 + "pt",
+            weight: cs.fontWeight,
+            style: cs.fontStyle,
+            color: cssColorHex(cs.color)
+        };
+        editor.removeChild(probe);
+        return look;
+    }
+    function cssColorHex(c) {
+        var m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(String(c || ""));
+        if (!m) return c;
+        return "#" + [m[1], m[2], m[3]].map(function (x) {
+            return ("0" + parseInt(x, 10).toString(16)).slice(-2);
+        }).join("");
+    }
+    /* applyCharStyle gives the selected characters a style's look - its
+       size, weight, slant and colour - as their own formatting, marked
+       data-cstyle so the style list can name it again. Inside, the text
+       takes the style's size throughout: an earlier style run or a run's
+       own size would otherwise poke through. Normal text in a normal
+       paragraph is simply the paragraph's own look, so it leaves no span. */
+    function applyCharStyle(v, block) {
+        var look = styleLook(v);
+        var plain = v === "p" && block.tagName === "P" && !block.classList.contains("doc-title");
+        wrapSelection().forEach(function (span) {
+            var olds = span.querySelectorAll("span[data-cstyle]");
+            for (var i = olds.length - 1; i >= 0; i--) unwrapEl(olds[i]);
+            var sized = span.querySelectorAll("[style]");
+            for (i = 0; i < sized.length; i++) {
+                sized[i].style.removeProperty("font-size");
+                if (!sized[i].getAttribute("style")) sized[i].removeAttribute("style");
+            }
+            var outer = span.parentNode && span.parentNode.closest ? span.parentNode.closest("span[data-cstyle]") : null;
+            if (plain && !(outer && block.contains(outer))) {
+                unwrapEl(span);
+                return;
+            }
+            span.setAttribute("data-cstyle", v);
+            span.style.fontSize = look.size;
+            span.style.fontWeight = look.weight;
+            span.style.fontStyle = look.style;
+            span.style.color = look.color;
+        });
+    }
+    function unwrapEl(el) {
+        var p = el.parentNode;
+        if (!p) return;
+        while (el.firstChild) p.insertBefore(el.firstChild, el);
+        p.removeChild(el);
     }
     function setLineSpacing(v) {
         if (inHeaderFooter()) return;
@@ -507,8 +661,8 @@
             b.removeAttribute("data-lsexact");
             b.removeAttribute("data-lsmin");
         });
+        relayoutNow(blocks);
         afterEdit(true);
-        updatePageGuides();
     }
     function currentLineSpacing() {
         var blocks = getSelectedBlocks();
@@ -547,11 +701,13 @@
             document.execCommand("removeFormat");
             document.execCommand("formatBlock", false, "<p>");
         } catch (e) { }
-        getSelectedBlocks().forEach(function (b) {
+        var cleared = getSelectedBlocks();
+        cleared.forEach(function (b) {
             b.removeAttribute("style");
             b.classList.remove("doc-title");
             if (!b.getAttribute("class")) b.removeAttribute("class");
         });
+        relayoutNow(cleared);
         afterEdit(true);
     }
     function selectAll() {
@@ -1347,6 +1503,10 @@
         if (fn && $fontSel.find('option[value="' + fn + '"]').length) $fontSel.val(fn);
         // font size + paragraph style from the caret position
         var n = savedRange ? savedRange.startContainer : null;
+        // a selection that starts between nodes is about the node after it
+        if (n && n.nodeType === 1 && !savedRange.collapsed && savedRange.startOffset < n.childNodes.length) {
+            n = n.childNodes[savedRange.startOffset];
+        }
         if (n && n.nodeType === 3) n = n.parentNode;
         if (n && n.nodeType === 1 && editor.contains(n)) {
             try {
@@ -1359,6 +1519,9 @@
             if (b && editor.contains(b)) {
                 if (b.classList.contains("doc-title")) v = "title";
                 else if (/^H[1-4]$/.test(b.tagName)) v = b.tagName.toLowerCase();
+                // characters given a style of their own (applyCharStyle)
+                var cst = n.closest("span[data-cstyle]");
+                if (cst && b.contains(cst)) v = cst.getAttribute("data-cstyle");
             }
             if (b && editor.contains(b)) {
                 if (b.tagName === "BLOCKQUOTE" || b.closest("blockquote")) v = v === "p" ? "blockquote" : v;
@@ -2641,6 +2804,26 @@
         } catch (e) {
             return null;
         }
+    }
+    /* relayoutNow lays an edit that changes how tall its lines are (a
+       style, a size, a spacing) out before the browser paints again. Left
+       to the resize observer, the new size showed for a moment with the old
+       line heights - its lines stacked on top of each other - until the
+       layout caught up. The pages are redone from the first edited block. */
+    function relayoutNow(blocks) {
+        var y = null;
+        (blocks || []).forEach(function (b) {
+            if (!b || !b.isConnected || !editor.contains(b)) return;
+            var t = pageYOf(b.getBoundingClientRect().top);
+            y = y === null ? t : Math.min(y, t);
+        });
+        if (y === null) y = caretPageY();
+        if (y !== null) {
+            y = Math.max(0, y);
+            dirtyFromY = dirtyFromY === null ? y : Math.min(dirtyFromY, y);
+        }
+        clearTimeout(relayoutTimer);
+        updatePageGuides();
     }
     function noteEditAtCaret() {
         var y = editor.contains((window.getSelection() || {}).anchorNode || null) ? caretPageY() : null;

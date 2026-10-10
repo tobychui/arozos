@@ -158,8 +158,13 @@ func parseStorageHTML(html string, base inlineStyle) []htmlPara {
 				// sits relative to the text is the hanging indent
 				cur.Bullet = "•"
 				cur.Indent = st.bulletLeft - cur.PadLeft
+			}
+			if st.bulletSpan {
 				// PowerPoint colours a marker like the first run unless
-				// told otherwise, and the reader's marker states its own
+				// told otherwise, and the reader's marker states its own -
+				// on the span inside the positioned one (which only carries
+				// the line the marker sits on), or on that span itself in a
+				// document written before the two were split
 				cur.BulletClr = st.color
 				cur.BulletFont = st.font
 				cur.BulletSize = st.sizePx
@@ -233,6 +238,7 @@ func styledRun(st inlineStyle, text string) htmlRun {
 // applyBlockAttrs reads the paragraph-level CSS off a block element
 func applyBlockAttrs(p *htmlPara, el xml.StartElement) {
 	decls := styleDecls(el)
+	hanging := false
 	for prop, val := range decls {
 		switch prop {
 		case "text-align":
@@ -252,7 +258,14 @@ func applyBlockAttrs(p *htmlPara, el xml.StartElement) {
 			p.PadLeft = parseNum(val)
 		case "text-indent":
 			p.Indent = parseNum(val)
+			hanging = strings.Contains(val, "hanging")
 		}
+	}
+	// "Xpx hanging" (a paragraph with tabs, see the reader): every line
+	// but the first starts X further in, which is a hanging indent of X
+	if hanging && p.Indent > 0 {
+		p.PadLeft += p.Indent
+		p.Indent = -p.Indent
 	}
 }
 

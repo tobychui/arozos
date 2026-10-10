@@ -68,8 +68,10 @@
 var SlidesPdf = (function () {
     "use strict";
 
-    // the slide is 960x540 css px; a PDF point is 1/72", a css px 1/96",
-    // so the page is 720x405 pt - the 10" x 5.625" of the pptx slide size
+    // a 16:9 slide is 960x540 css px; a PDF point is 1/72", a css px 1/96",
+    // so the page is 720x405 pt - the 10" x 5.625" of the pptx slide size.
+    // A deck of another shape states its own (body.size, 960x720 for 4:3),
+    // and build() takes it from the deck it is given.
     var SLIDE_W = 960, SLIDE_H = 540;
 
     /* the shared exporter core (common/pdfcore.js) */
@@ -148,10 +150,14 @@ var SlidesPdf = (function () {
     // shapePathOps turns one of the editor's shape outlines into path
     // operators in page space. Used for both shape objects and the clip
     // path of a shaped crop, so the two cannot disagree.
-    function shapePathOps(kind, x, y, w, h, radius, adj) {
+    function shapePathOps(kind, x, y, w, h, radius, adj, geom) {
         var X = function (v) { return px(x + v); };
         var Y = function (v) { return px(SLIDE_H - (y + v)); };
         var ops = [];
+        if (kind === "custom" && geom && window.SlidesShapes) {
+            var cd = SlidesShapes.customPath(geom, w, h, "fill");
+            if (cd) return svgPathOps(cd, X, Y);
+        }
         if (!kind || kind === "rect") {
             ops.push(PDFLib.moveTo(X(0), Y(0)), PDFLib.lineTo(X(w), Y(0)),
                 PDFLib.lineTo(X(w), Y(h)), PDFLib.lineTo(X(0), Y(h)), PDFLib.closePath());
@@ -504,6 +510,14 @@ var SlidesPdf = (function () {
         if (!src) return Promise.resolve();
         var filter = (window.SlidesImageTools ? SlidesImageTools.imageFilter(p) : "");
         var prep = filter ? filteredImageData(src, filter) : Promise.resolve(src);
+        // a fill on the frame shows through the picture's transparent parts
+        var under = null, underImg = null;
+        if (o.type === "image" && p.fillGrad && p.fillGrad.stops && p.fillGrad.stops.length) {
+            prep = Promise.all([prep, embedImage(gradientPng(p.fillGrad, Math.max(1, o.w), Math.max(1, o.h)))])
+                .then(function (r) { underImg = r[1]; return r[0]; });
+        } else if (o.type === "image" && p.fill && p.fill !== "none") {
+            under = parseFill(p.fill);
+        }
         return prep.then(function (finalSrc) {
             return embedImage(finalSrc || src);
         }).then(function (img) {
@@ -530,11 +544,18 @@ var SlidesPdf = (function () {
             if (p.opacity && p.opacity < 1) {
                 pg.ops([PDFLib.setGraphicsState(pg.alpha(clamp(p.opacity, 0, 1)))]);
             }
-            // flips are a negative scale about the picture's own centre
+            if (underImg) {
+                pg.p.drawImage(underImg, { x: px(o.x), y: pg.y(o.y + o.h), width: px(o.w), height: px(o.h) });
+            } else if (under) {
+                pg.rect(o.x, o.y, o.w, o.h, { fill: under.c, fillOpacity: under.a });
+            }
+            // flips are a negative scale about the frame's centre: the
+            // part the crop kept is what gets mirrored, as in PowerPoint
+            // and the editor (flipOriginStyle in slides.js)
             var sx = p.flipH ? -1 : 1, sy = p.flipV ? -1 : 1;
             var drawX = fullX, drawY = fullY;
             if (sx < 0 || sy < 0) {
-                var cx = px(fullX + fullW / 2), cy = pg.y(fullY + fullH / 2);
+                var cx = px(o.x + o.w / 2), cy = pg.y(o.y + o.h / 2);
                 pg.ops([PDFLib.concatTransformationMatrix(sx, 0, 0, sy,
                     cx - sx * cx, cy - sy * cy)]);
             }
@@ -563,6 +584,18 @@ var SlidesPdf = (function () {
     /* ---- shape object ---- */
     function drawShapeObject(pg, o, el, origin, ctx) {
         var p = o.props || {};
+        var g = p.fillGrad;
+        // a gradient fill is painted as a picture of itself, clipped to the
+        // outline (gradientPng); that picture has to be in hand first
+        if (g && g.stops && g.stops.length && ctx && ctx.embed) {
+            return ctx.embed(gradientPng(g, Math.max(1, o.w), Math.max(1, o.h))).then(function (img) {
+                return drawShapeBody(pg, o, el, origin, img);
+            });
+        }
+        return drawShapeBody(pg, o, el, origin, null);
+    }
+    function drawShapeBody(pg, o, el, origin, gradImg) {
+        var p = o.props || {};
         var kind = window.SlidesShapes ? SlidesShapes.canonical(p.kind || "rect") : (p.kind || "rect");
         var open = window.SlidesShapes && SlidesShapes.isOpen(kind);
         var evenOdd = window.SlidesShapes && SlidesShapes.evenOdd(kind);
@@ -577,10 +610,34 @@ var SlidesPdf = (function () {
             if (!strokeW) strokeW = 2;
             fillCss = "none";
         }
-        var fill = (fillCss && fillCss !== "none") ? parseColor(fillCss) : null;
+        // a fill may be partly transparent (#rrggbbaa, from a pptx alpha)
+        var fillF = (fillCss && fillCss !== "none") ? parseFill(fillCss) : null;
+        var fill = fillF ? fillF.c : null;
         var stroke = (strokeW > 0 && strokeCss && strokeCss !== "none") ? parseColor(strokeCss) : null;
+        if (gradImg && !open) {
+            var cops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius, p.adj, p.geom);
+            cops.push(evenOdd ? PDFLib.clipEvenOdd() : PDFLib.clip(), PDFLib.endPath());
+            pg.save();
+            pg.ops(cops);
+            pg.p.drawImage(gradImg, { x: px(o.x), y: pg.y(o.y + o.h), width: px(o.w), height: px(o.h) });
+            pg.restore();
+            fill = null;
+        }
+        // a see-through fill is painted on its own, under its own alpha,
+        // so the outline drawn after it stays opaque
+        if (fill && fillF.a < 1) {
+            var fops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius, p.adj, p.geom);
+            fops.unshift(PDFLib.setFillingColor(fill));
+            fops.unshift(PDFLib.setGraphicsState(pg.alpha(fillF.a)));
+            fops.push(evenOdd ? PDFLib.PDFOperator.of(PDFLib.PDFOperatorNames.FillEvenOdd)
+                : PDFLib.fill());
+            pg.save();
+            pg.ops(fops);
+            pg.restore();
+            fill = null;
+        }
         if (fill || stroke) {
-            var ops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius, p.adj);
+            var ops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius, p.adj, p.geom);
             if (fill) ops.unshift(PDFLib.setFillingColor(fill));
             if (stroke) {
                 ops.unshift(PDFLib.setStrokingColor(stroke));
@@ -713,17 +770,87 @@ var SlidesPdf = (function () {
         return Promise.resolve();
     }
 
+    /* ---- a picture or gradient background (slide.bgImage / bgGrad) ----
+       The picture goes in as itself, clipped to the page; a gradient is
+       painted onto a canvas the size of the slide and goes in as a picture
+       of that - smooth colour ramps compress to almost nothing, and a
+       canvas draws them exactly the way the editor's CSS does. */
+    function gradientPng(g, w, h) {
+        var cv = document.createElement("canvas");
+        cv.width = Math.max(1, Math.round(w));
+        cv.height = Math.max(1, Math.round(h));
+        var c2 = cv.getContext("2d");
+        var grad;
+        if (g.kind === "radial") {
+            var cx = (isFinite(Number(g.cx)) ? Number(g.cx) : 0.5) * w;
+            var cy = (isFinite(Number(g.cy)) ? Number(g.cy) : 0.5) * h;
+            // CSS "circle farthest-corner"
+            var r = Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy),
+                Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy));
+            grad = c2.createRadialGradient(cx, cy, 0, cx, cy, r);
+        } else {
+            // the CSS gradient line: through the centre at the angle, long
+            // enough that the corners land on the first and last stop
+            var a = (Number(g.angle) || 0) * Math.PI / 180;
+            var dx = Math.sin(a), dy = -Math.cos(a);
+            var half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
+            grad = c2.createLinearGradient(w / 2 - dx * half, h / 2 - dy * half,
+                w / 2 + dx * half, h / 2 + dy * half);
+        }
+        (g.stops || []).forEach(function (st) {
+            try { grad.addColorStop(clamp(Number(st.pos) || 0, 0, 1), String(st.color)); } catch (e) { }
+        });
+        c2.fillStyle = grad;
+        c2.fillRect(0, 0, cv.width, cv.height);
+        return cv.toDataURL("image/png");
+    }
+    function drawBackground(pg, slide, embedImage) {
+        var im = slide.bgImage;
+        var g = slide.bgGrad;
+        if (im && im.src) {
+            return embedImage(im.src).then(function (img) {
+                if (!img) return;
+                var x = Number(im.x) || 0, y = Number(im.y) || 0;
+                var w = Number(im.w) || SLIDE_W, h = Number(im.h) || SLIDE_H;
+                pg.save();
+                pg.ops([PDFLib.rectangle(0, 0, px(SLIDE_W), px(SLIDE_H)), PDFLib.clip(), PDFLib.endPath()]);
+                var op = Number(im.opacity);
+                if (op > 0 && op < 1) pg.ops([PDFLib.setGraphicsState(pg.alpha(op))]);
+                var draw = function (dx, dy) {
+                    pg.p.drawImage(img, { x: px(dx), y: pg.y(dy + h), width: px(w), height: px(h) });
+                };
+                if (im.tile && w >= 4 && h >= 4) {
+                    var x0 = x - Math.ceil(x / w) * w, y0 = y - Math.ceil(y / h) * h;
+                    for (var ty = y0; ty < SLIDE_H; ty += h) {
+                        for (var tx = x0; tx < SLIDE_W; tx += w) draw(tx, ty);
+                    }
+                } else {
+                    draw(x, y);
+                }
+                pg.restore();
+            });
+        }
+        if (g && g.stops && g.stops.length) {
+            return embedImage(gradientPng(g, SLIDE_W, SLIDE_H)).then(function (img) {
+                if (img) pg.p.drawImage(img, { x: 0, y: 0, width: px(SLIDE_W), height: px(SLIDE_H) });
+            });
+        }
+        return Promise.resolve();
+    }
+
     /* ---------------- the build ---------------- */
 
-    /* stage renders one slide offscreen at exactly 960x540 so every
-       measurement below is taken at scale 1, whatever zoom the editor is at */
+    /* stage renders one slide offscreen at exactly the slide's size so
+       every measurement below is taken at scale 1, whatever zoom the editor
+       is at */
     function withStage(slide, fn) {
+        var box = "width:" + SLIDE_W + "px;height:" + SLIDE_H + "px;";
         var holder = document.createElement("div");
-        holder.style.cssText = "position:fixed;left:-20000px;top:0;width:960px;height:540px;" +
+        holder.style.cssText = "position:fixed;left:-20000px;top:0;" + box +
             "overflow:hidden;contain:layout;";
         var el = document.createElement("div");
         el.className = "sl-slidebase";
-        el.style.cssText = "width:960px;height:540px;position:relative;overflow:hidden;";
+        el.style.cssText = box + "position:relative;overflow:hidden;";
         holder.appendChild(el);
         document.body.appendChild(holder);
         SlidesApp.renderSlideContent(el, slide);
@@ -744,6 +871,8 @@ var SlidesPdf = (function () {
         // the shipped faces have to be in place before anything is
         // measured: a line laid out in a fallback wraps somewhere else
         var fonts = OfficeFonts.preload().then(function () {
+            return OfficeFonts.ready();
+        }).then(function () {
             return document.fonts && document.fonts.ready ? document.fonts.ready : null;
         });
         if (!pending.length) return fonts;
@@ -764,6 +893,9 @@ var SlidesPdf = (function () {
         }
         var slides = (body && body.slides) || [];
         if (!slides.length) return Promise.reject(new Error("the presentation has no slides"));
+        var sz = body.size || [];
+        SLIDE_W = Number(sz[0]) > 0 ? Number(sz[0]) : 960;
+        SLIDE_H = Number(sz[1]) > 0 ? Number(sz[1]) : 540;
 
         return loadFontkit().then(function (fontkit) {
             return PDFLib.PDFDocument.create().then(function (pdfDoc) {
@@ -785,7 +917,10 @@ var SlidesPdf = (function () {
                     var pg = new Page(page, pdfDoc, fonts);
                     var bg = parseColor(slide.bg || theme.bg);
                     if (bg) pg.rect(0, 0, SLIDE_W, SLIDE_H, { fill: bg });
-                    return withStage(slide, function (stageEl) {
+                    return drawBackground(pg, slide, embedImage).then(function () {
+                        return withStage(slide, drawSlide);
+                    });
+                    function drawSlide(stageEl) {
                         var ctx = { stage: stageEl, embed: embedImage };
                         // every face this slide needs is in hand before a
                         // single object is measured, so the drawing below
@@ -800,7 +935,7 @@ var SlidesPdf = (function () {
                             });
                             return seq;
                         });
-                    });
+                    }
                 }).then(function () {
                     if (opts.onProgress) opts.onProgress(idx + 1, slides.length, "measure");
                     // let the editor breathe between slides

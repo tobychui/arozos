@@ -183,7 +183,9 @@ var OfficePdfCore = (function () {
             if (!face) return;
             var rec = faces[face.url];
             if (!rec || rec.font || rec.embedding) return;
-            rec.embedding = pdfDoc.embedFont(rec.bytes, { subset: true })
+            // no standard ligatures, as on screen (the page CSS turns
+            // them off: Office never joins "ti" or "fi")
+            rec.embedding = pdfDoc.embedFont(rec.bytes, { subset: true, features: { liga: false } })
                 .then(function (font) {
                     font.__ref = "f:" + absoluteUrl(face.url);
                     rec.font = font;
@@ -254,6 +256,26 @@ var OfficePdfCore = (function () {
             }
             if (STD_FAMILIES[key] && (GENERICS[key] || haveFamily(name)) && winAnsiCp(cp)) {
                 return { std: STD_FAMILIES[key] };
+            }
+            // a family this machine lacks was drawn in a stand-in of the
+            // same kind (OfficeFonts.substitute): the standard font of that
+            // kind is far nearer to it than the shipped sans further down
+            // the stack, and the fragment is fitted to the browser's width
+            var sub = OfficeFonts.substituteOf ? OfficeFonts.substituteOf(name) : null;
+            // a metric twin the suite ships stood in on screen: the PDF
+            // embeds that same face
+            if (sub && sub.twin) {
+                var tw = fonts.shipped(sub.via, bold, italic);
+                if (!tw) {
+                    if (!fonts.tried(sub.via, bold, italic)) return { need: sub.via };
+                } else if (!(tw.kit && tw.kit.hasGlyphForCodePoint && !tw.kit.hasGlyphForCodePoint(cp))) {
+                    return { shipped: sub.via };
+                }
+            }
+            if (sub && winAnsiCp(cp)) {
+                var std = STD_FAMILIES[String(sub.via).toLowerCase()] ||
+                    { serif: "TimesRoman", mono: "Courier" }[sub.kind] || "Helvetica";
+                return { std: std };
             }
         }
         return null;

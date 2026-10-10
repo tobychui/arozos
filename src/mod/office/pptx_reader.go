@@ -17,12 +17,18 @@ package office
 	    spacing, paragraph spacing, vertical anchoring and text insets
 	  - autofit font scaling (normAutofit), which is how a deck keeps
 	    oversized text inside its box
-	  - group shapes, with the child coordinate transform
+	  - group shapes, with the child coordinate transform (which sizes the
+	    children but never their type)
 	  - picture cropping (srcRect) and rounded picture frames
+	  - backgrounds of every kind, gradient and translucent fills, picture
+	    fills (pptx_fill.go), table styles and merged cells (pptx_table.go),
+	    custom geometry (pptx_custgeom.go), SmartArt (from the drawing
+	    PowerPoint stores with it) and simple inline Office math
 
-	Everything is scaled from the source slide size into the 960x540 px
-	coordinate space of the Slides editor. Anything the editor cannot
-	model - native charts, SmartArt, 3D effects, animations - is skipped
+	Everything is scaled from the source slide size into the coordinate
+	space of the Slides editor: 960 px wide and as tall as the deck's shape
+	(540 for 16:9, 720 for 4:3), so the scale is the same both ways.
+	Anything the editor cannot model - 3D effects, animations - is skipped
 	rather than approximated badly.
 */
 
@@ -218,6 +224,8 @@ type pptxDoc struct {
 	presRels   map[string]string
 	defTxStyle *xnode
 	sx, sy     float64 // source EMU -> editor px scale
+	// the editor size of a slide, px
+	slideW, slideH float64
 	// parsed part cache, keyed by part path
 	trees map[string]*xnode
 	rels  map[string]map[string]string
@@ -244,7 +252,11 @@ type slideCtx struct {
 	majorLatin string
 	minorLatin string
 	fmtScheme  *xnode
-	slideNum   int
+	// the theme's relationships: a background style's picture is one of
+	// the theme's parts
+	themeRels map[string]string
+	themeDir  string
+	slideNum  int
 	// the part whose shapes are being walked right now - a layout's or
 	// master's picture resolves through that part's own rels, not the
 	// slide's
@@ -327,17 +339,18 @@ func ParsePptx(data []byte) (*Presentation, error) {
 	doc.presRels = doc.relsFor("ppt/presentation.xml")
 	doc.defTxStyle = pres.first("defaultTextStyle")
 
-	// source slide size -> scale into the 960x540 editor space
+	// source slide size -> the editor's: 960 wide, the deck's own shape
+	pw, ph := slidePxW, slidePxH
 	if sz := pres.first("sldSz"); sz != nil {
 		cx := atofDefault(sz.attr("cx"), 0)
 		cy := atofDefault(sz.attr("cy"), 0)
-		if cx > 0 {
-			doc.sx = float64(slidePxW) / (cx / emuPerPx)
-		}
-		if cy > 0 {
-			doc.sy = float64(slidePxH) / (cy / emuPerPx)
+		if cx > 0 && cy > 0 {
+			pw, ph = slideSizeFor(cx, cy)
+			doc.sx = float64(pw) / (cx / emuPerPx)
+			doc.sy = float64(ph) / (cy / emuPerPx)
 		}
 	}
+	doc.slideW, doc.slideH = float64(pw), float64(ph)
 
 	slidePaths := doc.slideOrder()
 	if len(slidePaths) == 0 {
@@ -349,7 +362,7 @@ func ParsePptx(data []byte) (*Presentation, error) {
 	}
 
 	out := &Presentation{
-		Size:   []int{slidePxW, slidePxH},
+		Size:   []int{pw, ph},
 		Theme:  "clean",
 		Slides: []*Slide{},
 	}
@@ -492,6 +505,8 @@ func (d *pptxDoc) slideContext(slidePath string, slide *xnode) *slideCtx {
 	if sc.masterRels != nil {
 		if tp := relTarget(sc.masterRels, sc.masterDir, "theme", d.files); tp != "" {
 			theme = d.tree(tp)
+			sc.themeRels = d.relsFor(tp)
+			sc.themeDir = path.Dir(tp)
 		}
 	}
 	sc.cc.scheme = map[string]string{}
@@ -546,7 +561,7 @@ func (sc *slideCtx) rootMap() coordMap {
 // parseSlide converts one slide part into the editor model
 func (sc *slideCtx) parseSlide(tree *xnode) *Slide {
 	slide := &Slide{Objects: []*Object{}}
-	slide.Bg = sc.slideBackground(tree)
+	slide.Bg, slide.BgImage, slide.BgGrad = sc.slideBackground(tree)
 
 	z := 0
 	// PowerPoint paints a slide on top of its layout, and the layout on
@@ -562,30 +577,6 @@ func (sc *slideCtx) parseSlide(tree *xnode) *Slide {
 	}
 	sc.walkPart(tree, sc.rels, sc.baseDir, slide, &z, false)
 	return slide
-}
-
-// slideBackground resolves the slide's own background, then the layout's,
-// then the master's - the first one that states a fill wins
-func (sc *slideCtx) slideBackground(tree *xnode) string {
-	for _, src := range []*xnode{tree, sc.layout, sc.master} {
-		bg := src.path("cSld", "bg")
-		if bg == nil {
-			continue
-		}
-		if pr := bg.first("bgPr"); pr != nil {
-			if c := sc.cc.fillColorOf(pr); c != "" && c != "none" {
-				return c
-			}
-		}
-		if ref := bg.first("bgRef"); ref != nil {
-			for i := range ref.Nodes {
-				if c := sc.cc.resolveColor(&ref.Nodes[i]); c != "" {
-					return c
-				}
-			}
-		}
-	}
-	return ""
 }
 
 // walkShapes appends every drawable descendant of a shape tree, recursing
@@ -606,15 +597,24 @@ func (sc *slideCtx) walkShapes(spTree *xnode, cm coordMap, slide *Slide, z *int,
 		case "pic":
 			sc.addObject(slide, sc.withLink(node, sc.parsePic(node, cm)), z)
 		case "graphicFrame":
+			if sc.walkDiagram(node, cm, slide, z) {
+				continue
+			}
 			sc.addObject(slide, sc.withLink(node, sc.parseGraphicFrame(node, cm)), z)
 		case "grpSp":
 			sc.walkShapes(node, groupMap(node, cm), slide, z, false)
 		case "AlternateContent":
-			// mc:AlternateContent wraps a preferred and a fallback rendering;
-			// the Fallback branch is the one built from plain DrawingML
-			if fb := node.first("Fallback"); fb != nil {
+			// mc:AlternateContent wraps a preferred and a fallback rendering.
+			// The Fallback branch is plain DrawingML - for Office math it is
+			// a picture of the whole text box - so it is the safe one, except
+			// where the Choice is ordinary text with simple inline math in
+			// it (a "≥" set as an equation), which stays editable text
+			ch := node.first("Choice")
+			if ch != nil && choiceReadable(ch) {
+				sc.walkShapes(ch, cm, slide, z, skipPh)
+			} else if fb := node.first("Fallback"); fb != nil {
 				sc.walkShapes(fb, cm, slide, z, skipPh)
-			} else if ch := node.first("Choice"); ch != nil {
+			} else if ch != nil {
 				sc.walkShapes(ch, cm, slide, z, skipPh)
 			}
 		}
@@ -650,11 +650,14 @@ func groupMap(grp *xnode, parent coordMap) coordMap {
 	rx := atofDefault(ext.attr("cx"), 0) / cex
 	ry := atofDefault(ext.attr("cy"), 0) / cey
 	bx, by := parent.px(atofDefault(off.attr("x"), 0), atofDefault(off.attr("y"), 0))
+	// a group's scale moves and sizes its children but not their type:
+	// PowerPoint draws a run at the size it states however the group is
+	// stretched (its own PDF of a group at 75% keeps 33 pt titles 33 pt)
 	return coordMap{
 		kx: parent.kx * rx, ky: parent.ky * ry,
 		bx: bx, by: by,
 		cx: atofDefault(chOff.attr("x"), 0), cy: atofDefault(chOff.attr("y"), 0),
-		fs: parent.fs * math.Sqrt(math.Abs(rx*ry)),
+		fs: parent.fs,
 	}
 }
 
@@ -840,6 +843,9 @@ type bodyProps struct {
 	FontScale  float64 // normAutofit fontScale, 1 when none
 	LnSpcScale float64 // 1 - lnSpcReduction
 	Wrap       bool
+	// spcFirstLastPara: the first paragraph's space before and the last
+	// one's space after count too (PowerPoint drops them otherwise)
+	SpcFirstLast bool
 }
 
 // pptx default text insets, in EMU (0.1" left/right, 0.05" top/bottom)
@@ -872,6 +878,9 @@ func (sc *slideCtx) resolveBodyPr(nodes []*xnode, cm coordMap) bodyProps {
 		}
 		if v := n.attr("wrap"); v != "" {
 			bp.Wrap = v != "none"
+		}
+		if v := n.attr("spcFirstLastPara"); v != "" {
+			bp.SpcFirstLast = v == "1" || v == "true"
 		}
 		if na := n.first("normAutofit"); na != nil {
 			bp.FontScale = atofDefault(na.attr("fontScale"), 100000) / 100000
@@ -924,7 +933,17 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 	if tx == nil {
 		return res
 	}
-	scale := bp.FontScale * cm.fs
+	// normAutofit's fontScale is not drawn as a fraction: PowerPoint sets
+	// each run at the scaled size rounded to a whole point (20 pt at 92.5%
+	// is 19 pt, at 77.5% 16 pt - measured on its own PDFs), so the scale
+	// goes into the sizes, rounded, rather than into the CSS
+	scale := cm.fs
+	fitSize := func(pt float64) float64 {
+		if bp.FontScale > 0 && bp.FontScale < 1 && pt > 0 {
+			return math.Max(1, math.Floor(pt*bp.FontScale+0.5))
+		}
+		return pt
+	}
 	var sb strings.Builder
 	var plain []string
 	autoNum := map[int]int{}
@@ -944,8 +963,7 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 		minSizePt := 0.0
 		var firstRun, lastRun runStyle
 		haveRun := false
-		for ci := range p.Nodes {
-			ch := &p.Nodes[ci]
+		for _, ch := range paraItems(p) {
 			switch ch.XMLName.Local {
 			case "r", "fld":
 				t := ch.first("t")
@@ -954,14 +972,23 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 				}
 				rs := ps.DefRun
 				applyRPr(&rs, ch.first("rPr"), &sc.cc)
+				rs.SizePt = fitSize(rs.SizePt)
 				sc.resolveThemeFonts(&rs)
+				txt := t.Text
+				// text set in the Symbol font is Greek and maths written
+				// with Latin codes ("a" is alpha): it goes in as the
+				// characters it shows, in the paragraph's own font
+				if strings.EqualFold(strings.TrimSpace(rs.Latin), "symbol") {
+					txt = symbolText(txt)
+					rs.Latin, rs.EastAsian = ps.DefRun.Latin, ps.DefRun.EastAsian
+					sc.resolveThemeFonts(&rs)
+				}
 				maxSizePt, minSizePt = spanSizes(rs.SizePt, maxSizePt, minSizePt)
 				if !haveRun {
 					firstRun = rs
 					haveRun = true
 				}
 				lastRun = rs
-				txt := t.Text
 				if ch.XMLName.Local == "fld" &&
 					strings.EqualFold(ch.attr("type"), "slidenum") {
 					// the stored text is the producer's placeholder glyph
@@ -984,8 +1011,15 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 				rs := ps.DefRun
 				if haveRun {
 					rs = lastRun
+				} else {
+					rs.SizePt = fitSize(rs.SizePt)
 				}
-				applyRPr(&rs, ch.first("rPr"), &sc.cc)
+				if br := ch.first("rPr"); br != nil && br.attr("sz") != "" {
+					applyRPr(&rs, br, &sc.cc)
+					rs.SizePt = fitSize(rs.SizePt)
+				} else {
+					applyRPr(&rs, br, &sc.cc)
+				}
 				sc.resolveThemeFonts(&rs)
 				maxSizePt, minSizePt = spanSizes(rs.SizePt, maxSizePt, minSizePt)
 				runs.WriteString("<br>" + lineSpacerFor(rs, scale))
@@ -996,6 +1030,7 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 			// an empty paragraph still occupies a line, sized by endParaRPr
 			rs := ps.DefRun
 			applyRPr(&rs, p.first("endParaRPr"), &sc.cc)
+			rs.SizePt = fitSize(rs.SizePt)
 			sc.resolveThemeFonts(&rs)
 			firstRun = rs
 			maxSizePt, minSizePt = rs.SizePt, rs.SizePt
@@ -1017,9 +1052,13 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 		}
 		plain = append(plain, lineText.String())
 
-		// bullet marker
+		// bullet marker - PowerPoint draws none on an empty paragraph, and
+		// does not count one in a numbered list
 		bullet := ""
-		if ps.BuType == "char" || ps.BuType == "autonum" {
+		hasText := strings.TrimSpace(strings.ReplaceAll(lineText.String(), "\u200b", "")) != ""
+		if (ps.BuType == "char" || ps.BuType == "autonum") && !hasText {
+			// keeps the numbering where it is
+		} else if ps.BuType == "char" || ps.BuType == "autonum" {
 			marker := ps.BuChar
 			if ps.BuType == "autonum" {
 				autoNum[lvl]++
@@ -1032,20 +1071,39 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 			if marker != "" {
 				bs := firstRun
 				if ps.BuSizePt > 0 {
-					bs.SizePt = ps.BuSizePt
+					bs.SizePt = fitSize(ps.BuSizePt)
 				} else if ps.BuSizePct > 0 {
 					bs.SizePt = firstRun.SizePt * ps.BuSizePct
 				}
 				if ps.BuColor != "" {
 					bs.Color = ps.BuColor
 				}
-				if ps.BuFont != "" {
+				// a number is set in the text's font when the marker font
+				// is a symbol font (the master's Wingdings bullet font
+				// reaching a numbered paragraph): digits in Wingdings are
+				// pictographs
+				if ps.BuFont != "" && !(ps.BuType == "autonum" && isSymbolFont(ps.BuFont)) {
 					bs.Latin, bs.EastAsian = ps.BuFont, ps.BuFont
+				}
+				// a symbol-font marker (Wingdings "l") is a letter in any
+				// other font: it goes in as the character it draws, in the
+				// text's own font
+				if uni, k, ok := symbolBullet(ps.BuFont, marker); ok {
+					marker = uni
+					bs.Latin, bs.EastAsian = firstRun.Latin, firstRun.EastAsian
+					bs.SizePt *= k
 				}
 				bs.Underline, bs.Strike, bs.Highlight = false, false, ""
 				left := (ps.MarLeft + ps.Indent) * cm.kx
-				bullet = `<span style="position:absolute;left:` + fmtPx(left) +
-					`;` + runCSS(bs, scale) + `">` + xmlEscape(marker) + `</span>`
+				// the outer span is a line of the paragraph's own text -
+				// its size, font and line height - so the marker inside it
+				// sits on the first line's baseline whatever its own size
+				strut := firstRun
+				strut.Bold, strut.Italic, strut.Underline, strut.Strike, strut.Highlight = false, false, false, false, ""
+				bullet = `<span style="position:absolute;left:` + fmtPx(left) + `;top:0;` +
+					`line-height:` + strconv.FormatFloat(round2(lineHeightOf(ps, bp)), 'f', -1, 64) + `;` +
+					runCSS(strut, scale) + `"><span style="` + runCSS(bs, scale) + `">` +
+					xmlEscape(marker) + `</span></span>`
 			}
 		} else {
 			autoNum = map[int]int{}
@@ -1054,21 +1112,57 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 		// paragraph box
 		var css strings.Builder
 		css.WriteString("text-align:" + algnToCSS(ps.Align) + ";")
-		css.WriteString("line-height:" + strconv.FormatFloat(round2(lineHeightOf(ps, bp)), 'f', -1, 64) + ";")
+		// a tab goes to the next default stop, an inch apart unless the
+		// deck says otherwise (CSS's own default is eight spaces)
+		if ps.DefTabSz > 0 && strings.Contains(lineText.String(), "\t") {
+			css.WriteString("tab-size:" + fmtPx(ps.DefTabSz*cm.kx) + ";")
+		}
+		lh := lineHeightOf(ps, bp)
+		css.WriteString("line-height:" + strconv.FormatFloat(round2(lh), 'f', -1, 64) + ";")
+		// PowerPoint scales a whole line with its spacing, so the baseline
+		// moves with it; CSS keeps the font's ascent and centres it in the
+		// line box instead. Single spacing is made to agree by the fonts
+		// themselves (common/fonts.js, the PowerPoint line model); any
+		// other spacing leaves every line of the paragraph off by the same
+		// amount, which is moved back here
+		if haveRun || firstRun.SizePt > 0 {
+			sizePx := ptToPx(firstRun.SizePt) * scale
+			if dy := (pptxLineHeightFactor - lh) * (2*ascentRatio(firstRun.Latin) - 1) / 2 * sizePx; math.Abs(dy) > 0.3 {
+				if bullet == "" {
+					css.WriteString("position:relative;")
+				}
+				css.WriteString("top:" + fmtPx(-dy) + ";")
+			}
+		}
 		// the block's own font size is a floor under every line box in it,
 		// so it has to be the paragraph's *smallest* run - otherwise a
 		// small line under a big one inherits the big line's height
 		css.WriteString("font-size:" + fmtPx(ptToPx(minSizePt)*scale) + ";")
-		if pi > 0 {
-			// PowerPoint does not apply space-before to the first paragraph
+		// PowerPoint drops the first paragraph's space before and the last
+		// one's space after, unless the body says spcFirstLastPara
+		if pi > 0 || bp.SpcFirstLast {
 			if before := spaceOf(ps.SpcBefPt, ps.SpcBefPct, maxSizePt) * scale; before > 0 {
 				css.WriteString("margin-top:" + fmtPx(ptToPx(before)) + ";")
 			}
 		}
-		if after := spaceOf(ps.SpcAftPt, ps.SpcAftPct, maxSizePt) * scale; after > 0 {
-			css.WriteString("margin-bottom:" + fmtPx(ptToPx(after)) + ";")
+		if pi < len(paras)-1 || bp.SpcFirstLast {
+			if after := spaceOf(ps.SpcAftPt, ps.SpcAftPct, maxSizePt) * scale; after > 0 {
+				css.WriteString("margin-bottom:" + fmtPx(ptToPx(after)) + ";")
+			}
 		}
-		if ps.MarLeft != 0 {
+		// PowerPoint counts tab stops from the edge of the text box, CSS
+		// from the paragraph's content box - which a hanging indent's
+		// padding moves. With a tab in the line, the indent is turned
+		// round: the content box starts where the first line does and the
+		// other lines hang from it (text-indent ... hanging), so the stops
+		// land where PowerPoint puts them and the lines where they were.
+		hanging := bullet == "" && ps.Indent < 0 && ps.MarLeft+ps.Indent > -0.5 &&
+			strings.Contains(lineText.String(), "\t")
+		if hanging {
+			if first := (ps.MarLeft + ps.Indent) * cm.kx; first > 0.01 {
+				css.WriteString("padding-left:" + fmtPx(first) + ";")
+			}
+		} else if ps.MarLeft != 0 {
 			css.WriteString("padding-left:" + fmtPx(ps.MarLeft*cm.kx) + ";")
 		}
 		if ps.MarRight != 0 {
@@ -1076,10 +1170,19 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 		}
 		if bullet != "" {
 			css.WriteString("position:relative;")
+		} else if hanging {
+			css.WriteString("text-indent:" + fmtPx(-ps.Indent*cm.kx) + " hanging;")
 		} else if ps.Indent != 0 {
 			css.WriteString("text-indent:" + fmtPx(ps.Indent*cm.kx) + ";")
 		}
 		body := runs.String()
+		// PowerPoint's first tab stop in a hanging paragraph is the indent
+		// itself, so a leading tab goes there before the default stops; the
+		// tab keeps its place in the text inside a box that wide
+		if hanging && strings.HasPrefix(lineText.String(), "\t") {
+			body = strings.Replace(body, `">`+"\t", `"><span style="display:inline-block;width:`+
+				fmtPx(-ps.Indent*cm.kx)+`;">`+"\t"+`</span>`, 1)
+		}
 		if body == "" {
 			// nothing to draw, but the line still takes up its own height
 			body = lineSpacerFor(firstRun, scale)
@@ -1155,7 +1258,10 @@ func spaceOf(pts, pct, sizePt float64) float64 {
 		return pts
 	}
 	if pct > 0 {
-		return pct * sizePt
+		// a percentage is of the line, not of the type: 20% before a
+		// 28 pt paragraph is 20% of its 33.6 pt single line (measured
+		// against PowerPoint's own PDF output)
+		return pct * sizePt * pptxLineHeightFactor
 	}
 	return 0
 }
@@ -1176,6 +1282,12 @@ func algnToCSS(a string) string {
 
 // parseSp handles p:sp - a text box or a preset-geometry shape
 func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
+	// a shape drawn with a line or connector preset is a line, whatever
+	// element it came in - and a straight one is routinely zero wide or
+	// zero tall, which the box test below would throw away
+	if g := node.path("spPr", "prstGeom"); g != nil && isLinePreset(g.attr("prst")) {
+		return sc.parseCxnSp(node, cm)
+	}
 	layoutSp, masterSp := sc.phChain(node)
 
 	// geometry: the shape's own, else the placeholder it inherits from
@@ -1213,14 +1325,37 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 		if obj := sc.freeformLine(node, spPr, box, cm); obj != nil {
 			return obj
 		}
-		prst = "rect"
+		prst = "custom"
 	}
 
-	fill := sc.cc.fillColorOf(spPr)
-	if fill == "" {
-		fill = sc.styleRefColor(node, "fillRef")
+	// a placeholder that states no fill or outline of its own wears its
+	// prototype's: a footer bar's colour is set once, on the master
+	fillPr, linePr := spPr, spPr
+	for _, proto := range []*xnode{layoutSp, masterSp} {
+		if fillPr != nil && hasFillChoice(fillPr) {
+			break
+		}
+		if pp := proto.first("spPr"); pp != nil && hasFillChoice(pp) {
+			fillPr = pp
+		}
 	}
-	stroke, strokeW, dash := sc.lineOf(spPr, cm)
+	for _, proto := range []*xnode{layoutSp, masterSp} {
+		if linePr != nil && linePr.first("ln") != nil {
+			break
+		}
+		if pp := proto.first("spPr"); pp != nil && pp.first("ln") != nil {
+			linePr = pp
+		}
+	}
+	fill, fillGrad := sc.shapeFill(node, fillPr)
+	stroke, strokeW, dash := sc.lineOf(linePr, cm)
+	// a shape filled with a picture is a picture in that outline (and the
+	// Fallback of an Office-math text box is one: the whole box, drawn)
+	if bf := fillPr.first("blipFill"); bf != nil && !hasVisibleText(node.first("txBody")) {
+		if obj := sc.pictureFillObject(bf, prst, box, stroke, strokeW, dash); obj != nil {
+			return obj
+		}
+	}
 	if stroke == "" {
 		if c := sc.styleRefColor(node, "lnRef"); c != "" && c != "none" {
 			stroke = c
@@ -1240,6 +1375,13 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 	tr := sc.buildTextBody(node.first("txBody"), chain, bp, cm)
 
 	kind, known := prstToShapeKind[prst]
+	var geom *CustomGeom
+	if prst == "custom" {
+		ext := spPr.path("xfrm", "ext")
+		if geom = parseCustGeom(spPr.first("custGeom"), atofDefault(ext.attr("cx"), 0), atofDefault(ext.attr("cy"), 0)); geom != nil {
+			kind, known = "custom", true
+		}
+	}
 	if !known {
 		kind = "rect"
 	}
@@ -1251,6 +1393,14 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 
 	pad := []float64{
 		round2(bp.TIns), round2(bp.RIns), round2(bp.BIns), round2(bp.LIns),
+	}
+	// a SmartArt drawing places a shape's text in a rectangle of its own
+	// (dsp:txXfrm) inside the outline: the difference is more inset
+	if tx := parseXfrm(node.first("txXfrm"), cm); tx.OK && tx.W > 0 && tx.H > 0 {
+		pad[0] = round2(math.Max(0, tx.Y-box.Y) + bp.TIns)
+		pad[1] = round2(math.Max(0, box.X+box.W-tx.X-tx.W) + bp.RIns)
+		pad[2] = round2(math.Max(0, box.Y+box.H-tx.Y-tx.H) + bp.BIns)
+		pad[3] = round2(math.Max(0, tx.X-box.X) + bp.LIns)
 	}
 
 	if !isShape {
@@ -1270,7 +1420,7 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 	}
 
 	if !hasFill {
-		fill = "none"
+		fill, fillGrad = "none", nil
 	}
 	if !hasLine {
 		stroke, strokeW = "", 0
@@ -1284,9 +1434,9 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 	return &Object{
 		Type: "shape", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
 		Props: Props{
-			Kind: kind, Fill: fill, Stroke: stroke, StrokeW: round2(strokeW),
+			Kind: kind, Geom: geom, Fill: fill, FillGrad: fillGrad, Stroke: stroke, StrokeW: round2(strokeW),
 			Dash: dash, DashStyle: dashStyleOfLn(spPr), Radius: radius,
-			Adj:  readShapeAdj(prst, spPr),
+			Adj:  adjForKind(prst, kind, spPr),
 			HTML: tr.HTML, Text: tr.Plain, TextColor: tr.First.Color,
 			FontSize: round2(tr.FontSize), FontFamily: tr.FontCSS,
 			Bold: tr.Bold, Italic: tr.Italic,
@@ -1428,6 +1578,13 @@ func (sc *slideCtx) parseCxnSp(node *xnode, cm coordMap) *Object {
 	}
 }
 
+// isLinePreset reports whether a preset geometry is a line rather than an
+// area: the straight line and every connector
+func isLinePreset(prst string) bool {
+	return prst == "line" || prst == "lineInv" || strings.HasSuffix(prst, "Connector1") ||
+		strings.HasPrefix(prst, "bentConnector") || strings.HasPrefix(prst, "curvedConnector")
+}
+
 // connectorPath builds the polyline a connector follows, in absolute
 // editor pixels: the preset's own path, mirrored by the flips and turned
 // by the shape's rotation about the centre of its bounding box.
@@ -1451,6 +1608,9 @@ func connectorPath(prst string, spPr *xnode, box xfrmBox) [][2]float64 {
 			}
 		}
 		local = [][2]float64{{0, 0}, {a * w, 0}, {a * w, h}, {w, h}}
+	case "lineInv":
+		// the other diagonal: bottom left to top right
+		local = [][2]float64{{0, h}, {w, 0}}
 	default:
 		local = [][2]float64{{0, 0}, {w, h}}
 	}
@@ -1557,6 +1717,11 @@ func (sc *slideCtx) parsePic(node *xnode, cm coordMap) *Object {
 		props.StartHead, props.EndHead, props.ArrowStart, props.ArrowEnd = "", "", false, false
 	}
 	readPictureEffects(blip, &props)
+	// a fill on the picture's frame shows wherever the picture is
+	// transparent (or does not reach, under a negative crop)
+	if c, g := sc.shapeFill(node, spPr); c != "" && c != "none" {
+		props.Fill, props.FillGrad = c, g
+	}
 	return &Object{
 		Type: "image", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
 		Props: props,
@@ -1582,9 +1747,12 @@ func (sc *slideCtx) parseGraphicFrame(node *xnode, cm coordMap) *Object {
 		return sc.parseChartFrame(gdata, box)
 	}
 	headerRow := false
-	if tp := tbl.first("tblPr"); tp != nil {
-		headerRow = tp.attr("firstRow") == "1"
+	tblPr := tbl.first("tblPr")
+	if tblPr != nil {
+		headerRow = tblPr.attr("firstRow") == "1"
 	}
+	flags := readTblFlags(tblPr)
+	style := sc.tableStyleFor(tbl)
 	// column proportions from the grid definition
 	var colW []float64
 	var totalW float64
@@ -1627,15 +1795,31 @@ func (sc *slideCtx) parseGraphicFrame(node *xnode, cm coordMap) *Object {
 	var cellPad []float64
 	fontSize := 0.0
 	color := ""
+	var merges [][]int
+	var cellAnchor [][]string
+	nCols := 0
 	for _, tr := range trs {
+		if n := len(tr.all("tc")); n > nCols {
+			nCols = n
+		}
+	}
+	for ri, tr := range trs {
 		if totalH > 0 {
 			rowH = append(rowH, round2(atofDefault(tr.attr("h"), 0)/totalH*100.0))
 		}
-		var row, fills []string
-		for _, tc := range tr.all("tc") {
+		var row, fills, anchors []string
+		for ci, tc := range tr.all("tc") {
 			tcPr := tc.first("tcPr")
-			fill := ""
-			if c := sc.cc.fillColorOf(tcPr); c != "" && c != "none" {
+			anchors = append(anchors, map[string]string{"ctr": "middle", "b": "bottom"}[tcPr.attr("anchor")])
+			// the table style's look for this cell, then the cell's own fill
+			var look cellLook
+			if style != nil {
+				look = sc.lookOf(styleParts(style, flags, ri, ci, len(trs), nCols))
+			}
+			fill := look.fill
+			if c := sc.cc.fillColorOf(tcPr); c == "none" {
+				fill = ""
+			} else if c != "" {
 				fill = c
 			}
 			fills = append(fills, fill)
@@ -1648,14 +1832,23 @@ func (sc *slideCtx) parseGraphicFrame(node *xnode, cm coordMap) *Object {
 				}
 			}
 			if tc.attr("hMerge") == "1" || tc.attr("vMerge") == "1" {
-				// continuation of a merged cell - the editor has no merge
-				// model for tables, so it becomes an empty cell
+				// covered by a merged cell: kept as an empty cell, which the
+				// merge's span draws over
 				row = append(row, "")
 				continue
 			}
+			rs := int(atofDefault(tc.attr("rowSpan"), 1))
+			cs := int(atofDefault(tc.attr("gridSpan"), 1))
+			if rs > 1 || cs > 1 {
+				merges = append(merges, []int{ri, ci, max(rs, 1), max(cs, 1)})
+			}
 			bp := sc.resolveBodyPr([]*xnode{tc.path("txBody", "bodyPr")}, cm)
 			bp.LIns, bp.RIns, bp.TIns, bp.BIns = 0, 0, 0, 0
-			res := sc.buildTextBody(tc.first("txBody"), chain, bp, cm)
+			cellChain := chain
+			if ls := lookTextStyle(look); ls != nil {
+				cellChain = append(append([]*xnode{}, chain...), ls)
+			}
+			res := sc.buildTextBody(tc.first("txBody"), cellChain, bp, cm)
 			if fontSize == 0 && res.FontSize > 0 {
 				fontSize = res.FontSize
 			}
@@ -1667,6 +1860,7 @@ func (sc *slideCtx) parseGraphicFrame(node *xnode, cm coordMap) *Object {
 		if len(row) > 0 {
 			rows = append(rows, row)
 			cellFill = append(cellFill, fills)
+			cellAnchor = append(cellAnchor, anchors)
 		}
 	}
 	if len(rows) == 0 {
@@ -1678,11 +1872,24 @@ func (sc *slideCtx) parseGraphicFrame(node *xnode, cm coordMap) *Object {
 	if !anyFilled(cellFill) {
 		cellFill = nil
 	}
+	if !anyFilled(cellAnchor) {
+		cellAnchor = nil
+	}
+	props := Props{Rows: rows, HeaderRow: headerRow, FontSize: round2(fontSize),
+		Color: color, ColW: colW, RowH: rowH,
+		CellFill: cellFill, CellPad: cellPad, Merges: merges, CellAnchor: cellAnchor}
+	if style != nil {
+		// the style is the whole look: the editor's own heading shading and
+		// bold heading row stay off, and the rules are the style's
+		props.Styled = true
+		props.Stroke, props.StrokeW = sc.tableBorder(style, cm)
+		if props.Stroke == "" {
+			props.Stroke, props.StrokeW = sc.cellBorder(tbl, cm)
+		}
+	}
 	return &Object{
 		Type: "table", X: box.X, Y: box.Y, W: box.W, H: box.H,
-		Props: Props{Rows: rows, HeaderRow: headerRow, FontSize: round2(fontSize),
-			Color: color, ColW: colW, RowH: rowH,
-			CellFill: cellFill, CellPad: cellPad},
+		Props: props,
 	}
 }
 

@@ -227,6 +227,8 @@ type docxPPr struct {
 	sect                                 *xnode
 	mark                                 docxRPr // paragraph mark run properties
 	outline                              optNum
+	// spacing before / after is Word's "auto" (HTML) spacing
+	autoBefore, autoAfter optBool
 }
 
 func parsePPr(n *xnode) docxPPr {
@@ -245,9 +247,11 @@ func parsePPr(n *xnode) docxPPr {
 		// "auto" spacing before/after is Word's HTML-ish 14pt; close enough
 		if onOff2(sp.attr("beforeAutospacing")) {
 			p.before = optNum{set: true, v: 280}
+			p.autoBefore = optBool{set: true, v: true}
 		}
 		if onOff2(sp.attr("afterAutospacing")) {
 			p.after = optNum{set: true, v: 280}
+			p.autoAfter = optBool{set: true, v: true}
 		}
 	}
 	if ind := n.first("ind"); ind != nil {
@@ -328,6 +332,12 @@ func (p *docxPPr) merge(src docxPPr) {
 	}
 	p.before.merge(src.before)
 	p.after.merge(src.after)
+	if src.before.set {
+		p.autoBefore = src.autoBefore
+	}
+	if src.after.set {
+		p.autoAfter = src.autoAfter
+	}
 	if src.line.set {
 		p.line = src.line
 		p.lineRule = src.lineRule

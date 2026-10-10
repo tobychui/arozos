@@ -312,6 +312,7 @@ type blockCtx struct {
 type fieldFrame struct {
 	instr    string
 	inResult bool
+	shown    bool // the field's result put something on the page
 }
 
 type docxConv struct {
@@ -334,6 +335,8 @@ type docxConv struct {
 	gdocs bool
 	// spacing-before the next paragraph gives back (see paragraph)
 	reduceBefore float64
+	// the paragraph before ended with "auto" (HTML) spacing after
+	prevAutoAfter bool
 	// a footer carried the page number our export adds (see hfHTML)
 	autoPageNumber bool
 	// review state: open comment ranges and the revision mark being walked
@@ -445,8 +448,9 @@ func (cv *docxConv) hfHTML(partName string) (string, string) {
 	var texts []string
 	collectText(tree, &texts)
 	txt := strings.TrimSpace(strings.Join(texts, ""))
-	// a header that is only empty paragraphs is no header
-	if txt == "" && !strings.Contains(htmlOut, "<img") {
+	// a header that is only empty paragraphs is no header - but one that is
+	// only a page number is one
+	if txt == "" && !strings.Contains(htmlOut, "<img") && !strings.Contains(htmlOut, `data-field="`) {
 		return "", ""
 	}
 	// the editor's plain header, as BuildDocx writes it, stays plain
@@ -608,6 +612,7 @@ func (cv *docxConv) blocks(parent *xnode, part *docxPartCtx, ctx blockCtx) strin
 				closeLists(0)
 				spanAll := top && ctx.top && cv.spanIdx != nil && cv.spanIdx[i]
 				cv.reduceBefore = 0
+				cv.prevAutoAfter = false
 				// Google Docs gives no spacing-after to an empty paragraph
 				// right above a table
 				if cv.gdocs && lastPara >= 0 && emptyBlockHTML(sb.String()[lastPara:]) {
@@ -737,7 +742,14 @@ func (cv *docxConv) paragraph(p *xnode, part *docxPartCtx, ctx blockCtx, spanAll
 	eff := *styleP
 	eff.merge(direct)
 	baseR := *styleR
-	baseR.merge(direct.mark)
+	// the mark's look reaches the block (an empty line's height, a list
+	// number's colour) but not its decoration: an underline or highlight
+	// on a block would run under every character in it, where Word puts
+	// it on the pilcrow alone
+	mark := direct.mark
+	mark.u, mark.strike, mark.dstrike = "", optBool{}, optBool{}
+	mark.highlight, mark.shd, mark.vanish = "", "", optBool{}
+	baseR.merge(mark)
 	if cv.reduceBefore > 0 && !ctx.cell {
 		b := 0.0
 		if eff.before.set {
@@ -749,6 +761,12 @@ func (cv *docxConv) paragraph(p *xnode, part *docxPartCtx, ctx blockCtx, spanAll
 		eff.before = optNum{set: true, v: b}
 	}
 	cv.reduceBefore = 0
+	// two "auto"-spaced paragraphs meet with one auto space between them,
+	// the way HTML margins collapse - not the after and the before added
+	if cv.prevAutoAfter && eff.autoBefore.v && !ctx.cell {
+		eff.before = optNum{set: true, v: 0}
+	}
+	cv.prevAutoAfter = eff.autoAfter.v && !ctx.cell
 
 	level := cv.ss.headingLevel(direct.style)
 	if direct.style == "" {
@@ -764,6 +782,16 @@ func (cv *docxConv) paragraph(p *xnode, part *docxPartCtx, ctx blockCtx, spanAll
 		}
 		def := cv.nb.level(eff.numID, ilvl)
 		li = &docxListItem{numID: eff.numID, ilvl: ilvl, fmt: "bullet", start: 1}
+		// "auto" (HTML) spacing is the space around a list, not between its
+		// items: Word sets list paragraphs with it close together, as a
+		// browser sets <li>s
+		if eff.autoBefore.v {
+			eff.before = optNum{set: true, v: 0}
+		}
+		if eff.autoAfter.v {
+			eff.after = optNum{set: true, v: 0}
+			cv.prevAutoAfter = false
+		}
 		if def != nil {
 			li.fmt = htmlListFormat(def.fmt)
 			li.text = def.text
@@ -813,6 +841,14 @@ func (cv *docxConv) paragraph(p *xnode, part *docxPartCtx, ctx blockCtx, spanAll
 	}
 
 	style, data := cv.blockStyle(tag, eff, baseR, li != nil, level, runs.preWrap)
+	// CJK text whose East Asian font is a Latin face falls back to a
+	// proportional CJK face in Google Docs (MS PGothic / PMincho, as its
+	// PDFs show) - narrow punctuation, which the shipped Noto Sans CJK draws
+	// through its proportional alternates
+	if ea := baseR.fontEA; !isCJKFontName(ea) && (ea != "" || !isCJKFontName(baseR.fontASCII)) &&
+		hasCJK(strings.Join(runs.segments, "")) {
+		style += `font-feature-settings:&quot;palt&quot;;`
+	}
 	attrs := ""
 	if runs.bookmark != "" {
 		attrs += ` id="` + xmlEscape(runs.bookmark) + `"`
@@ -1229,6 +1265,36 @@ func rPrCSS(r docxRPr) map[string]string {
 var cssRunKeys = []string{"font-family", "font-size", "font-weight", "font-style",
 	"text-decoration", "color", "background-color", "font-variant", "text-transform"}
 
+// hasCJK reports whether text holds Chinese, Japanese or Korean characters
+func hasCJK(s string) bool {
+	for _, r := range s {
+		if (r >= 0x3000 && r <= 0x9fff) || (r >= 0xac00 && r <= 0xd7af) || (r >= 0xff00 && r <= 0xffef) {
+			return true
+		}
+	}
+	return false
+}
+
+// isCJKFontName reports whether a typeface is a Chinese, Japanese or Korean
+// one (by its name, which is all a document states)
+func isCJKFontName(name string) bool {
+	l := strings.ToLower(name)
+	for _, r := range l {
+		if (r >= 0x2e80 && r <= 0x9fff) || (r >= 0xac00 && r <= 0xd7af) || (r >= 0xf900 && r <= 0xfaff) {
+			return true
+		}
+	}
+	for _, k := range []string{"mingliu", "mincho", "gothic", "simsun", "simhei", "yahei", "jhenghei",
+		"meiryo", "gulim", "batang", "dotum", "malgun", "gungsuh", "kaiti", "fangsong", "biaukai",
+		"dfkai", "hiragino", "pingfang", "heiti", "songti", "noto sans cjk", "noto serif cjk",
+		"noto sans tc", "noto sans sc", "noto sans jp", "noto sans kr", "source han", "yu gothic", "yu mincho"} {
+		if strings.Contains(l, k) {
+			return true
+		}
+	}
+	return false
+}
+
 // runCSSDiff renders the properties in which a run differs from its block
 func runCSSDiff(run, block map[string]string) string {
 	var parts []string
@@ -1388,6 +1454,9 @@ func (cv *docxConv) run(r *xnode, part *docxPartCtx, baseR docxRPr, blockCSS map
 		vert = eff.vert
 	}
 	emit := func(html string, raw bool) {
+		if n := len(cv.fields); n > 0 && cv.fields[n-1].inResult {
+			cv.fields[n-1].shown = true
+		}
 		if kind := cv.fieldKind(); kind != "" && !raw {
 			html = `<span class="doc-field" data-field="` + kind + `">` + html + `</span>`
 		}
@@ -1406,6 +1475,12 @@ func (cv *docxConv) run(r *xnode, part *docxPartCtx, baseR docxRPr, blockCSS map
 				}
 			case "end":
 				if n := len(cv.fields); n > 0 {
+					// a page number with no stored result (Google Docs
+					// writes none) is still a page number: the layout fills
+					// in each page's own
+					if !cv.fields[n-1].shown && cv.fieldKind() != "" {
+						emit("1", false)
+					}
 					cv.fields = cv.fields[:n-1]
 				}
 			}

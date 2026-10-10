@@ -12,6 +12,10 @@
 /* ============ Workspace / paper ============ */
 #workspace {
     padding: 26px 12px 64px;
+    /* the layout moves the text itself (page spacers, split paragraphs);
+       the browser's scroll anchoring would chase those moves and scroll the
+       page away from the paragraph just restyled */
+    overflow-anchor: none;
 }
 #pageWrap {
     width: -moz-max-content;
@@ -28,6 +32,9 @@
        empty space rather than a band painted over one long sheet */
     background: transparent;
     color: #1f2328;
+    /* Word and Google Docs draw "ti" / "fi" as two letters; a browser
+       would join them wherever the font has the ligature (Carlito does) */
+    font-variant-ligatures: no-common-ligatures;
 }
 #editor {
     position: relative;
@@ -214,17 +221,36 @@ body.dark .doc-sheet {
     text-decoration: none;
 }
 
+/* A footer stands on its distance from the page edge with its last line,
+   not with that line's spacing-after: Google Docs drops it (a page number
+   above an empty paragraph with 30pt after sits where the empty line
+   does), so the band does not reserve it either. */
+.doc-hf-footer > :last-child { margin-bottom: 0 !important; }
+
 /* Tabs: a real tab character, sized to its tab stop by docs_layout.js */
 span.doc-tab { white-space: pre; }
-span.doc-tab[data-leader="dot"] {
+/* A leader is drawn under the tab's box, which docs_layout.js gives no
+   height of its own (line-height 0, as every inline in the page has): such
+   a box sits about a third of an em above the baseline, so the marks are
+   placed from there - the dots on the baseline, a hyphen leader at
+   mid-height, an underscore leader (and an underlined tab) just below. */
+span.doc-tab[data-leader] { position: relative; }
+span.doc-tab[data-leader]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+}
+span.doc-tab[data-leader="dot"]::after {
+    top: 0.24em;
+    height: 3px;
     background-image: radial-gradient(circle, currentColor 0.55px, transparent 0.8px);
     background-size: 4px 3px;
     background-repeat: repeat-x;
-    background-position: 0 calc(100% - 0.28em);
 }
-span.doc-tab[data-leader="hyphen"], span.doc-tab[data-leader="underscore"] {
-    border-bottom: 1px solid currentColor;
-}
+span.doc-tab[data-leader="hyphen"]::after { top: 0.08em; border-top: 1px solid currentColor; }
+span.doc-tab[data-leader="underscore"]::after { top: 0.44em; border-top: 1px solid currentColor; }
 
 /* Footnote references in the text */
 #editor sup.doc-fnref { cursor: default; user-select: none; }

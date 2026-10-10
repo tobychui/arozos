@@ -2,6 +2,10 @@
     fonts.css - the document fonts the Office apps ship with themselves
 
     Everything here is Noto Sans, under the SIL Open Font License (OFL.txt).
+    It is the fallback every font stack ends in. The document families the
+    folder also holds (Carlito, Lato, Tinos, ...) are declared by ../fonts.js,
+    straight from its SHIPPED list, so the list and the declarations cannot
+    drift (README.md).
     These files exist so that what you see on the page and what comes out of
     a PDF export are the same thing: the exporter embeds these exact bytes,
     subset to the glyphs the deck actually uses.

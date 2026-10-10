@@ -44,7 +44,8 @@ var SlidesPresent = (function () {
     function layout() {
         if (!active || !stageEl) return;
         var vw = window.innerWidth, vh = window.innerHeight;
-        var sc = Math.min(vw / 960, vh / 540);
+        var sz = SlidesApp.slideSize();
+        var sc = Math.min(vw / sz[0], vh / sz[1]);
         stageEl.style.transform = "translate(-50%, -50%) scale(" + sc + ")";
         // transitions animate the transform, so they need the scale too
         stageEl.style.setProperty("--slp-sc", sc);
@@ -221,6 +222,7 @@ var SlidesPresent = (function () {
             return;
         }
         var doc = pw.document;
+        var sz = SlidesApp.slideSize();
         // base href so relative media links (media?file=...) keep working
         var cssLinks = '<base href="' + document.baseURI + '">';
         var sheets = document.querySelectorAll('link[rel="stylesheet"]');
@@ -233,10 +235,10 @@ var SlidesPresent = (function () {
             "body{background:#16181c;color:#e8eaed;font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:14px;overflow:hidden;}" +
             ".pv-row{display:flex;gap:14px;}" +
             ".pv-cur,.pv-next{position:relative;overflow:hidden;background:#000;border-radius:6px;}" +
-            ".pv-cur{width:576px;height:324px;}" +
-            ".pv-next{width:288px;height:162px;opacity:.85;}" +
+            ".pv-cur{width:" + (sz[0] * 0.6) + "px;height:" + (sz[1] * 0.6) + "px;}" +
+            ".pv-next{width:" + (sz[0] * 0.3) + "px;height:" + (sz[1] * 0.3) + "px;opacity:.85;}" +
             ".pv-cap{font-size:12px;color:#9aa0a6;margin:6px 0 4px;}" +
-            ".pv-stage{width:960px;height:540px;position:absolute;left:0;top:0;transform-origin:0 0;}" +
+            ".pv-stage{width:" + sz[0] + "px;height:" + sz[1] + "px;position:absolute;left:0;top:0;transform-origin:0 0;}" +
             ".pv-cur .pv-stage{transform:scale(.6);}" +
             ".pv-next .pv-stage{transform:scale(.3);}" +
             ".pv-notes{margin-top:12px;font-size:16px;line-height:1.5;white-space:pre-wrap;" +
@@ -381,14 +383,17 @@ var SlidesPresent = (function () {
 /* ================= export ================= */
 var SlidesExport = (function () {
 
-    /* Render one slide into an offscreen 960x540 element and rasterize it. */
+    /* Render one slide into an offscreen element of the deck's size and
+       rasterize it. */
     function rasterizeSlide(slide, scale) {
         return new Promise(function (resolve, reject) {
+            var sz = SlidesApp.slideSize();
+            var box = "width:" + sz[0] + "px;height:" + sz[1] + "px;";
             var holder = document.createElement("div");
-            holder.style.cssText = "position:fixed;left:-10000px;top:0;width:960px;height:540px;overflow:hidden;";
+            holder.style.cssText = "position:fixed;left:-10000px;top:0;" + box + "overflow:hidden;";
             var stage = document.createElement("div");
             stage.className = "sl-slidebase";
-            stage.style.cssText = "width:960px;height:540px;position:relative;overflow:hidden;";
+            stage.style.cssText = box + "position:relative;overflow:hidden;";
             holder.appendChild(stage);
             document.body.appendChild(holder);
             SlidesApp.renderSlideContent(stage, slide);

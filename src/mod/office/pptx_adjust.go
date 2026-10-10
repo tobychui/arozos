@@ -46,7 +46,9 @@ var calloutLegacy = map[string]struct{ tipX, tipY, body, round float64 }{
 func readShapeAdj(prst string, spPr *xnode) map[string]float64 {
 	def, ok := calloutDefaults[prst]
 	if !ok {
-		return nil
+		// any other preset: whatever guides it states, which the shapes the
+		// editor draws to PowerPoint's formulas read (slides_shapes.js)
+		return statedAdj(spPr)
 	}
 	out := map[string]float64{}
 	for k, v := range def {
@@ -114,4 +116,35 @@ func avLstXML(adj map[string]float64) string {
 	}
 	sb.WriteString(`</a:avLst>`)
 	return sb.String()
+}
+
+// statedAdj reads the <a:avLst> guides a preset geometry states, nil when
+// it states none (the shape then draws at its defaults)
+func statedAdj(spPr *xnode) map[string]float64 {
+	av := spPr.path("prstGeom", "avLst")
+	if av == nil {
+		return nil
+	}
+	var out map[string]float64
+	for _, gd := range av.all("gd") {
+		name := gd.attr("name")
+		v := strings.TrimPrefix(gd.attr("fmla"), "val ")
+		if name == "" || v == gd.attr("fmla") {
+			continue
+		}
+		if out == nil {
+			out = map[string]float64{}
+		}
+		out[name] = atofDefault(v, 0)
+	}
+	return out
+}
+
+// adjForKind is the adjustments to keep for a shape: only those of a preset
+// the editor draws as itself - a stand-in outline has other guides
+func adjForKind(prst, kind string, spPr *xnode) map[string]float64 {
+	if _, callout := calloutDefaults[prst]; !callout && kind != prst {
+		return nil
+	}
+	return readShapeAdj(prst, spPr)
 }

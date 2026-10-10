@@ -96,7 +96,7 @@ var OfficePdfDraw = (function () {
                     if (!r.ok) throw new Error("cannot read " + url);
                     return r.arrayBuffer();
                 }).then(function (buf) {
-                    return pdfDoc.embedFont(new Uint8Array(buf), { subset: true });
+                    return pdfDoc.embedFont(new Uint8Array(buf), { subset: true, features: { liga: false } });
                 });
             }
             fontCache[ref] = p.then(function (f) { fontReady[ref] = f; return f; }, function () {

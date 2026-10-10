@@ -4,12 +4,20 @@
     Body schema (what serialize() returns / deserialize() receives):
 
     {
-        size: [960, 540],              // fixed slide coordinate space (16:9)
+        size: [960, 540],              // slide coordinate space: 960 wide, as
+                                       // tall as the deck's shape (720 = 4:3)
         theme: "clean",                // key into THEMES
         slides: [
             {
                 id: "s-xxxx",
                 bg: "#rrggbb" | null,  // null = use theme background
+                bgImage: { src, x, y, w, h, tile, opacity },  // optional picture
+                                       // background, placed in slide px (may
+                                       // reach past the edges) or tiled
+                bgGrad: { kind: "linear"|"radial", angle, cx, cy,
+                          stops: [{ pos, color }] },          // optional gradient
+                                       // background; either one is drawn over
+                                       // bg and kept until a colour is chosen
                 notes: "speaker notes plain text",
                 transition: "none" | "fade" | "slide" | "zoom",   // entry transition
                 objects: [
@@ -28,13 +36,24 @@
                         //  image: { src, fit: "contain"|"cover"|"fill" }
                         //  shape: { kind: a SlidesShapes name, which is the
                         //                 PresentationML preset name -
-                        //                 "rect"|"roundRect"|"ellipse"|"rightBrace"|...
-                        //           fill, stroke, strokeW, text, textColor, fontSize, bold,
-                        //           adj: { adj1, adj2, ... } - a callout's tip (SlidesShapes) }
+                        //                 "rect"|"roundRect"|"ellipse"|"rightBrace"|...,
+                        //                 or "custom" with geom (an imported freeform:
+                        //                 { paths: [{ w, h, d, noFill, noStroke }] },
+                        //                 M/L/C/Z in each path's own w x h space)
+                        //           fill ("#rrggbb" or "#rrggbbaa"), fillGrad (as bgGrad),
+                        //           stroke, strokeW, text, textColor, fontSize, bold,
+                        //           adj: { adj1, adj2, ... } - a callout's tip, and the
+                        //                guides of the presets drawn to PowerPoint's
+                        //                formulas (chevron, arrows, ...; SlidesShapes) }
                         //  line : { stroke, strokeW, dashStyle, startHead, endHead }
                         //         (slides_lines.js; older documents say
                         //          dash / arrowEnd / arrowStart instead)
-                        //  table: { rows: [["a","b"],...], headerRow, colW?, rowH?, fontSize, color }
+                        //  table: { rows: [["a","b"],...], headerRow, colW?, rowH?, fontSize, color,
+                        //           merges?: [[row, col, rowSpan, colSpan], ...],
+                        //           cellAnchor?: [["", "middle", "bottom"], ...],
+                        //           styled? (an imported table style: its own fills,
+                        //           text and rules - stroke / strokeW - and no
+                        //           heading look from the editor) }
                         //  chart: { spec: <OfficeCharts spec> }
                         //  video: { src (data URL), autoplay }
                         //  audio: { src (data URL), autoplay }
@@ -58,7 +77,8 @@
     stylesheet. See "Imported-deck fidelity props" in common/CONTRACT.md:
       text / shape : fontFamily, valign, pad[t,r,b,l], lineHeight,
                      and on a shape, html (rich text in place of text)
-      image        : crop[l,t,r,b] fractions, radius, opacity
+      image        : crop[l,t,r,b] fractions, radius, opacity, and fill /
+                     fillGrad on the frame (seen through transparent parts)
       line         : points (a bent connector's polyline), arrowStart
       table        : cellFill[][], cellPad[t,r,b,l]
 
@@ -78,6 +98,12 @@ var SlidesApp = (function () {
     "use strict";
 
     /* ================= constants ================= */
+    /* The slide is 960 px wide; its height follows the deck's shape (540
+       for 16:9, 720 for a 4:3 deck from PowerPoint). Both are the current
+       deck's, set from body.size by setSlideSize() whenever a document
+       comes in, and published as --sl-w / --sl-h / --sl-ar so every slide
+       surface in slides.css - canvas, rail, overview, present, print -
+       takes the same shape. */
     var SLIDE_W = 960, SLIDE_H = 540;
     var GRID = 10;
     var GUIDE_TOL = 5;
@@ -179,7 +205,8 @@ var SlidesApp = (function () {
     }
     function curScale() { return fitScale * zoomPct / 100; }
     function contrastText(hex) {
-        var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+        // an imported fill may carry alpha as #rrggbbaa
+        var m = /^#?([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(String(hex || ""));
         if (!m) return "#ffffff";
         var n = parseInt(m[1], 16);
         var lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
@@ -226,18 +253,45 @@ var SlidesApp = (function () {
             s.objects.push(newTextObj("100%", 80, 160, 800, 140, 88, "center", textColor));
             s.objects.push(newTextObj("What it stands for", 80, 320, 800, 60, 18, "center", textColor));
         }
+        // the layouts are drawn for 960x540; a deck of another shape gets
+        // them spread over its own height
+        if (SLIDE_H !== 540) {
+            var ky = SLIDE_H / 540;
+            s.objects.forEach(function (o) {
+                o.y = Math.round(o.y * ky);
+                o.h = Math.round(o.h * ky);
+            });
+        }
         s.objects.forEach(function (o, i) { o.z = i + 1; });
         return s;
     }
     function defaultBody() {
+        setSlideSize(960, 540);
         var b = { size: [SLIDE_W, SLIDE_H], theme: "clean", slides: [] };
         body = b; // themeOf() needs it while building the first slide
         b.slides.push(newSlide("title"));
         return b;
     }
+    /* A deck states its own size: 960 wide and as tall as its shape (a
+       4:3 PowerPoint deck is 960x720). Anything odd falls back to 16:9. */
+    function sizeOf(b) {
+        var sz = b && b.size;
+        var w = sz && Number(sz[0]), h = sz && Number(sz[1]);
+        if (!(w >= 100 && w <= 4000 && h >= 100 && h <= 4000)) return [960, 540];
+        return [Math.round(w), Math.round(h)];
+    }
+    function setSlideSize(w, h) {
+        SLIDE_W = w;
+        SLIDE_H = h;
+        var root = document.documentElement.style;
+        root.setProperty("--sl-w", w + "px");
+        root.setProperty("--sl-h", h + "px");
+        root.setProperty("--sl-ar", w + " / " + h);
+    }
     function normalizeBody(b) {
         if (!b || typeof b !== "object") b = {};
-        b.size = [SLIDE_W, SLIDE_H];
+        b.size = sizeOf(b);
+        setSlideSize(b.size[0], b.size[1]);
         if (!THEMES[b.theme]) b.theme = "clean";
         if (!Array.isArray(b.slides) || b.slides.length === 0) {
             b.slides = [{ id: genId("s"), bg: null, notes: "", objects: [] }];
@@ -245,6 +299,9 @@ var SlidesApp = (function () {
         b.slides.forEach(function (s) {
             s.id = s.id || genId("s");
             s.bg = s.bg || null;
+            if (!s.bgImage || typeof s.bgImage !== "object" || !s.bgImage.src) delete s.bgImage;
+            if (!s.bgGrad || typeof s.bgGrad !== "object" || !Array.isArray(s.bgGrad.stops) ||
+                !s.bgGrad.stops.length) delete s.bgGrad;
             s.notes = typeof s.notes === "string" ? s.notes : "";
             if (typeof s.transition !== "string") s.transition = "none";
             if (!Array.isArray(s.objects)) s.objects = [];
@@ -264,6 +321,11 @@ var SlidesApp = (function () {
         });
         if (!Array.isArray(b.fonts)) delete b.fonts;
         installEmbeddedFonts(b.fonts);
+        // fonts the deck names that this machine lacks get a stand-in
+        // scaled to the original's width, so lines break where they did
+        // for the author; the faces it carries itself are left alone
+        OfficeFonts.substitute(OfficeFonts.familiesIn(JSON.stringify(b.slides)),
+            (b.fonts || []).map(function (f) { return f && f.family; }), { lines: "powerpoint" });
         return b;
     }
 
@@ -329,6 +391,9 @@ var SlidesApp = (function () {
     function imageHtml(p, w, h) {
         var imgS = "object-fit:" + esc(p.fit || "contain") + ";" + cropImgStyle(p.crop);
         var wrapS = "";
+        // a fill on the picture's frame, seen through its transparent parts
+        var under = p.fillGrad ? gradientCss(p.fillGrad) : (p.fill && p.fill !== "none" ? esc(p.fill) : "");
+        if (under) wrapS += "background:" + under + ";";
         if (p.radius) wrapS += "border-radius:" + (Number(p.radius) || 0) + "px;";
         if (p.opacity) wrapS += "opacity:" + clamp(Number(p.opacity) || 1, 0, 1) + ";";
         var clip = maskClipPath(p.mask);
@@ -365,7 +430,7 @@ var SlidesApp = (function () {
             if (f) imgS += "filter:" + f + ";";
         }
         var flip = (p.flipH ? "scaleX(-1) " : "") + (p.flipV ? "scaleY(-1)" : "");
-        if (flip) imgS += "transform:" + flip.trim() + ";";
+        if (flip) imgS += "transform:" + flip.trim() + ";" + flipOriginStyle(p.crop);
         return '<div class="sl-img-wrap" style="' + wrapS + '">' +
             '<img draggable="false" src="' + esc(p.src || "") +
             '" style="' + imgS + '" alt=""></div>' + outline;
@@ -383,6 +448,21 @@ var SlidesApp = (function () {
         return "position:absolute;object-fit:fill;" +
             "width:" + (100 / kw) + "%;height:" + (100 / kh) + "%;" +
             "left:" + (-l / kw * 100) + "%;top:" + (-t / kh * 100) + "%;";
+    }
+
+    /* A flip mirrors what the frame shows, about the frame's centre: that
+       is PowerPoint's order (crop the picture, then flip the result). A
+       cropped <img> is bigger than its frame and offset, so mirroring it
+       about its own centre would show the part the crop removed from the
+       opposite side - an off-centre crop then looks cut in the wrong
+       place. The frame's centre, in the picture's own box: */
+    function flipOriginStyle(c) {
+        if (!c || c.length !== 4) return "";
+        var l = Number(c[0]) || 0, t = Number(c[1]) || 0;
+        var kw = 1 - l - (Number(c[2]) || 0);
+        var kh = 1 - t - (Number(c[3]) || 0);
+        if (!(kw > 0.001) || !(kh > 0.001)) return "";
+        return "transform-origin:" + ((l + kw / 2) * 100) + "% " + ((t + kh / 2) * 100) + "%;";
     }
 
     /* A shaped crop ("mask image"): the picture is clipped to one of the
@@ -433,6 +513,13 @@ var SlidesApp = (function () {
             fill = "none";
         }
         var hasStroke = sw > 0 && stroke && stroke !== "none";
+        // an imported gradient fill is an SVG paint server of its own
+        var defs = "";
+        if (!open && p.fillGrad && p.fillGrad.stops && p.fillGrad.stops.length) {
+            var gid = "slg" + (++gradSeq);
+            defs = "<defs>" + svgGradient(p.fillGrad, w, h, gid) + "</defs>";
+            fill = "url(#" + gid + ")";
+        }
         var attrs = 'fill="' + esc(fill) + '"' +
             (SlidesShapes.evenOdd(kind) ? ' fill-rule="evenodd"' : "") +
             (hasStroke ? ' stroke="' + esc(stroke) + '" stroke-width="' + sw + '"' +
@@ -448,6 +535,17 @@ var SlidesApp = (function () {
                 '" rx="' + rx + '" ' + attrs + "/>";
         } else if (kind === "ellipse") {
             inner = '<ellipse cx="' + (w / 2) + '" cy="' + (h / 2) + '" rx="' + (w / 2 - i) + '" ry="' + (h / 2 - i) + '" ' + attrs + "/>";
+        } else if (kind === "custom" && p.geom) {
+            // an imported freeform: the filled paths, then any drawn only
+            // as an outline (a path the file says has no fill)
+            var cd = SlidesShapes.customPath(p.geom, w, h, "fill");
+            inner = cd ? '<path d="' + cd + '" ' + attrs + "/>" : "";
+            var od = (p.geom.paths || []).some(function (gp) { return gp.noFill; })
+                ? SlidesShapes.customPath({ paths: p.geom.paths.filter(function (gp) { return gp.noFill; }) }, w, h) : "";
+            if (od && hasStroke) {
+                inner += '<path d="' + od + '" fill="none" stroke="' + esc(stroke) + '" stroke-width="' + sw +
+                    '" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
+            }
         } else {
             var d = SlidesShapes.path(kind, w, h, p.adj);
             if (!d) d = SlidesShapes.path("rect", w, h);
@@ -464,7 +562,36 @@ var SlidesApp = (function () {
         // a stroke sits astride the outline, so half of it falls outside the
         // box - which is what PowerPoint draws too
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + " " + h +
-            '" preserveAspectRatio="none" style="overflow:visible">' + inner + "</svg>";
+            '" preserveAspectRatio="none" style="overflow:visible">' + defs + inner + "</svg>";
+    }
+
+    /* A gradient as an SVG paint server over a w x h box, laid out the way
+       CSS lays out the same gradient (gradientCss): a linear one along the
+       CSS gradient line, a radial one as "circle farthest-corner". The
+       PDF exporter paints from the same numbers. */
+    var gradSeq = 0;
+    function svgGradient(g, w, h, id) {
+        var stops = (g.stops || []).map(function (st) {
+            var c = String(st.color || "#000000");
+            var op = "";
+            var m = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(c);
+            if (m) { c = "#" + m[1]; op = ' stop-opacity="' + (parseInt(m[2], 16) / 255).toFixed(3) + '"'; }
+            return '<stop offset="' + clamp(Number(st.pos) || 0, 0, 1) + '" stop-color="' + esc(c) + '"' + op + "/>";
+        }).join("");
+        if (g.kind === "radial") {
+            var cx = (isFinite(Number(g.cx)) ? Number(g.cx) : 0.5) * w;
+            var cy = (isFinite(Number(g.cy)) ? Number(g.cy) : 0.5) * h;
+            var r = Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy),
+                Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy));
+            return '<radialGradient id="' + id + '" gradientUnits="userSpaceOnUse" cx="' + cx +
+                '" cy="' + cy + '" r="' + r + '">' + stops + "</radialGradient>";
+        }
+        var a = (Number(g.angle) || 0) * Math.PI / 180;
+        var dx = Math.sin(a), dy = -Math.cos(a);
+        var half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
+        return '<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' +
+            (w / 2 - dx * half) + '" y1="' + (h / 2 - dy * half) + '" x2="' + (w / 2 + dx * half) +
+            '" y2="' + (h / 2 + dy * half) + '">' + stops + "</linearGradient>";
     }
 
     function shapeTextDiv(o) {
@@ -543,8 +670,15 @@ var SlidesApp = (function () {
     /* Table cells store a limited HTML subset (so per-cell bold/color/font
        formatting survives edit mode). This sanitizer keeps only inline
        formatting produced by execCommand and strips everything else. */
-    var CELL_OK_TAGS = { B: 1, I: 1, U: 1, STRONG: 1, EM: 1, S: 1, STRIKE: 1, SPAN: 1, FONT: 1, BR: 1, SUB: 1, SUP: 1, A: 1 };
-    var CELL_OK_STYLES = ["font-size", "color", "font-family", "font-weight", "font-style", "text-decoration", "background-color"];
+    var CELL_OK_TAGS = { B: 1, I: 1, U: 1, STRONG: 1, EM: 1, S: 1, STRIKE: 1, SPAN: 1, FONT: 1, BR: 1, SUB: 1, SUP: 1, A: 1, DIV: 1 };
+    var CELL_OK_STYLES = ["font-size", "color", "font-family", "font-weight", "font-style", "text-decoration", "background-color",
+        "vertical-align", "line-height", "letter-spacing", "text-transform",
+        // an imported bullet marker is a positioned span (pptx_reader.go)
+        "position", "left", "top", "display", "width"];
+    // a paragraph in a cell (an imported table's, or one Enter made) keeps
+    // its alignment, spacing and indents
+    var CELL_BLOCK_STYLES = ["text-align", "line-height", "margin-top", "margin-bottom", "padding-left",
+        "padding-right", "text-indent", "font-size", "position", "top", "tab-size"];
     function sanitizeCellHtml(html) {
         if (html === undefined || html === null) return "";
         // parse in an inert DOMParser document: unlike innerHTML on a live
@@ -586,7 +720,8 @@ var SlidesApp = (function () {
                             var ci = decl.indexOf(":");
                             if (ci < 0) return;
                             var prop = decl.substring(0, ci).trim().toLowerCase();
-                            if (CELL_OK_STYLES.indexOf(prop) >= 0) kept.push(decl.trim());
+                            var okList = ch.tagName === "DIV" ? CELL_BLOCK_STYLES : CELL_OK_STYLES;
+                            if (okList.indexOf(prop) >= 0) kept.push(decl.trim());
                         });
                         if (kept.length) ch.setAttribute("style", kept.join(";"));
                         else ch.removeAttribute("style");
@@ -611,17 +746,41 @@ var SlidesApp = (function () {
             out += '<col style="width:' + wPct + '%">';
         }
         out += "</colgroup>";
-        // an imported table states its own cell shading and insets
+        // an imported table states its own cell shading and insets; one
+        // that came with a table style (p.styled) states its whole look,
+        // rules included, and gets no heading shading or weight from here
         var cellPad = padStyle(p.cellPad);
+        var rule = "";
+        if (p.styled) {
+            var rw = Number(p.strokeW) || 0;
+            rule = (!p.stroke || p.stroke === "none" || rw <= 0) ? "border:none;"
+                : "border:" + rw + "px solid " + esc(p.stroke) + ";";
+        }
+        // merged cells span; the cells under a merge are not drawn
+        var span = {}, covered = {};
+        (Array.isArray(p.merges) ? p.merges : []).forEach(function (m) {
+            var mr = Number(m[0]), mc = Number(m[1]), rs = Math.max(1, Number(m[2]) || 1), cs = Math.max(1, Number(m[3]) || 1);
+            if (!(mr >= 0 && mc >= 0) || covered[mr + ":" + mc]) return;
+            span[mr + ":" + mc] = [rs, cs];
+            for (var y = mr; y < mr + rs; y++) {
+                for (var x = mc; x < mc + cs; x++) if (y !== mr || x !== mc) covered[y + ":" + x] = true;
+            }
+        });
         rows.forEach(function (r, ri) {
             var isHead = p.headerRow && ri === 0;
             var trStyle = (p.rowH && p.rowH[ri] !== undefined) ? ' style="height:' + p.rowH[ri] + '%;"' : "";
-            out += '<tr class="' + (isHead ? "sl-thead" : "") + '"' + trStyle + ">";
+            out += '<tr class="' + (isHead && !p.styled ? "sl-thead" : "") + '"' + trStyle + ">";
             r.forEach(function (cell, ci) {
                 var bg = (p.cellFill && p.cellFill[ri]) ? p.cellFill[ri][ci] : "";
-                if (!bg && isHead) bg = headBg;
-                var tdStyle = cellPad + (bg ? "background:" + esc(bg) + ";" : "");
+                if (!bg && isHead && !p.styled) bg = headBg;
+                var va = (p.cellAnchor && p.cellAnchor[ri]) ? p.cellAnchor[ri][ci] : "";
+                var tdStyle = cellPad + rule + (bg ? "background:" + esc(bg) + ";" : "") +
+                    (va === "middle" || va === "bottom" ? "vertical-align:" + va + ";" : "");
+                if (covered[ri + ":" + ci]) return;
+                var sp = span[ri + ":" + ci];
                 out += '<td data-r="' + ri + '" data-c="' + ci + '"' +
+                    (sp && sp[0] > 1 ? ' rowspan="' + sp[0] + '"' : "") +
+                    (sp && sp[1] > 1 ? ' colspan="' + sp[1] + '"' : "") +
                     (tdStyle ? ' style="' + tdStyle + '"' : "") + ">" +
                     sanitizeCellHtml(cell) + "</td>";
             });
@@ -684,10 +843,56 @@ var SlidesApp = (function () {
         var th = themeOf();
         el.innerHTML = "";
         el.style.background = slide.bg || th.bg;
+        applyBgLayer(el, slide);
         el.style.color = th.text;
         (slide.objects || []).forEach(function (o, i) {
             el.appendChild(renderObjectEl(o, i));
         });
+    }
+
+    /* An imported slide may have a picture or a gradient for its
+       background (slide.bgImage / slide.bgGrad), drawn over its plain
+       colour. It is painted by the slide surface's ::before (slides.css,
+       .sl-hasbg) from two custom properties rather than by a child element,
+       so the surface's children stay exactly its objects, in order - the
+       PDF exporter and the hit testing both count on that. */
+    function gradientCss(g) {
+        if (!g || !Array.isArray(g.stops) || !g.stops.length) return "";
+        var stops = g.stops.map(function (st) {
+            return esc(String(st.color || "#000000")) + " " +
+                ((Number(st.pos) || 0) * 100).toFixed(2) + "%";
+        });
+        if (stops.length === 1) stops.push(stops[0]);
+        if (g.kind === "radial") {
+            var cx = Number(g.cx), cy = Number(g.cy);
+            return "radial-gradient(circle farthest-corner at " +
+                ((isFinite(cx) ? cx : 0.5) * 100) + "% " + ((isFinite(cy) ? cy : 0.5) * 100) + "%," +
+                stops.join(",") + ")";
+        }
+        return "linear-gradient(" + (Number(g.angle) || 0) + "deg," + stops.join(",") + ")";
+    }
+    function bgLayerCss(slide) {
+        var im = slide.bgImage;
+        if (im && im.src) {
+            var url = 'url("' + String(im.src).replace(/["\\\n]/g, "") + '")';
+            var w = Number(im.w) || SLIDE_W, h = Number(im.h) || SLIDE_H;
+            return url + " " + (Number(im.x) || 0) + "px " + (Number(im.y) || 0) + "px / " +
+                w + "px " + h + "px " + (im.tile ? "repeat" : "no-repeat");
+        }
+        return gradientCss(slide.bgGrad);
+    }
+    function applyBgLayer(el, slide) {
+        var css = bgLayerCss(slide);
+        el.classList.toggle("sl-hasbg", !!css);
+        if (!css) {
+            el.style.removeProperty("--sl-bgfill");
+            el.style.removeProperty("--sl-bgop");
+            return;
+        }
+        el.style.setProperty("--sl-bgfill", css);
+        var op = slide.bgImage && slide.bgImage.src ? Number(slide.bgImage.opacity) : 0;
+        if (op > 0 && op < 1) el.style.setProperty("--sl-bgop", op);
+        else el.style.removeProperty("--sl-bgop");
     }
 
     /* ================= rendering: editor ================= */
@@ -1013,7 +1218,7 @@ var SlidesApp = (function () {
 
     /* ================= rendering: rail / thumbnails ================= */
 
-    /* A preview is the whole slide at 960x540, shrunk by a transform. The
+    /* A preview is the whole slide at full size, shrunk by a transform. The
        box it has to fit inside is whatever the rail can spare once the
        scrollbar has taken its cut, which varies by platform - so measure it
        rather than assume it. Getting this wrong does not look like a wrong
@@ -2018,10 +2223,15 @@ var SlidesApp = (function () {
     /* ---------- slide background dialog ---------- */
     function bgDialog(i) {
         var slide = body.slides[i];
-        var initial = (slide.bg && /^#/.test(slide.bg)) ? slide.bg : "#ffffff";
+        // a picture or gradient brought in with the deck stays until the
+        // slide is given a colour (or the theme's background) instead
+        var fancy = !!(slide.bgImage || slide.bgGrad);
+        var initial = (slide.bg && /^#[0-9a-f]{6}/i.test(slide.bg)) ? slide.bg.substring(0, 7) : "#ffffff";
         var $b = $(
+            (fancy ? '<div class="sl-swatch-row"><input type="checkbox" id="slBgKeep" style="width:auto;" checked>' +
+                '<label for="slBgKeep" style="display:inline;margin:0;">Keep the picture / gradient background</label></div>' : "") +
             '<div class="sl-swatch-row"><input type="checkbox" id="slBgTheme" style="width:auto;"' +
-            (slide.bg ? "" : " checked") + ">" +
+            (slide.bg || fancy ? "" : " checked") + ">" +
             '<label for="slBgTheme" style="display:inline;margin:0;">Use theme background</label></div>' +
             '<div class="sl-swatch-row"><label style="display:inline;margin:0;">Custom color</label></div>'
         );
@@ -2029,7 +2239,10 @@ var SlidesApp = (function () {
             id: "slBgColor", title: "Slide background color", value: initial
         }).css({ width: "60px", height: "32px" }));
         $b.find("#slBgColor").on("input", function () {
-            $b.find("#slBgTheme").prop("checked", false);
+            $b.find("#slBgTheme, #slBgKeep").prop("checked", false);
+        });
+        $b.find("#slBgTheme").on("change", function () {
+            if (this.checked) $b.find("#slBgKeep").prop("checked", false);
         });
         OfficeApp.dialog({
             title: "Slide background",
@@ -2040,6 +2253,12 @@ var SlidesApp = (function () {
                     label: "Apply", primary: true,
                     action: function (close, $bd) {
                         var useTheme = $bd.find("#slBgTheme").prop("checked");
+                        if (fancy && $bd.find("#slBgKeep").prop("checked")) {
+                            close();
+                            return;
+                        }
+                        delete slide.bgImage;
+                        delete slide.bgGrad;
                         slide.bg = useTheme ? null : $bd.find("#slBgColor").val();
                         close();
                         if (i === cur) commit(); else { OfficeApp.markDirty(); undo.push(snap()); }
@@ -2117,6 +2336,10 @@ var SlidesApp = (function () {
         var row = [];
         for (var i = 0; i < cols; i++) row.push("");
         o.props.rows.splice(t.r + (after ? 1 : 0), 0, row);
+        if (Array.isArray(o.props.cellFill)) o.props.cellFill.splice(t.r + (after ? 1 : 0), 0, row.slice());
+        if (Array.isArray(o.props.cellAnchor)) o.props.cellAnchor.splice(t.r + (after ? 1 : 0), 0, row.slice());
+        // a merge cannot follow the grid through a new row or column
+        delete o.props.merges;
         delete o.props.rowH;
         o.h += Math.max(24, Math.round(o.h / Math.max(1, o.props.rows.length - 1)));
         commit();
@@ -2126,6 +2349,9 @@ var SlidesApp = (function () {
         var t = tableCellTarget(o);
         var rowH = Math.round(o.h / o.props.rows.length);
         o.props.rows.splice(t.r, 1);
+        if (Array.isArray(o.props.cellFill)) o.props.cellFill.splice(t.r, 1);
+        if (Array.isArray(o.props.cellAnchor)) o.props.cellAnchor.splice(t.r, 1);
+        delete o.props.merges;
         delete o.props.rowH;
         o.h = Math.max(30, o.h - rowH);
         lastCell = null;
@@ -2134,6 +2360,8 @@ var SlidesApp = (function () {
     function tableAddCol(o, after) {
         var t = tableCellTarget(o);
         o.props.rows.forEach(function (r) { r.splice(t.c + (after ? 1 : 0), 0, ""); });
+        (o.props.cellFill || []).concat(o.props.cellAnchor || []).forEach(function (r) { if (Array.isArray(r)) r.splice(t.c + (after ? 1 : 0), 0, ""); });
+        delete o.props.merges;
         delete o.props.colW;
         o.w = Math.min(940, o.w + Math.max(60, Math.round(o.w / Math.max(1, o.props.rows[0].length - 1))));
         commit();
@@ -2143,6 +2371,8 @@ var SlidesApp = (function () {
         var t = tableCellTarget(o);
         var colWpx = Math.round(o.w / o.props.rows[0].length);
         o.props.rows.forEach(function (r) { r.splice(t.c, 1); });
+        (o.props.cellFill || []).concat(o.props.cellAnchor || []).forEach(function (r) { if (Array.isArray(r)) r.splice(t.c, 1); });
+        delete o.props.merges;
         delete o.props.colW;
         o.w = Math.max(60, o.w - colWpx);
         lastCell = null;
@@ -4946,7 +5176,8 @@ var SlidesApp = (function () {
                 resetImage: resetImage,
                 setMask: setImageMask,
                 shapeKinds: MASK_KINDS,
-                slideSize: [SLIDE_W, SLIDE_H],
+                // read on use: the deck that is open decides the size
+                get slideSize() { return [SLIDE_W, SLIDE_H]; },
                 relayout: layoutCanvas
             });
         }
@@ -5137,6 +5368,7 @@ var SlidesApp = (function () {
     return {
         getBody: function () { return body; },
         getCurrentIndex: function () { return cur; },
+        slideSize: function () { return [SLIDE_W, SLIDE_H]; },
         renderSlideContent: renderSlideContent,
         themeOf: themeOf,
         slideCount: function () { return body ? body.slides.length : 0; }

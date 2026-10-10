@@ -229,9 +229,12 @@ Go structs are the source of truth — they mirror the JS exactly:
   `cf` is the sheet's conditional-format rules (below) — client-side only,
   so the Go structs do not model it.
 - **Slides** (`presentation`): [`office.go`](../../mod/office/office.go) —
-  `{size:[960,540], theme, slides[{id, bg, notes, objects[{type, x, y, w,
-  h, rot, z, props}]}]}`. Object types: `text`, `image`, `shape`, `line`,
-  `table`, `chart`, `video`, `audio`.
+  `{size:[960,540], theme, slides[{id, bg, bgImage, bgGrad, notes,
+  objects[{type, x, y, w, h, rot, z, props}]}]}`. Object types: `text`,
+  `image`, `shape`, `line`, `table`, `chart`, `video`, `audio`. `size` is
+  960 wide and as tall as the deck's shape - a 4:3 PowerPoint deck is
+  960x720, never squeezed into 16:9 (the editor, present mode and the PDF
+  exporter all take it from the deck; `setSlideSize()` in `slides.js`).
 
 ## Documents (.docx / .xlsx / .pptx)
 
@@ -516,6 +519,63 @@ too** — it no longer needs a backend. Rendering does not block the editor:
 File > Export puts a small progress panel in the corner of the canvas
 (`OfficeApp.showProgress`) and works from a snapshot of the deck, so
 carrying on editing cannot change the file that comes out.
+
+### Matching the reference renderings
+
+`/reference` at the repository root holds real decks and documents next to
+the PDF their own application made of them (PowerPoint's Print to PDF,
+Google Docs' export). The import and the editors were tuned against them by
+rendering each slide or page in the real editor (headless Chrome), cropping
+the PDF to the same box and diffing; for text, comparing baselines (PyMuPDF
+on the PDF, `Range.getClientRects()` on the DOM) finds a rule in minutes.
+What that turned up, and the code that now follows it:
+
+- **PowerPoint's single line is 1.2 em in every font**, and the baseline
+  sits at `1.2 × ascent / (ascent + descent)` of it. CSS centres the font's
+  ascent + descent instead, so under the PowerPoint line model
+  (`OfficeFonts.substitute(..., {lines: "powerpoint"})`) a font's ascent and
+  descent are restated to add up to 1.2 em; a paragraph at any other
+  spacing is moved by the constant difference that leaves
+  (`ascentRatio` in `pptx_fonts.go`, kept in step with `METRICS`).
+- **A missing font is replaced at its own width** (`OfficeFonts.substitute`,
+  see CONTRACT.md): Noto Sans is 16% wider than Calibri and 20% wider than
+  Garamond, which is what made imported text overflow its boxes. Calibri is
+  drawn in the shipped **Carlito**, its metric twin, so its lines break
+  where Office breaks them; a scaled look-alike only gets the average width
+  right. PowerPoint wraps exactly at the box's content edge (a PDF line that
+  seems to run past it ends in the trailing space) and draws no standard
+  ligatures, so neither do the editors nor the PDF exporter.
+- `normAutofit fontScale` is drawn as **whole points**: 20 pt at 92.5% is
+  19 pt (the reader rounds; the stored scale is only PowerPoint's cache).
+- A **percentage paragraph space** is of the line (1.2 × size), not the size;
+  `spcFirstLastPara` turns on the first paragraph's space before.
+- A **group's scale** sizes its children but never their type.
+- **Saving keeps the look**: `BuildPptx` writes picture frame fills,
+  `spcFirstLastPara` (the stored HTML states every paragraph's spacing as
+  drawn) and, for a table that came with a style, PowerPoint's built-in
+  "No Style, No Grid" id with the rules and fills on the cells - so a
+  re-import, or PowerPoint, draws what the editor showed.
+- **Symbol-font bullets** (Wingdings `l`, Symbol `·`) and **Symbol-font text**
+  come in as the Unicode characters they draw (`symbolBullet`,
+  `symbolText`), in characters the shipped faces carry; an auto-number is
+  never set in a symbol font.
+- **Tint and shade** work in linear light (a 40% tint of orange is peach,
+  not yellow).
+- **Backgrounds** (slide, layout, master, or the theme's `bgRef` styles) may
+  be pictures or gradients (`pptx_fill.go`); shapes and picture frames may
+  have gradient and translucent fills; a picture-filled shape is a picture
+  in that outline.
+- **Tables** follow their table style (`pptx_table.go`) and keep merged
+  cells and per-cell anchoring. **SmartArt** is read from the drawing
+  PowerPoint stores with it. **Custom geometry** is kept as its paths
+  (`pptx_custgeom.go`). **Office math** keeps PowerPoint's fallback picture
+  unless the formula is a line of symbols, which stays text.
+- Docs, against Google Docs: the paragraph mark's decoration stays off the
+  text; auto (HTML) spacing collapses between paragraphs and inside lists; a
+  footer stands on its last line, not that line's spacing-after; CJK text in
+  a Latin font gets proportional punctuation (`palt`); a page number with no
+  stored result is still a page number; a merged table cell crossing a page
+  cut is split with the table (`splitRowspans` in `docs_layout.js`).
 
 ### Slides: starting a slide
 

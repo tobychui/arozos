@@ -139,6 +139,25 @@ var SlidesShapes = (function () {
         return [[0, t], [hx, t], [hx, 0], [w, h / 2], [hx, h], [hx, h - t], [0, h - t]];
     }
     function mapPts(pts, fn) { return pts.map(fn); }
+
+    /* av reads one of a preset's adjustments (PresentationML's own name and
+       scale, 1/100000), its default when the shape states none. Presets
+       that follow PowerPoint's formulas size their features from ss, the
+       shorter side, as presetShapeDefinitions.xml does - so a long, flat
+       chevron keeps a shallow point instead of one a quarter of its width. */
+    function av(adj, name, def) {
+        var v = adj ? Number(adj[name]) : NaN;
+        return isFinite(v) ? v : def;
+    }
+    function pin(lo, v, hi) { return Math.max(lo, Math.min(hi, v)); }
+    // a block arrow pointing along +u, in a box len long and thick across
+    function arrowGeo(len, thick, ss, adj) {
+        var a1 = pin(0, av(adj, "adj1", 50000), 100000);
+        var a2 = pin(0, av(adj, "adj2", 50000), 100000 * len / ss);
+        var dy = thick * a1 / 200000, v1 = thick / 2 - dy, v2 = thick / 2 + dy;
+        var u1 = len - ss * a2 / 100000;
+        return [[0, v1], [u1, v1], [u1, 0], [len, thick / 2], [u1, thick], [u1, v2], [0, v2]];
+    }
     function rotPts(pts, w, h, quarter) {
         // quarter turns clockwise about the centre of a w x h box, with the
         // box itself turning too - so an arrow drawn right becomes one
@@ -220,7 +239,7 @@ var SlidesShapes = (function () {
         },
         triangle: {
             cat: "shape", label: "Triangle",
-            pts: function (w, h) { return [[w / 2, 0], [w, h], [0, h]]; }
+            pts: function (w, h, adj) { return [[w * pin(0, av(adj, "adj", 50000), 100000) / 100000, 0], [w, h], [0, h]]; }
         },
         rtTriangle: {
             cat: "shape", label: "Right triangle",
@@ -228,11 +247,19 @@ var SlidesShapes = (function () {
         },
         parallelogram: {
             cat: "shape", label: "Parallelogram",
-            pts: function (w, h) { return [[w * 0.25, 0], [w, 0], [w * 0.75, h], [0, h]]; }
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var x2 = ss * pin(0, av(adj, "adj", 25000), 100000 * w / ss) / 100000;
+                return [[x2, 0], [w, 0], [w - x2, h], [0, h]];
+            }
         },
         trapezoid: {
             cat: "shape", label: "Trapezoid",
-            pts: function (w, h) { return [[w * 0.25, 0], [w * 0.75, 0], [w, h], [0, h]]; }
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var x2 = ss * pin(0, av(adj, "adj", 25000), 50000 * w / ss) / 100000;
+                return [[x2, 0], [w - x2, 0], [w, h], [0, h]];
+            }
         },
         diamond: {
             cat: "shape", label: "Diamond",
@@ -244,9 +271,10 @@ var SlidesShapes = (function () {
         },
         hexagon: {
             cat: "shape", label: "Hexagon",
-            pts: function (w, h) {
-                return [[w * 0.25, 0], [w * 0.75, 0], [w, h / 2],
-                    [w * 0.75, h], [w * 0.25, h], [0, h / 2]];
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var x1 = ss * pin(0, av(adj, "adj", 25000), 50000 * w / ss) / 100000;
+                return [[x1, 0], [w - x1, 0], [w, h / 2], [w - x1, h], [x1, h], [0, h / 2]];
             }
         },
         heptagon: {
@@ -255,8 +283,8 @@ var SlidesShapes = (function () {
         },
         octagon: {
             cat: "shape", label: "Octagon",
-            pts: function (w, h) {
-                var s = Math.min(w, h) * 0.29;
+            pts: function (w, h, adj) {
+                var s = Math.min(w, h) * pin(0, av(adj, "adj", 29289), 50000) / 100000;
                 return [[s, 0], [w - s, 0], [w, s], [w, h - s],
                     [w - s, h], [s, h], [0, h - s], [0, s]];
             }
@@ -271,10 +299,11 @@ var SlidesShapes = (function () {
         },
         plus: {
             cat: "shape", label: "Cross",
-            pts: function (w, h) {
-                return [[w * 0.35, 0], [w * 0.65, 0], [w * 0.65, h * 0.35], [w, h * 0.35],
-                    [w, h * 0.65], [w * 0.65, h * 0.65], [w * 0.65, h], [w * 0.35, h],
-                    [w * 0.35, h * 0.65], [0, h * 0.65], [0, h * 0.35], [w * 0.35, h * 0.35]];
+            pts: function (w, h, adj) {
+                var x1 = Math.min(w, h) * pin(0, av(adj, "adj", 25000), 50000) / 100000;
+                var x2 = w - x1, y2 = h - x1;
+                return [[x1, 0], [x2, 0], [x2, x1], [w, x1], [w, y2], [x2, y2], [x2, h], [x1, h],
+                    [x1, y2], [0, y2], [0, x1], [x1, x1]];
             }
         },
         teardrop: {
@@ -331,8 +360,9 @@ var SlidesShapes = (function () {
         },
         can: {
             cat: "shape", label: "Cylinder",
-            path: function (w, h) {
-                var ry = Math.min(h * 0.18, w * 0.5);
+            path: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var ry = ss * pin(0, av(adj, "adj", 25000), 50000 * h / ss) / 200000;
                 var p = P();
                 p.M(0, ry).arc(w / 2, ry, w / 2, ry, Math.PI, Math.PI * 2)
                     .L(w, h - ry)
@@ -687,24 +717,32 @@ var SlidesShapes = (function () {
 
         rightArrow: {
             cat: "arrow", label: "Arrow: right",
-            pts: function (w, h) { return arrowPts(w, h, 0.38, 0.4); }
+            pts: function (w, h, adj) { return arrowGeo(w, h, Math.min(w, h), adj); }
         },
         leftArrow: {
             cat: "arrow", label: "Arrow: left",
-            pts: function (w, h) { return rotPts(arrowPts(w, h, 0.38, 0.4), w, h, 2); }
+            pts: function (w, h, adj) {
+                return arrowGeo(w, h, Math.min(w, h), adj).map(function (p) { return [w - p[0], p[1]]; });
+            }
         },
         upArrow: {
             cat: "arrow", label: "Arrow: up",
-            pts: function (w, h) { return rotPts(arrowPts(w, h, 0.38, 0.4), w, h, 3); }
+            pts: function (w, h, adj) {
+                return arrowGeo(h, w, Math.min(w, h), adj).map(function (p) { return [p[1], h - p[0]]; });
+            }
         },
         downArrow: {
             cat: "arrow", label: "Arrow: down",
-            pts: function (w, h) { return rotPts(arrowPts(w, h, 0.38, 0.4), w, h, 1); }
+            pts: function (w, h, adj) {
+                return arrowGeo(h, w, Math.min(w, h), adj).map(function (p) { return [p[1], p[0]]; });
+            }
         },
         leftRightArrow: {
             cat: "arrow", label: "Arrow: left-right",
-            pts: function (w, h) {
-                var t = h * 0.3, a = w * 0.25;
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var t = h / 2 - h * pin(0, av(adj, "adj1", 50000), 100000) / 200000;
+                var a = ss * pin(0, av(adj, "adj2", 50000), 50000 * w / ss) / 100000;
                 return [[0, h / 2], [a, 0], [a, t], [w - a, t], [w - a, 0], [w, h / 2],
                     [w - a, h], [w - a, h - t], [a, h - t], [a, h]];
             }
@@ -802,22 +840,29 @@ var SlidesShapes = (function () {
         },
         notchedRightArrow: {
             cat: "arrow", label: "Arrow: notched right",
-            pts: function (w, h) {
-                var hx = w * 0.62, t = h * 0.3;
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var dx2 = ss * pin(0, av(adj, "adj2", 50000), 100000 * w / ss) / 100000;
+                var dy1 = h * pin(0, av(adj, "adj1", 50000), 100000) / 200000;
+                var hx = w - dx2, t = h / 2 - dy1;
                 return [[0, t], [hx, t], [hx, 0], [w, h / 2], [hx, h], [hx, h - t],
-                    [0, h - t], [t * 0.6, h / 2]];
+                    [0, h - t], [dy1 * dx2 / (h / 2), h / 2]];
             }
         },
         chevron: {
             cat: "arrow", label: "Chevron",
-            pts: function (w, h) {
-                return [[0, 0], [w * 0.72, 0], [w, h / 2], [w * 0.72, h], [0, h], [w * 0.28, h / 2]];
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var x1 = ss * pin(0, av(adj, "adj", 50000), 100000 * w / ss) / 100000;
+                return [[0, 0], [w - x1, 0], [w, h / 2], [w - x1, h], [0, h], [x1, h / 2]];
             }
         },
         homePlate: {
             cat: "arrow", label: "Pentagon arrow",
-            pts: function (w, h) {
-                return [[0, 0], [w * 0.72, 0], [w, h / 2], [w * 0.72, h], [0, h]];
+            pts: function (w, h, adj) {
+                var ss = Math.min(w, h);
+                var x1 = w - ss * pin(0, av(adj, "adj", 50000), 100000 * w / ss) / 100000;
+                return [[0, 0], [x1, 0], [w, h / 2], [x1, h], [0, h]];
             }
         },
         curvedRightArrow: {
@@ -1388,8 +1433,32 @@ var SlidesShapes = (function () {
         var d = def(kind);
         if (!d) return "";
         if (adj && TIP_DEFAULTS[kind]) return adjustedPath(kind, w, h, adj);
-        if (d.pts) return P().poly(d.pts(w, h)).toString();
-        return d.path(w, h);
+        // presets that follow PowerPoint's formulas take the adjustments a
+        // deck states for them; the rest ignore the extra argument
+        if (d.pts) return P().poly(d.pts(w, h, adj)).toString();
+        return d.path(w, h, adj);
+    }
+
+    /* customPath draws a "custom" shape (an imported freeform, props.geom):
+       each path is stored in its own w x h space as M / L / C / Z, the same
+       vocabulary as the catalogue, and is stretched over the frame here. */
+    function customPath(geom, w, h, which) {
+        if (!geom || !Array.isArray(geom.paths)) return "";
+        var out = "";
+        geom.paths.forEach(function (gp) {
+            if (which === "fill" && gp.noFill) return;
+            if (which === "stroke" && gp.noStroke) return;
+            var kx = w / (Number(gp.w) || 1), ky = h / (Number(gp.h) || 1);
+            var re = /([MLCZ])([^MLCZ]*)/g, m;
+            while ((m = re.exec(String(gp.d || "")))) {
+                var nums = m[2].trim() ? m[2].trim().split(/[\s,]+/).map(Number) : [];
+                out += m[1];
+                for (var i = 0; i + 1 < nums.length; i += 2) {
+                    out += (i ? " " : "") + (nums[i] * kx).toFixed(2) + " " + (nums[i + 1] * ky).toFixed(2);
+                }
+            }
+        });
+        return out;
     }
 
     function detail(kind, w, h) {
@@ -1422,7 +1491,8 @@ var SlidesShapes = (function () {
             body + "</g></svg>";
     }
 
-    function evenOdd(kind) { var d = def(kind); return !!(d && d.evenOdd); }
+    // a freeform fills its inner subpaths as holes, as PowerPoint does
+    function evenOdd(kind) { if (kind === "custom") return true; var d = def(kind); return !!(d && d.evenOdd); }
 
     var CATEGORIES = [
         { id: "shape", label: "Shapes", icon: "square outline" },
@@ -1443,6 +1513,7 @@ var SlidesShapes = (function () {
         evenOdd: evenOdd,
         icon: icon,
         isOpen: function (kind) { var d = def(kind); return !!(d && d.open); },
+        customPath: customPath,
         points: points,
         path: path,
         // adjustments (see TIP_DEFAULTS): "tip" for the speech-bubble

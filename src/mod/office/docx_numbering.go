@@ -112,6 +112,25 @@ func parseNumLevel(lvl *xnode) *docxNumLevel {
 		l.indL, l.indHang, l.indFirst = p.indL, p.indHang, p.indFirst
 	}
 	l.rPr = parseRPr(lvl.first("rPr"))
+	// a bullet set in a symbol font (Symbol's U+F0B7, Wingdings' U+F0A7) is
+	// that font's code for a shape - on a machine without the font, a box.
+	// It comes in as the character it draws (pptx_text.go symbolBullet).
+	if l.fmt == "bullet" {
+		font := l.rPr.fontASCII
+		if font == "" {
+			font = l.rPr.fontEA
+		}
+		if uni, _, ok := symbolBullet(font, l.text); ok {
+			l.text = uni
+		} else if r := []rune(l.text); len(r) == 1 && r[0] >= 0xF020 && r[0] <= 0xF0FF {
+			// no font named: Symbol is the one Word means by default
+			if uni, _, ok := symbolBullet("Symbol", l.text); ok {
+				l.text = uni
+			} else if uni, _, ok := symbolBullet("Wingdings", l.text); ok {
+				l.text = uni
+			}
+		}
+	}
 	return l
 }
 
