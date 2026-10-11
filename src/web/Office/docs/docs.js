@@ -1586,6 +1586,13 @@
     }
 
     /* ================= links ================= */
+    // unwrap a link, keeping its text
+    function removeLink(a) {
+        if (!a || !a.parentNode) return;
+        while (a.firstChild) a.parentNode.insertBefore(a.firstChild, a);
+        a.parentNode.removeChild(a);
+        afterEdit(true);
+    }
     function linkDialog() {
         if (inHeaderFooter()) return;
         var existing = null;
@@ -1610,9 +1617,7 @@
                 label: "Remove link", danger: true,
                 action: function (close) {
                     close();
-                    while (existing.firstChild) existing.parentNode.insertBefore(existing.firstChild, existing);
-                    existing.parentNode.removeChild(existing);
-                    afterEdit(true);
+                    removeLink(existing);
                 }
             });
         }
@@ -5045,7 +5050,13 @@
             items.push({ label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { exec("underline"); } });
             items.push({ label: "Clear formatting", icon: "eraser", action: clearFormatting });
             items.push({ sep: true });
-            items.push({ label: "Insert link...", icon: "linkify", key: "Ctrl+K", action: linkDialog });
+            // on a link the link entry takes it off instead of adding one
+            var linkHit = e.target.closest ? e.target.closest("a[href]") : null;
+            if (linkHit && editor.contains(linkHit)) {
+                items.push({ label: "Remove link", icon: "unlinkify", action: function () { removeLink(linkHit); } });
+            } else {
+                items.push({ label: "Insert link...", icon: "linkify", key: "Ctrl+K", action: linkDialog });
+            }
             items.push({ label: "Insert page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak });
             items.push({ sep: true });
             items.push({ label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll });

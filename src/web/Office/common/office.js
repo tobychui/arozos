@@ -110,6 +110,10 @@ var OfficeApp = (function () {
     var draftTimer = null;
     var autosaveTimer = null;
     var loadedFromImport = false;
+    // the file a read-only import came from (a .doc opened in Docs): the
+    // title shows it until the document is saved somewhere of its own,
+    // while filename holds the name Save suggests in the app's format
+    var sourceName = null;
     // saving is asynchronous (the app prepares the document, then it
     // travels): one write at a time, and an edit made while it is under way
     // keeps the document dirty
@@ -219,6 +223,7 @@ var OfficeApp = (function () {
                 delete m._sessionAt;
                 delete m._origin;
                 meta = m;
+                sourceName = null;
                 if (origin && origin.fp) {
                     filepath = origin.fp;
                     filename = origin.fn;
@@ -277,7 +282,7 @@ var OfficeApp = (function () {
 
     /* ---------- title / status ---------- */
     function updateTitle() {
-        var name = openingName || filename || (cfg.defaultFileName + cfg.extension);
+        var name = openingName || (!filepath && sourceName) || filename || (cfg.defaultFileName + cfg.extension);
         var t = name + (dirty ? " •" : "") + " - " + cfg.appName;
         OfficePlatform.setWindowTitle(t);
         var $dn = $(".of-docname");
@@ -495,6 +500,7 @@ var OfficeApp = (function () {
         meta = env.meta || {};
         loadedFromImport = false;
         openingName = null;
+        sourceName = null;
         /*
             A template is a starting point, not a file the person is editing:
             the content loads but the document stays unattached, so Ctrl+S
@@ -535,12 +541,14 @@ var OfficeApp = (function () {
     function adoptImportedPath(fp, fn) {
         loadedFromImport = true;
         openingName = null;
+        sourceName = null;
         if (saveFormatFor(extOf(fn))) {
             filepath = fp;
             filename = fn;
         } else {
             filepath = null;   // read-only import: force Save As on save
             filename = stripExt(fn) + cfg.extension;
+            sourceName = fn;
         }
     }
     function importedStatus(fn) {
@@ -686,6 +694,7 @@ var OfficeApp = (function () {
         var go = function () {
             filepath = null;
             filename = null;
+            sourceName = null;
             meta = { createdAt: now(), revision: 0 };
             loadedFromImport = false;
             cfg.create();
