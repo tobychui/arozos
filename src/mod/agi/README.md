@@ -1270,7 +1270,9 @@ directly (all optional):
 
 The ArozOS Office suite's documents (`src/web/Office/`) and converters
 between its webapps and common office file formats. Backed by `mod/office`
-(pure Go, no external dependencies).
+(pure Go, no external dependencies), one package per format: `docx`, `xlsx`
+and `pptx` (OOXML import and export), `odf` (OpenDocument), `pdf`, and the
+import-only `doc`, `xls` and `ppt` for the Office 97-2003 binary formats.
 
 Docs, Sheets and Slides keep their documents in `.docx` / `.xlsx` / `.pptx`:
 the OOXML every office application reads, with the editor's own envelope
@@ -1305,7 +1307,12 @@ Open a `.docx` / `.xlsx` / `.pptx` as an editor envelope **JSON string**.
 When the file carries a current embedded envelope - the suite wrote it and
 nothing has changed it since - that is returned as saved; otherwise (a file
 from Word, Excel or PowerPoint, or one they have re-saved) the OOXML is
-imported and wrapped in a fresh envelope. Either way the document's media
+imported and wrapped in a fresh envelope. The Office 97-2003 files of the
+same kind (`.doc` / `.dot`, `.xls` / `.xlt`, `.ppt` / `.pot` / `.pps`) open
+here too: they are converted to OOXML first and then imported the same way.
+A legacy file is recognised by its content, so one that belongs to another
+app (a workbook named `.doc`) throws instead of opening as the wrong kind.
+Either way the document's media
 is written into `<workdirBase>/<doc-hash>/` and referenced by `media?file=`
 links, so the JSON stays small (the Office webapps use one folder per editor
 window, `tmp:/.appdata/Office/cache/<window>`, deleted when the window closes -
@@ -1399,8 +1406,8 @@ the body as a **JSON string**, or throws on failure. Handles values,
 formulas (recalculated by the webapp), shared/inline strings, cell styles,
 number formats, column widths / row heights, merged cells, frozen panes,
 charts, notes, conditional formats (the rule types the editor has), tab
-colours and the filter range. Pivot tables are skipped. Legacy binary
-`.xls` is rejected with a message asking for `.xlsx`.
+colours and the filter range. Pivot tables are skipped. A legacy binary
+`.xls` is refused here; read it with `office.xlsToWorkbook`.
 
 ```javascript
 requirelib("office");
@@ -1428,8 +1435,8 @@ heading/title styles, alignment, inline formatting (bold/italic/underline/
 strikethrough, color, size), hyperlinks, lists, tables, embedded images
 (inlined as `data:` URLs), header/footer text, footnotes, page geometry,
 comments (`body.comments`) and tracked changes (as the editor's suggestion
-marks). Text boxes are ignored. Legacy binary `.doc` is rejected with a
-message asking for `.docx`.
+marks). Text boxes are ignored. A legacy binary `.doc` is refused here;
+read it with `office.docToDocument`.
 
 ```javascript
 requirelib("office");
@@ -1509,6 +1516,68 @@ Returns `true` on success.
 requirelib("office");
 var bodyJson = office.odsToWorkbook("user:/Documents/report.ods");
 sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### Office 97-2003 files (`.doc`, `.xls`, `.ppt`)
+The legacy binary formats are **import only**: `mod/office/doc`, `xls` and
+`ppt` convert a Word, Excel or PowerPoint 97-2003 file (an OLE2 compound
+file) into the matching OOXML package, so a legacy file reads exactly as
+the `.docx` / `.xlsx` / `.pptx` Office would save from it. The suite never
+writes these formats; save the result as the app's own format. Encrypted
+(password protected) files and the pre-97 formats (Word 6/95, PowerPoint
+95) are refused; Excel 5/95 workbooks open with their values and styles.
+
+What carries over:
+
+- **Word**: paragraphs and runs with their direct and style formatting,
+  the style sheet, fonts, lists and numbering, tables (widths, merges,
+  borders, shading), sections and page geometry, headers and footers,
+  footnotes and endnotes, comments, tracked changes, bookmarks, fields
+  (hyperlinks, page numbers, TOC), symbols, inline and floating pictures
+  (WMF / EMF / PNG / JPEG / DIB / TIFF) and the text of text boxes (as
+  paragraphs after the one the box is anchored to). Drawn shapes without
+  a picture, OLE objects (beyond their preview picture) and macros are
+  not converted.
+- **Excel**: every sheet's values, formulas (decompiled from the binary
+  token form, shared and array formulas included), cell styles, number
+  formats, the exact cell and font colours, merges, column widths, row
+  heights, hidden rows and columns, frozen panes, hyperlinks (as
+  `HYPERLINK` formulas), notes, tab colours and defined names. Charts,
+  pictures, conditional formats, data validation and VBA are not
+  converted.
+- **PowerPoint**: slides, masters (background, decoration, colour scheme,
+  text styles), placeholders and text boxes with their paragraph and
+  character formatting and bullets, autoshapes (fills including gradients
+  and pictures, outlines, arrowheads, rotation, flips), freeforms, lines
+  and connectors, groups, cropped pictures, tables (as grouped cells),
+  speaker notes, hyperlinks, slide number fields and slide transitions.
+  Animations, sounds and movies are not converted.
+
+### `office.docToDocument(srcVpath)`
+Read a Word 97-2003 `.doc` (or `.dot`) and return the Docs body schema as
+a **JSON string** - the body a `.docx` of the same document gives.
+
+### `office.xlsToWorkbook(srcVpath)`
+Read an Excel 97-2003 `.xls` (or `.xlt`) and return the Sheets body schema
+as a **JSON string**.
+
+### `office.pptToPresentation(srcVpath)`
+Read a PowerPoint 97-2003 `.ppt` (or `.pot` / `.pps`) and return the
+Slides body schema as a **JSON string**.
+
+### `office.convertLegacy(srcVpath, destVpath)`
+Convert a `.doc` / `.xls` / `.ppt` into a real `.docx` / `.xlsx` / `.pptx`
+file at `destVpath` (no envelope is embedded: the result is a plain Office
+file). The kind is taken from the source's content, and `destVpath` must
+carry the matching extension (throws otherwise). Needs read access to the
+source and write access to the destination. Returns `true` on success.
+
+```javascript
+requirelib("office");
+if (office.convertLegacy("user:/Documents/old report.doc", "user:/Documents/old report.docx")){
+    sendResp("OK");
+}
+var bodyJson = office.xlsToWorkbook("user:/Documents/budget.xls");
 ```
 
 ### `office.documentToPdf(jsonStr, destVpath)`

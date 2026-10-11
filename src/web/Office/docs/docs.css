@@ -305,6 +305,50 @@ span.doc-tab[data-leader="underscore"]::after { top: 0.44em; border-top: 1px sol
     outline: 2px solid var(--of-accent);
     outline-offset: 1px;
 }
+/* Picture Format: the crop dialog and size & properties */
+.doc-crop { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.doc-crop-stage {
+    position: relative;
+    max-width: 100%;
+    background: repeating-conic-gradient(#d9dce0 0% 25%, #f4f5f7 0% 50%) 0 0 / 16px 16px;
+    user-select: none;
+    touch-action: none;
+}
+.doc-crop-img { display: block; pointer-events: none; opacity: 0.35; }
+.doc-crop-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid var(--of-accent);
+    cursor: move;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
+    background-repeat: no-repeat;   /* the kept part at full strength (cropPictureDialog) */
+}
+.doc-crop-h {
+    position: absolute;
+    width: 12px; height: 12px;
+    margin: -6px 0 0 -6px;
+    background: #fff;
+    border: 2px solid var(--of-accent);
+    border-radius: 2px;
+    box-sizing: border-box;
+}
+.doc-crop-h[data-h="n"]  { left: 50%;  top: 0;    cursor: ns-resize; }
+.doc-crop-h[data-h="s"]  { left: 50%;  top: 100%; cursor: ns-resize; }
+.doc-crop-h[data-h="e"]  { left: 100%; top: 50%;  cursor: ew-resize; }
+.doc-crop-h[data-h="w"]  { left: 0;    top: 50%;  cursor: ew-resize; }
+.doc-crop-h[data-h="ne"] { left: 100%; top: 0;    cursor: nesw-resize; }
+.doc-crop-h[data-h="sw"] { left: 0;    top: 100%; cursor: nesw-resize; }
+.doc-crop-h[data-h="nw"] { left: 0;    top: 0;    cursor: nwse-resize; }
+.doc-crop-h[data-h="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.doc-crop-fields { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.doc-crop-fields label { display: flex; flex-direction: column; font-size: 12px; gap: 2px; }
+.doc-crop-fields input { width: 72px; }
+.doc-picprops { display: flex; flex-direction: column; gap: 10px; min-width: min(340px, 80vw); }
+.doc-picprops label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.doc-picprops-row { display: flex; gap: 10px; }
+.doc-picprops-row label { flex: 1; }
+.doc-picprops label.doc-picprops-check { flex-direction: row; align-items: center; gap: 6px; }
+.doc-picprops textarea { resize: vertical; }
 .of-img-handle {
     position: fixed;
     width: 13px;

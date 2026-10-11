@@ -28,97 +28,20 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha1"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"html"
 	"io"
-	"net/url"
 	"path"
 	"regexp"
 	"sort"
 	"strings"
+
+	"imuslab.com/arozos/mod/office/internal/media"
 )
 
 const packedDocName = "document.json"
-
-var mimeToExt = map[string]string{
-	"image/png": "png", "image/jpeg": "jpeg", "image/jpg": "jpeg",
-	"image/gif": "gif", "image/webp": "webp", "image/bmp": "bmp",
-	"image/svg+xml": "svg", "image/x-icon": "ico",
-	"video/mp4": "mp4", "video/webm": "webm", "video/ogg": "ogv",
-	"audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/wav": "wav",
-	"audio/ogg": "ogg", "audio/flac": "flac", "audio/aac": "aac",
-}
-
-var extToMime = func() map[string]string {
-	m := map[string]string{}
-	for k, v := range mimeToExt {
-		if _, ok := m[v]; !ok {
-			m[v] = k
-		}
-	}
-	m["jpg"] = "image/jpeg"
-	m["bin"] = "application/octet-stream"
-	return m
-}()
-
-// parseAnyDataURL decodes any base64 data URL (images, video, audio, ...)
-func parseAnyDataURL(s string) ([]byte, string, bool) {
-	if !strings.HasPrefix(s, "data:") {
-		return nil, "", false
-	}
-	comma := strings.Index(s, ",")
-	if comma < 0 || comma > 256 {
-		return nil, "", false
-	}
-	header := s[5:comma]
-	if !strings.Contains(header, ";base64") {
-		return nil, "", false
-	}
-	mime := strings.SplitN(header, ";", 2)[0]
-	ext, ok := mimeToExt[strings.ToLower(mime)]
-	if !ok {
-		ext = "bin"
-	}
-	raw, err := base64.StdEncoding.DecodeString(s[comma+1:])
-	if err != nil {
-		return nil, "", false
-	}
-	return raw, ext, true
-}
-
-func dataURLOf(data []byte, ext string) string {
-	mime, ok := extToMime[strings.ToLower(ext)]
-	if !ok {
-		mime = "application/octet-stream"
-	}
-	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
-}
-
-// mediaLinkVpath extracts the virtual path from an in-app media link such
-// as "../media?file=user:/Photo/cat.png" (any number of leading ../ or ./)
-func mediaLinkVpath(s string) string {
-	t := s
-	for strings.HasPrefix(t, "../") || strings.HasPrefix(t, "./") {
-		t = strings.TrimPrefix(strings.TrimPrefix(t, "../"), "./")
-	}
-	t = strings.TrimPrefix(t, "/")
-	var q string
-	if strings.HasPrefix(t, "media?") {
-		q = t[len("media?"):]
-	} else if strings.HasPrefix(t, "media/download/?") {
-		q = t[len("media/download/?"):]
-	} else {
-		return ""
-	}
-	vals, err := url.ParseQuery(q)
-	if err != nil {
-		return ""
-	}
-	return vals.Get("file")
-}
 
 // htmlMediaAttrRe matches a src or poster attribute in an HTML fragment -
 // the places a Docs body keeps its pictures. href is deliberately left out:
@@ -136,7 +59,7 @@ func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) stri
 		sub := htmlMediaAttrRe.FindStringSubmatch(m)
 		quoted := sub[2]
 		quote := quoted[:1]
-		vp := mediaLinkVpath(html.UnescapeString(quoted[1 : len(quoted)-1]))
+		vp := media.LinkVpath(html.UnescapeString(quoted[1 : len(quoted)-1]))
 		if vp == "" {
 			return m
 		}
@@ -166,7 +89,7 @@ func embedHTMLDataURLs(s string, add func(data []byte, ext string) string) strin
 		sub := htmlDataAttrRe.FindStringSubmatch(m)
 		quoted := sub[2]
 		quote := quoted[:1]
-		data, ext, ok := parseAnyDataURL(html.UnescapeString(quoted[1 : len(quoted)-1]))
+		data, ext, ok := media.ParseAnyDataURL(html.UnescapeString(quoted[1 : len(quoted)-1]))
 		if !ok {
 			return m
 		}
@@ -198,18 +121,18 @@ func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (stri
 		data, err := readVpath(vp)
 		ext := ""
 		if err == nil {
-			ext = sniffImageExt(data)
+			ext = media.SniffImageExt(data)
 		}
 		if ext == "" {
 			done[vp] = ""
 			return "", false
 		}
-		d := encodeDataURL(data, ext)
+		d := media.EncodeDataURL(data, ext)
 		done[vp] = d
 		return d, true
 	}
 	root = transformStrings(root, func(s string) string {
-		if vp := mediaLinkVpath(s); vp != "" {
+		if vp := media.LinkVpath(s); vp != "" {
 			if d, ok := inline(vp); ok {
 				return d
 			}
@@ -221,7 +144,7 @@ func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (stri
 		return htmlMediaAttrRe.ReplaceAllStringFunc(s, func(m string) string {
 			sub := htmlMediaAttrRe.FindStringSubmatch(m)
 			quoted := sub[2]
-			vp := mediaLinkVpath(html.UnescapeString(quoted[1 : len(quoted)-1]))
+			vp := media.LinkVpath(html.UnescapeString(quoted[1 : len(quoted)-1]))
 			if vp == "" {
 				return m
 			}
@@ -388,10 +311,10 @@ func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)
 	}
 
 	root = transformStrings(root, func(s string) string {
-		if data, ext, ok := parseAnyDataURL(s); ok {
+		if data, ext, ok := media.ParseAnyDataURL(s); ok {
 			return "asset://" + add(data, ext)
 		}
-		if vp := mediaLinkVpath(s); vp != "" {
+		if vp := media.LinkVpath(s); vp != "" {
 			if name, ok := embedVpath(vp); ok {
 				return "asset://" + name
 			}
@@ -521,7 +444,7 @@ func UnpackEnvelope(data []byte) (string, error) {
 			if !ok {
 				return "", false
 			}
-			return dataURLOf(data, strings.TrimPrefix(path.Ext(name), ".")), true
+			return media.DataURLOf(data, strings.TrimPrefix(path.Ext(name), ".")), true
 		})
 	})
 	out, err := json.Marshal(root)

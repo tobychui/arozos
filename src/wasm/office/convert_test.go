@@ -15,6 +15,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -281,6 +282,39 @@ func TestNativeFileConverters(t *testing.T) {
 		wrong := strings.Replace(env, `"app":"`+c.app+`"`, `"app":"other"`, 1)
 		if _, _, err := RunExport(c.name, wrong); err == nil {
 			t.Errorf("%s accepted another app's envelope", c.name)
+		}
+	}
+}
+
+// The Office 97-2003 files open through both the explicit importers and
+// the app's own "<app>File" one
+func TestLegacyImporters(t *testing.T) {
+	cases := []struct {
+		file, importer, native, app, keep string
+	}{
+		{"../../mod/office/doc/testdata/features.doc", "docToDocument", "documentFile", "document", "ArozOS Legacy Import Test"},
+		{"../../mod/office/xls/testdata/workbook.xls", "xlsToWorkbook", "spreadsheetFile", "spreadsheet", "Merged across three columns"},
+		{"../../mod/office/ppt/testdata/deck.ppt", "pptToPresentation", "presentationFile", "presentation", "Speaker notes for slide two"},
+	}
+	for _, tc := range cases {
+		data, err := os.ReadFile(tc.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := RunImport(tc.importer, data)
+		if err != nil || !strings.Contains(body, tc.keep) {
+			t.Errorf("%s: %v, body lacks %q", tc.importer, err, tc.keep)
+		}
+		env, err := RunImport(tc.native, data)
+		if err != nil {
+			t.Errorf("%s(%s): %v", tc.native, tc.file, err)
+			continue
+		}
+		var e struct {
+			App string `json:"app"`
+		}
+		if json.Unmarshal([]byte(env), &e) != nil || e.App != tc.app || !strings.Contains(env, tc.keep) {
+			t.Errorf("%s gave a %q envelope without %q", tc.native, e.App, tc.keep)
 		}
 	}
 }

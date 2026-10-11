@@ -32,7 +32,7 @@
         doc-pagebreak (explicit page break block; exports as a real
         <w:br w:type="page"/> and is sized on screen by layoutPageBreaks).
       - The .docx keeps comments and suggestions as Word comments and
-        tracked changes (mod/office docx_review.go). Foreign exports
+        tracked changes (mod/office docx/review.go). Foreign exports
         (odt/html/md/txt) use resolvedHtml(): suggestions applied as if
         accepted, comment anchors unwrapped.
 */
@@ -291,6 +291,9 @@
             imgs[i].classList.remove("of-selimg");
             if (!imgs[i].getAttribute("class")) imgs[i].removeAttribute("class");
         }
+        // after every style change above: Firefox would drop it again
+        imgs = clone.querySelectorAll("img[data-crop]");
+        for (i = 0; i < imgs.length; i++) canonicalCrop(imgs[i]);
         clone.normalize();
         return clone.innerHTML;
     }
@@ -353,6 +356,7 @@
         closeFind();
         deselectImage();
         editor.innerHTML = sanitizeHtml(b.html || "<p><br></p>", { keepClasses: true }) || "<p><br></p>";
+        upgradeCrops(editor);
         normalizePageBreaks();
         hfContent.header = b.headerHtml ? sanitizeHtml(b.headerHtml, { keepClasses: true }) : esc(b.header || "");
         hfContent.footer = b.footerHtml ? sanitizeHtml(b.footerHtml, { keepClasses: true }) : esc(b.footer || "");
@@ -414,6 +418,7 @@
 
     /* after any user edit: dirty flag, counters, undo bookkeeping */
     function afterEdit(immediate) {
+        upgradeCrops(editor);
         OfficeApp.markDirty();
         scheduleCounts();
         scheduleToolbarState();
@@ -422,8 +427,14 @@
     }
 
     /* ================= editing commands ================= */
+    var PICTURE_ALIGN = { justifyLeft: "left", justifyCenter: "center", justifyRight: "right", justifyFull: "justify" };
     function exec(cmd, val) {
         if (inHeaderFooter()) return;   // header/footer are plain text only
+        // a selected picture is aligned as a picture (see alignPicture)
+        if (selectedImg && PICTURE_ALIGN[cmd] && editor.contains(selectedImg)) {
+            alignPicture(selectedImg, PICTURE_ALIGN[cmd]);
+            return;
+        }
         restoreSel();
         try {
             document.execCommand(cmd, false, val === undefined ? null : val);
@@ -780,17 +791,31 @@
 
         /* ---------- Home ---------- */
         var home = R.tab("home", "Home");
+        R.clipboardGroup(home, {
+            pasteMenu: function () {
+                return [
+                    { label: "Keep source formatting", icon: "paste", key: "Ctrl+V", action: function () { pasteFromMenu(false); } },
+                    { label: "Keep text only", icon: "file alternate outline", key: "Ctrl+Shift+V", action: function () { pasteFromMenu(true); } }
+                ];
+            },
+            copyMenu: function () {
+                return [
+                    { label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { menuCutCopy(false); } },
+                    { label: "Copy as plain text", icon: "file alternate outline", action: copyPlainText }
+                ];
+            },
+            painter: {
+                id: "docPainter", title: "Format Painter - click, then select the text to format (double-click to keep it on)",
+                active: function () { return !!painter; },
+                start: startPainter
+            }
+        });
         var font = home.group({ id: "font", label: "Font", icon: "font", priority: 9 });
         font.row([$fontSel, $sizeSel,
             B({ svg: "growFont", title: "Increase font size", key: "Ctrl+]", onClick: function () { stepFontSize(1); } }),
             B({ svg: "shrinkFont", title: "Decrease font size", key: "Ctrl+[", onClick: function () { stepFontSize(-1); } }),
             D({ svg: "changeCase", title: "Change case", mobile: false, menu: caseMenuItems }),
-            B({ svg: "clearFormat", title: "Clear formatting", onClick: clearFormatting }),
-            B({
-                svg: "formatPainter", title: "Format painter - click, then select the text to format (double-click to keep it on)", id: "docPainter",
-                active: function () { return !!painter; },
-                onClick: function () { startPainter(false); }
-            }).on("dblclick", function () { startPainter(true); })
+            B({ svg: "clearFormat", title: "Clear formatting", onClick: clearFormatting })
         ]);
         font.row([
             cmdBtn("bold", "Bold", "Ctrl+B", "bold"),
@@ -976,6 +1001,23 @@
                 svg: "darkTheme", label: "Dark theme", active: function () { return OfficeApp.isDark(); },
                 onClick: function () { OfficeApp.toggleTheme(); OfficeRibbon.refresh(); }
             }));
+
+        /* ---------- Picture Format (contextual) ---------- */
+        var pf = R.tab("pictureformat", "Picture Format", {
+            contextual: true,
+            when: function () { return !!selectedImg && editor.contains(selectedImg); }
+        });
+        pf.group({ id: "adjust", label: "Adjust", svg: "crop" })
+            .add(R.big({ svg: "crop", label: "Crop", onClick: function () { cropPictureDialog(selectedImg); } }))
+            .add(R.big({ svg: "resetPicture", label: "Reset picture", title: "Remove the crop and border and restore the original size", onClick: function () { resetPicture(selectedImg); } }));
+        pf.group({ id: "border", label: "Picture Border", svg: "outline" })
+            .add(R.colorButton({ id: "docImgBorder", big: true, svg: "outline", label: "Border", title: "Picture border", value: "#000000", allowNone: true, noneLabel: "No border", onPick: applyPictureBorderColor }))
+            .add(R.big({ svg: "lineWeight", label: "Weight", menu: pictureWeightItems }));
+        pf.group({ id: "arrange", label: "Arrange", svg: "arrange" })
+            .add(R.big({ svg: "wrapText", label: "Wrap text", menu: pictureWrapItems }))
+            .add(R.big({ svg: "alignObjects", label: "Align", menu: pictureAlignItems }));
+        pf.group({ id: "size", label: "Size", svg: "formatPane" })
+            .add(R.big({ svg: "formatPane", label: "Size & properties", onClick: function () { imageSizeDialog(selectedImg); } }));
     }
 
     /* ---------- Home: font ---------- */
@@ -1491,8 +1533,13 @@
             "insertUnorderedList", "insertOrderedList"];
         // by class rather than under #toolbar: a folded ribbon group shows
         // its buttons in a popup outside it
+        var picAlign = selectedImg && editor.contains(selectedImg) ? pictureAlign(selectedImg) : null;
         states.forEach(function (c) {
             var on = false;
+            if (picAlign && PICTURE_ALIGN[c]) {
+                $('.of-rb-btn[data-cmd="' + c + '"]').toggleClass("active", PICTURE_ALIGN[c] === picAlign);
+                return;
+            }
             try { on = document.queryCommandState(c); } catch (e) { }
             $('.of-rb-btn[data-cmd="' + c + '"]').toggleClass("active", !!on);
         });
@@ -1659,6 +1706,10 @@
         document.body.appendChild(imgHandle);
         positionImgHandle();
         imgHandle.addEventListener("pointerdown", startImgResize);
+        if (window.OfficeTextEditBar && OfficeTextEditBar.isVisible()) OfficeTextEditBar.hide();
+        // the Picture Format tab comes and goes with the selection
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
+        scheduleToolbarState();
     }
     function deselectImage() {
         if (selectedImg) {
@@ -1666,10 +1717,12 @@
             if (!selectedImg.getAttribute("class")) selectedImg.removeAttribute("class");
             selectedImg = null;
         }
+        var had = !!imgHandle;
         if (imgHandle) {
             if (imgHandle.parentNode) imgHandle.parentNode.removeChild(imgHandle);
             imgHandle = null;
         }
+        if (had && window.OfficeRibbon) OfficeRibbon.refresh();
     }
     function positionImgHandle() {
         if (!selectedImg || !imgHandle) return;
@@ -1684,49 +1737,511 @@
         var startX = e.clientX;
         var startW = selectedImg.getBoundingClientRect().width;   // visual px
         var z = (OfficeApp.getZoom() || 100) / 100;
+        // keep the frame's own shape: a cropped (or stretched) picture is
+        // not the shape of its source, which height:auto would bring back
+        var cs = window.getComputedStyle(selectedImg);
+        var cw = parseFloat(cs.width), ch = parseFloat(cs.height);
+        var ratio = cw > 0 && ch > 0 ? ch / cw : 0;
         function move(ev) {
             var w = Math.max(24, (startW + (ev.clientX - startX)) / z);
             selectedImg.style.width = Math.round(w) + "px";
-            selectedImg.style.height = "auto";
+            selectedImg.style.height = ratio ? Math.round(w * ratio) + "px" : "auto";
             positionImgHandle();
         }
+        var realign = keepPictureAlign(selectedImg);
         function up() {
             document.removeEventListener("pointermove", move);
             document.removeEventListener("pointerup", up);
             afterEdit(true);
+            realign();
         }
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);
     }
-    function imageSizeDialog(img) {
-        var curW = Math.round(img.getBoundingClientRect().width / ((OfficeApp.getZoom() || 100) / 100));
-        var $b = $("<div></div>");
-        $b.append("<label>Width (px)</label>");
-        var $w = $('<input type="number" min="16" max="4000" class="img-w">').val(curW);
-        $b.append($w);
-        $b.append('<p style="color:var(--of-fg-soft);font-size:12px;margin:8px 0 0;">Height follows automatically to keep the aspect ratio.</p>');
+    /* ================= picture format =================
+       What the Picture Format tab, the picture context menu and a double
+       click work with. Everything is stored the way the .docx reader and
+       writer already speak it, so it saves and reopens unchanged:
+         size     width / height on the img
+         crop     object-fit:fill + object-view-box:inset(t% r% b% l%)
+                  (DrawingML srcRect)
+         border   border:<w>pt solid <color> (the picture outline)
+         wrap     inline (no class), or img.doc-anchor: display:block (top
+                  and bottom, placed by margin-left) or float:left/right
+                  (square) - see the docx reader's anchor import */
+    function pictureZoom() { return (OfficeApp.getZoom() || 100) / 100; }
+    /* object-view-box is Chromium only: Firefox and Safari drop it from the
+       style, so there the crop lives in data-crop (the same inset() text)
+       and is painted as the picture's background instead - the picture's
+       own content is pushed out of its box. cleanedHtml turns it back into
+       object-view-box, so the saved document is the same in every browser. */
+    var NATIVE_CROP = !!(window.CSS && CSS.supports && CSS.supports("object-view-box", "inset(1%)"));
+    var CROP_PAINT_PROPS = ["object-fit", "object-position", "background-image", "background-repeat",
+        "background-origin", "background-clip", "background-size", "background-position"];
+    var INSET_RE = /inset\(\s*([-\d.]+)%?\s*([-\d.]+)?%?\s*([-\d.]+)?%?\s*([-\d.]+)?%?\s*\)/;
+    function rawViewBox(img) {
+        var m = /object-view-box\s*:\s*(inset\([^)]*\))/i.exec(img.getAttribute("style") || "");
+        return m ? m[1] : "";
+    }
+    function paintCropFallback(img, c) {
+        var w = 100 - c[1] - c[3], h = 100 - c[0] - c[2];
+        var f = function (v) { return Math.round(v * 1000) / 1000 + "%"; };
+        img.style.setProperty("object-fit", "none");
+        img.style.setProperty("object-position", "-100000px -100000px");
+        img.style.setProperty("background-image", 'url("' + String(img.src).replace(/"/g, "%22") + '")');
+        img.style.setProperty("background-repeat", "no-repeat");
+        img.style.setProperty("background-origin", "content-box");
+        img.style.setProperty("background-clip", "content-box");
+        img.style.setProperty("background-size", f(10000 / w) + " " + f(10000 / h));
+        img.style.setProperty("background-position",
+            f(c[1] + c[3] > 0 ? 100 * c[3] / (c[1] + c[3]) : 0) + " " +
+            f(c[0] + c[2] > 0 ? 100 * c[0] / (c[0] + c[2]) : 0));
+    }
+    // pictures loaded or pasted with an object-view-box crop the browser
+    // cannot show get the fallback painting
+    function upgradeCrops(root) {
+        if (NATIVE_CROP || !root) return;
+        var list = root.querySelectorAll('img[style*="object-view-box"]:not([data-crop])');
+        for (var i = 0; i < list.length; i++) {
+            var v = rawViewBox(list[i]);
+            if (!v) continue;
+            list[i].setAttribute("data-crop", v);
+            paintCropFallback(list[i], pictureCrop(list[i]));
+        }
+    }
+    // the saved form of a fallback-painted crop (on a copy of the picture)
+    function canonicalCrop(img) {
+        var v = img.getAttribute("data-crop");
+        if (v === null) return;
+        img.removeAttribute("data-crop");
+        CROP_PAINT_PROPS.forEach(function (p) { img.style.removeProperty(p); });
+        var st = (img.getAttribute("style") || "").replace(/\s*;?\s*$/, "");
+        img.setAttribute("style", (st ? st + "; " : "") + "object-fit: fill; object-view-box: " + v + ";");
+    }
+    function pictureCrop(img) {
+        var m = INSET_RE.exec(img.getAttribute("data-crop") ||
+            img.style.getPropertyValue("object-view-box") || rawViewBox(img));
+        if (!m) return [0, 0, 0, 0];
+        var t = parseFloat(m[1]) || 0;
+        var r = m[2] !== undefined ? parseFloat(m[2]) || 0 : t;
+        var b = m[3] !== undefined ? parseFloat(m[3]) || 0 : t;
+        var l = m[4] !== undefined ? parseFloat(m[4]) || 0 : r;
+        return [t, r, b, l];
+    }
+    function setPictureCrop(img, c) {
+        if (c[0] <= 0 && c[1] <= 0 && c[2] <= 0 && c[3] <= 0) {
+            img.style.removeProperty("object-view-box");
+            img.style.removeProperty("object-fit");
+            if (img.hasAttribute("data-crop")) {
+                img.removeAttribute("data-crop");
+                CROP_PAINT_PROPS.forEach(function (p) { img.style.removeProperty(p); });
+            }
+            return;
+        }
+        var f = function (v) { return Math.round(v * 1000) / 1000 + "%"; };
+        if (!NATIVE_CROP) {
+            img.setAttribute("data-crop", "inset(" + f(c[0]) + " " + f(c[1]) + " " + f(c[2]) + " " + f(c[3]) + ")");
+            paintCropFallback(img, c);
+            return;
+        }
+        img.style.setProperty("object-fit", "fill");
+        img.style.setProperty("object-view-box", "inset(" + f(c[0]) + " " + f(c[1]) + " " + f(c[2]) + " " + f(c[3]) + ")");
+    }
+    // the picture's wrapping: "inline", "top" (top and bottom), "left" or
+    // "right" (text flows round it)
+    function pictureWrap(img) {
+        if (!img.classList.contains("doc-anchor")) return "inline";
+        var fl = img.style.cssFloat || img.style.float;
+        return fl === "left" || fl === "right" ? fl : "top";
+    }
+    // the width the picture lays out in (layout px, unzoomed)
+    function pictureColumnWidth(img) {
+        var host = img.parentElement;
+        while (host && host !== editor && window.getComputedStyle(host).display.indexOf("inline") === 0) {
+            host = host.parentElement;
+        }
+        host = host || editor;
+        var cs = window.getComputedStyle(host);
+        return host.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    }
+    function pictureAlign(img) {
+        var wrap = pictureWrap(img);
+        if (wrap === "left" || wrap === "right") return wrap;
+        if (wrap === "top") {
+            // placed by its margin: compare it with the room beside it
+            var mlv = img.style.marginLeft || "";
+            var ml = (parseFloat(mlv) || 0) * (/pt$/.test(mlv) ? 4 / 3 : 1);
+            var free = pictureColumnWidth(img) - img.offsetWidth;
+            if (free <= 3) return "left";
+            if (Math.abs(ml - free / 2) < 3) return "center";
+            return ml >= free - 3 ? "right" : "left";
+        }
+        var blk = pictureBlock(img, false);
+        var ta = blk ? window.getComputedStyle(blk).textAlign : "left";
+        if (ta === "center") return "center";
+        if (ta === "right" || ta === "end") return "right";
+        return "left";
+    }
+    // the paragraph an inline picture sits in (made when create is set and
+    // the picture has none, e.g. one dropped straight into the body)
+    function pictureBlock(img, create) {
+        var n = img.parentElement;
+        while (n && n !== editor) {
+            if (/^(P|DIV|H[1-6]|LI|TD|TH|BLOCKQUOTE|PRE)$/.test(n.tagName)) return n;
+            n = n.parentElement;
+        }
+        if (!create) return null;
+        var p = document.createElement("p");
+        img.parentNode.insertBefore(p, img);
+        p.appendChild(img);
+        return p;
+    }
+    /* Align a picture. An inline one follows its paragraph's alignment; an
+       anchored one is its own box, which text-align cannot move (that was
+       the bug: Center wrote text-align onto the img and nothing happened),
+       so it is placed by its margin - the docx writer's horizontal offset -
+       or by the side it floats to. */
+    function alignPicture(img, how) {
+        if (!img) return;
+        var wrap = pictureWrap(img);
+        if (wrap === "inline") {
+            var blk = pictureBlock(img, true);
+            blk.style.textAlign = how === "justify" ? "left" : how;
+        } else if (wrap === "left" || wrap === "right") {
+            if (how === "center") {
+                setPictureWrap(img, "top");
+                alignPicture(img, "center");
+                return;
+            }
+            setPictureWrap(img, how === "right" ? "right" : "left");
+        } else {
+            var free = Math.max(0, pictureColumnWidth(img) - img.offsetWidth);
+            var x = how === "center" ? free / 2 : how === "right" ? free : 0;
+            if (x > 0) img.style.marginLeft = Math.round(x * 0.75 * 10) / 10 + "pt";
+            else img.style.removeProperty("margin-left");
+        }
+        positionImgHandle();
+        afterEdit(true);
+        OfficeRibbon.refresh();
+    }
+    function setPictureWrap(img, wrap) {
+        var s = img.style;
+        ["float", "display", "margin-left", "margin-right", "margin-top", "max-width"].forEach(function (p) {
+            s.removeProperty(p);
+        });
+        if (wrap === "inline") {
+            img.classList.remove("doc-anchor");
+        } else {
+            img.classList.add("doc-anchor");
+            s.maxWidth = "none";
+            if (wrap === "left" || wrap === "right") {
+                s.cssFloat = wrap;
+                s.marginLeft = "9pt";
+                s.marginRight = "9pt";
+            } else {
+                s.display = "block";
+            }
+        }
+    }
+    function applyPictureWrap(wrap) {
+        var img = selectedImg;
+        if (!img) return;
+        setPictureWrap(img, wrap);
+        positionImgHandle();
+        afterEdit(true);
+        OfficeRibbon.refresh();
+    }
+    function pictureBorder(img) {
+        var w = parseFloat(img.style.borderTopWidth) || 0;
+        if (!w || img.style.borderTopStyle === "none") return null;
+        var unitPt = /pt$/.test(img.style.borderTopWidth) ? 1 : 0.75;
+        return { w: Math.round(w * unitPt * 100) / 100, color: img.style.borderTopColor || "#000000" };
+    }
+    function setPictureBorder(img, w, color) {
+        if (!w || color === null) {
+            img.style.removeProperty("border");
+        } else {
+            img.style.border = w + "pt solid " + (color || "#000000");
+        }
+    }
+    function applyPictureBorderColor(c) {
+        var img = selectedImg;
+        if (!img) return;
+        var cur = pictureBorder(img);
+        setPictureBorder(img, c ? (cur ? cur.w : 1) : 0, c || null);
+        afterEdit(true);
+        positionImgHandle();
+    }
+    function pictureWeightItems() {
+        return [0.75, 1.5, 2.25, 3, 4.5, 6].map(function (w) {
+            return {
+                label: w + " pt", checked: function () { var b = selectedImg && pictureBorder(selectedImg); return !!b && Math.abs(b.w - w) < 0.01; },
+                action: function () {
+                    var img = selectedImg;
+                    if (!img) return;
+                    var cur = pictureBorder(img);
+                    setPictureBorder(img, w, cur ? img.style.borderTopColor : "#000000");
+                    afterEdit(true);
+                    positionImgHandle();
+                }
+            };
+        }).concat([{ sep: true }, {
+            label: "No border", action: function () {
+                if (!selectedImg) return;
+                setPictureBorder(selectedImg, 0);
+                afterEdit(true);
+            }
+        }]);
+    }
+    function pictureWrapItems() {
+        var opt = function (wrap, label, icon) {
+            return {
+                label: label, icon: icon,
+                checked: function () { return !!selectedImg && pictureWrap(selectedImg) === wrap; },
+                action: function () { applyPictureWrap(wrap); }
+            };
+        };
+        return [
+            opt("inline", "In line with text", "align left"),
+            opt("left", "Square, on the left", "indent"),
+            opt("right", "Square, on the right", "outdent"),
+            opt("top", "Top and bottom", "bars")
+        ];
+    }
+    function pictureAlignItems() {
+        var opt = function (how, label, icon) {
+            return {
+                label: label, icon: icon,
+                checked: function () { return !!selectedImg && pictureAlign(selectedImg) === how; },
+                action: function () { alignPicture(selectedImg, how); }
+            };
+        };
+        return [opt("left", "Align left", "align left"), opt("center", "Center", "align center"),
+            opt("right", "Align right", "align right")];
+    }
+    // Reset picture: no crop, no border, its own size (within the column)
+    function resetPicture(img) {
+        if (!img) return;
+        var realign = keepPictureAlign(img);
+        setPictureCrop(img, [0, 0, 0, 0]);
+        setPictureBorder(img, 0);
+        if (img.naturalWidth > 0) {
+            img.style.width = Math.round(img.naturalWidth * 0.75 * 10) / 10 + "pt";
+            img.style.height = Math.round(img.naturalHeight * 0.75 * 10) / 10 + "pt";
+        } else {
+            img.style.removeProperty("width");
+            img.style.removeProperty("height");
+        }
+        positionImgHandle();
+        afterEdit(true);
+        realign();
+    }
+    // an anchored picture is placed by its margin, so one centred or set
+    // right has to be placed again once its width changes
+    function keepPictureAlign(img) {
+        var al = pictureWrap(img) === "top" ? pictureAlign(img) : null;
+        return function () { if (al && al !== "left") alignPicture(img, al); };
+    }
+    function deleteSelectedPicture() {
+        var img = selectedImg;
+        if (!img) return;
+        deselectImage();
+        if (img.parentNode) img.parentNode.removeChild(img);
+        afterEdit(true);
+    }
+
+    /* Crop: the whole picture in a dialog, with the kept part as a box to
+       drag (by its edges, corners or middle) or to type in. The frame on
+       the page shrinks with the crop, as Word's does, so what is left keeps
+       its scale. */
+    function cropPictureDialog(img) {
+        if (!img) return;
+        var start = pictureCrop(img);
+        var crop = start.slice();
+        var $b = $('<div class="doc-crop"></div>');
+        var $stage = $('<div class="doc-crop-stage"></div>');
+        var $pic = $('<img class="doc-crop-img" alt="">').attr("src", img.src);
+        var $box = $('<div class="doc-crop-box"></div>');
+        ["n", "s", "e", "w", "ne", "nw", "se", "sw"].forEach(function (h) {
+            $box.append($('<span class="doc-crop-h"></span>').attr("data-h", h));
+        });
+        $stage.append($pic, $box);
+        var $fields = $('<div class="doc-crop-fields"></div>');
+        var names = ["Top", "Right", "Bottom", "Left"];
+        names.forEach(function (n, i) {
+            $fields.append($("<label></label>").text(n + " %").append(
+                $('<input type="number" min="0" max="95" step="0.5">').attr("data-i", i)));
+        });
+        $b.append($stage, $fields);
+        var W = 0, H = 0;
+        function layout() {
+            var nw = $pic[0].naturalWidth || 400, nh = $pic[0].naturalHeight || 300;
+            var k = Math.min(440 / nw, 320 / nh, 1.5);
+            W = Math.round(nw * k); H = Math.round(nh * k);
+            $stage.css({ width: W + "px", height: H + "px" });
+            $pic.css({ width: W + "px", height: H + "px" });
+            draw();
+        }
+        function draw() {
+            var bl = crop[3] * W / 100, bt = crop[0] * H / 100;
+            // the kept part shows at full strength: the picture as the box's
+            // background, shifted back by where the box sits (and its border)
+            $box.css({
+                left: bl + "px", top: bt + "px",
+                right: (crop[1] * W / 100) + "px", bottom: (crop[2] * H / 100) + "px",
+                backgroundImage: 'url("' + String(img.src).replace(/"/g, "%22") + '")',
+                backgroundSize: W + "px " + H + "px",
+                backgroundPosition: (-bl - 2) + "px " + (-bt - 2) + "px"
+            });
+            $fields.find("input").each(function () {
+                var i = +this.getAttribute("data-i");
+                if (document.activeElement !== this) this.value = Math.round(crop[i] * 10) / 10;
+            });
+        }
+        // keep at least 5% of the picture each way
+        function clampCrop() {
+            for (var i = 0; i < 4; i++) crop[i] = Math.max(0, Math.min(95, crop[i]));
+            if (crop[0] + crop[2] > 95) crop[2] = 95 - crop[0];
+            if (crop[1] + crop[3] > 95) crop[1] = 95 - crop[3];
+        }
+        $fields.on("input", "input", function () {
+            var v = parseFloat(this.value);
+            crop[+this.getAttribute("data-i")] = isNaN(v) ? 0 : v;
+            clampCrop();
+            draw();
+        });
+        $stage.on("pointerdown", function (e) {
+            var h = $(e.target).attr("data-h") || (e.target === $box[0] ? "move" : null);
+            if (!h) return;
+            e.preventDefault();
+            var sx = e.clientX, sy = e.clientY, c0 = crop.slice();
+            OfficeApp.beginDrag(e, {
+                cursor: window.getComputedStyle(e.target).cursor,
+                move: function (ev) {
+                    var dx = (ev.clientX - sx) * 100 / W, dy = (ev.clientY - sy) * 100 / H;
+                    crop = c0.slice();
+                    if (h === "move") {
+                        dx = Math.max(-c0[3], Math.min(c0[1], dx));
+                        dy = Math.max(-c0[0], Math.min(c0[2], dy));
+                        crop[3] = c0[3] + dx; crop[1] = c0[1] - dx;
+                        crop[0] = c0[0] + dy; crop[2] = c0[2] - dy;
+                    } else {
+                        if (h.indexOf("n") >= 0) crop[0] = c0[0] + dy;
+                        if (h.indexOf("s") >= 0) crop[2] = c0[2] - dy;
+                        if (h.indexOf("w") >= 0) crop[3] = c0[3] + dx;
+                        if (h.indexOf("e") >= 0) crop[1] = c0[1] - dx;
+                    }
+                    clampCrop();
+                    draw();
+                }
+            });
+        });
+        if ($pic[0].complete) setTimeout(layout, 0); else $pic.on("load", layout);
         OfficeApp.dialog({
-            title: "Image size",
+            title: "Crop picture",
             body: $b,
             buttons: [
                 { label: "Cancel" },
-                { label: "Reset", action: function (close) {
-                    close();
-                    img.style.width = "";
-                    img.style.height = "";
-                    afterEdit(true);
-                } },
-                { label: "Apply", primary: true, action: function (close, $body) {
-                    var w = parseInt($body.find(".img-w").val(), 10);
-                    close();
-                    if (w && w >= 16) {
-                        img.style.width = w + "px";
-                        img.style.height = "auto";
+                { label: "Reset", action: function () { crop = [0, 0, 0, 0]; draw(); } },
+                {
+                    label: "Crop", primary: true, action: function (close) {
+                        close();
+                        var realign = keepPictureAlign(img);
+                        // the frame keeps the picture's scale: it grows or
+                        // shrinks by the share of the picture now shown
+                        var r = img.getBoundingClientRect(), z = pictureZoom();
+                        var w = r.width / z, hgt = r.height / z;
+                        var oldW = (100 - start[1] - start[3]) / 100, oldH = (100 - start[0] - start[2]) / 100;
+                        var newW = (100 - crop[1] - crop[3]) / 100, newH = (100 - crop[0] - crop[2]) / 100;
+                        if (oldW > 0 && oldH > 0 && w > 0 && hgt > 0) {
+                            img.style.width = Math.round(w * newW / oldW * 0.75 * 10) / 10 + "pt";
+                            img.style.height = Math.round(hgt * newH / oldH * 0.75 * 10) / 10 + "pt";
+                        }
+                        setPictureCrop(img, crop);
+                        positionImgHandle();
                         afterEdit(true);
+                        realign();
                     }
-                } }
+                }
             ]
         });
+    }
+
+    /* Size & properties: width / height (aspect kept unless unlocked), the
+       wrapping, and the alt text screen readers and the .docx carry. */
+    function imageSizeDialog(img) {
+        if (!img) return;
+        var r = img.getBoundingClientRect(), z = pictureZoom();
+        var curW = Math.round(r.width / z * 0.75 * 10) / 10, curH = Math.round(r.height / z * 0.75 * 10) / 10;
+        var ratio = curW > 0 ? curH / curW : 0.75;
+        var $b = $('<div class="doc-picprops"></div>');
+        var $w = $('<input type="number" min="6" max="3000" step="0.5" class="img-w">').val(curW);
+        var $h = $('<input type="number" min="6" max="3000" step="0.5" class="img-h">').val(curH);
+        var $lock = $('<input type="checkbox" class="img-lock" checked>');
+        var $row = $('<div class="doc-picprops-row"></div>');
+        $row.append($("<label>Width (pt)</label>").append($w), $("<label>Height (pt)</label>").append($h));
+        $b.append($row);
+        $b.append($('<label class="doc-picprops-check"></label>').append($lock, " Keep the proportions"));
+        var $wrap = $('<select class="img-wrap"></select>');
+        pictureWrapItems().forEach(function (it, i) {
+            $wrap.append($("<option></option>").val(["inline", "left", "right", "top"][i]).text(it.label));
+        });
+        $wrap.val(pictureWrap(img));
+        $b.append($("<label>Text wrapping</label>").append($wrap));
+        var $alt = $('<textarea rows="2" class="img-alt" placeholder="Describe the picture for people who cannot see it"></textarea>')
+            .val(img.getAttribute("alt") || "");
+        $b.append($("<label>Alt text</label>").append($alt));
+        $w.on("input", function () { if ($lock.prop("checked")) $h.val(Math.round(this.value * ratio * 10) / 10); });
+        $h.on("input", function () { if ($lock.prop("checked") && ratio) $w.val(Math.round(this.value / ratio * 10) / 10); });
+        OfficeApp.dialog({
+            title: "Picture size & properties",
+            body: $b,
+            buttons: [
+                { label: "Cancel" },
+                {
+                    label: "Reset size", action: function (close) {
+                        close();
+                        if (img.naturalWidth > 0) {
+                            var c = pictureCrop(img);
+                            img.style.width = Math.round(img.naturalWidth * (100 - c[1] - c[3]) / 100 * 0.75 * 10) / 10 + "pt";
+                            img.style.height = Math.round(img.naturalHeight * (100 - c[0] - c[2]) / 100 * 0.75 * 10) / 10 + "pt";
+                        }
+                        positionImgHandle();
+                        afterEdit(true);
+                    }
+                },
+                {
+                    label: "Apply", primary: true, action: function (close, $body) {
+                        var w = parseFloat($body.find(".img-w").val());
+                        var h = parseFloat($body.find(".img-h").val());
+                        var wrap = $body.find(".img-wrap").val();
+                        var alt = $body.find(".img-alt").val().trim();
+                        close();
+                        var realign = keepPictureAlign(img);
+                        if (w >= 6 && h >= 6) {
+                            img.style.width = w + "pt";
+                            img.style.height = h + "pt";
+                        }
+                        if (alt) img.setAttribute("alt", alt); else img.removeAttribute("alt");
+                        if (wrap !== pictureWrap(img)) setPictureWrap(img, wrap);
+                        else realign();
+                        positionImgHandle();
+                        afterEdit(true);
+                        OfficeRibbon.refresh();
+                    }
+                }
+            ]
+        });
+    }
+    function pictureMenuItems(img) {
+        return [
+            { label: "Crop...", icon: "crop", action: function () { cropPictureDialog(img); } },
+            { label: "Size & properties...", icon: "expand", action: function () { imageSizeDialog(img); } },
+            { label: "Text wrapping", icon: "align left", sub: pictureWrapItems() },
+            { label: "Reset picture", icon: "undo", action: function () { resetPicture(img); } },
+            { sep: true },
+            { label: "Delete picture", icon: "trash alternate outline", action: deleteSelectedPicture }
+        ];
     }
 
     /* ================= tables ================= */
@@ -3420,6 +3935,7 @@
         if (!clone.getAttribute("class")) clone.removeAttribute("class");
         // absolute URL so the image also resolves outside this page
         try { clone.src = selectedImg.src; } catch (err) { }
+        canonicalCrop(clone);
         e.clipboardData.setData("text/html", clone.outerHTML);
         e.clipboardData.setData("text/plain", "");
         e.preventDefault();
@@ -3444,6 +3960,7 @@
             clone.classList.remove("of-selimg");
             if (!clone.getAttribute("class")) clone.removeAttribute("class");
             try { clone.src = selectedImg.src; } catch (e) { }
+            canonicalCrop(clone);
             OfficeClipboard.writeAsync({ html: clone.outerHTML, text: "" }).catch(function () { });
             if (isCut) {
                 var img = selectedImg;
@@ -3458,6 +3975,17 @@
         restoreSel();
         try { document.execCommand(isCut ? "cut" : "copy"); } catch (e) { }
         if (isCut) afterEdit(true);
+    }
+    // Home > Copy > Copy as plain text: the selected text without its formatting
+    function copyPlainText() {
+        restoreSel();
+        var s = window.getSelection ? window.getSelection().toString() : "";
+        if (!s) { OfficeApp.setStatus("Select some text to copy", "error"); return; }
+        OfficeClipboard.writeAsync({ text: s }).then(function () {
+            OfficeApp.setStatus("Copied as plain text");
+        }, function () {
+            OfficeApp.setStatus("Copy blocked by the browser - use Ctrl+C instead", "error");
+        });
     }
     function pasteFromMenu(plainOnly) {
         var fallbackText = function () {
@@ -4180,8 +4708,12 @@
         function selRect() {
             var sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+            // a selected picture is not text: right-clicking one makes the
+            // browser select the <img> node, which must not bring the bar up
+            if (selectedImg && editor.contains(selectedImg)) return null;
             var range = sel.getRangeAt(0);
             if (!editor.contains(range.commonAncestorContainer)) return null;
+            if (!/\S/.test(range.toString())) return null;
             var r = range.getBoundingClientRect();
             if (!r || (r.width === 0 && r.height === 0)) return null;
             return r;
@@ -4424,6 +4956,11 @@
         // editor context menu: table ops + multi-column region control
         editor.addEventListener("contextmenu", function (e) {
             var items = [];
+            if (e.target.tagName === "IMG" && editor.contains(e.target)) {
+                if (selectedImg !== e.target) selectImage(e.target);
+                items = items.concat(pictureMenuItems(e.target));
+                items.push({ sep: true });
+            }
             // review: accept/reject the suggestion under the pointer
             var sug = e.target.closest ? e.target.closest("ins.doc-ins, del.doc-del") : null;
             if (sug && editor.contains(sug)) {
@@ -4515,9 +5052,13 @@
             e.preventDefault();
             OfficeApp.showContextMenu(e.clientX, e.clientY, items);
         });
-        // deselect image when clicking anywhere else / typing starts elsewhere
+        // deselect image when clicking anywhere else / typing starts elsewhere;
+        // app chrome (ribbon, menus, dialogs, popups) keeps it selected, or
+        // the Picture Format tab would vanish under the click that opens it
         document.addEventListener("mousedown", function (e) {
-            if (selectedImg && e.target !== selectedImg && e.target !== imgHandle) {
+            if (selectedImg && e.target !== selectedImg && e.target !== imgHandle &&
+                    !$(e.target).closest(".of-ribbon, .of-rb-tab, .of-rb-popup, .of-rb-gpop, " +
+                        ".of-menubar, .of-context-menu, .of-float-menu, .of-cp-panel, .of-dialog-overlay").length) {
                 deselectImage();
             }
         });
@@ -4622,6 +5163,9 @@
                 ".html": function (text) { importHtml(text); },
                 ".htm": function (text) { importHtml(text); }
             },
+            // Word 97-2003 documents open by conversion (mod/office/doc),
+            // as imports: Save writes the app's own format
+            legacyExtensions: [".doc", ".dot"],
             binaryImporters: {
                 ".odt": importOdt
             },
@@ -4712,9 +5256,12 @@
         editor.addEventListener("mouseup", function () {
             if (painter) setTimeout(applyPainter, 0);
         });
-        // a phone shows the page fitted to its width (not saved as the zoom)
+        // a phone shows the page fitted to its width (not saved as the zoom);
+        // a narrow desktop window (the float window opens small) keeps 100%
+        var onPhone = Math.min(window.screen.width || 9999, window.screen.height || 9999) < 768 &&
+            !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
         var fitNarrow = function () {
-            if (OfficeRibbon.isNarrow()) fitPageWidth(true);
+            if (onPhone && OfficeRibbon.isNarrow()) fitPageWidth(true);
         };
         setTimeout(fitNarrow, 60);
         var fitTimer = null;

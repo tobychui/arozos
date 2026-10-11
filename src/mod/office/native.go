@@ -44,6 +44,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/office/docx"
+	"imuslab.com/arozos/mod/office/internal/media"
+	"imuslab.com/arozos/mod/office/internal/xmltree"
+	"imuslab.com/arozos/mod/office/model"
+	"imuslab.com/arozos/mod/office/pptx"
+	"imuslab.com/arozos/mod/office/xlsx"
 )
 
 // The three document kinds, as the envelope's "app" field names them
@@ -163,24 +170,24 @@ func BuildNativeFile(app, envelope string, readVpath func(string) ([]byte, error
 func buildOOXML(app, body string, readVpath func(string) ([]byte, error)) ([]byte, error) {
 	switch app {
 	case AppDocument:
-		doc, err := ParseDocumentJSON(body)
+		doc, err := model.ParseDocumentJSON(body)
 		if err != nil {
 			return nil, err
 		}
-		return BuildDocxMedia(doc, readVpath)
+		return docx.BuildMedia(doc, readVpath)
 	case AppSpreadsheet:
-		wb, err := ParseWorkbookJSON(body)
+		wb, err := model.ParseWorkbookJSON(body)
 		if err != nil {
 			return nil, err
 		}
-		return BuildXlsx(wb)
+		return xlsx.Build(wb)
 	case AppPresentation:
-		p, err := ParsePresentationJSON(body)
+		p, err := model.ParsePresentationJSON(body)
 		if err != nil {
 			return nil, err
 		}
 		// no sidecar: video and audio travel inside the embedded copy
-		return buildPptx(p, readVpath, false)
+		return pptx.BuildPackage(p, readVpath, false)
 	}
 	return nil, errors.New("unknown document kind: " + app)
 }
@@ -239,7 +246,7 @@ func embedEnvelope(pkg []byte, app, envelope string, readVpath func(string) ([]b
 	ownNames := sortedKeys(own)
 	for i, name := range ownNames {
 		rels.WriteString(`<Relationship Id="rId` + strconv.Itoa(i+2) + `" Type="` + nativeRelAsset +
-			`" Target="assets/` + xmlEscape(name) + `"/>`)
+			`" Target="assets/` + xmltree.Escape(name) + `"/>`)
 	}
 	rels.WriteString(`</Relationships>`)
 
@@ -247,11 +254,11 @@ func embedEnvelope(pkg []byte, app, envelope string, readVpath func(string) ([]b
 	ct.WriteString(`<Override PartName="/` + nativeDocPart + `" ContentType="application/json"/>`)
 	ct.WriteString(`<Override PartName="/` + nativeManifestPart + `" ContentType="application/json"/>`)
 	for _, name := range ownNames {
-		mime, ok := extToMime[strings.TrimPrefix(path.Ext(name), ".")]
+		mime, ok := media.ExtToMime[strings.TrimPrefix(path.Ext(name), ".")]
 		if !ok {
 			mime = "application/octet-stream"
 		}
-		ct.WriteString(`<Override PartName="/` + nativeAssetDir + xmlEscape(name) + `" ContentType="` + mime + `"/>`)
+		ct.WriteString(`<Override PartName="/` + nativeAssetDir + xmltree.Escape(name) + `" ContentType="` + mime + `"/>`)
 	}
 	rootRel := `<Relationship Id="` + nativeRootRelID + `" Type="` + nativeRelDocument + `" Target="` + nativeDocPart + `"/>`
 
@@ -341,10 +348,23 @@ ReadNativeFile opens one of the app's Office files as an editor envelope.
 A file the suite wrote itself, and nobody has changed since, gives back the
 embedded document exactly; anything else - a file from Word, Excel or
 PowerPoint, or one of ours they have edited - is imported from its OOXML.
+The app's legacy binary format (.doc / .xls / .ppt) is accepted too: it is
+converted into OOXML first (formats.go).
 */
 func ReadNativeFile(app string, data []byte, sink AssetSink) (string, error) {
 	if ExtForApp(app) == "" {
 		return "", errors.New("unknown document kind: " + app)
+	}
+	// an Office 97-2003 file of the same kind is converted and imported
+	if legacy := LegacyApp(data); legacy != "" {
+		if legacy != app {
+			return "", errors.New("this " + legacyKind(legacy) + " does not open as a " + app)
+		}
+		_, converted, err := ConvertLegacy(data)
+		if err != nil {
+			return "", err
+		}
+		data = converted
 	}
 	if len(data) < 4 || data[0] != 'P' || data[1] != 'K' {
 		return "", errors.New("not a valid " + ExtForApp(app) + " file")
@@ -391,23 +411,23 @@ func HasEmbeddedDocument(app string, data []byte) bool {
 func importOOXML(app string, data []byte) (string, error) {
 	switch app {
 	case AppDocument:
-		doc, err := ParseDocx(data)
+		doc, err := docx.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return DocumentToJSON(doc)
+		return model.DocumentToJSON(doc)
 	case AppSpreadsheet:
-		wb, err := ParseXlsx(data)
+		wb, err := xlsx.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return WorkbookToJSON(wb)
+		return model.WorkbookToJSON(wb)
 	case AppPresentation:
-		p, err := ParsePptx(data)
+		p, err := pptx.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return PresentationToJSON(p)
+		return model.PresentationToJSON(p)
 	}
 	return "", errors.New("unknown document kind: " + app)
 }
@@ -469,7 +489,7 @@ func embeddedEnvelope(app string, parts map[string][]byte, sink AssetSink) (stri
 		}
 		var s string
 		if sink == nil {
-			s = dataURLOf(data, strings.TrimPrefix(path.Ext(name), "."))
+			s = media.DataURLOf(data, strings.TrimPrefix(path.Ext(name), "."))
 		} else {
 			var err error
 			if s, err = sink(name, data); err != nil {
@@ -514,7 +534,7 @@ func externalizeDataURLs(body string, sink AssetSink) (string, error) {
 		if l, ok := done[s]; ok {
 			return l, true
 		}
-		data, ext, ok := parseAnyDataURL(s)
+		data, ext, ok := media.ParseAnyDataURL(s)
 		if !ok || ext == "bin" {
 			return "", false
 		}

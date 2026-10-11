@@ -18,6 +18,15 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office"
+	"imuslab.com/arozos/mod/office/doc"
+	"imuslab.com/arozos/mod/office/docx"
+	"imuslab.com/arozos/mod/office/model"
+	"imuslab.com/arozos/mod/office/odf"
+	"imuslab.com/arozos/mod/office/pdf"
+	"imuslab.com/arozos/mod/office/ppt"
+	"imuslab.com/arozos/mod/office/pptx"
+	"imuslab.com/arozos/mod/office/xls"
+	"imuslab.com/arozos/mod/office/xlsx"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -38,7 +47,9 @@ import (
 	    office.loadDocument(srcVpath, workdirBase)    => envelope JSON string: the embedded
 	                                                     copy when current, else an import;
 	                                                     media extracted to a per-document
-	                                                     working dir and linked
+	                                                     working dir and linked. Also opens
+	                                                     the legacy .doc / .xls / .ppt files
+	                                                     (converted to OOXML first)
 	    office.readPayload(vpath)                     => the text of an uploaded payload file,
 	                                                     gunzipped when it is gzip
 	    office.touchWorkdir(vpath, ...)               => keep an editor window's working
@@ -70,7 +81,14 @@ import (
 	    office.documentToPdf(jsonStr, destVpath)      => true on success (real-text PDF)
 	    office.workbookPrintToPdf(printJson, destVpath) => true on success (client print model)
 
-	Legacy binary formats (.ppt / .xls / .doc) are not supported.
+	Legacy binary formats (Office 97-2003), import only - mod/office/doc,
+	xls and ppt convert them into OOXML:
+	    office.docToDocument(srcVpath)                => JSON body string (Docs schema)
+	    office.xlsToWorkbook(srcVpath)                => JSON body string (Sheets schema)
+	    office.pptToPresentation(srcVpath)            => JSON body string (Slides schema)
+	    office.convertLegacy(srcVpath, destVpath)     => true on success: writes the .doc /
+	                                                     .xls / .ppt as the .docx / .xlsx /
+	                                                     .pptx destVpath names
 
 	Author: tobychui
 */
@@ -211,9 +229,10 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		if !u.CanWrite(workdirBase) {
 			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+workdirBase))
 		}
-		app := office.AppForExt(filepath.Ext(srcVpath))
+		// the app's own format, or its Office 97-2003 one (converted on read)
+		app := office.AppForFile(filepath.Ext(srcVpath))
 		if app == "" {
-			panic(vm.MakeCustomError("UnsupportedFormat", "not a .docx, .xlsx or .pptx file: "+srcVpath))
+			panic(vm.MakeCustomError("UnsupportedFormat", "not a Word, Excel or PowerPoint file: "+srcVpath))
 		}
 		data, err := readIn(srcVpath)
 		if err != nil {
@@ -328,12 +347,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			return otto.NullValue()
 		}
 
-		pres, err := office.ParsePptx(data)
+		pres, err := pptx.Parse(data)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
-		jsonBody, err := office.PresentationToJSON(pres)
+		jsonBody, err := model.PresentationToJSON(pres)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
@@ -361,14 +380,14 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
 		}
 
-		pres, err := office.ParsePresentationJSON(jsonStr)
+		pres, err := model.ParsePresentationJSON(jsonStr)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		// media?file= links (pictures, video, audio) are read here, so their
 		// bytes never ride the JSON payload
-		data, mediaZip, err := office.BuildPptxMedia(pres, readVpath)
+		data, mediaZip, err := pptx.BuildMedia(pres, readVpath)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -443,12 +462,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			return otto.NullValue()
 		}
 
-		wb, err := office.ParseXlsx(data)
+		wb, err := xlsx.Parse(data)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
-		jsonBody, err := office.WorkbookToJSON(wb)
+		jsonBody, err := model.WorkbookToJSON(wb)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
@@ -476,12 +495,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
 		}
 
-		wb, err := office.ParseWorkbookJSON(jsonStr)
+		wb, err := model.ParseWorkbookJSON(jsonStr)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
-		data, err := office.BuildXlsx(wb)
+		data, err := xlsx.Build(wb)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -533,12 +552,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			return otto.NullValue()
 		}
 
-		doc, err := office.ParseDocx(data)
+		doc, err := docx.Parse(data)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
-		jsonBody, err := office.DocumentToJSON(doc)
+		jsonBody, err := model.DocumentToJSON(doc)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
@@ -566,12 +585,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
 		}
 
-		doc, err := office.ParseDocumentJSON(jsonStr)
+		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
-		data, err := office.BuildDocxMedia(doc, readVpath)
+		data, err := docx.BuildMedia(doc, readVpath)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -783,12 +802,83 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			return reply
 		})
 	}
-	registerOdfImport("_office_odtToDocument", func(data []byte) (string, error) {
-		doc, err := office.ParseOdt(data)
+	/* ---------- Office 97-2003 imports (mod/office/doc, xls, ppt) ----------
+	   Each converts the legacy file into OOXML and reads that, so the body
+	   is what the matching .docx / .xlsx / .pptx import would give. */
+	registerOdfImport("_office_docToDocument", func(data []byte) (string, error) {
+		d, err := doc.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return office.DocumentToJSON(doc)
+		return model.DocumentToJSON(d)
+	})
+	registerOdfImport("_office_xlsToWorkbook", func(data []byte) (string, error) {
+		wb, err := xls.Parse(data)
+		if err != nil {
+			return "", err
+		}
+		return model.WorkbookToJSON(wb)
+	})
+	registerOdfImport("_office_pptToPresentation", func(data []byte) (string, error) {
+		p, err := ppt.Parse(data)
+		if err != nil {
+			return "", err
+		}
+		return model.PresentationToJSON(p)
+	})
+	// convertLegacy(srcVpath, destVpath) => true: the legacy file written as
+	// the OOXML file of its kind; destVpath must carry that extension
+	vm.Set("_office_convertLegacy", func(call otto.FunctionCall) otto.Value {
+		srcVpath, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		destVpath, err := call.Argument(1).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		srcVpath = static.RelativeVpathRewrite(scriptFsh, srcVpath, vm, u)
+		destVpath = static.RelativeVpathRewrite(scriptFsh, destVpath, vm, u)
+		if !u.CanRead(srcVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+srcVpath))
+		}
+		if !u.CanWrite(destVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
+		}
+		data, err := readIn(srcVpath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		app, converted, err := office.ConvertLegacy(data)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		if office.AppForExt(filepath.Ext(destVpath)) != app {
+			panic(vm.MakeCustomError("UnsupportedFormat", "this file converts to "+office.ExtForApp(app)+": "+destVpath))
+		}
+		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		if err := destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(converted), 0755); err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		u.SetOwnerOfFile(destFsh, destVpath)
+		return otto.TrueValue()
+	})
+
+	registerOdfImport("_office_odtToDocument", func(data []byte) (string, error) {
+		doc, err := odf.ParseOdt(data)
+		if err != nil {
+			return "", err
+		}
+		return model.DocumentToJSON(doc)
 	})
 	registerOdfExport("_office_documentToOdt", func(jsonStr string) ([]byte, error) {
 		// the ODF writers take inline pictures only: read the links here
@@ -796,46 +886,46 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		if err != nil {
 			return nil, err
 		}
-		doc, err := office.ParseDocumentJSON(jsonStr)
+		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			return nil, err
 		}
-		return office.BuildOdt(doc)
+		return odf.BuildOdt(doc)
 	})
 	registerOdfImport("_office_odsToWorkbook", func(data []byte) (string, error) {
-		wb, err := office.ParseOds(data)
+		wb, err := odf.ParseOds(data)
 		if err != nil {
 			return "", err
 		}
-		return office.WorkbookToJSON(wb)
+		return model.WorkbookToJSON(wb)
 	})
 	registerOdfExport("_office_workbookToOds", func(jsonStr string) ([]byte, error) {
-		wb, err := office.ParseWorkbookJSON(jsonStr)
+		wb, err := model.ParseWorkbookJSON(jsonStr)
 		if err != nil {
 			return nil, err
 		}
-		return office.BuildOds(wb)
+		return odf.BuildOds(wb)
 	})
 	registerOdfImport("_office_odpToPresentation", func(data []byte) (string, error) {
-		pres, err := office.ParseOdp(data)
+		pres, err := odf.ParseOdp(data)
 		if err != nil {
 			return "", err
 		}
-		return office.PresentationToJSON(pres)
+		return model.PresentationToJSON(pres)
 	})
 	registerOdfExport("_office_presentationToOdp", func(jsonStr string) ([]byte, error) {
 		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
 		if err != nil {
 			return nil, err
 		}
-		pres, err := office.ParsePresentationJSON(jsonStr)
+		pres, err := model.ParsePresentationJSON(jsonStr)
 		if err != nil {
 			return nil, err
 		}
-		return office.BuildOdp(pres)
+		return odf.BuildOdp(pres)
 	})
 
-	/* ---------- PDF export (real text, mod/office/pdf_*.go) ----------
+	/* ---------- PDF export (real text, mod/office/pdf) ----------
 	   Same (jsonStr, destVpath) shape as the ODF exporters. The Sheets
 	   variant takes the client-computed print model (formatted display
 	   strings + styles) instead of the raw workbook, since formula
@@ -845,18 +935,18 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		if err != nil {
 			return nil, err
 		}
-		doc, err := office.ParseDocumentJSON(jsonStr)
+		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			return nil, err
 		}
-		return office.BuildDocPdf(doc)
+		return pdf.BuildDoc(doc)
 	})
 	registerOdfExport("_office_workbookPrintToPdf", func(jsonStr string) ([]byte, error) {
-		m, err := office.ParseSheetPrintJSON(jsonStr)
+		m, err := pdf.ParseSheetPrintJSON(jsonStr)
 		if err != nil {
 			return nil, err
 		}
-		return office.BuildSheetPdf(m)
+		return pdf.BuildSheet(m)
 	})
 
 	/* ---------- write a file the web client produced ----------
@@ -882,7 +972,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		office.docxToDocument = _office_docxToDocument;           // docx file -> Docs body JSON string
 		office.documentToDocx = _office_documentToDocx;           // Docs body JSON string -> docx file
 		office.saveDocument = _office_saveDocument;               // envelope JSON -> .docx / .xlsx / .pptx (the suite's own save)
-		office.loadDocument = _office_loadDocument;               // .docx / .xlsx / .pptx -> envelope JSON, media extracted to a workdir
+		office.loadDocument = _office_loadDocument;               // .docx / .xlsx / .pptx (or .doc / .xls / .ppt) -> envelope JSON, media extracted to a workdir
 		office.readPayload = _office_readPayload;                 // uploaded payload file -> string (gunzipped)
 		office.touchWorkdir = _office_touchWorkdir;               // keep an editor window's tmp:/.appdata/Office folders fresh
 		office.releaseWorkdir = _office_releaseWorkdir;           // delete an editor window's working folder (or its stale entries)
@@ -895,6 +985,11 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		office.workbookToOds = _office_workbookToOds;             // Sheets body JSON string -> ods file
 		office.odpToPresentation = _office_odpToPresentation;     // odp file -> Slides body JSON string
 		office.presentationToOdp = _office_presentationToOdp;     // Slides body JSON string -> odp file
+
+		office.docToDocument = _office_docToDocument;             // Word 97-2003 .doc file -> Docs body JSON string
+		office.xlsToWorkbook = _office_xlsToWorkbook;             // Excel 97-2003 .xls file -> Sheets body JSON string
+		office.pptToPresentation = _office_pptToPresentation;     // PowerPoint 97-2003 .ppt file -> Slides body JSON string
+		office.convertLegacy = _office_convertLegacy;             // .doc / .xls / .ppt file -> .docx / .xlsx / .pptx file
 
 		office.documentToPdf = _office_documentToPdf;             // Docs body JSON string -> pdf file (real text)
 		office.workbookPrintToPdf = _office_workbookPrintToPdf;   // Sheets print-model JSON -> pdf file (real text)

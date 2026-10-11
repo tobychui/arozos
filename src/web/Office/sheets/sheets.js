@@ -2844,6 +2844,16 @@ var SheetsApp = (function () {
         items.push({ label: "Clear all (incl. format)", icon: "trash alternate outline", action: function () { clearSelection(true); } });
         OfficeApp.showContextMenu(x, y, items);
     }
+    // Home > Copy > Copy values as text: what the cells show, as tab-separated
+    // text with no formulas or formats - pasting it back gives plain values
+    function copyValuesAsText() {
+        var t = tsvOfRange(selRange(), true);
+        OfficeClipboard.writeAsync({ text: t }).then(function () {
+            OfficeApp.setStatus("Copied the values as text");
+        }, function () {
+            OfficeApp.setStatus("Copy blocked by the browser - use Ctrl+C instead", "error");
+        });
+    }
     function execClipboard(op) {
         // menu-driven clipboard: fall back to internal buffer + async API
         if (op === "copy" || op === "cut") {
@@ -2852,9 +2862,7 @@ var SheetsApp = (function () {
             clipInternal = buildInternalClip(rg);
             clipTsv = tsvOfRange(rg, true);
             clipCut = op === "cut";
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(clipTsv).catch(function () { });
-            }
+            OfficeClipboard.writeAsync({ text: clipTsv }).catch(function () { });
             OfficeApp.setStatus((op === "cut" ? "Cut" : "Copied") + " " + (clipInternal.w * clipInternal.h) + " cell(s)");
         } else {
             if (navigator.clipboard && navigator.clipboard.readText) {
@@ -2908,15 +2916,27 @@ var SheetsApp = (function () {
         var $size = $('<select class="of-tselect sh-sizesel" id="shFontSize" title="Font size (pt)"></select>');
         PT_SIZES.forEach(function (p) { $size.append($("<option></option>").attr("value", p).text(p)); });
         $size.on("change", function () { setFontPt(parseInt($size.val(), 10)); gridEl.focus(); });
+        R.clipboardGroup(home, {
+            pasteMenu: function () {
+                return [{ label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { execClipboard("paste"); } }, { sep: true }]
+                    .concat(pasteSpecialItems());
+            },
+            copyMenu: function () {
+                return [
+                    { label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { execClipboard("copy"); } },
+                    { label: "Copy values as text", icon: "file alternate outline", action: copyValuesAsText }
+                ];
+            },
+            painter: {
+                id: "shPainter", title: "Format Painter - click, then select the cells to format (double-click to keep it on)",
+                active: function () { return !!painter; },
+                start: startPainter
+            }
+        });
         var font = home.group({ id: "font", label: "Font", icon: "font", priority: 9 });
         font.row([$font, $size,
             B({ svg: "growFont", title: "Increase font size", onClick: function () { stepFont(1); } }),
-            B({ svg: "shrinkFont", title: "Decrease font size", onClick: function () { stepFont(-1); } }),
-            B({
-                svg: "formatPainter", title: "Format painter - click, then select the cells to format (double-click to keep it on)", id: "shPainter",
-                active: function () { return !!painter; },
-                onClick: function () { startPainter(false); }
-            }).on("dblclick", function () { startPainter(true); })
+            B({ svg: "shrinkFont", title: "Decrease font size", onClick: function () { stepFont(-1); } })
         ]);
         font.row([
             styleBtn("bold", "Bold", "Ctrl+B", "b", "shBtnBold"),
@@ -3671,6 +3691,9 @@ var SheetsApp = (function () {
                 ".csv": function (text, fn) { SheetsIO.importDelimited(text, fn, ","); },
                 ".tsv": function (text, fn) { SheetsIO.importDelimited(text, fn, "\t"); }
             },
+            // Excel 97-2003 workbooks open by conversion (mod/office/xls),
+            // as imports: Save writes the app's own format
+            legacyExtensions: [".xls", ".xlt"],
             binaryImporters: {
                 ".ods": function (fp, fn) { SheetsIO.importOds(fp, fn); }
             },

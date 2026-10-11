@@ -241,6 +241,22 @@ var OfficeRibbon = (function () {
                 g.$col = null;
                 appendItems(g.$body, [el]);
                 return api;
+            },
+            // the dialog launcher in the group's bottom-right corner
+            // (o: { title, onClick }); it travels with the controls into a
+            // folded group's popup
+            launcher: function (lo) {
+                var $l = $('<button type="button" class="of-rb-launch"></button>')
+                    .attr("title", lo.title || g.label)
+                    .append(window.OfficeIcons ? OfficeIcons.get("launcher") : "");
+                $l.on("mousedown", keepFocus);
+                $l.on("click", function (e) {
+                    closePopup();
+                    if (lo.onClick) lo.onClick.call(this, e);
+                });
+                g.$el.addClass("of-rb-haslaunch");
+                g.$body.append($l);
+                return api;
             }
         };
         return api;
@@ -524,6 +540,8 @@ var OfficeRibbon = (function () {
             .attr("title", o.menuTitle || ((o.label || "") + " - more options"))
             .append($('<span class="of-rb-biglbl"></span>').text(o.label || ""))
             .append('<i class="caret down icon"></i>');
+        // the caret on a line of its own under the label (Office's Paste)
+        if (o.caretBelow) $w.addClass("of-rb-caretbelow");
         if (o.id) $top.attr("id", o.id);
         if (o.cmd) $top.attr("data-cmd", o.cmd);
         if (o.cls) $w.addClass(o.cls);
@@ -561,16 +579,32 @@ var OfficeRibbon = (function () {
     }
     /* A colour control as Office has it: the face applies the current
        colour (the bar under the icon), the caret picks another one. */
+    /* big: true draws it as a big split button (icon and colour bar over a
+       label with the caret), for a colour that stands in a group of big
+       buttons rather than in a row of small ones */
     function colorButton(o) {
-        var $w = $('<span class="of-rb-split of-rb-color"></span>');
-        if (o.id) $w.attr("id", o.id);
+        var $w, $main, $car;
         var cur = o.value || "";
-        var $main = $('<button type="button" class="of-tbtn of-rb-btn of-rb-cface"></button>')
-            .attr("title", tip(o))
-            .append(iconHtml(o))
-            .append('<span class="of-rb-cbar"></span>');
-        var $car = $('<button type="button" class="of-tbtn of-rb-btn of-rb-caretbtn"><i class="caret down icon"></i></button>')
-            .attr("title", (o.title || "Colour") + " - more colours");
+        if (o.big) {
+            $w = $('<span class="of-rb-bigsplit of-rb-color of-rb-bigcolor"></span>');
+            $main = $('<button type="button" class="of-rb-bigtop of-rb-cface"></button>')
+                .attr("title", tip(o))
+                .append('<span class="of-rb-bigicon">' + iconHtml(o) + "</span>")
+                .append('<span class="of-rb-cbar"></span>');
+            $car = $('<button type="button" class="of-rb-bigbot"></button>')
+                .attr("title", (o.title || "Colour") + " - more colours")
+                .append($('<span class="of-rb-biglbl"></span>').text(o.label || o.title || ""))
+                .append('<i class="caret down icon"></i>');
+        } else {
+            $w = $('<span class="of-rb-split of-rb-color"></span>');
+            $main = $('<button type="button" class="of-tbtn of-rb-btn of-rb-cface"></button>')
+                .attr("title", tip(o))
+                .append(iconHtml(o))
+                .append('<span class="of-rb-cbar"></span>');
+            $car = $('<button type="button" class="of-tbtn of-rb-btn of-rb-caretbtn"><i class="caret down icon"></i></button>')
+                .attr("title", (o.title || "Colour") + " - more colours");
+        }
+        if (o.id) $w.attr("id", o.id);
         var paint = function () {
             $main.find(".of-rb-cbar").css("background", cur || "transparent")
                 .toggleClass("none", !cur);
@@ -687,6 +721,60 @@ var OfficeRibbon = (function () {
         gl.tiles.forEach(function (t, i) { t.$el.toggle(i < gl.count); });
     }
 
+    /* ================= the Clipboard group =================
+       Every Home tab starts with it, laid out as Office has it: a big Paste
+       (the icon pastes, the label under it opens the paste options), then
+       Cut, Copy (its caret lists other ways to copy) and Format Painter one
+       under the other, and the dialog launcher in the corner opening the
+       Clipboard pane (OfficeApp.showClipboardPane).
+
+           R.clipboardGroup(home, {
+               pasteMenu: fn -> items,    // the paste options (Paste first)
+               copyMenu: fn -> items,     // the ways to copy (Copy first)
+               painter: { id, title, active(), start(sticky) }
+           });
+
+       Cut, Copy and Paste run the app's Edit menu commands
+       (OfficeApp.clipboard), so the ribbon and the menu always agree. */
+    function clipboardGroup(t, o) {
+        o = o || {};
+        var run = function (op) { return function () { OfficeApp.clipboard(op); }; };
+        var pane = function () { OfficeApp.showClipboardPane(); };
+        var withPane = function (m) {
+            return function () {
+                var items = evalItems(m).slice();
+                items.push({ sep: true });
+                items.push({ label: "Clipboard...", icon: "clipboard outline", action: pane });
+                return items;
+            };
+        };
+        var g = t.group({ id: "clipboard", label: "Clipboard", svg: "pasteBig", priority: 5 });
+        g.add(big({
+            svg: "pasteBig", label: "Paste", title: "Paste", key: "Ctrl+V", cls: "of-rb-paste",
+            caretBelow: true, menuTitle: "Paste options",
+            onClick: run("paste"),
+            menu: withPane(o.pasteMenu || [])
+        }));
+        var p = o.painter || {};
+        var $painter = button({
+            svg: "formatPainter", id: p.id, active: p.active,
+            title: p.title || "Format Painter (double-click to keep it on)",
+            onClick: function () { if (p.start) p.start(false); }
+        }).on("dblclick", function () { if (p.start) p.start(true); });
+        var copyBtn = o.copyMenu ? split({
+            svg: "copy", title: "Copy", key: "Ctrl+C", menuTitle: "Copy options",
+            onClick: run("copy"), menu: o.copyMenu
+        }) : button({ svg: "copy", title: "Copy", key: "Ctrl+C", onClick: run("copy") });
+        g.stack([
+            button({ svg: "cut", title: "Cut", key: "Ctrl+X", onClick: run("cut") }),
+            copyBtn,
+            $painter
+        ]);
+        g.$el.addClass("of-rb-clipboard");
+        g.launcher({ title: "Clipboard - everything copied in Office this session", onClick: pane });
+        return g;
+    }
+
     /* ---------- closing everything (Escape, a menu opening) ---------- */
     function closePopups() {
         closePopup();
@@ -716,6 +804,7 @@ var OfficeRibbon = (function () {
         colorOf: colorOf,
         setColor: setColor,
         gallery: gallery,
+        clipboardGroup: clipboardGroup,
         host: host
     };
 })();

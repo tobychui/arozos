@@ -1,0 +1,130 @@
+package model
+
+/*
+	document.go - the Docs document body (src/web/Office/docs). The JSON
+	model mirrors the Docs body schema documented in docs.js:
+
+	    { "html": "<p>...</p>", "page": { "size": "A4", "orientation":
+	      "portrait", "margins": {top,right,bottom,left} },  // mm
+	      "header": "text", "footer": "text", "pageNumbers": false }
+
+	Word (.docx, .doc) and OpenDocument text (.odt) both read into it.
+*/
+
+import (
+	"encoding/json"
+	"errors"
+)
+
+// Document is the Docs document body
+type Document struct {
+	HTML        string    `json:"html"`
+	Page        *PageConf `json:"page,omitempty"`
+	Header      string    `json:"header,omitempty"` // plain text (older documents)
+	Footer      string    `json:"footer,omitempty"`
+	HeaderHTML  string    `json:"headerHtml,omitempty"` // rich header; wins over Header
+	FooterHTML  string    `json:"footerHtml,omitempty"`
+	PageNumbers bool      `json:"pageNumbers,omitempty"`
+	HFMode      string    `json:"hfMode,omitempty"` // header/footer repetition
+	// Footnotes are referenced from the text by <sup class="doc-fnref"
+	// data-fn="ID">; numbered in reference order
+	Footnotes []Footnote `json:"footnotes,omitempty"`
+	// LineSpacing is the multiple of single spacing a paragraph without
+	// data-ls uses (0 = the editor's default)
+	LineSpacing float64 `json:"lineSpacing,omitempty"`
+	// review comments, anchored in HTML by <span class="doc-cmt" data-cid>,
+	// and "Suggest edits" (pending ins.doc-ins / del.doc-del marks); both
+	// map onto Word's own comments and revisions (docx/review.go)
+	Comments     []*DocComment `json:"comments,omitempty"`
+	TrackChanges bool          `json:"trackChanges,omitempty"`
+}
+
+// Footnote is one footnote's content (block HTML)
+type Footnote struct {
+	ID   string `json:"id"`
+	HTML string `json:"html"`
+}
+
+// Header/footer repetition modes (body.hfMode); the empty string means
+// HFModeAll, which is what documents written before the setting existed get
+const (
+	HFModeAll         = "all"          // every page carries the same text
+	HFModeExceptFirst = "except-first" // every page but the first
+	HFModeNone        = "none"         // no header/footer text at all
+)
+
+// HFOnPage reports whether the header/footer text shows on the given
+// 1-based page number under mode
+func HFOnPage(mode string, page int) bool {
+	switch mode {
+	case HFModeNone:
+		return false
+	case HFModeExceptFirst:
+		return page > 1
+	}
+	return true
+}
+
+// HFPageNumberOn reports whether the page counter shows on the given page:
+// it is its own page-setup option, but a suppressed first page suppresses
+// its number too (the same thing Word's titlePg does)
+func HFPageNumberOn(doc *Document, page int) bool {
+	return doc.PageNumbers && (doc.HFMode != HFModeExceptFirst || page > 1)
+}
+
+// PageConf holds page geometry (margins in millimetres)
+type PageConf struct {
+	Size        string     `json:"size,omitempty"`        // A4 | Letter | Legal
+	Orientation string     `json:"orientation,omitempty"` // portrait | landscape
+	Margins     *MarginsMM `json:"margins,omitempty"`
+	Columns     int        `json:"columns,omitempty"` // text columns (0/1 = single)
+	ColGap      float64    `json:"colGap,omitempty"`  // gap between columns, mm
+	// distance of the header from the top edge / the footer from the
+	// bottom edge, mm (nil = the editor's default)
+	HeaderDist *float64 `json:"headerDist,omitempty"`
+	FooterDist *float64 `json:"footerDist,omitempty"`
+}
+
+// MarginsMM holds page margins in millimetres
+type MarginsMM struct {
+	Top    float64 `json:"top"`
+	Right  float64 `json:"right"`
+	Bottom float64 `json:"bottom"`
+	Left   float64 `json:"left"`
+}
+
+// ParseDocumentJSON decodes the Docs body JSON into a Document
+func ParseDocumentJSON(jsonStr string) (*Document, error) {
+	d := Document{}
+	if err := json.Unmarshal([]byte(jsonStr), &d); err != nil {
+		return nil, errors.New("invalid document JSON: " + err.Error())
+	}
+	return &d, nil
+}
+
+// DocumentToJSON serializes a Document back to the Docs body JSON
+func DocumentToJSON(d *Document) (string, error) {
+	if d == nil {
+		return "", errors.New("nil document")
+	}
+	out, err := json.Marshal(d)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// DocComment is one review comment (body.comments in the Docs schema)
+type DocComment struct {
+	ID       string `json:"id"`
+	Text     string `json:"text"`
+	At       int64  `json:"at,omitempty"` // ms since the epoch
+	Resolved bool   `json:"resolved,omitempty"`
+}
+
+// page sizes in millimetres (portrait) shared by the ODF writers
+var PageSizesMM = map[string][2]float64{
+	"A4":     {210, 297},
+	"Letter": {215.9, 279.4},
+	"Legal":  {215.9, 355.6},
+}

@@ -22,8 +22,13 @@ when it is current, an import otherwise); out, the envelope becomes the
 file. The per-format body converters beside them serve the other formats
 (ODF) and keep the table symmetrical with the office.* AGI library.
 
+The Office 97-2003 formats (.doc / .xls / .ppt) are import only. The three
+"<app>File" importers take them as they are - office.ReadNativeFile
+converts a legacy file into OOXML first - and docToDocument and friends
+give their body JSON directly.
+
 PDF is deliberately absent. The web edition renders PDF in the front end
-(see apps/arozos_office/README.md); pulling BuildDocPdf and friends
+(see apps/arozos_office/README.md); pulling pdf.BuildDoc and friends
 in here would only add fpdf to the module for nothing.
 */
 package main
@@ -32,6 +37,14 @@ import (
 	"errors"
 
 	"imuslab.com/arozos/mod/office"
+	"imuslab.com/arozos/mod/office/doc"
+	"imuslab.com/arozos/mod/office/docx"
+	"imuslab.com/arozos/mod/office/model"
+	"imuslab.com/arozos/mod/office/odf"
+	"imuslab.com/arozos/mod/office/ppt"
+	"imuslab.com/arozos/mod/office/pptx"
+	"imuslab.com/arozos/mod/office/xls"
+	"imuslab.com/arozos/mod/office/xlsx"
 )
 
 // ImportFunc turns a foreign office file into the body JSON of the matching
@@ -40,7 +53,7 @@ type ImportFunc func(data []byte) (string, error)
 
 // ExportFunc turns an app's body JSON into a foreign office file. The second
 // []byte is the .pptx media sidecar zip - nil for every other format, and
-// nil for a deck with no video or audio (see BuildPptxMedia).
+// nil for a deck with no video or audio (see pptx.BuildMedia).
 type ExportFunc func(jsonStr string) ([]byte, []byte, error)
 
 // nativeImport / nativeExport are the suite's own open and save. Media
@@ -66,46 +79,67 @@ var Importers = map[string]ImportFunc{
 	"presentationFile": nativeImport(office.AppPresentation),
 
 	"docxToDocument": func(data []byte) (string, error) {
-		doc, err := office.ParseDocx(data)
+		doc, err := docx.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return office.DocumentToJSON(doc)
+		return model.DocumentToJSON(doc)
+	},
+	"docToDocument": func(data []byte) (string, error) {
+		d, err := doc.Parse(data)
+		if err != nil {
+			return "", err
+		}
+		return model.DocumentToJSON(d)
+	},
+	"xlsToWorkbook": func(data []byte) (string, error) {
+		wb, err := xls.Parse(data)
+		if err != nil {
+			return "", err
+		}
+		return model.WorkbookToJSON(wb)
+	},
+	"pptToPresentation": func(data []byte) (string, error) {
+		p, err := ppt.Parse(data)
+		if err != nil {
+			return "", err
+		}
+		return model.PresentationToJSON(p)
 	},
 	"odtToDocument": func(data []byte) (string, error) {
-		doc, err := office.ParseOdt(data)
+		doc, err := odf.ParseOdt(data)
 		if err != nil {
 			return "", err
 		}
-		return office.DocumentToJSON(doc)
+		return model.DocumentToJSON(doc)
 	},
 	"xlsxToWorkbook": func(data []byte) (string, error) {
-		wb, err := office.ParseXlsx(data)
+		wb, err := xlsx.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return office.WorkbookToJSON(wb)
+		return model.WorkbookToJSON(wb)
 	},
 	"odsToWorkbook": func(data []byte) (string, error) {
-		wb, err := office.ParseOds(data)
+		wb, err := odf.ParseOds(data)
 		if err != nil {
 			return "", err
 		}
-		return office.WorkbookToJSON(wb)
+		return model.WorkbookToJSON(wb)
 	},
 	"pptxToPresentation": func(data []byte) (string, error) {
-		pres, err := office.ParsePptx(data)
+		pres, err := pptx.Parse(data)
 		if err != nil {
 			return "", err
 		}
-		return office.PresentationToJSON(pres)
+		return model.PresentationToJSON(pres)
 	},
 	"odpToPresentation": func(data []byte) (string, error) {
-		pres, err := office.ParseOdp(data)
+		pres, err := odf.ParseOdp(data)
 		if err != nil {
 			return "", err
 		}
-		return office.PresentationToJSON(pres)
+		return model.PresentationToJSON(pres)
 	},
 }
 
@@ -115,53 +149,53 @@ var Exporters = map[string]ExportFunc{
 	"presentationFile": nativeExport(office.AppPresentation),
 
 	"documentToDocx": func(jsonStr string) ([]byte, []byte, error) {
-		doc, err := office.ParseDocumentJSON(jsonStr)
+		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := office.BuildDocx(doc)
+		data, err := docx.Build(doc)
 		return data, nil, err
 	},
 	"documentToOdt": func(jsonStr string) ([]byte, []byte, error) {
-		doc, err := office.ParseDocumentJSON(jsonStr)
+		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := office.BuildOdt(doc)
+		data, err := odf.BuildOdt(doc)
 		return data, nil, err
 	},
 	"workbookToXlsx": func(jsonStr string) ([]byte, []byte, error) {
-		wb, err := office.ParseWorkbookJSON(jsonStr)
+		wb, err := model.ParseWorkbookJSON(jsonStr)
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := office.BuildXlsx(wb)
+		data, err := xlsx.Build(wb)
 		return data, nil, err
 	},
 	"workbookToOds": func(jsonStr string) ([]byte, []byte, error) {
-		wb, err := office.ParseWorkbookJSON(jsonStr)
+		wb, err := model.ParseWorkbookJSON(jsonStr)
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := office.BuildOds(wb)
+		data, err := odf.BuildOds(wb)
 		return data, nil, err
 	},
 	"presentationToPptx": func(jsonStr string) ([]byte, []byte, error) {
-		pres, err := office.ParsePresentationJSON(jsonStr)
+		pres, err := model.ParsePresentationJSON(jsonStr)
 		if err != nil {
 			return nil, nil, err
 		}
 		// nil resolver: a deck reaching this build carries its media as data
 		// URLs, never as media?file= links into an ArozOS file system that
 		// is not there
-		return office.BuildPptxMedia(pres, nil)
+		return pptx.BuildMedia(pres, nil)
 	},
 	"presentationToOdp": func(jsonStr string) ([]byte, []byte, error) {
-		pres, err := office.ParsePresentationJSON(jsonStr)
+		pres, err := model.ParsePresentationJSON(jsonStr)
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := office.BuildOdp(pres)
+		data, err := odf.BuildOdp(pres)
 		return data, nil, err
 	},
 }

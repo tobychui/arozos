@@ -119,6 +119,11 @@ OfficeApp.init({
     binaryImporters: {
         ".odp": function(filepath, filename){ … }
     },
+    // the Office 97-2003 format of the app's kind: opened through
+    // OfficePlatform.documentLoad like the own format (the Go side converts
+    // it to OOXML first), but as an import - Save asks for a new file.
+    // No handler: the framework does all of it
+    legacyExtensions: [".doc", ".dot"],
 
     // --- foreign-format saving (optional) — see "Save formats" below ---
     saveFormats: [ { ext, label, icon, oneWay, unsupported, save }, … ],
@@ -200,7 +205,9 @@ Features: `registerShortcut("Ctrl+B", fn)` (Cmd normalized to Ctrl),
 `print()`, `setZoom(pct, {transient})` (a transient zoom - a phone fitting the
 page - is not saved as the next session's) `getZoom() zoomIn() zoomOut()`,
 `toggleTheme() isDark()`, `clipboard("cut"|"copy"|"paste")` (the Edit
-commands for a ribbon's Clipboard group), `autosaveEnabled()` /
+commands for a ribbon's Clipboard group), `showClipboardPane()` (the
+Clipboard group's dialog launcher, also Edit > Clipboard...),
+`autosaveEnabled()` /
 `setAutosave(on)`, `titleBarSlot()`.
 
 Storage: `getSetting(key, def)` / `setSetting(key, val)` (per-app localStorage),
@@ -287,7 +294,9 @@ OfficePlatform.pickSave({defaultName, ext, memoryKey, forceOverwrite}, cb)
 // the app's own format: a .docx / .xlsx / .pptx <-> the envelope. Only the
 // framework calls these (openPath / writeNative).
 OfficePlatform.documentLoad(path, cb(envelopeJson), errcb)
-OfficePlatform.documentSave(path, envelopeJson, cb, errcb)
+OfficePlatform.documentSave(path, envelopeJson, cb, errcb, progress)
+// progress(stage, percent) is optional: "compress", "upload" (percent
+// sent), "server" - what the close-time save panel shows
 
 // foreign formats (ODF). One descriptor names both mechanisms; the host
 // picks. wasm:null marks a conversion that is still server-only.
@@ -325,9 +334,21 @@ A `saveFormats` writer gets `needsConvert: true`.
 **Adding something that needs the server outright:** guard with
 `requireBackend()`, build the menu entry behind `hasBackend()`, and mark a
 writer `needsBackend: true`. The framework filters both flags out of Save As,
-save-back and autosave for you, and `cfg.binaryImporters` are dropped
-wholesale when `canConvert()` is false — nothing else is needed for an
-importer.
+save-back and autosave for you, and `cfg.binaryImporters` and
+`cfg.legacyExtensions` are dropped wholesale when `canConvert()` is false —
+nothing else is needed for an importer.
+
+**Legacy formats (`cfg.legacyExtensions`).** Docs lists `.doc` / `.dot`,
+Sheets `.xls` / `.xlt`, Slides `.ppt` / `.pot` / `.pps`. `openPath` sends
+such a file through `OfficePlatform.documentLoad`, exactly as it does the
+app's own format; the platform needs nothing special because
+`office.loadDocument` (ArozOS) and the wasm `documentLoad` (standalone)
+recognise the legacy file by its content and convert it first. The
+envelope that comes back is loaded as an **import** (`loadLegacyEnvelope`):
+`filepath` stays null, the status bar says to Save it as the own format,
+and Save goes to Save As with the native extension. The file is still added
+to the recent list, so reopening it imports it again. Never offer a legacy
+format in `saveFormats` - there is no writer for them.
 
 `OfficeRecents` (`common/recents.js`) is the suite's *browser-side* recent
 document list, and the thing that makes the home page work. A file the visitor
@@ -380,8 +401,20 @@ ribbon panel under it. An app opts in with `ribbon: true` in
 `OfficeApp.init` — the framework then shows File and Edit (Undo, Redo, Cut,
 Copy, Paste + the app's `editMenuExtras`) as menus and ignores `menus` /
 `viewMenuExtras`, so every other command must be reachable from a ribbon tab
-(or a right-click menu). Save / Undo / Redo / clipboard buttons do not go on
-the ribbon. A tab click closes an open menu.
+(or a right-click menu). Save / Undo / Redo buttons do not go on the
+ribbon; the clipboard commands go there only as the shared Clipboard group,
+which every Home tab adds first:
+
+```js
+R.clipboardGroup(home, {
+    pasteMenu: function () { return [/* Paste first, then its variants */]; },
+    copyMenu: function () { return [/* Copy first, then other ways to copy */]; },
+    painter: { id: "docPainter", title: "...", active: fn, start: function (sticky) {} }
+});
+```
+
+A group can carry a dialog launcher in its corner with
+`group.launcher({ title, onClick })`. A tab click closes an open menu.
 
 ```js
 var R = OfficeRibbon;
@@ -641,10 +674,15 @@ deletes the snapshot instead of uploading the document twice) and offers "Restor
 dialog's **Discard** button deletes the snapshot (document.agi
 `session-delete`) so it stops prompting; **Start fresh** keeps it for a
 later launch. The framework also intercepts the floatWindow close button
-(overriding `ao_module_close`) to confirm before discarding unsaved
-changes (Cancel / Close without saving / Save & close); a desktop shell asks
-the same question through `OfficeApp.requestClose` when its window's close
-button, Cmd+W or Quit is used.
+(overriding `ao_module_close`); a desktop shell goes through the same
+`OfficeApp.requestClose` when its window's close button, Cmd+W or Quit is
+used. With **AutoSave on** and a file the document can be written back to,
+closing simply saves and closes. Otherwise (AutoSave off, never saved, a
+format that cannot hold the document, or that save failed) it asks:
+Cancel / Close without saving / Save & close. Either save runs behind a
+modal progress panel (`saveWithProgress`: preparing, compressing, the
+upload percentage, then the server write), so a large save never looks
+like a frozen window; only a save that worked closes it.
 
 ## OfficeClipboard (common/clipboard.js) — cross-app copy/paste
 
@@ -661,8 +699,18 @@ OfficeClipboard.parse(html)  // -> {images:[{src,w,h}], tables:[[[cellEl]]],
                              //     text, html, hasContent}
 OfficeClipboard.isMarker(text)   // true = another app's raw marker JSON;
                                  // never insert it as plain text
-OfficeClipboard.writeAsync({html, text})  // menu-driven copies (no event)
+OfficeClipboard.writeAsync({html, text})  // menu-driven copies (no event);
+                                          // noHistory: true keeps it out of
+                                          // the Clipboard pane
+OfficeClipboard.history()     // [{text, html, app, t}], newest first
+OfficeClipboard.record({text, html}) / removeFromHistory(i) / clearHistory()
 ```
+
+Copies reach the Clipboard pane's history on their own: `writeAsync`
+records what it writes, and a window-level `copy` / `cut` listener records
+what the app's own handler put on the event (or the selection, when the
+app left the copy to the browser). Write menu copies through `writeAsync`,
+not `navigator.clipboard` directly, so they are collected too.
 
 Copy pattern (in a `copy`/`cut` event handler): set BOTH
 `e.clipboardData.setData("text/plain", myMarker)` and
@@ -909,8 +957,8 @@ standard ligatures (`font-variant-ligatures: no-common-ligatures`,
 family name sends any character it has no glyph for to whatever the machine
 happens to have — and a system font's bytes cannot be embedded, so that text
 can only reach a PDF as a picture. The tail `stack()` appends is what keeps
-it exportable. This applies on the Go side too: `fontStackFor`
-(`mod/office/pptx_text.go`) appends the same list to every stack an import
+it exportable. This applies on the Go side too: `fonts.StackFor`
+(`mod/office/pptx/text.go`) appends the same list to every stack an import
 writes, and the two lists have to stay in step.
 
 ## Slides shape geometry (slides/slides_shapes.js)
@@ -932,7 +980,7 @@ SlidesShapes.isOpen / evenOdd / label / defaultSize / CATEGORIES
 
 Adding a shape means adding it here and nowhere else - the picker, the
 crop-shape grid, the canvas and the export all read from this one table.
-Keep the names in step with `prstToShapeKind` (`mod/office/pptx_reader.go`).
+Keep the names in step with `prstToShapeKind` (`mod/office/pptx/reader.go`).
 
 The common presets follow PowerPoint's own formulas (`presetShapeDefinitions`):
 their features are sized from the shorter side and read the guides a deck

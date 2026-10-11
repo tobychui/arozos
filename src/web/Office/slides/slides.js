@@ -673,7 +673,7 @@ var SlidesApp = (function () {
     var CELL_OK_TAGS = { B: 1, I: 1, U: 1, STRONG: 1, EM: 1, S: 1, STRIKE: 1, SPAN: 1, FONT: 1, BR: 1, SUB: 1, SUP: 1, A: 1, DIV: 1 };
     var CELL_OK_STYLES = ["font-size", "color", "font-family", "font-weight", "font-style", "text-decoration", "background-color",
         "vertical-align", "line-height", "letter-spacing", "text-transform",
-        // an imported bullet marker is a positioned span (pptx_reader.go)
+        // an imported bullet marker is a positioned span (pptx/reader.go)
         "position", "left", "top", "display", "width"];
     // a paragraph in a cell (an imported table's, or one Enter made) keeps
     // its alignment, spacing and indents
@@ -1643,6 +1643,37 @@ var SlidesApp = (function () {
         if (!sel.length) return;
         copySelection();
         deleteSelection();
+    }
+    /* Home > Paste > Keep text only: the clipboard's text, into the text
+       being edited or as a new text box in the slide's theme (copied
+       objects give up their text) */
+    function pasteTextOnly() {
+        if (!(navigator.clipboard && navigator.clipboard.readText)) {
+            OfficeApp.setStatus("Use Ctrl+V to paste here", "error");
+            return;
+        }
+        navigator.clipboard.readText().then(function (t) {
+            var objs = parseObjectClipboardText(t);
+            if (objs) {
+                var div = document.createElement("div");
+                t = objs.map(function (o) {
+                    div.innerHTML = o.html || "";
+                    return (div.innerText || div.textContent || "").trim();
+                }).filter(Boolean).join("\n");
+            } else if (OfficeClipboard.isMarker(t)) {
+                t = "";
+            }
+            if (!t) { OfficeApp.setStatus("There is no text to paste", "error"); return; }
+            if (editingId) {
+                try { document.execCommand("insertText", false, t); } catch (e) { }
+                return;
+            }
+            var th = themeOf();
+            addObj("text", { html: esc(t).replace(/\n/g, "<br>"), fontSize: 24, color: th.text, align: "left" },
+                { x: 280, y: 220, w: 400, h: 90 });
+        }).catch(function () {
+            OfficeApp.setStatus("Paste blocked by the browser - use Ctrl+V instead", "error");
+        });
     }
     function pasteClipboard() {
         if (!clip || !clip.length) return false;
@@ -3597,6 +3628,28 @@ var SlidesApp = (function () {
 
         /* ---------- Home ---------- */
         var home = R.tab("home", "Home");
+        R.clipboardGroup(home, {
+            pasteMenu: function () {
+                return [
+                    { label: "Keep source formatting", icon: "paste", key: "Ctrl+V", action: function () { OfficeApp.clipboard("paste"); } },
+                    { label: "Keep text only", icon: "file alternate outline", action: pasteTextOnly }
+                ];
+            },
+            copyMenu: function () {
+                return [
+                    { label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { OfficeApp.clipboard("copy"); } },
+                    {
+                        label: "Duplicate", icon: "clone outline", key: "Ctrl+D",
+                        enabled: function () { return sel.length > 0; }, action: duplicateSelection
+                    }
+                ];
+            },
+            painter: {
+                id: "slPainter", title: "Format Painter - click, then click the object to format (double-click to keep it on)",
+                active: function () { return !!painter; },
+                start: startPainter
+            }
+        });
         home.group({ id: "slides", label: "Slides", svg: "newSlide", priority: 3 })
             .add(R.big({
                 svg: "newSlide", label: "New slide", key: "Ctrl+M",
@@ -3628,12 +3681,7 @@ var SlidesApp = (function () {
         font.row([$font, $fs,
             B({ svg: "growFont", title: "Increase font size", key: "Ctrl+]", onClick: function () { stepFontSize(1); } }),
             B({ svg: "shrinkFont", title: "Decrease font size", key: "Ctrl+[", onClick: function () { stepFontSize(-1); } }),
-            B({ svg: "clearFormat", title: "Clear formatting", onClick: clearTextFormatting }),
-            B({
-                svg: "formatPainter", title: "Format painter - click, then click the object to format (double-click to keep it on)", id: "slPainter",
-                active: function () { return !!painter; },
-                onClick: function () { startPainter(false); }
-            }).on("dblclick", function () { startPainter(true); })
+            B({ svg: "clearFormat", title: "Clear formatting", onClick: clearTextFormatting })
         ]);
         var fmt = function (icon, title, key, prop, cmd, id, svg) {
             return B({
@@ -3869,7 +3917,7 @@ var SlidesApp = (function () {
                 onClick: function () { if (window.SlidesImageTools) SlidesImageTools.togglePanel(); OfficeRibbon.refresh(); }
             }));
         pf.group({ id: "border", label: "Picture Border", svg: "outline" })
-            .add(R.colorButton({ id: "slImgStroke", svg: "outline", title: "Picture border", value: "#333333", allowNone: true, noneLabel: "No border", onPick: applyPictureBorder }))
+            .add(R.colorButton({ id: "slImgStroke", big: true, svg: "outline", label: "Border", title: "Picture border", value: "#333333", allowNone: true, noneLabel: "No border", onPick: applyPictureBorder }))
             .add(R.big({ svg: "lineWeight", label: "Weight", menu: weightItems }))
             .add(R.big({ svg: "lineDash", label: "Dash", menu: dashItems }));
         arrangeGroup(pf);
@@ -5005,7 +5053,7 @@ var SlidesApp = (function () {
         });
     }
     /* .odp: the OpenDocument presentation writer emits text, images, charts,
-       shapes, lines and tables (mod/office/odp_writer.go) - a video or audio
+       shapes, lines and tables (mod/office/odf/odp_writer.go) - a video or audio
        object would simply vanish, so the save is refused instead. */
     function odpUnsupported() {
         var n = 0;
@@ -5292,6 +5340,9 @@ var SlidesApp = (function () {
                 { sep: true },
                 { label: "Find and replace...", icon: "exchange", key: "Ctrl+H", action: findReplaceDialog }
             ],
+            // PowerPoint 97-2003 presentations open by conversion (mod/office/ppt),
+            // as imports: Save writes the app's own format
+            legacyExtensions: [".ppt", ".pot", ".pps"],
             binaryImporters: {
                 ".odp": importOdp
             },

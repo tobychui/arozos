@@ -19,7 +19,7 @@
     A document written before these existed has only dash (a plain dash,
     drawn the way it always was) and arrowStart / arrowEnd (a filled
     arrow); setDash / setHead keep those in step so older readers still
-    see the gist. The .pptx mapping is in mod/office/pptx_lines.go.
+    see the gist. The .pptx mapping is in mod/office/pptx/lines.go.
 */
 var SlidesLines = (function () {
     "use strict";

@@ -452,7 +452,7 @@ var SheetsIO = (function () {
         }
         return out;
     }
-    // .ods: everything but charts round-trips (mod/office/ods_writer.go)
+    // .ods: everything but charts round-trips (mod/office/odf/ods_writer.go)
     function odsUnsupported() {
         var n = 0;
         Core.getBody().sheets.forEach(function (s) { n += (s.charts || []).length; });

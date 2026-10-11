@@ -460,6 +460,34 @@ var OfficeApp = (function () {
         if (!OfficePlatform.canConvert()) return {};
         return cfg.binaryImporters || {};
     }
+    /*
+        The legacy binary format of the app's kind (cfg.legacyExtensions:
+        .doc for Docs, .xls for Sheets, .ppt for Slides). Such a file opens
+        through the platform's documentLoad like the app's own format - the
+        Go converters turn it into OOXML first, server side in ArozOS, in the
+        WebAssembly module in a standalone build - but it is an import: the
+        document is not attached to the old file, and Save asks where to put
+        it in the app's own format. Like binaryImporters, it needs the
+        converters.
+    */
+    function legacyExtensions() {
+        if (!OfficePlatform.canConvert()) return [];
+        return cfg.legacyExtensions || [];
+    }
+    function isLegacyExt(ext) { return legacyExtensions().indexOf(ext) >= 0; }
+    function loadLegacyEnvelope(env, fp, fn) {
+        if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType) {
+            throw new Error("Not a valid " + cfg.fileTypeName + " file");
+        }
+        meta = { createdAt: now(), revision: 0 };
+        adoptImportedPath(fp, fn);
+        cfg.deserialize(env.body);
+        markClean();
+        // the old file stays in "recent": opening it again imports it again
+        addRecent(fp, fn);
+        setStatus(importedStatus(fn));
+        documentLoaded();
+    }
     function loadNativeEnvelope(env, fp, fn, opts) {
         if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType) {
             throw new Error("Not a valid " + cfg.fileTypeName + " file");
@@ -578,6 +606,27 @@ var OfficeApp = (function () {
             bi(fp, fn);
             return;
         }
+        if (isLegacyExt(ext)) {
+            setStatus("Converting " + fn + "...", "info", 0);
+            OfficePlatform.documentLoad(fp, function (envelope) {
+                splashStep("Preparing " + fn + "...", function () {
+                    var env = envelope;
+                    if (typeof env === "string") {
+                        try { env = JSON.parse(env); } catch (e) { env = null; }
+                    }
+                    try {
+                        loadLegacyEnvelope(env, fp, fn);
+                    } catch (err) {
+                        openFailed();
+                        setStatus("Cannot open " + fn + ": " + err.message, "error");
+                    }
+                });
+            }, function (msg) {
+                openFailed();
+                setStatus("Failed to open " + fn + ": " + (msg || "unknown error"), "error");
+            });
+            return;
+        }
         setStatus("Opening " + fn + "...", "info", 0);
         /* The app's own format: the platform turns the .docx / .xlsx / .pptx
            into the envelope - the editor copy the suite embedded when it
@@ -656,6 +705,9 @@ var OfficeApp = (function () {
                 filter.push(e.substring(1));
             });
             (Object.keys(binaryImporters())).forEach(function (e) {
+                filter.push(e.substring(1));
+            });
+            legacyExtensions().forEach(function (e) {
                 filter.push(e.substring(1));
             });
             OfficePlatform.pickOpen({ filter: filter, memoryKey: "document" }, function (files) {
@@ -755,7 +807,7 @@ var OfficeApp = (function () {
             ]
         });
     }
-    function doSaveForeign(fp, fn, fmt, cb, silent) {
+    function doSaveForeign(fp, fn, fmt, cb, silent, obs) {
         var reasons = formatReasons(fmt);
         if (reasons) {
             // autosave must never interrupt with a dialog: it skips the write
@@ -765,6 +817,7 @@ var OfficeApp = (function () {
         }
         if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
         setStatus("Saving...", "info", 0);
+        if (obs) obs.progress("server");
         var seq = editSeq;
         saveBusy = true;
         fmt.save(fp, fn, function () {
@@ -783,6 +836,7 @@ var OfficeApp = (function () {
         }, function (err) {
             setStatus("Save failed: " + err, "error");
             finishSave();
+            if (obs) obs.fail(err);
         });
         return true;
     }
@@ -797,20 +851,23 @@ var OfficeApp = (function () {
         if (queuedSave) {
             var q = queuedSave;
             queuedSave = null;
-            doSaveTo(q.fp, q.fn, q.cb);
+            doSaveTo(q.fp, q.fn, q.cb, false, q.obs);
         }
     }
 
-    function save(cb) {
-        if (!filepath) { saveAs(cb); return; }
-        doSaveTo(filepath, filename, cb);
+    /* obs, when given, follows the write: obs.progress(stage, percent) -
+       "prepare", "compress", "upload", "server" - and obs.fail(message) when
+       it does not happen (cb only ever reports success) */
+    function save(cb, obs) {
+        if (!filepath) { saveAs(cb, obs); return; }
+        if (!doSaveTo(filepath, filename, cb, false, obs) && obs) obs.fail(null);
     }
-    function saveAs(cb) { saveAsFormat(null, cb); }
+    function saveAs(cb, obs) { saveAsFormat(null, cb, obs); }
     /*
         `fmt` is a cfg.saveFormats entry, or null for the native format. The
         format fixes the extension, so the picker only supplies the name.
     */
-    function saveAsFormat(fmt, cb) {
+    function saveAsFormat(fmt, cb, obs) {
         var ext = fmt ? fmt.ext : cfg.extension;
         // ask before making the user pick a filename, not after
         var reasons = formatReasons(fmt);
@@ -824,7 +881,7 @@ var OfficeApp = (function () {
             //from wherever this app was last used rather than the hardcoded Desktop
             forceOverwrite: !filepath
         }, function (file) {
-            doSaveTo(file.filepath, file.filename, cb);
+            if (!doSaveTo(file.filepath, file.filename, cb, false, obs) && obs) obs.fail(null);
         });
     }
     /*
@@ -840,7 +897,7 @@ var OfficeApp = (function () {
         is both what the .docx / .xlsx / .pptx shows and the editor copy
         embedded in it, so a preparation must only add, never take away.
     */
-    function writeNative(fp, done, fail) {
+    function writeNative(fp, done, fail, progress) {
         var env;
         try {
             env = buildEnvelope();
@@ -849,19 +906,21 @@ var OfficeApp = (function () {
         var prep;
         try { prep = cfg.prepareNative ? cfg.prepareNative(env.body) : null; }
         catch (e) { fail(e.message || "could not prepare the document"); return true; }
+        if (progress) progress("prepare");
         Promise.resolve(prep).then(function () {
-            OfficePlatform.documentSave(fp, JSON.stringify(env), done, fail);
+            OfficePlatform.documentSave(fp, JSON.stringify(env), done, fail, progress);
         }, function (err) {
             fail((err && err.message) ? err.message : "could not prepare the document");
         });
         return true;
     }
     // returns false when the write was declined (format cannot hold the doc)
-    function doSaveTo(fp, fn, cb, silent) {
+    function doSaveTo(fp, fn, cb, silent, obs) {
         if (saveBusy) {
             // autosave simply skips a tick; an explicit save runs next
             if (silent) return true;
-            queuedSave = { fp: fp, fn: fn, cb: cb };
+            queuedSave = { fp: fp, fn: fn, cb: cb, obs: obs };
+            if (obs) obs.progress("wait");
             setStatus("Saving...", "info", 0);
             return true;
         }
@@ -876,7 +935,7 @@ var OfficeApp = (function () {
                 // image) stays out of autosave; the caller falls back to the
                 // session snapshot, which is what that safety net is for
                 if (silent && fmt.noAutosave) return false;
-                return doSaveForeign(fp, fn, fmt, cb, silent);
+                return doSaveForeign(fp, fn, fmt, cb, silent, obs);
             }
         }
         if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
@@ -899,7 +958,8 @@ var OfficeApp = (function () {
         }, function (err) {
             setStatus("Save failed: " + err, "error");
             finishSave();
-        });
+            if (obs) obs.fail(err);
+        }, obs ? obs.progress : null);
         if (!started) saveBusy = false;
         return started;
     }
@@ -1389,7 +1449,8 @@ var OfficeApp = (function () {
                 { sep: true },
                 { label: "Cut", icon: "cut", key: "Ctrl+X", action: function () { clipboardAction("cut"); } },
                 { label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { clipboardAction("copy"); } },
-                { label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { clipboardAction("paste"); } }
+                { label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { clipboardAction("paste"); } },
+                { label: "Clipboard...", icon: "clipboard outline", action: showClipboardPane }
             ];
             if (cfg.editMenuExtras && cfg.editMenuExtras.length) {
                 items.push({ sep: true });
@@ -1438,6 +1499,99 @@ var OfficeApp = (function () {
         } else {
             document.execCommand(op);
         }
+    }
+
+    /* ---------- the Clipboard pane (Home > Clipboard launcher) ----------
+       Everything copied or cut in Office in this tab (OfficeClipboard
+       keeps it), newest first: click an item to paste it, as Office's
+       Clipboard task pane does. An item is put back on the system
+       clipboard and pasted by the app's own Paste, so every app pastes it
+       the way it pastes anything else. */
+    var APP_NAMES = { docs: "Docs", sheets: "Sheets", slides: "Slides" };
+    function clipItemView(it) {
+        var parsed = it.html ? OfficeClipboard.parse(it.html) : null;
+        // another app's object marker is never shown as raw JSON
+        var text = OfficeClipboard.isMarker(it.text) || /^\s*\{\s*"app"\s*:/.test(it.text) ?
+            (parsed ? parsed.text : "") : (it.text || (parsed ? parsed.text : ""));
+        text = String(text || "").replace(/\s+/g, " ").trim();
+        var $prev = $('<span class="of-clip-prev"></span>');
+        if (parsed && parsed.images.length && !text) {
+            $prev.append($('<img alt="">').attr("src", parsed.images[0].src));
+        } else if (parsed && parsed.tables.length && !it.text) {
+            $prev.text(text.slice(0, 160) || "Table");
+        } else {
+            $prev.text(text.length > 160 ? text.slice(0, 160) + "..." : (text || "(empty)"));
+        }
+        return { $prev: $prev, text: text };
+    }
+    function pasteClipItem(it) {
+        OfficeClipboard.writeAsync({ text: it.text, html: it.html, noHistory: true }).then(function () {
+            clipboardAction("paste");
+        }, function () {
+            setStatus("The browser blocked the clipboard - copy it again and press Ctrl+V", "error");
+        });
+    }
+    function showClipboardPane() {
+        closeAllMenus();
+        if (!window.OfficeClipboard) return;
+        var $list = $('<div class="of-clip-list"></div>');
+        var d = null;
+        var render = function () {
+            var items = OfficeClipboard.history();
+            $list.empty();
+            if (!items.length) {
+                $list.append('<div class="of-clip-empty">The clipboard is empty.<br>Copy or cut something in Docs, Sheets or Slides to collect it here.</div>');
+                return;
+            }
+            items.forEach(function (it, i) {
+                var v = clipItemView(it);
+                var $row = $('<div class="of-clip-item" tabindex="0"></div>').attr("title", "Click to paste");
+                $row.append($('<span class="of-clip-app"></span>').text(APP_NAMES[it.app] || "Office"));
+                $row.append(v.$prev);
+                var $del = $('<button type="button" class="of-clip-del" title="Delete"><i class="close icon"></i></button>');
+                $del.on("click", function (e) {
+                    e.stopPropagation();
+                    OfficeClipboard.removeFromHistory(i);
+                    render();
+                });
+                $row.append($del);
+                $row.on("click", function () { d.close(); pasteClipItem(it); });
+                $row.on("keydown", function (e) { if (e.key === "Enter") { d.close(); pasteClipItem(it); } });
+                $list.append($row);
+            });
+        };
+        var $body = $('<div class="of-clip-pane"></div>')
+            .append('<div class="of-clip-hint">Click an item to paste it.</div>')
+            .append($list);
+        d = dialog({
+            title: "Clipboard",
+            body: $body,
+            buttons: [
+                {
+                    label: "Clear All", action: function () {
+                        OfficeClipboard.clearHistory();
+                        render();
+                    }
+                },
+                {
+                    label: "Paste All", action: function (close) {
+                        // oldest first, the order they were copied in
+                        var items = OfficeClipboard.history().reverse();
+                        if (!items.length) return;
+                        var texts = [], htmls = [];
+                        items.forEach(function (it) {
+                            var v = clipItemView(it);
+                            texts.push(v.text);
+                            htmls.push(it.html || escapeHtml(it.text).replace(/\n/g, "<br>"));
+                        });
+                        close();
+                        pasteClipItem({ text: texts.join("\n"), html: htmls.join("<br>") });
+                    }
+                },
+                { label: "Close", primary: true }
+            ]
+        });
+        render();
     }
 
     /* ---------- print ---------- */
@@ -1789,7 +1943,8 @@ var OfficeApp = (function () {
         if (!OfficePlatform.isStandalone()) return;
         var openable = function (name) {
             var e = extOf(name);
-            return e === cfg.extension || !!(cfg.importers || {})[e] || !!binaryImporters()[e];
+            return e === cfg.extension || !!(cfg.importers || {})[e] || !!binaryImporters()[e] ||
+                isLegacyExt(e);
         };
         var claims = function (e) {
             var dt = e.dataTransfer;
@@ -1826,6 +1981,85 @@ var OfficeApp = (function () {
     function requestClose(done, cancelled) {
         cancelled = cancelled || function () { };
         if (!dirty) { done(); return; }
+        // with AutoSave on, closing is one more autosave: the document goes
+        // back into its file and the window closes - no question to answer.
+        // Only when that cannot happen (never saved, a format that cannot
+        // hold it, the write failed) does the window ask.
+        if (canAutosaveOnClose()) {
+            saveWithProgress(save, done, function (err) {
+                if (err) toast("Could not save " + (filename || "the document") + ": " + err, "error");
+                askBeforeClose(done, cancelled);
+            });
+            return;
+        }
+        askBeforeClose(done, cancelled);
+    }
+    function canAutosaveOnClose() {
+        if (!autosaveEnabled() || !filepath || !OfficePlatform.autosavesToFile()) return false;
+        var ext = extOf(filename);
+        if (ext === cfg.extension) return true;
+        // a foreign format: only when it can still hold the document
+        var fmt = findSaveFormat(ext, false);
+        return !!fmt && !formatReasons(fmt);
+    }
+    /*
+        Run a save (save or saveAs) behind a progress panel: the window is
+        about to close, so it holds the screen until the file is written -
+        a save that uploads megabytes must not look like a frozen window.
+        done() once the file is saved, failed(message) when it was not (a
+        null message: declined or cancelled, nothing to report).
+    */
+    function saveWithProgress(run, done, failed) {
+        var ui = null, over = false;
+        var stages = {
+            wait: [2, "Waiting for the previous save..."],
+            prepare: [8, "Preparing the document..."],
+            compress: [16, "Compressing..."],
+            server: [90, "Writing " + (filename || "the file") + "..."]
+        };
+        var obs = {
+            progress: function (stage, pct) {
+                if (over) return;
+                if (!ui) ui = showSaveProgress(filename || (cfg.defaultFileName + cfg.extension));
+                if (stage === "upload") {
+                    var p = Math.max(0, Math.min(100, pct || 0));
+                    ui.set(18 + p * 0.7, "Uploading... " + Math.round(p) + "%", false);
+                } else if (stages[stage]) {
+                    ui.set(stages[stage][0], stages[stage][1], stage === "server" || stage === "wait");
+                }
+            },
+            fail: function (err) {
+                if (over) return;
+                over = true;
+                if (ui) ui.close();
+                failed(err);
+            }
+        };
+        run(function () {
+            if (over) return;
+            over = true;
+            if (!ui) { done(); return; }
+            ui.set(100, "Saved", false);
+            setTimeout(function () { ui.close(); done(); }, 300);
+        }, obs);
+    }
+    function showSaveProgress(name) {
+        var $o = $('<div class="of-saveprog-overlay of-noprint" role="dialog" aria-live="polite">' +
+            '<div class="of-saveprog"><div class="of-saveprog-title"></div>' +
+            '<div class="of-saveprog-bar"><div class="of-saveprog-fill"></div></div>' +
+            '<div class="of-saveprog-msg"></div></div></div>');
+        $o.find(".of-saveprog-title").text("Saving " + name);
+        $("body").append($o);
+        return {
+            set: function (pct, msg, busy) {
+                $o.find(".of-saveprog-fill").css("width", pct + "%");
+                $o.find(".of-saveprog-bar").toggleClass("busy", !!busy);
+                $o.find(".of-saveprog-msg").text(msg || "");
+            },
+            close: function () { $o.remove(); }
+        };
+    }
+    function askBeforeClose(done, cancelled) {
         dialog({
             title: "Unsaved changes",
             body: "<b>" + escapeHtml(filename || (cfg.defaultFileName + cfg.extension)) +
@@ -1844,9 +2078,20 @@ var OfficeApp = (function () {
                 },
                 {
                     label: "Save & close", primary: true,
-                    // save() only calls back on success, so a failed or
-                    // cancelled save leaves the window open
-                    action: function (close) { close(); save(done); }
+                    // only a save that worked closes the window: a failed
+                    // or cancelled one leaves it open with the changes
+                    action: function (close) {
+                        close();
+                        // a document never saved asks for a file first, and
+                        // the picker does not report a cancel: release the
+                        // close request now (a saved file still closes it)
+                        var asked = !filepath;
+                        if (asked) cancelled();
+                        saveWithProgress(save, done, function (err) {
+                            if (err) toast("Could not save: " + err, "error");
+                            if (!asked) cancelled();
+                        });
+                    }
                 }
             ]
         });
@@ -1911,6 +2156,7 @@ var OfficeApp = (function () {
         print: printDoc,
         // the Edit commands, for an app's own ribbon (op: cut | copy | paste)
         clipboard: clipboardAction,
+        showClipboardPane: showClipboardPane,
         autosaveEnabled: autosaveEnabled,
         setAutosave: function (on) { setSetting("autosave", !!on); refreshQat(); },
         // the title bar's slot for an app's own buttons (right-hand side)

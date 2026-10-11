@@ -315,7 +315,9 @@ body.dark .sl-croph[data-ch="sw"], body.dark .sl-croph[data-ch="se"] {
 .sl-editing .sl-text-in, .sl-editing .sl-shape-text { cursor: text; }
 .sl-obj.sl-editing { outline: 1px dashed var(--of-accent); }
 
-.sl-shape-rich {
+/* both classes, so the paragraphs span the shape (and keep their own
+   alignment) over .sl-shape-text's centring below */
+.sl-shape-text.sl-shape-rich {
     display: flex;
     flex-direction: column;
     align-items: stretch;

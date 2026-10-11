@@ -32,7 +32,8 @@ var OfficeIcons = (function () {
         clearFormat: '<path d="M4 20 9.5 5l5.5 15M6 14.5h7"/><path class="accs" d="M16 14l5 5M21 14l-5 5"/>',
         subscript: T(1.5, 15, 14, "X", ' font-weight="600"') + T(13.5, 21, 9, "2", ' class="acct"'),
         superscript: T(1.5, 20, 14, "X", ' font-weight="600"') + T(13.5, 10, 9, "2", ' class="acct"'),
-        formatPainter: '<rect x="4" y="3" width="13" height="6" rx="1"/><path d="M17 6h2.5v5.5H11.5V14"/><rect class="fillc" x="10" y="14" width="3" height="7" rx="1"/>',
+        // a paintbrush lying corner to corner, bristles down on the left
+        formatPainter: '<path d="M13.2 10.8 20.4 3.6a1.4 1.4 0 0 1 2 2l-7.2 7.2"/><path d="M10.6 10.1l3.3 3.3"/><path d="M10.6 10.1c-2.6-.6-4.6.6-5.3 2.7-.5 1.6-1.2 3.6-3.8 4.9 3.4 2.2 8.6 2 11-.6 1.4-1.6 1.9-2.9 1.4-3.7z"/>',
         borderBottom: '<path d="M4 4h16v16H4zM4 12h16M12 4v16" stroke-dasharray="1.2 2.4"/><path d="M3.5 20h17" stroke-width="2.4"/>',
         borderTop: '<path d="M4 4h16v16H4zM4 12h16M12 4v16" stroke-dasharray="1.2 2.4"/><path d="M3.5 4h17" stroke-width="2.4"/>',
         borderAll: '<path d="M4 4h16v16H4zM4 12h16M12 4v16" stroke-width="1.8"/>',
@@ -134,6 +135,13 @@ var OfficeIcons = (function () {
         table: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.5h18M3 15h18M9 4v16M15 4v16"/>',
         chart: '<path d="M3.5 20.5h17"/><path d="M6 17V11h3v6zM10.5 17V6h3v11z"/><path class="acc" d="M15 17V9h3v8z"/>',
         comment: '<path d="M3.5 4.5h17v11h-9l-5 4v-4h-3z"/>',
+        /* ---- clipboard (Home > Clipboard, the same in all three apps) ---- */
+        // the clipboard board with a page in front of it
+        pasteBig: '<rect class="clipb" x="2.5" y="4" width="13.5" height="17.5" rx="1"/><path class="clipk" d="M6.5 5.5V3.2h2.2a1.3 1.3 0 0 1 2.6 0h2.2v2.3z"/><path class="paper" d="M10.5 9.5h7l3.5 3.5v9.5H10.5z"/><path d="M17.5 9.5V13H21"/>',
+        cut: '<circle cx="7" cy="17.5" r="3"/><circle cx="17" cy="17.5" r="3"/><path d="M9 15.3 16.5 3M15 15.3 7.5 3"/>',
+        copy: '<path d="M4 2.5h7.5l3 3V17H4z"/><path class="paper" d="M9.5 7h7.5l3 3v11.5H9.5z"/><path d="M17 7v3h3M12 13h5.5M12 16h5.5M12 19h3.5"/>',
+        // the dialog launcher in a group's corner
+        launcher: '<path d="M13 3.5H3.5V13"/><path d="M8 8l12.5 12.5M20.5 12.5v8h-8"/>',
         paste: '<rect x="5" y="4" width="14" height="17" rx="1.5"/><rect class="acc" x="8.5" y="2.5" width="7" height="4" rx="1"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/>',
         note: '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/><path class="accs" d="M7.5 8.5h9M7.5 12h6"/>',
         sheet: '<path d="M3 4h18v16H3zM3 9h18M9 4v16"/><path class="accs" d="M17 13v6M14 16h6" stroke-width="2"/>'

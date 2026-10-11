@@ -113,7 +113,18 @@ var OfficePlatform = (function () {
         ".pptx": { app: "presentation", wasm: "presentationFile",
             mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
     };
-    function nativeOf(name) { return NATIVE[extOf(name)] || null; }
+    /* The Office 97-2003 formats open through the same converter as the
+       app's own format (office.ReadNativeFile converts them first); they are
+       never saved, so documentSave never sees one. */
+    var LEGACY = {
+        ".doc": ".docx", ".dot": ".docx",
+        ".xls": ".xlsx", ".xlt": ".xlsx",
+        ".ppt": ".pptx", ".pot": ".pptx", ".pps": ".pptx"
+    };
+    function nativeOf(name) {
+        var ext = extOf(name);
+        return NATIVE[ext] || NATIVE[LEGACY[ext]] || null;
+    }
     function extForApp(app) {
         for (var e in NATIVE) if (NATIVE[e].app === app) return e;
         return "";
@@ -301,12 +312,18 @@ var OfficePlatform = (function () {
            gzipped (CompressionStream) - a document body shrinks to a fifth
            or less, where urlencoding would have doubled it. The backend
            reads the file with office.readPayload, which gunzips it, and
-           deletes it. Small payloads are simply posted. */
-        agirunLarge: function (script, params, field, cb, errcb, timeout) {
+           deletes it. Small payloads are simply posted.
+
+           progress(stage, percent), when given, follows the request:
+           "compress", "upload" (with the percent sent) and "server" (the
+           script is running), so a long save can show where it is. */
+        agirunLarge: function (script, params, field, cb, errcb, timeout, progress) {
             timeout = timeout || 0;
             errcb = errcb || function () { };
+            progress = progress || function () { };
             var payload = params[field];
             var post = function (p) {
+                progress("server");
                 ao_module_agirun(script, p, function (data) {
                     if (data && data.error) { errcb(data.error); return; }
                     cb(data);
@@ -323,6 +340,7 @@ var OfficePlatform = (function () {
                     try {
                         file = new File([blob], name, { type: blob.type || "application/octet-stream" });
                     } catch (e) { post(params); return; }
+                    progress("upload", 0);
                     ao_module_uploadFile(file, TMPDIR, function (resp) {
                         if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
                             errcb("upload failed: " + resp);
@@ -335,13 +353,14 @@ var OfficePlatform = (function () {
                         });
                         p[field + "File"] = TMPDIR + "/" + name;
                         post(p);
-                    }, undefined, function () {
+                    }, function (pct) { progress("upload", pct); }, function () {
                         errcb("upload failed - the document is too large to send");
                     });
                 }, function () { post(params); });
             };
             var stem = "post-" + Date.now().toString(36) + "-" +
                 Math.random().toString(36).substring(2, 8);
+            progress("compress");
             gzipText(payload, function (gz) {
                 if (gz) { upload(gz, stem + ".json.gz"); return; }
                 if (payload.length <= POST_INLINE_MAX) { post(params); return; }
@@ -444,10 +463,10 @@ var OfficePlatform = (function () {
                 cb(data.envelope);
             }, function () { errcb("cannot reach the ArozOS backend"); }, 120000);
         },
-        documentSave: function (path, envelopeJson, cb, errcb) {
+        documentSave: function (path, envelopeJson, cb, errcb, progress) {
             arozos.agirunLarge(DOCUMENT_BACKEND, {
                 action: "save", filepath: path, content: envelopeJson
-            }, "content", function () { cb(); }, errcb, 180000);
+            }, "content", function () { cb(); }, errcb, 180000, progress);
         },
 
         sessionSave: function (app, envelopeJson, cb, errcb) {
@@ -959,7 +978,8 @@ var OfficePlatform = (function () {
                 }, errcb);
             }, function (msg) { errcb("could not read the file: " + msg); });
         },
-        documentSave: function (path, envelopeJson, cb, errcb) {
+        documentSave: function (path, envelopeJson, cb, errcb, progress) {
+            if (progress) progress("server");
             var name = saveName(path);
             var nat = nativeOf(name);
             if (!nat) { errcb("documents are saved as .docx, .xlsx or .pptx"); return; }
@@ -1153,7 +1173,8 @@ var OfficePlatform = (function () {
                 OfficeWasm.runImport(nat.wasm, bytes, cb, errcb);
             }, function (msg) { errcb("could not read the file: " + msg); });
         },
-        documentSave: function (path, envelopeJson, cb, errcb) {
+        documentSave: function (path, envelopeJson, cb, errcb, progress) {
+            if (progress) progress("server");
             var nat = nativeOf(saveName(path));
             if (!nat) { errcb("documents are saved as .docx, .xlsx or .pptx"); return; }
             if (!nativeShell.canConvert()) { errcb(NO_WASM); return; }
@@ -1257,7 +1278,7 @@ var OfficePlatform = (function () {
 
         // the suite's own .docx / .xlsx / .pptx: file <-> envelope JSON
         documentLoad: function (p, cb, errcb) { host.documentLoad(p, cb, errcb || function () { }); },
-        documentSave: function (p, j, cb, errcb) { host.documentSave(p, j, cb, errcb || function () { }); },
+        documentSave: function (p, j, cb, errcb, progress) { host.documentSave(p, j, cb, errcb || function () { }, progress); },
         nativeExtension: extForApp,
 
         sessionSave: function (a, j, cb, errcb) { host.sessionSave(a, j, cb, errcb); },
@@ -1265,7 +1286,7 @@ var OfficePlatform = (function () {
         sessionDelete: function (a) { host.sessionDelete(a); },
 
         agirun: function (s, p, cb, errcb, t) { host.agirun(s, p, cb, errcb, t); },
-        agirunLarge: function (s, p, f, cb, errcb, t) { host.agirunLarge(s, p, f, cb, errcb, t); },
+        agirunLarge: function (s, p, f, cb, errcb, t, progress) { host.agirunLarge(s, p, f, cb, errcb, t, progress); },
         prepareWorkdir: function (cb, errcb) { host.prepareWorkdir(cb, errcb); },
         // the window is closing for good: drop its working copies
         releaseWorkdir: function () { host.releaseWorkdir(); },

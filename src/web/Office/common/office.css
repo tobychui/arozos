@@ -467,6 +467,12 @@ body.of-tb-pick .of-rb-tabpick { display: inline-flex; }
 /* colour button: the tool icon over a bar of the current colour */
 .of-rb-cface { flex-direction: column; gap: 1px; padding-top: 2px; }
 .of-rb-cface i.icon { font-size: 13px !important; height: auto; }
+/* the big form: the bar sits under the icon in the top half */
+.of-rb-bigcolor .of-rb-bigtop.of-rb-cface { flex-direction: column; justify-content: center; gap: 2px; padding-top: 3px; }
+.of-rb-bigcolor .of-rb-bigicon { height: 24px; }
+.of-rb-bigcolor .of-rb-cbar { width: 22px; }
+body.of-narrow .of-rb-bigcolor .of-rb-bigicon { height: auto; }
+body.of-narrow .of-rb-bigcolor .of-rb-cbar { width: 16px; }
 .of-rb-cbar {
     width: 16px;
     height: 4px;
@@ -551,6 +557,42 @@ body.of-tb-pick .of-rb-tabpick { display: inline-flex; }
 .of-rb-bigsplit.active .of-rb-bigtop { background: var(--of-accent-soft); color: var(--of-accent); }
 .of-rb-bigsplit.active .of-rb-bigicon i.icon { color: var(--of-accent); }
 .of-rb-bigtop:disabled, .of-rb-bigbot:disabled { opacity: 0.38; pointer-events: none; }
+/* a big split button with the caret under the label (Office's Paste) */
+.of-rb-caretbelow .of-rb-bigbot { flex-direction: column; align-items: center; gap: 0; padding-top: 1px; }
+.of-rb-caretbelow .of-rb-bigbot i.icon { line-height: 9px; height: 9px; }
+/* Home > Clipboard: a big Paste, then Cut / Copy / Format Painter as icons
+   one under the other, and the dialog launcher in the corner */
+.of-rb-gbody { position: relative; }
+.of-rb-haslaunch > .of-rb-gbody, .of-rb-popup .of-rb-gbody:has(> .of-rb-launch) { padding-right: 12px; }
+.of-rb-launch {
+    position: absolute;
+    right: -5px;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+}
+.of-rb-launch .of-ic { width: 10px; height: 10px; stroke-width: 2.2; }
+.of-rb-launch:hover { background: var(--of-active); color: var(--of-fg); }
+.of-rb-clipboard .of-rb-stack { gap: 0; align-items: flex-start; }
+.of-rb-clipboard .of-rb-stack .of-rb-btn { justify-content: center; min-width: 26px; padding: 0 4px; }
+.of-rb-clipboard .of-rb-stack .of-rb-btn .of-ic { width: 17px; height: 17px; stroke-width: 1.4; color: var(--of-fg-soft); }
+.of-rb-clipboard .of-rb-stack .of-rb-btn.active .of-ic { color: var(--of-accent); }
+.of-rb-clipboard .of-rb-split > .of-rb-btn:first-child { min-width: 24px; padding: 0 1px 0 4px; }
+.of-rb-clipboard .of-rb-caretbtn { min-width: 13px; width: 13px; }
+.of-rb-paste .of-rb-bigicon .of-ic { width: 30px; height: 30px; stroke-width: 1.3; }
+.of-ic .clipb { fill: var(--of-chrome-bg); stroke: #d48a1a; stroke-width: 1.6; }
+.of-ic .clipk { fill: var(--of-chrome-bg); }
+.of-ic .paper { fill: var(--of-chrome-bg); }
+body.dark .of-ic .clipb { stroke: #e9a647; }
 /* a group folded into a button of its own when room is short */
 .of-rb-gbtn { display: none; }
 .of-rb-collapsed > .of-rb-gbody { display: none; }
@@ -817,6 +859,49 @@ body.of-rb-min.of-rb-peek .of-ribbon {
     overflow-y: auto;
     flex: 1 1 auto;
 }
+.of-clip-pane { width: 360px; max-width: 100%; }
+.of-clip-hint { color: var(--of-fg-soft); font-size: 12.5px; margin-bottom: 8px; }
+.of-clip-list { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow: auto; }
+.of-clip-empty { padding: 22px 8px; text-align: center; color: var(--of-fg-soft); font-size: 13px; line-height: 1.5; }
+.of-clip-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 30px 7px 9px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    cursor: pointer;
+    outline: none;
+}
+.of-clip-item:hover, .of-clip-item:focus { border-color: var(--of-accent); background: var(--of-hover); }
+.of-clip-app { font-size: 11px; color: var(--of-fg-soft); }
+.of-clip-prev {
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--of-fg);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+.of-clip-prev img { display: block; max-width: 100%; max-height: 72px; object-fit: contain; }
+.of-clip-del {
+    position: absolute;
+    top: 5px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+}
+.of-clip-del:hover { background: var(--of-active); color: var(--of-fg); }
+.of-clip-del i.icon { margin: 0; }
 .of-dialog-body label { display: block; margin: 8px 0 4px; color: var(--of-fg-soft); font-size: 13px; }
 .of-dim { color: var(--of-fg-soft); font-size: 12px; }
 .of-dialog-body input[type="text"], .of-dialog-body input[type="number"], .of-dialog-body select, .of-dialog-body textarea {
@@ -1269,6 +1354,67 @@ body.of-rb-min.of-rb-peek .of-ribbon {
 }
 @keyframes of-spin { to { transform: rotate(360deg); } }
 
+/* ============ Save progress (closing a window) ============ */
+/* Holds the screen while a window that is about to close writes its file,
+   with a bar that follows the upload, so a long save never looks frozen. */
+.of-saveprog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    background: rgba(0, 0, 0, 0.32);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.of-saveprog {
+    width: min(340px, 100%);
+    padding: 16px 18px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--of-border);
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    box-shadow: 0 8px 28px var(--of-shadow);
+    font-size: 13px;
+}
+.of-saveprog-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.of-saveprog-bar {
+    position: relative;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--of-border);
+    overflow: hidden;
+}
+.of-saveprog-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: var(--of-accent);
+    transition: width 0.2s ease;
+}
+/* the server is writing: no more numbers to show, so the bar keeps moving */
+.of-saveprog-bar.busy::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: of-saveprog-sweep 1.1s linear infinite;
+}
+@keyframes of-saveprog-sweep { from { left: -30%; } to { left: 100%; } }
+.of-saveprog-msg {
+    margin-top: 8px;
+    color: var(--of-fg-soft);
+    min-height: 1.2em;
+}
+
 /* ============ Progress panel ============ */
 /* The non-blocking counterpart of the busy overlay: it sits in the corner
    of the editing area and leaves the document usable underneath. */
@@ -1377,6 +1523,8 @@ body.of-narrow .of-rb-bigbot { flex: 0 0 auto; align-items: center; padding: 0 4
 body.of-narrow .of-rb-bigbot .of-rb-biglbl { display: none; }
 body.of-narrow .of-rb-collapsed > .of-rb-gbody { display: flex; }
 body.of-narrow .of-rb-collapsed > .of-rb-gbtn { display: none; }
+body.of-narrow .of-rb-launch { display: none; }
+body.of-narrow .of-rb-haslaunch > .of-rb-gbody { padding-right: 0; }
 body.of-narrow [data-mobile="hide"] { display: none !important; }
 body.of-narrow [data-desktop="hide"] { display: inline-flex !important; }
 body.of-narrow select[data-desktop="hide"] { display: inline-block !important; }

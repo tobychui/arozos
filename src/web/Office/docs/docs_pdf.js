@@ -142,7 +142,8 @@ var DocsPdf = (function () {
                     h: el.clientHeight - ptp - (parseFloat(cs.paddingBottom) || 0)
                 };
                 if (content.w > 0 && content.h > 0) {
-                    add("images", content.y, content.h, { box: content, img: el, viewBox: cs.objectViewBox || el.style.objectViewBox || "" });
+                    add("images", content.y, content.h, { box: content, img: el, viewBox: cs.objectViewBox || el.style.objectViewBox ||
+                        el.getAttribute("data-crop") || "" });
                 }
             }
 

@@ -113,6 +113,7 @@ var OfficeClipboard = (function () {
        when the browser supports multi-type ClipboardItem. */
     function writeAsync(parts) {
         var text = parts.text || "";
+        if (!parts.noHistory) record(parts);
         if (parts.html && window.ClipboardItem &&
             navigator.clipboard && navigator.clipboard.write) {
             try {
@@ -129,7 +130,78 @@ var OfficeClipboard = (function () {
         return Promise.reject(new Error("clipboard unavailable"));
     }
 
+    /* ---------- the Office clipboard (Home > Clipboard launcher) ----------
+       What was copied or cut in any Office window of this browser tab,
+       newest first, as {text, html, app, t}. It lives in sessionStorage, so
+       Docs, Sheets and Slides opened as ArozOS windows share it and it is
+       gone with the tab, like Office's clipboard when the last app closes. */
+    var HKEY = "ofClipHistory", HMAX = 24, HTML_MAX = 1024 * 1024;
+    function history() {
+        try {
+            var v = JSON.parse(window.sessionStorage.getItem(HKEY) || "[]");
+            return Array.isArray(v) ? v : [];
+        } catch (e) { return []; }
+    }
+    function storeHistory(list) {
+        // a full store gives up its oldest entries first
+        while (true) {
+            try {
+                if (list.length) window.sessionStorage.setItem(HKEY, JSON.stringify(list));
+                else window.sessionStorage.removeItem(HKEY);
+                return;
+            } catch (e) {
+                if (!list.length) return;
+                list.pop();
+            }
+        }
+    }
+    function record(parts) {
+        var text = String(parts.text || ""), html = String(parts.html || "");
+        if (html.length > HTML_MAX) html = "";
+        if (!text.replace(/\s/g, "") && !html) return;
+        var list = history().filter(function (it) { return !(it.text === text && it.html === html); });
+        list.unshift({
+            text: text, html: html, t: Date.now(),
+            app: (document.body && document.body.getAttribute("data-officeapp")) || ""
+        });
+        if (list.length > HMAX) list.length = HMAX;
+        storeHistory(list);
+    }
+    function removeFromHistory(i) {
+        var list = history();
+        list.splice(i, 1);
+        storeHistory(list);
+    }
+    function clearHistory() { storeHistory([]); }
+    /* Ctrl+C / Ctrl+X and the Edit menu's copies: the window hears the event
+       after the app's own document handler has filled it in; a copy the app
+       left to the browser (selected text) is read from the selection, before
+       a cut removes it. */
+    function onCopyEvent(e) {
+        var cd = e.clipboardData, text = "", html = "";
+        try {
+            text = cd ? cd.getData("text/plain") : "";
+            html = cd ? cd.getData("text/html") : "";
+        } catch (err) { }
+        if (!text && !html) {
+            var sel = window.getSelection ? window.getSelection() : null;
+            if (sel && sel.rangeCount && !sel.isCollapsed) {
+                text = sel.toString();
+                var div = document.createElement("div");
+                for (var i = 0; i < sel.rangeCount; i++) div.appendChild(sel.getRangeAt(i).cloneContents());
+                html = div.innerHTML;
+            }
+        }
+        record({ text: text, html: html });
+    }
+    window.addEventListener("copy", onCopyEvent);
+    window.addEventListener("cut", onCopyEvent);
+
     return {
+        history: history,
+        record: record,
+        removeFromHistory: removeFromHistory,
+        clearHistory: clearHistory,
         imageHtml: imageHtml,
         tableHtml: tableHtml,
         svgImageSrc: svgImageSrc,

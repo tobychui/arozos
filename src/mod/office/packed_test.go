@@ -8,12 +8,15 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"imuslab.com/arozos/mod/office/internal/media"
+	"imuslab.com/arozos/mod/office/internal/officetest"
 )
 
 func TestPackUnpackRoundtrip(t *testing.T) {
 	envelope := `{"type":"arozos/office","app":"presentation","body":{"slides":[` +
-		`{"objects":[{"type":"image","props":{"src":"` + testPngDataURL + `"}},` +
-		`{"type":"image","props":{"src":"` + testPngDataURL + `"}},` +
+		`{"objects":[{"type":"image","props":{"src":"` + officetest.PngDataURL + `"}},` +
+		`{"type":"image","props":{"src":"` + officetest.PngDataURL + `"}},` +
 		`{"type":"image","props":{"src":"../media?file=user%3A%2FPhoto%2Fcat.png"}},` +
 		`{"type":"text","props":{"html":"hello data: not a url"}}]}]}}`
 
@@ -55,7 +58,7 @@ func TestPackUnpackRoundtrip(t *testing.T) {
 }
 
 func TestPackDedupe(t *testing.T) {
-	envelope := `{"a":"` + testPngDataURL + `","b":"` + testPngDataURL + `"}`
+	envelope := `{"a":"` + officetest.PngDataURL + `","b":"` + officetest.PngDataURL + `"}`
 	packed, err := PackEnvelope(envelope, nil)
 	if err != nil {
 		t.Fatalf("PackEnvelope: %v", err)
@@ -67,7 +70,7 @@ func TestPackDedupe(t *testing.T) {
 }
 
 func TestUnpackEnvelopeToLinks(t *testing.T) {
-	envelope := `{"app":"presentation","body":{"src":"` + testPngDataURL + `","txt":"plain"}}`
+	envelope := `{"app":"presentation","body":{"src":"` + officetest.PngDataURL + `","txt":"plain"}}`
 	packed, err := PackEnvelope(envelope, nil)
 	if err != nil {
 		t.Fatalf("PackEnvelope: %v", err)
@@ -133,7 +136,7 @@ func TestMediaLinkVpath(t *testing.T) {
 		{"plain text", ""},
 	}
 	for _, tc := range tests {
-		if got := mediaLinkVpath(tc.in); got != tc.want {
+		if got := media.LinkVpath(tc.in); got != tc.want {
 			t.Errorf("mediaLinkVpath(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
@@ -285,4 +288,31 @@ func packedDocument(t *testing.T, packed []byte) string {
 	}
 	t.Fatalf("container has no %s", packedDocName)
 	return ""
+}
+
+func TestInlineMediaLinks(t *testing.T) {
+	png := officetest.PngBytes(t)
+	read := func(vp string) ([]byte, error) {
+		switch vp {
+		case "user:/a.png":
+			return png, nil
+		case "user:/b.txt":
+			return []byte("not a picture"), nil
+		}
+		return nil, errors.New("missing")
+	}
+	body := `{"src":"../../media?file=user%3A%2Fa.png","html":"<img src=\"../media?file=user%3A%2Fa.png\"><img src=\"../media?file=user%3A%2Fb.txt\">","other":"media is a word"}`
+	out, err := InlineMediaLinks(body, read)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(out, "data:image/png;base64,") != 2 {
+		t.Errorf("pictures not inlined: %s", out)
+	}
+	if !strings.Contains(out, "user%3A%2Fb.txt") || !strings.Contains(out, "media is a word") {
+		t.Errorf("non-pictures must stay: %s", out)
+	}
+	if same, _ := InlineMediaLinks(body, nil); same != body {
+		t.Errorf("no reader must mean no change")
+	}
 }

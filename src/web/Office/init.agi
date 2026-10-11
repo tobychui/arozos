@@ -12,7 +12,9 @@
         .docx - Docs   (word processor document)
         .xlsx - Sheets (spreadsheet workbook)
         .pptx - Slides (presentation)
-    and opens the OpenDocument and text formats besides.
+    and opens the OpenDocument and text formats besides, plus the Office
+    97-2003 formats (.doc / .xls / .ppt), which are converted into the
+    app's own format when they are opened (mod/office/doc, xls, ppt).
 */
 
 //Docs - word processor
@@ -31,7 +33,7 @@ registerModule(JSON.stringify({
     // 1080x700 once the document is ready (common/splash.js, data-size)
     InitFWSize: [480, 320],
     InitEmbSize: [480, 320],
-    SupportedExt: [".docx", ".odt"]
+    SupportedExt: [".docx", ".odt", ".doc", ".dot"]
 }));
 
 //Sheets - spreadsheet
@@ -49,7 +51,7 @@ registerModule(JSON.stringify({
     // splash-sized, grows to 1180x720 when ready (common/splash.js)
     InitFWSize: [480, 320],
     InitEmbSize: [480, 320],
-    SupportedExt: [".xlsx", ".ods", ".csv", ".tsv"]
+    SupportedExt: [".xlsx", ".ods", ".csv", ".tsv", ".xls", ".xlt"]
 }));
 
 
@@ -68,7 +70,7 @@ registerModule(JSON.stringify({
     // splash-sized, grows to 1220x740 when ready (common/splash.js)
     InitFWSize: [480, 320],
     InitEmbSize: [480, 320],
-    SupportedExt: [".pptx", ".odp"]
+    SupportedExt: [".pptx", ".odp", ".ppt", ".pot", ".pps"]
 }));
 
 

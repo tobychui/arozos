@@ -9,6 +9,12 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"imuslab.com/arozos/mod/office/docx"
+	"imuslab.com/arozos/mod/office/internal/officetest"
+	"imuslab.com/arozos/mod/office/model"
+	"imuslab.com/arozos/mod/office/pptx"
+	"imuslab.com/arozos/mod/office/xlsx"
 )
 
 func envelopeOf(app, body string) string {
@@ -68,11 +74,11 @@ func TestNativeRoundTripEachApp(t *testing.T) {
 		parse           func([]byte) error
 	}{
 		{AppDocument, `{"html":"<p>Hello <b>embedded</b> world</p>","trackChanges":true,"comments":[]}`, "embedded",
-			func(b []byte) error { _, err := ParseDocx(b); return err }},
+			func(b []byte) error { _, err := docx.Parse(b); return err }},
 		{AppSpreadsheet, `{"active":0,"sheets":[{"name":"S","cells":{"A1":{"v":"=1+1"}},"pivot":{"agg":"sum"}}]}`, `"pivot"`,
-			func(b []byte) error { _, err := ParseXlsx(b); return err }},
+			func(b []byte) error { _, err := xlsx.Parse(b); return err }},
 		{AppPresentation, `{"slides":[{"id":"s1","transition":"fade","objects":[{"type":"text","x":1,"y":1,"w":9,"h":9,"props":{"html":"<div>Hi</div>","anim":"zoom"}}]}]}`, `"anim":"zoom"`,
-			func(b []byte) error { _, err := ParsePptx(b); return err }},
+			func(b []byte) error { _, err := pptx.Parse(b); return err }},
 	}
 	for _, c := range cases {
 		t.Run(c.app, func(t *testing.T) {
@@ -107,7 +113,7 @@ func TestNativePackageIsWellFormed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parts := unzipParts(t, file)
+	parts := officetest.UnzipParts(t, file)
 	for _, want := range []string{nativeDocPart, nativeManifestPart, nativeDocRels, "word/document.xml"} {
 		if _, ok := parts[want]; !ok {
 			t.Errorf("missing part %s", want)
@@ -170,7 +176,7 @@ func TestNativeEditedElsewhereIsImported(t *testing.T) {
 
 func TestNativeForeignFileImports(t *testing.T) {
 	// a plain .docx as any other program writes it
-	plain, err := BuildDocx(&Document{HTML: "<p>From Word</p>"})
+	plain, err := docx.Build(&model.Document{HTML: "<p>From Word</p>"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +215,7 @@ func TestNativeRejectsMismatches(t *testing.T) {
 }
 
 func TestNativeMediaSharedWithOOXML(t *testing.T) {
-	png := pngBytes(t)
+	png := officetest.PngBytes(t)
 	reads := 0
 	read := func(vp string) ([]byte, error) {
 		reads++
@@ -227,7 +233,7 @@ func TestNativeMediaSharedWithOOXML(t *testing.T) {
 	if reads != 1 {
 		t.Errorf("the picture was read %d times, want once", reads)
 	}
-	parts := unzipParts(t, file)
+	parts := officetest.UnzipParts(t, file)
 	media := 0
 	for name := range parts {
 		if strings.HasPrefix(name, "word/media/") {
@@ -270,13 +276,13 @@ func TestNativeMediaSharedWithOOXML(t *testing.T) {
 // <img src>. It must be stored once - the OOXML media part - and not also as
 // base64 inside the embedded copy, which doubled a picture-heavy document.
 func TestNativeInlineHTMLPictureStoredOnce(t *testing.T) {
-	durl := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngBytes(t))
+	durl := "data:image/png;base64," + base64.StdEncoding.EncodeToString(officetest.PngBytes(t))
 	body := `{"html":"<p><img src=\"` + durl + `\" style=\"width: 20pt\"></p>"}`
 	file, err := BuildNativeFile(AppDocument, envelopeOf(AppDocument, body), nil)
 	if err != nil {
 		t.Fatalf("BuildNativeFile: %v", err)
 	}
-	parts := unzipParts(t, file)
+	parts := officetest.UnzipParts(t, file)
 	if strings.Contains(parts[nativeDocPart], "base64") {
 		t.Errorf("the embedded copy still holds the picture inline")
 	}
@@ -312,7 +318,7 @@ func TestNativeKeepsVideoInEmbeddedCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	var found bool
-	for name, data := range unzipParts(t, file) {
+	for name, data := range officetest.UnzipParts(t, file) {
 		if strings.HasPrefix(name, nativeAssetDir) && strings.HasSuffix(name, ".mp4") && data == string(video) {
 			found = true
 		}
@@ -323,7 +329,7 @@ func TestNativeKeepsVideoInEmbeddedCopy(t *testing.T) {
 }
 
 func TestExternalizeDataURLs(t *testing.T) {
-	body := `{"html":"<p><img src=\"` + testPngDataURL + `\"> text data: stays</p>","src":"` + testPngDataURL +
+	body := `{"html":"<p><img src=\"` + officetest.PngDataURL + `\"> text data: stays</p>","src":"` + officetest.PngDataURL +
 		`","font":"data:font/ttf;base64,AAAA"}`
 	n := 0
 	out, err := externalizeDataURLs(body, func(name string, data []byte) (string, error) {
@@ -362,15 +368,6 @@ func TestAppForExt(t *testing.T) {
 	}
 }
 
-func pngBytes(t *testing.T) []byte {
-	t.Helper()
-	b, _, ok := decodeDataURL(testPngDataURL)
-	if !ok {
-		t.Fatal("test picture does not decode")
-	}
-	return b
-}
-
 // Office refuses a package with a part it has no content type for, so
 // every part of every file the suite writes must be covered by a Default
 // (by extension) or an Override (by name)
@@ -380,7 +377,7 @@ func TestNativeEveryPartHasAContentType(t *testing.T) {
 		if strings.HasSuffix(vp, ".mp4") {
 			return video, nil
 		}
-		return pngBytes(t), nil
+		return officetest.PngBytes(t), nil
 	}
 	docs := map[string]string{
 		AppDocument: `{"html":"<p><img src=\"../../media?file=user%3A%2Fa.png\"><span class=\"doc-cmt\" data-cid=\"c\">x</span></p>",` +
@@ -396,7 +393,7 @@ func TestNativeEveryPartHasAContentType(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", app, err)
 		}
-		parts := unzipParts(t, file)
+		parts := officetest.UnzipParts(t, file)
 		ct := parts["[Content_Types].xml"]
 		for name := range parts {
 			if name == "[Content_Types].xml" {

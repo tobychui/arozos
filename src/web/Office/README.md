@@ -10,9 +10,9 @@ when you continue development.
 
 | App | Folder | Own format | Other formats |
 |---|---|---|---|
-| Docs | [`docs/`](docs/) | `.docx` | .odt, .pdf (export), .html, .md, .txt |
-| Sheets | [`sheets/`](sheets/) | `.xlsx` | .ods, .pdf (export), .csv, .tsv |
-| Slides | [`slides/`](slides/) | `.pptx` | .odp, .pdf (export), .png |
+| Docs | [`docs/`](docs/) | `.docx` | .doc / .dot (import), .odt, .pdf (export), .html, .md, .txt |
+| Sheets | [`sheets/`](sheets/) | `.xlsx` | .xls / .xlt (import), .ods, .pdf (export), .csv, .tsv |
+| Slides | [`slides/`](slides/) | `.pptx` | .ppt / .pot / .pps (import), .odp, .pdf (export), .png |
 
 Each app saves straight into the Office format of its kind, with the
 editor's own copy of the document embedded in the package, so what Word,
@@ -48,7 +48,7 @@ Browser (webapp JS)                      ArozOS server (Go)
 │   + common/*.js widgets │             │ mod/agi/agi.office.go        │
 └─────────────────────────┘             │  (permission + vpath glue)   │
                                         │        ▼                     │
-                                        │ mod/office/*.go              │
+                                        │ mod/office/... (packages)    │
                                         │  (pure converters, no I/O)   │
                                         └──────────────────────────────┘
 ```
@@ -70,6 +70,21 @@ Three layers, strictly separated:
    [`src/mod/agi/README.md`](../../mod/agi/README.md) — **keep it and
    [`src/web/Terminal/docs/api.json`](../../web/Terminal/docs/api.json)
    in sync whenever you change an `office.*` function.**
+
+`mod/office` is one Go package per format, all under the
+`imuslab.com/arozos` module (the package comment in
+[`doc.go`](../../mod/office/doc.go) is the authoritative map):
+
+| Package | Role |
+|---|---|
+| `office` (root) | the envelope: `native.go` (open/save `.docx` / `.xlsx` / `.pptx` with the embedded copy), `packed.go` (session snapshots), `formats.go` (which extension opens in which app, legacy sniffing and conversion) |
+| `model` | the three editor body schemas and their JSON helpers - every reader produces these, every writer consumes them |
+| `docx`, `xlsx`, `pptx` | OOXML import **and** export, one package per app |
+| `odf` | OpenDocument import and export (`.odt`, `.ods`, `.odp`) |
+| `doc`, `xls`, `ppt` | Office 97-2003 binary formats, **import only**: each converts the legacy file into OOXML and hands it to `docx` / `xlsx` / `pptx` |
+| `pdf` | server-side PDF export (Docs body, Sheets print model) |
+| `metafile` | WMF / EMF (and DIB / TIFF) pictures to PNG |
+| `internal/...` | shared plumbing: `cfb` (OLE2 compound files), `officeart` (the Escher drawing records Word, Excel and PowerPoint share), `opc` (writing OOXML packages), `codepage`, `xmltree`, `media`, `htmlutil`, `units`, `fonts`, `slidetext`, `officetest` |
 
 ### Two hosts, one code base
 
@@ -120,9 +135,15 @@ and [`common/office.js`](common/office.js) (API in `CONTRACT.md`): a title
 bar with the AutoSave switch, the File and Edit menus and the ribbon's
 tabs, and under it a ribbon of two-row groups, big buttons and galleries -
 Microsoft Office's layout with Google Docs' File / Edit menus and flat look.
-Save, Undo, Redo and the clipboard commands live in those two menus (and on
-their shortcuts), not on the ribbon; Format painter is in each Home > Font
-group and in Edit. The window title names the file from the moment it
+Save, Undo and Redo live in those two menus (and on their shortcuts), not
+on the ribbon. Every Home tab starts with Office's Clipboard group
+(`OfficeRibbon.clipboardGroup`): a big Paste whose label opens the paste
+options, Cut, Copy (its caret lists other ways to copy) and Format Painter
+as icons one under the other, and a dialog launcher opening the Clipboard
+pane - everything copied or cut in any Office window of the browser tab
+this session (`OfficeClipboard.history`, kept in sessionStorage), click an
+item to paste it. Cut / Copy / Paste and Format painter are also in Edit.
+The window title names the file from the moment it
 starts opening (`showOpening` in `office.js`). The tabs are Word's, Excel's and PowerPoint's:
 
 | App | Tabs |
@@ -183,7 +204,7 @@ the card size (`overviewSize`, saved).
 
 Go structs are the source of truth — they mirror the JS exactly:
 
-- **Docs** (`document`): [`docx.go`](../../mod/office/docx.go) —
+- **Docs** (`document`): [`model/document.go`](../../mod/office/model/document.go) —
   `{html, page{size, orientation, margins(mm), columns, colGap, headerDist,
   footerDist}, header, footer, headerHtml, footerHtml, footnotes[{id, html}],
   lineSpacing, hfMode, pageNumbers, comments, trackChanges}`. `html` is a
@@ -218,7 +239,7 @@ Go structs are the source of truth — they mirror the JS exactly:
     pt `<colgroup>`; cells state borders/padding/background inline.
     `data-docx="1"` marks a table laid out the Word way (no spacing around
     it) — one made in the editor has none and keeps docs.css's 8pt.
-- **Sheets** (`spreadsheet`): [`xlsx.go`](../../mod/office/xlsx.go) —
+- **Sheets** (`spreadsheet`): [`model/workbook.go`](../../mod/office/model/workbook.go) —
   `{sheets[{name, cells{"A1":{v,s,n}}, colW, rowH, merges, freeze,
   hiddenRows, charts, filter, cf}], active, names[{name, formula, sheet?}]}`. `names` are the workbook defined names (`sheet` = the index of the sheet a
   sheet-local name belongs to). `hiddenRows` is the sorted list
@@ -228,7 +249,7 @@ Go structs are the source of truth — they mirror the JS exactly:
   formula, evaluated client-side in [`sheets/formula.js`](sheets/formula.js)).
   `cf` is the sheet's conditional-format rules (below) — client-side only,
   so the Go structs do not model it.
-- **Slides** (`presentation`): [`office.go`](../../mod/office/office.go) —
+- **Slides** (`presentation`): [`model/presentation.go`](../../mod/office/model/presentation.go) —
   `{size:[960,540], theme, slides[{id, bg, bgImage, bgGrad, notes,
   objects[{type, x, y, w, h, rot, z, props}]}]}`. Object types: `text`,
   `image`, `shape`, `line`, `table`, `chart`, `video`, `audio`. `size` is
@@ -291,13 +312,60 @@ keeps for the suite:
 
 | | Word / Excel / PowerPoint see | kept only in the embedded copy |
 |---|---|---|
-| Docs | text, styles, lists, tables, pictures, footnotes, headers/footers, **comments** (resolved state included) and **suggestions as tracked changes** ([`docx_review.go`](../../mod/office/docx_review.go)), "Suggest edits" as `trackRevisions` | - |
-| Sheets | cells, formulas, styles (font, size, colours, bold / italic / underline / strikethrough, horizontal and vertical alignment, wrap), merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx_cf.go`](../../mod/office/xlsx_cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
+| Docs | text, styles, lists, tables, pictures, footnotes, headers/footers, **comments** (resolved state included) and **suggestions as tracked changes** ([`docx/review.go`](../../mod/office/docx/review.go)), "Suggest edits" as `trackRevisions` | - |
+| Sheets | cells, formulas, styles (font, size, colours, bold / italic / underline / strikethrough, horizontal and vertical alignment, wrap), merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx/cf.go`](../../mod/office/xlsx/cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
 | Slides | every object, **transitions** (fade / push / zoom), **click links** (to a slide or a URL), **line dashes and ends** (a square end as a diamond, an open end as the filled one - PowerPoint has neither), **picture frames**, **callout tips**, charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files, the exact line end |
 
 The reverse holds too: comments, tracked changes, conditional formats, tab
 colours, filter ranges, transitions and click links made in Office
 applications are read back.
+
+### Office 97-2003 files (.doc / .xls / .ppt) — import only
+
+Each app also opens the legacy binary format of its kind: Docs `.doc` /
+`.dot`, Sheets `.xls` / `.xlt`, Slides `.ppt` / `.pot` / `.pps`. They are
+**never written** - the suite has no legacy export.
+
+- **Go side.** `mod/office/doc`, `xls` and `ppt` each read the OLE2
+  compound file (`internal/cfb`) and write the equivalent OOXML package
+  (`doc.ToDocx`, `xls.ToXlsx`, `ppt.ToPptx`), following the structure of
+  LibreOffice's importers (`sw/source/filter/ww8`, `sc/source/filter/excel`,
+  `sd/source/filter/ppt` + `filter/source/msfilter/svdfppt.cxx`; each
+  package comment names the files it mirrors). The result then goes
+  through the ordinary `docx` / `xlsx` / `pptx` reader, so a legacy file
+  shows what the `.docx` / `.xlsx` / `.pptx` Office would have saved from
+  it does, and every improvement to an OOXML reader helps both.
+  `doc.Parse` / `xls.Parse` / `ppt.Parse` do both steps.
+- **Opening.** `office.ReadNativeFile` (behind `office.loadDocument` and
+  the WebAssembly `documentLoad`) recognises a legacy file **by content**
+  (`office.LegacyApp`: a `WordDocument`, `Workbook` / `Book` or
+  `PowerPoint Document` stream), converts it, and imports the OOXML like
+  any file from another program. A legacy file of another kind throws
+  ("this Excel 97-2003 workbook does not open as a document").
+- **Front end.** Each app lists its legacy extensions in
+  `cfg.legacyExtensions`; `OfficeApp` (`common/office.js`) routes them
+  through `OfficePlatform.documentLoad` like the app's own format but
+  treats the result as an **import**: the document is not attached to the
+  old file, the status bar says "Imported x.doc - use Save to store it as
+  .docx", and Save asks where to put the `.docx`. Like `binaryImporters`,
+  this needs `OfficePlatform.canConvert()`. `platform.js` maps the legacy
+  extensions onto their app (`nativeOf`), and `init.agi` registers them as
+  file associations, so a double-click on a `.doc` opens Docs.
+- **AGI.** Besides `office.loadDocument`, `office.docToDocument` /
+  `xlsToWorkbook` / `pptToPresentation` return a bare body, and
+  `office.convertLegacy(src, dest)` writes a plain `.docx` / `.xlsx` /
+  `.pptx` file.
+- **Tests.** Each package has small fixtures in its `testdata/` (made with
+  Office 2007, author fields scrubbed) and table tests for the record
+  parsers; `formats_test.go` covers sniffing and the open path. To check
+  fidelity, save the same file from Office as OOXML and compare: the
+  conversion of a `.doc` should parse to the same body as Office's own
+  `.docx` of it.
+- **Not converted:** encrypted files (refused with a message), Word 6/95
+  and PowerPoint 95 files (refused); Excel 5/95 workbooks open. Charts,
+  pictures and conditional formats of `.xls`, animations and media of
+  `.ppt`, and drawn shapes without a picture in `.doc` are dropped. A
+  `.ppt` table arrives as grouped cell shapes, as PowerPoint stores it.
 
 ## Import / export — how each path works and why
 
@@ -375,7 +443,7 @@ model allows) in its `.docx`, because there is only one layout:
   out. Font resolution against the shipped Noto faces, text runs and the
   raster fallback live in [`common/pdfcore.js`](common/pdfcore.js), also
   used by Slides. `docs/backend/convert.agi`'s `export-pdf` and
-  `mod/office/pdf_doc.go` remain for AGI callers (`office.documentToPdf`),
+  `mod/office/pdf/document.go` remain for AGI callers (`office.documentToPdf`),
   but the editor no longer uses them.
 - **Columns** (`page.columns` > 1) paginate the same way. Before each
   layout, every run of text between two full-width blocks (`.col-span-all`,
@@ -501,8 +569,8 @@ each other and to PDF's Helvetica, and the shipped faces behind them carry
 everything those three have no glyph for. Keep that list in step with
 `OfficeFonts.FALLBACK`. Text that states its own font (anything imported)
 overrides it and goes through `OfficeFonts.stack()`, which puts the same
-tail back on — including on the Go side, where `fontStackFor`
-(`mod/office/pptx_text.go`) appends `shippedFontFallbacks` to every stack
+tail back on — including on the Go side, where `fonts.StackFor`
+(`mod/office/pptx/text.go`) appends `shippedFontFallbacks` to every stack
 an import writes.
 
 **Only faces that are drawn with may be embedded.** The embedder subsets a
@@ -536,7 +604,7 @@ What that turned up, and the code that now follows it:
   (`OfficeFonts.substitute(..., {lines: "powerpoint"})`) a font's ascent and
   descent are restated to add up to 1.2 em; a paragraph at any other
   spacing is moved by the constant difference that leaves
-  (`ascentRatio` in `pptx_fonts.go`, kept in step with `METRICS`).
+  (`ascentRatio` in `pptx/fonts.go`, kept in step with `METRICS`).
 - **A missing font is replaced at its own width** (`OfficeFonts.substitute`,
   see CONTRACT.md): Noto Sans is 16% wider than Calibri and 20% wider than
   Garamond, which is what made imported text overflow its boxes. Calibri is
@@ -550,7 +618,7 @@ What that turned up, and the code that now follows it:
 - A **percentage paragraph space** is of the line (1.2 × size), not the size;
   `spcFirstLastPara` turns on the first paragraph's space before.
 - A **group's scale** sizes its children but never their type.
-- **Saving keeps the look**: `BuildPptx` writes picture frame fills,
+- **Saving keeps the look**: `pptx.Build` writes picture frame fills,
   `spcFirstLastPara` (the stored HTML states every paragraph's spacing as
   drawn) and, for a table that came with a style, PowerPoint's built-in
   "No Style, No Grid" id with the rules and fills on the cells - so a
@@ -562,13 +630,13 @@ What that turned up, and the code that now follows it:
 - **Tint and shade** work in linear light (a 40% tint of orange is peach,
   not yellow).
 - **Backgrounds** (slide, layout, master, or the theme's `bgRef` styles) may
-  be pictures or gradients (`pptx_fill.go`); shapes and picture frames may
+  be pictures or gradients (`pptx/fill.go`); shapes and picture frames may
   have gradient and translucent fills; a picture-filled shape is a picture
   in that outline.
-- **Tables** follow their table style (`pptx_table.go`) and keep merged
+- **Tables** follow their table style (`pptx/table.go`) and keep merged
   cells and per-cell anchoring. **SmartArt** is read from the drawing
   PowerPoint stores with it. **Custom geometry** is kept as its paths
-  (`pptx_custgeom.go`). **Office math** keeps PowerPoint's fallback picture
+  (`pptx/custgeom.go`). **Office math** keeps PowerPoint's fallback picture
   unless the formula is a line of symbols, which stays text.
 - Docs, against Google Docs: the paragraph mark's decoration stays off the
   text; auto (HTML) spacing collapses between paragraphs and inside lists; a
@@ -613,7 +681,7 @@ canvas and the PDF exporter both draw from it, so they cannot disagree. The
 props are `dashStyle`, `startHead` and `endHead`; a document from before
 them says `dash` / `arrowEnd` / `arrowStart`, which still draw exactly as they
 did, and `setDash` / `setHead` keep those flags in step for older readers.
-The `.pptx` mapping is [`mod/office/pptx_lines.go`](../../mod/office/pptx_lines.go).
+The `.pptx` mapping is [`mod/office/pptx/lines.go`](../../mod/office/pptx/lines.go).
 
 **A callout's tip is an adjustment, as in PowerPoint.** The four speech
 bubbles (`wedgeRectCallout`, `wedgeRoundRectCallout`, `wedgeEllipseCallout`,
@@ -627,7 +695,7 @@ ends. A callout made before adjustments existed has no `adj` and keeps its old
 drawing (body in the top 72%, tip at the bottom) until its handle is first
 dragged, when the frame shrinks to the body and the tip is stated where it
 already was (`adoptAdjustments`); the `.pptx` writer converts it the same way
-([`mod/office/pptx_adjust.go`](../../mod/office/pptx_adjust.go)). Other presets
+([`mod/office/pptx/adjust.go`](../../mod/office/pptx/adjust.go)). Other presets
 still draw at their default adjustments.
 
 ### Slides: the shape catalogue
@@ -640,7 +708,7 @@ offers: shapes, arrows, call outs and equation.
 **They are named after the PresentationML presets they are** (`rightBrace`,
 `flowChartDecision`, `wedgeRoundRectCallout`). That is the point of the
 file: an imported deck keeps its own vocabulary, and
-`prstToShapeKind` / `shapeKindPrst` (`mod/office/pptx_{reader,writer}.go`)
+`prstToShapeKind` / `shapeKindPrst` (`mod/office/pptx/{reader,writer}.go`)
 are a lookup rather than a translation. The editor had three names of its
 own before the catalogue — `round`, `arrow`, `star` — and they are gone:
 `SlidesShapes.ALIASES` knows what they used to mean and `normalizeBody()`
@@ -798,7 +866,7 @@ then applies element by element inside `SUMPRODUCT`, `SUM(...)` and other
 array contexts (`SUMPRODUCT(LEN(A1:A9))`). Excel's `_xlfn.` / `_xlws.` name
 prefixes are ignored when calling, stripped by the xlsx reader and written
 back for functions listed in `xlFutureFunctions`
-([`mod/office/xlsx_formula.go`](../../mod/office/xlsx_formula.go)) — add new
+([`mod/office/xlsx/formula.go`](../../mod/office/xlsx/formula.go)) — add new
 post-2007 Excel functions there too.
 
 Date text (`"2024-05-01"`, `"5/1/2024"`, `"1 May 2024"`, `"13:30"`) is read as
@@ -873,7 +941,7 @@ before asking for its hint** - it is recorded while the formula runs.
 Sheets (it stores each formula's computed value), then:
 
 ```bash
-OFFICE_GOLDEN_DIR=/path/to/xlsx go test ./mod/office/ -run TestGoldenDump
+OFFICE_GOLDEN_DIR=/path/to/xlsx go test ./mod/office/xlsx/ -run TestGoldenDump
 node web/Office/sheets/test_golden.js /path/to/xlsx
 ```
 
@@ -906,7 +974,7 @@ skipped, text typed straight into the call is `#VALUE!`. A blank cell equals
 **Shared formulas.** Excel writes a filled-down formula once
 (`<f t="shared" ref="K3:K66" si="0">B3-C3</f>`) and leaves the other cells
 as `<f t="shared" si="0"/>`. The Go reader expands every follower by moving
-the master's relative refs (`mod/office/xlsx_formula.go`), so they stay live
+the master's relative refs (`mod/office/xlsx/formula.go`), so they stay live
 formulas instead of frozen cached values.
 
 Two deliberate departures from Excel, both matching Sheets:
@@ -979,7 +1047,7 @@ mistaken for something the user applied by hand.
 
 Rules ride in the document body and reach PDF export through the print
 model. The `.xlsx` holds them as Excel's own conditional formats
-([`xlsx_cf.go`](../../mod/office/xlsx_cf.go)): the cells carrying a rule are
+([`xlsx/cf.go`](../../mod/office/xlsx/cf.go)): the cells carrying a rule are
 gathered into ranges, the rule's relative references are moved from its
 anchor to the range's corner, its look becomes a `<dxf>`, and the rules are
 ranked the way the cells list them - the reader stamps them back onto the
@@ -1003,8 +1071,8 @@ offers the whole list (plus PDF, which is one-way).
 
 Each format vetoes what it cannot hold — `.csv`/`.tsv` reject formulas,
 charts, notes, merges and second sheets; `.ods` rejects charts
-(`ods_writer.go` cannot represent them); `.odp` rejects video and audio
-objects (`odp_writer.go` emits no case for them); every Docs writer but the
+(`odf/ods_writer.go` cannot represent them); `.odp` rejects video and audio
+objects (`odf/odp_writer.go` emits no case for them); every Docs writer but the
 `.docx` rejects comments and pending suggestions, because they are fed
 `resolvedHtml()` and would come back with insertions accepted and deletions
 applied; `.txt` additionally rejects images and tables. The veto lists what
@@ -1055,6 +1123,21 @@ same card fills the page and scales with it. Sheets grows to
 1180x720 and Slides to 1220x740. Each `index.html` loads its stylesheets and
 scripts in `<body>`, after the splash, so the splash paints while they arrive.
 
+### Docs: pictures
+
+Selecting a picture shows the contextual **Picture Format** tab (Crop,
+Reset picture, border colour and weight, Wrap text, Align, Size &
+properties); the same actions are on the picture's context menu, and a
+double click opens Size & properties. Everything is stored the way the
+docx reader and writer already speak it (see the comment above
+`pictureCrop` in `docs.js`): crop as `object-view-box: inset(t% r% b% l%)`
+(DrawingML `srcRect`), the outline as a CSS border, and wrapping as inline
+or `img.doc-anchor` (block = top and bottom, or a float). **Alignment of an
+anchored picture is its `margin-left`**, which the writer saves as the
+horizontal offset: `text-align` cannot move a block image, so the Home
+align buttons call `alignPicture` while a picture is selected, and a
+centred or right-set picture is placed again whenever its width changes.
+
 ### Header / footer
 
 The header and footer are one editable pair per **simulated** page: the
@@ -1092,8 +1175,8 @@ the path that honours every mode exactly.
 
 - **PPTX/ODP import is inheritance, not element reading.** A deck's
   appearance is almost never stated on the shape you are looking at. The
-  readers ([`pptx_reader.go`](../../mod/office/pptx_reader.go) +
-  `pptx_text.go` / `pptx_xml.go`, [`odp_reader.go`](../../mod/office/odp_reader.go))
+  readers ([`pptx/reader.go`](../../mod/office/pptx/reader.go) +
+  `pptx/text.go` / `pptx/color.go`, [`odf/odp_reader.go`](../../mod/office/odf/odp_reader.go))
   resolve, lowest priority first: the presentation's default text style,
   the master's `txStyles` for the placeholder kind, the master's and then
   the layout's matching placeholder `lstStyle`, the shape's own `lstStyle`,
@@ -1117,7 +1200,7 @@ the path that honours every mode exactly.
   empty line it opens gets no height at all.
 - **Embedded fonts are usually undecodable.** `<p:embeddedFontLst>` points
   at `.fntdata` parts, which are EOT wrappers.
-  [`pptx_fonts.go`](../../mod/office/pptx_fonts.go) unwraps a bare sfnt or
+  [`pptx/fonts.go`](../../mod/office/pptx/fonts.go) unwraps a bare sfnt or
   an *uncompressed* EOT (what PowerPoint writes) into an `@font-face` data
   URL, under a per-face and per-deck size cap so a multi-megabyte CJK face
   cannot make a document painful to edit. Google Slides writes
@@ -1127,9 +1210,9 @@ the path that honours every mode exactly.
   deck can differ visibly from its source: the glyphs are a substitute, so
   a line may wrap a word earlier.
 - **DOCX import is inheritance too**
-  ([`docx_reader.go`](../../mod/office/docx_reader.go),
-  [`docx_props.go`](../../mod/office/docx_props.go),
-  [`docx_numbering.go`](../../mod/office/docx_numbering.go)): a
+  ([`docx/reader.go`](../../mod/office/docx/reader.go),
+  [`docx/props.go`](../../mod/office/docx/props.go),
+  [`docx/numbering.go`](../../mod/office/docx/numbering.go)): a
   paragraph's look is docDefaults → the paragraph style's `basedOn` chain
   → direct `pPr` → character style → run `rPr`. Toggles are tri-state
   (`<w:b w:val="0"/>` switches bold *off* against a bold style — reading it
@@ -1143,11 +1226,11 @@ the path that honours every mode exactly.
   is Arial. Each rule was measured against its own PDF; they are `cv.gdocs`
   branches so a Word document is not bent by them.
 - **A turned or mirrored picture is baked into the bitmap on import**
-  ([`docx_picture.go`](../../mod/office/docx_picture.go)): a CSS transform
+  ([`docx/picture.go`](../../mod/office/docx/picture.go)): a CSS transform
   would not move the text around it, so the frame is swapped and the crop
   turned with it, and the picture lays out, prints and saves as it looks.
 - **DOCX export writes what the editor draws**
-  ([`docx_writer.go`](../../mod/office/docx_writer.go)): `docDefaults`,
+  ([`docx/writer.go`](../../mod/office/docx/writer.go)): `docDefaults`,
   heading styles and `editorBlockCSS` mirror `docs.css` (a `blockquote`'s
   3px rule and padding, a `pre`'s frame and shading, a `th` centred), so
   the export starts from the editor's defaults and lays the element's own
@@ -1167,23 +1250,22 @@ the path that honours every mode exactly.
   mismatch shows up as layout drift the next time the file is opened, not
   as an error.
 - **PPTX video/audio are NOT embedded as PowerPoint media**
-  ([`pptx_writer.go`](../../mod/office/pptx_writer.go)): embedded media
+  ([`pptx/writer.go`](../../mod/office/pptx/writer.go)): embedded media
   (`a:videoFile` + `p14:media` + timing tree, python-pptx-identical
   structure) was implemented and still would not play reliably in
   PowerPoint/Google Slides, so the slide shows the captured poster frame as
   a plain picture. The media file itself travels in the editor copy the
   suite embeds (`arozos/assets/`), so it plays in Slides. For the AGI
-  `office.presentationToPptx` export, `BuildPptxMedia` still returns a
+  `office.presentationToPptx` export, `pptx.BuildMedia` still returns a
   **sidecar zip** of the media that the AGI layer writes next to the pptx.
-- **PDF export** ([`pdf.go`](../../mod/office/pdf.go) /
-  [`pdf_doc.go`](../../mod/office/pdf_doc.go) /
-  [`pdf_sheet.go`](../../mod/office/pdf_sheet.go) /
-  [`pdf_slides.go`](../../mod/office/pdf_slides.go)): built on
+- **PDF export** ([`pdf/pdf.go`](../../mod/office/pdf/pdf.go) /
+  [`pdf/document.go`](../../mod/office/pdf/document.go) /
+  [`pdf/sheet.go`](../../mod/office/pdf/sheet.go)): built on
   `github.com/go-pdf/fpdf` (MIT). Real selectable text, not screenshots.
-  Gotchas encoded in `pdf.go` / `pdf_doc.go`:
+  Gotchas encoded in `pdf/pdf.go` / `pdf/document.go`:
   - **`CellFormat` does not clip, and the client's column widths do not
     survive the font change.** The client measures columns in the browser's
-    UI font and sends CSS pixels; `pdf_sheet.go` draws the same text in
+    UI font and sends CSS pixels; `pdf/sheet.go` draws the same text in
     Helvetica at 9pt, so a value that sat comfortably in its column on
     screen can come out slightly wider here — and fpdf happily paints it
     straight over the next column (`2026-08-24 21:01:2Yami Odymel`).
@@ -1193,7 +1275,7 @@ the path that honours every mode exactly.
        growth is capped (`sheetColGrowMax`, `sheetColPageFrac`) so one very
        long cell cannot squeeze the rest into slivers. Widening is safe
        because widths and the font are then scaled by the same factor.
-    2. `pdfFitText()` (`pdf.go`) is the backstop for what still cannot fit
+    2. `pdfFitText()` (`pdf/pdf.go`) is the backstop for what still cannot fit
        — mainly once the font hits its 5pt floor and stops shrinking with
        the columns. It trims to the width and marks the cut with an
        ellipsis, measuring the *translated* text but cutting on runes of
@@ -1207,7 +1289,7 @@ the path that honours every mode exactly.
     also normalizes `&nbsp;`/thin spaces to plain spaces (fpdf only wraps
     lines at real spaces; contenteditable HTML is full of nbsp and the
     lines wrapped comically early before this).
-  - **Docs does its own line breaking and pagination** — `pdf_doc.go` is
+  - **Docs does its own line breaking and pagination** — `pdf/document.go` is
     a small CSS-shaped layout engine (`boxes` → `pdfBox` → `pdfItem`),
     not a stream of `fpdf.Write` calls. It exists so the export
     paginates *exactly* like the editor's page preview:
@@ -1226,19 +1308,19 @@ the path that honours every mode exactly.
       aspect ratio wins over a `height` attribute.
     - Any metric change in `docs.css` (font size, line-height, block
       margins, cell padding, list indent) must be mirrored by the
-      constants at the top of `pdf_doc.go`, or the two page counts drift
+      constants at the top of `pdf/document.go`, or the two page counts drift
       apart.
   - Embedding a Unicode font was deliberately rejected (megabytes on the
     binary); CJK text transliterates/degrades. That's the top candidate
     if someone asks for CJK PDF export.
-- **ODF** ([`odf.go`](../../mod/office/odf.go) + `od{t,s,p}_{reader,writer}.go`):
+- **ODF** ([`odf/odf.go`](../../mod/office/odf/odf.go) + `od{t,s,p}_{reader,writer}.go`):
   the zip **must** store the `mimetype` entry first and uncompressed
   (`buildOdfZip` does this). XML round-trips through the order-preserving
   `onode` tree. Formula translation `=SUM(A1:B2)` ⇄
   `of:=SUM([.A1:.B2])` lives in `ods_{writer,reader}.go`.
 - **XLSX** also round-trips charts as native DrawingML parts
-  ([`xlsx_charts.go`](../../mod/office/xlsx_charts.go)) and cell notes as
-  comments ([`xlsx_notes.go`](../../mod/office/xlsx_notes.go)).
+  ([`xlsx/charts.go`](../../mod/office/xlsx/charts.go)) and cell notes as
+  comments ([`xlsx/notes.go`](../../mod/office/xlsx/notes.go)).
 
 ## Testing & verification
 
@@ -1305,12 +1387,12 @@ sh ../scripts/check-conventions.sh --diff origin/master
   be used (see the format notes) — the last visible gap between an
   imported deck and its source.
 - **Native PowerPoint chart *writing***. Charts are *read* into live chart
-  objects ([`pptx_chart.go`](../../mod/office/pptx_chart.go), from the
+  objects ([`pptx/chart.go`](../../mod/office/pptx/chart.go), from the
   `c:numCache` / `c:strCache` values, so no embedded workbook is needed),
   but they are *written* as the client-rendered PNG in `props.png`. The
   suite's own copy keeps the live chart, so this only shows once
   PowerPoint has saved the file (the copy is then stale and the PNG is
-  what gets imported). `xlsx_charts.go` already writes DrawingML charts
+  what gets imported). `xlsx/charts.go` already writes DrawingML charts
   for Sheets and is the place to start.
 - **Groups and entrance animations in `.pptx`** (`p:grpSp`, `p:timing`):
   kept in the embedded copy, not written as PowerPoint's own, so they are

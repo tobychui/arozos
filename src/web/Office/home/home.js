@@ -60,17 +60,19 @@
     };
     var APP_ORDER = ["document", "spreadsheet", "presentation"];
 
-    // Which extension belongs to which app. The apps' own formats, and the
-    // OpenDocument ones, go through the Office format code (mod/office) -
-    // server side in ArozOS, WebAssembly in the web edition - so they are
-    // only offered when this build has it.
+    // Which extension belongs to which app. The apps' own formats, the
+    // OpenDocument ones and the Office 97-2003 ones go through the Office
+    // format code (mod/office) - server side in ArozOS, WebAssembly in the
+    // web edition - so they are only offered when this build has it.
     var NATIVE_EXT = { ".docx": "document", ".xlsx": "spreadsheet", ".pptx": "presentation" };
     var TEXT_EXT = {
         ".txt": "document", ".md": "document", ".html": "document", ".htm": "document",
         ".csv": "spreadsheet", ".tsv": "spreadsheet"
     };
     var CONVERT_EXT = {
-        ".odt": "document", ".ods": "spreadsheet", ".odp": "presentation"
+        ".odt": "document", ".ods": "spreadsheet", ".odp": "presentation",
+        ".doc": "document", ".dot": "document", ".xls": "spreadsheet", ".xlt": "spreadsheet",
+        ".ppt": "presentation", ".pot": "presentation", ".pps": "presentation"
     };
 
     /* mode.js sets these; in the ArozOS tree both are false/undefined and the
@@ -802,7 +804,7 @@
         // formats line in the tip, so it never claims more than the build does
         var tip = $(".hm-tip-formats");
         tip.textContent = canConvert()
-            ? "Supported formats: .docx, .xlsx, .pptx, ODF, CSV, Markdown"
+            ? "Supported formats: .docx, .xlsx, .pptx, .doc, .xls, .ppt, ODF, CSV, Markdown"
             : "Supported formats: CSV, Markdown, plain text";
 
         $("#hmCreate").addEventListener("click", function (ev) {

@@ -869,7 +869,7 @@
     {
       "id": "office",
       "name": "office",
-      "desc": "The ArozOS Office suite's documents (.docx / .xlsx / .pptx with the editor's own copy embedded) and converters between its webapps and common office formats. Backed by mod/office.",
+      "desc": "The ArozOS Office suite's documents (.docx / .xlsx / .pptx with the editor's own copy embedded) and converters between its webapps and common office formats, plus import of the Office 97-2003 .doc / .xls / .ppt files. Backed by mod/office.",
       "load": "requirelib(\"office\");",
       "functions": [
         {
@@ -882,7 +882,7 @@
         {
           "name": "office.loadDocument",
           "sig": "office.loadDocument(srcVpath, workdirBase)",
-          "desc": "Open a .docx / .xlsx / .pptx as an editor envelope JSON string: the embedded copy when the suite wrote the file and nothing has changed it since, an import of the OOXML otherwise. Media is extracted into <workdirBase>/<doc-hash>/ and linked by media?file= so the JSON stays small.",
+          "desc": "Open a .docx / .xlsx / .pptx as an editor envelope JSON string: the embedded copy when the suite wrote the file and nothing has changed it since, an import of the OOXML otherwise. Also opens the Office 97-2003 files of the same kind (.doc / .dot, .xls / .xlt, .ppt / .pot / .pps), converted to OOXML first; a legacy file of another kind throws. Media is extracted into <workdirBase>/<doc-hash>/ and linked by media?file= so the JSON stays small.",
           "ret": "string (JSON)",
           "example": "requirelib(\"office\");\nvar envelope = office.loadDocument(\"user:/Documents/deck.pptx\", \"tmp:/.appdata/Office/cache/k3x9a2f0\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
         },
@@ -924,7 +924,7 @@
         {
           "name": "office.xlsxToWorkbook",
           "sig": "office.xlsxToWorkbook(srcVpath)",
-          "desc": "Parse a .xlsx file into the Sheets document body schema. Returns the body as a JSON string. Values, formulas, styles, number formats, merges, frozen panes, charts, notes, conditional formats, tab colours and the filter range are converted. Legacy binary .xls is rejected.",
+          "desc": "Parse a .xlsx file into the Sheets document body schema. Returns the body as a JSON string. Values, formulas, styles, number formats, merges, frozen panes, charts, notes, conditional formats, tab colours and the filter range are converted. A legacy binary .xls is refused; use office.xlsToWorkbook.",
           "ret": "string (JSON)",
           "example": "requirelib(\"office\");\nvar bodyJson = office.xlsxToWorkbook(\"user:/Desktop/report.xlsx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
         },
@@ -938,7 +938,7 @@
         {
           "name": "office.docxToDocument",
           "sig": "office.docxToDocument(srcVpath)",
-          "desc": "Parse a .docx file into the Docs document body schema. Returns the body as a JSON string. Paragraphs, headings, inline formatting, links, lists, tables, images, footnotes, header/footer, page setup, comments and tracked changes are converted. Legacy binary .doc is rejected.",
+          "desc": "Parse a .docx file into the Docs document body schema. Returns the body as a JSON string. Paragraphs, headings, inline formatting, links, lists, tables, images, footnotes, header/footer, page setup, comments and tracked changes are converted. A legacy binary .doc is refused; use office.docToDocument.",
           "ret": "string (JSON)",
           "example": "requirelib(\"office\");\nvar bodyJson = office.docxToDocument(\"user:/Desktop/report.docx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
         },
@@ -1004,6 +1004,34 @@
           "desc": "Build an OpenDocument Presentation (.odp) from a serialized Slides body JSON and write it to destVpath. Charts use their client-side PNG raster; video/audio objects are skipped.",
           "ret": "boolean",
           "example": "requirelib(\"office\");\nvar ok = office.presentationToOdp(data, \"user:/Documents/deck.odp\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        },
+        {
+          "name": "office.docToDocument",
+          "sig": "office.docToDocument(srcVpath)",
+          "desc": "Read a Word 97-2003 .doc (or .dot) and return the Docs body schema as a JSON string - the body a .docx of the same document gives. Import only: text and styles, lists, tables, sections, headers/footers, footnotes/endnotes, comments, tracked changes, fields, pictures and text box text carry over. Encrypted and Word 6/95 files are refused.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.docToDocument(\"user:/Documents/report.doc\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.xlsToWorkbook",
+          "sig": "office.xlsToWorkbook(srcVpath)",
+          "desc": "Read an Excel 97-2003 .xls (or .xlt; Excel 5/95 too) and return the Sheets body schema as a JSON string. Values, formulas, styles, number formats, exact colours, merges, sizes, hidden rows/columns, frozen panes, hyperlinks, notes, tab colours and names carry over; charts, pictures, conditional formats and data validation do not. Encrypted files are refused.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.xlsToWorkbook(\"user:/Documents/budget.xls\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.pptToPresentation",
+          "sig": "office.pptToPresentation(srcVpath)",
+          "desc": "Read a PowerPoint 97-2003 .ppt (or .pot / .pps) and return the Slides body schema as a JSON string. Slides, masters, formatted text and bullets, shapes, lines, groups, pictures, tables (as grouped cells), backgrounds, notes, links and transitions carry over; animations and media do not. Encrypted and PowerPoint 95 files are refused.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.pptToPresentation(\"user:/Documents/talk.ppt\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.convertLegacy",
+          "sig": "office.convertLegacy(srcVpath, destVpath)",
+          "desc": "Convert a .doc / .xls / .ppt into a plain .docx / .xlsx / .pptx file at destVpath. The kind comes from the source's content and destVpath must carry the matching extension (throws otherwise). Needs read access to the source and write access to the destination. Returns true on success.",
+          "ret": "bool",
+          "example": "requirelib(\"office\");\nif (office.convertLegacy(\"user:/Documents/old report.doc\", \"user:/Documents/old report.docx\")){\n    sendResp(\"OK\");\n}"
         },
         {
           "name": "office.documentToPdf",

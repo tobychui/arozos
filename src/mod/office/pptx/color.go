@@ -1,0 +1,385 @@
+package pptx
+
+/*
+	color.go - DrawingML colour resolution: srgbClr / schemeClr / sysClr /
+	prstClr through the theme and the slide's colour map, with the lumMod /
+	shade / tint / alpha modifiers applied the way PowerPoint applies them.
+*/
+
+import (
+	"math"
+	"strconv"
+	"strings"
+
+	"imuslab.com/arozos/mod/office/internal/units"
+	"imuslab.com/arozos/mod/office/internal/xmltree"
+)
+
+/* ---------------- DrawingML colour resolution ---------------- */
+
+// the preset colour names DrawingML allows in prstClr. Only the handful
+// office documents actually use are listed; anything else falls back to
+// black, which is what PowerPoint does for a name it does not know.
+var prstClrTable = map[string]string{
+	"black": "000000", "white": "FFFFFF", "red": "FF0000", "green": "008000",
+	"blue": "0000FF", "yellow": "FFFF00", "cyan": "00FFFF", "magenta": "FF00FF",
+	"gray": "808080", "grey": "808080", "darkGray": "A9A9A9", "lightGray": "D3D3D3",
+	"orange": "FFA500", "purple": "800080", "brown": "A52A2A", "pink": "FFC0CB",
+	"lime": "00FF00", "navy": "000080", "teal": "008080", "olive": "808000",
+	"maroon": "800000", "silver": "C0C0C0", "gold": "FFD700",
+}
+
+// colorCtx is everything needed to turn a DrawingML colour element into a
+// concrete hex string: the theme's colour scheme plus the master's colour
+// map (which is what makes "tx1" mean "dk1" on one deck and "lt1" on another).
+type colorCtx struct {
+	scheme map[string]string // dk1, lt1, dk2, lt2, accent1..6, hlink, folHlink
+	clrMap map[string]string // bg1/tx1/bg2/tx2/accent1.. -> scheme slot
+	// phClr: what a theme style's placeholder colour stands for where the
+	// style is used (the colour inside the fillRef / bgRef), "" = unknown
+	phClr string
+}
+
+// resolveColor turns any of the DrawingML colour elements (srgbClr,
+// schemeClr, sysClr, prstClr, scrgbClr) into "#rrggbb", applying the child
+// transform elements. Returns "" when n is not a colour element.
+func (cc *colorCtx) resolveColor(n *xmltree.Node) string {
+	if n == nil {
+		return ""
+	}
+	var r, g, b float64
+	switch n.XMLName.Local {
+	case "srgbClr":
+		r, g, b = hexToRGB(n.Attr("val"))
+	case "schemeClr":
+		hex := cc.schemeHex(n.Attr("val"))
+		if hex == "" {
+			return ""
+		}
+		r, g, b = hexToRGB(hex)
+	case "sysClr":
+		// lastClr carries the value the producing application resolved
+		v := n.Attr("lastClr")
+		if v == "" {
+			if n.Attr("val") == "window" {
+				v = "FFFFFF"
+			} else {
+				v = "000000"
+			}
+		}
+		r, g, b = hexToRGB(v)
+	case "prstClr":
+		v, ok := prstClrTable[n.Attr("val")]
+		if !ok {
+			v = "000000"
+		}
+		r, g, b = hexToRGB(v)
+	case "scrgbClr":
+		// percentages in thousandths of a percent
+		r = clamp01(units.AtofDefault(n.Attr("r"), 0)/100000.0) * 255
+		g = clamp01(units.AtofDefault(n.Attr("g"), 0)/100000.0) * 255
+		b = clamp01(units.AtofDefault(n.Attr("b"), 0)/100000.0) * 255
+	default:
+		return ""
+	}
+	r, g, b = applyColorMods(r, g, b, n)
+	return rgbToHex(r, g, b)
+}
+
+// schemeHex maps a schemeClr val through the colour map into the theme
+func (cc *colorCtx) schemeHex(val string) string {
+	if val == "" {
+		return ""
+	}
+	if val == "phClr" {
+		// the placeholder colour of a style matrix: the colour the style
+		// reference stated, when there is one, else the text colour
+		if cc.phClr != "" {
+			return cc.phClr
+		}
+		val = "tx1"
+	}
+	slot := val
+	if cc.clrMap != nil {
+		if mapped, ok := cc.clrMap[val]; ok && mapped != "" {
+			slot = mapped
+		}
+	}
+	// bg1/tx1/bg2/tx2 are colour-map names; when the map did not cover
+	// them fall back to the conventional pairing
+	switch slot {
+	case "bg1":
+		slot = "lt1"
+	case "tx1":
+		slot = "dk1"
+	case "bg2":
+		slot = "lt2"
+	case "tx2":
+		slot = "dk2"
+	}
+	if cc.scheme != nil {
+		if hex, ok := cc.scheme[slot]; ok {
+			return hex
+		}
+	}
+	return ""
+}
+
+// solidColorOf resolves the <a:solidFill> child of parent, if any
+func (cc *colorCtx) solidColorOf(parent *xmltree.Node) string {
+	sf := parent.First("solidFill")
+	if sf == nil {
+		return ""
+	}
+	for i := range sf.Nodes {
+		if c := cc.resolveColor(&sf.Nodes[i]); c != "" {
+			return c
+		}
+	}
+	return ""
+}
+
+// colorAlpha is the opacity a colour element states through its <a:alpha>
+// (and <a:alphaMod> / <a:alphaOff>) children, 1 when it states none
+func colorAlpha(n *xmltree.Node) float64 {
+	if n == nil {
+		return 1
+	}
+	a := 1.0
+	for i := range n.Nodes {
+		ch := &n.Nodes[i]
+		v := units.AtofDefault(ch.Attr("val"), 100000) / 100000.0
+		switch ch.XMLName.Local {
+		case "alpha":
+			a = v
+		case "alphaMod":
+			a *= v
+		case "alphaOff":
+			a += v
+		}
+	}
+	return clamp01(a)
+}
+
+// withAlpha adds an opacity below 1 to "#rrggbb" as "#rrggbbaa", which
+// CSS, SVG and the PDF exporter's colour parser all read. A colour that is
+// all but transparent stays a colour: "none" is for a stated noFill.
+func withAlpha(hex string, a float64) string {
+	if a >= 0.998 || len(hex) != 7 {
+		return hex
+	}
+	v := int(math.Round(clamp01(a) * 255))
+	const digits = "0123456789abcdef"
+	return hex + string([]byte{digits[(v>>4)&15], digits[v&15]})
+}
+
+// solidFillOf resolves the <a:solidFill> child of parent like solidColorOf,
+// keeping the colour's own transparency (a fill, unlike a line or a run,
+// can carry it)
+func (cc *colorCtx) solidFillOf(parent *xmltree.Node) string {
+	sf := parent.First("solidFill")
+	if sf == nil {
+		return ""
+	}
+	for i := range sf.Nodes {
+		if c := cc.resolveColor(&sf.Nodes[i]); c != "" {
+			return withAlpha(c, colorAlpha(&sf.Nodes[i]))
+		}
+	}
+	return ""
+}
+
+// fillColorOf resolves a fill container into a CSS colour. Gradients are
+// approximated by their first stop (the editor has no gradient object),
+// pattern fills by their foreground, and <a:noFill/> returns "none". A
+// solid fill's transparency comes back as "#rrggbbaa".
+func (cc *colorCtx) fillColorOf(parent *xmltree.Node) string {
+	if parent == nil {
+		return ""
+	}
+	if parent.First("noFill") != nil {
+		return "none"
+	}
+	if c := cc.solidFillOf(parent); c != "" {
+		return c
+	}
+	if gs := parent.Path("gradFill", "gsLst"); gs != nil {
+		for _, stop := range gs.All("gs") {
+			for i := range stop.Nodes {
+				if c := cc.resolveColor(&stop.Nodes[i]); c != "" {
+					return c
+				}
+			}
+		}
+	}
+	if fg := parent.Path("pattFill", "fgClr"); fg != nil {
+		for i := range fg.Nodes {
+			if c := cc.resolveColor(&fg.Nodes[i]); c != "" {
+				return c
+			}
+		}
+	}
+	return ""
+}
+
+// applyColorMods applies the DrawingML colour transform children. Alpha is
+// deliberately not applied here - the caller reads it separately, because
+// the editor model carries opacity on the object, not on the colour.
+func applyColorMods(r, g, b float64, n *xmltree.Node) (float64, float64, float64) {
+	for i := range n.Nodes {
+		ch := &n.Nodes[i]
+		v := units.AtofDefault(ch.Attr("val"), 0) / 100000.0
+		switch ch.XMLName.Local {
+		case "lumMod":
+			h, s, l := rgbToHSL(r, g, b)
+			r, g, b = hslToRGB(h, s, clamp01(l*v))
+		case "lumOff":
+			h, s, l := rgbToHSL(r, g, b)
+			r, g, b = hslToRGB(h, s, clamp01(l+v))
+		case "shade":
+			// shade darkens toward black and tint lightens toward white,
+			// both in linear light as PowerPoint does - done on the sRGB
+			// values a 40% tint of orange came out yellow, not peach
+			r, g, b = fromLinear(toLinear(r)*v), fromLinear(toLinear(g)*v), fromLinear(toLinear(b)*v)
+		case "tint":
+			r = fromLinear(toLinear(r)*v + (1 - v))
+			g = fromLinear(toLinear(g)*v + (1 - v))
+			b = fromLinear(toLinear(b)*v + (1 - v))
+		case "satMod":
+			h, s, l := rgbToHSL(r, g, b)
+			r, g, b = hslToRGB(h, clamp01(s*v), l)
+		case "hueMod":
+			h, s, l := rgbToHSL(r, g, b)
+			r, g, b = hslToRGB(math.Mod(h*v, 1), s, l)
+		case "gray":
+			y := 0.299*r + 0.587*g + 0.114*b
+			r, g, b = y, y, y
+		case "inv":
+			r, g, b = 255-r, 255-g, 255-b
+		}
+	}
+	return r, g, b
+}
+
+// toLinear / fromLinear convert one sRGB channel (0..255) to linear light
+// (0..1) and back
+func toLinear(c float64) float64 {
+	c = clamp01(c / 255)
+	if c <= 0.04045 {
+		return c / 12.92
+	}
+	return math.Pow((c+0.055)/1.055, 2.4)
+}
+
+func fromLinear(l float64) float64 {
+	l = clamp01(l)
+	if l <= 0.0031308 {
+		return l * 12.92 * 255
+	}
+	return (1.055*math.Pow(l, 1/2.4) - 0.055) * 255
+}
+
+func hexToRGB(h string) (float64, float64, float64) {
+	h = strings.TrimPrefix(strings.TrimSpace(h), "#")
+	if len(h) == 3 {
+		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
+	}
+	if len(h) != 6 {
+		return 0, 0, 0
+	}
+	v, err := strconv.ParseUint(h, 16, 32)
+	if err != nil {
+		return 0, 0, 0
+	}
+	return float64((v >> 16) & 255), float64((v >> 8) & 255), float64(v & 255)
+}
+
+func rgbToHex(r, g, b float64) string {
+	cl := func(v float64) int64 {
+		if v < 0 {
+			return 0
+		}
+		if v > 255 {
+			return 255
+		}
+		return int64(v + 0.5)
+	}
+	const digits = "0123456789abcdef"
+	out := []byte{'#', 0, 0, 0, 0, 0, 0}
+	for i, v := range []int64{cl(r), cl(g), cl(b)} {
+		out[1+i*2] = digits[(v>>4)&15]
+		out[2+i*2] = digits[v&15]
+	}
+	return string(out)
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func rgbToHSL(r, g, b float64) (float64, float64, float64) {
+	r, g, b = r/255, g/255, b/255
+	mx := math.Max(r, math.Max(g, b))
+	mn := math.Min(r, math.Min(g, b))
+	l := (mx + mn) / 2
+	if mx == mn {
+		return 0, 0, l
+	}
+	d := mx - mn
+	var s float64
+	if l > 0.5 {
+		s = d / (2 - mx - mn)
+	} else {
+		s = d / (mx + mn)
+	}
+	var h float64
+	switch mx {
+	case r:
+		h = (g - b) / d
+		if g < b {
+			h += 6
+		}
+	case g:
+		h = (b-r)/d + 2
+	default:
+		h = (r-g)/d + 4
+	}
+	return h / 6, s, l
+}
+
+func hslToRGB(h, s, l float64) (float64, float64, float64) {
+	if s == 0 {
+		return l * 255, l * 255, l * 255
+	}
+	var q float64
+	if l < 0.5 {
+		q = l * (1 + s)
+	} else {
+		q = l + s - l*s
+	}
+	p := 2*l - q
+	hue := func(t float64) float64 {
+		if t < 0 {
+			t++
+		}
+		if t > 1 {
+			t--
+		}
+		switch {
+		case t < 1.0/6:
+			return p + (q-p)*6*t
+		case t < 1.0/2:
+			return q
+		case t < 2.0/3:
+			return p + (q-p)*(2.0/3-t)*6
+		}
+		return p
+	}
+	return hue(h+1.0/3) * 255, hue(h) * 255, hue(h-1.0/3) * 255
+}
