@@ -1,7 +1,7 @@
 /*
     node web/Office/slides/test_lines.js
 
-    Checks the line styling (slides_lines.js) and the callout adjustments
+    Checks the line styling (slides_lines.js) and the shape adjustments
     (slides_shapes.js) without a browser: the canvas and the PDF exporter
     both draw from these, so a wrong number here is wrong everywhere.
 */
@@ -90,6 +90,46 @@ check("rect has no adjustment", SlidesShapes.adjustable("rect") === "");
 // and 5/12 of it when the tip is on the left half
 var below = SlidesShapes.path("wedgeRectCallout", 120, 60, { adj1: -20833, adj2: 62500 });
 check("tail on the bottom side", below.indexOf("L50 60L25") > 0 || below.indexOf("L50 60") > 0, below);
+
+/* ---- preset handles ---- */
+// every handle lands back where it was dragged from, and the outline it
+// leads to is a real path
+SlidesShapes.CATEGORIES.forEach(function (c) {
+    c.kinds.forEach(function (k) {
+        [[200, 100], [80, 240]].forEach(function (sz) {
+            SlidesShapes.handles(k, sz[0], sz[1], null).forEach(function (pt, i) {
+                var adj = SlidesShapes.dragHandle(k, i, sz[0], sz[1], pt[0], pt[1], null);
+                var back = SlidesShapes.handles(k, sz[0], sz[1], adj)[i];
+                check(k + " handle " + i + " round trip at " + sz,
+                    near(back[0], pt[0], 0.5) && near(back[1], pt[1], 0.5), JSON.stringify([pt, back, adj]));
+                var d = SlidesShapes.path(k, sz[0], sz[1], adj);
+                check(k + " adjusted path", d && !/NaN/.test(d), d);
+            });
+        });
+    });
+});
+// a right arrow: the shaft's thickness at the tail, the head's base on top
+var ra = SlidesShapes.handles("rightArrow", 200, 100, null);
+check("arrow handles", ra.length === 2 && near(ra[0][0], 0) && near(ra[0][1], 25) &&
+    near(ra[1][0], 150) && near(ra[1][1], 0), JSON.stringify(ra));
+var thin = SlidesShapes.dragHandle("rightArrow", 0, 200, 100, 0, 40, null);
+check("arrow shaft drag", thin.adj1 === 20000 && thin.adj2 === 50000, JSON.stringify(thin));
+var longHead = SlidesShapes.dragHandle("rightArrow", 1, 200, 100, 100, 0, thin);
+check("arrow head drag keeps the shaft", longHead.adj1 === 20000 && longHead.adj2 === 100000, JSON.stringify(longHead));
+check("arrow head is capped by the length",
+    SlidesShapes.dragHandle("rightArrow", 1, 200, 100, -500, 0, null).adj2 === 200000);
+// the same drag on an up arrow, whose head is at the top
+var ua = SlidesShapes.dragHandle("upArrow", 1, 100, 200, 0, 100, null);
+check("up arrow head drag", ua.adj2 === 100000, JSON.stringify(ua));
+// a rounded single corner: the handle is where the corner ends
+var r1 = SlidesShapes.dragHandle("round1Rect", 0, 200, 100, 170, 0, null);
+check("corner drag", r1.adj === 30000, JSON.stringify(r1));
+check("corner is capped at half", SlidesShapes.dragHandle("round1Rect", 0, 200, 100, 0, 0, null).adj === 50000);
+check("star inner radius", SlidesShapes.dragHandle("star5", 0, 100, 100, 50, 25, null).adj === 25000);
+check("points follow adjustments",
+    JSON.stringify(SlidesShapes.points("triangle", 100, 50, { adj: 0 })[0]) === "[0,0]");
+check("rect has no handles", SlidesShapes.handles("rect", 100, 100, null).length === 0);
+check("roundRect keeps its radius handle in slides.js", SlidesShapes.handles("roundRect", 100, 100, null).length === 0);
 
 if (failures) {
     console.log(failures + " check(s) failed");

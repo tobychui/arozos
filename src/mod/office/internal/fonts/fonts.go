@@ -80,6 +80,12 @@ func StackFor(latin, ea string) string {
 	return strings.Join(parts, ",")
 }
 
+// BulletFallback is the face a list marker falls back to when its own font
+// has no glyph for it: Arimo, the shipped metric twin of Arial, which is
+// what PowerPoint and Google Slides draw a missing ● ○ ■ in. The CJK
+// fallbacks behind it draw those shapes full-width, twice the size.
+const BulletFallback = "Arimo"
+
 // shippedFontFallbacks are the families in web/Office/common/fonts, in the
 // order fonts.js offers them to the browser. Keep the two lists in step.
 var shippedFontFallbacks = []string{

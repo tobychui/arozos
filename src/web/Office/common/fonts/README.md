@@ -104,8 +104,12 @@ Latin-only document never pulls the CJK files.
 Only the Latin family ships bold and italic. The CJK faces ship Regular and
 let bold be synthesized — the browser smears the outline without moving the
 advance widths, and the exporter does the same with a stroked text rendering
-mode, so the two still agree. Real bold CJK would double an already large
-payload for a difference neither side can see once it is on the page.
+mode, so the two still agree. How far it smears differs between browsers, so
+the exporter measures the stroke against the browser's own synthetic bold on
+a canvas (`synthStyle` in `../pdfcore.js`) rather than assuming one; a
+synthetic italic is measured and slanted the same way. Real bold CJK would
+double an already large payload for a difference neither side can see once
+it is on the page.
 
 ## Three constraints on any replacement
 

@@ -523,8 +523,33 @@ Three answers, tried in that order, per character (`resolveChar`):
    [the note there](common/fonts/README.md)) — fetched, parsed for glyph
    coverage, and embedded subset to the glyphs the deck actually used. This
    is what carries CJK.
-3. nothing covers it — emoji, a script we do not ship — and only then does
-   **that one text box** come in as a picture of itself.
+3. nothing covers it — emoji, a script we do not ship — and only then do
+   **those characters** come in as a picture of themselves, in their place
+   in the line (`planRun` / `rasterText` in `pdfcore.js`), drawn by the
+   page's own canvas so the picture is set in the page's fonts. The text
+   around them stays text. (This used to rasterize the whole text box or
+   table; see the next point for why that mattered so much.)
+
+Characters that draw nothing — zero-width spaces and joiners, direction
+marks, variation selectors, a soft hyphen (`ignorableCp`) — are never
+offered to a font at all. The importers write a zero-width space into every
+empty line to give it its height, so before this rule a text box or table
+with one blank line went to the PDF as a picture of itself, cropped to its
+stored frame.
+
+What the browser does to text *when it paints* has to be repeated, because
+the DOM does not show it: `text-transform` (an all-caps title is "Agenda"
+in its text node), `letter-spacing` (character spacing `Tc`, after every
+character as CSS adds it), and **synthetic bold and italic** for a shipped
+face without that style (the CJK faces ship Regular only). How much a
+browser emboldens or slants is its own choice — Chrome strokes the outline
+by 1/24 to 1/32 of the size and slants by 1/4, Firefox smears sideways —
+so `synthStyle` measures it on a canvas: the requested weight against
+regular-weight text filled and stroked with a growing pen (text rendering
+mode 2, what the PDF does) until the ink matches, and the slant from how
+far the ink's centre moves per unit of its height. In Chrome that lands on
+Skia's own figure at every size; a browser that does not synthesize
+measures as nothing, and the PDF follows it.
 
 A system font that is none of the above is stepped over rather than used,
 and the character lands on the shipped face the document's own font stack
@@ -547,8 +572,12 @@ Two things about placing the text that are easy to get wrong, and were:
   ascent below the top of that rect. Treating it as the line box puts every
   line a couple of pixels high at 30px type.
 
-When a box does have to be rasterized, the picture is taken through an SVG
-`<foreignObject>`, so the *browser* lays it out and paints it. html2canvas
+When a whole object does have to be rasterized (only a chart whose SVG the
+translator cannot express, now), the picture is taken through an SVG
+`<foreignObject>`, so the *browser* lays it out and paints it, over the
+area the object actually paints — its own box plus anything that overflows
+it (`paintedBoxOf`), since objects do not clip. An SVG image cannot use the
+page's web fonts, which is why text never goes this way any more. html2canvas
 was tried first and is wrong for this: it re-implements layout over a
 clone, and on mixed CJK/Latin text with `pre-wrap` it breaks lines
 somewhere the browser did not — exactly the drift this rework removes. It
@@ -652,11 +681,23 @@ one, the label under it (a separate button) opens `showLayoutPicker()` — every
 preview of itself. The previews are built by the same `newSlide()` and
 `renderSlideContent()` the document uses, at the scale the rail uses, so a
 preview cannot come to disagree with the slide choosing it makes. The
-layouts are skeletons of real text objects, not a placeholder system; there
-is nothing to "fill in" afterwards, which is why the preview can be the
-real thing. The previews outline every box (`.sl-layoutpick-mini .sl-obj`),
+previews outline every box (`.sl-layoutpick-mini .sl-obj`),
 stated at slide scale so the transform brings it down to a hairline -
 without it a layout is a few grey smudges and one looks like the next.
+
+**A layout's text boxes are placeholders, as in Google Slides.** `newPh()`
+makes them empty, with `props.ph` saying what they are for (`title`,
+`subtitle` or `body`). Any empty text box - a placeholder, a text box left
+empty, an emptied one, an empty placeholder from a `.pptx` - shows a prompt
+("Click to add title", `PH_PROMPTS`) in its own text style and a thin grey
+frame (`isBlankText()` decides, `renderObjectEl` adds `.sl-empty` and a
+`.sl-ph` sibling of the text). A single click on one goes straight into
+editing. Only surfaces marked `.sl-showph` show the prompt (the canvas, the
+rail, the slide sorter, the layout picker) and `.sl-phframe` the frame (the
+canvas and the picker), so present mode, print and every export draw an
+empty box as nothing. The `.pptx` writer turns `ph` back into a `<p:ph>`
+(an empty one keeps its size on an `a:endParaRPr`), so PowerPoint prompts
+in it too, and the reader sets `ph` from the placeholders it imports.
 
 **Delete belongs to whatever has the keyboard.** A thumbnail takes focus
 when it is clicked, and focusing one selects it, so the slide the keyboard
@@ -695,8 +736,26 @@ ends. A callout made before adjustments existed has no `adj` and keeps its old
 drawing (body in the top 72%, tip at the bottom) until its handle is first
 dragged, when the frame shrinks to the body and the tip is stated where it
 already was (`adoptAdjustments`); the `.pptx` writer converts it the same way
-([`mod/office/pptx/adjust.go`](../../mod/office/pptx/adjust.go)). Other presets
-still draw at their default adjustments.
+([`mod/office/pptx/adjust.go`](../../mod/office/pptx/adjust.go)).
+
+**Every preset with a feature to tune has its handles too** - one yellow
+diamond per adjustment (`adjHandles` in `slides.js`, geometry in
+`SlidesShapes.handles` / `dragHandle`): the snipped and rounded rectangles,
+the polygons PowerPoint adjusts, frame, half frame, L shape, diagonal stripe,
+plaque, can, cube, bevel, donut, "no" symbol, teardrop, moon, sun, smiley,
+folded corner, pie / chord / arc / block arc (their angles, round the
+ellipse), every block, bent, U-turn, curved, circular and striped arrow,
+the arrow callouts, the stars, the waves, the brackets and braces and the
+equation shapes. Those all draw to PowerPoint's own formulas
+(`presetShapeDefinitions`), angles and `arcTo` included, so a reshaped
+shape opens in PowerPoint as it looks here. Only the ribbons and the
+scrolls still draw at fixed proportions. A picture cropped to one of those
+shapes gets the same handles - its `props.adj` belongs to its `mask`, goes
+into the clip path and the PDF clip, and is written to the picture's
+`prstGeom` - and one cropped to a rounded rectangle (or imported with
+rounded corners) gets the radius handle. Dragging one redraws only that
+object (`refreshObjEl`). Every object the pointer would move when dragged
+shows the move cursor; an object being edited shows the caret instead.
 
 ### Slides: the shape catalogue
 

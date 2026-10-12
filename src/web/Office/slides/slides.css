@@ -221,6 +221,16 @@
 #slSlideLayer .sl-obj.sl-type-line,
 #slSlideLayer .sl-obj.sl-type-line svg * { pointer-events: none; }
 #slSlideLayer .sl-obj.sl-type-line svg > polyline:first-child { pointer-events: stroke; }
+/* Pressing on an object and dragging moves it, so that is what the cursor
+   says - everywhere on it, text included, until it is being edited (the
+   caret then owns the text; see .sl-editing below). An armed shape or line
+   tool draws over objects, so it keeps its crosshair. */
+#slSlideLayer .sl-obj:not(.sl-editing),
+#slSlideLayer .sl-obj:not(.sl-editing) *,
+#slCanvas.sl-moving,
+#slCanvas.sl-moving * { cursor: move; }
+#slCanvas.sl-drawmode .sl-obj,
+#slCanvas.sl-drawmode .sl-obj * { cursor: crosshair; }
 .sl-obj > svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .sl-obj img { display: block; width: 100%; height: 100%; pointer-events: none; }
 
@@ -243,6 +253,34 @@
     padding: 2px 4px;
     cursor: default;
 }
+/* An empty text box (props.html with nothing in it) shows a prompt -
+   "Click to add title" - and a thin grey frame, as Google Slides and
+   PowerPoint do. Only a surface that asks for them shows them: the canvas
+   and the layout picker (.sl-showph.sl-phframe), the rail and the slide
+   sorter (prompt only). Present mode, print and every export render the
+   same objects without either, so an empty box is simply not there. The
+   prompt is laid out with the box's own text style (slides.js) and is
+   never the text itself, which is why editing hides it. */
+.sl-ph {
+    display: none;
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    flex-direction: column;
+    padding: 2px 4px;
+    line-height: 1.3;
+    white-space: pre-wrap;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.55;
+}
+.sl-ph.sl-ph-title { opacity: 0.85; }
+.sl-showph .sl-obj.sl-empty > .sl-ph { display: flex; }
+.sl-showph .sl-obj.sl-empty.sl-editing > .sl-ph { display: none; }
+/* inset, so it never pokes out past the box, and grey at half strength so
+   it reads on a dark slide as well as a light one */
+.sl-phframe .sl-obj.sl-empty { box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.55); }
+
 /* imported paragraphs carry their own spacing; keep the browser from
    adding any of its own on top */
 .sl-text-in > div { margin: 0; }
@@ -515,7 +553,8 @@ body.of-narrow .sl-present-btn { padding: 0 9px; }
 .sl-viewbtn .of-ic { width: 15px; height: 15px; }
 
 /* the format painter is armed */
-#slCanvas.sl-painting, #slCanvas.sl-painting .sl-obj { cursor: copy !important; }
+#slCanvas.sl-painting, #slCanvas.sl-painting .sl-obj,
+#slCanvas.sl-painting .sl-obj * { cursor: copy !important; }
 
 /* Find and replace */
 .sl-findrep .ps-check { display: flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--of-fg); }

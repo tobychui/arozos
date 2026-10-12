@@ -702,8 +702,15 @@ func buildRichBody(o *model.Object, fallbackColor string) string {
 		if para.End != nil {
 			// an empty line keeps its size and font (the reader sizes it by this)
 			sb.WriteString(runProps("a:endParaRPr", *para.End, base))
+		} else if len(para.Runs) == 0 {
+			// so does a box with nothing in it - an empty placeholder
+			sb.WriteString(runProps("a:endParaRPr", slidetext.Run{}, base))
 		}
 		sb.WriteString(`</a:p>`)
+	}
+	if len(paras) == 0 {
+		// a text body needs a paragraph, and the box's size rides on it
+		sb.WriteString(`<a:p>` + runProps("a:endParaRPr", slidetext.Run{}, base) + `</a:p>`)
 	}
 	return sb.String()
 }
@@ -785,6 +792,27 @@ func bodyPrFor(p model.Props, defaultAnchor string) string {
 	return `<a:bodyPr wrap="square" anchor="` + anchor + `" anchorCtr="0" spcFirstLastPara="1" ` + ins + `><a:noAutofit/></a:bodyPr>`
 }
 
+// textSpNv is a text object's non-visual properties: a plain text box, or
+// a placeholder of the kind props.ph names, so PowerPoint shows its own
+// prompt while it is empty. The layout this writer produces has no
+// placeholders to inherit from, so the shape keeps every look it states.
+func textSpNv(id int, role string) string {
+	ph, name := "", "TextBox"
+	switch role {
+	case "title":
+		ph, name = `<p:ph type="title"/>`, "Title"
+	case "subtitle":
+		ph, name = fmt.Sprintf(`<p:ph type="subTitle" idx="%d"/>`, id), "Subtitle"
+	case "body":
+		ph, name = fmt.Sprintf(`<p:ph type="body" idx="%d"/>`, id), "Text Placeholder"
+	}
+	if ph == "" {
+		return fmt.Sprintf(`<p:cNvPr id="%d" name="TextBox %d"/><p:cNvSpPr txBox="1"/><p:nvPr/>`, id, id)
+	}
+	return fmt.Sprintf(`<p:cNvPr id="%d" name="%s %d"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr>%s</p:nvPr>`,
+		id, name, id, ph)
+}
+
 func buildTextSp(id int, o *model.Object, theme string) string {
 	p := o.Props
 	color := p.Color
@@ -792,10 +820,10 @@ func buildTextSp(id int, o *model.Object, theme string) string {
 		color = "#" + themeTextColor(theme)
 	}
 	return fmt.Sprintf(
-		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="TextBox %d"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>`+
+		`<p:sp><p:nvSpPr>%s</p:nvSpPr>`+
 			`<p:spPr>%s<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>`+
 			`<p:txBody>%s<a:lstStyle/>%s</p:txBody></p:sp>`,
-		id, id,
+		textSpNv(id, p.Ph),
 		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false),
 		bodyPrFor(p, "t"),
 		buildRichBody(o, color))
@@ -971,6 +999,10 @@ func buildPicSp(id int, o *model.Object, rid string) string {
 	// a shaped crop is a preset geometry on the picture itself
 	prst := shapeKindPrst(p.Mask)
 	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
+	if prst == p.Mask && len(p.Adj) > 0 {
+		// the shape's handles were dragged: its guides, as for a shape
+		geom = `<a:prstGeom prst="` + prst + `">` + avLstXML(p.Adj) + `</a:prstGeom>`
+	}
 	if (prst == "roundRect" || p.Mask == "" || p.Mask == "rect") &&
 		p.Radius > 0 && o.W > 0 && o.H > 0 {
 		adj := int(p.Radius / minF(o.W, o.H) * 100000)

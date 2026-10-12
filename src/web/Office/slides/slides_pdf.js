@@ -10,10 +10,12 @@
     What each element becomes:
 
       text      real PDF text (Tj), one show-text per line fragment, placed
-                at the baseline the browser laid it out on - when the glyphs
-                and the font allow it (see canDrawAsText). Otherwise that
-                one text box is rasterized, nothing else.
-      image     the original JPEG/PNG bytes, embedded once and re-used;
+                at the baseline the browser laid it out on. A character no
+                font here can show (an emoji) comes in as a picture of
+                itself in its place in the line (OfficePdfCore.planRun);
+                the text around it stays text.
+      image     the original JPEG/PNG bytes, embedded once and re-used (a
+                GIF, WebP, BMP or SVG goes in as a PNG of its first frame);
                 crops, shaped crops and rounded corners are real PDF clip
                 paths, flips are a negative scale in the matrix, and
                 transparency is an ExtGState. A re-coloured picture is
@@ -42,7 +44,8 @@
          is what carries CJK, and it is why those families are in every
          font stack the editor writes.
       3. nothing covers it - emoji, a script we do not ship - and only then
-         does that one text box come in as a picture of itself.
+         do those characters come in as a picture of themselves, drawn by
+         the page's own canvas in the page's own fonts.
 
     A system font that is none of the above is substituted by the shipped
     face the document's own font stack names next, which is the same thing
@@ -81,7 +84,7 @@ var SlidesPdf = (function () {
     var resolveChar = C.resolveChar, segmentText = C.segmentText, faceOf = C.faceOf;
     var eachTextNode = C.eachTextNode, px = C.px, clamp = C.clamp;
     var parseFill = C.parseFill, parseColor = C.parseColor, contrastOf = C.contrastOf;
-    var collectRuns = C.collectRuns, canDrawAsText = C.canDrawAsText;
+    var collectRuns = C.collectRuns;
     var drawFragment = C.drawFragment, drawRuns = C.drawRuns;
     var rasterizeElement = C.rasterizeElement, rasterizeFallback = C.rasterizeFallback;
     var filteredImageData = C.filteredImageData;
@@ -104,6 +107,9 @@ var SlidesPdf = (function () {
                 var names = familyList(cs.fontFamily);
                 var bold = (parseInt(cs.fontWeight, 10) || 400) >= 600;
                 var italic = cs.fontStyle === "italic" || cs.fontStyle === "oblique";
+                // what is drawn: the text as the browser shows it, without
+                // the characters that draw nothing (no face is asked for those)
+                text = C.visibleText(C.transformText(text, cs.textTransform));
                 for (var i = 0; i < text.length; i++) {
                     var cp = text.codePointAt(i);
                     if (cp > 0xFFFF) i++;
@@ -146,6 +152,14 @@ var SlidesPdf = (function () {
     }
 
     /* ---------------- geometry -> PDF path operators ---------------- */
+
+    // the outline a picture is clipped to: its shaped crop, or a rounded
+    // rectangle for an unmasked one with rounded corners (border-radius
+    // on the canvas)
+    function imageClipKind(p) {
+        if (p.mask) return p.mask;
+        return Number(p.radius) > 0 ? "roundRect" : "rect";
+    }
 
     // shapePathOps turns one of the editor's shape outlines into path
     // operators in page space. Used for both shape objects and the clip
@@ -219,23 +233,57 @@ var SlidesPdf = (function () {
         return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height };
     }
 
-    /* drawAsRaster puts one element in as an image of itself, at the box it
-       occupies on the slide. A rotated object is drawn unrotated inside the
+    /* paintedBoxOf is the area an element actually paints: its own box plus
+       whatever of its content overflows it (objects do not clip - a table's
+       rows grow past its frame, text runs out of its box), within the
+       slide, which does clip. */
+    function paintedBoxOf(el, stageEl) {
+        var b = boxOf(el, stageEl);
+        var s = stageEl.getBoundingClientRect();
+        var x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
+        var all = el.getElementsByTagName("*");
+        for (var i = 0; i < all.length; i++) {
+            var r = all[i].getBoundingClientRect();
+            if (!(r.width > 0) || !(r.height > 0)) continue;
+            x0 = Math.min(x0, r.left - s.left); y0 = Math.min(y0, r.top - s.top);
+            x1 = Math.max(x1, r.right - s.left); y1 = Math.max(y1, r.bottom - s.top);
+        }
+        x0 = Math.max(x0, 0); y0 = Math.max(y0, 0);
+        x1 = Math.min(x1, SLIDE_W); y1 = Math.min(y1, SLIDE_H);
+        return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
+    }
+
+    /* drawAsRaster puts one element in as an image of itself, at the area
+       it paints on the slide. A rotated object is drawn unrotated inside the
        rotation matrix its caller set up, so the picture stays crisp
        rather than being a picture of something already turned. */
     function drawAsRaster(pg, o, el, ctx) {
         var b = boxOf(el, ctx.stage);
-        return rasterizeElement(el, b.w, b.h).then(function (src) {
-            return src || rasterizeFallback(el, b.w, b.h);
+        var area = paintedBoxOf(el, ctx.stage);
+        var ext = { x: area.x - b.x, y: area.y - b.y, w: area.w, h: area.h };
+        return rasterizeElement(el, b.w, b.h, ext).then(function (src) {
+            if (src) return src;
+            area = b;      // html2canvas draws the element's own box
+            return rasterizeFallback(el, b.w, b.h);
         }).then(function (src) {
             if (!src) return;
             return ctx.embed(src).then(function (img) {
                 if (!img) return;
                 pg.p.drawImage(img, {
-                    x: px(b.x), y: pg.y(b.y + b.h), width: px(b.w), height: px(b.h)
+                    x: px(area.x), y: pg.y(area.y + area.h), width: px(area.w), height: px(area.h)
                 });
             });
         });
+    }
+
+    /* textPicture is what drawRuns calls for the few characters no font
+       can show: the picture is named in the recording on the spot, so it
+       lands in the drawing order exactly where the text around it does */
+    function textPicture(pg, ctx) {
+        return function (src, x, y, w, h) {
+            var img = ctx.embedNow(src);
+            if (img) pg.p.drawImage(img, { x: px(x), y: pg.y(y + h), width: px(w), height: px(h) });
+        };
     }
 
     /* ---------------- SVG (charts) -> PDF vectors ---------------- */
@@ -379,6 +427,7 @@ var SlidesPdf = (function () {
                         else if (anchor === "end") tx -= twPx;
                         drawFragment(pg, {
                             text: str, names: names, bold: bold, italic: false,
+                            weight: parseInt(cs.fontWeight, 10) || 400,
                             sizePx: sizePx, xPx: tx,
                             baselinePx: Y(parseFloat(c.getAttribute("y") || 0)),
                             color: fillCol || PDFLib.rgb(0, 0, 0), fitPx: 0
@@ -443,16 +492,15 @@ var SlidesPdf = (function () {
         return [];
     }
 
+    /* Text no longer sends its object to a picture: a character no font
+       can show is drawn as a picture of itself in its place in the line
+       (OfficePdfCore.planRun), and the rest stays text. Only a chart whose
+       SVG the translator cannot express goes in whole. */
     function needsRaster(o, el, fonts) {
         if (!el) return false;
         if (o.type === "chart") {
             var svg = el.querySelector("svg");
             return !svg || !svgTranslatable(svg, fonts);
-        }
-        var roots = textRootsOf(o, el);
-        for (var i = 0; i < roots.length; i++) {
-            var runs = collectRuns(roots[i], { left: 0, top: 0, x: 0, y: 0 });
-            if (runs.length && !canDrawAsText(runs, fonts)) return true;
         }
         return false;
     }
@@ -497,7 +545,7 @@ var SlidesPdf = (function () {
         var inner = el ? el.querySelector(".sl-text-in") : null;
         if (!inner) return Promise.resolve();
         var runs = collectRuns(inner, origin);
-        if (runs.length) drawRuns(pg, runs);
+        if (runs.length) drawRuns(pg, runs, textPicture(pg, ctx));
         return Promise.resolve();
     }
 
@@ -510,6 +558,16 @@ var SlidesPdf = (function () {
         if (!src) return Promise.resolve();
         var filter = (window.SlidesImageTools ? SlidesImageTools.imageFilter(p) : "");
         var prep = filter ? filteredImageData(src, filter) : Promise.resolve(src);
+        // an SVG picture is drawn to a PNG here, at the size it is shown
+        // (with its crop) - a worker has no way to draw one. GIF, WebP and
+        // BMP are decoded where the file is written (pdfdraw.js).
+        if (/^data:image\/svg/i.test(src)) {
+            var sc = p.crop && p.crop.length === 4 ? p.crop.map(function (v) { return Number(v) || 0; }) : [0, 0, 0, 0];
+            var sw = Math.max(1, o.w / Math.max(0.001, 1 - sc[0] - sc[2]));
+            var sh = Math.max(1, o.h / Math.max(0.001, 1 - sc[1] - sc[3]));
+            var k = Math.min(C.RASTER_SCALE, 4096 / Math.max(sw, sh));
+            prep = filteredImageData(src, filter || "none", Math.round(sw * k), Math.round(sh * k));
+        }
         // a fill on the frame shows through the picture's transparent parts
         var under = null, underImg = null;
         if (o.type === "image" && p.fillGrad && p.fillGrad.stops && p.fillGrad.stops.length) {
@@ -538,7 +596,7 @@ var SlidesPdf = (function () {
 
             pg.save();
             // clip to the frame, in the shape the picture is masked to
-            var clipOps = shapePathOps(p.mask || "rect", o.x, o.y, o.w, o.h, p.radius);
+            var clipOps = shapePathOps(imageClipKind(p), o.x, o.y, o.w, o.h, p.radius, p.adj);
             clipOps.push(PDFLib.clip(), PDFLib.endPath());
             pg.ops(clipOps);
             if (p.opacity && p.opacity < 1) {
@@ -569,7 +627,7 @@ var SlidesPdf = (function () {
             var sw = Number(p.strokeW) || 0;
             var sc = (sw > 0 && p.stroke && p.stroke !== "none") ? parseColor(p.stroke) : null;
             if (sc && o.type === "image") {
-                var sops = shapePathOps(p.mask || "rect", o.x, o.y, o.w, o.h, p.radius);
+                var sops = shapePathOps(imageClipKind(p), o.x, o.y, o.w, o.h, p.radius, p.adj);
                 sops.unshift(PDFLib.setStrokingColor(sc), PDFLib.setLineWidth(px(sw)));
                 var idash = SlidesLines.dashArray(p, sw);
                 if (idash) sops.unshift(PDFLib.setDashPattern(idash.map(px), 0));
@@ -589,12 +647,12 @@ var SlidesPdf = (function () {
         // outline (gradientPng); that picture has to be in hand first
         if (g && g.stops && g.stops.length && ctx && ctx.embed) {
             return ctx.embed(gradientPng(g, Math.max(1, o.w), Math.max(1, o.h))).then(function (img) {
-                return drawShapeBody(pg, o, el, origin, img);
+                return drawShapeBody(pg, o, el, origin, img, ctx);
             });
         }
-        return drawShapeBody(pg, o, el, origin, null);
+        return drawShapeBody(pg, o, el, origin, null, ctx);
     }
-    function drawShapeBody(pg, o, el, origin, gradImg) {
+    function drawShapeBody(pg, o, el, origin, gradImg, ctx) {
         var p = o.props || {};
         var kind = window.SlidesShapes ? SlidesShapes.canonical(p.kind || "rect") : (p.kind || "rect");
         var open = window.SlidesShapes && SlidesShapes.isOpen(kind);
@@ -663,7 +721,7 @@ var SlidesPdf = (function () {
         }
         // markings the canvas draws over the outline - the bars of a
         // predefined process, the fold of a folded corner
-        var det = window.SlidesShapes ? SlidesShapes.detail(kind, o.w, o.h) : "";
+        var det = window.SlidesShapes ? SlidesShapes.detail(kind, o.w, o.h, p.adj) : "";
         if (det) {
             var dc = stroke || parseColor(contrastOf(fillCss)) || PDFLib.rgb(0.2, 0.2, 0.2);
             var X = function (v) { return px(o.x + v); };
@@ -680,7 +738,7 @@ var SlidesPdf = (function () {
         var inner = el ? el.querySelector(".sl-shape-text") : null;
         if (!inner) return Promise.resolve();
         var runs = collectRuns(inner, origin || { left: 0, top: 0, x: o.x, y: o.y });
-        if (runs.length) drawRuns(pg, runs);
+        if (runs.length) drawRuns(pg, runs, ctx ? textPicture(pg, ctx) : null);
         return Promise.resolve();
     }
 
@@ -757,7 +815,7 @@ var SlidesPdf = (function () {
                         { stroke: bd.c, strokeW: bw, strokeOpacity: bd.a });
                 }
                 var runs = collectRuns(cell, origin);
-                if (runs.length) drawRuns(pg, runs);
+                if (runs.length) drawRuns(pg, runs, textPicture(pg, ctx));
             })(cells[i]);
         }
         return Promise.all(jobs);
@@ -921,7 +979,7 @@ var SlidesPdf = (function () {
                         return withStage(slide, drawSlide);
                     });
                     function drawSlide(stageEl) {
-                        var ctx = { stage: stageEl, embed: embedImage };
+                        var ctx = { stage: stageEl, embed: embedImage, embedNow: rec.embedNow };
                         // every face this slide needs is in hand before a
                         // single object is measured, so the drawing below
                         // can stay synchronous

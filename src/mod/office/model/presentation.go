@@ -199,6 +199,10 @@ type Props struct {
 	// (adj1, adj2 ... in 1/100000 of the frame): where a callout's tip
 	// points, how round a corner is
 	Adj map[string]float64 `json:"adj,omitempty"`
+	// a text object that is a placeholder: "title", "subtitle" or "body".
+	// Empty, the editor shows its prompt ("Click to add title"); the
+	// .pptx writer makes it a <p:ph> again, so PowerPoint does too.
+	Ph string `json:"ph,omitempty"`
 	// elbow / rotated connectors imported from pptx: the polyline the
 	// connector actually follows, relative to the object's x/y. Absent on
 	// a plain two-point line, which is the only kind the editor draws.

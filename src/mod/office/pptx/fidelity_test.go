@@ -554,6 +554,49 @@ func TestPptxRoundPictureKeepsItsRadius(t *testing.T) {
 	}
 }
 
+// A shaped crop reshaped with its handles keeps the guides it was given;
+// one left at its defaults states none
+func TestPptxShapedCropKeepsItsAdjustments(t *testing.T) {
+	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 32))
+	tests := []struct {
+		name string
+		mask string
+		adj  map[string]float64
+	}{
+		{"adjusted arrow", "rightArrow", map[string]float64{"adj1": 30000, "adj2": 80000}},
+		{"adjusted star", "star5", map[string]float64{"adj": 12000}},
+		{"hexagon at its defaults", "hexagon", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pres := &model.Presentation{Slides: []*model.Slide{{Objects: []*model.Object{{
+				Type: "image", X: 0, Y: 0, W: 200, H: 100, Z: 1,
+				Props: model.Props{Src: media.EncodeDataURL(png, "png"), Mask: tc.mask, Adj: tc.adj},
+			}}}}}
+			data, err := Build(pres)
+			if err != nil {
+				t.Fatalf("BuildPptx: %v", err)
+			}
+			got, err := Parse(data)
+			if err != nil {
+				t.Fatalf("ParsePptx: %v", err)
+			}
+			p := got.Slides[0].Objects[0].Props
+			if p.Mask != tc.mask {
+				t.Errorf("mask = %q, want %q", p.Mask, tc.mask)
+			}
+			if len(p.Adj) != len(tc.adj) {
+				t.Fatalf("adj = %v, want %v", p.Adj, tc.adj)
+			}
+			for k, v := range tc.adj {
+				if p.Adj[k] != v {
+					t.Errorf("adj[%s] = %v, want %v", k, p.Adj[k], v)
+				}
+			}
+		})
+	}
+}
+
 func TestPptxBentConnectorKeepsItsElbow(t *testing.T) {
 	cxn := `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="2" name="c"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr>` +
 		`<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1828800" cy="914400"/></a:xfrm>` +
@@ -786,5 +829,46 @@ func TestPresetGeometryFallback(t *testing.T) {
 	}
 	if got := shapeKindPrst(""); got != "rect" {
 		t.Errorf("empty kind -> %q, want rect", got)
+	}
+}
+
+// Placeholders go out as <p:ph> and come back with their role; an empty
+// one is kept (the editor shows its prompt) and is still a valid body
+func TestPptxPlaceholderRoles(t *testing.T) {
+	pres := &model.Presentation{Slides: []*model.Slide{{Objects: []*model.Object{
+		{Type: "text", X: 10, Y: 10, W: 400, H: 60, Z: 1, Props: model.Props{Ph: "title", FontSize: 40}},
+		{Type: "text", X: 10, Y: 80, W: 400, H: 40, Z: 2, Props: model.Props{Ph: "subtitle", HTML: "<div>Sub</div>", FontSize: 20}},
+		{Type: "text", X: 10, Y: 130, W: 400, H: 200, Z: 3, Props: model.Props{Ph: "body", FontSize: 18}},
+		{Type: "text", X: 10, Y: 340, W: 400, H: 40, Z: 4, Props: model.Props{HTML: "<div>Plain</div>", FontSize: 18}},
+	}}}}
+	data, err := Build(pres)
+	if err != nil {
+		t.Fatalf("BuildPptx: %v", err)
+	}
+	slide := packagePart(t, data, "ppt/slides/slide1.xml")
+	for _, w := range []string{`<p:ph type="title"/>`, `<p:ph type="subTitle"`, `<p:ph type="body"`, `txBox="1"`} {
+		if !strings.Contains(slide, w) {
+			t.Errorf("written slide lacks %s", w)
+		}
+	}
+	if strings.Contains(slide, `<a:lstStyle/></p:txBody>`) {
+		t.Errorf("an empty placeholder was written with no paragraph:\n%s", slide)
+	}
+	got, err := Parse(data)
+	if err != nil {
+		t.Fatalf("ParsePptx: %v", err)
+	}
+	objs := got.Slides[0].Objects
+	want := []string{"title", "subtitle", "body", ""}
+	if len(objs) != len(want) {
+		t.Fatalf("got %d objects, want %d", len(objs), len(want))
+	}
+	for i, w := range want {
+		if objs[i].Type != "text" || objs[i].Props.Ph != w {
+			t.Errorf("object %d: %s ph %q, want text ph %q", i, objs[i].Type, objs[i].Props.Ph, w)
+		}
+	}
+	if objs[0].Props.FontSize < 39 || objs[0].Props.FontSize > 41 {
+		t.Errorf("empty title came back at %vpx, want its 40px", objs[0].Props.FontSize)
 	}
 }

@@ -29,7 +29,8 @@
     Weights: the Latin family ships all four styles. The CJK faces ship
     Regular only and let bold be synthesized - the browser smears the outline
     without changing the advance, and the PDF exporter does the same with a
-    stroked text rendering mode, so the two still agree. Shipping real bold
+    stroked text rendering mode, as wide as the browser's own stroke
+    (measured, see ../pdfcore.js), so the two still agree. Shipping real bold
     CJK would double an already large payload for a difference neither side
     can see once it is on the page.
 */

@@ -819,7 +819,8 @@ back to the stylesheet, so nothing here changes how a new deck looks.
 | `fill` | shape, image | may be `#rrggbbaa` (a fill with alpha); on an image it is painted behind the picture |
 | `fillGrad` | shape, image | a gradient fill `{kind, angle, cx, cy, stops}` (`fill` then holds its first colour) |
 | `geom` | shape (`kind: "custom"`) | an imported freeform: `{paths: [{w, h, d, noFill, noStroke}]}`, M/L/C/Z in each path's own space |
-| `adj` | shape | the preset's guides, for the presets drawn to PowerPoint's formulas |
+| `adj` | shape, image | the preset's guides, for the presets drawn to PowerPoint's formulas; on an image, those of its `mask` (written to the picture's `prstGeom`) |
+| `ph` | text | a placeholder: `title`, `subtitle` or `body`. Empty, the canvas prompts in it; written to and read from .pptx as `<p:ph>` |
 
 A slide may carry `bgImage` (`{src, x, y, w, h, tile, opacity}`, placed in
 slide px) or `bgGrad` (as `fillGrad`) besides `bg`. They are painted by the
@@ -855,14 +856,15 @@ toolbar's crop button) the object itself is hidden — `.sl-obj.sl-cropping` —
 and `#slCrop` draws the whole picture ghosted with the kept part at full
 strength on top. Dragging a grip moves the *frame*; dragging the picture
 moves the *source underneath it*. Enter or a click outside applies, Esc
-restores. **Reset image** clears `crop`, `mask` and `radius`, puts the frame
+restores. **Reset image** clears `crop`, `mask`, `adj` and `radius`, puts the frame
 back to `props.orig` (stamped the first time a picture is trimmed) and
 corrects the height to the source's own aspect ratio.
 
 `mask` maps onto a `prstGeom` on the `p:pic` in .pptx, so a shaped crop made
 here and one made in PowerPoint are the same thing; the renderer draws it as
-a `clip-path` built from `SlidesShapes.points()` - stated in percentages, so
-the clip follows the frame as it is dragged. That is why the crop shapes are
+a `clip-path` built from `SlidesShapes.points()` at the frame's own size and
+with the picture's `adj` - stated in percentages, so the clip follows the
+frame as it is dragged. That is why the crop shapes are
 the catalogue's polygons and not all of it: a curved outline would have to be
 restated in pixels at every size.
 
@@ -971,8 +973,10 @@ geometry.
 ```js
 SlidesShapes.path(kind, w, h, adj) // "M0 0L100 0..." ("" if unknown)
 SlidesShapes.customPath(geom, w, h, which) // a "custom" shape's paths, stretched over w x h
-SlidesShapes.detail(kind, w, h)    // markings to stroke, or ""
-SlidesShapes.points(kind, w, h)    // polygon corners, or null for a curved one
+SlidesShapes.detail(kind, w, h, adj) // markings to stroke, or ""
+SlidesShapes.points(kind, w, h, adj) // polygon corners, or null for a curved one
+SlidesShapes.handles(kind, w, h, adj)  // [[x, y], ...] its adjustment handles
+SlidesShapes.dragHandle(kind, i, w, h, x, y, adj) // every guide, with handle i at (x, y)
 SlidesShapes.icon(kind, size)      // the same outline as a small SVG
 SlidesShapes.canonical(kind)       // preset spelling -> catalogue name
 SlidesShapes.isOpen / evenOdd / label / defaultSize / CATEGORIES
@@ -985,10 +989,27 @@ Keep the names in step with `prstToShapeKind` (`mod/office/pptx/reader.go`).
 The common presets follow PowerPoint's own formulas (`presetShapeDefinitions`):
 their features are sized from the shorter side and read the guides a deck
 states (`av(adj, "adj", default)`), so a long flat chevron keeps a shallow
-point and a deck's own `<a:avLst>` is honoured - the triangle, parallelogram,
-trapezoid, hexagon, octagon, cross, the block arrows, chevron, pentagon arrow
-and can so far. A geometry function is called as `pts(w, h, adj)` /
-`path(w, h, adj)`; one that ignores `adj` draws at its defaults.
+point and a deck's own `<a:avLst>` is honoured - every preset that has
+adjustments except the ribbons and scrolls. Angle guides (pie,
+chord, arc, block arc, circular arrow) are 60000ths of a degree, clockwise
+from three o'clock, and *visual*: `Path.arcTo(wR, hR, stAng, swAng)` is
+PresentationML's own arc, continuing from the pen, and converts them to the
+ellipse's parameter itself. A geometry function is called as `pts(w, h, adj)` /
+`path(w, h, adj)` (and `detail(w, h, adj)`); one that ignores `adj` draws
+at its defaults.
+
+An entry with `adj: { defaults, handles }` can be reshaped on the canvas:
+each handle is `{ pos(w, h, a), set(w, h, x, y) }` - where its yellow
+diamond sits for the resolved guides `a`, and the guides that put it at a
+dragged point. `ssLen()` builds the usual one (a length in the shorter side
+along one axis), `share()` a share of one side, `polar()` an angle on the
+frame's ellipse, and `fit()` any other: it only needs the handle's position
+and finds the guide value that puts it nearest the pointer, which is how the
+curved arrows, braces and arrow callouts (guides with no simple inverse) get
+theirs. The defaults must
+be PowerPoint's, because `dragHandle` writes every guide and the `.pptx`
+writer passes them on as they are; the stars are the one exception (they
+keep the editor's older, rounder default until a handle is dragged).
 
 `ALIASES` holds the three names the editor used before this file existed
 (`round`, `arrow`, `star`). They are not shapes any more - `normalizeBody()`

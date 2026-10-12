@@ -289,6 +289,13 @@ func TestPptxBulletsAndNumbers(t *testing.T) {
 		{"an empty paragraph has no bullet",
 			`<a:p><a:pPr marL="342900" indent="-342900"><a:buChar char="&#8226;"/></a:pPr><a:endParaRPr sz="2000"/></a:p>`,
 			nil, []string{"•"}},
+		{"a geometric bullet falls back to Arial's twin, not the CJK face",
+			para(`<a:buFont typeface="Open Sans"/><a:buChar char="●"/>`, "one"),
+			[]string{"●", "font-family:'Open Sans',Arimo,"}, nil},
+		{"a Wingdings bullet skips the deck's East Asian font",
+			`<a:p><a:pPr marL="342900" indent="-342900"><a:buFont typeface="Wingdings"/><a:buChar char="l"/></a:pPr>` +
+				`<a:r><a:rPr sz="2000"><a:latin typeface="Arial"/><a:ea typeface="Microsoft JhengHei"/></a:rPr><a:t>one</a:t></a:r></a:p>`,
+			[]string{"font-family:Arial,Arimo,"}, nil},
 		{"a number is never set in a symbol font",
 			para(`<a:buFont typeface="Wingdings"/><a:buAutoNum type="arabicPeriod"/>`, "one"),
 			[]string{"1."}, []string{"Wingdings"}},
@@ -336,6 +343,14 @@ func TestPptxTextLayoutRules(t *testing.T) {
 				`<p:txBody><a:bodyPr spcFirstLastPara="1"/><a:lstStyle/>` +
 				`<a:p><a:pPr><a:spcBef><a:spcPts val="600"/></a:spcBef></a:pPr><a:r><a:rPr sz="1400"/><a:t>a</a:t></a:r></a:p></p:txBody></p:sp>`,
 			[]string{"margin-top:8px"}, nil},
+		{"Google Slides draws no space before the first paragraph",
+			`<p:sp><p:nvSpPr><p:cNvPr id="56" name="Google Shape;56;p13"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>` +
+				`<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="4000000" cy="2000000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>` +
+				`<p:txBody><a:bodyPr spcFirstLastPara="1"/><a:lstStyle/>` +
+				`<a:p><a:pPr><a:spcBef><a:spcPts val="600"/></a:spcBef></a:pPr><a:r><a:rPr sz="1400"/><a:t>a</a:t></a:r></a:p>` +
+				`<a:p><a:pPr><a:spcBef><a:spcPts val="600"/></a:spcBef></a:pPr><a:r><a:rPr sz="1400"/><a:t>b</a:t></a:r></a:p></p:txBody></p:sp>`,
+			// the second paragraph keeps its 6pt = 8px; the first has none
+			[]string{"margin-top:8px"}, []string{`<div style="text-align:left;line-height:1.2;margin-top:8px`}},
 		{"a percentage space is of the line",
 			textBox(0, 0, 4000000, 2000000, `<a:p><a:r><a:rPr sz="2000"/><a:t>a</a:t></a:r></a:p>`+
 				`<a:p><a:pPr><a:spcBef><a:spcPct val="20000"/></a:spcBef></a:pPr><a:r><a:rPr sz="2000"/><a:t>b</a:t></a:r></a:p>`),

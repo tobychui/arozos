@@ -21,9 +21,13 @@
     Coordinates are px from the page's top-left corner. Ops are arrays:
         ["rect", x, y, w, h, rgb, alpha]
         ["image", id, x, y, w, h, crop]       crop {t,r,b,l} fractions | null
-        ["text", x, baseline, size, rgb, fitW, segs, deco]
-              segs [[text, font, synthBold]]  font "s:Helvetica:bold:italic" | "f:<url>"
+        ["text", x, baseline, size, rgb, fitW, segs, deco, letterSpacing]
+              segs [[text, font, bold, skew]]  font "s:Helvetica:bold:italic" | "f:<url>"
+                   bold: synthetic bold stroke width in px (0: none), skew:
+                   synthetic italic shear (0: upright) - both as measured
+                   in the page (OfficePdfCore.synthStyle)
               deco [y, h, w] underline/strike bar, w used when nothing drew
+              letterSpacing px after every character, optional
         ["leader", x, w, baseline, size, rgb, ch, font]
         ["ellipse", cx, cy, rx, ry, rgb, strokeW]      strokeW 0 = filled
         ["poly", [x, y, ...], rgb, strokeW]
@@ -42,6 +46,7 @@
         var rec = OfficePdfDraw.recorder();   (in the page)
             rec.addPage([w, h]) -> a stand-in for a pdf-lib PDFPage
             rec.embed(src)      -> Promise<picture handle> for drawImage
+            rec.embedNow(src)   -> the same handle, synchronously
             rec.job(title)      -> the job
 */
 
@@ -71,6 +76,32 @@ var OfficePdfDraw = (function () {
         if (bytes.length > 3 && bytes[0] === 0xFF && bytes[1] === 0xD8) return "jpg";
         if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return "png";
         return null;
+    }
+
+    /* decodeToPng re-encodes a picture pdf-lib cannot embed (GIF, WebP,
+       BMP) through the browser's own decoder. It works in the worker
+       (createImageBitmap + OffscreenCanvas) and in the page alike; null
+       when the bytes are nothing the browser can draw. */
+    function decodeToPng(bytes) {
+        if (typeof createImageBitmap !== "function" || typeof Blob === "undefined") return Promise.resolve(null);
+        return createImageBitmap(new Blob([bytes])).then(function (bmp) {
+            var w = bmp.width, h = bmp.height;
+            if (typeof OffscreenCanvas !== "undefined") {
+                var oc = new OffscreenCanvas(w, h);
+                oc.getContext("2d").drawImage(bmp, 0, 0);
+                bmp.close();
+                return oc.convertToBlob({ type: "image/png" });
+            }
+            var c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            c.getContext("2d").drawImage(bmp, 0, 0);
+            bmp.close();
+            return new Promise(function (res) { c.toBlob(res, "image/png"); });
+        }).then(function (blob) {
+            return blob ? blob.arrayBuffer() : null;
+        }).then(function (buf) {
+            return buf ? new Uint8Array(buf) : null;
+        }).catch(function () { return null; });
     }
 
     function render(job, opts) {
@@ -127,8 +158,11 @@ var OfficePdfDraw = (function () {
                 var kind = sniff(bytes);
                 if (kind === "jpg") return pdfDoc.embedJpg(bytes);
                 if (kind === "png") return pdfDoc.embedPng(bytes);
-                // a recording names what it could not check: try it as a PNG
-                return spec.guess ? pdfDoc.embedPng(bytes) : null;
+                // a GIF, WebP or BMP: the picture the browser decodes from
+                // it (a GIF's first frame), as a PNG
+                return decodeToPng(bytes).then(function (png) {
+                    return png ? pdfDoc.embedPng(png) : null;
+                });
             }).catch(function () { return null; }).then(function (img) {
                 imageReady[id] = img;
                 return img;
@@ -230,14 +264,17 @@ var OfficePdfDraw = (function () {
            it, squeezed or stretched to the width the browser gave it */
         function drawText(page, op, y, push) {
             var x = op[1], baseline = op[2], size = op[3], col = rgb(op[4]), fitW = op[5];
+            var ls = op[8] || 0;
             var segs = [];
             var total = 0;
             for (var i = 0; i < op[6].length; i++) {
                 var s = op[6][i];
                 var font = fontReady[s[1]];
                 if (!font) return;
-                var w = font.widthOfTextAtSize(s[0], size);
-                segs.push({ text: s[0], font: font, synthBold: s[2], w: w });
+                var w = font.widthOfTextAtSize(s[0], size) + (ls ? ls * Array.from(s[0]).length : 0);
+                // s[2]: the synthetic bold stroke in px (true: the old fixed one)
+                var bw = typeof s[2] === "number" ? s[2] : (s[2] ? size / 28 : 0);
+                segs.push({ text: s[0], font: font, bold: bw, skew: s[3] || 0, w: w });
                 total += w;
             }
             var scale = 1;
@@ -251,13 +288,17 @@ var OfficePdfDraw = (function () {
             segs.forEach(function (seg) {
                 var ops = [PDFLib.pushGraphicsState()];
                 if (scale !== 1) ops.push(PDFLib.setCharacterSqueeze(scale * 100));
-                if (seg.synthBold) {
+                if (ls) ops.push(PDFLib.setCharacterSpacing(ls * PX));
+                if (seg.bold > 0.01) {
                     ops.push(PDFLib.setTextRenderingMode(PDFLib.TextRenderingMode.FillAndOutline));
-                    ops.push(PDFLib.setLineWidth(size / 28 * PX));
+                    ops.push(PDFLib.setLineWidth(seg.bold * PX));
                     ops.push(PDFLib.setStrokingColor(col));
                 }
                 push(ops);
-                page.drawText(seg.text, { x: cursor * PX, y: y(baseline), size: size * PX, font: seg.font, color: col });
+                var opt = { x: cursor * PX, y: y(baseline), size: size * PX, font: seg.font, color: col };
+                // a synthetic italic: the text matrix's shear by height
+                if (seg.skew > 0.001) opt.ySkew = PDFLib.radians(Math.atan(seg.skew));
+                page.drawText(seg.text, opt);
                 push([PDFLib.popGraphicsState()]);
                 cursor += seg.w * scale;
             });
@@ -412,6 +453,18 @@ var OfficePdfDraw = (function () {
             this.calls.push(["ops", list]);
         };
         RecPage.prototype.recordAlpha = function (key, a) { this.calls.push(["alpha", key, a]); };
+        function pictureRef(src) {
+            if (!src) return null;
+            if (bySrc[src]) return bySrc[src];
+            var id = "p" + (seq++);
+            var abs = src;
+            if (src.indexOf("data:") !== 0) {
+                try { abs = new URL(src, document.baseURI).href; } catch (e) { abs = src; }
+            }
+            images[id] = { src: abs };
+            bySrc[src] = { __img: id };
+            return bySrc[src];
+        }
 
         return {
             addPage: function (size) {
@@ -421,16 +474,11 @@ var OfficePdfDraw = (function () {
             },
             // a picture is named, not embedded: the worker embeds it once
             embed: function (src) {
-                if (!src) return Promise.resolve(null);
-                if (bySrc[src]) return Promise.resolve(bySrc[src]);
-                var id = "p" + (seq++);
-                var abs = src;
-                if (src.indexOf("data:") !== 0) {
-                    try { abs = new URL(src, document.baseURI).href; } catch (e) { abs = src; }
-                }
-                images[id] = { src: abs, guess: true };
-                bySrc[src] = { __img: id };
-                return Promise.resolve(bySrc[src]);
+                return Promise.resolve(pictureRef(src));
+            },
+            // the same, for a caller that has to draw it on the spot
+            embedNow: function (src) {
+                return pictureRef(src);
             },
             job: function (title) {
                 return { title: title || "", images: images, pages: pages };

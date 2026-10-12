@@ -50,6 +50,48 @@ var OfficePdfCore = (function () {
     function winAnsiCp(cp) {
         return cp >= 32 && cp <= 255;
     }
+
+    /* Characters that draw nothing: zero-width spaces and joiners,
+       direction marks, variation selectors, the byte order mark, a soft
+       hyphen. The editors write a zero-width space into every empty line
+       to give it its height, so these are everywhere - and offering one to
+       the font stack found no face with a glyph for it, which used to send
+       the whole text box or table to a picture. They are simply not drawn. */
+    function ignorableCp(cp) {
+        return cp === 0xAD || cp === 0x34F || cp === 0x61C ||
+            (cp >= 0x180B && cp <= 0x180F) || (cp >= 0x200B && cp <= 0x200F) ||
+            (cp >= 0x202A && cp <= 0x202E) || (cp >= 0x2060 && cp <= 0x206F) ||
+            (cp >= 0xFE00 && cp <= 0xFE0F) || cp === 0xFEFF ||
+            (cp >= 0xE0000 && cp <= 0xE0FFF);
+    }
+    // visibleText is the text with the characters that draw nothing removed
+    function visibleText(text) {
+        var out = "";
+        for (var i = 0; i < text.length; i++) {
+            var cp = text.codePointAt(i);
+            if (cp > 0xFFFF) i++;
+            if (!ignorableCp(cp)) out += String.fromCodePoint(cp);
+        }
+        return out;
+    }
+
+    /* text-transform is applied by the browser when it paints, so the text
+       node still holds what was typed: an all-caps title says "Agenda" in
+       the DOM and AGENDA on the slide. The PDF has to apply it the same way. */
+    var capitalizeRe = null;
+    try {
+        // a word starts after anything that is not a letter, a digit or an
+        // apostrophe ("don't" stays one word)
+        capitalizeRe = new RegExp("(^|[^\\p{L}\\p{N}'\\u2019])(\\p{Ll})", "gu");
+    } catch (e) { /* no Unicode property escapes: capitalize is left as typed */ }
+    function transformText(text, tt) {
+        if (tt === "uppercase") return text.toUpperCase();
+        if (tt === "lowercase") return text.toLowerCase();
+        if (tt === "capitalize" && capitalizeRe) {
+            return text.replace(capitalizeRe, function (m, a, b) { return a + b.toUpperCase(); });
+        }
+        return text;
+    }
     /* haveFamily reports whether a family is actually installed. It has to
        be measured: document.fonts.check() answers "is it loaded", and for a
        local family Chrome says yes whatever name you give it. The reliable
@@ -283,13 +325,15 @@ var OfficePdfCore = (function () {
 
     /* segmentText cuts a fragment into the pieces that share one font, the
        way a browser does per character. Returns null when any character has
-       nowhere to go, which is the signal to rasterize instead. */
+       nowhere to go, which is the signal to rasterize instead; an empty list
+       when nothing in it draws anything. */
     function segmentText(text, names, fonts, bold, italic) {
         var segs = [], cur = null;
         for (var i = 0; i < text.length; i++) {
             var cp = text.codePointAt(i);
             var ch = String.fromCodePoint(cp);
             if (ch.length > 1) i++;          // a surrogate pair
+            if (ignorableCp(cp)) continue;
             var res = resolveChar(cp, names, fonts, bold, italic);
             if (!res || res.need) return null;
             var key = res.std ? "s:" + res.std : "f:" + res.shipped;
@@ -299,10 +343,17 @@ var OfficePdfCore = (function () {
         return segs;
     }
 
+    // faceOf: the font a resolved piece is drawn in, and what of its style
+    // has to be synthesized (family is the name the page declared it under)
     function faceOf(res, fonts, bold, italic) {
-        if (res.std) return { font: fonts.std(res.std, bold, italic), synthBold: false };
+        if (res.std) return { font: fonts.std(res.std, bold, italic), synthBold: false, synthItalic: false };
         var rec = fonts.shipped(res.shipped, bold, italic);
-        return rec ? { font: rec.font, synthBold: rec.synthBold } : null;
+        if (!rec) return null;
+        var face = OfficeFonts.faceFor(res.shipped, bold, italic);
+        return {
+            font: rec.font, synthBold: rec.synthBold, synthItalic: rec.synthItalic,
+            family: face ? face.family : res.shipped
+        };
     }
 
     /* Where the baseline sits is the browser's decision, and the exporter
@@ -340,6 +391,162 @@ var OfficePdfCore = (function () {
         return m;
     }
 
+    /* ---------------- synthetic bold and italic ----------------
+
+       A face the suite ships without a bold (the CJK ones) or an italic is
+       emboldened or slanted by the browser, and how much is the browser's
+       business: Chrome strokes the outline by 1/24 to 1/32 of the size,
+       Firefox smears it sideways, other engines differ again. A fixed
+       stroke in the PDF was therefore heavier than the screen in one
+       browser and lighter in the next, so the amount is measured rather
+       than assumed.
+
+       Bold: the run's text is drawn on a canvas in the weight it asked for
+       (which the browser synthesizes exactly as it does on the page) and in
+       regular weight filled and stroked with a growing pen - the very thing
+       the PDF does with text rendering mode 2 - until the two carry the
+       same ink. Both drawings go through the same rasterizer, so its
+       anti-aliasing cancels out; in Chrome this lands on Skia's own figure
+       to the hundredth of a pixel at every size.
+
+       Italic: the slant moves every bit of ink sideways in proportion to
+       its height above the baseline, so the shift of the ink's centre over
+       the height of that centre is the slant. A browser that does not
+       synthesize at all measures as no stroke and no slant, and the PDF
+       follows it. */
+    var SYNTH_K = 2;                 // device pixels per css px while measuring
+    var synthCache = {};
+    var synthCtx = null;
+    function synthCanvas(w, h) {
+        if (!synthCtx) {
+            var c = document.createElement("canvas");
+            synthCtx = c.getContext("2d", { willReadFrequently: true });
+        }
+        var cv = synthCtx.canvas;
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        return synthCtx;
+    }
+    function quoteFamily(f) {
+        return '"' + String(f).replace(/["\\]/g, "") + '"';
+    }
+    // skiaBold is Chrome's own figure, used when nothing can be measured
+    function skiaBold(size) {
+        var t = clamp((size - 9) / 27, 0, 1);
+        return size * (1 / 24 + (1 / 32 - 1 / 24) * t);
+    }
+    function inkStats(g, w, h) {
+        var d = g.getImageData(0, 0, w, h).data;
+        var sum = 0, sx = 0, sy = 0;
+        for (var i = 3, p = 0; i < d.length; i += 4, p++) {
+            var a = d[i];
+            if (!a) continue;
+            sum += a;
+            sx += a * (p % w);
+            sy += a * ((p / w) | 0);
+        }
+        return { ink: sum / 255, cx: sum ? sx / sum : 0, cy: sum ? sy / sum : 0 };
+    }
+
+    /* synthStyle answers how much the browser emboldens (stroke width, css
+       px) and slants (horizontal shift per unit of height) one face at one
+       size, for the faces faceFor() says are synthesized. sample is text
+       set in that face: what is measured is the same glyphs. */
+    function synthStyle(family, weight, italic, sizePx, sample, wantBold, wantItalic) {
+        var out = { bold: 0, skew: 0 };
+        var text = visibleText(String(sample || "")).replace(/\s+/g, "").substring(0, 12);
+        weight = parseInt(weight, 10) || (wantBold ? 700 : 400);
+        if (wantBold) out.bold = measureBold(family, weight, italic, sizePx, text);
+        if (wantItalic) out.skew = measureSkew(family, weight, text);
+        return out;
+    }
+    function measureBold(family, weight, italic, size, text) {
+        var key = "b|" + family + "|" + weight + "|" + (italic ? 1 : 0) + "|" + size.toFixed(2);
+        if (synthCache[key] !== undefined) return synthCache[key];
+        var w = skiaBold(size);
+        try {
+            if (!text) throw new Error("nothing to measure");
+            var style = italic ? "italic " : "";
+            var fam = quoteFamily(family);
+            var g = synthCanvas(1, 1);
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            g.font = style + "400 " + size + "px " + fam;
+            var tw = g.measureText(text).width;
+            var W = Math.ceil((tw + size * 1.5) * SYNTH_K), H = Math.ceil(size * 2.2 * SYNTH_K);
+            // a measurement this large is not worth its cost; Chrome's
+            // figure is proportional above 36px, so measure smaller and scale
+            var scale = 1;
+            if (W * H > 1600000) {
+                scale = Math.sqrt(1600000 / (W * H));
+                W = Math.ceil(W * scale); H = Math.ceil(H * scale);
+            }
+            var k = SYNTH_K * scale;
+            g = synthCanvas(W, H);
+            var draw = function (wt, pen) {
+                g.setTransform(1, 0, 0, 1, 0, 0);
+                g.clearRect(0, 0, W, H);
+                g.setTransform(k, 0, 0, k, 0, 0);
+                g.font = style + wt + " " + size + "px " + fam;
+                g.fillStyle = "#000";
+                g.textBaseline = "alphabetic";
+                g.fillText(text, size * 0.5, size * 1.5);
+                if (pen > 0) {
+                    g.strokeStyle = "#000";
+                    g.lineWidth = pen;
+                    g.lineJoin = "miter";
+                    g.miterLimit = 10;
+                    g.strokeText(text, size * 0.5, size * 1.5);
+                }
+                return inkStats(g, W, H).ink;
+            };
+            var base = draw(400, 0);
+            var target = draw(weight, 0);
+            if (!(base > 0)) throw new Error("no ink");
+            if (target <= base * 1.002) {
+                w = 0;                       // this browser does not embolden
+            } else {
+                var lo = 0, hi = size / 6;
+                for (var it = 0; it < 14; it++) {
+                    var mid = (lo + hi) / 2;
+                    if (draw(400, mid) < target) lo = mid; else hi = mid;
+                }
+                w = (lo + hi) / 2;
+            }
+        } catch (e) { /* keep Chrome's figure */ }
+        synthCache[key] = w;
+        return w;
+    }
+    function measureSkew(family, weight, text) {
+        var key = "i|" + family + "|" + weight;
+        if (synthCache[key] !== undefined) return synthCache[key];
+        var s = 0.25;                       // Chrome's and Safari's slant
+        try {
+            if (!text) throw new Error("nothing to measure");
+            var size = 64;
+            var fam = quoteFamily(family);
+            var g = synthCanvas(1, 1);
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            g.font = weight + " " + size + "px " + fam;
+            var W = Math.ceil(g.measureText(text).width + size * 2), H = Math.ceil(size * 2);
+            var baseY = size * 1.4;
+            g = synthCanvas(W, H);
+            var draw = function (style) {
+                g.setTransform(1, 0, 0, 1, 0, 0);
+                g.clearRect(0, 0, W, H);
+                g.font = style + weight + " " + size + "px " + fam;
+                g.fillStyle = "#000";
+                g.textBaseline = "alphabetic";
+                g.fillText(text, size * 0.5, baseY);
+                return inkStats(g, W, H);
+            };
+            var up = draw(""), it = draw("italic ");
+            var rise = baseY - up.cy;
+            if (!(up.ink > 0) || !(rise > 1)) throw new Error("no ink");
+            s = clamp((it.cx - up.cx) / rise, 0, 0.5);
+        } catch (e) { /* keep the usual slant */ }
+        synthCache[key] = s;
+        return s;
+    }
+
     /* eachTextNode is the walk both the font pre-pass and the run collector
        make, kept in one place so they cannot disagree about what counts as
        text on the slide. */
@@ -348,7 +555,7 @@ var OfficePdfCore = (function () {
         var node;
         while ((node = walker.nextNode())) {
             var text = node.nodeValue;
-            if (!text || !text.trim()) continue;
+            if (!text || !visibleText(text).trim()) continue;
             var parent = node.parentElement;
             if (!parent) continue;
             var cs = window.getComputedStyle(parent);
@@ -485,15 +692,20 @@ var OfficePdfCore = (function () {
             range.selectNodeContents(node);
             var rects = Array.prototype.slice.call(range.getClientRects());
             if (!rects.length) return;
+            var ls = parseFloat(cs.letterSpacing);
             var shared = {
                 origin: origin,
+                node: node,
                 names: familyList(cs.fontFamily),
+                family: cs.fontFamily,
                 metrics: fontMetricsOf(cs),
                 size: parseFloat(cs.fontSize) || 12,
                 weight: parseInt(cs.fontWeight, 10) || (cs.fontWeight === "bold" ? 700 : 400),
                 italic: cs.fontStyle === "italic" || cs.fontStyle === "oblique",
                 underline: cs.textDecorationLine.indexOf("underline") >= 0,
                 strike: cs.textDecorationLine.indexOf("line-through") >= 0,
+                transform: cs.textTransform,
+                letterSpacing: isFinite(ls) ? ls : 0,
                 color: cs.color,
                 background: cs.backgroundColor
             };
@@ -501,6 +713,7 @@ var OfficePdfCore = (function () {
                 var r = Object.create(shared);
                 r.text = ln.text;
                 r.rect = ln.rect;
+                r.start = ln.start;
                 runs.push(r);
             });
         });
@@ -510,14 +723,16 @@ var OfficePdfCore = (function () {
     /* splitByLine maps a text node's client rects back onto the substrings
        that produced them, so each line can be drawn at its own baseline.
        Character-by-character is the only reliable way: the browser decides
-       where the break went, and only it knows. */
+       where the break went, and only it knows. start is where each line's
+       text begins in the node. */
     function splitByLine(node, text, lineRects) {
         if (lineRects.length === 1) {
-            return [{ text: text, rect: lineRects[0] }];
+            return [{ text: text, rect: lineRects[0], start: 0 }];
         }
         var range = document.createRange();
         var out = [];
         var cur = "";
+        var curStart = 0;
         var curTop = null;
         var curRect = null;
         for (var i = 0; i < text.length; i++) {
@@ -531,14 +746,15 @@ var OfficePdfCore = (function () {
                 else { curRect.right = Math.max(curRect.right, r.right); }
                 cur += text[i];
             } else {
-                out.push({ text: cur, rect: curRect });
+                out.push({ text: cur, rect: curRect, start: curStart });
                 cur = text[i];
+                curStart = i;
                 curTop = top;
                 curRect = { left: r.left, top: r.top, bottom: r.bottom, right: r.right };
             }
         }
-        if (cur !== "" && curRect) out.push({ text: cur, rect: curRect });
-        return out.length ? out : [{ text: text, rect: lineRects[0] }];
+        if (cur !== "" && curRect) out.push({ text: cur, rect: curRect, start: curStart });
+        return out.length ? out : [{ text: text, rect: lineRects[0], start: 0 }];
     }
 
     // canDrawAsText is the whole fallback decision, in one place: every
@@ -546,9 +762,100 @@ var OfficePdfCore = (function () {
     function canDrawAsText(runs, fonts) {
         for (var i = 0; i < runs.length; i++) {
             var r = runs[i];
-            if (!segmentText(r.text, r.names, fonts, r.weight >= 600, r.italic)) return false;
+            if (!segmentText(transformText(r.text, r.transform), r.names, fonts, r.weight >= 600, r.italic)) return false;
         }
         return true;
+    }
+
+    /* planRun decides how one line fragment is drawn: as text wherever a
+       font can show it, and as a picture only for the characters nothing
+       can (an emoji, a script the suite does not ship). Each piece comes
+       back with its place in the line, measured off the DOM, so a picture
+       in the middle of a sentence lands between the words around it:
+           [{ text, dx, w, fit, raster }]
+       dx is from the run's left edge; fit is the width to fit text to, 0
+       when the piece begins or ends on a space (the browser collapses
+       those, the measurement does not). */
+    function planRun(r, fonts) {
+        var bold = r.weight >= 600;
+        var whole = r.rect.right - r.rect.left;
+        var shown = transformText(r.text, r.transform);
+        if (segmentText(shown, r.names, fonts, bold, r.italic)) {
+            return [{ text: shown, dx: 0, w: whole, fit: /^\s|\s$/.test(r.text) ? 0 : whole, raster: false }];
+        }
+        // cut where drawability changes; a character that draws nothing
+        // (a joiner inside an emoji) stays with what is around it
+        var parts = [], cur = null;
+        for (var i = 0; i < r.text.length;) {
+            var cp = r.text.codePointAt(i), n = cp > 0xFFFF ? 2 : 1;
+            var ok;
+            if (ignorableCp(cp)) {
+                ok = cur ? cur.ok : true;
+            } else {
+                var shownCp = transformText(String.fromCodePoint(cp), r.transform).codePointAt(0);
+                var res = resolveChar(shownCp, r.names, fonts, bold, r.italic);
+                ok = !!(res && !res.need);
+            }
+            if (cur && cur.ok === ok) cur.end = i + n;
+            else { cur = { ok: ok, start: i, end: i + n }; parts.push(cur); }
+            i += n;
+        }
+        /* Each piece is measured against the whole line at the same moment,
+           so the place comes out right even when the page is no longer at
+           the zoom it was collected at (Docs hands the page back before it
+           writes its display list). A line whose text node has changed
+           since cannot be measured: it goes in whole, as a picture. */
+        var range = document.createRange();
+        var now = null;
+        try {
+            range.setStart(r.node, r.start);
+            range.setEnd(r.node, r.start + r.text.length);
+            now = range.getBoundingClientRect();
+        } catch (e) { now = null; }
+        if (!now || !(now.width > 0) || r.node.nodeValue.substr(r.start, r.text.length) !== r.text) {
+            return [{ text: shown, dx: 0, w: whole, fit: 0, raster: true }];
+        }
+        var k = whole / now.width;
+        var out = [];
+        parts.forEach(function (p) {
+            var text = r.text.substring(p.start, p.end);
+            range.setStart(r.node, r.start + p.start);
+            range.setEnd(r.node, r.start + p.end);
+            var b = range.getBoundingClientRect();
+            var dx = (b.left - now.left) * k, w = b.width * k;
+            if (!(w > 0) && !visibleText(text).trim()) return;
+            out.push({
+                text: transformText(text, r.transform), dx: dx, w: w,
+                fit: /^\s|\s$/.test(text) ? 0 : w, raster: !p.ok
+            });
+        });
+        return out;
+    }
+
+    /* rasterText draws a piece of a run as a picture of itself, through
+       the page's own canvas - which has the page's fonts, so the picture is
+       set in the face the screen used, unlike an SVG image of the element.
+       Returns { src, x, y, w, h } relative to the piece's left edge and the
+       line's top, or null. */
+    function rasterText(r, text, w, lineH, baseline) {
+        try {
+            var pad = Math.ceil(r.size * 0.3);
+            var cw = Math.max(1, w) + pad * 2, ch = lineH + pad * 2;
+            var k = RASTER_SCALE;
+            var c = document.createElement("canvas");
+            c.width = Math.ceil(cw * k);
+            c.height = Math.ceil(ch * k);
+            var g = c.getContext("2d");
+            g.scale(k, k);
+            g.font = (r.italic ? "italic " : "") + r.weight + " " + r.size + "px " + r.family;
+            if (r.letterSpacing && "letterSpacing" in g) g.letterSpacing = r.letterSpacing + "px";
+            g.fillStyle = r.color;
+            g.textBaseline = "alphabetic";
+            g.fillText(text, pad, pad + baseline);
+            return { src: c.toDataURL("image/png"), x: -pad, y: -pad, w: cw, h: ch };
+        } catch (e) {
+            return null;
+        }
     }
 
     /* drawFragment puts one line fragment on the page as real text, in as
@@ -561,19 +868,29 @@ var OfficePdfCore = (function () {
        could not embed - from pushing the rest of the line out of place.
 
        Bold that a shipped face does not have is stroked rather than filled,
-       at the width the browser smears it by. Neither side moves the advance
-       widths, so the two stay in step. */
+       and italic it does not have is slanted, both by as much as the
+       browser does it (synthStyle). Neither moves the advance widths, so
+       the two stay in step.
+
+       letterSpacing (css px) goes in as character spacing, which is how
+       CSS adds it too: after every character, the last one included. */
     function drawFragment(pg, spec) {
         var fonts = pg.fonts;
         var segs = segmentText(spec.text, spec.names, fonts, spec.bold, spec.italic);
         if (!segs || !segs.length) return 0;
 
+        var ls = spec.letterSpacing || 0;
         var total = 0;
         for (var i = 0; i < segs.length; i++) {
             var face = faceOf(segs[i].res, fonts, spec.bold, spec.italic);
             if (!face) return 0;
             segs[i].face = face;
-            segs[i].w = face.font.widthOfTextAtSize(segs[i].text, spec.sizePx);
+            segs[i].w = face.font.widthOfTextAtSize(segs[i].text, spec.sizePx) +
+                (ls ? ls * Array.from(segs[i].text).length : 0);
+            if (face.synthBold || face.synthItalic) {
+                segs[i].synth = synthStyle(face.family, spec.weight || (spec.bold ? 700 : 400), spec.italic,
+                    spec.sizePx, segs[i].text, face.synthBold, face.synthItalic);
+            }
             total += segs[i].w;
         }
 
@@ -590,17 +907,23 @@ var OfficePdfCore = (function () {
         segs.forEach(function (seg) {
             pg.save();
             var ops = [];
+            var synth = seg.synth || { bold: 0, skew: 0 };
             if (scale !== 1) ops.push(PDFLib.setCharacterSqueeze(scale * 100));
-            if (seg.face.synthBold) {
+            if (ls) ops.push(PDFLib.setCharacterSpacing(px(ls)));
+            if (synth.bold > 0.01) {
                 ops.push(PDFLib.setTextRenderingMode(PDFLib.TextRenderingMode.FillAndOutline));
-                ops.push(PDFLib.setLineWidth(px(spec.sizePx / 28)));
+                ops.push(PDFLib.setLineWidth(px(synth.bold)));
                 ops.push(PDFLib.setStrokingColor(col));
             }
             if (ops.length) pg.ops(ops);
-            pg.p.drawText(seg.text, {
+            var opt = {
                 x: px(cursor), y: pg.y(spec.baselinePx),
                 size: px(spec.sizePx), font: seg.face.font, color: col
-            });
+            };
+            // the text matrix's horizontal shear by height (pdf-lib calls
+            // that angle ySkew)
+            if (synth.skew > 0.001) opt.ySkew = PDFLib.radians(Math.atan(synth.skew));
+            pg.p.drawText(seg.text, opt);
             pg.restore();
             cursor += seg.w * scale;
         });
@@ -608,8 +931,11 @@ var OfficePdfCore = (function () {
     }
 
     /* drawRuns puts every run on the page at the baseline the browser laid
-       it out on, in the width the browser gave it. */
-    function drawRuns(pg, runs) {
+       it out on, in the width the browser gave it. A character no font can
+       show comes in as a picture of itself, in its own place in the line
+       (planRun); drawImage(src, x, y, w, h) puts that picture on the page,
+       and without it such characters are left out. */
+    function drawRuns(pg, runs, drawImage) {
         runs.forEach(function (r) {
             var x = r.origin.x + (r.rect.left - r.origin.left);
             var top = r.origin.y + (r.rect.top - r.origin.top);
@@ -620,17 +946,24 @@ var OfficePdfCore = (function () {
             var col = parseColor(r.color) || PDFLib.rgb(0, 0, 0);
             var bg = parseFill(r.background);
             if (bg) pg.rect(x, top, domW, lineH, { fill: bg.c, fillOpacity: bg.a });
-            // a fragment that starts or ends on a space cannot be fitted to
-            // its rect: the browser collapses those, the measurement does not
-            var w = drawFragment(pg, {
-                text: r.text, names: r.names,
-                bold: r.weight >= 600, italic: r.italic,
-                sizePx: r.size, xPx: x, baselinePx: top + baseline,
-                color: col, fitPx: /^\s|\s$/.test(r.text) ? 0 : domW
+            var drawn = 0;
+            planRun(r, pg.fonts).forEach(function (pc) {
+                if (pc.raster) {
+                    var pic = drawImage ? rasterText(r, pc.text, pc.w, lineH, baseline) : null;
+                    if (pic) drawImage(pic.src, x + pc.dx + pic.x, top + pic.y, pic.w, pic.h);
+                    drawn += pc.w;
+                    return;
+                }
+                drawn += drawFragment(pg, {
+                    text: pc.text, names: r.names,
+                    bold: r.weight >= 600, weight: r.weight, italic: r.italic,
+                    sizePx: r.size, xPx: x + pc.dx, baselinePx: top + baseline,
+                    color: col, fitPx: pc.fit, letterSpacing: r.letterSpacing
+                });
             });
             if (r.underline || r.strike) {
                 var yOff = r.underline ? baseline + r.size * 0.11 : baseline - r.size * 0.28;
-                pg.rect(x, top + yOff, w || domW, Math.max(0.7, r.size * 0.06), { fill: col });
+                pg.rect(x, top + yOff, drawn || domW, Math.max(0.7, r.size * 0.06), { fill: col });
             }
         });
     }
@@ -665,27 +998,32 @@ var OfficePdfCore = (function () {
        The cost is that computed styles have to be inlined onto the clone
        (an SVG image cannot reach the page's stylesheets) and every
        resource must already be a data URL - which, in a slide, it is. */
-    function rasterizeElement(el, w, h) {
+    /* ext, when given, is the area to capture relative to the element's own
+       box ({ x, y, w, h }, x and y usually <= 0): what overflows the box -
+       a table whose rows grew past its frame, text running out of its box -
+       is on the slide, so it belongs in the picture too. */
+    function rasterizeElement(el, w, h, ext) {
         try {
             var clone = el.cloneNode(true);
             inlineStyles(el, clone);
+            ext = ext || { x: 0, y: 0, w: w, h: h };
             // the foreignObject supplies the box, so the clone must not
             // carry the absolute placement it had on the slide
-            clone.style.position = "static";
-            clone.style.left = "auto";
-            clone.style.top = "auto";
+            clone.style.position = "absolute";
+            clone.style.left = (-ext.x) + "px";
+            clone.style.top = (-ext.y) + "px";
             clone.style.transform = "none";
             clone.style.margin = "0";
             clone.style.width = w + "px";
             clone.style.height = h + "px";
 
-            var cw = Math.max(1, Math.ceil(w)), ch = Math.max(1, Math.ceil(h));
+            var cw = Math.max(1, Math.ceil(ext.w)), ch = Math.max(1, Math.ceil(ext.h));
             /* The markup inside a foreignObject has to be well-formed XML,
                and innerHTML is not: it writes <br> unclosed, which makes the
                whole SVG fail to parse and the element vanish from the page.
                XMLSerializer writes real XHTML, so it cannot. */
             var wrap = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-            wrap.setAttribute("style", "width:" + cw + "px;height:" + ch + "px;");
+            wrap.setAttribute("style", "position:relative;overflow:hidden;width:" + cw + "px;height:" + ch + "px;");
             wrap.appendChild(clone);
             var xhtml = new XMLSerializer().serializeToString(wrap);
             var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + cw +
@@ -810,6 +1148,10 @@ var OfficePdfCore = (function () {
         RASTER_SCALE: RASTER_SCALE,
         STD_FAMILIES: STD_FAMILIES,
         winAnsiCp: winAnsiCp,
+        ignorableCp: ignorableCp,
+        visibleText: visibleText,
+        transformText: transformText,
+        synthStyle: synthStyle,
         haveFamily: haveFamily,
         familyList: familyList,
         loadFontkit: loadFontkit,
@@ -829,6 +1171,8 @@ var OfficePdfCore = (function () {
         collectRuns: collectRuns,
         splitByLine: splitByLine,
         canDrawAsText: canDrawAsText,
+        planRun: planRun,
+        rasterText: rasterText,
         drawFragment: drawFragment,
         drawRuns: drawRuns,
         rasterizeElement: rasterizeElement,

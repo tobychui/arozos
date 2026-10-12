@@ -746,6 +746,25 @@ func findPh(root *xmltree.Node, want phKey) *xmltree.Node {
 	return byIdx
 }
 
+// phRole is what a text placeholder is for, in the editor's terms (props.ph):
+// "title", "subtitle" or "body"; "" for anything else, a date or a slide
+// number placeholder included
+func phRole(node *xmltree.Node) string {
+	key, ok := phOf(node)
+	if !ok {
+		return ""
+	}
+	switch key.typ {
+	case "title", "ctrTitle":
+		return "title"
+	case "subTitle":
+		return "subtitle"
+	case "body", "obj":
+		return "body"
+	}
+	return ""
+}
+
 // phTypeAlike treats the title variants as one kind, the way PowerPoint does
 func phTypeAlike(a, b string) bool {
 	norm := func(s string) string {
@@ -1092,6 +1111,16 @@ func (sc *slideCtx) buildTextBody(tx *xmltree.Node, chain []*xmltree.Node, bp bo
 					bs.Latin, bs.EastAsian = firstRun.Latin, firstRun.EastAsian
 					bs.SizePt *= k
 				}
+				// a geometric bullet (● ○ ■) the bullet font has no glyph
+				// for is drawn by PowerPoint and Google Slides in Arial,
+				// where it is a small shape. Left to the shipped fallbacks
+				// it lands on the CJK face, whose full-width circle is twice
+				// that size - so Arimo (Arial's metric twin, shipped and
+				// embeddable in a PDF) comes right after the bullet font,
+				// ahead of any East Asian font the deck names
+				if ps.BuType == "char" {
+					bs.EastAsian = fonts.BulletFallback
+				}
 				bs.Underline, bs.Strike, bs.Highlight = false, false, ""
 				left := (ps.MarLeft + ps.Indent) * cm.kx
 				// the outer span is a line of the paragraph's own text -
@@ -1371,6 +1400,14 @@ func (sc *slideCtx) parseSp(node *xmltree.Node, cm coordMap) *model.Object {
 		layoutSp.Path("txBody", "bodyPr"),
 		node.Path("txBody", "bodyPr"),
 	}, cm)
+	// Google Slides writes spcFirstLastPara="1" on every shape it exports
+	// but never draws the first paragraph's space before (or the last
+	// one's space after) itself - its decks would open lower than they
+	// were made. PowerPoint does honour the flag, so only Google's own
+	// shapes are read the way Google draws them.
+	if isGoogleShape(node) {
+		bp.SpcFirstLast = false
+	}
 	tr := sc.buildTextBody(node.First("txBody"), chain, bp, cm)
 
 	kind, known := prstToShapeKind[prst]
@@ -1403,12 +1440,15 @@ func (sc *slideCtx) parseSp(node *xmltree.Node, cm coordMap) *model.Object {
 	}
 
 	if !isShape {
-		if tr.HTML == "" {
+		role := phRole(node)
+		// an empty placeholder is kept: the editor shows its prompt
+		if tr.HTML == "" && role == "" {
 			return nil
 		}
 		return &model.Object{
 			Type: "text", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
 			Props: model.Props{
+				Ph:   role,
 				HTML: tr.HTML, FontSize: units.Round2(tr.FontSize), Color: tr.First.Color,
 				Align: tr.Align, Bold: tr.Bold, Italic: tr.Italic,
 				Underline: tr.Underline, FontFamily: tr.FontCSS,
@@ -1704,6 +1744,11 @@ func (sc *slideCtx) parsePic(node *xmltree.Node, cm coordMap) *model.Object {
 	// a picture drawn through a preset geometry is a shaped crop
 	if kind, ok := prstToShapeKind[prst]; ok && kind != "rect" {
 		props.Mask = kind
+		// the guides it states reshape it, when the editor draws it as
+		// itself (roundRect's corner is props.Radius instead)
+		if kind == prst && kind != "roundRect" {
+			props.Adj = statedAdj(spPr)
+		}
 	}
 	if rad := sc.cornerRadius(spPr, prst, box); rad > 0 {
 		props.Radius = units.Round2(rad)
@@ -2167,6 +2212,20 @@ func transitionOf(sld *xmltree.Node) string {
 		}
 	}
 	return ""
+}
+
+// isGoogleShape reports whether Google Slides made this shape: its export
+// names every one "Google Shape;<id>;<page>", and no other producer does
+func isGoogleShape(node *xmltree.Node) bool {
+	for i := range node.Nodes {
+		if strings.HasPrefix(node.Nodes[i].XMLName.Local, "nv") {
+			if c := node.Nodes[i].First("cNvPr"); c != nil {
+				return strings.HasPrefix(c.Attr("name"), "Google Shape;")
+			}
+			return false
+		}
+	}
+	return false
 }
 
 // withLink reads a shape's click action into props.link: a jump to another

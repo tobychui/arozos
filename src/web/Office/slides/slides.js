@@ -84,6 +84,8 @@
 
     An image also carries what the picture tools put on it:
       crop[l,t,r,b] / mask / radius  the crop and the shaped crop
+      adj                            the shaped crop's adjustments (its
+                                     handles; same guides as a shape's)
       orig {x,y,w,h}                 the frame Reset image puts back
       flipH / flipV                  mirrored horizontally / vertically
       recolor / bright / contrast    the colour treatment (slides_image.js)
@@ -220,38 +222,61 @@ var SlidesApp = (function () {
             props: { html: html, fontSize: fontSize, color: color, align: align || "left" }
         };
     }
+    /* A layout's text boxes are placeholders: empty, with props.ph saying
+       what they are for, so the canvas prompts "Click to add title" in them
+       (renderObjectEl) and they vanish from the show and every export
+       until something is typed. The .pptx writer makes them <p:ph> again. */
+    function newPh(role, x, y, w, h, fontSize, align, color) {
+        var o = newTextObj("", x, y, w, h, fontSize, align, color);
+        o.props.ph = role;
+        return o;
+    }
+    var PH_PROMPTS = {
+        title: "Click to add title",
+        subtitle: "Click to add subtitle",
+        body: "Click to add text"
+    };
+    // a text object with nothing in it: no characters (the zero-width
+    // space an imported empty line carries does not count) and no picture
+    function isBlankText(o) {
+        if (!o || o.type !== "text") return false;
+        var html = String((o.props && o.props.html) || "");
+        if (/<(img|svg|video|audio|iframe|object)\b/i.test(html)) return false;
+        return html.replace(/<[^>]*>/g, "").replace(/&nbsp;|&#8203;|&#x200b;|&zwnj;|\u200b|\u00a0/gi, "")
+            .trim() === "";
+    }
     function newSlide(kind) {
         var th = themeOf ? themeOf() : THEMES.clean;
         var textColor = (body ? themeOf() : th).text;
         var s = { id: genId("s"), bg: null, notes: "", transition: "none", objects: [] };
         if (kind === "title") {
-            s.objects.push(newTextObj("Presentation title", 80, 190, 800, 90, 44, "center", textColor));
-            s.objects.push(newTextObj("Subtitle", 180, 300, 600, 50, 20, "center", textColor));
+            s.objects.push(newPh("title", 80, 190, 800, 90, 44, "center", textColor));
+            s.objects.push(newPh("subtitle", 180, 300, 600, 50, 20, "center", textColor));
         } else if (kind === "normal") {
-            s.objects.push(newTextObj("Slide title", 50, 34, 860, 66, 32, "left", textColor));
+            s.objects.push(newPh("title", 50, 34, 860, 66, 32, "left", textColor));
         } else if (kind === "content") {
-            s.objects.push(newTextObj("Slide title", 50, 34, 860, 66, 32, "left", textColor));
-            s.objects.push(newTextObj("Content", 50, 130, 860, 360, 22, "left", textColor));
+            s.objects.push(newPh("title", 50, 34, 860, 66, 32, "left", textColor));
+            s.objects.push(newPh("body", 50, 130, 860, 360, 22, "left", textColor));
         } else if (kind === "two") {
-            s.objects.push(newTextObj("Slide title", 50, 34, 860, 66, 32, "left", textColor));
-            s.objects.push(newTextObj("Left content", 50, 130, 420, 360, 20, "left", textColor));
-            s.objects.push(newTextObj("Right content", 490, 130, 420, 360, 20, "left", textColor));
+            s.objects.push(newPh("title", 50, 34, 860, 66, 32, "left", textColor));
+            s.objects.push(newPh("body", 50, 130, 420, 360, 20, "left", textColor));
+            s.objects.push(newPh("body", 490, 130, 420, 360, 20, "left", textColor));
         } else if (kind === "caption") {
-            s.objects.push(newTextObj("Title", 60, 60, 840, 300, 28, "left", textColor));
-            s.objects.push(newTextObj("Caption", 60, 400, 840, 60, 16, "left", textColor));
+            s.objects.push(newPh("title", 60, 60, 840, 300, 28, "left", textColor));
+            s.objects.push(newPh("body", 60, 400, 840, 60, 16, "left", textColor));
         } else if (kind === "section") {
-            s.objects.push(newTextObj("Section header", 60, 230, 840, 80, 36, "left", textColor));
+            s.objects.push(newPh("title", 60, 230, 840, 80, 36, "left", textColor));
         } else if (kind === "onecol") {
-            s.objects.push(newTextObj("Heading", 60, 60, 840, 60, 28, "left", textColor));
-            s.objects.push(newTextObj("Text", 60, 140, 840, 340, 18, "left", textColor));
+            s.objects.push(newPh("title", 60, 60, 840, 60, 28, "left", textColor));
+            s.objects.push(newPh("body", 60, 140, 840, 340, 18, "left", textColor));
         } else if (kind === "mainpoint") {
-            s.objects.push(newTextObj("Main point", 80, 210, 800, 120, 44, "left", textColor));
+            s.objects.push(newPh("title", 80, 210, 800, 120, 44, "left", textColor));
         } else if (kind === "sectiondesc") {
-            s.objects.push(newTextObj("Section title", 60, 120, 380, 90, 30, "left", textColor));
-            s.objects.push(newTextObj("Description", 60, 230, 380, 200, 16, "left", textColor));
+            s.objects.push(newPh("title", 60, 120, 380, 90, 30, "left", textColor));
+            s.objects.push(newPh("body", 60, 230, 380, 200, 16, "left", textColor));
         } else if (kind === "bignumber") {
-            s.objects.push(newTextObj("100%", 80, 160, 800, 140, 88, "center", textColor));
-            s.objects.push(newTextObj("What it stands for", 80, 320, 800, 60, 18, "center", textColor));
+            s.objects.push(newPh("title", 80, 160, 800, 140, 88, "center", textColor));
+            s.objects.push(newPh("body", 80, 320, 800, 60, 18, "center", textColor));
         }
         // the layouts are drawn for 960x540; a deck of another shape gets
         // them spread over its own height
@@ -396,7 +421,7 @@ var SlidesApp = (function () {
         if (under) wrapS += "background:" + under + ";";
         if (p.radius) wrapS += "border-radius:" + (Number(p.radius) || 0) + "px;";
         if (p.opacity) wrapS += "opacity:" + clamp(Number(p.opacity) || 1, 0, 1) + ";";
-        var clip = maskClipPath(p.mask);
+        var clip = maskClipPath(p.mask, p.adj, w, h);
         if (clip) wrapS += "clip-path:" + clip + ";-webkit-clip-path:" + clip + ";";
         // a picture's outline (pptx <a:ln> on the picture) is centred on the
         // frame like PowerPoint draws it; a shaped crop gets it along the
@@ -411,7 +436,7 @@ var SlidesApp = (function () {
             } else if (w > 0 && h > 0) {
                 // CSS has no dash-dot, and a clipped wrapper cannot draw
                 // along its own clip: an SVG does both
-                var d = clip && window.SlidesShapes ? SlidesShapes.path(p.mask, w, h) : "";
+                var d = clip && window.SlidesShapes ? SlidesShapes.path(p.mask, w, h, p.adj) : "";
                 var r = Number(p.radius) || 0;
                 var geo = d ? '<path d="' + esc(d) + '"'
                     : '<rect x="0" y="0" width="' + w + '" height="' + h + '" rx="' + r + '"';
@@ -466,16 +491,20 @@ var SlidesApp = (function () {
     }
 
     /* A shaped crop ("mask image"): the picture is clipped to one of the
-       editor's shape outlines. shapePoints() already defines every polygon
-       shape, so asking it for a 100x100 box yields percentages directly. */
-    function maskClipPath(kind) {
+       editor's shape outlines, with the adjustments its handles gave it
+       (props.adj on a picture belongs to its mask). The corners are worked
+       out at the frame's real size, because most presets measure their
+       features from the shorter side, and stated as percentages so the
+       clip still follows the frame while it is being dragged. */
+    function maskClipPath(kind, adj, w, h) {
         if (!kind || kind === "rect") return "";
         if (kind === "ellipse") return "ellipse(50% 50% at 50% 50%)";
         if (kind === "roundRect") return "";    // border-radius draws this one
-        var pts = shapePoints(kind, 100, 100);
+        var fw = w > 0 ? w : 100, fh = h > 0 ? h : 100;
+        var pts = shapePoints(kind, fw, fh, adj);
         if (!pts) return "";
         return "polygon(" + pts.map(function (pt) {
-            return pt[0].toFixed(2) + "% " + pt[1].toFixed(2) + "%";
+            return (pt[0] / fw * 100).toFixed(2) + "% " + (pt[1] / fh * 100).toFixed(2) + "%";
         }).join(",") + ")";
     }
 
@@ -484,8 +513,8 @@ var SlidesApp = (function () {
        states them as percentages so the clip follows the frame. A shape
        with curves in it has none, and says so - which is why MASK_KINDS is
        all polygons. */
-    function shapePoints(kind, w, h) {
-        return SlidesShapes.points(kind, w, h);
+    function shapePoints(kind, w, h, adj) {
+        return SlidesShapes.points(kind, w, h, adj);
     }
 
     /* shapeSvg draws one shape. The geometry comes from SlidesShapes, so
@@ -553,7 +582,7 @@ var SlidesApp = (function () {
         }
         // markings - the divider bars of a predefined process, the fold of a
         // folded corner. They are drawn, never filled.
-        var det = SlidesShapes.detail(kind, w, h);
+        var det = SlidesShapes.detail(kind, w, h, p.adj);
         if (det) {
             inner += '<path d="' + det + '" fill="none" stroke="' +
                 esc(hasStroke ? stroke : contrastText(fill)) + '" stroke-width="' +
@@ -809,6 +838,15 @@ var SlidesApp = (function () {
             case "text":
                 d.innerHTML = '<div class="sl-text-in" style="' + textStyle(o.props) + '">' +
                     (o.props.html || "") + "</div>";
+                if (isBlankText(o)) {
+                    // the prompt is a sibling of the text, never in it: the
+                    // PDF exporter and the editor only ever read .sl-text-in,
+                    // and only a surface marked .sl-showph shows it
+                    d.className += " sl-empty";
+                    d.insertAdjacentHTML("beforeend", '<div class="sl-ph' +
+                        (o.props.ph === "title" ? " sl-ph-title" : "") + '" style="' + textStyle(o.props) +
+                        '">' + esc(PH_PROMPTS[o.props.ph] || PH_PROMPTS.body) + "</div>");
+                }
                 break;
             case "image":
                 d.innerHTML = imageHtml(o.props, o.w, o.h);
@@ -917,24 +955,44 @@ var SlidesApp = (function () {
         return h;
     }
 
-    /* ---- shape adjustments: a callout's tip, a rounded corner ----
-       The yellow handle sits where the adjustment is: on the tip of a
+    /* ---- shape adjustments: a callout's tip, a corner, an arrow's head ----
+       Each yellow handle sits where its adjustment is: on the tip of a
        speech bubble, on the top edge where a rounded rectangle's corner
-       ends. Positions are in the frame's own (unrotated) box. */
-    function adjHandlePos(o) {
-        if (o.type !== "shape" || !o.props) return null;
-        var kind = SlidesShapes.canonical(o.props.kind || "rect");
-        var how = SlidesShapes.adjustable(kind);
+       ends, where an arrow's head meets its shaft. A picture's shaped crop
+       has the handles of its shape. Positions are in the frame's own
+       (unrotated) box; `how` says what dragging one changes ("tip",
+       "radius", or "adj": handle i of SlidesShapes.handles). */
+    function adjGeomKind(o) {
+        if (!o.props) return "";
+        if (o.type === "shape") return SlidesShapes.canonical(o.props.kind || "rect");
+        if (o.type === "image") {
+            if (o.props.mask) return SlidesShapes.canonical(o.props.mask);
+            // an unmasked picture with rounded corners is a rounded rectangle
+            return Number(o.props.radius) > 0 ? "roundRect" : "";
+        }
+        return "";
+    }
+    function adjHandles(o) {
+        var kind = adjGeomKind(o);
+        if (!kind) return [];
+        var how = o.type === "shape" ? SlidesShapes.adjustable(kind) : (kind === "roundRect" ? "radius" : "");
         if (how === "tip") {
-            if (o.props.adj) return SlidesShapes.tipPoint(kind, o.w, o.h, o.props.adj);
-            var lt = SlidesShapes.legacyTip(kind);
-            return lt ? [lt.tip[0] * o.w, lt.tip[1] * o.h] : null;
+            var tp = null;
+            if (o.props.adj) tp = SlidesShapes.tipPoint(kind, o.w, o.h, o.props.adj);
+            else {
+                var lt = SlidesShapes.legacyTip(kind);
+                if (lt) tp = [lt.tip[0] * o.w, lt.tip[1] * o.h];
+            }
+            return tp ? [{ how: "tip", i: 0, at: tp, title: "Drag to move the tip" }] : [];
         }
         if (how === "radius") {
             var r = o.props.radius !== undefined ? Number(o.props.radius) : Math.min(o.w, o.h) * 0.15;
-            return [clamp(r, 0, Math.min(o.w, o.h) / 2), 0];
+            return [{ how: "radius", i: 0, at: [clamp(r, 0, Math.min(o.w, o.h) / 2), 0],
+                title: "Drag to round the corners" }];
         }
-        return null;
+        return SlidesShapes.handles(kind, o.w, o.h, o.props.adj).map(function (pt, i) {
+            return { how: "adj", i: i, at: pt, title: "Drag to adjust the shape" };
+        });
     }
     /* A callout made before adjustments existed drew its body in the top of
        the frame and its tip at the bottom. The first drag of its handle
@@ -1003,14 +1061,13 @@ var SlidesApp = (function () {
                     stem.style.height = stemH + "px";
                     fr.appendChild(stem);
                     fr.appendChild(mkHandle("rot", w / 2, -stemH, hs));
-                    var ah = adjHandlePos(o);
-                    if (ah) {
-                        var knob = mkHandle("adj", ah[0], ah[1], hs * 0.95);
+                    adjHandles(o).forEach(function (ah) {
+                        var knob = mkHandle("adj", ah.at[0], ah.at[1], hs * 0.95);
                         knob.className += " sl-h-adj";
-                        knob.title = SlidesShapes.adjustable(o.props.kind) === "tip"
-                            ? "Drag to move the tip" : "Drag to round the corners";
+                        knob.setAttribute("data-i", ah.i);
+                        knob.title = ah.title;
                         fr.appendChild(knob);
-                    }
+                    });
                 }
             }
             framesEl.appendChild(fr);
@@ -1171,7 +1228,7 @@ var SlidesApp = (function () {
         var full = fullImageRect(o);
         // everything the picture tools can put on a picture comes off: the
         // crop, the shaped crop, the flips and the colour treatment
-        ["crop", "mask", "radius", "flipH", "flipV",
+        ["crop", "mask", "adj", "radius", "flipH", "flipV",
          "recolor", "bright", "contrast", "opacity"].forEach(function (k) {
             delete o.props[k];
         });
@@ -1205,6 +1262,8 @@ var SlidesApp = (function () {
     function setImageMask(o, kind) {
         if (!o || o.type !== "image") return;
         if (cropId === o.id) endCrop(true);
+        // the old shape's adjustments mean nothing to the new one
+        delete o.props.adj;
         if (!kind || kind === "rect") {
             delete o.props.mask;
             delete o.props.radius;
@@ -1265,7 +1324,7 @@ var SlidesApp = (function () {
             var $th = $('<div class="sl-thumb" draggable="true" tabindex="0"></div>');
             if (i === cur) $th.addClass("active");
             $th.append('<div class="sl-thumb-num">' + (i + 1) + "</div>");
-            var $view = $('<div class="sl-thumb-view"><div class="sl-thumb-mini sl-slidebase"></div></div>');
+            var $view = $('<div class="sl-thumb-view"><div class="sl-thumb-mini sl-slidebase sl-showph"></div></div>');
             $th.append($view);
             renderSlideContent($view.find(".sl-thumb-mini")[0], s);
             // Taking focus is what lets Delete mean "this slide", and
@@ -1912,7 +1971,8 @@ var SlidesApp = (function () {
     /* ================= object insertion ================= */
     function insertText() {
         var th = themeOf();
-        var o = addObj("text", { html: "Text", fontSize: 24, color: th.text, align: "left" },
+        // empty, caret in it: left empty it prompts "Click to add text"
+        var o = addObj("text", { html: "", fontSize: 24, color: th.text, align: "left" },
             { x: 330, y: 240, w: 300, h: 60 });
         startEdit(o.id);
     }
@@ -2682,6 +2742,17 @@ var SlidesApp = (function () {
     }
 
     /* ================= live element update (during drag) ================= */
+    /* refreshObjEl redraws an object's contents in place, for a change to
+       its outline (an adjustment) rather than to its frame. The rest of
+       the slide is left alone, so a drag stays cheap. */
+    function refreshObjEl(o) {
+        var el = objEl(o.id);
+        if (!el || !el.parentNode) return;
+        var fresh = renderObjectEl(o, (parseInt(el.style.zIndex, 10) || 1) - 1);
+        fresh.className = el.className;
+        el.parentNode.replaceChild(fresh, el);
+    }
+
     function updateObjEl(o) {
         var el = objEl(o.id);
         if (!el) return;
@@ -2821,8 +2892,12 @@ var SlidesApp = (function () {
                 // where the handle starts; an old callout is converted on the
                 // first real move (adoptAdjustments), which leaves the tip -
                 // and so this point - exactly where it is
-                drag.at = adjHandlePos(o) || [0, 0];
-                drag.how = SlidesShapes.adjustable(o.props.kind);
+                var ahi = parseInt(e.target.getAttribute("data-i"), 10) || 0;
+                var ah = adjHandles(o)[ahi];
+                drag.at = ah ? ah.at : [0, 0];
+                drag.how = ah ? ah.how : "";
+                drag.i = ahi;
+                drag.kind = adjGeomKind(o);
             }
             // the pointer leaves the knob as soon as the object turns, so
             // the rotate cursor has to be put on the canvas for the drag
@@ -2857,6 +2932,9 @@ var SlidesApp = (function () {
                 pendingToggle: pendingToggle, pendingCollapse: pendingCollapse,
                 clickedId: id, wasSelected: wasSelected
             };
+            // keep the move cursor for the whole drag, wherever the pointer
+            // gets ahead of the object
+            canvasEl.classList.add("sl-moving");
             try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
             return;
         }
@@ -2967,14 +3045,17 @@ var SlidesApp = (function () {
                 var ly = drag.at[1] + dx * Math.sin(arad) + dy * Math.cos(arad);
                 if (drag.how === "radius") {
                     o.props.radius = Math.round(clamp(lx, 0, Math.min(o.w, o.h) / 2) * 100) / 100;
-                } else {
+                } else if (drag.how === "tip") {
                     var adj = {};
                     Object.keys(o.props.adj || {}).forEach(function (k) { adj[k] = o.props.adj[k]; });
                     adj.adj1 = Math.round((lx - o.w / 2) / Math.max(1, o.w) * 100000);
                     adj.adj2 = Math.round((ly - o.h / 2) / Math.max(1, o.h) * 100000);
                     o.props.adj = adj;
+                } else if (drag.how === "adj") {
+                    o.props.adj = SlidesShapes.dragHandle(drag.kind, drag.i, o.w, o.h, lx, ly, o.props.adj);
                 }
-                updateObjEl(o);
+                // the outline itself changes, not just the frame
+                refreshObjEl(o);
                 renderOverlay();
                 break;
             }
@@ -3131,6 +3212,7 @@ var SlidesApp = (function () {
         drag = null;
         lastPointerEvt = null;
         canvasEl.classList.remove("sl-rotating");
+        canvasEl.classList.remove("sl-moving");
         hideGuides();
         try { canvasEl.releasePointerCapture(e.pointerId); } catch (err) { }
 
@@ -3185,10 +3267,13 @@ var SlidesApp = (function () {
                 setSel(sel.filter(function (id) { return id !== d.pendingToggle; }));
             } else if (d.pendingCollapse) {
                 setSel(expandGroups([d.pendingCollapse]));
-            } else if (d.wasSelected) {
-                // second click on an already-selected object enters text edit
+            } else {
+                // second click on an already-selected object enters text
+                // edit - and the first one does on an empty text box, whose
+                // prompt says "Click to add"
                 var co = objById(d.clickedId);
-                if (co && (co.type === "text" || co.type === "shape" || co.type === "table")) {
+                if (co && (d.wasSelected || (isBlankText(co) && sel.length === 1)) &&
+                    (co.type === "text" || co.type === "shape" || co.type === "table")) {
                     startEdit(co.id);
                 }
             }
@@ -4491,7 +4576,7 @@ var SlidesApp = (function () {
         body.slides.forEach(function (s, i) {
             var $c = $('<div class="sl-ov-card" tabindex="0" draggable="true"></div>').attr("data-i", i);
             if (i === cur) $c.addClass("active");
-            var $v = $('<div class="sl-ov-view"><div class="sl-ov-mini sl-slidebase"></div></div>');
+            var $v = $('<div class="sl-ov-view"><div class="sl-ov-mini sl-slidebase sl-showph"></div></div>');
             $c.append($v);
             var $meta = $('<div class="sl-ov-meta"></div>').append('<span class="sl-ov-num">' + (i + 1) + "</span>");
             if (s.transition && s.transition !== "none") {
@@ -5123,7 +5208,8 @@ var SlidesApp = (function () {
             $c.append($v);
             $c.append($('<div class="sl-layoutpick-label"></div>').text(l.label));
             $m.append($c);
-            renderSlideContent($v.find(".sl-layoutpick-mini")[0], newSlide(l.key));
+            var $lmini = $v.find(".sl-layoutpick-mini").addClass("sl-showph sl-phframe");
+            renderSlideContent($lmini[0], newSlide(l.key));
             $c.on("click", function () {
                 closeLayoutPicker();
                 addSlideAfter(cur, l.key);
@@ -5146,7 +5232,8 @@ var SlidesApp = (function () {
     function initDomRefs() {
         canvasEl = document.getElementById("slCanvas");
         layerEl = document.getElementById("slSlideLayer");
-        layerEl.className = "sl-slidebase";
+        // the canvas shows empty text boxes' prompts and frames
+        layerEl.className = "sl-slidebase sl-showph sl-phframe";
         var overlay = document.getElementById("slOverlay");
         overlay.innerHTML = '<div id="slFrames"></div>' +
             '<div id="slCrop"></div>' +

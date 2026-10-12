@@ -10,8 +10,8 @@
                   browser's baseline (OfficePdfCore.drawRuns - the font rules
                   are the ones Slides uses: standard PDF fonts for families
                   metric-identical to them, the shipped Noto faces embedded
-                  and subset for everything else, a picture of the run only
-                  when nothing can show a character)
+                  and subset for everything else, and a picture only of the
+                  characters nothing can show, in their place in the line)
       background  a filled rectangle - per line fragment for highlighted text
       borders     filled strips; a collapsed table rule is centred on the
                   cell edge the way the browser draws it, at the width the
@@ -114,8 +114,9 @@ var DocsPdf = (function () {
                 }
             }
 
-            // borders
-            if (cs.display !== "inline") {
+            // borders (an inline picture is one box, so its outline is drawn
+            // too; inline text with a border would need a box per line)
+            if (cs.display !== "inline" || el.tagName === "IMG") {
                 var bb = frame.box(el.getBoundingClientRect());
                 var cell = (el.tagName === "TD" || el.tagName === "TH") && cs.borderCollapse === "collapse";
                 ["Top", "Right", "Bottom", "Left"].forEach(function (side) {
@@ -167,6 +168,7 @@ var DocsPdf = (function () {
                     ch: leader === "hyphen" ? "-" : (leader === "underscore" ? "_" : "."),
                     names: C.familyList(cs.fontFamily),
                     size: parseFloat(cs.fontSize) || 14.67,
+                    weight: parseInt(cs.fontWeight, 10) || 400,
                     bold: (parseInt(cs.fontWeight, 10) || 400) >= 600,
                     color: parseColor(cs.color) || PDFLib.rgb(0, 0, 0),
                     baseline: lb.y + (lb.h - (met.ascent + met.descent)) / 2 + met.ascent
@@ -189,7 +191,7 @@ var DocsPdf = (function () {
         // text, as line fragments at their baselines
         var origin = { left: frame.left, top: frame.top, x: 0, y: 0 };
         var runs = C.collectRuns(o.pageEl, origin).filter(function (run) {
-            return run.text.trim() !== "";
+            return C.visibleText(run.text).trim() !== "";
         });
         runs.forEach(function (run) {
             var top = run.rect.top - frame.top;
@@ -235,6 +237,7 @@ var DocsPdf = (function () {
             kind: "marker", text: text, x: left, baseline: baseline, size: size,
             shape: bulletShape(text, before, size, left, baseline),
             names: C.familyList(before.fontFamily),
+            weight: parseInt(before.fontWeight, 10) || 400,
             bold: (parseInt(before.fontWeight, 10) || 400) >= 600,
             italic: before.fontStyle === "italic",
             color: parseColor(before.color) || PDFLib.rgb(0, 0, 0)
@@ -291,7 +294,9 @@ var DocsPdf = (function () {
             }
         }
         function eachChar(fn) {
-            runs.forEach(function (r) { each(r.text, r.names, r.weight >= 600, r.italic, fn); });
+            runs.forEach(function (r) {
+                each(C.visibleText(C.transformText(r.text, r.transform)), r.names, r.weight >= 600, r.italic, fn);
+            });
             markers.forEach(function (m) { if (!m.shape) each(m.text, m.names, m.bold, m.italic, fn); });
             leaders.forEach(function (l) { each(l.ch, l.names, l.bold, false, fn); });
         }
@@ -310,19 +315,25 @@ var DocsPdf = (function () {
         try { return new URL(u, document.baseURI).href; } catch (e) { return u; }
     }
 
-    // the pieces a line fragment is spelled in, as display-list fonts
-    function segsFor(text, names, fonts, bold, italic) {
+    /* the pieces a line fragment is spelled in, as display-list fonts:
+       [text, font, synthetic bold stroke px, synthetic italic shear]. null
+       when a character has no font, an empty list when nothing in it draws
+       anything. st is { weight, size }: how much the browser emboldens or
+       slants a face depends on both, and is measured (synthStyle). */
+    function segsFor(text, names, fonts, bold, italic, st) {
         var segs = C.segmentText(text, names, fonts, bold, italic);
-        if (!segs || !segs.length) return null;
+        if (!segs) return null;
         var out = [];
         for (var i = 0; i < segs.length; i++) {
             var res = segs[i].res;
             if (res.std) {
-                out.push([segs[i].text, "s:" + res.std + ":" + (bold ? 1 : 0) + ":" + (italic ? 1 : 0), false]);
+                out.push([segs[i].text, "s:" + res.std + ":" + (bold ? 1 : 0) + ":" + (italic ? 1 : 0), 0, 0]);
             } else {
                 var face = OfficeFonts.faceFor(res.shipped, bold, italic);
                 if (!face) return null;
-                out.push([segs[i].text, "f:" + absUrl(face.url), !!face.synthBold]);
+                var syn = (face.synthBold || face.synthItalic) ?
+                    C.synthStyle(face.family, st.weight, italic, st.size, segs[i].text, face.synthBold, face.synthItalic) : null;
+                out.push([segs[i].text, "f:" + absUrl(face.url), syn ? syn.bold : 0, syn ? syn.skew : 0]);
             }
         }
         return out;
@@ -426,27 +437,6 @@ var DocsPdf = (function () {
         });
     }
 
-    /* a run no font here can show (emoji, a script not shipped) is drawn
-       as a picture of its own text, by the browser's own text renderer */
-    function rasterRun(run) {
-        var w = run.rect.right - run.rect.left, h = run.rect.bottom - run.rect.top;
-        if (w <= 0 || h <= 0) return Promise.resolve(null);
-        var k = C.RASTER_SCALE;
-        var c = document.createElement("canvas");
-        c.width = Math.ceil(w * k);
-        c.height = Math.ceil(h * k);
-        var g = c.getContext("2d");
-        g.scale(k, k);
-        g.font = (run.italic ? "italic " : "") + run.weight + " " + run.size + "px " + run.names.map(function (n) {
-            return /[\s"']/.test(n) ? '"' + n.replace(/"/g, "") + '"' : n;
-        }).join(",");
-        g.fillStyle = run.color;
-        g.textBaseline = "alphabetic";
-        var glyphH = run.metrics.ascent + run.metrics.descent;
-        g.fillText(run.text, 0, (h - glyphH) / 2 + run.metrics.ascent);
-        return canvasBytes(c);
-    }
-
     function breathe() {
         return new Promise(function (res) { setTimeout(res, 0); });
     }
@@ -484,7 +474,6 @@ var DocsPdf = (function () {
                     var r = borderRect(b);
                     ops.push(["rect", r[0], r[1] - dy, r[2], r[3], rgbOf(b.fill.c), b.fill.a]);
                 });
-                var rasters = [];
                 items.texts.forEach(function (r) {
                     var x = r.origin.x + (r.rect.left - r.origin.left);
                     var top = r.origin.y + (r.rect.top - r.origin.top) - dy;
@@ -492,52 +481,45 @@ var DocsPdf = (function () {
                     var domW = r.rect.right - r.rect.left;
                     var bg = C.parseFill(r.background);
                     if (bg) ops.push(["rect", x, top, domW, lineH, rgbOf(bg.c), bg.a]);
-                    var segs = segsFor(r.text, r.names, fonts, r.weight >= 600, r.italic);
-                    if (!segs) {
-                        rasters.push({ run: r, at: ops.length, x: x, top: top, w: domW, h: lineH });
-                        ops.push(null);
-                        return;
-                    }
                     var glyphH = r.metrics.ascent + r.metrics.descent;
                     var baseline = (lineH - glyphH) / 2 + r.metrics.ascent;
-                    var deco = null;
+                    var col = rgbOf(C.parseColor(r.color));
+                    // text where a font can show it; a character none can
+                    // (an emoji) is a picture of itself in its place
+                    C.planRun(r, fonts).forEach(function (pc) {
+                        if (pc.raster) {
+                            var pic = C.rasterText(r, pc.text, pc.w, lineH, baseline);
+                            if (!pic) return;
+                            var id = "r" + (nextId++);
+                            job.images[id] = { src: pic.src };
+                            ops.push(["image", id, x + pc.dx + pic.x, top + pic.y, pic.w, pic.h, null]);
+                            return;
+                        }
+                        var segs = segsFor(pc.text, r.names, fonts, r.weight >= 600, r.italic, r);
+                        if (!segs || !segs.length) return;
+                        ops.push(["text", x + pc.dx, top + baseline, r.size, col, pc.fit, segs, null, r.letterSpacing || 0]);
+                    });
                     if (r.underline || r.strike) {
                         var yOff = r.underline ? baseline + r.size * 0.11 : baseline - r.size * 0.28;
-                        deco = [top + yOff, Math.max(0.7, r.size * 0.06), domW];
+                        ops.push(["rect", x, top + yOff, domW, Math.max(0.7, r.size * 0.06), col, 1]);
                     }
-                    // a fragment that starts or ends on a space cannot be fitted
-                    // to its rect: the browser collapses those, the measure does not
-                    ops.push(["text", x, top + baseline, r.size, rgbOf(C.parseColor(r.color)),
-                        /^\s|\s$/.test(r.text) ? 0 : domW, segs, deco]);
                 });
                 items.extras.forEach(function (x) {
                     if (x.kind === "marker") {
                         if (x.shape) {
                             ops.push(shapeOps(x.shape, x.color, dy));
                         } else {
-                            var ms = segsFor(x.text, x.names, fonts, x.bold, x.italic);
-                            if (ms) ops.push(["text", x.x, x.baseline - dy, x.size, rgbOf(x.color), 0, ms, null]);
+                            var ms = segsFor(x.text, x.names, fonts, x.bold, x.italic, x);
+                            if (ms && ms.length) ops.push(["text", x.x, x.baseline - dy, x.size, rgbOf(x.color), 0, ms, null]);
                         }
                     } else if (x.kind === "leader") {
-                        var ls = segsFor(x.ch, x.names, fonts, x.bold, false);
-                        if (ls) ops.push(["leader", x.box.x, x.box.w, x.baseline - dy, x.size, rgbOf(x.color), x.ch, ls[0][1]]);
+                        var ls = segsFor(x.ch, x.names, fonts, x.bold, false, x);
+                        if (ls && ls.length) ops.push(["leader", x.box.x, x.box.w, x.baseline - dy, x.size, rgbOf(x.color), x.ch, ls[0][1]]);
                     } else if (x.kind === "rule") {
                         ops.push(["rect", x.box.x, x.box.y - dy, x.box.w, x.box.h, rgbOf(x.fill.c), x.fill.a]);
                     }
                 });
-                // text no font can show becomes a picture of itself, in place
-                var rs = rasters.map(function (it) {
-                    return rasterRun(it.run).then(function (bytes) {
-                        if (!bytes) return;
-                        var id = "r" + (nextId++);
-                        job.images[id] = { bytes: bytes };
-                        ops[it.at] = ["image", id, it.x, it.top, it.w, it.h, null];
-                    });
-                });
-                return Promise.all(rs).then(function () {
-                    for (var k = ops.length - 1; k >= 0; k--) if (!ops[k]) ops.splice(k, 1);
-                    return breathe();
-                });
+                return breathe();
             });
         });
         return chain.then(function () {

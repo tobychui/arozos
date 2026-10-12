@@ -50,8 +50,9 @@ var OfficeFonts = (function () {
 
     /* The shipped families. The CJK faces carry Regular only: bold is
        synthesized, by the browser on screen and by a stroked text rendering
-       mode in the PDF, which is the same smear without the advance widths
-       moving - and saves shipping four more multi-megabyte files. */
+       mode in the PDF (as wide as the browser's own stroke, measured by
+       OfficePdfCore.synthStyle), which is the same smear without the advance
+       widths moving - and saves shipping four more multi-megabyte files. */
     var SHIPPED = {
         "noto sans": {
             family: "Noto Sans",
