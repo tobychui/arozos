@@ -237,6 +237,10 @@ var OfficePdfCore = (function () {
                       the answer is not known until it is
          null         nothing here can show this character
 
+       bold: true on any of them means the face is bold whatever the run
+       asks for: a weighted family name ("Open Sans SemiBold") that the
+       screen draws from its base family's bold file (OfficeFonts.substitute).
+
        A family that is neither - a system font - is stepped over rather
        than used: its bytes are unreadable, so the character goes to the
        next entry, which is the shipped face for its script. */
@@ -264,18 +268,19 @@ var OfficePdfCore = (function () {
             var sub = OfficeFonts.substituteOf ? OfficeFonts.substituteOf(name) : null;
             // a metric twin the suite ships stood in on screen: the PDF
             // embeds that same face
+            var sb = !!(sub && sub.heavy);
             if (sub && sub.twin) {
-                var tw = fonts.shipped(sub.via, bold, italic);
+                var tw = fonts.shipped(sub.via, bold || sb, italic);
                 if (!tw) {
-                    if (!fonts.tried(sub.via, bold, italic)) return { need: sub.via };
+                    if (!fonts.tried(sub.via, bold || sb, italic)) return { need: sub.via, bold: sb };
                 } else if (!(tw.kit && tw.kit.hasGlyphForCodePoint && !tw.kit.hasGlyphForCodePoint(cp))) {
-                    return { shipped: sub.via };
+                    return { shipped: sub.via, bold: sb };
                 }
             }
             if (sub && winAnsiCp(cp)) {
                 var std = STD_FAMILIES[String(sub.via).toLowerCase()] ||
                     { serif: "TimesRoman", mono: "Courier" }[sub.kind] || "Helvetica";
-                return { std: std };
+                return { std: std, bold: sb };
             }
         }
         return null;
@@ -292,7 +297,7 @@ var OfficePdfCore = (function () {
             if (ch.length > 1) i++;          // a surrogate pair
             var res = resolveChar(cp, names, fonts, bold, italic);
             if (!res || res.need) return null;
-            var key = res.std ? "s:" + res.std : "f:" + res.shipped;
+            var key = (res.std ? "s:" + res.std : "f:" + res.shipped) + (res.bold ? ":b" : "");
             if (cur && cur.key === key) cur.text += ch;
             else { cur = { key: key, res: res, text: ch }; segs.push(cur); }
         }
@@ -300,6 +305,7 @@ var OfficePdfCore = (function () {
     }
 
     function faceOf(res, fonts, bold, italic) {
+        bold = bold || !!res.bold;
         if (res.std) return { font: fonts.std(res.std, bold, italic), synthBold: false };
         var rec = fonts.shipped(res.shipped, bold, italic);
         return rec ? { font: rec.font, synthBold: rec.synthBold } : null;

@@ -265,14 +265,13 @@ func runCSS(rs runStyle, scale float64) string {
 	var sb strings.Builder
 	sb.WriteString("font-size:" + units.FmtPx(units.PtToPx(rs.SizePt)*scale) + ";")
 	sb.WriteString("font-family:" + fonts.StackFor(rs.Latin, rs.EastAsian) + ";")
-	weight := 0
+	// only b="1" sets a weight. A weight word in the Latin typeface ("Open
+	// Sans SemiBold") belongs to that face alone - PowerPoint draws the
+	// run's East Asian text at regular weight in the EA font - and the
+	// Latin glyphs already get the heavy face from the family name
+	// (fonts.js substitute())
 	if rs.Bold {
-		weight = 700
-	} else if w := fonts.WeightOf(rs.Latin); w != 0 {
-		weight = w
-	}
-	if weight != 0 {
-		sb.WriteString("font-weight:" + strconv.Itoa(weight) + ";")
+		sb.WriteString("font-weight:700;")
 	}
 	if rs.Italic {
 		sb.WriteString("font-style:italic;")

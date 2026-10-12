@@ -287,7 +287,8 @@ var DocsPdf = (function () {
             for (var i = 0; i < text.length; i++) {
                 var cp = text.codePointAt(i);
                 if (cp > 0xFFFF) i++;
-                fn(C.resolveChar(cp, names, fonts, bold, italic), bold, italic);
+                var res = C.resolveChar(cp, names, fonts, bold, italic);
+                fn(res, bold || !!(res && res.bold), italic);
             }
         }
         function eachChar(fn) {
@@ -317,10 +318,11 @@ var DocsPdf = (function () {
         var out = [];
         for (var i = 0; i < segs.length; i++) {
             var res = segs[i].res;
+            var b = bold || !!res.bold;
             if (res.std) {
-                out.push([segs[i].text, "s:" + res.std + ":" + (bold ? 1 : 0) + ":" + (italic ? 1 : 0), false]);
+                out.push([segs[i].text, "s:" + res.std + ":" + (b ? 1 : 0) + ":" + (italic ? 1 : 0), false]);
             } else {
-                var face = OfficeFonts.faceFor(res.shipped, bold, italic);
+                var face = OfficeFonts.faceFor(res.shipped, b, italic);
                 if (!face) return null;
                 out.push([segs[i].text, "f:" + absUrl(face.url), !!face.synthBold]);
             }

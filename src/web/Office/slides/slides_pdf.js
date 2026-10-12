@@ -107,7 +107,8 @@ var SlidesPdf = (function () {
                 for (var i = 0; i < text.length; i++) {
                     var cp = text.codePointAt(i);
                     if (cp > 0xFFFF) i++;
-                    fn(resolveChar(cp, names, fonts, bold, italic), bold, italic);
+                    var res = resolveChar(cp, names, fonts, bold, italic);
+                    fn(res, bold || !!(res && res.bold), italic);
                 }
             });
         }
