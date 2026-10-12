@@ -688,7 +688,7 @@ var OfficeFonts = (function () {
                     finalLoads.push(STYLE_DESC[s2].css + ' 16px "' + pl.name.replace(/["\\]/g, "") + '"');
                 }
                 substituted[pl.key] = { via: pl.via || "Noto Sans", adjust: adj, kind: pl.kind,
-                    twin: !!(pl.twin || pl.exact) };
+                    twin: !!(pl.twin || pl.exact), heavy: !!pl.heavy };
             });
             probeEl.parentNode.removeChild(probeEl);
             if (!styleEl) {
@@ -724,8 +724,10 @@ var OfficeFonts = (function () {
 
     /* the stand-in a family was given, for exporters that draw text
        themselves: { via: "Arial", adjust: [r, b, i, bi], kind: "sans",
-       twin: false } or null. twin: via is a shipped metric twin, which an
-       exporter can embed in place of the original. */
+       twin: false, heavy: false } or null. twin: via is a shipped metric
+       twin, which an exporter can embed in place of the original. heavy:
+       a weighted name ("Open Sans SemiBold") drawn from via's bold file in
+       every style, whatever weight the text asks for. */
     function substituteOf(family) {
         return substituted[norm(family)] || null;
     }

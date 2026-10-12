@@ -1137,14 +1137,11 @@ func odpRunCSS(st odpStyle) string {
 	if st.Font != "" {
 		sb.WriteString("font-family:" + fonts.StackFor(st.Font, st.Font) + ";")
 	}
-	weight := 0
+	// only fo:font-weight sets a weight; a weight word in the family name
+	// belongs to that face, not to the CJK text the run falls back for
+	// (see runCSS in the pptx reader)
 	if st.Bold {
-		weight = 700
-	} else if w := fonts.WeightOf(st.Font); w != 0 {
-		weight = w
-	}
-	if weight != 0 {
-		sb.WriteString("font-weight:" + strconv.Itoa(weight) + ";")
+		sb.WriteString("font-weight:700;")
 	}
 	if st.Italic {
 		sb.WriteString("font-style:italic;")

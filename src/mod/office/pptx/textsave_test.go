@@ -68,6 +68,8 @@ func TestPptxWriterRunWeight(t *testing.T) {
 	}{
 		// a SemiBold face at its own weight is the face, not bold on top
 		{"semibold face", "font-family:" + stackOpenSansSemi + ";font-weight:600;", `b="0"`},
+		// what the reader writes for a SemiBold face now: no weight at all
+		{"semibold face, no weight", "font-family:" + stackOpenSansSemi + ";", `b="0"`},
 		{"bold on a semibold face", "font-family:" + stackOpenSansSemi + ";font-weight:700;", `b="1"`},
 		{"600 on a plain face", "font-family:Arial;font-weight:600;", `b="1"`},
 		{"bold keyword", "font-family:Arial;font-weight:bold;", `b="1"`},
@@ -81,6 +83,52 @@ func TestPptxWriterRunWeight(t *testing.T) {
 				t.Errorf("run properties do not say %s:\n%s", c.wantB, slide)
 			}
 		})
+	}
+}
+
+// The weight a Latin typeface name implies belongs to that face, not to
+// the run: the run's East Asian text is drawn at regular weight
+func TestRunCSSWeight(t *testing.T) {
+	cases := []struct {
+		name       string
+		rs         runStyle
+		wantWeight string // "" when the run must carry no font-weight
+	}{
+		{"semibold face", runStyle{SizePt: 24, Latin: "Open Sans SemiBold", EastAsian: "MS PGothic"}, ""},
+		{"black face", runStyle{SizePt: 24, Latin: "Lato Black"}, ""},
+		{"light face", runStyle{SizePt: 24, Latin: "Open Sans Light"}, ""},
+		{"plain face", runStyle{SizePt: 24, Latin: "Arial"}, ""},
+		{"b=1 on a plain face", runStyle{SizePt: 24, Latin: "Arial", Bold: true}, "font-weight:700;"},
+		{"b=1 on a semibold face", runStyle{SizePt: 24, Latin: "Open Sans SemiBold", Bold: true}, "font-weight:700;"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			css := runCSS(c.rs, 1)
+			if c.wantWeight == "" {
+				if strings.Contains(css, "font-weight") {
+					t.Errorf("runCSS = %q, want no font-weight", css)
+				}
+			} else if !strings.Contains(css, c.wantWeight) {
+				t.Errorf("runCSS = %q, want %s", css, c.wantWeight)
+			}
+		})
+	}
+}
+
+// A SemiBold deck saved by the suite reads back as the same face at the
+// same (unset) weight, so a round trip neither drops nor adds bold
+func TestPptxSemiBoldRoundTrip(t *testing.T) {
+	html := `<div><span style="font-size:24px;font-family:` + stackOpenSansSemi + `;">動手做一台 USB-KVM</span></div>`
+	slide, back := writeOneObject(t, textObj(html, nil))
+	if !strings.Contains(slide, `<a:latin typeface="Open Sans SemiBold"/>`) || !strings.Contains(slide, `b="0"`) {
+		t.Fatalf("saved run is not a non-bold SemiBold face:\n%s", slide)
+	}
+	got := back.Props.HTML
+	if strings.Contains(got, "font-weight") {
+		t.Errorf("read back with a weight: %s", got)
+	}
+	if !strings.Contains(got, "Open Sans SemiBold") {
+		t.Errorf("read back without the SemiBold face: %s", got)
 	}
 }
 
