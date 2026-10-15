@@ -1401,6 +1401,8 @@ function loadModules() {
     ao_module_agirun("Dashboard/backend/getModules.agi", {}, function(data) {
         data = parseJSON(data);
         allModules = Array.isArray(data) ? data : [];
+        //Interface Modules (Desktop, this Dashboard, ...) are what the user boots into, not apps to launch
+        allModules = allModules.filter(function(mod) { return mod.Group !== "Interface Module"; });
         renderPinnedApps();
         renderAppGrid("all");
     }, function() {

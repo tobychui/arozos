@@ -62,7 +62,7 @@ func WiFiInit() {
 			})
 			registerSetting(settingModule{
 				Name:         "WiFi Settings",
-				Desc:         "Setup WiFi Conenctions",
+				Desc:         "Set up WiFi connections",
 				IconPath:     "SystemAO/network/img/WiFi.png",
 				Group:        "Network",
 				StartDir:     "SystemAO/network/wifi.html",

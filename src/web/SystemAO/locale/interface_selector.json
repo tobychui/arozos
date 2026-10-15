@@ -1,0 +1,114 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "en-us": {
+            "name": "English (US)",
+            "fwtitle": "",
+            "strings": {
+                "selector/title": "Choose your workspace",
+                "selector/subtitle": "Select a service to continue",
+                "selector/remember": "Remember my choice on this browser",
+                "selector/hint": "You can change this setting later in System Settings.",
+                "selector/signedin": "Signed in as",
+                "selector/logout": "Log out",
+                "selector/fulldesktop": "Full desktop",
+                "selector/launcher": "Service launcher",
+                "selector/desktopdesc": "Your personal web desktop and files",
+                "selector/empty": "No workspace is available for your account. Please contact your administrator."
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fwtitle": "",
+            "strings": {
+                "selector/title": "選擇你的工作區",
+                "selector/subtitle": "選擇一項服務以繼續",
+                "selector/remember": "在此瀏覽器記住我的選擇",
+                "selector/hint": "你可以稍後在系統設定中更改此設定。",
+                "selector/signedin": "登入身分",
+                "selector/logout": "登出",
+                "selector/fulldesktop": "完整桌面",
+                "selector/launcher": "服務啟動器",
+                "selector/desktopdesc": "你的個人網頁桌面與檔案",
+                "selector/empty": "你的帳戶沒有可用的工作區，請聯絡系統管理員。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fwtitle": "",
+            "strings": {
+                "selector/title": "選擇你的工作區",
+                "selector/subtitle": "選擇一項服務以繼續",
+                "selector/remember": "在此瀏覽器記住我的選擇",
+                "selector/hint": "你可以稍後在系統設定中更改此設定。",
+                "selector/signedin": "登入身分",
+                "selector/logout": "登出",
+                "selector/fulldesktop": "完整桌面",
+                "selector/launcher": "服務啟動器",
+                "selector/desktopdesc": "你的個人網頁桌面與檔案",
+                "selector/empty": "你的帳戶沒有可用的工作區，請聯絡系統管理員。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fwtitle": "",
+            "strings": {
+                "selector/title": "选择你的工作区",
+                "selector/subtitle": "选择一项服务以继续",
+                "selector/remember": "在此浏览器记住我的选择",
+                "selector/hint": "你可以稍后在系统设置中更改此设置。",
+                "selector/signedin": "登录身份",
+                "selector/logout": "退出登录",
+                "selector/fulldesktop": "完整桌面",
+                "selector/launcher": "服务启动器",
+                "selector/desktopdesc": "你的个人网页桌面与文件",
+                "selector/empty": "你的账户没有可用的工作区，请联系系统管理员。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fwtitle": "",
+            "strings": {
+                "selector/title": "ワークスペースを選択",
+                "selector/subtitle": "続行するサービスを選択してください",
+                "selector/remember": "このブラウザで選択を記憶する",
+                "selector/hint": "この設定は後でシステム設定から変更できます。",
+                "selector/signedin": "サインイン中：",
+                "selector/logout": "ログアウト",
+                "selector/fulldesktop": "フルデスクトップ",
+                "selector/launcher": "サービスランチャー",
+                "selector/desktopdesc": "あなた専用のウェブデスクトップとファイル",
+                "selector/empty": "このアカウントで利用できるワークスペースがありません。管理者にお問い合わせください。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fwtitle": "",
+            "strings": {
+                "selector/title": "작업 공간 선택",
+                "selector/subtitle": "계속할 서비스를 선택하세요",
+                "selector/remember": "이 브라우저에서 선택 기억하기",
+                "selector/hint": "이 설정은 나중에 시스템 설정에서 변경할 수 있습니다.",
+                "selector/signedin": "로그인 계정:",
+                "selector/logout": "로그아웃",
+                "selector/fulldesktop": "전체 데스크톱",
+                "selector/launcher": "서비스 런처",
+                "selector/desktopdesc": "나만의 웹 데스크톱과 파일",
+                "selector/empty": "이 계정에서 사용할 수 있는 작업 공간이 없습니다. 관리자에게 문의하세요."
+            },
+            "titles": {},
+            "placeholder": {}
+        }
+    }
+}

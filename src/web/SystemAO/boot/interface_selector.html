@@ -1,107 +1,501 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Interface Selector</title>
+        <title>Choose your workspace</title>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+        <meta name="theme-color" content="#f7f9fc">
+        <link rel="icon" type="image/png" href="../../img/system/favicon.png">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="application/javascript" src="../../script/jquery.min.js"></script>
-        <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
-       <style>
-           .interfaceModule{
-               cursor: pointer;
-               border: 2px solid transparent !important;
-               height: 120px;
-           }
-           .interfaceModule:hover{
-                border: 2px solid #407ded !important;
-                background-color: #d1e1ff;
-           }
-           a{
-               cursor: pointer;
-           }
+        <script type="application/javascript" src="../../script/ao_module.js"></script>
+        <script type="application/javascript" src="../../script/applocale.js"></script>
+        <style>
+            :root{
+                --is-bg: #f7f9fc;
+                --is-surface: #ffffff;
+                --is-text: #0f172a;
+                --is-dim: #64748b;
+                --is-muted: #94a3b8;
+                --is-border: #e5e9f0;
+                --is-accent: #2f6fed;
+                --is-accent-soft: #eef4ff;
+                --is-accent-border: #4a83f0;
+                --is-chip: #f1f4f8;
+                --is-tile: #f4f7fb;
+                --is-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04);
+            }
+            @media (prefers-color-scheme: dark){
+                :root{
+                    --is-bg: #0f141c;
+                    --is-surface: #171e29;
+                    --is-text: #e8edf5;
+                    --is-dim: #a3afc2;
+                    --is-muted: #6f7c91;
+                    --is-border: #262f3d;
+                    --is-accent: #5b8ff5;
+                    --is-accent-soft: #1a2740;
+                    --is-accent-border: #4a7be0;
+                    --is-chip: #212a37;
+                    --is-tile: #1f2734;
+                    --is-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
+                }
+            }
+            *{ box-sizing: border-box; }
+            html, body{
+                margin: 0;
+                padding: 0;
+                background: var(--is-bg);
+                color: var(--is-text);
+                font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+                font-size: 14px;
+                -webkit-font-smoothing: antialiased;
+            }
+            body{
+                display: flex;
+                flex-direction: column;
+                min-height: 100vh;
+                min-height: 100dvh;
+            }
+            .is-bar{
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                width: 100%;
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 12px 24px;
+            }
+            .is-top-wrap{ border-bottom: 1px solid var(--is-border); }
+            .is-bottom-wrap{ border-top: 1px solid var(--is-border); }
+            .is-brand{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-width: 0;
+                font-size: 15px;
+                font-weight: 600;
+            }
+            .is-brand picture{ display: flex; }
+            .is-logo{
+                display: block;
+                height: 26px;
+                width: auto;
+                max-width: 120px;
+                object-fit: contain;
+                object-position: left center;
+                padding: 0.1em;
+            }
+            .is-brand-sep{
+                width: 1px;
+                height: 18px;
+                background: var(--is-border);
+            }
+            .is-brand .hostname{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .is-main{
+                flex: 1;
+                width: 100%;
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 40px 24px 28px;
+            }
+            .is-title{
+                font-size: 26px;
+                line-height: 1.2;
+                font-weight: 700;
+                letter-spacing: -0.01em;
+                margin: 0 0 6px;
+            }
+            .is-subtitle{
+                font-size: 14px;
+                color: var(--is-dim);
+                margin: 0 0 22px;
+            }
+            .is-list{
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .is-card{
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                width: 100%;
+                padding: 14px 16px 14px 14px;
+                background: var(--is-surface);
+                border: 1.5px solid var(--is-border);
+                border-radius: 12px;
+                box-shadow: var(--is-shadow);
+                cursor: pointer;
+                text-align: left;
+                color: inherit;
+                font: inherit;
+                transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
+            }
+            .is-card:hover, .is-card:focus-visible, .is-card.highlight{
+                border-color: var(--is-accent-border);
+                background: linear-gradient(90deg, var(--is-accent-soft) 0%, var(--is-surface) 100%);
+                outline: none;
+            }
+            .is-card:active{ transform: scale(0.995); }
+            .is-tile{
+                flex-shrink: 0;
+                width: 64px;
+                height: 64px;
+                border-radius: 12px;
+                background: var(--is-tile);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .is-tile img{
+                width: 46px;
+                height: 46px;
+                object-fit: contain;
+            }
+            .is-body{
+                flex: 1;
+                min-width: 0;
+            }
+            .is-name{
+                font-size: 17px;
+                font-weight: 700;
+                margin: 0 0 2px;
+            }
+            .is-desc{
+                font-size: 13px;
+                color: var(--is-dim);
+                margin: 0 0 8px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+            .is-chip{
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 3px 10px;
+                border-radius: 999px;
+                background: var(--is-chip);
+                color: var(--is-dim);
+                font-size: 12px;
+                font-weight: 500;
+            }
+            .is-chip i.icon{
+                margin: 0;
+                height: auto;
+                font-size: 12px;
+            }
+            .is-chip.desktop{
+                background: var(--is-accent-soft);
+                color: var(--is-accent);
+            }
+            .is-card:hover .is-chip.desktop, .is-card.highlight .is-chip.desktop{
+                background: rgba(47,111,237,0.12);
+            }
+            .is-go{
+                flex-shrink: 0;
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                border: 1.5px solid var(--is-border);
+                background: var(--is-surface);
+                color: var(--is-dim);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: color 0.15s;
+            }
+            .is-card:hover .is-go, .is-card.highlight .is-go{ color: var(--is-accent); }
+            .is-options{ margin-top: 22px; }
+            .is-remember{
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 14px;
+                cursor: pointer;
+                user-select: none;
+            }
+            .is-remember input{
+                width: 17px;
+                height: 17px;
+                margin: 0;
+                accent-color: var(--is-accent);
+                cursor: pointer;
+            }
+            .is-hint{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 8px;
+                font-size: 12.5px;
+                color: var(--is-dim);
+            }
+            .is-hint svg{
+                flex-shrink: 0;
+                color: var(--is-muted);
+            }
+            .is-empty{
+                padding: 28px;
+                border: 1.5px dashed var(--is-border);
+                border-radius: 12px;
+                color: var(--is-dim);
+                text-align: center;
+            }
+            .is-bottom{
+                font-size: 13px;
+                color: var(--is-dim);
+            }
+            .is-user{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+            }
+            .is-user i.icon, .is-logout i.icon{
+                margin: 0;
+                width: auto;
+                height: auto;
+                line-height: 1;
+            }
+            .is-user > span{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .is-user b{
+                color: var(--is-accent);
+                font-weight: 500;
+            }
+            .is-logout{
+                flex-shrink: 0;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                border: none;
+                background: none;
+                padding: 6px 4px;
+                color: var(--is-accent);
+                font: inherit;
+                cursor: pointer;
+            }
+            .is-logout:hover{ text-decoration: underline; }
+
+            @media (max-width: 600px){
+                .is-bar{ padding: 10px 16px; }
+                .is-logo{ height: 22px; max-width: 100px; }
+                .is-main{ padding: 24px 16px 20px; }
+                .is-title{ font-size: 22px; }
+                .is-subtitle{ font-size: 13px; margin-bottom: 16px; }
+                .is-list{ gap: 10px; }
+                .is-card{ gap: 12px; padding: 12px; }
+                .is-tile{ width: 52px; height: 52px; border-radius: 10px; }
+                .is-tile img{ width: 38px; height: 38px; }
+                .is-name{ font-size: 16px; }
+                .is-desc{ font-size: 12.5px; margin-bottom: 6px; }
+                .is-go{ width: 30px; height: 30px; }
+                .is-go svg{ width: 16px; height: 16px; }
+                .is-options{ margin-top: 18px; }
+            }
+            @media (max-width: 360px){
+                .is-go{ display: none; }
+                .is-brand-sep, .is-brand .hostname{ display: none; }
+            }
         </style>
     </head>
     <body>
-        <br><br>
-        <div class="ui text container">
-            <h2>Please choose a service to start</h2>
-            <div class="ui divider"></div>
-            <div id="serviceList" class="ui segment">
-                
-            </div>
-            <div id="remember" class="ui checkbox">
-                <input type="checkbox" name="remember">
-                <label>Remember option on this browser</label>
-            </div>
-
-            <div class="ui divider"></div>
-            <p>or <a onclick="logout();">Logout</a></p>
+        <div class="is-top-wrap">
+            <header class="is-bar">
+                <div class="is-brand">
+                    <picture>
+                        <source srcset="../../img/system/auth_icon_white.png" media="(prefers-color-scheme: dark)">
+                        <img class="is-logo" src="../../img/system/auth_icon_black.png" alt="">
+                    </picture>
+                    <span class="is-brand-sep"></span>
+                    <span class="hostname">ArozOS</span>
+                </div>
+            </header>
         </div>
+
+        <main class="is-main">
+            <h1 class="is-title" locale="selector/title">Choose your workspace</h1>
+            <p class="is-subtitle" locale="selector/subtitle">Select a service to continue</p>
+
+            <div id="serviceList" class="is-list"></div>
+
+            <div class="is-options">
+                <label class="is-remember">
+                    <input type="checkbox" id="remember">
+                    <span locale="selector/remember">Remember my choice on this browser</span>
+                </label>
+                <div class="is-hint">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1.1" fill="currentColor"/></svg>
+                    <span locale="selector/hint">You can change this setting later in System Settings.</span>
+                </div>
+            </div>
+        </main>
+
+        <div class="is-bottom-wrap">
+            <footer class="is-bar is-bottom">
+                <div class="is-user">
+                    <i class="user outline icon"></i>
+                    <span><span locale="selector/signedin">Signed in as</span> <b id="username"></b></span>
+                </div>
+                <button class="is-logout" onclick="logout();">
+                    <i class="sign out alternate icon"></i>
+                    <span locale="selector/logout">Log out</span>
+                </button>
+            </footer>
+        </div>
+
         <script>
             var interfaceModules = [];
-         $(".ui.checkbox").checkbox();
-          $.get("../../system/users/interfaceinfo", function(data){
-              $("#serviceList").html("");
-              interfaceModules = data;
-              for (var i = 0; i < data.length; i++){
-                  $("#serviceList").append(`<div class="ui segment interfaceModule" name="${data[i].Name}" path="${data[i].StartDir}" onclick="startModule(this);">
-                    <div class="ui grid">
-                        <div class="four wide column" align="right">
-                            <img src="../../${data[i].IconPath}" class="ui tiny image">
-                        </div>
-                        <div class="twelve wide column">
-                            <h2 class="ui header">
-                                ${data[i].Name}
-                                <div class="sub header">${data[i].Desc}</div>
-                            </h2>
-                        </div>
-                    </div>
-                </div>`);
-              }
-              useDefaultIfExists();
-          });
+            var applocale = NewAppLocale();
+            //Opened with ?switch (e.g. from a "Switch Services" button): always show the list
+            var forceSelect = new URLSearchParams(window.location.search).has("switch");
 
-        function useDefaultIfExists(){
-            var defaultModule = localStorage.getItem("default-interface-module");
-            if (defaultModule !== undefined && defaultModule !== null && defaultModule !== ""){
-                //Get its path
-                interfaceModules.forEach(mod => {
-                    if (mod.Name == defaultModule){
-                        var targetPath = mod.StartDir;
-                        if (targetPath == ""){
-                            //Redirect to desktop
-                            window.location.href = "../../desktop.html";
-                        }else{
-                            //Redirect to module
-                            window.location.href = "../../" + targetPath;
-                        }
-                    }
+            function tr(key, fallback){
+                return applocale.getString(key, fallback);
+            }
+
+            function escapeHTML(text){
+                return $("<div>").text(text == undefined ? "" : text).html();
+            }
+
+            function modulePath(mod){
+                //Desktop registers with an empty StartDir
+                if (mod.Name == "Desktop" || mod.StartDir == ""){
+                    return "../../desktop.html";
+                }
+                return "../../" + mod.StartDir;
+            }
+
+            function renderModules(){
+                var list = $("#serviceList");
+                list.html("");
+                if (interfaceModules.length == 0){
+                    list.html(`<div class="is-empty">${escapeHTML(tr("selector/empty", "No workspace is available for your account. Please contact your administrator."))}</div>`);
+                    return;
+                }
+
+                var remembered = getRemembered();
+                //Keep remembering by default when switching from an already remembered choice
+                $("#remember").prop("checked", remembered != "");
+                interfaceModules.forEach(function(mod, index){
+                    var isDesktop = (mod.Name == "Desktop");
+                    var chip = isDesktop ?
+                        `<span class="is-chip desktop"><i class="desktop icon"></i>${escapeHTML(tr("selector/fulldesktop", "Full desktop"))}</span>` :
+                        `<span class="is-chip"><i class="th icon"></i>${escapeHTML(tr("selector/launcher", "Service launcher"))}</span>`;
+                    var highlight = (remembered == mod.Name || (remembered == "" && index == 0)) ? " highlight" : "";
+                    var desc = isDesktop ? tr("selector/desktopdesc", "Your personal web desktop and files") : mod.Desc;
+                    var card = $(`<button class="is-card${highlight}" type="button">
+                        <div class="is-tile"><img src="../../${escapeHTML(mod.IconPath)}" alt="" onerror="this.src='../../img/system/service.png'"></div>
+                        <div class="is-body">
+                            <div class="is-name">${escapeHTML(mod.Name)}</div>
+                            <div class="is-desc">${escapeHTML(desc)}</div>
+                            ${chip}
+                        </div>
+                        <div class="is-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    </button>`);
+                    card.on("click", function(){
+                        startModule(mod);
+                    });
+                    card.on("mouseenter focus", function(){
+                        $(".is-card.highlight").removeClass("highlight");
+                    });
+                    list.append(card);
                 });
             }
-        }
 
-        function startModule(object){
-            var path = $(object).attr("path");
-            var name = $(object).attr("name");
-            if ($("#remember").checkbox("is checked")){
-                localStorage.setItem("default-interface-module",name)
+            function getRemembered(){
+                try {
+                    return localStorage.getItem("default-interface-module") || "";
+                } catch (e) {
+                    return "";
+                }
             }
-            if (path == ""){
-                //Redirect to desktop
-                window.location.href = "../../desktop.html";
-            }else{
-                //Redirect to module
-                window.location.href = "../../" + path;
-            }
-            
-        }
 
-        function logout() {
-            $.get("../../system/auth/logout", function() {
-                window.location.href = "/";
+            function setRemembered(name){
+                try {
+                    if (name == ""){
+                        localStorage.removeItem("default-interface-module");
+                    }else{
+                        localStorage.setItem("default-interface-module", name);
+                    }
+                } catch (e) {}
+            }
+
+            //Returns true when the browser is being redirected to the remembered interface
+            function useDefaultIfExists(){
+                var defaultModule = getRemembered();
+                if (defaultModule == ""){
+                    return false;
+                }
+                var target = interfaceModules.find(function(mod){ return mod.Name == defaultModule; });
+                if (target == undefined){
+                    //The remembered interface is no longer available to this user
+                    setRemembered("");
+                    return false;
+                }
+                window.location.replace(modulePath(target));
+                return true;
+            }
+
+            function startModule(mod){
+                if ($("#remember").is(":checked")){
+                    setRemembered(mod.Name);
+                }else{
+                    setRemembered("");
+                }
+                window.location.href = modulePath(mod);
+            }
+
+            function loadModules(){
+                $.get("../../system/users/interfaceinfo", function(data){
+                    if (data.error !== undefined){
+                        window.location.href = "../../";
+                        return;
+                    }
+                    interfaceModules = Array.isArray(data) ? data : [];
+                    if (!forceSelect && useDefaultIfExists()){
+                        return;
+                    }
+                    renderModules();
+                });
+            }
+
+            function logout() {
+                $.get("../../system/auth/logout", function() {
+                    window.location.href = "../../";
+                });
+            }
+
+            $.get("../../system/users/userinfo", function(data){
+                if (data && data.Username){
+                    $("#username").text(data.Username);
+                }
             });
-        }
+
+            $.get("../../system/info/getArOZInfo", function(data){
+                if (data && data.HostName){
+                    $(".hostname").text(data.HostName);
+                }
+            });
+
+            applocale.init("../locale/interface_selector.json", function(){
+                applocale.translate();
+                document.title = tr("selector/title", "Choose your workspace");
+                loadModules();
+            }, function(){
+                loadModules();
+            });
         </script>
     </body>
 </html>

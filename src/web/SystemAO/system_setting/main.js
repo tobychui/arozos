@@ -131,7 +131,8 @@ function renderCards(subcats) {
     $grid.empty();
     subcats.forEach(function (s) {
         var name = getSubcatName(s);
-        var desc = s.Desc ? '<div class="card-desc">' + s.Desc + '</div>' : '';
+        var descText = getSubcatDesc(s);
+        var desc = descText ? '<div class="card-desc">' + descText + '</div>' : '';
         var $card = $('<div class="setting-card"></div>')
             .append('<img src="../../' + s.IconPath + '" onerror="this.src=\'img/unknown.png\'">')
             .append('<div class="card-text"><div class="card-title">' + name + '</div>' + desc + '</div>');
@@ -229,6 +230,14 @@ function getSubcatName(s) {
     return applocale.getString(
         'tab/' + (currentGroupId || '').toLowerCase() + '/' + s.Name,
         s.Name
+    );
+}
+
+function getSubcatDesc(s) {
+    if (!s.Desc) return '';
+    return applocale.getString(
+        'desc/' + (currentGroupId || '').toLowerCase() + '/' + s.Name,
+        s.Desc
     );
 }
 

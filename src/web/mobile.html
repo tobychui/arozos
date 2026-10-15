@@ -617,15 +617,20 @@ function initModules(){
     }});
 }
 
+// Interface Modules (Desktop, Dashboard, ...) are what the user boots into, not apps to launch
+function isLaunchableModule(m){
+    return !!m.StartDir && m.Group!=="Interface Module";
+}
+
 function getOrderedModules(){
     var result = [];
     appOrder.forEach(function(n){
         var m=moduleInstalled.find(function(x){return x.Name===n;});
-        if(m) result.push(m);
+        if(m && isLaunchableModule(m)) result.push(m);
     });
     // Auto-include newly installed modules (not in appOrder and not explicitly removed)
     moduleInstalled.forEach(function(m){
-        if(m.StartDir
+        if(isLaunchableModule(m)
             && !result.find(function(x){return x.Name===m.Name;})
             && removedApps.indexOf(m.Name)===-1){
             result.push(m);
@@ -639,12 +644,12 @@ function renderGrid(filter){
     // Rebuild appOrder from active (non-removed) modules when not filtering
     if(!filter){
         appOrder = getOrderedModules()
-            .filter(function(m){return !!m.StartDir;})
+            .filter(isLaunchableModule)
             .map(function(m){return m.Name;});
     }
     var idx=0;
     getOrderedModules().forEach(function(m){
-        if(!m.StartDir) return;
+        if(!isLaunchableModule(m)) return;
         if(filter && !m.Name.toLowerCase().includes(filter.toLowerCase())) return;
         var ic = m.IconPath||"img/system/service.png";
         var name = escH(m.Name);
@@ -664,7 +669,7 @@ function renderGrid(filter){
     if(isEditMode && !filter){
         removedApps.forEach(function(name){
             var m=moduleInstalled.find(function(x){return x.Name===name;});
-            if(!m||!m.StartDir) return;
+            if(!m||!isLaunchableModule(m)) return;
             var ic = m.IconPath||"img/system/service.png";
             var attr = escA(m.Name);
             grid.append('<div class="app-item app-removed" data-mod="'+attr+'">'

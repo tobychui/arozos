@@ -1,0 +1,242 @@
+<!-- Startup Interface Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
+<style>
+#sif-root {
+    --sif-text:   #1a1a1a;
+    --sif-dim:    #5a5a5a;
+    --sif-muted:  #9a9a9a;
+    --sif-border: rgba(0,0,0,0.10);
+    --sif-hover:  rgba(0,0,0,0.04);
+    --sif-accent: #2f6fed;
+    --sif-accent-soft: rgba(47,111,237,0.08);
+    --sif-green:  #107c10;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    color: var(--sif-text);
+    padding: 4px 0 32px;
+}
+body.dark #sif-root {
+    --sif-text:   #f0f0f0;
+    --sif-dim:    #b0b0b0;
+    --sif-muted:  #808080;
+    --sif-border: rgba(255,255,255,0.10);
+    --sif-hover:  rgba(255,255,255,0.05);
+    --sif-accent: #6b9bff;
+    --sif-accent-soft: rgba(107,155,255,0.12);
+}
+#sif-root h3.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--sif-text);
+    margin: 0 0 4px;
+}
+#sif-root .section-desc {
+    font-size: 12px;
+    color: var(--sif-muted);
+    margin: 0 0 12px;
+}
+#sif-root .sif-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--sif-border);
+}
+#sif-root .sif-section:last-child { border-bottom: none; }
+#sif-root .sif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 560px;
+}
+#sif-root .sif-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--sif-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.1s, border-color 0.1s;
+}
+#sif-root .sif-option:hover { background: var(--sif-hover); }
+#sif-root .sif-option.selected {
+    border-color: var(--sif-accent);
+    background: var(--sif-accent-soft);
+}
+#sif-root .sif-option.disabled { cursor: default; }
+#sif-root .sif-radio {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--sif-muted);
+    position: relative;
+}
+#sif-root .sif-option.selected .sif-radio { border-color: var(--sif-accent); }
+#sif-root .sif-option.selected .sif-radio::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--sif-accent);
+}
+#sif-root .sif-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+#sif-root .sif-icon-ask {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sif-dim);
+}
+#sif-root .sif-name { font-size: 13px; font-weight: 600; }
+#sif-root .sif-desc { font-size: 12px; color: var(--sif-muted); }
+#sif-root .sif-note {
+    font-size: 12px;
+    color: var(--sif-dim);
+    margin-top: 10px;
+}
+#sif-root .btn {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--sif-border);
+    background: transparent;
+    color: var(--sif-text);
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 12px;
+}
+#sif-root .btn:hover { opacity: 0.75; }
+#sif-root .confirm-msg {
+    display: none;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(16,124,16,0.1);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--sif-green);
+    max-width: 560px;
+}
+body.dark #sif-root .confirm-msg { background: rgba(16,124,16,0.15); }
+</style>
+
+<div id="sif-root">
+    <div class="sif-section">
+        <h3 class="section-title" locale="sif/title">Startup Interface</h3>
+        <p class="section-desc" locale="sif/desc">Choose which workspace opens after you sign in. This setting only applies to this browser.</p>
+        <div id="sif-list" class="sif-list"></div>
+        <div id="sif-single" class="sif-note" style="display:none;" locale="sif/single">Your account has only one workspace, so it always opens after you sign in.</div>
+        <div id="sif-save-confirm" class="confirm-msg"><span locale="sif/saved">Startup interface updated for this browser.</span></div>
+        <button id="sif-open-selector" class="btn" onclick="sifOpenSelector()" style="display:none;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span locale="sif/switch">Switch Workspace Now</span>
+        </button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var sifLocale = NewAppLocale();
+    var sifStorageKey = "default-interface-module";
+    var sifModules = [];
+
+    sifLocale.init("../locale/system_settings/desktop.json", function () {
+        sifLocale.translate();
+        sifLoadModules();
+    }, function () {
+        sifLoadModules();
+    });
+
+    function sifEsc(text) {
+        return $("<div>").text(text == undefined ? "" : text).html();
+    }
+
+    function sifGetRemembered() {
+        try {
+            return localStorage.getItem(sifStorageKey) || "";
+        } catch (e) {
+            return "";
+        }
+    }
+
+    function sifSetRemembered(name) {
+        try {
+            if (name === "") {
+                localStorage.removeItem(sifStorageKey);
+            } else {
+                localStorage.setItem(sifStorageKey, name);
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function sifLoadModules() {
+        $.get("../../system/users/interfaceinfo", function (data) {
+            sifModules = Array.isArray(data) ? data : [];
+            sifRender();
+        });
+    }
+
+    function sifRender() {
+        var list = $("#sif-list");
+        list.html("");
+        var remembered = sifGetRemembered();
+        if (remembered !== "" && !sifModules.some(function (m) { return m.Name === remembered; })) {
+            //The remembered interface is no longer available to this user
+            remembered = "";
+        }
+
+        if (sifModules.length <= 1) {
+            //The server opens the only interface directly, the browser choice is never used
+            sifModules.forEach(function (m) {
+                list.append(sifOptionHTML(m.Name, m.Name, m.Desc, "../../" + m.IconPath, true));
+            });
+            list.find(".sif-option").addClass("disabled");
+            $("#sif-single").show();
+            return;
+        }
+
+        list.append(sifOptionHTML("",
+            sifLocale.getString("sif/ask", "Ask me every time"),
+            sifLocale.getString("sif/ask-desc", "Show the workspace selector after signing in"),
+            "", remembered === ""));
+        sifModules.forEach(function (m) {
+            list.append(sifOptionHTML(m.Name, m.Name, m.Desc, "../../" + m.IconPath, remembered === m.Name));
+        });
+        $("#sif-open-selector").show();
+
+        list.find(".sif-option").on("click", function () {
+            var value = $(this).attr("data-value");
+            if (!sifSetRemembered(value)) {
+                return;
+            }
+            list.find(".sif-option").removeClass("selected");
+            $(this).addClass("selected");
+            $("#sif-save-confirm").stop(true).finish().slideDown("fast").delay(3000).slideUp("fast");
+        });
+    }
+
+    function sifOptionHTML(value, name, desc, icon, selected) {
+        var iconHTML = icon === "" ?
+            '<div class="sif-icon-ask"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M7 9h10M7 13h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>' :
+            '<img class="sif-icon" src="' + sifEsc(icon) + '" alt="" onerror="this.src=\'../../img/system/service.png\'">';
+        return '<div class="sif-option' + (selected ? ' selected' : '') + '" data-value="' + sifEsc(value) + '">' +
+            '<div class="sif-radio"></div>' + iconHTML +
+            '<div><div class="sif-name">' + sifEsc(name) + '</div><div class="sif-desc">' + sifEsc(desc) + '</div></div>' +
+            '</div>';
+    }
+
+    window.sifOpenSelector = function () {
+        window.top.location.href = new URL("../boot/interface_selector.html?switch", window.location.href).href;
+    };
+}());
+</script>

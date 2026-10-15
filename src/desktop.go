@@ -62,6 +62,7 @@ func DesktopInit() {
 		{Name: "Sounds", Desc: "System Sound Settings", StartDir: "SystemAO/desktop/settings/sounds.html"},
 		{Name: "Theme", Desc: "System Theme Color", StartDir: "SystemAO/desktop/settings/theme.html"},
 		{Name: "Mobile UX", Desc: "Mobile Desktop Shortcuts", StartDir: "SystemAO/desktop/settings/mobile_ux.html"},
+		{Name: "Startup Interface", Desc: "Workspace opened after sign in", StartDir: "SystemAO/desktop/settings/interface.html"},
 	} {
 		setting.IconPath = "SystemAO/desktop/img/personalization.png"
 		setting.Group = "Desktop"

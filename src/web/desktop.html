@@ -2139,12 +2139,18 @@
             $("#searchBar").val("");
         }
 
+        //Interface Modules (Desktop, Dashboard, ...) are what the user boots into, not apps
+        //to launch, and modules without a StartDir can only be opened with a file
+        function isLaunchableModule(moduleInfo) {
+            return moduleInfo["StartDir"] != "" && moduleInfo["Group"] != "Interface Module";
+        }
+
         function listModulesType(groupType) {
             var listingItems = [];
             if (groupType == "All") {
                 //List all of the items
                 for (var i = 0; i < moduleInstalled.length; i++) {
-                    if (moduleInstalled[i]["StartDir"] != "") {
+                    if (isLaunchableModule(moduleInstalled[i])) {
                         listingItems.push(moduleInstalled[i]);
                     }
                 }
@@ -2152,15 +2158,14 @@
                 var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilities"];
                 //List the Other groups
                 for (var i = 0; i < moduleInstalled.length; i++) {
-                    if (excludeList.includes(moduleInstalled[i]["Group"]) == false && moduleInstalled[i]["StartDir"] != "") {
-                        console.log(moduleInstalled[i]["Group"]);
+                    if (excludeList.includes(moduleInstalled[i]["Group"]) == false && isLaunchableModule(moduleInstalled[i])) {
                         listingItems.push(moduleInstalled[i]);
                     }
                 }
             } else {
                 //List the given group
                 for (var i = 0; i < moduleInstalled.length; i++) {
-                    if (moduleInstalled[i]["Group"] == groupType && moduleInstalled[i]["StartDir"] != "") {
+                    if (moduleInstalled[i]["Group"] == groupType && isLaunchableModule(moduleInstalled[i])) {
                         listingItems.push(moduleInstalled[i]);
                     }
                 }
@@ -2211,7 +2216,7 @@
                 //Load all search results
                 for (var i = 0; i < moduleInstalled.length; i++) {
                     var thisModule = moduleInstalled[i];
-                    if (thisModule["StartDir"] == ""){
+                    if (!isLaunchableModule(thisModule)){
                         continue;
                     }
                     var pathInfo = thisModule["StartDir"].split("/");

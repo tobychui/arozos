@@ -32,7 +32,14 @@
                 "mux/sc3": "捷徑 3",
                 "mux/sc4": "捷徑 4",
                 "mux/save": "儲存捷徑",
-                "mux/saved": "捷徑已儲存，開啟行動介面即可查看變更"
+                "mux/saved": "捷徑已儲存，開啟行動介面即可查看變更",
+                "sif/title": "啟動介面",
+                "sif/desc": "選擇登入後開啟的工作區，此設定僅適用於此瀏覽器。",
+                "sif/ask": "每次詢問",
+                "sif/ask-desc": "登入後顯示工作區選擇畫面",
+                "sif/single": "你的帳戶只有一個工作區，登入後會直接開啟。",
+                "sif/saved": "已更新此瀏覽器的啟動介面。",
+                "sif/switch": "立即切換工作區"
             },
             "titles": {},
             "placeholder": {}
@@ -67,7 +74,14 @@
                 "mux/sc3": "捷徑 3",
                 "mux/sc4": "捷徑 4",
                 "mux/save": "儲存捷徑",
-                "mux/saved": "捷徑已儲存，開啟行動介面即可查看變更"
+                "mux/saved": "捷徑已儲存，開啟行動介面即可查看變更",
+                "sif/title": "啟動介面",
+                "sif/desc": "選擇登入後開啟的工作區，此設定僅適用於此瀏覽器。",
+                "sif/ask": "每次詢問",
+                "sif/ask-desc": "登入後顯示工作區選擇畫面",
+                "sif/single": "你的帳戶只有一個工作區，登入後會直接開啟。",
+                "sif/saved": "已更新此瀏覽器的啟動介面。",
+                "sif/switch": "立即切換工作區"
             },
             "titles": {},
             "placeholder": {}
@@ -102,7 +116,14 @@
                 "mux/sc3": "快捷方式 3",
                 "mux/sc4": "快捷方式 4",
                 "mux/save": "保存快捷方式",
-                "mux/saved": "快捷方式已保存，打开移动界面即可查看变更"
+                "mux/saved": "快捷方式已保存，打开移动界面即可查看变更",
+                "sif/title": "启动界面",
+                "sif/desc": "选择登录后打开的工作区，此设置仅适用于此浏览器。",
+                "sif/ask": "每次询问",
+                "sif/ask-desc": "登录后显示工作区选择界面",
+                "sif/single": "你的账户只有一个工作区，登录后会直接打开。",
+                "sif/saved": "已更新此浏览器的启动界面。",
+                "sif/switch": "立即切换工作区"
             },
             "titles": {},
             "placeholder": {}
@@ -137,7 +158,14 @@
                 "mux/sc3": "Shortcut 3",
                 "mux/sc4": "Shortcut 4",
                 "mux/save": "Save Shortcuts",
-                "mux/saved": "Shortcuts saved. Open the mobile interface to see the changes."
+                "mux/saved": "Shortcuts saved. Open the mobile interface to see the changes.",
+                "sif/title": "Startup Interface",
+                "sif/desc": "Choose which workspace opens after you sign in. This setting only applies to this browser.",
+                "sif/ask": "Ask me every time",
+                "sif/ask-desc": "Show the workspace selector after signing in",
+                "sif/single": "Your account has only one workspace, so it always opens after you sign in.",
+                "sif/saved": "Startup interface updated for this browser.",
+                "sif/switch": "Switch Workspace Now"
             },
             "titles": {},
             "placeholder": {}
@@ -172,7 +200,14 @@
                 "mux/sc3": "Shortcut 3",
                 "mux/sc4": "Shortcut 4",
                 "mux/save": "Save Shortcuts",
-                "mux/saved": "Shortcuts saved. Open the mobile interface to see the changes."
+                "mux/saved": "Shortcuts saved. Open the mobile interface to see the changes.",
+                "sif/title": "Startup Interface",
+                "sif/desc": "Choose which workspace opens after you sign in. This setting only applies to this browser.",
+                "sif/ask": "Ask me every time",
+                "sif/ask-desc": "Show the workspace selector after signing in",
+                "sif/single": "Your account has only one workspace, so it always opens after you sign in.",
+                "sif/saved": "Startup interface updated for this browser.",
+                "sif/switch": "Switch Workspace Now"
             },
             "titles": {},
             "placeholder": {}
@@ -207,7 +242,14 @@
                 "mux/sc3": "ショートカット 3",
                 "mux/sc4": "ショートカット 4",
                 "mux/save": "ショートカットを保存",
-                "mux/saved": "ショートカットを保存しました。モバイルインターフェースを開いて変更を確認してください"
+                "mux/saved": "ショートカットを保存しました。モバイルインターフェースを開いて変更を確認してください",
+                "sif/title": "起動インターフェース",
+                "sif/desc": "サインイン後に開くワークスペースを選択します。この設定はこのブラウザにのみ適用されます。",
+                "sif/ask": "毎回確認する",
+                "sif/ask-desc": "サインイン後にワークスペース選択画面を表示します",
+                "sif/single": "このアカウントのワークスペースは1つだけのため、サインイン後に常に開きます。",
+                "sif/saved": "このブラウザの起動インターフェースを更新しました。",
+                "sif/switch": "今すぐワークスペースを切り替える"
             },
             "titles": {},
             "placeholder": {}
@@ -242,7 +284,14 @@
                 "mux/sc3": "바로가기 3",
                 "mux/sc4": "바로가기 4",
                 "mux/save": "바로가기 저장",
-                "mux/saved": "바로가기가 저장되었습니다. 모바일 인터페이스를 열어 변경사항을 확인하세요"
+                "mux/saved": "바로가기가 저장되었습니다. 모바일 인터페이스를 열어 변경사항을 확인하세요",
+                "sif/title": "시작 인터페이스",
+                "sif/desc": "로그인 후 열릴 작업 공간을 선택합니다. 이 설정은 이 브라우저에만 적용됩니다.",
+                "sif/ask": "매번 묻기",
+                "sif/ask-desc": "로그인 후 작업 공간 선택 화면을 표시합니다",
+                "sif/single": "이 계정에는 작업 공간이 하나뿐이므로 로그인 후 항상 열립니다.",
+                "sif/saved": "이 브라우저의 시작 인터페이스가 업데이트되었습니다.",
+                "sif/switch": "지금 작업 공간 전환"
             },
             "titles": {},
             "placeholder": {}

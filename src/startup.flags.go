@@ -172,7 +172,7 @@ func StartupFlagsInit() {
 	//Register a boot flag modifier
 	registerSetting(settingModule{
 		Name:         "Runtime",
-		Desc:         "Change startup paramter in runtime",
+		Desc:         "Change startup parameters at runtime",
 		IconPath:     "SystemAO/info/img/runtime.png",
 		Group:        "Info",
 		StartDir:     "SystemAO/boot/bootflags.html",
