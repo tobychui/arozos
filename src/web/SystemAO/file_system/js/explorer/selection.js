@@ -41,6 +41,24 @@ function bindFileObjectEvents(){
             lastTapTime = isSecondTap ? 0 : now;
         }
 
+        /*
+            Read the modifiers off the click itself as well as the tracked
+            flags: Cmd on a Mac (Ctrl elsewhere) toggles, Shift selects a range.
+            The flags alone missed Cmd whenever its keydown went to another
+            frame or was reported under a keyCode not listed here.
+        */
+        if (!isMobile && !stickyMultiSelect){
+            //The click's own modifier state is authoritative, which also clears
+            //a flag left stuck by a keyup that never arrived. Off the Mac the
+            //Windows key (metaKey) has always doubled as Ctrl
+            let held = hasPrimaryModifier(evt) || (!isMacOS && evt.metaKey);
+            if (held != ctrlHold){
+                ctrlHold = held;
+                updateCtrlDisplay();
+            }
+        }
+        let shiftClick = shiftHold || (!isMobile && evt.shiftKey);
+
         if (ctrlHold == true){
             if ($(this).hasClass("selected")){
                 $(this).removeClass("selected");
@@ -72,7 +90,7 @@ function bindFileObjectEvents(){
                 openthis(this, evt);
                 return;
             }
-        }else if (shiftHold == true){
+        }else if (shiftClick){
             //Select everything in range lastClicked to this
             var thisFileID = $(this).attr("fileid");
             let start = parseInt(thisFileID);
@@ -220,6 +238,24 @@ function bindFileObjectEvents(){
             ctrlHold = true;
             updateCtrlDisplay();
             return;
+        }
+
+        /*
+            Ctrl + click is the right click on a Mac, but it arrives as a left
+            button mousedown, so the right-click select above never ran and
+            the menu would act on the old selection. Select the target here,
+            the same way a right click does.
+        */
+        if ($(this).hasClass("selected") == false){
+            if (!hasPrimaryModifier(evt)){
+                $(".fileObject.selected").removeClass("selected");
+            }
+            $(this).addClass("selected");
+            lastClickedFileID = parseInt($(this).attr("fileid"));
+            updateSelectedObjectsCount();
+            if (propertiesView){
+                loadFileProperties($(this).attr("filepath"));
+            }
         }
 
         //Show all options by defaults

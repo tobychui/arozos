@@ -15,7 +15,7 @@
 
     //Make fileObject draggable
     function onFileObjectDragStart(object, event){
-        if ((ctrlHold) &&  $(object).hasClass("selected") == false){
+        if ((ctrlHold || hasPrimaryModifier(event)) &&  $(object).hasClass("selected") == false){
             $(object).addClass("selected");
         }else if ($(object).hasClass("selected") == false){
             $(".fileObject.selected").removeClass("selected");

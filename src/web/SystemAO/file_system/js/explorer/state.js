@@ -166,6 +166,33 @@ let isChromium = window.chrome;
 let isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 let isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 let isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+//iPadOS with a keyboard also reports itself as a Mac and uses Cmd the same way
+let isMacOS = /Mac/i.test(navigator.platform || navigator.userAgent);
+
+/*
+    The "primary" modifier is Ctrl everywhere except macOS, where it is Cmd.
+    Ctrl + click on a Mac is a right click, so Ctrl must not select there.
+
+    isPrimaryModifierKey answers "is this keydown / keyup the modifier itself"
+    (event.key first; the codes cover Cmd's per-browser keyCodes: 91 / 93 in
+    Chrome and Safari, 224 in Firefox). hasPrimaryModifier reads the modifier
+    state carried by any key or mouse event, which stays correct even when the
+    keydown landed in another frame or the keyup was lost to Cmd + Tab.
+*/
+function isPrimaryModifierKey(event){
+    if (isMacOS){
+        return event.key == "Meta" || event.which == 91 || event.which == 93 || event.which == 224;
+    }
+    //The Windows key has always doubled as Ctrl here
+    return event.key == "Control" || event.which == 17 || event.which == 91;
+}
+
+function hasPrimaryModifier(event){
+    if (event == undefined){
+        return false;
+    }
+    return isMacOS ? !!event.metaKey : !!event.ctrlKey;
+}
 
 //Bind onclicke events for fileObjects
 var lastClickedFileID = 0;

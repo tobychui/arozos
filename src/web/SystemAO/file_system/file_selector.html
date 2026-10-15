@@ -1015,6 +1015,8 @@
             var historyIndex = -1;
             var ctrlDown = false;
             var shiftDown = false;
+            //Multi-select uses Cmd on a Mac (Ctrl + click is the right click there)
+            var isMacOS = /Mac/i.test(navigator.platform || navigator.userAgent);
             var lastClickedItemID = 0;
             var listenerUUID = "";
             var fileOptions = {};
@@ -2000,7 +2002,7 @@
             function selectThis(object, event){
                 var isDir = $(object).attr("isDir") == "true";
                 var filename = decodeURIComponent($(object).attr("filename"));
-                var useCtrl = (event != undefined && event.ctrlKey) || ctrlDown;
+                var useCtrl = (event != undefined && (isMacOS ? event.metaKey : event.ctrlKey)) || ctrlDown;
                 var useShift = (event != undefined && event.shiftKey) || shiftDown;
 
                 if (isDir && type == "file"){
@@ -3173,8 +3175,16 @@
             /* ------------------------------------------------------------------ */
             /*  Keyboard                                                           */
             /* ------------------------------------------------------------------ */
+            //Ctrl, or Cmd on a Mac (keyCode 91 / 93, or 224 in Firefox)
+            function isMultiSelectKey(event){
+                if (isMacOS){
+                    return event.key == "Meta" || event.which == 91 || event.which == 93 || event.which == 224;
+                }
+                return event.which == 17;
+            }
+
             $(window).on("keydown", function(event){
-                if (event.which == 17){
+                if (isMultiSelectKey(event)){
                     ctrlDown = true;
                 }else if (event.which == 16){
                     shiftDown = true;
@@ -3206,11 +3216,18 @@
             });
 
             $(window).on("keyup", function(event){
-                if (event.which == 17){
+                if (isMultiSelectKey(event)){
                     ctrlDown = false;
                 }else if (event.which == 16){
                     shiftDown = false;
                 }
+            });
+
+            //A modifier released in another window (Cmd + Tab) never sends its
+            //keyup here, which would leave every later click multi-selecting
+            $(window).on("blur", function(){
+                ctrlDown = false;
+                shiftDown = false;
             });
 
             //Clicking the empty area of the file list clears the selection

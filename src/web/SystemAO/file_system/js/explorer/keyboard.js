@@ -23,7 +23,14 @@ $(document).keydown(function(event){
         }
         return;
     }
-    if(event.which==17 || event.which == 91){
+
+    //Trust the modifier state on the event itself: the modifier's own keydown
+    //may have gone to another frame (e.g. the desktop around this window)
+    if (hasPrimaryModifier(event)){
+        ctrlHold = true;
+    }
+
+    if(isPrimaryModifierKey(event)){
         ctrlHold = true;
         updateCtrlDisplay();
     }else if (event.which == 16){
@@ -77,6 +84,15 @@ $(document).keydown(function(event){
     }else if (event.which == 46){
         //Delete
         deleteFile();
+    }else if (event.which == 8 && isMacOS && ctrlHold == true){
+        //Mac keyboards have no Delete key: Cmd + Backspace moves to trash and
+        //Cmd + Option + Backspace deletes immediately, as in Finder
+        event.preventDefault();
+        if (event.altKey){
+            forceDelete();
+        }else{
+            deleteFile();
+        }
     }else if (event.which == 38){
         //Up Arrow
         if ($(".popup:visible").length == 0){
@@ -93,7 +109,15 @@ $(document).keydown(function(event){
         //Down arrow
         if ($(".popup:visible").length == 0){
             //No popup visiable
-            selectNextFile(event);
+            if (isMacOS && ctrlHold == true){
+                //Cmd + Down opens the selection, as in Finder
+                event.preventDefault();
+                if ($(".fileObject.selected").length > 0){
+                    openViaButton();
+                }
+            }else{
+                selectNextFile(event);
+            }
         }
     }else if (event.which == 39){
         //Right arrow
@@ -121,7 +145,12 @@ $(document).keydown(function(event){
         $(".fileObject.selected").removeClass("selected");
 
     }else{
-        //Handle generic file search by consecutive typing
+        //Handle generic file search by consecutive typing. Only plain printable
+        //keys count: a browser shortcut (Cmd + R, Cmd + L ...) or a lone
+        //modifier must not wipe the selection or end up in the search buffer
+        if (event.key == undefined || event.key.length != 1 || event.ctrlKey || event.metaKey || event.altKey){
+            return;
+        }
         if (hotSearchTimer != null){
             clearTimeout(hotSearchTimer);
         }
@@ -143,11 +172,31 @@ $(document).keydown(function(event){
 });
 
 $(document).keyup(function(event){
-    if(event.which==17 || event.which == 91){
-        ctrlHold = false;
+    if(isPrimaryModifierKey(event)){
+        if (!stickyMultiSelect){
+            ctrlHold = false;
+        }
         updateCtrlDisplay();
     }else if (event.which == 16){
         shiftHold = false;
+        updateCtrlDisplay();
+    }
+});
+
+/*
+    A modifier released while this window is not focused never sends its keyup
+    here - most often Cmd + Tab on a Mac (or Alt + Tab), which would otherwise
+    leave every later click adding to the selection. Mobile multi-select also
+    lives in ctrlHold, so it is left alone.
+*/
+$(window).on("blur", function(){
+    if (isMobile){
+        return;
+    }
+    if (ctrlHold || shiftHold){
+        ctrlHold = false;
+        shiftHold = false;
+        updateCtrlDisplay();
     }
 });
 
@@ -338,3 +387,22 @@ function getFileObjectInTheSameCol(baseFileObject){
     return fileObjectInTheSameCol;
 
 }
+
+/*
+    Shortcut hints are written for Ctrl in the markup. On a Mac they read the
+    way the system menus do: Cmd glyph + key, and Cmd + Backspace for Delete.
+*/
+function applyPlatformShortcutLabels(){
+    if (!isMacOS){
+        return;
+    }
+    $(".fsMenuShortcut, #contextmenu .description").each(function(){
+        let label = $(this).text().trim();
+        if (label == "Del"){
+            $(this).text("\u2318\u232B");
+        }else if (/^Ctrl \+ /.test(label)){
+            $(this).text(label.replace(/^Ctrl \+ /, "\u2318"));
+        }
+    });
+}
+applyPlatformShortcutLabels();
