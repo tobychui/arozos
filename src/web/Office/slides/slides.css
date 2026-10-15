@@ -96,6 +96,15 @@
 .sl-thumb.drop-before::before { top: -7px; }
 .sl-thumb.drop-after::after { bottom: -7px; }
 .sl-thumb.dragging { opacity: 0.45; }
+/* a skipped slide ("Skip slide", slide.hidden): the preview fades, the
+   number is struck through and an eye-slash sits under it, here and in
+   the overview - the slide show walks past it (present.js) */
+.sl-thumb.sl-skipped .sl-thumb-mini,
+.sl-ov-card.sl-skipped .sl-ov-mini { opacity: 0.35; }
+.sl-thumb.sl-skipped .sl-thumb-num,
+.sl-ov-card.sl-skipped .sl-ov-num { text-decoration: line-through; }
+.sl-thumb-num .sl-skip-mark { display: block; margin-top: 4px; }
+.sl-thumb-num .sl-skip-mark .of-ic { width: 13px; height: 13px; margin-left: auto; }
 
 /* ---- Center column ---- */
 #slMain {

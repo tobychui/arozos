@@ -7,6 +7,9 @@
                     interactive object links, a laser pointer (L key),
                     slide counter, presenter timer and a presenter view
                     popup (current + next slide + speaker notes).
+                    Skipped slides (slide.hidden, "Skip slide") are walked
+                    past; only a click link to one still opens it, the way
+                    PowerPoint keeps hidden slides as backup slides.
     SlidesExport  - PNG export (PDF export is server-side, see slides.js).
 */
 
@@ -23,6 +26,15 @@ var SlidesPresent = (function () {
 
     function slideCount() { return SlidesApp.slideCount(); }
     function slideAt(i) { return SlidesApp.getBody().slides[i]; }
+
+    // the first slide from i on, walking by dir (+1 / -1), that the show
+    // does not skip; -1 when there is none that way
+    function shownFrom(i, dir) {
+        for (var n = slideCount(); i >= 0 && i < n; i += dir) {
+            if (!slideAt(i).hidden) return i;
+        }
+        return -1;
+    }
 
     // objects with an entrance animation, in stacking order
     function animQueue(slide) {
@@ -97,14 +109,16 @@ var SlidesPresent = (function () {
 
     function next() {
         if (revealNext()) return;
-        if (idx >= slideCount() - 1) { stop(); return; }
-        idx++;
+        var n = shownFrom(idx + 1, 1);
+        if (n < 0) { stop(); return; }
+        idx = n;
         revealed = 0;
         renderCurrent(true);
     }
     function prev() {
-        if (idx <= 0) return;
-        idx--;
+        var p = shownFrom(idx - 1, -1);
+        if (p < 0) return;
+        idx = p;
         // going back shows the previous slide fully revealed
         revealed = animQueue(slideAt(idx)).length;
         renderCurrent(false);
@@ -173,9 +187,13 @@ var SlidesPresent = (function () {
             case "ArrowLeft": case "ArrowUp": case "PageUp": case "Backspace":
                 e.preventDefault(); e.stopPropagation(); prev(); break;
             case "Home":
-                e.preventDefault(); e.stopPropagation(); goTo(0); break;
+                e.preventDefault(); e.stopPropagation();
+                if (shownFrom(0, 1) >= 0) goTo(shownFrom(0, 1));
+                break;
             case "End":
-                e.preventDefault(); e.stopPropagation(); goTo(slideCount() - 1); break;
+                e.preventDefault(); e.stopPropagation();
+                if (shownFrom(slideCount() - 1, -1) >= 0) goTo(shownFrom(slideCount() - 1, -1));
+                break;
             case "l": case "L":
                 e.preventDefault(); e.stopPropagation(); setLaser(!laserOn); break;
             case "Escape":
@@ -274,8 +292,9 @@ var SlidesPresent = (function () {
             curStage.innerHTML = stageEl.innerHTML;
             curStage.style.background = stageEl.style.background;
             curStage.style.color = stageEl.style.color;
-            if (idx + 1 < body.slides.length) {
-                SlidesApp.renderSlideContent(nextStage, body.slides[idx + 1]);
+            var nx = shownFrom(idx + 1, 1);
+            if (nx >= 0) {
+                SlidesApp.renderSlideContent(nextStage, body.slides[nx]);
             } else {
                 nextStage.innerHTML = "";
                 nextStage.style.background = "#111";
@@ -285,11 +304,21 @@ var SlidesPresent = (function () {
         } catch (e) { /* popup navigated away or closed */ }
     }
 
+    /* opts.presenter opens the presenter view too; opts.showSkipped plays
+       the slide asked for even when it is skipped (the Transitions and
+       Animations tabs' Preview), where otherwise the show starts at the
+       next slide it does not skip. */
     function start(fromIndex, opts) {
         if (active) return;
         if (!slideCount()) return;
+        var from = Math.max(0, Math.min(fromIndex || 0, slideCount() - 1));
+        if (!(opts && opts.showSkipped)) from = shownFrom(from, 1);
+        if (from < 0) {
+            OfficeApp.toast(fromIndex ? "Every slide from here on is skipped" : "Every slide is skipped", "info");
+            return;
+        }
         active = true;
-        idx = Math.max(0, Math.min(fromIndex || 0, slideCount() - 1));
+        idx = from;
         revealed = 0;
         laserOn = false;
         ignoreFsExit = false;

@@ -782,7 +782,9 @@ on click while presenting). New object types `video` / `audio` link their
 media (the .pptx shows the poster frame; the file itself travels in the
 editor copy the .pptx embeds). Each slide has
 `transition` ("none"|"fade"|"slide"|"zoom"), written as PowerPoint's
-fade / push / zoom, and `props.link` becomes an `a:hlinkClick`. Text boxes support `<ul>`/`<ol>`
+fade / push / zoom, and `props.link` becomes an `a:hlinkClick`. A slide may
+carry `hidden: true` ("Skip slide"): present.js walks past it except through
+a click link, and pptx writes it as `<p:sld show="0">`. Text boxes support `<ul>`/`<ol>`
 lists via execCommand; htmlToLines (mod/office) flattens them to bullet/number
 prefixes for .pptx. present.js adds transitions, click-to-reveal animations,
 laser pointer (L), interactive links, and a presenter-view popup.

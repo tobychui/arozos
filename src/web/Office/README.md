@@ -194,11 +194,26 @@ every format keeps it):
 Ctrl+Alt+1): the deck as a grid, like Google Slides' grid view or
 PowerPoint's Slide Sorter (`renderOverview` in `slides.js`). Click selects,
 double-click or Enter opens the slide, drag reorders, right-click has the
-slide menu, Delete / Ctrl+D / Ctrl+M act on the slide in hand, arrows move
+slide menu (the rail's own: new, duplicate, delete, **Skip / Unskip slide**,
+move, background), Delete / Ctrl+D / Ctrl+M act on the slide in hand, arrows move
 by card and by row, Escape goes back. The previews are the same
 `renderSlideContent()` the rail uses, and `renderThumb` / `renderRail` keep
 the grid in step with every edit; the floating control at the bottom sets
 the card size (`overviewSize`, saved).
+
+**Skipped slides** (Google Slides' Skip slide, PowerPoint's Hide Slide):
+the slide menu and the Slide Show tab toggle `slide.hidden`
+(`toggleSlideSkip` in `slides.js`). The rail and the overview fade the
+preview, strike the number through and add an eye-slash; the status bar
+says "(skipped)". The slide show walks past it (`shownFrom` in
+`present.js`): next / previous / Home / End, starting from a skipped slide
+starts at the next shown one, and the presenter view's next slide is the
+next shown one. A click link to a skipped slide still opens it (backup
+slides), and the Transitions / Animations Preview plays it
+(`showSkipped`). Skipped slides stay in the deck and in every export (PDF,
+PNG, print). Files carry it as pptx `<p:sld show="0">`, odp
+`presentation:visibility="hidden"` and, read only, the `fHidden` bit of a
+.ppt slide.
 
 ## Document body schemas (the JSON each app edits)
 
@@ -251,7 +266,8 @@ Go structs are the source of truth — they mirror the JS exactly:
   so the Go structs do not model it.
 - **Slides** (`presentation`): [`model/presentation.go`](../../mod/office/model/presentation.go) —
   `{size:[960,540], theme, slides[{id, bg, bgImage, bgGrad, notes,
-  objects[{type, x, y, w, h, rot, z, props}]}]}`. Object types: `text`,
+  transition, hidden, objects[{type, x, y, w, h, rot, z, props}]}]}`.
+  `hidden: true` is a skipped slide (absent otherwise). Object types: `text`,
   `image`, `shape`, `line`, `table`, `chart`, `video`, `audio`. `size` is
   960 wide and as tall as the deck's shape - a 4:3 PowerPoint deck is
   960x720, never squeezed into 16:9 (the editor, present mode and the PDF
@@ -314,11 +330,11 @@ keeps for the suite:
 |---|---|---|
 | Docs | text, styles, lists, tables, pictures, footnotes, headers/footers, **comments** (resolved state included) and **suggestions as tracked changes** ([`docx/review.go`](../../mod/office/docx/review.go)), "Suggest edits" as `trackRevisions` | - |
 | Sheets | cells, formulas, styles (font, size, colours, bold / italic / underline / strikethrough, horizontal and vertical alignment, wrap), merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx/cf.go`](../../mod/office/xlsx/cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
-| Slides | every object, **transitions** (fade / push / zoom), **click links** (to a slide or a URL), **line dashes and ends** (a square end as a diamond, an open end as the filled one - PowerPoint has neither), **picture frames**, **callout tips**, charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files, the exact line end |
+| Slides | every object, **transitions** (fade / push / zoom), **skipped slides** (`show="0"`), **click links** (to a slide or a URL), **line dashes and ends** (a square end as a diamond, an open end as the filled one - PowerPoint has neither), **picture frames**, **callout tips**, charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files, the exact line end |
 
 The reverse holds too: comments, tracked changes, conditional formats, tab
-colours, filter ranges, transitions and click links made in Office
-applications are read back.
+colours, filter ranges, transitions, hidden slides and click links made in
+Office applications are read back.
 
 ### Office 97-2003 files (.doc / .xls / .ppt) — import only
 

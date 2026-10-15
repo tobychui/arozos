@@ -92,6 +92,7 @@ type slideRec struct {
 	styles     [9]*masterStyle // a master's text styles by text type
 	isMaster   bool
 	transition string
+	hidden     bool // Hide Slide: the slide show skips it
 	number     int
 }
 
@@ -383,7 +384,14 @@ func (p *pres) readSlide(s *slideRec) {
 	}
 	if ti := s.rec.Child(rtSSSlideInfoAtom); ti != nil && len(ti.Data) >= 10 {
 		s.transition = transitionName(int(ti.Data[9]), int(ti.Data[8]))
+		s.hidden = slideHidden(ti.Data)
 	}
+}
+
+// slideHidden reads fHidden, the third flag bit after the effect bytes of
+// a SlideShowSlideInfoAtom: PowerPoint's Hide Slide
+func slideHidden(info []byte) bool {
+	return len(info) > 10 && info[10]&0x04 != 0
 }
 
 // transitionName maps a SlideShowSlideInfoAtom effect onto the

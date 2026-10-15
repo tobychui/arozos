@@ -119,6 +119,7 @@ var OfficeIcons = (function () {
         overview: '<rect x="2.5" y="4" width="8.5" height="6.5" rx="1"/><rect x="13" y="4" width="8.5" height="6.5" rx="1"/><rect x="2.5" y="13.5" width="8.5" height="6.5" rx="1"/><rect class="accs" x="13" y="13.5" width="8.5" height="6.5" rx="1"/>',
         normalView: '<rect x="2.5" y="4" width="5" height="16" rx="1"/><rect class="accs" x="9.5" y="4" width="12" height="10" rx="1"/><path d="M9.5 17h12M9.5 20h8"/>',
         notes: '<rect x="3" y="3" width="18" height="11" rx="1"/><path class="accs" d="M3 17.5h18M3 21h12"/>',
+        skipSlide: '<path d="M2 12c2.4-4.2 5.8-6.5 10-6.5s7.6 2.3 10 6.5c-2.4 4.2-5.8 6.5-10 6.5S4.4 16.2 2 12z"/><circle cx="12" cy="12" r="3"/><path class="accs" d="M4 3.5l16 17"/>',
         snap: '<path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18" opacity=".45"/><path class="accs" d="M6 18l3-3 3 3"/>',
         group: '<path d="M3 3h18v18H3z" stroke-dasharray="2 1.8"/><rect x="6" y="6" width="7" height="6" rx="1"/><rect class="accs" x="11" y="11" width="7" height="7" rx="1"/>',
         bringFront: '<rect x="3" y="3" width="11" height="11" rx="1" opacity=".5"/><rect class="acc" x="8" y="8" width="11" height="11" rx="1"/>',

@@ -245,7 +245,11 @@ func buildSlideXML(p *model.Presentation, slide *model.Slide, mediaSet *pptxMedi
 	relIdx := 2
 
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
-	sb.WriteString(`<p:sld ` + nsDecl + `><p:cSld>`)
+	show := ""
+	if slide.Hidden {
+		show = ` show="0"`
+	}
+	sb.WriteString(`<p:sld ` + nsDecl + show + `><p:cSld>`)
 
 	// slide background: a gradient or a picture when the slide has one,
 	// else its colour, else the theme's approximation

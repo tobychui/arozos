@@ -5295,6 +5295,13 @@
             }
             hideAllContextMenus();
         
+            //The click's own modifier state wins over the tracked flag: Cmd on a
+            //Mac, Ctrl elsewhere. Ctrl + click on a Mac is the right click, so it
+            //selects like one instead of toggling
+            if (evt != undefined && evt.type == "mousedown"){
+                ctrlHold = isPrimaryModifierHeld(evt);
+            }
+
             //Clicked on a launch icon.
             var alreadyHighlighted = $(object).find(".launchIconWrapper").hasClass("selected");
             if (alreadyHighlighted){
@@ -5432,10 +5439,35 @@
         })
 
         // ======================= DOCUMENT KEY BINDING =====================
+        /*
+            The multi-select / shortcut modifier is Cmd on a Mac and Ctrl
+            elsewhere. Cmd reports keyCode 91 / 93 in Chrome and Safari and 224
+            in Firefox.
+        */
+        function isPrimaryModifierKey(event){
+            let keycode = event.which || event.keyCode;
+            if (isMacOS){
+                return event.key == "Meta" || keycode == 91 || keycode == 93 || keycode == 224;
+            }
+            return event.key == "Control" || keycode == 17;
+        }
+
+        function isPrimaryModifierHeld(event){
+            return isMacOS ? !!event.metaKey : !!event.ctrlKey;
+        }
+
+        //Typing in a text field must never act on the selected desktop icons
+        function isTypingTarget(target){
+            return $(target).is("input, textarea, select, [contenteditable='true']");
+        }
+
         document.addEventListener('keydown', function(event) {
             let keycode = event.which || event.keyCode;
-            if (keycode == "17") {
-                //Pressdown of Ctrl key
+            if (isPrimaryModifierHeld(event)){
+                ctrlHold = true;
+            }
+            if (isPrimaryModifierKey(event)) {
+                //Pressdown of Ctrl (Cmd on a Mac) key
                 ctrlHold = true;
             } else if (keycode == "16") {
                 //Pressdown of Shift key
@@ -5451,10 +5483,10 @@
                 multiSelecting = false;
                 ctrlHold = false;
                 shiftHold = false;
-            }else if (keycode == "46"){
-                //Delete key
+            }else if (keycode == "46" || (keycode == "8" && isMacOS && ctrlHold)){
+                //Delete key, or Cmd + Backspace on a Mac (no Delete key there)
 
-                if (renameMode){
+                if (renameMode || isTypingTarget(event.target)){
                     //Deleting content in textarea. Ignore delte action
                     return true
                 }
@@ -5534,7 +5566,7 @@
 
         $(document).keyup(function(event) {
             let keycode = event.which || event.keyCode;
-            if (keycode == "17") {
+            if (isPrimaryModifierKey(event)) {
                 ctrlHold = false;
             }else if (keycode == "16") {
                 shiftHold = false;
@@ -5551,6 +5583,13 @@
                     iconDoubleClicked($(this).parent(), event);
                 })
             }
+        });
+
+        //A modifier released while the desktop is not focused (Cmd + Tab, or
+        //inside a float window's iframe) never sends its keyup here
+        $(window).on("blur", function(){
+            ctrlHold = false;
+            shiftHold = false;
         });
 
         $("#bgwrapper").on("mouseup", function(event) {

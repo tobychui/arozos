@@ -39,9 +39,16 @@ func BuildOdp(p *model.Presentation) ([]byte, error) {
 				bg = "#" + c
 			}
 		}
+		pageProps := ""
 		if strings.HasPrefix(bg, "#") {
-			ps := b.newStyle("drawing-page",
-				`<style:drawing-page-properties draw:fill="solid" draw:fill-color="`+bg+`"/>`)
+			pageProps = ` draw:fill="solid" draw:fill-color="` + bg + `"`
+		}
+		// a skipped slide: LibreOffice's Hide Slide is a page property
+		if slide.Hidden {
+			pageProps += ` presentation:visibility="hidden"`
+		}
+		if pageProps != "" {
+			ps := b.newStyle("drawing-page", `<style:drawing-page-properties`+pageProps+`/>`)
 			pageAttr = ` draw:style-name="` + ps + `"`
 		}
 		body.WriteString(fmt.Sprintf(`<draw:page draw:name="page%d"%s>`, si+1, pageAttr))

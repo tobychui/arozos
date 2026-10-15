@@ -2,10 +2,12 @@ package pptx
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
 	"imuslab.com/arozos/mod/office/internal/officetest"
+	"imuslab.com/arozos/mod/office/internal/xmltree"
 	"imuslab.com/arozos/mod/office/model"
 )
 
@@ -83,5 +85,57 @@ func TestPptxReadsLinkedPictures(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("media parts = %d, want 1 (the readable picture)", n)
+	}
+}
+
+// A skipped slide is PowerPoint's hidden slide: <p:sld show="0">, and only
+// on that slide. "false" is the same xsd:boolean and reads as hidden too.
+func TestPptxSkippedSlides(t *testing.T) {
+	p := &model.Presentation{Slides: []*model.Slide{
+		{ID: "a", Objects: []*model.Object{}},
+		{ID: "b", Hidden: true, Objects: []*model.Object{}},
+		{ID: "c", Objects: []*model.Object{}},
+	}}
+	data, err := Build(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := officetest.UnzipParts(t, data)
+	for i, want := range []bool{false, true, false} {
+		xml := parts["ppt/slides/slide"+strconv.Itoa(i+1)+".xml"]
+		if got := strings.Contains(xml, ` show="0"`); got != want {
+			t.Errorf("slide %d show=\"0\" written = %v, want %v", i+1, got, want)
+		}
+	}
+	back, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []bool{false, true, false} {
+		if back.Slides[i].Hidden != want {
+			t.Errorf("slide %d read back hidden = %v, want %v", i+1, back.Slides[i].Hidden, want)
+		}
+	}
+}
+
+func TestPptxHiddenSlideAttr(t *testing.T) {
+	cases := []struct {
+		attr string
+		want bool
+	}{
+		{"", false},
+		{` show="1"`, false},
+		{` show="true"`, false},
+		{` show="0"`, true},
+		{` show="false"`, true},
+	}
+	for _, c := range cases {
+		tree, err := xmltree.Parse([]byte(`<p:sld xmlns:p="urn:p"` + c.attr + `><p:cSld/></p:sld>`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := hiddenSlide(tree); got != c.want {
+			t.Errorf("hiddenSlide(%q) = %v, want %v", c.attr, got, c.want)
+		}
 	}
 }

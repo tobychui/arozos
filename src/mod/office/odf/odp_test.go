@@ -3,6 +3,8 @@ package odf
 import (
 	"strings"
 	"testing"
+
+	"imuslab.com/arozos/mod/office/model"
 )
 
 // Only fo:font-weight makes a run heavy; a weight word in the family name
@@ -53,5 +55,34 @@ func TestOdpShapeTypesRoundTrip(t *testing.T) {
 		if got != kind && odpShapeTypes[got] != typ {
 			t.Errorf("ODF type %q read back as %q, want %q", typ, got, kind)
 		}
+	}
+}
+
+// A skipped slide is LibreOffice's hidden slide: presentation:visibility
+// "hidden" on its drawing-page style, which keeps the slide's colour too.
+func TestOdpSkippedSlides(t *testing.T) {
+	p := &model.Presentation{Slides: []*model.Slide{
+		{ID: "a", Bg: "#112233", Objects: []*model.Object{}},
+		{ID: "b", Bg: "#445566", Hidden: true, Objects: []*model.Object{}},
+		{ID: "c", Hidden: true, Objects: []*model.Object{}},
+	}}
+	data, err := BuildOdp(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := ParseOdp(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(back.Slides) != 3 {
+		t.Fatalf("read back %d slides, want 3", len(back.Slides))
+	}
+	for i, want := range []bool{false, true, true} {
+		if back.Slides[i].Hidden != want {
+			t.Errorf("slide %d hidden = %v, want %v", i+1, back.Slides[i].Hidden, want)
+		}
+	}
+	if back.Slides[1].Bg != "#445566" {
+		t.Errorf("hidden slide background = %q, want #445566", back.Slides[1].Bg)
 	}
 }

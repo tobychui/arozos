@@ -155,6 +155,7 @@ func ParseOdp(data []byte) (*model.Presentation, error) {
 		slide := &model.Slide{ID: fmt.Sprintf("s-odp-%d", pi+1), Objects: []*model.Object{}}
 		master := cv.masterOf(page)
 		slide.Bg = cv.backgroundOf(page, master)
+		slide.Hidden = cv.hiddenPage(page)
 		cv.master = master
 		// the master page's own drawing sits underneath the slide's
 		if master != nil {
@@ -246,6 +247,17 @@ func (cv *odpConverter) backgroundOf(page, master *onode) string {
 		}
 	}
 	return ""
+}
+
+// hiddenPage reports a slide the show skips: presentation:visibility
+// "hidden" on the page's drawing-page style (LibreOffice's Hide Slide)
+func (cv *odpConverter) hiddenPage(page *onode) bool {
+	st, ok := cv.styles[page.attr("style-name")]
+	if !ok || st == nil {
+		return false
+	}
+	props := st.first("drawing-page-properties")
+	return props != nil && props.attr("visibility") == "hidden"
 }
 
 // walkPage draws every shape on a page. When masterOnly is set the

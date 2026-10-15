@@ -384,6 +384,7 @@ func Parse(data []byte) (*model.Presentation, error) {
 		slide := sc.parseSlide(tree)
 		slide.ID = fmt.Sprintf("s-import%d", si+1)
 		slide.Transition = transitionOf(tree)
+		slide.Hidden = hiddenSlide(tree)
 		slide.Notes = sc.extractNotes()
 		out.Slides = append(out.Slides, slide)
 	}
@@ -2176,6 +2177,13 @@ func nearestRecolor(hex string) string {
 }
 
 /* ---------------- transitions and click links ---------------- */
+
+// hiddenSlide reports PowerPoint's Hide Slide: <p:sld show="0"> (an
+// xsd:boolean, so "false" says the same), which the slide show skips
+func hiddenSlide(sld *xmltree.Node) bool {
+	v := strings.TrimSpace(sld.Attr("show"))
+	return v == "0" || v == "false"
+}
 
 // transitionOf maps a slide's <p:transition> onto the editor's three:
 // fade, slide (anything that moves the slide in) and zoom. PowerPoint 2010

@@ -84,8 +84,12 @@ type Slide struct {
 	BgGrad  *Gradient `json:"bgGrad,omitempty"`
 	Notes   string    `json:"notes,omitempty"`
 	// entry transition: "" / "none" | "fade" | "slide" | "zoom"
-	Transition string    `json:"transition,omitempty"`
-	Objects    []*Object `json:"objects"`
+	Transition string `json:"transition,omitempty"`
+	// Hidden is a slide the slide show skips ("Skip slide" in the editor):
+	// pptx <p:sld show="0">, odp presentation:visibility="hidden". It
+	// stays in the deck and in every export.
+	Hidden  bool      `json:"hidden,omitempty"`
+	Objects []*Object `json:"objects"`
 }
 
 // BgImage is a picture that fills the slide background. X/Y/W/H place the

@@ -329,6 +329,7 @@ var SlidesApp = (function () {
                 !s.bgGrad.stops.length) delete s.bgGrad;
             s.notes = typeof s.notes === "string" ? s.notes : "";
             if (typeof s.transition !== "string") s.transition = "none";
+            if (s.hidden !== true) delete s.hidden;
             if (!Array.isArray(s.objects)) s.objects = [];
             s.objects = s.objects.filter(function (o) { return o && TYPE_NAMES[o.type]; });
             s.objects.forEach(function (o, i) {
@@ -1323,7 +1324,12 @@ var SlidesApp = (function () {
         body.slides.forEach(function (s, i) {
             var $th = $('<div class="sl-thumb" draggable="true" tabindex="0"></div>');
             if (i === cur) $th.addClass("active");
-            $th.append('<div class="sl-thumb-num">' + (i + 1) + "</div>");
+            var $num = $('<div class="sl-thumb-num"></div>').text(i + 1);
+            if (s.hidden) {
+                $th.addClass("sl-skipped");
+                $num.append($('<span class="sl-skip-mark"></span>').attr("title", SKIP_TIP).html(OfficeIcons.get("skipSlide")));
+            }
+            $th.append($num);
             var $view = $('<div class="sl-thumb-view"><div class="sl-thumb-mini sl-slidebase sl-showph"></div></div>');
             $th.append($view);
             renderSlideContent($view.find(".sl-thumb-mini")[0], s);
@@ -1410,7 +1416,8 @@ var SlidesApp = (function () {
 
     /* ================= status / notes ================= */
     function updateStatus() {
-        OfficeApp.updateStatusItem("slide", "Slide " + (cur + 1) + " of " + body.slides.length);
+        OfficeApp.updateStatusItem("slide", "Slide " + (cur + 1) + " of " + body.slides.length +
+            (curSlide() && curSlide().hidden ? " (skipped)" : ""));
         var msg = "";
         var so = selObjs();
         if (so.length === 1) msg = TYPE_NAMES[so[0].type] || "";
@@ -1592,11 +1599,33 @@ var SlidesApp = (function () {
         body.slides.splice(to, 0, s);
         structCommit(to);
     }
+    /* Skip slide, Google Slides' name for PowerPoint's Hide Slide: the
+       slide stays in the deck, the rail, the overview and every export,
+       but the slide show walks past it (present.js). The model keeps it
+       as slide.hidden, which the .pptx writes as <p:sld show="0">. */
+    var SKIP_TIP = "Skipped in the slide show";
+    function toggleSlideSkip(i) {
+        var s = body.slides[i];
+        if (!s) return;
+        endEdit(true);
+        if (s.hidden) delete s.hidden;
+        else s.hidden = true;
+        structCommit(i);
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
+        OfficeApp.setStatus(s.hidden ? "Slide " + (i + 1) + " will be skipped in the slide show"
+            : "Slide " + (i + 1) + " is back in the slide show", "info", 3000);
+    }
     function showSlideContextMenu(x, y, i) {
+        var skipped = !!(body.slides[i] && body.slides[i].hidden);
         OfficeApp.showContextMenu(x, y, [
             { label: "New slide", icon: "plus", action: function () { addSlideAfter(i); } },
             { label: "Duplicate slide", icon: "clone outline", action: function () { duplicateSlide(i); } },
             { label: "Delete slide", icon: "trash alternate outline", action: function () { deleteSlide(i); } },
+            {
+                label: skipped ? "Unskip slide" : "Skip slide",
+                icon: skipped ? "eye" : "eye slash outline",
+                action: function () { toggleSlideSkip(i); }
+            },
             { sep: true },
             {
                 label: "Move up", icon: "angle up",
@@ -3919,7 +3948,7 @@ var SlidesApp = (function () {
                     OfficeApp.setStatus("Transition applied to every slide");
                 }
             }))
-            .add(R.big({ svg: "present", label: "Preview", title: "Play this slide from here", onClick: function () { startPresent(cur); } }));
+            .add(R.big({ svg: "present", label: "Preview", title: "Play this slide from here", onClick: function () { startPresent(cur, { showSkipped: true }); } }));
 
         /* ---------- Animations ---------- */
         var an = R.tab("animations", "Animations");
@@ -3943,7 +3972,7 @@ var SlidesApp = (function () {
             }));
         an.group({ id: "interaction", label: "Interaction", svg: "link" })
             .add(R.big({ svg: "link", label: "Click link", title: "Link the object to a slide or a web page", enabled: function () { return sel.length === 1; }, onClick: linkDialog }))
-            .add(R.big({ svg: "present", label: "Preview", onClick: function () { startPresent(cur); } }));
+            .add(R.big({ svg: "present", label: "Preview", onClick: function () { startPresent(cur, { showSkipped: true }); } }));
 
         /* ---------- Slide Show ---------- */
         var show = R.tab("slideshow", "Slide Show");
@@ -3952,6 +3981,11 @@ var SlidesApp = (function () {
             .add(R.big({ svg: "present", label: "From current slide", key: "F5", onClick: function () { startPresent(cur); } }))
             .add(R.big({ svg: "presenter", label: "Presenter view", onClick: function () { startPresent(cur, { presenter: true }); } }));
         show.group({ id: "setup", label: "Set Up", svg: "notes" })
+            .add(R.big({
+                svg: "skipSlide", label: "Skip slide", title: "Leave this slide out of the slide show",
+                active: function () { return !!(curSlide() && curSlide().hidden); },
+                onClick: function () { toggleSlideSkip(cur); }
+            }))
             .add(R.big({ svg: "notes", label: "Speaker notes", active: notesShown, onClick: function () { toggleNotes(); OfficeRibbon.refresh(); } }));
 
         /* ---------- View ---------- */
@@ -4576,9 +4610,13 @@ var SlidesApp = (function () {
         body.slides.forEach(function (s, i) {
             var $c = $('<div class="sl-ov-card" tabindex="0" draggable="true"></div>').attr("data-i", i);
             if (i === cur) $c.addClass("active");
+            if (s.hidden) $c.addClass("sl-skipped");
             var $v = $('<div class="sl-ov-view"><div class="sl-ov-mini sl-slidebase sl-showph"></div></div>');
             $c.append($v);
             var $meta = $('<div class="sl-ov-meta"></div>').append('<span class="sl-ov-num">' + (i + 1) + "</span>");
+            if (s.hidden) {
+                $meta.append($('<span class="sl-ov-flag sl-skip-mark"></span>').attr("title", SKIP_TIP).html(OfficeIcons.get("skipSlide")));
+            }
             if (s.transition && s.transition !== "none") {
                 $meta.append('<span class="sl-ov-flag" title="Transition: ' + esc(s.transition) + '">' + OfficeIcons.get("transition") + "</span>");
             }
@@ -4656,6 +4694,7 @@ var SlidesApp = (function () {
         renderEditorSlide();
         syncNotes();
         updateStatus();
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
     }
     function overviewColumns() {
         var cards = document.querySelectorAll("#slOverview .sl-ov-card");

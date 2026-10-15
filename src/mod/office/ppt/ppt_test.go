@@ -364,3 +364,31 @@ func TestBoundaryValuesDoNotPanic(t *testing.T) {
 		}
 	}
 }
+
+// fHidden is bit 2 of the flag byte after a SlideShowSlideInfoAtom's
+// effect type; the neighbouring flags must not read as hidden
+func TestHiddenSlideFlag(t *testing.T) {
+	info := func(flags byte) []byte {
+		d := make([]byte, 16)
+		d[9] = 6 // a fade, so the transition bytes are not all zero
+		d[10] = flags
+		return d
+	}
+	cases := []struct {
+		name string
+		data []byte
+		want bool
+	}{
+		{"no flags", info(0), false},
+		{"hidden", info(0x04), true},
+		{"hidden and manual advance", info(0x05), true},
+		{"manual advance only", info(0x01), false},
+		{"sound only", info(0x10), false},
+		{"truncated atom", info(0x04)[:10], false},
+	}
+	for _, c := range cases {
+		if got := slideHidden(c.data); got != c.want {
+			t.Errorf("%s: slideHidden = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

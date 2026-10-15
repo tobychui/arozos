@@ -300,6 +300,9 @@ func (w *writer) write() ([]byte, error) {
 		if !s.masterObjs {
 			attrs = ` showMasterSp="0"`
 		}
+		if s.hidden {
+			attrs += ` show="0"`
+		}
 		trans := ""
 		if s.transition != "" {
 			trans = `<p:transition><p:` + s.transition + `/></p:transition>`
