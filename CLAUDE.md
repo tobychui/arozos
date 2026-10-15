@@ -90,6 +90,12 @@ front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
   loaded-module list; `RegisterModuleFromAGI` is the hook `init.agi` drives, and
   module visibility is filtered per user by `GetModuleListJSONForUser` (users
   only see modules they have permission for).
+- **Backend script permission:** a request for `<Folder>/…/x.agi` is allowed
+  when the user may access a module named `<Folder>` *or any module registered
+  from that folder* (`ModuleInfo.SourceFolder`, set from the `init.agi` path;
+  `static.CheckUserAccessToScript`). So one folder may register several modules
+  with other names (`Office/` → Docs, Sheets, Slides), and any of them unlocks
+  the folder's shared backend scripts.
 - **Scope reminder:** `init.agi` runs with **system scope** (registration /
   system functions only — don't call user or file functions there); backend
   `.agi` scripts invoked from the front end run with the **invoking user's**

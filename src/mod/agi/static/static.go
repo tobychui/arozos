@@ -95,13 +95,47 @@ func RealpathToVirtualpath(fsh *filesystem.FileSystemHandler, path string, u *us
 	return fsh.FileSystemAbstraction.RealPathToVirtualPath(path, u.Username)
 }
 
-// Check if the user can access this script file
-func CheckUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope string) bool {
-	moduleName := GetScriptRoot(scriptFile, scriptScope)
-	if !thisuser.GetModuleAccessPermission(moduleName) {
+// Check if the user can access this script file. Access is granted by a module
+// named after the script's folder, or by any module registered from that folder
+// (e.g. Office/ registers Docs, Sheets and Slides). modulesInFolder returns the
+// names of the modules registered from a source folder and may be nil.
+func CheckUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope string, modulesInFolder func(folder string) []string) bool {
+	return canAccessScriptFolder(thisuser.GetModuleAccessPermission, scriptFile, scriptScope, modulesInFolder)
+}
+
+func canAccessScriptFolder(hasModuleAccess func(moduleName string) bool, scriptFile string, scriptScope string, modulesInFolder func(folder string) []string) bool {
+	folderName := GetScriptRoot(scriptFile, scriptScope)
+	if folderName == "" {
+		//The script is not inside the scope (path escape)
 		return false
 	}
-	return true
+
+	if hasModuleAccess(folderName) {
+		return true
+	}
+
+	if modulesInFolder == nil {
+		return false
+	}
+
+	for _, moduleName := range modulesInFolder(ScriptSourceFolder(scriptFile, scriptScope)) {
+		if hasModuleAccess(moduleName) {
+			return true
+		}
+	}
+	return false
+}
+
+// Return the folder a script belongs to, relative to the startup directory,
+// e.g. ("./web/Office/common/backend/document.agi", "./web/") -> "web/Office".
+// This is the key modules are registered under (ModuleInfo.SourceFolder).
+// Return an empty string if the script is not inside the scope.
+func ScriptSourceFolder(scriptFile string, scriptScope string) string {
+	folderName := GetScriptRoot(scriptFile, scriptScope)
+	if folderName == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Join(scriptScope, folderName))
 }
 
 // validate the given path is a script from webroot

@@ -44,7 +44,7 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 	}
 
 	scriptScope := ""
-	allowAccess := static.CheckUserAccessToScript(targetUser, script, scriptScope)
+	allowAccess := static.CheckUserAccessToScript(targetUser, filepath.Join("./web", script), "./web", g.Option.ModuleFolderResolver)
 	if !allowAccess {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 - Unauthorized (Permission Denied)"))
