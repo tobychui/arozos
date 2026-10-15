@@ -68,9 +68,10 @@ type AgiSysInfo struct {
 	UserHandler           *user.UserHandler
 	ReservedTables        []string
 	PackageManager        *apt.AptPackageManager
-	ModuleRegisterParser  func(string) error
-	ModuleListProvider    func(username string) string //Returns JSON of accessible modules for a user
-	ExtIconRegisterParser func(ext, iconPath string)   //Called when registerExtensionIcon() fires in an init.agi
+	ModuleRegisterParser  func(sourceFolder string, jsonModuleConfig string) error //sourceFolder is the web app folder the init.agi lives in, e.g. "web/Office"
+	ModuleFolderResolver  func(folder string) []string                             //Returns the names of the modules registered from a source folder
+	ModuleListProvider    func(username string) string                             //Returns JSON of accessible modules for a user
+	ExtIconRegisterParser func(ext, iconPath string)                               //Called when registerExtensionIcon() fires in an init.agi
 	FileSystemRender      *metadata.RenderHandler
 	IotManager            *iot.Manager
 	ShareManager          *share.Manager
@@ -135,7 +136,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 						continue
 					}
 
-					if static.CheckUserAccessToScript(userinfo, scriptFile, "") {
+					if static.CheckUserAccessToScript(userinfo, filepath.Join("./web", scriptFile), "./web", g.Option.ModuleFolderResolver) {
 						//This user can access the module that provide this script.
 						//Execute this script on his account.
 						logger.PrintAndLog("Agi", "[AGI_Nightly] WIP ("+scriptFile+")", nil)
@@ -152,18 +153,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 func (g *Gateway) InitiateAllWebAppModules() {
 	startupScripts, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(g.Option.StartupRoot)) + "/*/init.agi")
 	for _, script := range startupScripts {
-		scriptContentByte, _ := os.ReadFile(script)
-		scriptContent := string(scriptContentByte)
-		logger.PrintAndLog("Agi", "[AGI] Gateway script loaded ("+script+")", nil)
-		//Create a new vm for this request
-		vm := otto.New()
-
-		//Only allow non user based operations
-		g.injectStandardLibs(vm, script, "./web/")
-		g.injectAppdataLibFunctions(&static.AgiLibInjectionPayload{
-			VM: vm,
-		})
-		_, err := vm.Run(scriptContent)
+		err := g.RunWebAppInitScript(script)
 		if err != nil {
 			logger.PrintAndLog("Agi", "[AGI] Load Failed: "+script+". Skipping.", nil)
 			logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
@@ -172,20 +162,25 @@ func (g *Gateway) InitiateAllWebAppModules() {
 	}
 }
 
-func (g *Gateway) RunScript(script string) error {
+// Run a web app's init.agi (e.g. "web/Office/init.agi") with system scope only.
+// The script path is what ties the modules it registers to their source folder.
+func (g *Gateway) RunWebAppInitScript(script string) error {
+	scriptContentByte, err := os.ReadFile(script)
+	if err != nil {
+		return err
+	}
+	scriptContent := string(scriptContentByte)
+	logger.PrintAndLog("Agi", "[AGI] Gateway script loaded ("+script+")", nil)
 	//Create a new vm for this request
 	vm := otto.New()
 
 	//Only allow non user based operations
-	g.injectStandardLibs(vm, "", "./web/")
-
-	_, err := vm.Run(script)
-	if err != nil {
-		logger.PrintAndLog("Agi", fmt.Sprint("[AGI] Script Execution Failed: ", err.Error()), nil)
-		return err
-	}
-
-	return nil
+	g.injectStandardLibs(vm, script, "./web/")
+	g.injectAppdataLibFunctions(&static.AgiLibInjectionPayload{
+		VM: vm,
+	})
+	_, err = vm.Run(scriptContent)
+	return err
 }
 
 func (g *Gateway) RaiseError(err error) {
@@ -260,8 +255,8 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	}
 
 	//Check for user permission on this module
-	moduleName := static.GetScriptRoot(scriptFile, scriptScope)
-	if !thisuser.GetModuleAccessPermission(moduleName) {
+	if !static.CheckUserAccessToScript(thisuser, scriptFile, scriptScope, g.Option.ModuleFolderResolver) {
+		moduleName := static.GetScriptRoot(scriptFile, scriptScope)
 		w.WriteHeader(http.StatusForbidden)
 		if g.Option.BuildVersion == "development" {
 			w.Write([]byte("403 Forbidden: User do not have permission to access " + moduleName))

@@ -276,3 +276,65 @@ func TestOnModuleUninstall_Hook(t *testing.T) {
 	}
 	_ = called // hook may not be invoked by DeregisterModule
 }
+
+// Modules registered from an init.agi remember their folder, so the AGI gateway
+// can let users of any of them run the folder's backend scripts.
+func TestGetModulesFromSourceFolder(t *testing.T) {
+	mh := &ModuleHandler{LoadedModule: []*ModuleInfo{}}
+	for _, reg := range []struct{ folder, name string }{
+		{"web/Office", "Docs"},
+		{"web/Office", "Sheets"},
+		{"web/Office", "Slides"},
+		{"web/Photo", "Photo"},
+		{"", "Unknown Origin"},
+	} {
+		if err := mh.RegisterModuleFromAGI(reg.folder, `{"Name":"`+reg.name+`","Group":"Office"}`); err != nil {
+			t.Fatalf("RegisterModuleFromAGI(%q) unexpected error: %v", reg.name, err)
+		}
+	}
+
+	tests := []struct {
+		name   string
+		folder string
+		want   []string
+	}{
+		{name: "all modules of a shared folder", folder: "web/Office", want: []string{"Docs", "Sheets", "Slides"}},
+		{name: "folder matched ignoring case", folder: "web/office", want: []string{"Docs", "Sheets", "Slides"}},
+		{name: "unclean path", folder: "./web/Photo/", want: []string{"Photo"}},
+		{name: "unknown folder", folder: "web/Mail", want: []string{}},
+		{name: "empty folder never matches unknown-origin modules", folder: "", want: []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mh.GetModulesFromSourceFolder(tt.folder)
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("GetModulesFromSourceFolder(%q) = %v, want %v", tt.folder, got, tt.want)
+			}
+		})
+	}
+
+	mh.DeregisterModule("Slides")
+	if got := mh.GetModulesFromSourceFolder("web/Office"); strings.Join(got, ",") != "Docs,Sheets" {
+		t.Errorf("after DeregisterModule(Slides) got %v, want [Docs Sheets]", got)
+	}
+}
+
+// SourceFolder is server-side only: a module's JSON can neither set nor expose it.
+func TestSourceFolderNotInJSON(t *testing.T) {
+	mh := &ModuleHandler{LoadedModule: []*ModuleInfo{}}
+	if err := mh.RegisterModuleFromAGI("web/Notes", `{"Name":"Notes","SourceFolder":"web/Office"}`); err != nil {
+		t.Fatalf("RegisterModuleFromAGI unexpected error: %v", err)
+	}
+	if got := mh.LoadedModule[0].SourceFolder; got != "web/Notes" {
+		t.Errorf("SourceFolder = %q, want %q", got, "web/Notes")
+	}
+
+	js, err := json.Marshal(mh.LoadedModule[0])
+	if err != nil {
+		t.Fatalf("json.Marshal unexpected error: %v", err)
+	}
+	if strings.Contains(string(js), "SourceFolder") {
+		t.Errorf("SourceFolder leaked into module JSON: %s", js)
+	}
+}

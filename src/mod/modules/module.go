@@ -3,6 +3,7 @@ package modules
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -24,6 +25,12 @@ type ModuleInfo struct {
 	InitFWSize   []int    //Floatwindow init size. [0] => Width, [1] => Height
 	InitEmbSize  []int    //Embedded mode init size. [0] => Width, [1] => Height
 	SupportedExt []string //Supported File Extensions. e.g. ".mp3", ".flac", ".wav"
+
+	//Folder this module was registered from, relative to the startup directory,
+	//e.g. "web/Office" or "subservice/demo". AGI scripts in this folder are
+	//accessible to users with permission to this module. Never read from or
+	//written to JSON, so a module cannot claim another app's folder.
+	SourceFolder string `json:"-"`
 
 	//Hidden properties
 	allowReload bool //Allow module reload by user
@@ -94,8 +101,9 @@ func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bo
 	return nil
 }
 
-// Register a module from AGI script
-func (m *ModuleHandler) RegisterModuleFromAGI(jsonstring string) error {
+// Register a module from AGI script. sourceFolder is the folder of the init.agi
+// that registered it (e.g. "web/Office"), empty if unknown.
+func (m *ModuleHandler) RegisterModuleFromAGI(sourceFolder string, jsonstring string) error {
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
 	if err != nil {
@@ -104,6 +112,7 @@ func (m *ModuleHandler) RegisterModuleFromAGI(jsonstring string) error {
 
 	//AGI interface loaded module must allow runtime reload
 	thisModuleInfo.allowReload = true
+	thisModuleInfo.SourceFolder = sourceFolder
 	m.RegisterModule(thisModuleInfo)
 	return nil
 }
@@ -117,6 +126,23 @@ func (m *ModuleHandler) DeregisterModule(moduleName string) {
 	}
 
 	m.LoadedModule = newLoadedModuleList
+}
+
+// Get the names of the modules registered from the given source folder,
+// e.g. "web/Office" -> Docs, Sheets, Slides. The folder is matched ignoring
+// case, like module names in permission checks.
+func (m *ModuleHandler) GetModulesFromSourceFolder(folder string) []string {
+	result := []string{}
+	if folder == "" {
+		return result
+	}
+	folder = filepath.ToSlash(filepath.Clean(folder))
+	for _, module := range m.LoadedModule {
+		if module.SourceFolder != "" && strings.EqualFold(module.SourceFolder, folder) {
+			result = append(result, module.Name)
+		}
+	}
+	return result
 }
 
 // Get a list of module names

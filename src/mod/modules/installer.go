@@ -157,16 +157,10 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 	thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
 	if utils.FileExists(thisModuleEstimataedRoot) {
 		if utils.FileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
-			//Load this as an module
-			startDef, err := os.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
-			if err != nil {
-				logger.PrintAndLog("Modules", "*Module Activator* Failed to read init.agi from "+filepath.Base(moduleFolder), nil)
-				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
-			}
-
-			//Execute the init script using AGI
+			//Load this as an module. Run it by path so the registered modules
+			//are tied to this folder for AGI script permission checks
 			logger.PrintAndLog("Modules", fmt.Sprint("Starting module: ", filepath.Base(moduleFolder)), nil)
-			err = gateway.RunScript(string(startDef))
+			err := gateway.RunWebAppInitScript(filepath.ToSlash(filepath.Join(thisModuleEstimataedRoot, "init.agi")))
 			if err != nil {
 				logger.PrintAndLog("Modules", "*Module Activator* "+filepath.Base(moduleFolder)+" Starting failed"+err.Error(), nil)
 				return errors.New(filepath.Base(moduleFolder) + " Starting failed: " + err.Error())

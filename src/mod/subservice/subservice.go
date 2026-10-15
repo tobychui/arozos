@@ -314,6 +314,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 	sr.RunningSubService = append(sr.RunningSubService, thisSubService)
 
 	//Append this module into the loaded module list
+	thisModuleInfo.SourceFolder = filepath.ToSlash(filepath.Clean(servicePath))
 	sr.moduleHandler.LoadedModule = append(sr.moduleHandler.LoadedModule, &thisModuleInfo)
 
 	return nil

@@ -279,8 +279,10 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 		//Get the module directory from the script file path
 		//For example: ./web/Label Maker/init.agi -> Label Maker
+		sourceFolder := ""
 		if scriptFile != "" && scriptScope != "" {
 			moduleDir := static.GetScriptRoot(scriptFile, scriptScope)
+			sourceFolder = static.ScriptSourceFolder(scriptFile, scriptScope)
 
 			//Convert relative paths to absolute paths for IconPath, StartDir, and LaunchFWDir
 			pathFields := []string{"IconPath", "StartDir", "LaunchFWDir", "LaunchEmb"}
@@ -307,7 +309,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		}
 
 		//Try to decode it to a module Info
-		err = g.Option.ModuleRegisterParser(jsonModuleConfig)
+		err = g.Option.ModuleRegisterParser(sourceFolder, jsonModuleConfig)
 		if err != nil {
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)

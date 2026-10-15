@@ -71,3 +71,70 @@ func TestRunCleanup_PassesClosureThrough(t *testing.T) {
 		t.Error("the registered closure was not the one passed to RunCleanup")
 	}
 }
+
+// A script is reachable through the module named after its folder or through
+// any module registered from that folder, so apps whose module names differ from
+// their folder (Office -> Docs / Sheets / Slides) still reach their own backend.
+func TestCanAccessScriptFolder(t *testing.T) {
+	officeModules := func(folder string) []string {
+		if folder == "web/Office" {
+			return []string{"Docs", "Sheets", "Slides"}
+		}
+		return nil
+	}
+
+	tests := []struct {
+		name            string
+		allowed         []string
+		scriptFile      string
+		scriptScope     string
+		modulesInFolder func(string) []string
+		want            bool
+	}{
+		{name: "module registered from the folder", allowed: []string{"Slides"}, scriptFile: "web/Office/common/backend/document.agi", scriptScope: "web", modulesInFolder: officeModules, want: true},
+		{name: "scope with leading dot and trailing slash", allowed: []string{"Docs"}, scriptFile: "./web/Office/common/backend/document.agi", scriptScope: "./web/", modulesInFolder: officeModules, want: true},
+		{name: "module named after the folder", allowed: []string{"Photo"}, scriptFile: "web/Photo/backend/list.agi", scriptScope: "web", modulesInFolder: officeModules, want: true},
+		{name: "no module of the folder allowed", allowed: []string{"Photo"}, scriptFile: "web/Office/common/backend/document.agi", scriptScope: "web", modulesInFolder: officeModules, want: false},
+		{name: "modules of another folder do not count", allowed: []string{"Slides"}, scriptFile: "web/Mail/backend/send.agi", scriptScope: "web", modulesInFolder: officeModules, want: false},
+		{name: "same folder name in another scope", allowed: []string{"Slides"}, scriptFile: "subservice/Office/run.agi", scriptScope: "subservice", modulesInFolder: officeModules, want: false},
+		{name: "nil resolver falls back to folder name", allowed: []string{"Slides"}, scriptFile: "web/Office/common/backend/document.agi", scriptScope: "web", modulesInFolder: nil, want: false},
+		{name: "script outside the scope", allowed: []string{""}, scriptFile: "system/ao.agi", scriptScope: "web", modulesInFolder: officeModules, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hasModuleAccess := func(moduleName string) bool {
+				for _, allowed := range tt.allowed {
+					if allowed == moduleName {
+						return true
+					}
+				}
+				return false
+			}
+
+			got := canAccessScriptFolder(hasModuleAccess, tt.scriptFile, tt.scriptScope, tt.modulesInFolder)
+			if got != tt.want {
+				t.Errorf("canAccessScriptFolder(%q, %q) = %v, want %v", tt.scriptFile, tt.scriptScope, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestScriptSourceFolder(t *testing.T) {
+	tests := []struct {
+		scriptFile  string
+		scriptScope string
+		want        string
+	}{
+		{scriptFile: "web/Office/init.agi", scriptScope: "./web/", want: "web/Office"},
+		{scriptFile: "./web/Label Maker/backend/print.agi", scriptScope: "web", want: "web/Label Maker"},
+		{scriptFile: "subservice/demo/run.agi", scriptScope: "subservice", want: "subservice/demo"},
+		{scriptFile: "system/ao.agi", scriptScope: "web", want: ""},
+	}
+
+	for _, tt := range tests {
+		if got := ScriptSourceFolder(tt.scriptFile, tt.scriptScope); got != tt.want {
+			t.Errorf("ScriptSourceFolder(%q, %q) = %q, want %q", tt.scriptFile, tt.scriptScope, got, tt.want)
+		}
+	}
+}
