@@ -375,6 +375,25 @@ Returns storage root display name.
 var root = filelib.rootName("user:/Desktop/a.txt");
 ```
 
+### `filelib.readBinaryFile(vpath)`
+Returns the file content as a lowercase hex string (two characters per byte), or
+`null` if the file does not exist. The whole file is loaded into memory, so keep
+it to small files.
+
+```javascript
+var hex = filelib.readBinaryFile("user:/icon.png");
+var firstByte = parseInt(hex.substr(0, 2), 16);
+```
+
+### `filelib.writeBinaryFile(vpath, hexContent)`
+Decodes a hex string (upper or lower case, even length) and writes the bytes to
+the file, replacing it if it exists. Returns `false` if the hex is invalid or the
+write fails.
+
+```javascript
+filelib.writeBinaryFile("user:/magic.bin", "89504e470d0a1a0a");
+```
+
 ## imagelib API
 
 Load:

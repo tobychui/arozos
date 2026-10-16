@@ -520,6 +520,11 @@ func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, dest
 func szParsePathsArg(pathsObj interface{}) []string {
 	var result []string
 	switch v := pathsObj.(type) {
+	case []string:
+		// Otto exports an array whose items are all strings as []string
+		for _, s := range v {
+			result = append(result, filepath.ToSlash(strings.TrimPrefix(s, "/")))
+		}
 	case []interface{}:
 		for _, s := range v {
 			if str, ok := s.(string); ok {

@@ -832,7 +832,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		if !fsh.FileSystemAbstraction.FileExists(rpath) {
 			//Check if the target file exists
-			g.RaiseError(err)
+			g.RaiseError(errors.New("File not exists"))
 			return otto.NullValue()
 		}
 
@@ -866,6 +866,8 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		filelib.mkdir = _filelib_mkdir;
 		filelib.mtime = _filelib_mtime;
 		filelib.rootName = _filelib_rname;
+		filelib.readBinaryFile = _filelib_readBinaryFile;
+		filelib.writeBinaryFile = _filelib_writeBinaryFile;
 
 		filelib.readdir = function(path, sortmode){
 			var s = _filelib_readdir(path, sortmode);

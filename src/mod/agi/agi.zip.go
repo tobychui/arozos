@@ -112,19 +112,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 
 		// Convert sources to string array
-		var sources []string
-		switch v := sourcesObj.(type) {
-		case []interface{}:
-			for _, s := range v {
-				if str, ok := s.(string); ok {
-					sources = append(sources, static.RelativeVpathRewrite(scriptFsh, str, vm, u))
-				}
-			}
-		case string:
-			sources = append(sources, static.RelativeVpathRewrite(scriptFsh, v, vm, u))
-		default:
+		sources, ok := ziplibSourceList(sourcesObj)
+		if !ok {
 			g.RaiseError(errors.New("invalid source format"))
 			return otto.FalseValue()
+		}
+		for i, src := range sources {
+			sources[i] = static.RelativeVpathRewrite(scriptFsh, src, vm, u)
 		}
 
 		outputVpath = static.RelativeVpathRewrite(scriptFsh, outputVpath, vm, u)
@@ -185,16 +179,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
-		var sources []string
-		switch v := sourcesObj.(type) {
-		case []interface{}:
-			for _, s := range v {
-				if str, ok := s.(string); ok {
-					sources = append(sources, static.RelativeVpathRewrite(scriptFsh, str, vm, u))
-				}
-			}
-		case string:
-			sources = append(sources, static.RelativeVpathRewrite(scriptFsh, v, vm, u))
+		sources, ok := ziplibSourceList(sourcesObj)
+		if !ok {
+			g.RaiseError(errors.New("invalid source format"))
+			return otto.FalseValue()
+		}
+		for i, src := range sources {
+			sources[i] = static.RelativeVpathRewrite(scriptFsh, src, vm, u)
 		}
 
 		outputVpath = static.RelativeVpathRewrite(scriptFsh, outputVpath, vm, u)
@@ -304,16 +295,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
-		var sources []string
-		switch v := sourcesObj.(type) {
-		case []interface{}:
-			for _, s := range v {
-				if str, ok := s.(string); ok {
-					sources = append(sources, static.RelativeVpathRewrite(scriptFsh, str, vm, u))
-				}
-			}
-		case string:
-			sources = append(sources, static.RelativeVpathRewrite(scriptFsh, v, vm, u))
+		sources, ok := ziplibSourceList(sourcesObj)
+		if !ok {
+			g.RaiseError(errors.New("invalid source format"))
+			return otto.FalseValue()
+		}
+		for i, src := range sources {
+			sources[i] = static.RelativeVpathRewrite(scriptFsh, src, vm, u)
 		}
 
 		outputVpath = static.RelativeVpathRewrite(scriptFsh, outputVpath, vm, u)
@@ -343,7 +331,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
-		tgz := archiver.TarGz{}
+		tgz := archiver.NewTarGz()
 		err = tgz.Archive(sourceRpaths, outputRpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -390,7 +378,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
-		tgz := archiver.TarGz{}
+		tgz := archiver.NewTarGz()
 		err = tgz.Unarchive(srcRpath, destRpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -1067,16 +1055,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			format = "zip"
 		}
 
-		var sources []string
-		switch v := sourcesObj.(type) {
-		case []interface{}:
-			for _, s := range v {
-				if str, ok := s.(string); ok {
-					sources = append(sources, static.RelativeVpathRewrite(scriptFsh, str, vm, u))
-				}
-			}
-		case string:
-			sources = append(sources, static.RelativeVpathRewrite(scriptFsh, v, vm, u))
+		sources, ok := ziplibSourceList(sourcesObj)
+		if !ok {
+			g.RaiseError(errors.New("invalid source format"))
+			return otto.FalseValue()
+		}
+		for i, src := range sources {
+			sources[i] = static.RelativeVpathRewrite(scriptFsh, src, vm, u)
 		}
 
 		outputVpath = static.RelativeVpathRewrite(scriptFsh, outputVpath, vm, u)
@@ -1115,7 +1100,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			tar := &archiver.Tar{}
 			err = tar.Archive(sourceRpaths, outputRpath)
 		case "tar.gz", "tgz", "targz":
-			tgz := &archiver.TarGz{}
+			tgz := archiver.NewTarGz()
 			err = tgz.Archive(sourceRpaths, outputRpath)
 		case "gz", "gzip":
 			g.RaiseError(errors.New("gz format requires createGzFile for single file compression"))
@@ -1488,6 +1473,29 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 	// Extend ziplib with 7z support
 	g.inject7zLibFunctions(payload)
+}
+
+// ziplibSourceList converts the exported sources argument of the ziplib create
+// functions into a list of paths. Otto exports a JS array whose items are all
+// strings as []string, and an empty or mixed array as []interface{} (non-string
+// items are skipped); a single string is one source. ok is false for any other
+// value, such as undefined or a number.
+func ziplibSourceList(sourcesObj interface{}) (sources []string, ok bool) {
+	switch v := sourcesObj.(type) {
+	case []string:
+		return append([]string{}, v...), true
+	case []interface{}:
+		sources = []string{}
+		for _, s := range v {
+			if str, isString := s.(string); isString {
+				sources = append(sources, str)
+			}
+		}
+		return sources, true
+	case string:
+		return []string{v}, true
+	}
+	return nil, false
 }
 
 /*
