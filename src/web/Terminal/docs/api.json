@@ -287,6 +287,20 @@
           "desc": "Return the display name of the storage root that owns this path.",
           "ret": "string",
           "example": "requirelib(\"filelib\");\nvar root = filelib.rootName(\"user:/Desktop/a.txt\");"
+        },
+        {
+          "name": "filelib.readBinaryFile",
+          "sig": "filelib.readBinaryFile(vpath)",
+          "desc": "Read a file as a lowercase hex string (two characters per byte). The whole file is loaded into memory, so keep it to small files. Returns null if the file does not exist.",
+          "ret": "string | null",
+          "example": "requirelib(\"filelib\");\nvar hex = filelib.readBinaryFile(\"user:/icon.png\");\nvar firstByte = parseInt(hex.substr(0, 2), 16);"
+        },
+        {
+          "name": "filelib.writeBinaryFile",
+          "sig": "filelib.writeBinaryFile(vpath, hexContent)",
+          "desc": "Decode a hex string (upper or lower case, even length) and write the bytes to a file, replacing it if it exists. Returns false if the hex is invalid or the write fails.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.writeBinaryFile(\"user:/magic.bin\", \"89504e470d0a1a0a\");"
         }
       ]
     },
