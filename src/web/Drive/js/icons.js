@@ -94,6 +94,7 @@
         sortAsc: '<path d="M7 20V4M3.5 7.5 7 4l3.5 3.5"/><path d="M13 7h8M13 12h6M13 17h4"/>',
         sortDesc: '<path d="M7 4v16M3.5 16.5 7 20l3.5-3.5"/><path d="M13 7h4M13 12h6M13 17h8"/>',
         panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17.5 8.5h1M17.5 11.5h1"/>',
+        spread: '<rect x="2.5" y="5" width="8.5" height="14" rx="1.5"/><rect x="13" y="5" width="8.5" height="14" rx="1.5"/>',
         info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/>',
         x: '<path d="M6 6l12 12M18 6 6 18"/>',
         check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',

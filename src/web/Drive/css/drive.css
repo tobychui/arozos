@@ -3629,6 +3629,8 @@ button.stg-row:hover .stg-txt b {
 
     html.nav-open .sidebar {
         transform: none;
+        border-radius: 1em;
+        margin: 0.4em;
     }
 
     html.nav-open .scrim {
@@ -3815,14 +3817,22 @@ button.stg-row:hover .stg-txt b {
         display: none;
     }
 
+    .theme-cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
     .theme-card {
-        width: calc(33.3% - 7px);
+        width: auto;
+        min-width: 0;
     }
 
     .popover {
         left: 8px !important;
         right: 8px;
-        width: auto;
+        width: auto !important; 
     }
 
     .hide-xs {

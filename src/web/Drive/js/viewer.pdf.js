@@ -24,6 +24,9 @@
     var CSS_UNITS = 96 / 72;
     var ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
     var MAX_RENDERED = 24;
+    var SPREAD_GAP = 12;
+    //Narrower than this, two page spreads fall back to single pages
+    var SPREAD_MIN_WIDTH = 640;
 
     function ready() {
         return U.loadScript(BASE + "pdf.js?v=2.7.570").then(function () {
@@ -40,6 +43,7 @@
         }
         var st = {
             pdf: null, task: null, pages: [], count: 0, zoom: 1, mode: "auto", rot: 0, current: 1,
+            docSpread: "none", spread: null,
             destroyed: false, renderTimer: null, rendered: [], outline: null,
             find: { q: "", hits: [], at: -1, text: {} }
         };
@@ -68,6 +72,7 @@
             '<div class="vw-pill"><button class="vw-ic" data-t="out" title="' + esc(T("pv/zoomOut", "Zoom out")) + '">' + I("minimize") + '</button>' +
             '<button class="vw-pill-label" data-t="zoom" title="' + esc(T("vw/zoomOptions", "Zoom options")) + '">100%</button>' +
             '<button class="vw-ic" data-t="in" title="' + esc(T("pv/zoomIn", "Zoom in")) + '">' + I("plus") + '</button></div>' +
+            '<button class="vw-ic vw-hide-sm" data-t="layout" title="' + esc(T("vw/layout", "Page layout")) + '">' + I("spread") + '</button>' +
             '<button class="vw-ic vw-hide-sm" data-t="rotate" title="' + esc(T("pv/rotate", "Rotate")) + '">' + I("rotate") + '</button>' +
             '<button class="vw-ic" data-t="find" title="' + esc(T("vw/find", "Find in document")) + ' (Ctrl+F)">' + I("search") + '</button><span class="vw-sep vw-hide-sm"></span>';
         var zoomLabel = ctx.tools.querySelector('[data-t="zoom"]');
@@ -119,7 +124,11 @@
             }
             st.pdf = pdf;
             st.count = pdf.numPages;
-            return pdf.getPage(1).then(function (first) {
+            //Honour the /PageLayout the document asks for (e.g. a manual laid out as facing pages)
+            return pdf.getPageLayout().catch(function () { return ""; }).then(function (layout) {
+                st.docSpread = /^Two(Page|Column)Left$/.test(layout) ? "odd" : /^Two(Page|Column)Right$/.test(layout) ? "even" : "none";
+                return pdf.getPage(1);
+            }).then(function (first) {
                 st.base = first.getViewport({ scale: 1 });
                 build(first);
             });
@@ -140,7 +149,6 @@
                 var div = DriveUI.el('<div class="pdf-page" data-page="' + i + '"><div class="ph"><div class="vw-spin" style="width:22px;height:22px;border-width:2px;border-color:#ddd;border-top-color:#999"></div></div></div>');
                 var p = { n: i, div: div, viewport: i == 1 ? st.base : null, rotate: i == 1 ? first.rotate : 0, scale: 0, task: null, textDivs: null };
                 st.pages.push(p);
-                pagesEl.appendChild(div);
                 var t = DriveUI.el('<button class="pdf-thumb" data-page="' + i + '"><div class="pg" style="aspect-ratio:' + st.base.width + '/' + st.base.height + '"></div><span>' + i + '</span></button>');
                 t.addEventListener("click", (function (n) {
                     return function () {
@@ -154,6 +162,7 @@
             }
             nav.hidden = false;
             nav.querySelector("span").textContent = "/ " + st.count;
+            layoutPages();
             setZoomMode(mem.zoomMode || "auto", true);
             observe();
             ctx.setPrintable(true);
@@ -161,15 +170,79 @@
             main.focus();
         }
 
+        /* Page layout (single pages or two page spreads) ------------------------ */
+        function wantedSpread() {
+            var mode = mem.spreadMode || "auto";
+            var s = mode == "auto" ? st.docSpread : mode;
+            return main.clientWidth < SPREAD_MIN_WIDTH ? "none" : s;
+        }
+
+        //Puts the pages straight into the column, or two to a row. "odd" pairs
+        //1-2, 3-4...; "even" keeps page 1 (the cover) alone and pairs 2-3, 4-5...
+        function layoutPages() {
+            var s = wantedSpread();
+            if (s == st.spread) {
+                return false;
+            }
+            st.spread = s;
+            pagesEl.innerHTML = "";
+            var row = null;
+            st.pages.forEach(function (p) {
+                if (s == "none") {
+                    pagesEl.appendChild(p.div);
+                    return;
+                }
+                var starts = s == "odd" ? p.n % 2 == 1 : (p.n % 2 == 0 || p.n == 1);
+                if (!row || starts) {
+                    row = DriveUI.el('<div class="pdf-row"></div>');
+                    pagesEl.appendChild(row);
+                }
+                row.appendChild(p.div);
+            });
+            return true;
+        }
+
+        function relayout() {
+            var cur = st.current;
+            var changed = layoutPages();
+            if (changed || st.mode == "width" || st.mode == "page" || st.mode == "auto") {
+                setZoomMode(st.mode, changed);
+            }
+            if (changed) {
+                goToPage(cur);
+            }
+        }
+
+        function columns() {
+            return st.spread && st.spread != "none" ? 2 : 1;
+        }
+
+        //The first and last page of the row that shows page n
+        function rowOf(n) {
+            if (columns() == 1 || (n == 1 && st.spread == "even")) {
+                return [n, n];
+            }
+            var first = st.spread == "odd" ? n - (n + 1) % 2 : n - n % 2;
+            return [first, Math.min(st.count, first + 1)];
+        }
+
+        //Previous / next page, or spread when two pages share a row
+        function stepPage(dir) {
+            var r = rowOf(st.current);
+            goToPage(dir > 0 ? r[1] + 1 : rowOf(Math.max(1, r[0] - 1))[0]);
+        }
+
         /* Zoom ------------------------------------------------------------------ */
         function fitWidth() {
-            var w = main.clientWidth - 48;
-            return w / (st.base.width * CSS_UNITS * (st.rot % 180 ? st.base.height / st.base.width : 1));
+            var cols = columns();
+            var w = main.clientWidth - 48 - (cols - 1) * SPREAD_GAP;
+            return w / (cols * CSS_UNITS * (st.rot % 180 ? st.base.height : st.base.width));
         }
 
         function fitPage() {
-            var w = main.clientWidth - 48, h = main.clientHeight - 56;
-            var bw = (st.rot % 180 ? st.base.height : st.base.width) * CSS_UNITS;
+            var cols = columns();
+            var w = main.clientWidth - 48 - (cols - 1) * SPREAD_GAP, h = main.clientHeight - 56;
+            var bw = cols * (st.rot % 180 ? st.base.height : st.base.width) * CSS_UNITS;
             var bh = (st.rot % 180 ? st.base.width : st.base.height) * CSS_UNITS;
             return Math.min(w / bw, h / bh);
         }
@@ -183,7 +256,8 @@
             } else if (mode == "auto") {
                 setZoom(Math.min(fitWidth(), 1.25), initial);
             } else {
-                setZoom(parseFloat(mode), initial);
+                var z = parseFloat(mode);
+                setZoom(isNaN(z) ? st.zoom : z, initial);
             }
         }
 
@@ -449,8 +523,9 @@
                     thumbs.scrollTop += tr.top - rr.top - rr.height / 2 + tr.height / 2;
                 }
             }
-            nav.querySelector('[data-n="prev"]').disabled = st.current <= 1;
-            nav.querySelector('[data-n="next"]').disabled = st.current >= st.count;
+            var r = rowOf(st.current);
+            nav.querySelector('[data-n="prev"]').disabled = r[0] <= 1;
+            nav.querySelector('[data-n="next"]').disabled = r[1] >= st.count;
         }
 
         function goToPage(n, offsetY) {
@@ -473,8 +548,8 @@
             }).catch(function () { });
         }
 
-        nav.querySelector('[data-n="prev"]').addEventListener("click", function () { goToPage(st.current - 1); });
-        nav.querySelector('[data-n="next"]').addEventListener("click", function () { goToPage(st.current + 1); });
+        nav.querySelector('[data-n="prev"]').addEventListener("click", function () { stepPage(-1); });
+        nav.querySelector('[data-n="next"]').addEventListener("click", function () { stepPage(1); });
         navInput.addEventListener("keydown", function (e) {
             if (e.key == "Enter") {
                 var n = parseInt(navInput.value, 10);
@@ -496,11 +571,7 @@
             mem.rail = force === undefined ? !mem.rail : force;
             rail.classList.toggle("collapsed", !mem.rail);
             ctx.tools.querySelector('[data-t="rail"]').classList.toggle("on", mem.rail);
-            setTimeout(function () {
-                if (st.mode == "width" || st.mode == "page" || st.mode == "auto") {
-                    setZoomMode(st.mode);
-                }
-            }, 220);
+            setTimeout(relayout, 220);
         }
 
         ctx.body.querySelectorAll("[data-tab]").forEach(function (b) {
@@ -741,6 +812,20 @@
                     setZoomMode(st.mode);
                 } else if (t == "find") {
                     openFind();
+                } else if (t == "layout") {
+                    var cur = mem.spreadMode || "auto";
+                    var pickLayout = function (mode) {
+                        return function () {
+                            mem.spreadMode = mode;
+                            relayout();
+                        };
+                    };
+                    DriveUI.menu({ anchor: b }, [
+                        { checkable: true, checked: cur == "auto", label: T("vw/layoutAuto", "Automatic"), action: pickLayout("auto") },
+                        { checkable: true, checked: cur == "none", label: T("vw/layoutSingle", "Single page"), action: pickLayout("none") },
+                        { checkable: true, checked: cur == "odd", label: T("vw/layoutTwo", "Two pages"), action: pickLayout("odd") },
+                        { checkable: true, checked: cur == "even", label: T("vw/layoutCover", "Two pages, cover alone"), action: pickLayout("even") }
+                    ]);
                 } else if (t == "zoom") {
                     var pick = function (mode) {
                         return function () {
@@ -841,9 +926,9 @@
                 }
                 var k = e.key;
                 if (k == "ArrowRight" || k == "PageDown" || k == "n") {
-                    goToPage(st.current + 1);
+                    stepPage(1);
                 } else if (k == "ArrowLeft" || k == "PageUp" || k == "p") {
-                    goToPage(st.current - 1);
+                    stepPage(-1);
                 } else if (k == "Home") {
                     goToPage(1);
                 } else if (k == "End") {
@@ -867,11 +952,7 @@
                 return true;
             },
             print: print,
-            onResize: function () {
-                if (st.mode == "width" || st.mode == "page" || st.mode == "auto") {
-                    setZoomMode(st.mode);
-                }
-            },
+            onResize: relayout,
             destroy: function () {
                 st.destroyed = true;
                 clearTimeout(st.renderTimer);

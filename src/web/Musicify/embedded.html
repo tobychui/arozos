@@ -12,26 +12,29 @@
 	<script src="../script/ao_module.js"></script>
 	<style>
 		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+		/* Colours follow the Drive music player: a dark blue-grey stage under
+		   the blurred cover art, grey stroked icons, a white play disc and a
+		   blue accent for the progress and the active toggles. */
 		:root {
-			--bg:      #111114;
-			--bg2:     #18181e;
-			--bg3:     #1e1e27;
-			--border:  #2a2a38;
-			--accent:  #a855f7;
-			--accent2: #7c3aed;
-			--text:    #f0f0f5;
-			--text2:   #9090a8;
-			--text3:   #8c8c99;
-			--hover:   rgba(255,255,255,.055);
+			--stage:   #171c26;
+			--panel:   #121722;
+			--line:    rgba(255,255,255,.08);
+			--accent:  #5b93ff;
+			--text:    #e8ecf3;
+			--text2:   #9aa4b5;
+			--text3:   #6d7789;
+			--hover:   rgba(255,255,255,.12);
 		}
 		html, body {
 			height: 100%; overflow: hidden;
-			/* background: var(--bg); color: var(--text); */
 			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 			font-size: 13px;
 			background: transparent !important;
+			color: var(--text);
 		}
 		body { display: flex; flex-direction: column; }
+		button { font: inherit; }
+		.ic { width: 18px; height: 18px; display: block; flex: none; }
 
 		/* ── Player card ─────────────────────────────────────────────── */
 		#playerCard {
@@ -39,62 +42,75 @@
 			flex-shrink: 0;
 			overflow: hidden;
 			height: 224px;
+			background: var(--stage);
 		}
 		.bg-blur {
-			position: absolute; inset: 0;
+			position: absolute; inset: -40px;
 			background-size: cover; background-position: center;
-			filter: blur(4px) brightness(0.22);
-			transform: scale(1.5);
+			filter: blur(36px) saturate(1.4);
+			transform: scale(1.1);
 			transition: background-image 0.6s ease;
 			z-index: 0;
-			opacity: 0.85;
+			opacity: .38;
+			pointer-events: none;
 		}
 		.player-inner {
 			position: relative; z-index: 1;
 			padding: 13px 14px 10px;
-			display: flex; flex-direction: column; gap: 8px;
+			display: flex; flex-direction: column; gap: 5px;
 		}
 
 		/* Cover + meta */
 		.cover-meta { display: flex; align-items: center; gap: 12px; }
 		#coverArt {
-			width: 60px; height: 60px; border-radius: 8px;
+			width: 60px; height: 60px; border-radius: 10px;
 			object-fit: cover; flex-shrink: 0;
-			background: var(--bg3);
-			box-shadow: 0 4px 20px rgba(0,0,0,.6);
+			background: #222936;
+			box-shadow: 0 8px 24px rgba(0,0,0,.55);
 		}
 		.meta-col { flex: 1; min-width: 0; }
 		#songTitle {
-			font-size: 13px; font-weight: 700; color: var(--text);
+			font-size: 13.5px; font-weight: 700; color: var(--text); letter-spacing: -.1px;
 			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 		}
 		#artistLabel {
-			font-size: 11px; color: var(--text2);
+			font-size: 11.5px; color: var(--text2);
 			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 			margin-top: 2px;
 		}
 		#fileSize { font-size: 10px; color: var(--text3); margin-top: 2px; }
 
-		/* Seek */
-		.seek-row { display: flex; align-items: center; gap: 6px; }
-		.t { font-size: 10px; color: var(--text3); white-space: nowrap; min-width: 26px; }
+		/* Seek: a 4 px track that thickens on hover, knob only while pointing */
+		.seek-row { display: flex; align-items: center; gap: 8px; }
+		.t { font-size: 10.5px; color: var(--text2); white-space: nowrap; min-width: 26px; font-variant-numeric: tabular-nums; }
 		.t.right { text-align: right; }
 		#seekBar {
+			--track: 4px;
 			flex: 1; -webkit-appearance: none; appearance: none;
-			height: 23px; outline: none; cursor: pointer;
+			height: 23px; outline: none; cursor: pointer; background: transparent;
+		}
+		#seekBar:hover, #seekBar:active { --track: 6px; }
+		#seekBar::-webkit-slider-runnable-track {
+			height: var(--track); border-radius: 3px;
 			background: linear-gradient(to right,
 				var(--accent) 0%, var(--accent) var(--progress, 0%),
-				var(--border) var(--progress, 0%), var(--border) 100%)
-				center / 100% 3px no-repeat;
-		}
-		#seekBar::-webkit-slider-runnable-track {
-			height: 3px; background: transparent;
+				rgba(255,255,255,.22) var(--progress, 0%), rgba(255,255,255,.22) 100%);
 		}
 		#seekBar::-webkit-slider-thumb {
-			-webkit-appearance: none; width: 12px; height: 12px;
-			border-radius: 50%; background: var(--accent); cursor: pointer;
-			margin-top: -4.5px;
+			-webkit-appearance: none; width: 12px; height: 12px; border: 0;
+			border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+			margin-top: calc((var(--track) - 12px) / 2);
+			transform: scale(0); transition: transform .12s;
 		}
+		#seekBar:hover::-webkit-slider-thumb, #seekBar:active::-webkit-slider-thumb { transform: scale(1); }
+		#seekBar::-moz-range-track { height: var(--track); border-radius: 3px; background: rgba(255,255,255,.22); }
+		#seekBar::-moz-range-progress { height: var(--track); border-radius: 3px; background: var(--accent); }
+		#seekBar::-moz-range-thumb {
+			width: 12px; height: 12px; border: 0; border-radius: 50%;
+			background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+			transform: scale(0); transition: transform .12s;
+		}
+		#seekBar:hover::-moz-range-thumb, #seekBar:active::-moz-range-thumb { transform: scale(1); }
 
 		/* Controls */
 		.controls {
@@ -102,85 +118,96 @@
 		}
 		.ctrl-btn {
 			background: none; border: none; cursor: pointer;
-			color: var(--text2); font-size: 15px;
+			color: var(--text2);
 			width: 34px; height: 34px; border-radius: 50%;
 			display: flex; align-items: center; justify-content: center;
-			position: relative;
-			transition: color .12s, background .12s;
+			position: relative; flex: none;
+			transition: color .12s, background .12s, transform .12s;
 		}
-		.ctrl-btn:hover { color: var(--text); background: var(--hover); }
+		.ctrl-btn:hover { color: #fff; background: var(--hover); }
 		.ctrl-btn.active { color: var(--accent); }
 		.ctrl-btn.play-btn {
-			background: var(--accent); color: #fff;
-			width: 40px; height: 40px; font-size: 16px;
+			background: #fff; color: #111620;
+			width: 40px; height: 40px;
+			box-shadow: 0 6px 18px rgba(0,0,0,.35);
 		}
-		.ctrl-btn.play-btn:hover { background: var(--accent2); }
-		.repeat1-badge {
-			position: absolute; font-size: 8px; font-weight: 900;
-			bottom: 2px; right: 2px; color: var(--accent); line-height: 1;
-		}
+		.ctrl-btn.play-btn:hover { background: #fff; color: #111620; transform: scale(1.04); }
+		#playIcon { display: flex; align-items: center; justify-content: center; }
+		.ctrl-btn.play-btn .ic { width: 20px; height: 20px; }
+		.ctrl-btn.play-btn i.icon { margin: 0; font-size: 15px; line-height: 1; height: auto; }
 
 		/* Volume */
 		.vol-row { display: flex; align-items: center; gap: 6px; }
 		.vol-icon {
-			color: var(--text3); font-size: 12px; cursor: pointer;
-			flex-shrink: 0; display: flex; align-items: center;
+			color: var(--text2); cursor: pointer;
+			width: 22px; height: 22px; border-radius: 6px;
+			flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+			transition: color .12s;
 		}
+		.vol-icon:hover { color: #fff; }
+		.vol-icon .ic { width: 16px; height: 16px; }
 		#volBar {
 			flex: 1; -webkit-appearance: none; appearance: none;
-			height: 23px; outline: none; cursor: pointer;
-			background: linear-gradient(to right,
-				var(--accent) 0%, var(--accent) var(--vol, 60%),
-				var(--border) var(--vol, 60%), var(--border) 100%)
-				center / 100% 3px no-repeat;
+			height: 23px; outline: none; cursor: pointer; background: transparent;
 		}
 		#volBar::-webkit-slider-runnable-track {
-			height: 3px; background: transparent;
+			height: 4px; border-radius: 2px;
+			background: linear-gradient(to right,
+				#fff 0%, #fff var(--vol, 60%),
+				rgba(255,255,255,.25) var(--vol, 60%), rgba(255,255,255,.25) 100%);
 		}
 		#volBar::-webkit-slider-thumb {
-			-webkit-appearance: none; width: 10px; height: 10px;
-			border-radius: 50%; background: var(--accent); cursor: pointer;
-			margin-top: -3.5px;
+			-webkit-appearance: none; width: 12px; height: 12px; border: 0;
+			border-radius: 50%; background: #fff; margin-top: -4px;
 		}
+		#volBar::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,.25); }
+		#volBar::-moz-range-progress { height: 4px; border-radius: 2px; background: #fff; }
+		#volBar::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; }
 
 		/* Action buttons */
 		.action-row { display: flex; gap: 6px; margin-top: 0;}
 		.act-btn {
-			flex: 1; padding: 6px 8px;
-			background: var(--bg3); border: 1px solid var(--border);
-			border-radius: 7px; color: var(--text2);
-			font-size: 11px; cursor: pointer;
-			display: flex; align-items: center; justify-content: center; gap: 5px;
+			flex: 1; padding: 5px 8px;
+			background: rgba(255,255,255,.05); border: 1px solid var(--line);
+			border-radius: 9px; color: var(--text);
+			font-size: 11.5px; font-weight: 600; cursor: pointer;
+			display: flex; align-items: center; justify-content: center; gap: 6px;
 			transition: background .12s, color .12s, border-color .12s;
 		}
-		.act-btn:hover { background: var(--bg2); color: var(--accent); border-color: var(--accent); }
-		.act-btn i { margin: 0 !important; }
+		.act-btn:hover { background: var(--hover); border-color: rgba(255,255,255,.16); color: #fff; }
+		.act-btn .ic { width: 14px; height: 14px; color: var(--text2); }
 
 		/* Song list */
 		#songList {
 			flex: 1; overflow-y: auto; overflow-x: hidden;
-			background: var(--bg2);
-			border-top: 1px solid var(--border);
+			background: var(--panel);
+			border-top: 1px solid var(--line);
+			padding: 4px 6px 8px;
+			scrollbar-width: thin;
+			scrollbar-color: rgba(255,255,255,.16) transparent;
 		}
-		#songList::-webkit-scrollbar { width: 4px; }
-		#songList::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+		#songList::-webkit-scrollbar { width: 8px; }
+		#songList::-webkit-scrollbar-thumb {
+			background: rgba(255,255,255,.16); border-radius: 8px;
+			border: 2px solid transparent; background-clip: padding-box;
+		}
 		.list-item {
 			display: flex; align-items: center; gap: 10px;
-			padding: 8px 14px; cursor: pointer;
-			border-bottom: 1px solid var(--border);
-			color: var(--text2); font-size: 12px;
+			padding: 6px 8px; cursor: pointer;
+			border-radius: 9px;
+			color: var(--text); font-size: 12px;
 			transition: background .1s;
 		}
-		.list-item:hover { background: var(--hover); color: var(--text); }
-		.list-item.selected { background: rgba(168,85,247,.12); color: var(--accent); }
+		.list-item:hover { background: rgba(255,255,255,.08); }
+		.list-item.selected { background: rgba(59,124,246,.16); color: var(--accent); }
 		.list-item img {
-			width: 30px; height: 30px; border-radius: 4px;
-			object-fit: cover; flex-shrink: 0; background: var(--bg3);
+			width: 30px; height: 30px; border-radius: 6px;
+			object-fit: cover; flex-shrink: 0; background: #222936;
 		}
 		.list-item .li-name {
 			flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 		}
-		.list-item .li-size { font-size: 10px; color: var(--text3); flex-shrink: 0; }
+		.list-item .li-size { font-size: 10.5px; color: var(--text3); flex-shrink: 0; }
 	</style>
 </head>
 <body>
@@ -209,38 +236,33 @@
 			<!-- Playback controls -->
 			<div class="controls">
 				<button class="ctrl-btn" id="shuffleBtn" title="Shuffle" onclick="toggleShuffle()">
-					<i class="random icon" style="margin:0;"></i>
+					<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h3.5c2 0 3.2 1 4.3 2.7l2.4 4.6c1.1 1.7 2.3 2.7 4.3 2.7H21"/><path d="M3 17h3.5c1.4 0 2.4-.5 3.2-1.4M14.3 8.4c.8-.9 1.8-1.4 3.2-1.4H21"/><path d="M18.5 4.5 21 7l-2.5 2.5M18.5 14.5 21 17l-2.5 2.5"/></svg>
 				</button>
 				<button class="ctrl-btn" title="Previous" onclick="prevSong()">
-					<i class="step backward icon" style="margin:0;"></i>
+					<svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM19 5.5v13l-9.5-6.5z"/></svg>
 				</button>
 				<button class="ctrl-btn play-btn" id="playBtn" title="Play / Pause" onclick="togglePlay()">
-					<i class="pause icon" style="margin:0;" id="playIcon"></i>
+					<span id="playIcon"></span>
 				</button>
 				<button class="ctrl-btn" title="Next" onclick="nextSong()">
-					<i class="step forward icon" style="margin:0;"></i>
+					<svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM5 5.5v13l9.5-6.5z"/></svg>
 				</button>
-				<button class="ctrl-btn" id="repeatBtn" title="Repeat: off" onclick="cycleRepeat()">
-					<i class="redo alternate icon" style="margin:0;" id="repeatIcon"></i>
-					<span class="repeat1-badge" id="repeat1Badge" style="display:none;">1</span>
-				</button>
+				<button class="ctrl-btn" id="repeatBtn" title="Repeat: off" onclick="cycleRepeat()"></button>
 			</div>
 
 			<!-- Volume -->
 			<div class="vol-row">
-				<span class="vol-icon" onclick="toggleMute()">
-					<i class="volume up icon" style="margin:0;" id="volIconEl"></i>
-				</span>
-				<input type="range" id="volBar" min="0" max="100" value="60">
+				<span class="vol-icon" id="volIconEl" onclick="toggleMute()" title="Mute"></span>
+				<input type="range" id="volBar" min="0" max="100" value="60" aria-label="Volume">
 			</div>
 
 			<!-- Action row -->
 			<div class="action-row">
 				<button class="act-btn" onclick="openInMusicify()" title="Open folder in Musicify">
-					<i class="music icon"></i><span>Open in Musicify</span>
+					<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Open in Musicify</span>
 				</button>
 				<button class="act-btn" id="listToggleBtn" onclick="toggleList()">
-					<i class="list icon"></i><span id="listBtnLabel">Show List</span>
+					<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg><span id="listBtnLabel">Show List</span>
 				</button>
 			</div>
 		</div>
@@ -266,6 +288,28 @@
 		var repeatMode  = 'none'; // 'none' | 'all' | 'one'
 		var isMuted     = false;
 		var savedVol    = 0;
+
+		// ── Icons (the stroked 24px set of the Drive music player) ────────
+		function strokeIcon(body) {
+			return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+				'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + body + '</svg>';
+		}
+		var ICON_PLAY  = strokeIcon('<path d="M8 5.5v13l10-6.5z"/>');
+		var ICON_PAUSE = strokeIcon('<path d="M9 6v12M15 6v12"/>');
+
+		function repeatIconSVG(mode) {
+			return strokeIcon('<path d="M4 11V9a3 3 0 0 1 3-3h12"/><path d="M16 3l3 3-3 3"/>' +
+				'<path d="M20 13v2a3 3 0 0 1-3 3H5"/><path d="M8 21l-3-3 3-3"/>' +
+				(mode === 'one' ? '<text x="12" y="14.6" text-anchor="middle" font-size="7.5" font-weight="700" ' +
+					'fill="currentColor" stroke="none" font-family="Segoe UI,Arial,sans-serif">1</text>' : ''));
+		}
+
+		function volumeIconSVG(fraction) {
+			var waves = fraction === 0 ? '<path d="M16 9.5l5 5M21 9.5l-5 5"/>' :
+				fraction < 0.5 ? '<path d="M15.5 9.2a4 4 0 0 1 0 5.6"/>' :
+				'<path d="M15.5 9.2a4 4 0 0 1 0 5.6M18.3 6.6a7.6 7.6 0 0 1 0 10.8"/>';
+			return strokeIcon('<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="currentColor"/>' + waves);
+		}
 
 		// ── Safari fallback: full-buffer 48kHz transcode ─────────────────────
 		// Safari's <audio> element can silently get stuck on some formats it
@@ -339,10 +383,8 @@
 		// track — without this the player looks stuck in the exact way this
 		// fallback exists to avoid.
 		function setBuffering(isBuffering) {
-			var icon = document.getElementById('playIcon');
 			if (isBuffering) {
-				icon.className = 'notched circle loading icon';
-				icon.style.margin = '0';
+				document.getElementById('playIcon').innerHTML = '<i class="notched circle loading icon"></i>';
 			} else {
 				syncPlayIcon();
 			}
@@ -357,6 +399,8 @@
 		var initVol   = storedVol !== null ? parseFloat(storedVol) : 0.6;
 		player.volume = Math.max(0, Math.min(1, isNaN(initVol) ? 0.6 : initVol));
 		setVolumeUI(player.volume);
+		syncPlayIcon();
+		updateRepeatUI();
 
 		// Restore prefs from server (cross-device sync)
 		ao_module_storage.loadStorage("Musicify", "emb_repeat", function(val) {
@@ -477,7 +521,7 @@
 				_coverProbe = null;
 				coverEl.src = 'img/placeholder.png';
 				bgBlur.style.backgroundImage = 'none';
-				bgBlur.style.backgroundColor = '#323232';
+				bgBlur.style.backgroundColor = '';
 			};
 			probe.src = url;
 			ao_module_setWindowTitle(song.name);
@@ -583,9 +627,7 @@
 		});
 
 		function syncPlayIcon() {
-			var i = document.getElementById('playIcon');
-			i.className = (player.paused ? 'play' : 'pause') + ' icon';
-			i.style.margin = '0';
+			document.getElementById('playIcon').innerHTML = player.paused ? ICON_PLAY : ICON_PAUSE;
 		}
 
 		// ── Seek ──────────────────────────────────────────────────────────
@@ -606,10 +648,7 @@
 			var pct = Math.round(fraction * 100);
 			document.getElementById('volBar').value = pct;
 			document.getElementById('volBar').style.setProperty('--vol', pct + '%');
-			var icon = document.getElementById('volIconEl');
-			icon.className = (fraction === 0 ? 'volume off' :
-			                  fraction < 0.4  ? 'volume down' : 'volume up') + ' icon';
-			icon.style.margin = '0';
+			document.getElementById('volIconEl').innerHTML = volumeIconSVG(fraction);
 		}
 
 		function toggleMute() {
@@ -663,9 +702,8 @@
 
 		function updateRepeatUI() {
 			var btn   = document.getElementById('repeatBtn');
-			var badge = document.getElementById('repeat1Badge');
 			btn.classList.toggle('active', repeatMode !== 'none');
-			badge.style.display = repeatMode === 'one' ? 'block' : 'none';
+			btn.innerHTML = repeatIconSVG(repeatMode);
 			btn.title = repeatMode === 'none' ? 'Repeat: off' :
 			            repeatMode === 'all'  ? 'Repeat: all' : 'Repeat: one';
 		}

@@ -1375,6 +1375,14 @@ button.vw-pill-label:hover {
     min-width: max-content;
 }
 
+.pdf-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 12px;
+    flex: none;
+}
+
 .pdf-page {
     position: relative;
     background: #fff;

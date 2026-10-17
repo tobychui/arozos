@@ -80,6 +80,8 @@ function musicifyApp() {
         volume: 80,
         isMuted: false,
         forceShowVolumeControl: false, // user override: force-show the in-app volume slider on mobile devices
+        scrollLongTitles: true, // Now Playing: scroll a title too long for one line instead of cutting it off
+        npNoArt: false,         // Now Playing: the current track has no cover art (purple theme)
         shuffle: false,
         repeat: 'none',         // 'none' | 'all' | 'one'
         showQueue: false,
@@ -136,6 +138,8 @@ function musicifyApp() {
         _vizData: null,
         _vizAnimId: null,
         _syntheticViz: false,          // iOS: animate the bars without Web Audio so screen-lock doesn't stop playback
+        spectrumSupported: false,      // Now Playing spectrum bars (hidden where Web Audio can't be used)
+        _spectrumIdleKey: '',          // size of the last idle spectrum frame, so a paused one isn't repainted
 
         // ── Arozcast ─────────────────────────────────────────────────────────
         castMode: false,
@@ -239,6 +243,13 @@ function musicifyApp() {
                 this._audio.volume = 1;
             }
 
+            // Long title scrolling (on unless turned off in Settings)
+            var _savedScrollTitles = localStorage.getItem('musicify_scrollLongTitles');
+            if (_savedScrollTitles !== null) {
+                this.scrollLongTitles = (_savedScrollTitles === 'true');
+            }
+            this.$watch('currentTrack', () => this.$nextTick(() => this._updateTitleMarquee()));
+
             // Restore shuffle / repeat / recently-played from server-side prefs
             // (cross-device: stored per user, not per browser)
             ao_module_storage.loadStorage("Musicify", "shuffle", function(val) {
@@ -276,6 +287,10 @@ function musicifyApp() {
                 this._updateVizColor(this.currentTrack);
                 this._startVizLoop();
             }
+
+            // Now Playing spectrum: real Web Audio analysis only, so it is left
+            // out wherever routing playback through Web Audio is not safe (iOS).
+            this.spectrumSupported = !this._webAudioUnsafe() && !!(window.AudioContext || window.webkitAudioContext);
 
             // MediaSession
             this._setupMediaSession();
@@ -339,6 +354,7 @@ function musicifyApp() {
                 resizeT = setTimeout(() => {
                     this._updateLandscapeState();
                     if (window.innerWidth <= 768 || this.isMobileLandscape) this.sidebarOpen = false;
+                    this._updateTitleMarquee();
                 }, 150);
             });
             window.addEventListener('orientationchange', () => this._updateLandscapeState());
@@ -1301,6 +1317,13 @@ function musicifyApp() {
             return /Android/.test(navigator.userAgent);
         },
 
+        // iOS suspends a Web Audio graph when the screen locks, which would stop
+        // background playback once the <audio> element is routed through it.
+        // iPadOS reports a desktop Mac user agent, so it is caught by touch support.
+        _webAudioUnsafe() {
+            return this._isIOS() || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        },
+
         _isMobile() {
             return this._isIOS() || this._isAndroid();
         },
@@ -1654,6 +1677,38 @@ function musicifyApp() {
             event.target.onerror = null;
         },
 
+        // ── Long title scrolling ─────────────────────────────────────────────
+        saveScrollLongTitles() {
+            localStorage.setItem('musicify_scrollLongTitles', String(this.scrollLongTitles));
+            this._updateTitleMarquee();
+        },
+
+        // Turns the Now Playing title into a looping marquee when it does not fit
+        // on one line. The second copy trails the first by a fixed gap, and the
+        // strip slides exactly one copy's width, so every pass ends where it began.
+        _updateTitleMarquee() {
+            var box = document.querySelector('.now-playing-overlay .np-title');
+            var text = box ? box.querySelector('.np-mq-text') : null;
+            if (!box || !text) return;
+            var range = document.createRange();
+            range.selectNodeContents(text);
+            var textW = range.getBoundingClientRect().width;
+            var scroll = this.scrollLongTitles && box.clientWidth > 0 && textW > box.clientWidth + 1;
+            if (scroll) {
+                var travel = textW + 56;    // text + the gap (.np-mq-text padding)
+                box.style.setProperty('--np-mq-shift', (-travel) + 'px');
+                // About 32 px/s while moving; the first 15% of a pass is a rest
+                box.style.setProperty('--np-mq-dur', (travel / 32 / 0.85).toFixed(1) + 's');
+            }
+            // A new title restarts the pass from the beginning
+            if (scroll && box._mqText !== text.textContent) {
+                box.classList.remove('scrolling');
+                void box.offsetWidth;
+            }
+            box._mqText = scroll ? text.textContent : '';
+            box.classList.toggle('scrolling', scroll);
+        },
+
         // ── Privacy / Audio Visualizer Mode ──────────────────────────────────
         savePrivacyVisualizerMode() {
             localStorage.setItem('musicify_privacyVisualizer', String(this.privacyVisualizerMode));
@@ -1661,10 +1716,10 @@ function musicifyApp() {
                 this._ensureAnalyser();
                 if (this._audioCtx && this._audioCtx.state === 'suspended') this._audioCtx.resume().catch(() => {});
                 this._updateVizColor(this.currentTrack);
-                this._startVizLoop();
+                this._syncVizLoop();
                 this._showToast('Privacy Mode: album art hidden');
             } else {
-                this._stopVizLoop();
+                this._syncVizLoop();
                 this._showToast('Privacy Mode: album art shown');
             }
         },
@@ -1679,7 +1734,7 @@ function musicifyApp() {
             // suspends when the screen locks — stopping background audio. Skip Web
             // Audio there and drive the bars with a synthetic animation instead, so
             // playback behaves exactly like non-privacy mode.
-            if (this._isIOS()) {
+            if (this._webAudioUnsafe()) {
                 this._syntheticViz = true;
                 return;
             }
@@ -1688,14 +1743,28 @@ function musicifyApp() {
                 this._audioCtx = new AudioCtx();
                 var source = this._audioCtx.createMediaElementSource(this._audio);
                 this._analyser = this._audioCtx.createAnalyser();
-                this._analyser.fftSize = 64;
-                this._analyser.smoothingTimeConstant = 0.8;
+                // 128 bins for the Now Playing spectrum; the privacy bars fold
+                // them back into the 32 bands they were tuned on.
+                this._analyser.fftSize = 256;
+                this._analyser.smoothingTimeConstant = 0.78;
                 source.connect(this._analyser);
                 this._analyser.connect(this._audioCtx.destination);
                 this._vizData = new Uint8Array(this._analyser.frequencyBinCount);
+                if (this._audioCtx.state === 'suspended') this._audioCtx.resume().catch(() => {});
             } catch (e) {
                 if (MUSICIFY_DEBUG) console.warn('[Musicify] visualizer unavailable', e);
                 this._analyser = null;
+                this.spectrumSupported = false;
+            }
+        },
+
+        // Runs the animation loop only while something on screen draws from it:
+        // the privacy bars, or the spectrum of an open Now Playing overlay.
+        _syncVizLoop() {
+            if (this.privacyVisualizerMode || (this.showNowPlaying && this.spectrumSupported)) {
+                this._startVizLoop();
+            } else {
+                this._stopVizLoop();
             }
         },
 
@@ -1713,17 +1782,27 @@ function musicifyApp() {
         },
 
         _renderViz() {
+            if (this._analyser && this._vizData) this._analyser.getByteFrequencyData(this._vizData);
+            if (this.privacyVisualizerMode) this._renderPrivacyViz();
+            if (this.showNowPlaying && this.spectrumSupported) {
+                this._paintSpectrum(document.getElementById('np-spectrum'), this.isPlaying && !!this._analyser);
+            }
+        },
+
+        _renderPrivacyViz() {
             var bars = 27;
             var mid = Math.floor(bars / 2);
             var heights = new Array(bars);
             if (this._analyser && this._vizData) {
-                this._analyser.getByteFrequencyData(this._vizData);
-                var binCount = this._vizData.length;
-                var step = Math.max(1, Math.floor(binCount / (mid + 2)));
+                var group = Math.max(1, Math.floor(this._vizData.length / 32));
+                var bands = Math.floor(this._vizData.length / group);
+                var step = Math.max(1, Math.floor(bands / (mid + 2)));
                 for (var i = 0; i < bars; i++) {
                     var dist = Math.abs(i - mid);
-                    var idx = Math.min(binCount - 1, dist * step);
-                    heights[i] = Math.max(0.06, this._vizData[idx] / 255);
+                    var band = Math.min(bands - 1, dist * step);
+                    var sum = 0;
+                    for (var g = 0; g < group; g++) sum += this._vizData[band * group + g];
+                    heights[i] = Math.max(0.06, sum / group / 255);
                 }
             } else if (this._syntheticViz) {
                 // iOS fallback: procedurally animated, center-weighted bars that
@@ -1765,6 +1844,55 @@ function musicifyApp() {
                 this._roundRectPath(ctx, x, y, barW, bh, barW / 2);
                 ctx.fill();
             }
+        },
+
+        // Now Playing spectrum, drawn like the Drive music player: 48 bars rising
+        // from the bottom, a blue-to-violet gradient, quiet bars more transparent.
+        _paintSpectrum(canvas, live) {
+            if (!canvas || !canvas.offsetParent) return;
+            var dpr = window.devicePixelRatio || 1;
+            var w = canvas.clientWidth, h = canvas.clientHeight;
+            if (!w || !h) return;
+            if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+                canvas.width = Math.round(w * dpr);
+                canvas.height = Math.round(h * dpr);
+            }
+            // While paused every bar rests at its floor: paint that frame once
+            var key = canvas.width + 'x' + canvas.height + (this.npNoArt ? 'p' : 'b');
+            if (!live && this._spectrumIdleKey === key) return;
+            this._spectrumIdleKey = live ? '' : key;
+
+            var ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            var bars = 48, gap = 3;
+            var bw = (w - gap * (bars - 1)) / bars;
+            var grad = ctx.createLinearGradient(0, h, 0, 0);
+            // Blue to violet, or light purple to pink with the no-cover theme
+            grad.addColorStop(0, this.npNoArt ? 'rgba(168,120,255,.9)' : 'rgba(91,147,255,.9)');
+            grad.addColorStop(1, this.npNoArt ? 'rgba(240,120,210,.9)' : 'rgba(190,120,255,.9)');
+            ctx.fillStyle = grad;
+            var data = this._vizData;
+            for (var i = 0; i < bars; i++) {
+                var v = 0;
+                if (live && data) {
+                    // Lower bins carry most of the energy: spread them out
+                    v = data[Math.floor(Math.pow(i / bars, 1.6) * (data.length * 0.85))] / 255;
+                }
+                var bh = Math.max(3, v * h);
+                var x = i * (bw + gap);
+                var r = Math.min(3, bw / 2);
+                ctx.globalAlpha = 0.35 + v * 0.65;
+                ctx.beginPath();
+                ctx.moveTo(x + r, h - bh);
+                ctx.arcTo(x + bw, h - bh, x + bw, h, r);
+                ctx.lineTo(x + bw, h);
+                ctx.lineTo(x, h);
+                ctx.arcTo(x, h - bh, x + bw, h - bh, r);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
         },
 
         _roundRectPath(ctx, x, y, w, h, r) {
@@ -1903,10 +2031,12 @@ function musicifyApp() {
                 }else{
                     $("#open-in-embedded").show();
                 }
-                this.$nextTick(() => {
+                // x-show reveals the section on the next animation frame, which
+                // comes after $nextTick: measure the scroll height one frame later.
+                this.$nextTick(() => requestAnimationFrame(() => {
                     var c = document.querySelector('.now-playing-overlay .np-content');
                     if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
-                });
+                }));
             }
         },
 
@@ -1924,11 +2054,17 @@ function musicifyApp() {
             this.showTrackInfo = false;   // start collapsed
             this.trackInfoSong = this.currentTrack;
             this.showNowPlaying = true;
+            // Opening the overlay is a user gesture, so the AudioContext the
+            // spectrum needs can start running right away.
+            if (this.spectrumSupported) this._ensureAnalyser();
+            this._syncVizLoop();
             this.$nextTick(() => {
                 var c = overlay ? overlay.querySelector('.np-content') : null;
                 if (c) c.scrollTop = 0;
                 if (overlay) overlay.style.top = (mc.scrollTop) + 'px'; // readjust after content is revealed
                 this.updateQueuePanelPosition();
+                // x-show reveals the overlay on the next frame: measure the title then
+                requestAnimationFrame(() => this._updateTitleMarquee());
             });
             
         },
@@ -1945,6 +2081,7 @@ function musicifyApp() {
             this.showNowPlaying = false;
             this.showTrackInfo = false;
             this._npSwipeDir = '';
+            this._syncVizLoop();
             var mc = document.getElementById('mainContent');
             if (mc) mc.style.overflow = '';
             this.$nextTick(() => {
