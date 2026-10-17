@@ -1,0 +1,368 @@
+/*
+    Gerber Viewer - read Gerber / Excellon data from the ArozOS file system
+
+    Archives are unpacked here on the server with ziplib, so the browser only
+    ever receives the text of the CAM files it needs.
+
+    POST opr:
+        open      paths=JSON array of vpaths (archives, folders or single files)
+                  -> {name, files:[{name, path, size, mtime, content}], skipped:[{name, reason}]}
+        read      path=vpath   -> one file, used to reload a single layer
+        siblings  path=vpath   -> other CAM files in the same folder as path
+*/
+
+requirelib("filelib");
+requirelib("ziplib");
+
+var MAX_FILE = 32 * 1024 * 1024;        //one CAM file
+var MAX_TOTAL = 96 * 1024 * 1024;       //everything returned by one request
+var MAX_FILES = 300;
+var MAX_EXPANDED = 512 * 1024 * 1024;   //uncompressed size of the CAM entries of an archive
+var MAX_TAR = 64 * 1024 * 1024;         //tar archives cannot be listed before extraction
+
+var ARCHIVES = ["zip", "7z", "tar", "gz", "tgz"];
+
+//File types that are never CAM data, skipped without being read
+var NOT_CAM = ["pdf", "png", "jpg", "jpeg", "gif", "bmp", "svg", "webp", "zip", "7z", "rar", "gz", "tgz", "tar",
+    "step", "stp", "wrl", "igs", "iges", "stl", "xls", "xlsx", "csv", "doc", "docx", "htm", "html", "json", "xml",
+    "sch", "brd", "pcbdoc", "schdoc", "prjpcb", "lib", "ipc", "rep", "apr", "drr", "log", "ini", "md", "exe", "dll",
+    "kicad_pcb", "kicad_sch", "kicad_pro", "kicad_prl", "mp4", "mp3", "db"];
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+//code lets the front end show the message in the user's language
+function fail(msg, code) {
+    sendJSONResp(JSON.stringify({ error: msg, code: code || "" }));
+}
+
+function skip(out, name, code, reason) {
+    out.skipped.push({ name: name, code: code, reason: reason });
+}
+
+function baseName(p) {
+    p = String(p).replace(/\/+$/, "");
+    var i = p.lastIndexOf("/");
+    return i < 0 ? p : p.substring(i + 1);
+}
+
+function extOf(p) {
+    var b = baseName(p).toLowerCase();
+    var i = b.lastIndexOf(".");
+    return i < 0 ? "" : b.substring(i + 1);
+}
+
+function isArchive(p) {
+    var lower = String(p).toLowerCase();
+    if (/\.tar\.gz$/.test(lower)) {
+        return true;
+    }
+    return ARCHIVES.indexOf(extOf(p)) >= 0;
+}
+
+function isCandidate(name) {
+    var b = baseName(name);
+    if (b === "" || b.charAt(0) === "." || /(^|\/)__MACOSX\//i.test(name)) {
+        return false;
+    }
+    return NOT_CAM.indexOf(extOf(b)) < 0;
+}
+
+//Same sniffing rules as js/layers.js, kept loose: the client parses properly
+function looksLikeCAM(text) {
+    var head = String(text).substring(0, 4096);
+    if (/%FS[LTD]?[AI]?/.test(head) || /%MO(MM|IN)/.test(head) || /%ADD\d+/.test(head)) {
+        return true;
+    }
+    if (/^\s*M48\b/m.test(head)) {
+        return true;
+    }
+    if (/^T\d+C[\d.]+/m.test(head)) {
+        return true;
+    }
+    return /G0?4[^*]*\*/.test(head) && /D0?[123]\*/.test(String(text).substring(0, 65536));
+}
+
+function newResult(name) {
+    return { name: name, files: [], skipped: [], total: 0 };
+}
+
+//source: the archive a temporary file came from, reported instead of vpath
+function readCandidate(vpath, displayName, out, source) {
+    if (out.files.length >= MAX_FILES) {
+        skip(out, displayName, "toomany", "Too many files");
+        return;
+    }
+    var size = filelib.filesize(vpath);
+    if (size > MAX_FILE) {
+        skip(out, displayName, "toolarge", "File is larger than 32 MB");
+        return;
+    }
+    if (out.total + size > MAX_TOTAL) {
+        skip(out, displayName, "projecttoolarge", "Project is larger than 96 MB");
+        return;
+    }
+    var content = filelib.readFile(vpath);
+    if (content === null || content === false || !looksLikeCAM(content)) {
+        skip(out, displayName, "notcam", "Not a Gerber or drill file");
+        return;
+    }
+    out.total += size;
+    out.files.push({
+        name: displayName,
+        path: source ? source + "#" + displayName : vpath,
+        size: size,
+        mtime: filelib.mtime(source || vpath, true),
+        content: content
+    });
+}
+
+function readFolder(vpath, out, prefix) {
+    var entries = filelib.readdir(vpath, "default");
+    for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (e.IsDir) {
+            continue;
+        }
+        if (!isCandidate(e.Filename)) {
+            if (!isArchive(e.Filename)) {
+                skip(out, prefix + e.Filename, "notcam", "Not a Gerber or drill file");
+            }
+            continue;
+        }
+        readCandidate(e.Filepath, prefix + e.Filename, out);
+    }
+}
+
+//Flatten the JSON tree from listZipFileContents into [{path, size}]
+function flattenTree(node, prefix, list) {
+    if (!node || !node.children) {
+        return;
+    }
+    for (var key in node.children) {
+        var child = node.children[key];
+        var p = prefix === "" ? child.name : prefix + "/" + child.name;
+        if (child.isDir) {
+            flattenTree(child, p, list);
+        } else {
+            list.push({ path: p, size: child.size || 0 });
+        }
+    }
+}
+
+function dirOf(p) {
+    var i = p.lastIndexOf("/");
+    return i < 0 ? "" : p.substring(0, i);
+}
+
+//Remove a temporary extraction folder (deleteFile does not recurse)
+function removeTree(dir) {
+    try {
+        var files = filelib.walk(dir, "file");
+        for (var i = 0; i < files.length; i++) {
+            filelib.deleteFile(files[i]);
+        }
+        var folders = filelib.walk(dir, "folder");
+        folders.sort(function (a, b) { return b.length - a.length; });
+        for (var j = 0; j < folders.length; j++) {
+            if (filelib.fileExists(folders[j])) {
+                filelib.deleteFile(folders[j]);
+            }
+        }
+        if (filelib.fileExists(dir)) {
+            filelib.deleteFile(dir);
+        }
+    } catch (e) {
+        //Leftovers in tmp:/ are cleared by the system's tmp cleanup
+    }
+}
+
+function readArchive(vpath, out) {
+    var type = ziplib.getCompressFileType(vpath);
+    var tmpRoot = "tmp:/GerberViewer";
+    if (!filelib.fileExists(tmpRoot)) {
+        filelib.mkdir(tmpRoot);
+    }
+    var tmp = tmpRoot + "/" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+    filelib.mkdir(tmp);
+    try {
+        if (type === "zip" || type === "7z") {
+            var list = [];
+            flattenTree(JSON.parse(ziplib.listZipFileContents(vpath)), "", list);
+            //Group the wanted entries per folder: a partial extract flattens to
+            //base names, so each folder goes to its own temporary sub folder
+            var byDir = {};
+            var expanded = 0;
+            for (var i = 0; i < list.length; i++) {
+                var entry = list[i];
+                if (!isCandidate(entry.path)) {
+                    if (baseName(entry.path).charAt(0) !== "." && !/__MACOSX/i.test(entry.path)) {
+                        skip(out, entry.path, "notcam", "Not a Gerber or drill file");
+                    }
+                    continue;
+                }
+                if (entry.size > MAX_FILE) {
+                    skip(out, entry.path, "toolarge", "File is larger than 32 MB");
+                    continue;
+                }
+                expanded += entry.size;
+                if (expanded > MAX_EXPANDED) {
+                    throw { code: "expanded", msg: "The archive expands to more than 512 MB of CAM data" };
+                }
+                var d = dirOf(entry.path);
+                if (!byDir[d]) {
+                    byDir[d] = [];
+                }
+                byDir[d].push(entry.path);
+            }
+            var n = 0;
+            for (var dir in byDir) {
+                var dest = tmp + "/" + n;
+                filelib.mkdir(dest);
+                if (type === "zip") {
+                    ziplib.extractPartialZip(vpath, byDir[dir], dest);
+                } else {
+                    ziplib.extractPartial7z(vpath, byDir[dir], dest);
+                }
+                for (var k = 0; k < byDir[dir].length; k++) {
+                    var inner = byDir[dir][k];
+                    var extracted = dest + "/" + baseName(inner);
+                    if (filelib.fileExists(extracted)) {
+                        readCandidate(extracted, inner, out, vpath);
+                    }
+                }
+                n++;
+            }
+        } else if (type === "tar" || type === "tar.gz" || type === "gz") {
+            if (filelib.filesize(vpath) > MAX_TAR) {
+                throw { code: "tartoolarge", msg: "Tar archives larger than 64 MB are not supported" };
+            }
+            ziplib.extractAnyFile(vpath, tmp + "/");
+            var files = filelib.walk(tmp, "file");
+            for (var f = 0; f < files.length; f++) {
+                var rel = files[f].substring(tmp.length + 1);
+                if (isCandidate(rel)) {
+                    readCandidate(files[f], rel, out, vpath);
+                } else {
+                    skip(out, rel, "notcam", "Not a Gerber or drill file");
+                }
+            }
+        } else {
+            throw { code: "archivetype", msg: "Unsupported archive type" };
+        }
+    } finally {
+        removeTree(tmp);
+    }
+}
+
+function projectName(paths) {
+    var first = paths[0];
+    var b = baseName(first);
+    if (paths.length > 1 && !filelib.isDir(first)) {
+        b = baseName(dirOf(first));
+    }
+    return b.replace(/\.(zip|7z|tar\.gz|tgz|tar|gz)$/i, "");
+}
+
+function openPaths() {
+    var raw = param("paths", "[]");
+    var paths;
+    try {
+        paths = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (e) {
+        fail("Invalid path list", "badpaths");
+        return;
+    }
+    if (!paths || paths.length === 0) {
+        fail("Nothing to open", "nothing");
+        return;
+    }
+    var out = newResult(projectName(paths));
+    for (var i = 0; i < paths.length; i++) {
+        var p = String(paths[i]);
+        if (!filelib.fileExists(p)) {
+            skip(out, baseName(p), "notfound", "File not found");
+            continue;
+        }
+        try {
+            if (filelib.isDir(p)) {
+                readFolder(p, out, paths.length > 1 ? baseName(p) + "/" : "");
+            } else if (isArchive(p)) {
+                readArchive(p, out);
+            } else {
+                readCandidate(p, baseName(p), out);
+            }
+        } catch (e) {
+            if (e && e.code) {
+                skip(out, baseName(p), e.code, e.msg);
+            } else {
+                skip(out, baseName(p), "error", String(e));
+            }
+        }
+    }
+    delete out.total;
+    sendJSONResp(JSON.stringify(out));
+}
+
+function readOne() {
+    var p = String(param("path", ""));
+    if (p === "" || !filelib.fileExists(p) || filelib.isDir(p)) {
+        fail("File not found", "notfound");
+        return;
+    }
+    var out = newResult(baseName(p));
+    readCandidate(p, baseName(p), out);
+    if (out.files.length === 0) {
+        fail(out.skipped.length ? out.skipped[0].reason : "Unable to read file", out.skipped.length ? out.skipped[0].code : "readfail");
+        return;
+    }
+    sendJSONResp(JSON.stringify(out.files[0]));
+}
+
+function siblings() {
+    var p = String(param("path", ""));
+    var dir = dirOf(p);
+    if (dir === "" || !filelib.isDir(dir)) {
+        sendJSONResp(JSON.stringify([]));
+        return;
+    }
+    var found = [];
+    var entries = filelib.readdir(dir, "default");
+    for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (e.IsDir || e.Filepath === p || !isCandidate(e.Filename) || e.Filesize > MAX_FILE) {
+            continue;
+        }
+        //Only sniff the head of each file
+        var content = filelib.readFile(e.Filepath);
+        if (content && looksLikeCAM(content)) {
+            found.push({ name: e.Filename, path: e.Filepath, size: e.Filesize });
+        }
+        if (found.length >= 60) {
+            break;
+        }
+    }
+    sendJSONResp(JSON.stringify(found));
+}
+
+var opr = param("opr", "");
+if (opr === "open") {
+    openPaths();
+} else if (opr === "read") {
+    readOne();
+} else if (opr === "siblings") {
+    siblings();
+} else {
+    fail("Unknown operation", "badop");
+}

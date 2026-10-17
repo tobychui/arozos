@@ -1,0 +1,77 @@
+/*
+    Gerber Viewer - save exported files (images, SVG, reports, project zips)
+    into the ArozOS file system
+
+    Sent as a JSON body, because a hex encoded image can exceed the size
+    limit of an url-encoded form.
+
+    POST opr:
+        writeText    path=vpath, content=text
+        writeBinary  path=vpath, hex=lowercase hex string
+*/
+
+requirelib("filelib");
+
+var MAX_TEXT = 48 * 1024 * 1024;
+var MAX_HEX = 96 * 1024 * 1024;     //48 MB of binary data
+var ALLOWED = ["png", "jpg", "jpeg", "svg", "csv", "txt", "zip", "json", "gbr", "drl"];
+
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function reply(obj) {
+    sendJSONResp(JSON.stringify(obj));
+}
+
+function extOf(p) {
+    var b = String(p).split("/").pop().toLowerCase();
+    var i = b.lastIndexOf(".");
+    return i < 0 ? "" : b.substring(i + 1);
+}
+
+function parentOf(p) {
+    var i = p.lastIndexOf("/");
+    return i < 0 ? "" : p.substring(0, i);
+}
+
+var opr = param("opr", "");
+var path = String(param("path", ""));
+
+if (path === "" || path.indexOf(":/") < 0 || /(^|\/)\.\.(\/|$)/.test(path)) {
+    reply({ error: "Invalid destination path", code: "badpath" });
+} else if (ALLOWED.indexOf(extOf(path)) < 0) {
+    reply({ error: "This file type cannot be saved by Gerber Viewer", code: "badtype" });
+} else if (!pathCanWrite(path)) {
+    reply({ error: "You do not have permission to write to this location", code: "denied" });
+} else if (parentOf(path) !== "" && !filelib.isDir(parentOf(path))) {
+    reply({ error: "The destination folder does not exist", code: "nofolder" });
+} else if (opr === "writeText") {
+    var content = String(param("content", ""));
+    if (content.length > MAX_TEXT) {
+        reply({ error: "File too large", code: "toolarge" });
+    } else if (filelib.writeFile(path, content)) {
+        reply({ ok: true, path: path });
+    } else {
+        reply({ error: "Unable to write the file", code: "writefail" });
+    }
+} else if (opr === "writeBinary") {
+    var hex = String(param("hex", ""));
+    if (hex.length > MAX_HEX || hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex.substring(0, 64))) {
+        reply({ error: "Invalid or oversized file data", code: "baddata" });
+    } else if (filelib.writeBinaryFile(path, hex)) {
+        reply({ ok: true, path: path });
+    } else {
+        reply({ error: "Unable to write the file", code: "writefail" });
+    }
+} else {
+    reply({ error: "Unknown operation", code: "badop" });
+}

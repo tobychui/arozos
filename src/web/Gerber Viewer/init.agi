@@ -1,0 +1,48 @@
+/*
+    Gerber Viewer
+
+    View PCB fabrication data: Gerber RS-274X / X2 layers and Excellon drill
+    files, loaded as a zip, a folder or individual files from ArozOS or from
+    the local device. Layer view, realistic board preview and a 3D board.
+
+    Backend work (archive extraction, settings, recent projects, saving
+    exports) is done by the AGI scripts in ./backend.
+*/
+
+var moduleLaunchInfo = {
+    Name: "Gerber Viewer",
+    Desc: "View Gerber and Excellon PCB fabrication files in 2D and 3D",
+    Group: "Engineering",
+    IconPath: "Gerber Viewer/img/module_icon.svg",
+    Version: "1.0",
+    StartDir: "Gerber Viewer/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Gerber Viewer/index.html",
+    InitFWSize: [1220, 780],
+    SupportEmb: true,
+    LaunchEmb: "Gerber Viewer/index.html",
+    InitEmbSize: [1220, 780],
+    SupportedExt: [
+        ".gbr",
+        ".ger",
+        ".gtl",
+        ".gbl",
+        ".gto",
+        ".gbo",
+        ".gts",
+        ".gbs",
+        ".gtp",
+        ".gbp",
+        ".gko",
+        ".gm1",
+        ".gml",
+        ".gdl",
+        ".pho",
+        ".art",
+        ".drl",
+        ".xln",
+        ".exc"
+    ]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

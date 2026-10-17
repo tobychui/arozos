@@ -1,0 +1,190 @@
+/*
+    Gerber Viewer - settings and recent projects
+
+    Stored per user in the "Gerber Viewer" table of the system database.
+
+    POST opr:
+        boot                         -> {settings, recent}
+        saveSettings  settings=JSON  -> {ok}
+        recentAdd     entry=JSON     add or refresh an entry (matched by key)
+        recentUpdate  key=, patch=JSON   merge layer state / thumbnail into an entry
+        recentRemove  key=
+        recentClear
+*/
+
+var TABLE = "Gerber Viewer";
+var MAX_RECENT = 16;
+var MAX_THUMB = 120 * 1024;     //characters of a thumbnail data URL
+var MAX_STATE = 64 * 1024;      //characters of a saved layer state
+
+newDBTableIfNotExists(TABLE);
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function readJSON(key, def) {
+    var raw = readDBItem(TABLE, USERNAME + "/" + key);
+    if (!raw) {
+        return def;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return def;
+    }
+}
+
+function writeJSON(key, value) {
+    writeDBItem(TABLE, USERNAME + "/" + key, JSON.stringify(value));
+}
+
+function parseField(name, def) {
+    var raw = param(name, null);
+    if (raw === null) {
+        return def;
+    }
+    if (typeof raw !== "string") {
+        return raw;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return def;
+    }
+}
+
+function str(v, max) {
+    v = v === undefined || v === null ? "" : String(v);
+    return v.length > max ? v.substring(0, max) : v;
+}
+
+//Only keep the fields the front end knows about, with bounded sizes
+function cleanEntry(e) {
+    if (!e || typeof e !== "object") {
+        return null;
+    }
+    var out = {
+        key: str(e.key, 2048),
+        name: str(e.name, 200),
+        source: e.source === "local" ? "local" : "aroz",
+        kind: str(e.kind, 20),
+        paths: [],
+        cacheId: str(e.cacheId, 80),
+        time: Number(e.time) || Date.now(),
+        layers: Number(e.layers) || 0,
+        size: str(e.size, 60),
+        thumb: "",
+        state: null
+    };
+    if (out.key === "") {
+        return null;
+    }
+    if (e.paths && e.paths.length) {
+        for (var i = 0; i < e.paths.length && i < 200; i++) {
+            out.paths.push(str(e.paths[i], 2048));
+        }
+    }
+    if (typeof e.thumb === "string" && e.thumb.indexOf("data:image/") === 0 && e.thumb.length <= MAX_THUMB) {
+        out.thumb = e.thumb;
+    }
+    if (e.state && typeof e.state === "object" && JSON.stringify(e.state).length <= MAX_STATE) {
+        out.state = e.state;
+    }
+    return out;
+}
+
+function getRecent() {
+    var list = readJSON("recent", []);
+    return list && list.length !== undefined ? list : [];
+}
+
+var opr = param("opr", "");
+
+if (opr === "boot") {
+    sendJSONResp(JSON.stringify({
+        settings: readJSON("settings", {}),
+        recent: getRecent()
+    }));
+} else if (opr === "saveSettings") {
+    var s = parseField("settings", null);
+    if (!s || typeof s !== "object" || JSON.stringify(s).length > 64 * 1024) {
+        sendJSONResp(JSON.stringify({ error: "Invalid settings", code: "badsettings" }));
+    } else {
+        writeJSON("settings", s);
+        sendJSONResp(JSON.stringify({ ok: true }));
+    }
+} else if (opr === "recentAdd") {
+    var entry = cleanEntry(parseField("entry", null));
+    if (!entry) {
+        sendJSONResp(JSON.stringify({ error: "Invalid entry", code: "badentry" }));
+    } else {
+        var list = getRecent();
+        var kept = [];
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].key === entry.key) {
+                //Keep what the user customised last time unless replaced
+                if (!entry.state && list[i].state) {
+                    entry.state = list[i].state;
+                }
+                if (!entry.thumb && list[i].thumb) {
+                    entry.thumb = list[i].thumb;
+                }
+                continue;
+            }
+            kept.push(list[i]);
+        }
+        kept.unshift(entry);
+        if (kept.length > MAX_RECENT) {
+            kept = kept.slice(0, MAX_RECENT);
+        }
+        writeJSON("recent", kept);
+        sendJSONResp(JSON.stringify({ ok: true, recent: kept }));
+    }
+} else if (opr === "recentUpdate") {
+    var key = str(param("key", ""), 2048);
+    var patch = parseField("patch", {});
+    var list2 = getRecent();
+    var found = false;
+    for (var j = 0; j < list2.length; j++) {
+        if (list2[j].key === key) {
+            var merged = cleanEntry({
+                key: list2[j].key, name: list2[j].name, source: list2[j].source, kind: list2[j].kind,
+                paths: list2[j].paths, cacheId: list2[j].cacheId, time: list2[j].time,
+                layers: patch.layers !== undefined ? patch.layers : list2[j].layers,
+                size: patch.size !== undefined ? patch.size : list2[j].size,
+                thumb: patch.thumb !== undefined ? patch.thumb : list2[j].thumb,
+                state: patch.state !== undefined ? patch.state : list2[j].state
+            });
+            if (merged) {
+                list2[j] = merged;
+                found = true;
+            }
+            break;
+        }
+    }
+    if (found) {
+        writeJSON("recent", list2);
+    }
+    sendJSONResp(JSON.stringify({ ok: found }));
+} else if (opr === "recentRemove") {
+    var rkey = str(param("key", ""), 2048);
+    var list3 = getRecent().filter(function (e) { return e.key !== rkey; });
+    writeJSON("recent", list3);
+    sendJSONResp(JSON.stringify({ ok: true, recent: list3 }));
+} else if (opr === "recentClear") {
+    writeJSON("recent", []);
+    sendJSONResp(JSON.stringify({ ok: true, recent: [] }));
+} else {
+    sendJSONResp(JSON.stringify({ error: "Unknown operation", code: "badop" }));
+}

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f05a5d"/>
+            <stop offset="1" stop-color="#c4262a"/>
+        </linearGradient>
+        <linearGradient id="pcb" x1="0" y1="0" x2="0.4" y2="1">
+            <stop offset="0" stop-color="#1c8a4a"/>
+            <stop offset="1" stop-color="#0e5c30"/>
+        </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="60" height="60" rx="13" fill="url(#bg)"/>
+    <!-- board -->
+    <rect x="11" y="14" width="42" height="36" rx="4" fill="url(#pcb)"/>
+    <rect x="11" y="14" width="42" height="36" rx="4" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1"/>
+    <!-- traces -->
+    <path d="M18 22h9l5 5v9M18 42h12l4-4M46 24v8l-5 5" fill="none" stroke="#e9c46a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- pads and vias -->
+    <circle cx="18" cy="22" r="2.6" fill="#e9c46a"/>
+    <circle cx="18" cy="42" r="2.6" fill="#e9c46a"/>
+    <circle cx="46" cy="24" r="2.6" fill="#e9c46a"/>
+    <circle cx="32" cy="36" r="2.2" fill="#e9c46a"/>
+    <circle cx="41" cy="37" r="2.2" fill="#e9c46a"/>
+    <circle cx="32" cy="36" r="0.9" fill="#0e3b20"/>
+    <circle cx="41" cy="37" r="0.9" fill="#0e3b20"/>
+    <!-- chip -->
+    <rect x="37" y="40" width="10" height="6" rx="1" fill="#1d1f24"/>
+    <!-- silkscreen -->
+    <rect x="14.5" y="18.5" width="7" height="7" rx="1" fill="none" stroke="#ffffff" stroke-width="0.9" stroke-opacity="0.85"/>
+</svg>
