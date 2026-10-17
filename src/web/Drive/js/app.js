@@ -24,7 +24,7 @@
     var DEFAULT_SETTINGS = {
         theme: "auto", density: "comfortable", view: "list", sortKey: "name", sortDir: "asc",
         foldersFirst: true, showHidden: false, thumbnails: true, pageSize: 100, openIn: "drive",
-        confirmTrash: false, detailsOpen: false
+        confirmTrash: false, viewer: true, detailsOpen: false
     };
 
     var state = {
@@ -227,9 +227,7 @@
     /*  Boot                                                               */
     /* ------------------------------------------------------------------ */
     function paintStaticIcons() {
-        document.getElementById("brandLogo").innerHTML = DriveIcons.logo(34);
         document.getElementById("brand").setAttribute("href", href(folderRoute("user:/")));
-        document.getElementById("drawerLogo").innerHTML = DriveIcons.logo(30);
         document.getElementById("navToggle").innerHTML = I("menu");
         document.getElementById("searchIcon").outerHTML = I("search");
         document.getElementById("searchToggle").innerHTML = I("search");
@@ -390,11 +388,9 @@
         node.innerHTML = '<div class="user-card">' + avatarHTML() + '<div style="min-width:0"><b>' + esc(state.user.name) + '</b><small>' +
             esc(userSubtitle()) + '</small></div></div><div class="popover-body" style="padding:6px"></div>';
         var body = node.querySelector(".popover-body");
-        var isDark = effectiveTheme() == "dark";
         var items = [
             { icon: "sliders", label: T("user/driveSettings", "Drive settings"), action: function () { location.hash = "#/settings"; } },
             API.caps.settings ? { icon: "cog", label: T("user/systemSettings", "System Settings"), action: function () { DriveHost.openSystemSettings(); } } : null,
-            { icon: isDark ? "sun" : "moon", label: isDark ? T("user/lightMode", "Switch to light theme") : T("user/darkMode", "Switch to dark theme"), action: function () { saveSettings({ theme: isDark ? "light" : "dark" }); } },
             state.interfaces.length > 1 ? { icon: "apps", label: T("user/switchInterface", "Switch workspace"), action: function () { window.location.href = API.ROOT + "SystemAO/boot/interface_selector.html"; } } : null,
             "-",
             { icon: "logout", label: T("user/logout", "Sign out"), danger: true, action: logout }
@@ -668,7 +664,7 @@
 
     function highlightNav() {
         var key = navKey();
-        document.querySelectorAll("#sidebarNav .nav-item").forEach(function (a) {
+        document.querySelectorAll("#sidebarNav .nav-item, #storage .storage-card").forEach(function (a) {
             a.classList.toggle("active", a.getAttribute("data-route") == key);
         });
     }
@@ -683,9 +679,21 @@
         } else {
             text = T("storage/usedUnlimited", "{used} used · no quota", { used: DriveUI.fmtSize(q.used || 0) });
         }
-        box.innerHTML = '<div class="storage-head">' + I("cloud") + '<span>' + esc(T("storage/title", "Storage")) + '</span></div>' +
+        box.innerHTML = '<a class="storage-card" href="' + esc(href("#/storage")) + '" data-route="storage">' +
+            '<div class="storage-head">' + I("cloud") + '<span>' + esc(T("storage/title", "Storage")) + '</span></div>' +
             '<div class="meter"><i class="' + (pct > 95 ? "full" : pct > 80 ? "warn" : "") + '" style="width:' + (q.total > 0 ? pct.toFixed(1) : 2) + '%"></i></div>' +
-            '<div class="storage-text">' + esc(text) + '</div>';
+            '<div class="storage-text">' + esc(text) + '</div></a>';
+        var link = box.querySelector(".storage-card");
+        link.classList.toggle("active", navKey() == "storage");
+        link.addEventListener("click", function () {
+            closeDrawer();
+            if (DriveHost.isVisible()) {
+                DriveHost.hide();
+            }
+            if (location.hash == "#/storage") {
+                route();
+            }
+        });
     }
 
     function openDrawer() {
@@ -848,9 +856,16 @@
                     empty: { icon: "search", title: T("empty/search", "No matching files"), text: T("empty/searchText", "Try another keyword, or search a different location.") },
                     load: function () { return API.search(scope, r.arg); }
                 };
+            case "storage":
+                return {
+                    kind: "storage", key: "storage", page: true,
+                    crumbs: [{ label: T("storage/title", "Storage") }],
+                    subtitle: T("sub/storage", "Your share of the storage pool on this ArozOS server"),
+                    toolbar: "none"
+                };
             case "settings":
                 return {
-                    kind: "settings", key: "settings",
+                    kind: "settings", key: "settings", page: true,
                     crumbs: [{ label: T("user/driveSettings", "Drive settings") }],
                     subtitle: T("sub/settings", "These settings only apply to Drive. System wide options live in System Settings."),
                     toolbar: "none"
@@ -986,12 +1001,16 @@
         DriveUI.closeMenus(0);
         renderHead();
         var wrap = document.getElementById("listWrap");
-        wrap.classList.toggle("is-settings", view.kind == "settings");
-        if (view.kind == "settings") {
+        wrap.classList.toggle("is-settings", !!view.page);
+        if (view.page) {
             state.items = [];
             document.getElementById("paneFoot").hidden = true;
             document.getElementById("paneBanner").innerHTML = "";
-            DriveSettings.render(document.getElementById("listWrap"));
+            if (view.kind == "storage") {
+                DriveStorage.render(wrap);
+            } else {
+                DriveSettings.render(wrap);
+            }
             DriveDetails.close(true);
             return;
         }
@@ -1049,6 +1068,10 @@
 
     function refresh() {
         if (!state.view || state.view.kind == "settings") {
+            return;
+        }
+        if (state.view.kind == "storage") {
+            DriveStorage.render(document.getElementById("listWrap"));
             return;
         }
         load(false);
@@ -1178,10 +1201,6 @@
             html += tb("tbPurge", "trash", T("trash/deleteForever", "Delete forever"), { disabled: n == 0 });
             html += tb("tbEmpty", "x", T("trash/empty", "Empty trash"), { disabled: state.items.length == 0 });
         }
-        if (n > 0) {
-            html += '<span class="select-bar">' + esc(T("sel/count", "{n} selected", { n: n })) +
-                '<button class="icon-btn small" id="tbClear" title="' + esc(T("sel/clear", "Clear selection")) + '">' + I("x") + '</button></span>';
-        }
         bar.innerHTML = html;
 
         var on = function (id, fn) {
@@ -1206,7 +1225,6 @@
         on("tbRestore", function () { DriveActions.restore(selectedItems()); });
         on("tbPurge", function () { DriveActions.deleteForever(selectedItems()); });
         on("tbEmpty", function () { DriveActions.emptyTrash(); });
-        on("tbClear", function () { setSelection([]); });
     }
 
     function renderBanner() {
@@ -1225,17 +1243,21 @@
 
     function renderFoot() {
         var foot = document.getElementById("paneFoot");
-        if (!state.view || state.view.kind == "settings") {
+        if (!state.view || state.view.page) {
             return;
         }
         var total = state.items.length;
         var n = state.selection.size;
         var text = state.loading ? T("foot/loading", "Loading...") :
             (total == 1 ? T("foot/item", "{n} item", { n: total }) : T("foot/items", "{n} items", { n: total }));
-        if (n > 0) {
-            text += " · " + T("sel/count", "{n} selected", { n: n });
-        }
         var html = '<span>' + esc(text) + '</span>';
+        //The selection lives down here, not in the toolbar: a chip appearing
+        //up there made the toolbar wrap on phones and pushed the list down
+        //between the two taps of a double tap
+        if (n > 0) {
+            html += '<span class="select-bar">' + esc(T("sel/count", "{n} selected", { n: n })) +
+                '<button class="icon-btn small" data-clear-sel title="' + esc(T("sel/clear", "Clear selection")) + '">' + I("x") + '</button></span>';
+        }
         var pages = DriveList.pageCount();
         if (pages > 1) {
             var p = state.page;
@@ -1254,6 +1276,10 @@
             html += '<button data-page="' + (p + 1) + '"' + (p >= pages ? " disabled" : "") + ' aria-label="' + esc(T("pager/next", "Next page")) + '">' + I("chevronRight") + '</button></div>';
         }
         foot.innerHTML = html;
+        var clear = foot.querySelector("[data-clear-sel]");
+        if (clear) {
+            clear.addEventListener("click", function () { setSelection([]); });
+        }
         foot.querySelectorAll("[data-page]").forEach(function (b) {
             b.addEventListener("click", function () {
                 state.page = parseInt(b.getAttribute("data-page"), 10);
@@ -1540,7 +1566,7 @@
             return;
         }
         var view = state.view;
-        if (!view || view.kind == "settings") {
+        if (!view || view.page) {
             return;
         }
         var ctrl = e.ctrlKey || e.metaKey;

@@ -63,15 +63,6 @@
         "8127"
       ],
       "port": 8127
-    },
-    {
-      "name": "drive-test-node",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": [
-        "/c",
-        "C:\\Users\\Toby\\AppData\\Local\\Temp\\claude\\D--Github-arozos\\292f5e47-462f-491c-9d4f-08a952384705\\scratchpad\\run-node.bat"
-      ],
-      "port": 8090
     }
   ]
 }

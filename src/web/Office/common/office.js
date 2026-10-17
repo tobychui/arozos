@@ -1090,6 +1090,16 @@ var OfficeApp = (function () {
         applyTheme();
         refreshMenuChecks();
     }
+    // The host (the desktop's theme toggle, Drive's theme setting) calls
+    // this on every app window when its theme changes; Drive also calls it
+    // when the window loads, so the app opens in the host's theme
+    function followHostTheme(theme) {
+        var dark = theme === "dark" || theme === "darkTheme";
+        if (dark === isDark()) return;
+        try { localStorage.setItem("office_theme", dark ? "dark" : "light"); } catch (e) { }
+        applyTheme();
+        refreshMenuChecks();
+    }
 
     /* ---------- zoom ---------- */
     var ZOOM_LEVELS = [50, 65, 75, 90, 100, 110, 125, 150, 175, 200];
@@ -1894,6 +1904,7 @@ var OfficeApp = (function () {
 
         // theme + zoom
         applyTheme();
+        window.desktopThemeChanged = followHostTheme;
         zoom = getSetting("zoom", 100);
         applyZoom();
 

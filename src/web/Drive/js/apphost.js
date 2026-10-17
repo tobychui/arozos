@@ -35,6 +35,104 @@
         return String(url || "");
     }
 
+    /*
+        Theme bridge
+
+        Hosted apps take their theme from the account wide ArozOS preference
+        (system/file_system/preference?key=file_explorer/theme), read with an
+        async $.get. That reply can land after Drive pushed its own theme in
+        through desktopThemeChanged and flip the app back, or turn it dark
+        when the preference was never set. Inside Drive the preference reads
+        as Drive's theme instead: each jQuery of a hosted app gets a transport
+        that answers those reads locally, so no request goes out at all.
+
+        The hook point is ao_module.js, which reads parent.isDesktopMode at
+        its top: after the app loaded jQuery, before any app code runs. Pages
+        that load another copy of jQuery later (System Settings loads every
+        settings page with its own script tags) get the transport too,
+        through a setter on window.jQuery and window.$. Writes of the
+        preference, like the theme button of File Manager, still go out.
+    */
+    var THEME_KEY = /[?&]key=file_explorer(?:\/|%2F)theme(?:[&#]|$)/i;
+
+    function isThemeRead(opts) {
+        var url = String(opts.url || "");
+        return String(opts.type || "GET").toUpperCase() == "GET" &&
+            url.indexOf("system/file_system/preference") >= 0 &&
+            THEME_KEY.test(url) && !/[?&](?:value|remove)=/i.test(url);
+    }
+
+    function themePref() {
+        return Drive.effectiveTheme() == "dark" ? "darkTheme" : "whiteTheme";
+    }
+
+    function patchJQuery(jq) {
+        if (!jq || typeof jq.ajaxTransport !== "function" || jq.__driveTheme) {
+            return;
+        }
+        jq.__driveTheme = true;
+        jq.ajaxTransport("+*", function (opts) {
+            if (!isThemeRead(opts)) {
+                return;
+            }
+            var timer = null;
+            return {
+                send: function (headers, done) {
+                    //Same shape as the server's reply: the bare value as text
+                    timer = setTimeout(function () {
+                        done(200, "success", { text: themePref() }, "Content-Type: text/plain; charset=utf-8\r\n");
+                    }, 0);
+                },
+                abort: function () {
+                    clearTimeout(timer);
+                }
+            };
+        });
+    }
+
+    function trapJQuery(cw) {
+        ["jQuery", "$"].forEach(function (name) {
+            var current = cw[name];
+            var desc = Object.getOwnPropertyDescriptor(cw, name);
+            if (desc && !desc.configurable) {
+                return;
+            }
+            try {
+                Object.defineProperty(cw, name, {
+                    configurable: true,
+                    enumerable: true,
+                    get: function () { return current; },
+                    set: function (v) {
+                        current = v;
+                        patchJQuery(v);
+                    }
+                });
+            } catch (e) { }
+        });
+    }
+
+    function bridgeTheme(cw) {
+        try {
+            if (!cw || cw.__driveThemeBridge || !cw.jQuery) {
+                return;
+            }
+            cw.__driveThemeBridge = true;
+            patchJQuery(cw.jQuery);
+            patchJQuery(cw.$);
+            trapJQuery(cw);
+        } catch (e) {
+            //Cross origin page: it cannot read the preference of this server anyway
+        }
+    }
+
+    function bridgeAll() {
+        document.querySelectorAll("#fw-body iframe").forEach(function (f) {
+            try {
+                bridgeTheme(f.contentWindow);
+            } catch (e) { }
+        });
+    }
+
     function iconURL(icon) {
         if (!icon) {
             return API.ROOT + "img/system/favicon.png";
@@ -167,6 +265,8 @@
                     closeFwProcess(id);
                     return;
                 }
+                //Pages without ao_module.js are bridged here instead, late but still useful
+                bridgeTheme(cw);
                 if (typeof cw.desktopThemeChanged === "function") {
                     cw.desktopThemeChanged(Drive.effectiveTheme());
                 }
@@ -272,8 +372,15 @@
     }
 
     function install() {
-        //Read by ao_module.js inside the hosted iframes
-        global.isDesktopMode = true;
+        //Read by ao_module.js at the top of every hosted app, see the theme bridge
+        Object.defineProperty(global, "isDesktopMode", {
+            configurable: true,
+            get: function () {
+                bridgeAll();
+                return true;
+            },
+            set: function () { }
+        });
         global.ime = null;
 
         global.newFloatWindow = function (config, callback) {
@@ -317,6 +424,13 @@
         global.startFileOperation = startFileOperation;
         global.toggleDesktopTheme = function () {
             Drive.saveSettings({ theme: Drive.effectiveTheme() == "dark" ? "light" : "dark" });
+        };
+        //The theme button of File Manager calls this on its host after flipping itself
+        global.initTheme = function (theme) {
+            var dark = theme == "darkTheme" || theme == "dark";
+            if (theme && dark != (Drive.effectiveTheme() == "dark")) {
+                Drive.saveSettings({ theme: dark ? "dark" : "light" });
+            }
         };
         global.showDesktop = hide;
         global.openSystemSettings = openSystemSettings;

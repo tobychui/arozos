@@ -95,7 +95,7 @@
             }
         };
         $.ajax({
-            url: "Drive/locale/drive.json?v=1.0",
+            url: "Drive/locale/drive.json?v=1.1",
             dataType: "json",
             cache: true,
             success: function (json) {

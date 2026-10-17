@@ -1,0 +1,40 @@
+/*
+    Drive - media helpers for the built-in viewers
+
+    POST opr:
+        exif   path=vpath   EXIF tags of a picture, {exif: {Tag: "value"}}
+                            (empty object when the file has none)
+*/
+
+requirelib("imagelib");
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+var opr = String(param("opr", ""));
+
+if (opr == "exif") {
+    var target = String(param("path", ""));
+    var tags = {};
+    try {
+        if (imagelib.hasExif(target)) {
+            tags = JSON.parse(imagelib.getExif(target)) || {};
+        }
+    } catch (e) {
+        tags = {};
+    }
+    sendJSONResp({ exif: tags });
+} else {
+    sendJSONResp({ error: "Unknown operation" });
+}

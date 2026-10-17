@@ -247,7 +247,7 @@
         var st = S();
         var view = st.view;
         var wrap = document.getElementById("listWrap");
-        if (!view || view.kind == "settings") {
+        if (!view || view.page) {
             return;
         }
         st.sorted = sortItems(st.items);
@@ -547,7 +547,7 @@
         var wrap = document.getElementById("listWrap");
 
         wrap.addEventListener("click", function (e) {
-            if (S().view && S().view.kind == "settings") {
+            if (S().view && S().view.page) {
                 return;
             }
             var n = e.target.closest(".row, .tile");
@@ -602,7 +602,7 @@
         });
 
         wrap.addEventListener("contextmenu", function (e) {
-            if (S().view && S().view.kind == "settings") {
+            if (S().view && S().view.page) {
                 return;
             }
             if (e.target.closest(".rename-input")) {
@@ -670,7 +670,7 @@
 
     function bindMarquee(wrap) {
         wrap.addEventListener("mousedown", function (e) {
-            if (e.button != 0 || coarse || !S().view || S().view.kind == "settings") {
+            if (e.button != 0 || coarse || !S().view || S().view.page) {
                 return;
             }
             if (e.target.closest(".row, .tile, button, input, a, .list-head, .state")) {

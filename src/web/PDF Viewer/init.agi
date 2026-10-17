@@ -3,8 +3,9 @@
 
 	Copyright 2012 Mozilla Foundation
 	ArozOS adaptive layer added by tobychui 2021
+	Reader rewritten in 2026 (the same reader as Drive, on pdf.js)
 
-	See viewer.html for license information
+	pdf.js is Apache-2.0, see LICENSE
 */
 
 
@@ -14,7 +15,7 @@ var moduleLaunchInfo = {
 	Desc: "Possibly the best PDF viewer on the web",
 	Group: "Utilities",
 	IconPath: "PDF Viewer/icons/module_icon.png",
-	Version: "2.7.570",
+	Version: "3.0.0",
 	StartDir: "",
 	SupportFW: false,
 	LaunchEmb: "PDF Viewer/viewer.html",

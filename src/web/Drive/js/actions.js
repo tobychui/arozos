@@ -96,8 +96,19 @@
         });
     }
 
+    /*
+        Every app launch for a file comes through here, so the "Open files"
+        setting applies to the default app, Open with and the chooser alike.
+        When the browser blocks the new tab, the app opens inside Drive.
+    */
     function openWithModule(item, mod) {
         API.recentAdd(item.path);
+        if (S().settings.openIn == "tab") {
+            if (window.open(API.ROOT + launchURL(mod) + fileHash([item]), "_blank")) {
+                return;
+            }
+            DriveUI.toast(T("open/tabBlocked", "The browser blocked the new tab, so the app opens here"), { type: "error" });
+        }
         DriveHost.open({
             url: launchURL(mod) + fileHash([item]),
             title: mod.Name,
@@ -152,8 +163,15 @@
             openShortcut(item);
             return;
         }
-        if (S().settings.openIn == "tab") {
-            openInNewTab(item);
+        //Drive's own viewers come first for the files they handle, so a user
+        //without the Photo / Video / ... apps can still open them
+        if (S().settings.viewer !== false && DriveViewer.canOpen(item)) {
+            API.recentAdd(item.path);
+            DriveViewer.open(item);
+            if (v.kind == "recent") {
+                item.activity = Math.floor(Date.now() / 1000);
+                item.openedLast = true;
+            }
             return;
         }
         defaultModuleFor(item).then(function (mod) {
@@ -198,7 +216,7 @@
             return { img: API.ROOT + m.IconPath, label: m.Name, action: function () { openWithModule(item, m); } };
         });
         if (DrivePreview.canPreview(item)) {
-            list.unshift({ icon: "eye", label: T("open/preview", "Drive preview"), action: function () { DrivePreview.open(item); } });
+            list.unshift({ icon: "eye", label: T("open/viewer", "Drive viewer"), action: function () { DrivePreview.open(item); } });
         }
         list.push("-", { icon: "apps", label: T("open/choose", "Choose another app..."), action: function () { openWithChooser(item); } });
         return list;
@@ -233,7 +251,7 @@
             title: T("open/withTitle", "Open \"{name}\" with", { name: item.name }),
             iconHTML: DriveIcons.file(item.name, false),
             body: body,
-            footLeft: DrivePreview.canPreview(item) ? '<button class="btn ghost small" id="owPreview">' + I("eye") + esc(T("open/preview", "Drive preview")) + '</button>' : "",
+            footLeft: DrivePreview.canPreview(item) ? '<button class="btn ghost small" id="owPreview">' + I("eye") + esc(T("open/viewer", "Drive viewer")) + '</button>' : "",
             buttons: [
                 { label: T("toolbar/download", "Download"), action: function () { download([item]); } },
                 { label: T("common/cancel", "Cancel") }
@@ -878,7 +896,7 @@
 
         if (v.kind == "trash") {
             return [
-                one && !one.isDir ? { icon: "eye", label: T("menu/preview", "Preview"), action: function () { DrivePreview.open(one); } } : null,
+                one && DrivePreview.canPreview(one) ? { icon: "eye", label: T("menu/preview", "Preview"), action: function () { DrivePreview.open(one); } } : null,
                 { icon: "restore", label: T("trash/restore", "Restore"), action: function () { restore(items); } },
                 { icon: "trash", label: T("trash/deleteForever", "Delete forever"), danger: true, hint: "Del", action: function () { deleteForever(items); } },
                 "-",
@@ -888,7 +906,7 @@
 
         var moreSub = function () {
             return [
-                one && !one.isDir ? { icon: "eye", label: T("menu/preview", "Preview"), hint: "Space", action: function () { DrivePreview.open(one); } } : null,
+                one && DrivePreview.canPreview(one) ? { icon: "eye", label: T("menu/preview", "Preview"), hint: "Space", action: function () { DrivePreview.open(one); } } : null,
                 one && !one.isDir && !one.shareOnly ? { icon: "apps", label: T("menu/openWith", "Open with"), submenu: function () { return openWithItems(one); } } : null,
                 writable ? { icon: "cut", label: T("menu/cut", "Cut"), hint: "Ctrl+X", action: function () { clipboard("cut", items); } } : null,
                 !fromToolbar ? null : { icon: "copy", label: T("menu/copyTo", "Copy to..."), action: function () { copyTo(items); } },

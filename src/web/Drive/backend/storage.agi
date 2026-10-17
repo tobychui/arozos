@@ -1,0 +1,314 @@
+/*
+    Drive - storage details
+
+    POST opr:
+        analyze                   usage by type, trash, version history,
+                                  largest files, quota and the storage pool
+        duplicates                exact duplicate photos (same size, same MD5)
+        purgeVersions  days=N     delete version history older than N days
+
+    The visible tree is walked breadth first with filelib.readdir, which
+    returns sizes in the same call. readdir hides dot folders, so for every
+    folder the hidden ".metadata" folder (trash, version history, thumbnail
+    caches) is walked separately.
+*/
+
+requirelib("filelib");
+
+var TIME_BUDGET = 15000;
+var MAX_DIRS = 30000;
+var LARGEST = 8;
+var HASH_BUDGET = 3 * 1024 * 1024 * 1024; //bytes hashed while looking for duplicates
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+var GROUPS = {
+    videos: "mp4 m4v webm ogv mov mkv avi wmv flv ts mts m2ts 3gp mpg mpeg",
+    photos: "jpg jpeg jfif png apng gif bmp webp svg ico avif heic heif tif tiff cr2 cr3 nef arw dng raw raf orf rw2 psd",
+    music: "mp3 m4a aac wav ogg oga opus flac weba wma aiff aif alac mid midi",
+    documents: "pdf doc docx odt rtf pages txt md markdown log csv tsv xls xlsx ods numbers ppt pptx odp key epub mobi azw azw3"
+};
+var EXT_GROUP = {};
+for (var g in GROUPS) {
+    GROUPS[g].split(" ").forEach(function (e) { EXT_GROUP[e] = g; });
+}
+var PHOTO_EXT = {};
+"jpg jpeg jfif png gif bmp webp heic heif tif tiff cr2 cr3 nef arw dng raw raf orf rw2".split(" ").forEach(function (e) { PHOTO_EXT[e] = true; });
+
+function extOf(name) {
+    var dot = name.lastIndexOf(".");
+    return dot > 0 ? name.substring(dot + 1).toLowerCase() : "";
+}
+
+function basename(path) {
+    var parts = String(path).replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1];
+}
+
+function parentOf(path) {
+    var clean = String(path).replace(/\/+$/, "");
+    return clean.substring(0, clean.lastIndexOf("/") + 1);
+}
+
+//"2026-10-16_19-24-32" -> unix seconds
+function versionTime(histid) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})/.exec(histid);
+    if (!m) {
+        return 0;
+    }
+    return Math.floor(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() / 1000);
+}
+
+/*
+    walk(visit) calls visit.file(entry) for every visible file and
+    visit.meta(vpath) for every file inside a .metadata folder.
+*/
+function walkDrive(root, visit) {
+    var started = Date.now();
+    var queue = [root];
+    var visited = 0;
+    var truncated = false;
+    while (queue.length > 0) {
+        if (visited >= MAX_DIRS || Date.now() - started > TIME_BUDGET) {
+            truncated = true;
+            break;
+        }
+        var dir = queue.shift();
+        visited++;
+        var entries = [];
+        try {
+            entries = filelib.readdir(dir, "default");
+        } catch (e) {
+            continue;
+        }
+        for (var i = 0; i < entries.length; i++) {
+            var en = entries[i];
+            if (en.IsDir) {
+                queue.push(en.Filepath + "/");
+            } else if (visit.file) {
+                visit.file(en);
+            }
+        }
+        if (visit.meta) {
+            var meta = dir + ".metadata";
+            var hasMeta = false;
+            try {
+                hasMeta = filelib.fileExists(meta) && filelib.isDir(meta);
+            } catch (e) {
+                hasMeta = false;
+            }
+            if (hasMeta) {
+                var files = [];
+                try {
+                    files = filelib.walk(meta, "file");
+                } catch (e) {
+                    files = [];
+                }
+                for (var k = 0; k < files.length; k++) {
+                    visit.meta(files[k], dir);
+                }
+            }
+        }
+    }
+    return truncated;
+}
+
+function sizeOf(path) {
+    try {
+        return filelib.filesize(path);
+    } catch (e) {
+        return 0;
+    }
+}
+
+function roots() {
+    var user = null;
+    try {
+        for (var i = 0; i < USER_VROOTS.length; i++) {
+            if (USER_VROOTS[i].UUID == "user") {
+                user = USER_VROOTS[i];
+            }
+        }
+    } catch (e) { }
+    return user;
+}
+
+var opr = String(param("opr", "analyze"));
+
+if (opr == "analyze") {
+    var types = { videos: { size: 0, count: 0 }, photos: { size: 0, count: 0 }, documents: { size: 0, count: 0 }, music: { size: 0, count: 0 }, others: { size: 0, count: 0 } };
+    var trash = { size: 0, count: 0, entries: {} };
+    var versions = { size: 0, count: 0, oldSize: 0, oldCount: 0 };
+    var cache = { size: 0, count: 0 };
+    var largest = [];
+    var cutoff = Math.floor(Date.now() / 1000) - 30 * 86400;
+
+    var push = function (rec) {
+        if (largest.length < LARGEST || rec.size > largest[largest.length - 1].size) {
+            largest.push(rec);
+            largest.sort(function (a, b) { return b.size - a.size; });
+            if (largest.length > LARGEST) {
+                largest.pop();
+            }
+        }
+    };
+
+    var truncated = walkDrive("user:/", {
+        file: function (en) {
+            var group = EXT_GROUP[extOf(en.Filename)] || "others";
+            types[group].size += en.Filesize;
+            types[group].count++;
+            push({ name: en.Filename, path: en.Filepath, size: en.Filesize, mtime: en.Modtime, where: "drive" });
+        },
+        meta: function (path, dir) {
+            var rel = path.substring(dir.length + ".metadata/".length);
+            var size = sizeOf(path);
+            if (rel.indexOf(".trash/") == 0) {
+                var entry = rel.substring(7).split("/")[0];
+                trash.size += size;
+                if (!trash.entries[dir + entry]) {
+                    trash.entries[dir + entry] = true;
+                    trash.count++;
+                }
+                //Trashed names end with .<unix time>
+                var shown = entry.replace(/\.\d+$/, "");
+                //A file inside a trashed folder shows its own name
+                push({ name: rel.indexOf("/", 7) > 0 ? basename(path) : shown, path: path, size: size, mtime: 0, where: "trash", origin: dir });
+            } else if (rel.indexOf(".localver/") == 0) {
+                versions.size += size;
+                versions.count++;
+                var histid = rel.substring(10).split("/")[0];
+                if (versionTime(histid) < cutoff) {
+                    versions.oldSize += size;
+                    versions.oldCount++;
+                }
+            } else {
+                cache.size += size;
+                cache.count++;
+            }
+        }
+    });
+    delete trash.entries;
+
+    var disks = [];
+    try {
+        requirelib("sysinfo");
+        disks = sysinfo.getDiskInfo() || [];
+    } catch (e) {
+        disks = [];
+    }
+    var userRoot = roots();
+    sendJSONResp({
+        types: types,
+        trash: trash,
+        versions: versions,
+        cache: cache,
+        largest: largest,
+        truncated: truncated,
+        quota: { total: USERQUOTA_TOTAL, used: USERQUOTA_USED },
+        pool: userRoot ? { name: userRoot.Name, path: userIsAdmin() ? userRoot.Path : "", fs: userRoot.Filesystem, hierarchy: userRoot.Hierarchy } : null,
+        disks: disks,
+        isAdmin: userIsAdmin()
+    });
+
+} else if (opr == "duplicates") {
+    var bySize = {};
+    var dupTruncated = walkDrive("user:/", {
+        file: function (en) {
+            if (!PHOTO_EXT[extOf(en.Filename)] || en.Filesize <= 0) {
+                return;
+            }
+            var key = String(en.Filesize);
+            (bySize[key] = bySize[key] || []).push({ name: en.Filename, path: en.Filepath, size: en.Filesize, mtime: en.Modtime });
+        }
+    });
+    var groups = [];
+    var hashed = 0;
+    var started = Date.now();
+    var sizes = Object.keys(bySize).filter(function (k) { return bySize[k].length > 1; }).sort(function (a, b) { return b - a; });
+    for (var s = 0; s < sizes.length; s++) {
+        var same = bySize[sizes[s]];
+        if (hashed > HASH_BUDGET || Date.now() - started > TIME_BUDGET) {
+            dupTruncated = true;
+            break;
+        }
+        var byHash = {};
+        for (var f = 0; f < same.length; f++) {
+            var h = "";
+            try {
+                h = filelib.md5(same[f].path);
+            } catch (e) {
+                h = "";
+            }
+            hashed += same[f].size;
+            if (h) {
+                (byHash[h] = byHash[h] || []).push(same[f]);
+            }
+        }
+        for (var hk in byHash) {
+            if (byHash[hk].length > 1) {
+                //Oldest first: that copy is the one kept by default
+                byHash[hk].sort(function (a, b) { return a.mtime - b.mtime; });
+                groups.push({ size: byHash[hk][0].size, files: byHash[hk] });
+            }
+        }
+    }
+    var copies = 0, wasted = 0;
+    groups.forEach(function (gr) {
+        copies += gr.files.length - 1;
+        wasted += gr.size * (gr.files.length - 1);
+    });
+    sendJSONResp({ groups: groups, copies: copies, wasted: wasted, truncated: dupTruncated });
+
+} else if (opr == "purgeVersions") {
+    var days = parseInt(param("days", "30"), 10);
+    if (!(days >= 0)) {
+        days = 30;
+    }
+    var limit = Math.floor(Date.now() / 1000) - days * 86400;
+    var freed = 0, removed = 0;
+    var emptied = {};
+    walkDrive("user:/", {
+        meta: function (path, dir) {
+            var rel = path.substring(dir.length + ".metadata/".length);
+            if (rel.indexOf(".localver/") != 0) {
+                return;
+            }
+            var histid = rel.substring(10).split("/")[0];
+            if (versionTime(histid) >= limit) {
+                return;
+            }
+            var size = sizeOf(path);
+            try {
+                filelib.deleteFile(path);
+                freed += size;
+                removed++;
+                emptied[dir + ".metadata/.localver/" + histid] = true;
+            } catch (e) { }
+        }
+    });
+    //Remove the version folders left empty
+    for (var folder in emptied) {
+        try {
+            if (filelib.readdir(folder, "default").length == 0) {
+                filelib.deleteFile(folder);
+            }
+        } catch (e) { }
+    }
+    sendJSONResp({ ok: true, removed: removed, freed: freed });
+
+} else {
+    sendJSONResp({ error: "Unknown operation" });
+}

@@ -70,7 +70,7 @@
 
     function refresh(force) {
         var p = panel();
-        if (!S().detailsOpen || !S().view || S().view.kind == "settings") {
+        if (!S().detailsOpen || !S().view || S().view.page) {
             p.hidden = true;
             return;
         }

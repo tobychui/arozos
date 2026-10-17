@@ -1,0 +1,1137 @@
+/*
+    reader.css
+
+    The PDF Viewer. The viewer rules are a copy of Drive's viewer styles
+    (Drive/css/viewer.css: the shared shell, the PDF section and printing),
+    plus the menus, dialogs and toasts the page needs on its own. Always the
+    dark "media" palette, like Drive's viewers.
+*/
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #e8ecf3;
+    background: #171c26;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    color-scheme: dark;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+    background: none;
+    border: 0;
+    padding: 0;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+.ic {
+    width: 20px;
+    height: 20px;
+    flex: none;
+}
+
+.ft {
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pop {
+    from {
+        opacity: 0;
+        transform: scale(.97) translateY(-3px);
+    }
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(.98);
+    }
+}
+
+.vw {
+    --vw-bar: #0e121a;
+    --vw-stage: #171c26;
+    --vw-panel: #121722;
+    --vw-raise: #222936;
+    --vw-line: rgba(255, 255, 255, .08);
+    --vw-text: #e8ecf3;
+    --vw-text-2: #9aa4b5;
+    --vw-text-3: #6d7789;
+    --vw-hover: rgba(255, 255, 255, .08);
+    --vw-accent: #3b7cf6;
+    --vw-accent-2: #5b93ff;
+    position: fixed;
+    inset: 0;
+    z-index: 140;
+    display: flex;
+    flex-direction: column;
+    background: var(--vw-stage);
+    color: var(--vw-text);
+    color-scheme: dark;
+}
+
+.vw ::selection {
+    background: rgba(91, 147, 255, .35);
+}
+
+.vw .scroll-y,
+.vw-scroll {
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .16) transparent;
+}
+
+.vw-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.vw-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .16);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+/* ---------------------------------------------------------------- */
+/*  Top bar                                                         */
+/* ---------------------------------------------------------------- */
+.vw-bar {
+    height: 60px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px 0 10px;
+    background: var(--vw-bar);
+    border-bottom: 1px solid var(--vw-line);
+    position: relative;
+    z-index: 5;
+}
+
+.vw-ic {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--vw-text-2);
+    flex: none;
+    position: relative;
+}
+
+.vw-ic:hover {
+    background: var(--vw-hover);
+    color: var(--vw-text);
+}
+
+.vw-ic.on {
+    color: var(--vw-accent-2);
+    background: rgba(59, 124, 246, .14);
+}
+
+.vw-ic:disabled {
+    opacity: .35;
+    pointer-events: none;
+}
+
+.vw-ic .ic {
+    width: 20px;
+    height: 20px;
+}
+
+.vw-file {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
+}
+
+.vw-tile {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    flex: none;
+}
+
+.vw-tile .ic {
+    width: 19px;
+    height: 19px;
+}
+
+.vw-title {
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.vw-title b {
+    display: block;
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vw-title small {
+    display: block;
+    font-size: 12px;
+    color: var(--vw-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vw-tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+}
+
+.vw-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+}
+
+.vw-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 3px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid var(--vw-line);
+    gap: 2px;
+}
+
+.vw-pill .vw-ic {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.vw-pill .vw-ic .ic {
+    width: 17px;
+    height: 17px;
+}
+
+.vw-pill-label {
+    min-width: 58px;
+    height: 32px;
+    padding: 0 6px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vw-text);
+    font-variant-numeric: tabular-nums;
+}
+
+button.vw-pill-label:hover {
+    background: var(--vw-hover);
+}
+
+.vw-share {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 10px;
+    background: var(--vw-accent);
+    color: #fff;
+    font-weight: 600;
+    margin: 0 4px;
+}
+
+.vw-share:hover {
+    background: var(--vw-accent-2);
+}
+
+.vw-share .ic {
+    width: 17px;
+    height: 17px;
+}
+
+.vw-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--vw-line);
+    margin: 0 4px;
+}
+
+.vw-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    position: relative;
+}
+
+.vw-panel {
+    background: var(--vw-panel);
+    border-left: 1px solid var(--vw-line);
+    flex: none;
+}
+
+.vw-panel h4 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vw-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vw-kv {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 10px 12px;
+    font-size: 13px;
+    margin: 0 0 20px;
+}
+
+.vw-kv dt {
+    color: var(--vw-text-3);
+}
+
+.vw-kv dd {
+    margin: 0;
+    color: var(--vw-text);
+    word-break: break-word;
+}
+
+/* Floating pill (page navigator, zoom readout) */
+.vw-float {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 44px;
+    padding: 0 6px;
+    border-radius: 22px;
+    background: rgba(38, 44, 55, .94);
+    border: 1px solid var(--vw-line);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+    z-index: 4;
+    font-variant-numeric: tabular-nums;
+}
+
+.vw-float .vw-ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 17px;
+}
+
+.vw-float input {
+    width: 38px;
+    height: 28px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--vw-text);
+    text-align: center;
+    font-weight: 600;
+    outline: none;
+}
+
+.vw-float input:focus {
+    background: rgba(255, 255, 255, .08);
+}
+
+.vw-float span {
+    font-size: 13.5px;
+    color: var(--vw-text-2);
+    padding-right: 4px;
+}
+
+/* Short status messages (volume, repeat mode, zoom) sit at the bottom center */
+.vw-osd {
+    position: absolute;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    white-space: nowrap;
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: rgba(10, 13, 19, .78);
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vw-osd.show {
+    opacity: 1;
+}
+
+/* Clear of the page navigator at the bottom */
+.vw[data-kind="pdf"] .vw-osd {
+    bottom: 84px;
+}
+
+.vw-osd .ic {
+    width: 22px;
+    height: 22px;
+}
+
+.vw-state {
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    padding: 30px;
+    color: var(--vw-text-2);
+    max-width: 460px;
+}
+
+.vw-state .big {
+    width: 88px;
+    height: 88px;
+}
+
+.vw-state b {
+    color: var(--vw-text);
+    font-size: 16px;
+}
+
+.vw-state .row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.vw-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid var(--vw-line);
+    color: var(--vw-text);
+    font-weight: 500;
+}
+
+.vw-btn:hover {
+    background: rgba(255, 255, 255, .14);
+}
+
+.vw-btn .ic {
+    width: 17px;
+    height: 17px;
+}
+
+.vw-btn.primary {
+    background: var(--vw-accent);
+    border-color: var(--vw-accent);
+    color: #fff;
+}
+
+.vw-spin {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, .15);
+    border-top-color: #fff;
+    animation: spin .8s linear infinite;
+}
+
+.vw-progress {
+    width: 220px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, .12);
+    overflow: hidden;
+}
+
+.vw-progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--vw-accent-2);
+    transition: width .2s;
+}
+
+/* Find bar (PDF and text) */
+.vw-find {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 5px 5px 12px;
+    border-radius: 12px;
+    background: rgba(34, 40, 52, .97);
+    border: 1px solid var(--vw-line);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+}
+
+.vw-find input {
+    width: 200px;
+    height: 30px;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--vw-text);
+}
+
+.vw-find .count {
+    font-size: 12px;
+    color: var(--vw-text-2);
+    min-width: 54px;
+    text-align: right;
+    padding-right: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.vw-find .vw-ic {
+    width: 30px;
+    height: 30px;
+}
+
+
+/* ---------------------------------------------------------------- */
+/*  PDF viewer                                                      */
+/* ---------------------------------------------------------------- */
+.pdf-rail {
+    width: 168px;
+    flex: none;
+    background: var(--vw-panel);
+    border-right: 1px solid var(--vw-line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    transition: margin-left .2s;
+}
+
+.pdf-rail.collapsed {
+    margin-left: -168px;
+}
+
+.pdf-rail-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 10px 10px 6px;
+}
+
+.pdf-rail-tabs button {
+    flex: 1;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--vw-text-2);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.pdf-rail-tabs button.active {
+    background: rgba(255, 255, 255, .08);
+    color: var(--vw-text);
+}
+
+.pdf-thumbs {
+    flex: 1;
+    min-height: 0;
+    padding: 8px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.pdf-thumb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: var(--vw-text-2);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    padding: 0;
+}
+
+.pdf-thumb .pg {
+    width: 100%;
+    background: #fff;
+    border-radius: 4px;
+    outline: 3px solid transparent;
+    outline-offset: 2px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    min-height: 60px;
+    position: relative;
+}
+
+.pdf-thumb canvas {
+    display: block;
+    width: 100%;
+}
+
+.pdf-thumb:hover .pg {
+    outline-color: rgba(255, 255, 255, .25);
+}
+
+.pdf-thumb.active .pg {
+    outline-color: var(--vw-accent-2);
+}
+
+.pdf-thumb.active {
+    color: var(--vw-text);
+}
+
+.pdf-outline {
+    flex: 1;
+    min-height: 0;
+    padding: 6px 10px 20px;
+}
+
+.pdf-outline button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 7px;
+    color: var(--vw-text);
+    font-size: 12.5px;
+    line-height: 1.35;
+}
+
+.pdf-outline button:hover {
+    background: var(--vw-hover);
+}
+
+.pdf-main {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: auto;
+    outline: none;
+}
+
+.pdf-pages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 28px 24px 96px;
+    min-width: max-content;
+}
+
+.pdf-page {
+    position: relative;
+    background: #fff;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .45);
+    flex: none;
+}
+
+.pdf-page canvas {
+    display: block;
+    position: absolute;
+    inset: 0;
+}
+
+.pdf-page .ph {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #9aa4b5;
+}
+
+.pdf-page .textLayer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    line-height: 1;
+    opacity: .3;
+}
+
+.pdf-page .textLayer>span {
+    color: transparent;
+    position: absolute;
+    white-space: pre;
+    cursor: text;
+    transform-origin: 0% 0%;
+}
+
+.pdf-page .textLayer ::selection {
+    background: rgb(0, 80, 255);
+}
+
+.pdf-page .textLayer .hit {
+    background: rgb(255, 200, 0);
+    border-radius: 2px;
+}
+
+.pdf-page .textLayer .hit.current {
+    background: rgb(255, 110, 0);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Printing                                                        */
+/* ---------------------------------------------------------------- */
+#vwPrint {
+    display: none;
+}
+
+@media print {
+    body>*:not(#vwPrint) {
+        display: none !important;
+    }
+
+    body {
+        overflow: visible !important;
+        background: #fff !important;
+    }
+
+    #vwPrint {
+        display: block !important;
+        color: #000;
+    }
+
+    #vwPrint .page {
+        page-break-after: always;
+        break-after: page;
+        text-align: center;
+    }
+
+    #vwPrint .page:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
+
+    #vwPrint img {
+        max-width: 100%;
+        max-height: 100vh;
+    }
+
+    #vwPrint pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 10pt;
+    }
+}
+
+
+
+/* ---------------------------------------------------------------- */
+/*  Menus                                                           */
+/* ---------------------------------------------------------------- */
+.menu {
+    position: fixed;
+    z-index: 200;
+    min-width: 210px;
+    max-width: 320px;
+    padding: 6px;
+    border-radius: 12px;
+    background: #1d2330;
+    border: 1px solid rgba(255, 255, 255, .1);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+    animation: pop .12s ease-out;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    color: #e8ecf3;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.menu-item .ic {
+    width: 18px;
+    height: 18px;
+    color: #9aa4b5;
+}
+
+.menu-item .label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.menu-item .hint {
+    font-size: 12px;
+    color: #6d7789;
+    margin-left: 18px;
+}
+
+.menu-item .sub-caret {
+    width: 15px;
+    height: 15px;
+    color: #6d7789;
+}
+
+.menu-item:hover,
+.menu-item.hover,
+.menu-item:focus-visible {
+    background: rgba(255, 255, 255, .08);
+    outline: none;
+}
+
+.menu-item .check-mark {
+    width: 16px;
+    height: 16px;
+    color: transparent;
+}
+
+.menu-item.checked .check-mark {
+    color: #7aa7ff;
+}
+
+.menu-item:disabled {
+    opacity: .4;
+    pointer-events: none;
+}
+
+.menu-sep {
+    height: 1px;
+    background: rgba(255, 255, 255, .1);
+    margin: 5px 4px;
+}
+
+.menu-title {
+    padding: 8px 10px 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #6d7789;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+/* ---------------------------------------------------------------- */
+/*  Dialogs                                                         */
+/* ---------------------------------------------------------------- */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 13, .6);
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fade .15s ease-out;
+}
+
+.modal {
+    width: 440px;
+    max-width: 100%;
+    max-height: calc(100vh - 40px);
+    background: #1d2330;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: rise .18s ease-out;
+    color: #e8ecf3;
+}
+
+.modal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px 14px;
+}
+
+.modal-head h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-head .head-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(59, 124, 246, .18);
+    color: #7aa7ff;
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.modal-head .head-icon .ic {
+    width: 19px;
+    height: 19px;
+}
+
+.icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: #9aa4b5;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, .08);
+    color: #e8ecf3;
+}
+
+.modal-body {
+    padding: 4px 20px 18px;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(0, 0, 0, .15);
+}
+
+.btn {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .1);
+    font-weight: 500;
+}
+
+.btn:hover {
+    background: rgba(255, 255, 255, .14);
+}
+
+.btn.primary {
+    background: #3b7cf6;
+    border-color: #3b7cf6;
+    color: #fff;
+}
+
+.btn.primary:hover {
+    background: #5b93ff;
+}
+
+.field label {
+    display: block;
+    margin-bottom: 8px;
+    color: #9aa4b5;
+}
+
+.input {
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    background: rgba(0, 0, 0, .25);
+    outline: none;
+}
+
+.input:focus {
+    border-color: #5b93ff;
+    box-shadow: 0 0 0 3px rgba(91, 147, 255, .25);
+}
+
+.shortcut-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 18px;
+    font-size: 13px;
+    align-items: center;
+}
+
+.kbd {
+    display: inline-block;
+    min-width: 22px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-bottom-width: 2px;
+    background: rgba(255, 255, 255, .05);
+    font-size: 11.5px;
+    text-align: center;
+    color: #9aa4b5;
+}
+
+/* ---------------------------------------------------------------- */
+/*  Toasts                                                          */
+/* ---------------------------------------------------------------- */
+.toasts {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    width: max-content;
+    max-width: calc(100vw - 24px);
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 10px 8px 16px;
+    border-radius: 12px;
+    background: #2a313d;
+    color: #f2f4f8;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+    font-size: 13.5px;
+    animation: rise .18s ease-out;
+    max-width: 100%;
+}
+
+.toast .ic {
+    width: 18px;
+    height: 18px;
+}
+
+.toast.error .ic {
+    color: #ff8a8d;
+}
+
+.toast .msg {
+    flex: 1;
+    min-width: 0;
+}
+
+.toast button {
+    color: #9cc0ff;
+    padding: 6px;
+    border-radius: 7px;
+}
+
+.toast button:hover {
+    background: rgba(255, 255, 255, .08);
+}
+
+.toast.leaving {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .2s, transform .2s;
+}
+
+/* ---------------------------------------------------------------- */
+/*  Responsive                                                      */
+/* ---------------------------------------------------------------- */
+@media (max-width: 900px) {
+    .pdf-rail {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 7;
+        box-shadow: 12px 0 30px rgba(0, 0, 0, .5);
+    }
+}
+
+@media (max-width: 640px) {
+    .vw-bar {
+        height: 54px;
+        gap: 4px;
+        padding: 0 6px;
+    }
+
+    .vw-title small,
+    .vw-hide-sm,
+    .vw-tile {
+        display: none;
+    }
+
+    .vw-pill-label {
+        min-width: 46px;
+    }
+
+    .vw-find {
+        left: 8px;
+        right: 8px;
+    }
+
+    .vw-find input {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+    }
+}

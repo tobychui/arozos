@@ -64,6 +64,7 @@
                 select("pageSize", [["50", "50"], ["100", "100"], ["200", "200"], ["0", T("set/all", "All")]], st.pageSize))
         ]);
         html += group("open", T("set/behaviour", "Opening and deleting"), [
+            row(T("set/viewer", "Use Drive's viewers"), T("set/viewerDesc", "Open photos, videos, music, PDF, Markdown and text files in Drive's own viewers"), toggle("viewer")),
             row(T("set/openIn", "Open files"), T("set/openInDesc", "Where an app opens when you open a file"),
                 select("openIn", [["drive", T("set/inDrive", "Inside Drive")], ["tab", T("set/inTab", "In a new browser tab")]], st.openIn)),
             row(T("set/confirmTrash", "Ask before moving to trash"), T("set/confirmTrashDesc", "Items in the trash can always be restored"), toggle("confirmTrash"))

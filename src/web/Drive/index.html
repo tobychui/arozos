@@ -16,7 +16,8 @@
     <base href="../">
     <title>Drive</title>
     <link rel="icon" type="image/svg+xml" href="Drive/img/module_icon.svg">
-    <link rel="stylesheet" href="Drive/css/drive.css?v=1.0">
+    <link rel="stylesheet" href="Drive/css/drive.css?v=1.1">
+    <link rel="stylesheet" href="Drive/css/viewer.css?v=1.1">
     <script>
         /*
             Apply the last used theme and density before the first paint so a
@@ -47,9 +48,9 @@
     <div class="app" id="app">
         <header class="topbar">
             <button class="icon-btn only-mobile" id="navToggle" data-i18n-title="top/menu" title="Menu"></button>
-            <a class="brand" id="brand">
-                <span id="brandLogo"></span>
-                <span class="brand-name">ArozOS</span>
+            <a class="brand" id="brand" aria-label="ArozOS Drive">
+                <img class="brand-mark for-light" src="img/system/auth_icon_black.png" alt="ArozOS">
+                <img class="brand-mark for-dark" src="img/system/auth_icon_white.png" alt="ArozOS">
                 <span class="brand-sep"></span>
                 <span class="brand-app" data-i18n="app/name">Drive</span>
             </a>
@@ -75,7 +76,7 @@
 
         <div class="shell">
             <aside class="sidebar" id="sidebar" aria-label="Navigation">
-                <div class="drawer-brand"><span id="drawerLogo"></span><span>ArozOS Drive</span></div>
+                <div class="drawer-brand"><img class="brand-mark for-light" src="img/system/auth_icon_black.png" alt="ArozOS"><img class="brand-mark for-dark" src="img/system/auth_icon_white.png" alt="ArozOS"><span>Drive</span></div>
                 <div class="sidebar-scroll scroll-y" id="sidebarNav"></div>
                 <div class="storage" id="storage"></div>
             </aside>
@@ -110,19 +111,25 @@
     <div id="toastLayer" class="toasts" aria-live="polite"></div>
     <div id="dragGhost" class="drag-ghost"></div>
 
-    <script src="Drive/js/icons.js?v=1.0"></script>
-    <script src="Drive/js/i18n.js?v=1.0"></script>
-    <script src="Drive/js/api.js?v=1.0"></script>
-    <script src="Drive/js/ui.js?v=1.0"></script>
-    <script src="Drive/js/listing.js?v=1.0"></script>
-    <script src="Drive/js/transfers.js?v=1.0"></script>
-    <script src="Drive/js/actions.js?v=1.0"></script>
-    <script src="Drive/js/share.js?v=1.0"></script>
-    <script src="Drive/js/details.js?v=1.0"></script>
-    <script src="Drive/js/preview.js?v=1.0"></script>
-    <script src="Drive/js/apphost.js?v=1.0"></script>
-    <script src="Drive/js/settings.js?v=1.0"></script>
-    <script src="Drive/js/app.js?v=1.0"></script>
+    <script src="Drive/js/icons.js?v=1.1"></script>
+    <script src="Drive/js/i18n.js?v=1.1"></script>
+    <script src="Drive/js/api.js?v=1.1"></script>
+    <script src="Drive/js/ui.js?v=1.1"></script>
+    <script src="Drive/js/listing.js?v=1.1"></script>
+    <script src="Drive/js/transfers.js?v=1.1"></script>
+    <script src="Drive/js/actions.js?v=1.1"></script>
+    <script src="Drive/js/share.js?v=1.1"></script>
+    <script src="Drive/js/details.js?v=1.1"></script>
+    <script src="Drive/js/viewer.js?v=1.1"></script>
+    <script src="Drive/js/viewer.image.js?v=1.1"></script>
+    <script src="Drive/js/viewer.video.js?v=1.1"></script>
+    <script src="Drive/js/viewer.audio.js?v=1.1"></script>
+    <script src="Drive/js/viewer.pdf.js?v=1.1"></script>
+    <script src="Drive/js/viewer.doc.js?v=1.1"></script>
+    <script src="Drive/js/apphost.js?v=1.1"></script>
+    <script src="Drive/js/settings.js?v=1.1"></script>
+    <script src="Drive/js/storage.js?v=1.1"></script>
+    <script src="Drive/js/app.js?v=1.1"></script>
 </body>
 
 </html>

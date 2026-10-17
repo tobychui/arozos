@@ -157,6 +157,9 @@
         }
     }
 
+    //Lowest edge the open menu and its submenus may reach (null: the viewport)
+    var menuFloor = null;
+
     function placeAt(node, x, y, anchorRect) {
         document.getElementById("menuLayer").appendChild(node);
         var w = node.offsetWidth, h = node.offsetHeight;
@@ -172,8 +175,9 @@
         if (x + w > vw - 8) {
             x = vw - w - 8;
         }
-        if (y + h > vh - 8) {
-            y = Math.max(8, vh - h - 8);
+        var floor = menuFloor != null ? menuFloor : vh - 8;
+        if (y + h > floor) {
+            y = Math.max(8, floor - h);
         }
         node.style.left = Math.max(8, x) + "px";
         node.style.top = Math.max(8, y) + "px";
@@ -256,7 +260,9 @@
 
     /*
         menu(position, items, opts)
-        position: {x, y} or {anchor: element, align: "start" | "end"}
+        position: {x, y} or {anchor: element, align: "start" | "end", above: bool | element}
+        above opens the menu over its anchor and keeps the submenus above it
+        too, for anchors in a bar along the bottom (the video controls).
     */
     function menu(position, items, opts) {
         closeMenus(0);
@@ -264,11 +270,19 @@
         opts = opts || {};
         var node = buildMenu(items, 0);
         openMenus.push(node);
+        menuFloor = null;
         if (position.anchor) {
             var r = position.anchor.getBoundingClientRect();
             document.getElementById("menuLayer").appendChild(node);
             var x = position.align == "end" ? r.right - node.offsetWidth : r.left;
-            placeAt(node, x, r.bottom + 6);
+            //above: true for the anchor itself, or an element to clear (a whole control bar)
+            var top = position.above && position.above.getBoundingClientRect ? Math.min(r.top, position.above.getBoundingClientRect().top) : r.top;
+            if (position.above && top - 6 - node.offsetHeight >= 8) {
+                menuFloor = top - 6;
+                placeAt(node, x, menuFloor - node.offsetHeight);
+            } else {
+                placeAt(node, x, r.bottom + 6);
+            }
             position.anchor.setAttribute("aria-expanded", "true");
             menuCloseHook = function () {
                 position.anchor.removeAttribute("aria-expanded");
@@ -524,7 +538,7 @@
                 title: opts.title,
                 icon: opts.icon || "pencil",
                 body: '<div class="field"><label>' + esc(opts.label || "") + '</label>' +
-                    '<input class="input" autofocus data-select="0,' + selEnd + '" value="' + esc(value) + '" spellcheck="false" autocomplete="off"></div>',
+                    '<input class="input"' + (opts.password ? ' type="password"' : "") + ' autofocus data-select="0,' + selEnd + '" value="' + esc(value) + '" spellcheck="false" autocomplete="off"></div>',
                 buttons: [
                     { label: T("common/cancel", "Cancel") },
                     {
