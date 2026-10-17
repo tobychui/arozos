@@ -70,13 +70,24 @@ func (m *ModuleHandler) HandleGetExtIcons(w http.ResponseWriter, r *http.Request
 	utils.SendJSONResponse(w, string(js))
 }
 
+// IsUniversalGroup reports whether modules of the given group are open to
+// every user without a permission group grant. Engineering apps are file
+// viewers and tools on the user's own files, so they stay as open as the
+// Utilities they were split from.
+func IsUniversalGroup(group string) bool {
+	switch strings.ToLower(strings.TrimSpace(group)) {
+	case "utilities", "system tools":
+		return true
+	}
+	return false
+}
+
 // Register endpoint. Provide moduleInfo datastructure or unparsed json
 func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
 	m.LoadedModule = append(m.LoadedModule, &module)
 
-	//Add the module into universal module if it is utilities or system tools
-	moduleGroupLowerCase := strings.ToLower(module.Group)
-	if moduleGroupLowerCase == "utilities" || moduleGroupLowerCase == "system tools" {
+	//Add the module into universal module if every user may use its group
+	if IsUniversalGroup(module.Group) {
 		m.userHandler.UniversalModules = append(m.userHandler.UniversalModules, module.Name)
 	}
 }

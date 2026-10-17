@@ -1,6 +1,6 @@
 var moduleLaunchInfo = {
     Name: "SQLite Admin",
-    Group: "Tools",
+    Group: "Development",
     IconPath: "SQLite Admin/img/small_icon.png",
     Version: "1.0",
     StartDir: "SQLite Admin/index.html",

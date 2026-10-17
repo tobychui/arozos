@@ -69,6 +69,9 @@ func AppProxyInit() {
 		Log: func(message string, err error) {
 			systemWideLogger.PrintAndLog("AppProxy", message, err)
 		},
+		ContainersAvailable: func() bool {
+			return dockerManager != nil
+		},
 	})
 	if err != nil {
 		systemWideLogger.PrintAndLog("AppProxy", "Unable to start the container app proxy", err)

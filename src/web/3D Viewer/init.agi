@@ -13,7 +13,7 @@
 var moduleLaunchInfo = {
     Name: "3D Viewer",
     Desc: "View STL, OBJ, GLB, STEP, G-code and other 3D model files",
-    Group: "Utilities",
+    Group: "Engineering",
     IconPath: "3D Viewer/img/module_icon.svg",
     Version: "1.0",
     StartDir: "3D Viewer/index.html",

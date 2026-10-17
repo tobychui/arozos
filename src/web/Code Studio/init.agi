@@ -13,7 +13,7 @@ newDBTableIfNotExists("Code Studio")
 var moduleLaunchInfo = {
     Name: "Code Studio",
 	Desc: "The best code editor on ArozOS",
-	Group: "Office",
+	Group: "Development",
 	IconPath: _MODULE_ROOT_DIR + "/img/module_icon.png",
 	Version: "2.0",
 	StartDir: _MODULE_ROOT_DIR + "/index.html",

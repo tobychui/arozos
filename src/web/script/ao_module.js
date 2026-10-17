@@ -178,6 +178,7 @@ function ao_module_setWindowTheme(newtheme="dark"){
 }
 
 // ao_module_getSystemThemeColor(callback) => Get the global theme color of current system, and return the color value in callback function.
+// The value is the raw preference: "darkTheme" or "whiteTheme" (not "dark" / "light" like ao_module_onThemeChanged).
 function ao_module_getSystemThemeColor(callback){
     $.get("../../system/file_system/preference?key=file_explorer/theme",function(data){
             callback(data);

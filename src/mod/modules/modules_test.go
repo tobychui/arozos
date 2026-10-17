@@ -229,6 +229,30 @@ func TestRegisterModule_NonUtilitiesGroup(t *testing.T) {
 	}
 }
 
+// TestIsUniversalGroup checks which groups every user may open
+func TestIsUniversalGroup(t *testing.T) {
+	cases := []struct {
+		group string
+		want  bool
+	}{
+		{"Utilities", true},
+		{"utilities", true},
+		{"System Tools", true},
+		{"Engineering", false},
+		{" engineering ", false},
+		{"Development", false},
+		{"System Settings", false},
+		{"Media", false},
+		{"Internet", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := IsUniversalGroup(c.group); got != c.want {
+			t.Errorf("IsUniversalGroup(%q) = %v, want %v", c.group, got, c.want)
+		}
+	}
+}
+
 // TestGetModuleNameList_Empty verifies an empty handler returns empty list
 func TestGetModuleNameList_Empty(t *testing.T) {
 	mh := &ModuleHandler{LoadedModule: []*ModuleInfo{}}

@@ -1280,7 +1280,9 @@ function applyTheme(theme) {
 
 function initTheme() {
     ao_module_setWindowTheme('white');
-    ao_module_getSystemThemeColor(function (theme) {
+    ao_module_getSystemThemeColor(function (pref) {
+        //The preference is stored as "darkTheme" / "whiteTheme"
+        var theme = (pref === 'darkTheme' || pref === 'dark') ? 'dark' : 'light';
         applyTheme(theme);
         ao_module_setWindowTheme(theme === 'dark' ? 'dark' : 'white');
     });

@@ -80,6 +80,16 @@ front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
   `Group`, `IconPath`, `Version`, `StartDir`, `SupportFW`/`LaunchFWDir`,
   `SupportEmb`/`LaunchEmb`, `InitFWSize`, `InitEmbSize`, `SupportedExt`. See
   [`src/web/Photo/init.agi`](src/web/Photo/init.agi) for a minimal example.
+- **`Group` (start menu category):** use one of `Media`, `Office`, `Internet`
+  (shown as *Network*), `Engineering` (e.g. Gerber Viewer, 3D Viewer),
+  `Development` (Code Studio, GitApp, Terminal, SQLite Admin, …), `System Tools`
+  or `Utilities`; anything else lands under *Other*. The desktop maps groups
+  to categories in `listMenuCategories` ([`src/web/desktop.html`](src/web/desktop.html)),
+  and adds a *Container Apps* category (published container apps, not
+  modules) only when `/system/appproxy/apps` reports `Containers: true`.
+  The group is also a **permission** decision: `Utilities`, `System Tools`
+  modules are open to every user (`modules.IsUniversalGroup`);
+  every other group needs a permission group grant.
 - **Launch modes:** full page (`StartDir`), **floatWindow** (`SupportFW` +
   `LaunchFWDir`, sized by `InitFWSize`), and **embedded** (`SupportEmb` +
   `LaunchEmb`, sized by `InitEmbSize`) — embedded is what loads when a file is

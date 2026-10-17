@@ -75,8 +75,9 @@ func (m *Manager) HandleUserApps(w http.ResponseWriter, r *http.Request) {
 		apps = append(apps, toAppInfo(ep))
 	}
 	sendJSON(w, map[string]interface{}{
-		"Apps":    apps,
-		"IsAdmin": id.IsAdmin,
+		"Apps":       apps,
+		"IsAdmin":    id.IsAdmin,
+		"Containers": m.opts.ContainersAvailable != nil && m.opts.ContainersAvailable(),
 	})
 }
 

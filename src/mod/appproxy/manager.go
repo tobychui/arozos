@@ -61,6 +61,11 @@ type Options struct {
 
 	//Log receives operational messages
 	Log func(message string, err error)
+
+	//ContainersAvailable reports whether the host can run containers (Docker
+	//is usable), so the desktop only offers its Container Apps category there.
+	//Nil means no container support.
+	ContainersAvailable func() bool
 }
 
 // Stats are runtime counters of one endpoint
