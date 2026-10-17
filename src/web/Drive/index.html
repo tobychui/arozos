@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#f3f6fb">
+    <!--
+        The document base is the web root, exactly like the desktop's. Hosted
+        apps read and write their iframe src as web root relative paths (see
+        ao_module_makeSingleInstance and the embedded.html launchers), so they
+        must resolve the same way here. Every Drive asset is therefore written
+        as Drive/..., and in-page links carry the full path (Drive.href).
+    -->
+    <base href="../">
+    <title>Drive</title>
+    <link rel="icon" type="image/svg+xml" href="Drive/img/module_icon.svg">
+    <link rel="stylesheet" href="Drive/css/drive.css?v=1.0">
+    <script>
+        /*
+            Apply the last used theme and density before the first paint so a
+            dark theme user never sees a white flash while settings load.
+        */
+        (function () {
+            try {
+                var cached = JSON.parse(localStorage.getItem("drive_ui_cache") || "{}");
+                var theme = cached.theme || "auto";
+                if (theme == "auto") {
+                    theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                }
+                document.documentElement.setAttribute("data-theme", theme);
+                if (cached.density == "compact") {
+                    document.documentElement.classList.add("density-compact");
+                }
+            } catch (e) {
+                document.documentElement.setAttribute("data-theme", "light");
+            }
+        })();
+    </script>
+    <script src="script/jquery.min.js"></script>
+    <script src="script/ao_module.js"></script>
+    <script src="script/chunkupload.js"></script>
+</head>
+
+<body>
+    <div class="app" id="app">
+        <header class="topbar">
+            <button class="icon-btn only-mobile" id="navToggle" data-i18n-title="top/menu" title="Menu"></button>
+            <a class="brand" id="brand">
+                <span id="brandLogo"></span>
+                <span class="brand-name">ArozOS</span>
+                <span class="brand-sep"></span>
+                <span class="brand-app" data-i18n="app/name">Drive</span>
+            </a>
+            <form class="search" id="searchBox" role="search" autocomplete="off">
+                <span id="searchIcon"></span>
+                <input type="search" id="searchInput" data-i18n-placeholder="top/search"
+                    placeholder="Search files, folders, or anything..." spellcheck="false" enterkeyhint="search">
+                <button type="button" class="scope" id="searchScope" title="Search location"></button>
+                <button type="button" class="icon-btn small only-sm" id="searchClose" data-i18n-title="common/close" title="Close"></button>
+            </form>
+            <div class="top-actions">
+                <button class="icon-btn only-sm" id="searchToggle" data-i18n-title="top/searchBtn" title="Search"></button>
+                <button class="apps-pill" id="appsPill" hidden></button>
+                <button class="icon-btn" id="bellBtn" data-i18n-title="top/notifications" title="Notifications"></button>
+                <button class="icon-btn hide-sm" id="helpBtn" data-i18n-title="top/help" title="Help"></button>
+                <button class="user-chip" id="userBtn" aria-haspopup="true">
+                    <span class="avatar-wrap"><span class="avatar" id="userAvatar"></span></span>
+                    <span class="user-text"><b id="userName">&nbsp;</b><small id="userSub">&nbsp;</small></span>
+                    <span id="userCaret"></span>
+                </button>
+            </div>
+        </header>
+
+        <div class="shell">
+            <aside class="sidebar" id="sidebar" aria-label="Navigation">
+                <div class="drawer-brand"><span id="drawerLogo"></span><span>ArozOS Drive</span></div>
+                <div class="sidebar-scroll scroll-y" id="sidebarNav"></div>
+                <div class="storage" id="storage"></div>
+            </aside>
+            <div class="scrim" id="scrim"></div>
+
+            <main class="main" id="main">
+                <section class="card" id="card">
+                    <div class="pane" id="pane">
+                        <div class="pane-head" id="paneHead"></div>
+                        <div id="paneBanner"></div>
+                        <div class="list-wrap scroll-y" id="listWrap" tabindex="0"></div>
+                        <div class="pane-foot" id="paneFoot"></div>
+                    </div>
+                    <aside class="details" id="details" hidden></aside>
+                </section>
+                <section class="apphost" id="apphost" hidden>
+                    <div class="apphost-bar">
+                        <button class="btn ghost small" id="hostBack"></button>
+                        <div class="apphost-tabs" id="hostTabs"></div>
+                        <button class="icon-btn small" id="hostNewTab" data-i18n-title="host/newTab" title="Open in new browser tab"></button>
+                        <button class="icon-btn small" id="hostClose" data-i18n-title="host/close" title="Close this app"></button>
+                    </div>
+                    <div class="apphost-body" id="fw-body"></div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="transfers" class="transfers" hidden></div>
+    <div id="menuLayer"></div>
+    <div id="modalLayer"></div>
+    <div id="toastLayer" class="toasts" aria-live="polite"></div>
+    <div id="dragGhost" class="drag-ghost"></div>
+
+    <script src="Drive/js/icons.js?v=1.0"></script>
+    <script src="Drive/js/i18n.js?v=1.0"></script>
+    <script src="Drive/js/api.js?v=1.0"></script>
+    <script src="Drive/js/ui.js?v=1.0"></script>
+    <script src="Drive/js/listing.js?v=1.0"></script>
+    <script src="Drive/js/transfers.js?v=1.0"></script>
+    <script src="Drive/js/actions.js?v=1.0"></script>
+    <script src="Drive/js/share.js?v=1.0"></script>
+    <script src="Drive/js/details.js?v=1.0"></script>
+    <script src="Drive/js/preview.js?v=1.0"></script>
+    <script src="Drive/js/apphost.js?v=1.0"></script>
+    <script src="Drive/js/settings.js?v=1.0"></script>
+    <script src="Drive/js/app.js?v=1.0"></script>
+</body>
+
+</html>

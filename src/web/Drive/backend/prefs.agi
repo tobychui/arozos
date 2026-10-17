@@ -1,0 +1,264 @@
+/*
+    Drive - preferences, starred items and open history
+
+    Everything is stored per user in the "Drive" table of the system
+    database, never in the user's own files.
+
+    POST opr:
+        boot                     settings + starred + recent + roots + quota
+        save      settings=JSON  replace the settings, returns the clean copy
+        star      paths=JSON on=true|false
+        starred                  starred items with their current stats
+        recentAdd path=vpath
+        recent                   recently opened items with their stats
+        recentClear
+*/
+
+requirelib("filelib");
+
+var TABLE = "Drive";
+var MAX_STARRED = 500;
+var MAX_RECENT = 60;
+
+newDBTableIfNotExists(TABLE);
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument (param("name") once returned "name")
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function readJSON(key, def) {
+    var raw = readDBItem(TABLE, USERNAME + "/" + key);
+    if (!raw) {
+        return def;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return def;
+    }
+}
+
+function writeJSON(key, value) {
+    writeDBItem(TABLE, USERNAME + "/" + key, JSON.stringify(value));
+}
+
+var DEFAULTS = {
+    theme: "auto",          //auto | light | dark
+    density: "comfortable", //comfortable | compact
+    view: "list",           //list | grid
+    sortKey: "name",        //name | mtime | size | type
+    sortDir: "asc",         //asc | desc
+    foldersFirst: true,
+    showHidden: false,
+    thumbnails: true,
+    pageSize: 100,          //50 | 100 | 200 | 0 (all)
+    openIn: "drive",        //drive | tab
+    confirmTrash: false,
+    detailsOpen: false
+};
+
+function pick(value, allowed, def) {
+    return allowed.indexOf(value) >= 0 ? value : def;
+}
+
+function sanitize(input) {
+    var s = {};
+    input = input || {};
+    s.theme = pick(input.theme, ["auto", "light", "dark"], DEFAULTS.theme);
+    s.density = pick(input.density, ["comfortable", "compact"], DEFAULTS.density);
+    s.view = pick(input.view, ["list", "grid"], DEFAULTS.view);
+    s.sortKey = pick(input.sortKey, ["name", "mtime", "size", "type"], DEFAULTS.sortKey);
+    s.sortDir = pick(input.sortDir, ["asc", "desc"], DEFAULTS.sortDir);
+    s.foldersFirst = input.foldersFirst !== false;
+    s.showHidden = input.showHidden === true;
+    s.thumbnails = input.thumbnails !== false;
+    s.pageSize = pick(parseInt(input.pageSize, 10), [0, 50, 100, 200], DEFAULTS.pageSize);
+    s.openIn = pick(input.openIn, ["drive", "tab"], DEFAULTS.openIn);
+    s.confirmTrash = input.confirmTrash === true;
+    s.detailsOpen = input.detailsOpen === true;
+    return s;
+}
+
+function basename(path) {
+    var parts = String(path).replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1];
+}
+
+//Current stats of a path, or null when it is gone or no longer readable
+function stat(path) {
+    try {
+        if (!filelib.fileExists(path)) {
+            return null;
+        }
+        var isDir = filelib.isDir(path);
+        return {
+            name: basename(path),
+            path: path,
+            isDir: isDir,
+            size: isDir ? -1 : filelib.filesize(path),
+            mtime: filelib.mtime(path, true)
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+function roots() {
+    var out = [];
+    try {
+        for (var i = 0; i < USER_VROOTS.length; i++) {
+            var h = USER_VROOTS[i];
+            if (h.Closed) {
+                continue;
+            }
+            out.push({
+                name: h.Name,
+                uuid: h.UUID,
+                path: h.UUID + ":/",
+                hierarchy: h.Hierarchy,
+                readonly: h.ReadOnly,
+                fs: h.Filesystem
+            });
+        }
+    } catch (e) {
+        //Fall back to the user root alone
+    }
+    if (out.length == 0) {
+        out.push({ name: "User", uuid: "user", path: "user:/", hierarchy: "user", readonly: false, fs: "" });
+    }
+    return out;
+}
+
+function groups() {
+    try {
+        var raw = JSON.parse(getUserPermissionGroup());
+        if (!(raw instanceof Array)) {
+            raw = [raw];
+        }
+        var names = [];
+        for (var i = 0; i < raw.length; i++) {
+            if (raw[i] && raw[i].Name) {
+                names.push(raw[i].Name);
+            }
+        }
+        return names;
+    } catch (e) {
+        return [];
+    }
+}
+
+function settings() {
+    return sanitize(readJSON("settings", DEFAULTS));
+}
+
+function starredPaths() {
+    var list = readJSON("starred", []);
+    return (list instanceof Array) ? list : [];
+}
+
+function recentEntries() {
+    var list = readJSON("recent", []);
+    return (list instanceof Array) ? list : [];
+}
+
+var opr = String(param("opr", "boot"));
+
+if (opr == "boot") {
+    sendJSONResp({
+        username: USERNAME,
+        isAdmin: userIsAdmin(),
+        groups: groups(),
+        settings: settings(),
+        starred: starredPaths(),
+        recent: recentEntries(),
+        roots: roots(),
+        quota: { total: USERQUOTA_TOTAL, used: USERQUOTA_USED }
+    });
+
+} else if (opr == "save") {
+    var parsed = {};
+    try {
+        parsed = JSON.parse(param("settings", "{}"));
+    } catch (e) {
+        parsed = {};
+    }
+    var clean = sanitize(parsed);
+    writeJSON("settings", clean);
+    sendJSONResp(clean);
+
+} else if (opr == "star") {
+    //Read the POST global before declaring anything: a "var paths" here would
+    //be hoisted over it and wipe the value first
+    var toStar = [];
+    try {
+        toStar = JSON.parse(param("paths", "[]"));
+    } catch (e) {
+        toStar = [];
+    }
+    var on = String(param("on", "true")) == "true";
+    var list = starredPaths();
+    for (var i = 0; i < toStar.length; i++) {
+        var p = String(toStar[i]);
+        var at = list.indexOf(p);
+        if (on && at < 0) {
+            list.unshift(p);
+        } else if (!on && at >= 0) {
+            list.splice(at, 1);
+        }
+    }
+    list = list.slice(0, MAX_STARRED);
+    writeJSON("starred", list);
+    sendJSONResp(list);
+
+} else if (opr == "starred") {
+    var items = [];
+    var missing = [];
+    var starred = starredPaths();
+    for (var j = 0; j < starred.length; j++) {
+        var s = stat(starred[j]);
+        if (s == null) {
+            missing.push(starred[j]);
+        } else {
+            items.push(s);
+        }
+    }
+    sendJSONResp({ items: items, missing: missing });
+
+} else if (opr == "recentAdd") {
+    var path = String(param("path", ""));
+    if (path != "") {
+        var recent = recentEntries().filter(function (r) { return r && r.path != path; });
+        recent.unshift({ path: path, time: Math.floor(Date.now() / 1000) });
+        writeJSON("recent", recent.slice(0, MAX_RECENT));
+    }
+    sendJSONResp({ ok: true });
+
+} else if (opr == "recent") {
+    var out = [];
+    var entries = recentEntries();
+    for (var k = 0; k < entries.length; k++) {
+        var st = stat(entries[k].path);
+        if (st != null && !st.isDir) {
+            st.opened = entries[k].time;
+            out.push(st);
+        }
+    }
+    sendJSONResp(out);
+
+} else if (opr == "recentClear") {
+    writeJSON("recent", []);
+    sendJSONResp({ ok: true });
+
+} else {
+    sendJSONResp({ error: "Unknown operation" });
+}

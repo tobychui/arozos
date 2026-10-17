@@ -1,0 +1,25 @@
+/*
+	ArozOS Drive
+
+	A cloud drive style interface module. Users whose permission group
+	boots into "Drive" sign in straight into a file centric workspace
+	(My Drive, sharing, recent, starred, trash) instead of the web desktop.
+
+	It only talks to existing REST endpoints and its own backend AGI
+	scripts, see README.md in this folder.
+*/
+
+var root = "Drive/";
+var moduleLaunchInfo = {
+	Name: "Drive",
+	Desc: "Cloud drive interface for browsing, sharing and managing your files",
+	Group: "Interface Module",
+	IconPath: root + "img/module_icon.svg",
+	Version: "1.0",
+	StartDir: root + "index.html",
+	SupportFW: true,
+	LaunchFWDir: root + "index.html",
+	InitFWSize: [1180, 720]
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));

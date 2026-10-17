@@ -1,0 +1,432 @@
+/*
+    Drive - file system fallback
+
+    The File Manager REST API (/system/file_system/*) sits behind the
+    "File Manager" module permission. When a user's permission group does
+    not include it, Drive falls back to this script, which works through the
+    AGI file library with the user's own file permissions instead.
+
+    It is a reduced mode: there is no trash bin (delete is permanent), folders
+    cannot be renamed, and renaming or duplicating a file larger than
+    COPY_LIMIT is refused, because filelib can only copy file content through
+    memory. Copies and moves that keep the name go through ziplib, so they
+    have no size limit.
+
+    POST opr:
+        list     dir
+        mkdir    dir name
+        newfile  dir name
+        delete   paths=JSON
+        rename   path name
+        copy     paths=JSON dest existsresp=skip|overwrite|keep
+        move     paths=JSON dest existsresp=skip|overwrite|keep
+        props    path
+        search   path keyword
+        upload   dir name index chunk(hex) total
+        thumb    path
+        share    path              create or return the share link
+        unshare  path
+        shareinfo path
+*/
+
+requirelib("filelib");
+
+var COPY_LIMIT = 32 * 1024 * 1024;
+var UPLOAD_LIMIT = 24 * 1024 * 1024;
+var SEARCH_LIMIT = 500;
+var TIME_BUDGET = 12000;
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument (param("name") once returned "name")
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+/*
+    Hex encoded binary IO. requirelib("filelib") injects these two functions
+    as globals but does not attach them to the filelib object, so they are
+    looked up both ways.
+*/
+function readHex(path) {
+    if (typeof _filelib_readBinaryFile === "function") {
+        return _filelib_readBinaryFile(path);
+    }
+    return filelib.readBinaryFile(path);
+}
+
+function writeHex(path, hex) {
+    if (typeof _filelib_writeBinaryFile === "function") {
+        return _filelib_writeBinaryFile(path, hex);
+    }
+    return filelib.writeBinaryFile(path, hex);
+}
+
+function fail(message) {
+    sendJSONResp({ error: String(message) });
+}
+
+function basename(path) {
+    var parts = String(path).replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1];
+}
+
+function dirname(path) {
+    var clean = String(path).replace(/\/+$/, "");
+    var at = clean.lastIndexOf("/");
+    return at < 0 ? clean : clean.substring(0, at + 1);
+}
+
+function join(dir, name) {
+    dir = String(dir);
+    if (dir.substring(dir.length - 1) != "/") {
+        dir = dir + "/";
+    }
+    return dir + name;
+}
+
+function validName(name) {
+    name = String(name);
+    if (name == "" || name == "." || name == ".." || name.length > 255) {
+        return false;
+    }
+    return !/[\/\\:*?"<>|]/.test(name);
+}
+
+function parseList(raw) {
+    try {
+        var arr = JSON.parse(raw);
+        return (arr instanceof Array) ? arr : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function exists(path) {
+    try {
+        return filelib.fileExists(path);
+    } catch (e) {
+        return false;
+    }
+}
+
+function statOf(path) {
+    var isDir = filelib.isDir(path);
+    return {
+        name: basename(path),
+        path: path,
+        isDir: isDir,
+        size: isDir ? -1 : filelib.filesize(path),
+        mtime: filelib.mtime(path, true)
+    };
+}
+
+//Delete a file or a whole folder. walk includes hidden entries, deepest first
+function removeTree(path) {
+    if (!filelib.isDir(path)) {
+        filelib.deleteFile(path);
+        return;
+    }
+    var all = filelib.walk(path, "all");
+    all.sort(function (a, b) { return b.length - a.length; });
+    for (var i = 0; i < all.length; i++) {
+        if (String(all[i]).replace(/\/+$/, "") == String(path).replace(/\/+$/, "")) {
+            continue;
+        }
+        try {
+            filelib.deleteFile(all[i]);
+        } catch (e) {
+            //Keep going, the folder delete below reports what is left
+        }
+    }
+    filelib.deleteFile(path);
+}
+
+//"name (1).ext", "name (2).ext", ... inside dir
+function freeName(dir, name) {
+    var dot = name.lastIndexOf(".");
+    var stem = dot > 0 ? name.substring(0, dot) : name;
+    var ext = dot > 0 ? name.substring(dot) : "";
+    for (var i = 1; i < 1000; i++) {
+        var candidate = stem + " (" + i + ")" + ext;
+        if (!exists(join(dir, candidate))) {
+            return candidate;
+        }
+    }
+    return stem + " (" + Date.now() + ")" + ext;
+}
+
+//Copy file content through memory, for a copy that changes the name
+function copyFileByContent(src, dest) {
+    if (filelib.filesize(src) > COPY_LIMIT) {
+        throw "File is too large to copy under a new name in limited mode";
+    }
+    var hex = readHex(src);
+    if (hex === null || hex === false) {
+        throw "Unable to read " + basename(src);
+    }
+    writeHex(dest, hex);
+}
+
+//Copy src into destDir keeping its name, through a temporary zip
+function copyKeepName(src, destDir) {
+    requirelib("ziplib");
+    var tmpZip = "tmp:/drive_copy_" + Date.now() + "_" + Math.floor(Math.random() * 100000) + ".zip";
+    //A one item array would be the natural call, but ziplib only accepts an
+    //array whose Go export is []interface{}, and Otto exports string arrays as
+    //[]string, so the single string form is the one that works
+    if (!ziplib.createZipFile(String(src), tmpZip)) {
+        throw "Unable to pack " + basename(src);
+    }
+    var ok = ziplib.extractZipFile(tmpZip, destDir);
+    try {
+        filelib.deleteFile(tmpZip);
+    } catch (e) { }
+    if (!ok) {
+        throw "Unable to unpack " + basename(src);
+    }
+}
+
+function transfer(paths, dest, existsresp, isMove) {
+    var done = [];
+    var errors = [];
+    for (var i = 0; i < paths.length; i++) {
+        var src = String(paths[i]);
+        var name = basename(src);
+        try {
+            if (!exists(src)) {
+                throw "Source not found: " + name;
+            }
+            if (join(dest, "").indexOf(join(src, "")) == 0) {
+                throw "Cannot put a folder inside itself";
+            }
+            var target = join(dest, name);
+            if (target == src) {
+                if (!isMove) {
+                    //Duplicating in place always keeps both
+                    copyFileByContent(src, join(dest, freeName(dest, name)));
+                    done.push(src);
+                }
+                continue;
+            }
+            if (exists(target)) {
+                if (existsresp == "skip") {
+                    continue;
+                } else if (existsresp == "overwrite") {
+                    removeTree(target);
+                    copyKeepName(src, dest);
+                } else {
+                    if (filelib.isDir(src)) {
+                        throw "A folder named " + name + " already exists";
+                    }
+                    copyFileByContent(src, join(dest, freeName(dest, name)));
+                }
+            } else {
+                copyKeepName(src, dest);
+            }
+            if (isMove) {
+                removeTree(src);
+            }
+            done.push(src);
+        } catch (e) {
+            errors.push(String(e));
+        }
+    }
+    if (errors.length > 0) {
+        sendJSONResp({ error: errors.join("; "), done: done });
+    } else {
+        sendJSONResp({ ok: true, done: done });
+    }
+}
+
+var opr = String(param("opr", ""));
+
+try {
+    if (opr == "list") {
+        var dir = String(param("dir", "user:/"));
+        var entries = filelib.readdir(dir, "default");
+        var shareReady = requirelib("share");
+        var items = [];
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            var shared = false;
+            if (shareReady) {
+                try { shared = share.fileIsShared(e.Filepath); } catch (ex) { shared = false; }
+            }
+            items.push({ name: e.Filename, path: e.Filepath, isDir: e.IsDir, size: e.IsDir ? -1 : e.Filesize, mtime: e.Modtime, shared: shared });
+        }
+        sendJSONResp(items);
+
+    } else if (opr == "mkdir" || opr == "newfile") {
+        var parent = String(param("dir", ""));
+        var newName = String(param("name", ""));
+        if (!validName(newName)) {
+            fail("Filename contains illegal characters");
+        } else if (exists(join(parent, newName))) {
+            fail("An item with this name already exists");
+        } else if (opr == "mkdir") {
+            filelib.mkdir(join(parent, newName));
+            sendJSONResp({ ok: true });
+        } else {
+            filelib.writeFile(join(parent, newName), "");
+            sendJSONResp({ ok: true });
+        }
+
+    } else if (opr == "delete") {
+        var targets = parseList(param("paths", "[]"));
+        var failed = [];
+        for (var d = 0; d < targets.length; d++) {
+            try {
+                removeTree(String(targets[d]));
+            } catch (ex) {
+                failed.push(basename(targets[d]));
+            }
+        }
+        if (failed.length > 0) {
+            fail("Unable to delete " + failed.join(", "));
+        } else {
+            sendJSONResp({ ok: true });
+        }
+
+    } else if (opr == "rename") {
+        var src = String(param("path", ""));
+        var renameTo = String(param("name", ""));
+        var renamed = join(dirname(src), renameTo);
+        if (!validName(renameTo)) {
+            fail("Filename contains illegal characters");
+        } else if (!exists(src)) {
+            fail("File not exists");
+        } else if (exists(renamed)) {
+            fail("File already exists");
+        } else if (filelib.isDir(src)) {
+            fail("Renaming folders needs the File Manager permission");
+        } else {
+            copyFileByContent(src, renamed);
+            filelib.deleteFile(src);
+            sendJSONResp({ ok: true });
+        }
+
+    } else if (opr == "copy" || opr == "move") {
+        transfer(parseList(param("paths", "[]")), String(param("dest", "")), String(param("existsresp", "keep")), opr == "move");
+
+    } else if (opr == "props") {
+        var p = String(param("path", ""));
+        if (!exists(p)) {
+            fail("File not exists");
+        } else {
+            var info = statOf(p);
+            if (info.isDir) {
+                var size = 0;
+                var files = filelib.walk(p, "file");
+                for (var f = 0; f < files.length && f < 20000; f++) {
+                    try { size += filelib.filesize(files[f]); } catch (ex) { }
+                }
+                info.size = size;
+                info.fileCount = files.length;
+            }
+            sendJSONResp(info);
+        }
+
+    } else if (opr == "search") {
+        var root = String(param("path", "user:/"));
+        var keyword = String(param("keyword", "")).toLowerCase().trim();
+        var words = keyword.split(/\s+/).filter(function (w) { return w != ""; });
+        var results = [];
+        var queue = [join(root, "")];
+        var started = Date.now();
+        while (queue.length > 0 && results.length < SEARCH_LIMIT && Date.now() - started < TIME_BUDGET) {
+            var current = queue.shift();
+            var list = [];
+            try { list = filelib.readdir(current, "default"); } catch (ex) { continue; }
+            for (var s = 0; s < list.length; s++) {
+                var item = list[s];
+                var lower = item.Filename.toLowerCase();
+                var match = words.length > 0;
+                for (var w = 0; w < words.length; w++) {
+                    if (lower.indexOf(words[w]) < 0) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    results.push({ name: item.Filename, path: item.Filepath, isDir: item.IsDir, size: item.IsDir ? -1 : item.Filesize, mtime: item.Modtime });
+                }
+                if (item.IsDir) {
+                    queue.push(item.Filepath + "/");
+                }
+            }
+        }
+        sendJSONResp(results);
+
+    } else if (opr == "upload") {
+        var upDir = String(param("dir", ""));
+        var upName = String(param("name", ""));
+        var index = parseInt(param("index", "0"), 10) || 0;
+        var total = parseInt(param("total", "0"), 10) || 0;
+        var chunk = String(param("chunk", ""));
+        var upTarget = join(upDir, upName);
+        if (!validName(upName)) {
+            fail("Filename contains illegal characters");
+        } else if (total > UPLOAD_LIMIT) {
+            fail("Files larger than 24 MB need the File Manager permission to upload");
+        } else if (index == 0) {
+            if (exists(upTarget)) {
+                upTarget = join(upDir, freeName(upDir, upName));
+            }
+            writeHex(upTarget, chunk);
+            sendJSONResp({ ok: true, path: upTarget });
+        } else {
+            //Later chunks name the file the first chunk created
+            upTarget = String(param("target", upTarget));
+            var existing = readHex(upTarget);
+            writeHex(upTarget, String(existing || "") + chunk);
+            sendJSONResp({ ok: true, path: upTarget });
+        }
+
+    } else if (opr == "thumb") {
+        requirelib("imagelib");
+        var tp = String(param("path", ""));
+        var b64 = "";
+        try { b64 = imagelib.loadThumbString(tp); } catch (ex) { b64 = ""; }
+        if (b64 && b64 !== "" && b64 !== false) {
+            sendJSONResp({ data: "data:image/jpeg;base64," + b64 });
+        } else {
+            var resized = "";
+            try { resized = imagelib.resizeImageBase64(tp, 256, 256, "jpeg"); } catch (ex) { resized = ""; }
+            sendJSONResp({ data: resized || "" });
+        }
+
+    } else if (opr == "share" || opr == "unshare" || opr == "shareinfo") {
+        requirelib("share");
+        var sp = String(param("path", ""));
+        if (opr == "share") {
+            var uuid = share.shareFile(sp, 0);
+            if (typeof uuid !== "string" || uuid == "") {
+                fail(uuid && uuid.message ? uuid.message : "Unable to share this item");
+            } else {
+                sendJSONResp({ uuid: uuid });
+            }
+        } else if (opr == "unshare") {
+            var sid = share.getFileShareUUID(sp);
+            if (sid) {
+                share.removeShare(sid);
+            }
+            sendJSONResp({ ok: true });
+        } else {
+            var isShared = share.fileIsShared(sp);
+            sendJSONResp({ shared: isShared, uuid: isShared ? share.getFileShareUUID(sp) : "" });
+        }
+
+    } else {
+        fail("Unknown operation");
+    }
+} catch (err) {
+    fail(err && err.message ? err.message : err);
+}

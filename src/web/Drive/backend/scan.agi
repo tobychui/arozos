@@ -1,0 +1,137 @@
+/*
+    Drive - recent and category scans
+
+    Walks a root breadth first with filelib.readdir, which hands back the
+    size and modification time of every entry in one call per directory,
+    and returns the newest matching files.
+
+    POST
+        mode     recent | ext
+        root     virtual path to scan, defaults to user:/
+        exts     JSON array of extensions to include (mode ext)
+        exclude  JSON array of extensions to leave out (mode ext, used for
+                 the "Others" category together with an empty exts)
+        days     how far back "recent" looks, defaults to 30
+        limit    maximum number of results, defaults to 300
+
+    Response: {items: [...], truncated: bool, total: number}
+*/
+
+requirelib("filelib");
+
+var MAX_DIRS = 20000;
+var TIME_BUDGET = 12000; //ms
+
+//POST fields arrive as globals. The odd argument names keep eval() from
+//resolving a field named like an argument (param("name") once returned "name")
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null || __value === "") {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function parseList(raw) {
+    try {
+        var arr = JSON.parse(raw);
+        var set = {};
+        for (var i = 0; i < arr.length; i++) {
+            set[String(arr[i]).toLowerCase()] = true;
+        }
+        return set;
+    } catch (e) {
+        return {};
+    }
+}
+
+var mode = String(param("mode", "recent"));
+var root = String(param("root", "user:/"));
+var days = parseInt(param("days", "30"), 10) || 30;
+var limit = parseInt(param("limit", "300"), 10) || 300;
+var include = parseList(param("exts", "[]"));
+var exclude = parseList(param("exclude", "[]"));
+var includeAll = Object.keys(include).length == 0;
+
+var since = Math.floor(Date.now() / 1000) - days * 86400;
+var started = Date.now();
+var truncated = false;
+var results = [];
+
+function extOf(name) {
+    var dot = name.lastIndexOf(".");
+    if (dot <= 0) {
+        return "";
+    }
+    return name.substring(dot + 1).toLowerCase();
+}
+
+function wanted(entry) {
+    if (mode == "recent") {
+        return entry.Modtime >= since;
+    }
+    var ext = extOf(entry.Filename);
+    if (exclude[ext]) {
+        return false;
+    }
+    return includeAll || include[ext] === true;
+}
+
+if (root.substring(root.length - 1) != "/") {
+    root = root + "/";
+}
+
+var queue = [root];
+var visited = 0;
+while (queue.length > 0) {
+    if (visited >= MAX_DIRS || Date.now() - started > TIME_BUDGET) {
+        truncated = true;
+        break;
+    }
+    var dir = queue.shift();
+    visited++;
+    var entries = [];
+    try {
+        entries = filelib.readdir(dir, "default");
+    } catch (e) {
+        continue;
+    }
+    if (!(entries instanceof Array)) {
+        continue;
+    }
+    for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        if (entry.Filename.charAt(0) == ".") {
+            continue;
+        }
+        if (entry.IsDir) {
+            queue.push(entry.Filepath + "/");
+            continue;
+        }
+        if (entry.Filename.substring(entry.Filename.length - 9) == ".shortcut") {
+            continue;
+        }
+        if (wanted(entry)) {
+            results.push({
+                name: entry.Filename,
+                path: entry.Filepath,
+                isDir: false,
+                size: entry.Filesize,
+                mtime: entry.Modtime
+            });
+        }
+    }
+}
+
+results.sort(function (a, b) { return b.mtime - a.mtime; });
+var total = results.length;
+if (total > limit) {
+    results = results.slice(0, limit);
+}
+
+//truncated: the walk stopped early; total: matches found before the limit cut
+sendJSONResp({ items: results, truncated: truncated, total: total });
