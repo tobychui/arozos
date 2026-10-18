@@ -2762,6 +2762,19 @@
         let resizingMinX = 0;
         let minxWidth = 120;
         let minHeight = 100;
+
+        //Minimum size of a floatWindow: the legacy floor above, raised by the
+        //window's optional minWidth / minHeight (newFloatWindow config or
+        //ao_module_setWindowMinSize) but never beyond the screen size
+        function getFloatWindowMinSize(object){
+            var w = parseInt($(object).attr("minwidth")) || 0;
+            var h = parseInt($(object).attr("minheight")) || 0;
+            return [
+                Math.max(minxWidth, Math.min(w, window.innerWidth)),
+                Math.max(minHeight, Math.min(h, window.innerHeight))
+            ];
+        }
+
         function resizeDown(object, event) {
             if (object.length > 1){
                 object = object[0];
@@ -2773,7 +2786,7 @@
             //Mouse down, start resizing
             resizingWindow = true;
             resizingWindowTarget = object;
-            resizingMinX = $(object).offset().left + $(object).width() - minxWidth;
+            resizingMinX = $(object).offset().left + $(object).width() - getFloatWindowMinSize(object)[0];
             MoveFloatWindowToTop(object);
             if ($(object).hasClass("topmost")){
                 //Top most windows
@@ -2820,6 +2833,16 @@
         function resizeMove(object, event) {
             var posX = event.pageX;
             var posY = event.pageY;
+            var minSize = getFloatWindowMinSize(object);
+            var minxWidth = minSize[0];
+            var minHeight = minSize[1];
+            //Dragging the top edge moves the top, so stop it where a window
+            //with a minimum height reaches it instead of sliding the window
+            //(windows without one keep the legacy behavior)
+            var maxTop = Infinity;
+            if ($(object).attr("minheight") !== undefined) {
+                maxTop = $(object).offset().top + $(object).height() - minHeight;
+            }
             
             if (resizingWindow == true && resizingEdgeID != 0) {
                 if (resizingEdgeID == 1) {
@@ -2862,7 +2885,7 @@
                 } else if (resizingEdgeID == 6){
                     var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
                     $(object).css({
-                        "top": posY - 2,
+                        "top": Math.min(posY - 2, maxTop),
                         "height": Math.max(newHeight,minHeight),
                     });
                 } else if (resizingEdgeID == 7){
@@ -2875,7 +2898,7 @@
                         newWidth = minxWidth;
                     }
                     $(object).css({
-                        "top": posY - 2,
+                        "top": Math.min(posY - 2, maxTop),
                         "height": Math.max(newHeight, minHeight),
                         "left": newLeft,
                         "width": newWidth
@@ -2885,7 +2908,7 @@
                     var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
                     var newWidth = posX - $(object).offset().left + 2;
                     $(object).css({
-                        "top": posY - 2,
+                        "top": Math.min(posY - 2, maxTop),
                         "height": Math.max(newHeight, minHeight),
                         "width": Math.max(newWidth, minxWidth)
                     });
@@ -3437,6 +3460,15 @@
             var callbackFunctionName = defaultOrKey(config, "", "callback");
             var bgcolor = defaultOrKey(config, "", "background-color");
             var needFocusCover = defaultOrKey(config, false, "focuscover") || isContainerAppURL(url);
+            //Optional minimum size. Unset keeps the legacy 120 x 100 floor
+            var fwMinWidth = parseInt(defaultOrKey(config, 0, "minWidth")) || 0;
+            var fwMinHeight = parseInt(defaultOrKey(config, 0, "minHeight")) || 0;
+            if (width < fwMinWidth) {
+                width = fwMinWidth;
+            }
+            if (height < fwMinHeight) {
+                height = fwMinHeight;
+            }
 
             //Encode function name
             callbackFunctionName = encodeURIComponent(callbackFunctionName);
@@ -3514,6 +3546,7 @@
                 </div>
             </div>`);
             var newWindowObject = getFloatWindowByID(uuid);
+            applyFloatWindowMinSize(newWindowObject, fwMinWidth, fwMinHeight);
             //console.log(newWindowObject);
             MoveFloatWindowToTop(newWindowObject);
 
@@ -3669,6 +3702,48 @@
                 height: newHeight,
                 width: newWidth
             });
+        }
+
+        //Set (or clear with 0) the minimum size of a floatWindow
+        function setFloatWindowMinSize(targetFWId, minWidth, minHeight) {
+            var targetfw = getFloatWindowByID(targetFWId);
+            if (targetfw == undefined || targetfw.length == 0) {
+                return;
+            }
+            applyFloatWindowMinSize(targetfw, minWidth, minHeight);
+            if ($(targetfw).attr("max") == "true") {
+                //Maximized or docked: the layout already fills the screen
+                return;
+            }
+            //Grow a window that is currently smaller than its new minimum,
+            //keeping it on screen
+            var minSize = getFloatWindowMinSize(targetfw);
+            var newWidth = Math.max($(targetfw).width(), minSize[0]);
+            var newHeight = Math.max($(targetfw).height(), minSize[1]);
+            var offset = $(targetfw).offset();
+            $(targetfw).css({
+                width: newWidth,
+                height: newHeight,
+                left: Math.max(0, Math.min(offset.left, window.innerWidth - newWidth)),
+                top: Math.max(0, Math.min(offset.top, window.innerHeight - newHeight))
+            });
+        }
+
+        //Store the minimum size and enforce it in CSS as well, so every other
+        //way of sizing the window (setFloatWindowSize, docking) respects it
+        function applyFloatWindowMinSize(targetfw, minWidth, minHeight) {
+            minWidth = parseInt(minWidth) || 0;
+            minHeight = parseInt(minHeight) || 0;
+            if (minWidth > 0) {
+                $(targetfw).attr("minwidth", minWidth).css("min-width", "min(" + minWidth + "px, 100vw)");
+            } else {
+                $(targetfw).removeAttr("minwidth").css("min-width", "");
+            }
+            if (minHeight > 0) {
+                $(targetfw).attr("minheight", minHeight).css("min-height", "min(" + minHeight + "px, 100vh)");
+            } else {
+                $(targetfw).removeAttr("minheight").css("min-height", "");
+            }
         }
 
         function setFloatWindowTitle(targetFWId, newTitle) {

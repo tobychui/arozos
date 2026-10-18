@@ -160,6 +160,16 @@ function ao_module_setWindowSize(width, height){
     parent.setFloatWindowSize(ao_module_windowID, width, height)
 }
 
+//Set the minimum size the user can resize this float window to, in px.
+//Pass 0 (or leave out) a dimension to drop back to the default minimum.
+//A window smaller than the new minimum grows to fit it.
+function ao_module_setWindowMinSize(width=0, height=0){
+    if (!ao_module_virtualDesktop || typeof parent.setFloatWindowMinSize != "function"){
+        return;
+    }
+    parent.setFloatWindowMinSize(ao_module_windowID, width, height);
+}
+
 //Update the floatWindow title
 function ao_module_setWindowTitle(newTitle){
     if (!ao_module_virtualDesktop){
@@ -451,6 +461,8 @@ function ao_module_openSetting(group, name){
         title: "Dummy Module",
         left: 100,
         top: 100,
+        minWidth: 400,      //optional, smallest width the user can resize to
+        minHeight: 300,     //optional, smallest height the user can resize to
         parent: ao_module_windowID,
         callback: "childCallbackHandler"
     });

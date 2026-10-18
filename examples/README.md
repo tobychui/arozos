@@ -206,6 +206,7 @@ These functions are in global scope with your JavaScript. These are use to inter
 | ao_module_setFixedWindowSize()            | Set the float window to non-resizable                        |                                                    |
 | ao_module_setResizableWindowSize()        | Set the float window to be resizable                         |                                                    |
 | ao_module_setWindowSize(width, height)    | Change the size of the float window                          | ao_module_setWindowSize(480, 240)                  |
+| ao_module_setWindowMinSize(width, height) | Set the smallest size the user can resize the float window to (0 = default) | ao_module_setWindowMinSize(360, 480)               |
 | ao_module_setWindowTitle(newTitle)        | Update the title of the float window                         | ao_module_setWindowTitle("Loading File")           |
 | ao_module_makeSingleInstance()            | Load the current path into another instance's windows if exists |                                                    |
 | ao_module_getInstanceByPath(matchingPath) | Get other float window instance that have the same starting path | ao_module_getInstanceByPath("NotepadA/index.html") |
@@ -238,10 +239,14 @@ ao_module_newfw({
     title: "Dummy Module",
     left: 100,
     top: 100,
+    minWidth: 400,      //optional, smallest width the user can resize to
+    minHeight: 300,     //optional, smallest height the user can resize to
     parent: ao_module_windowID,
     callback: "childCallbackHandler"
 });
 ```
+
+`minWidth` / `minHeight` are optional; without them a window keeps the default minimum. A window can also set its own minimum at runtime with `ao_module_setWindowMinSize(width, height)`.
 
 ### Handling Embedded Mode Input File / File Open
 

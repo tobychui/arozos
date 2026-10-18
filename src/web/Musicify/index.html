@@ -183,9 +183,15 @@
         #app.mobile-landscape .sidebar-overlay { display: block; }
 
         /* ── Main Content ────────────────────────────────────────────────── */
+        /* Positioning box for the Now Playing overlay: it does not scroll, so
+           the overlay never depends on the content's scroll position */
+        .main-wrap {
+            flex: 1; min-width: 0; min-height: 0; position: relative;
+            display: flex; flex-direction: column;
+        }
         .main-content {
             flex: 1; overflow-y: auto; background: var(--bg);
-            min-width: 0; display: flex; flex-direction: column;
+            min-width: 0; min-height: 0; display: flex; flex-direction: column;
         }
         .main-content::-webkit-scrollbar { width: 6px; }
         .main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -544,6 +550,9 @@
         .player-extras {
             display: flex; align-items: center; gap: 4px;
             width: 220px; justify-content: flex-end; flex-shrink: 0;
+            /* Keeps the group at the right edge when Now Playing hides the
+               centre controls (no effect while they fill the middle) */
+            margin-left: auto;
         }
         .sleep-indicator {
             font-size: 11px; color: var(--accent); background: var(--accent-glow);
@@ -566,9 +575,6 @@
                 display: flex !important; align-items: center; gap: 4px;
             }
             .content-body { padding: 14px 12px 12px}
-            .now-playing-overlay {
-                height: calc(100vh - var(--player-h) - 52px) !important;  /* compensate for mobile bar */
-            }
         }
         .mobile-player-controls { display: none; }
         .mobile-seek-row { display: none; width: 100%; align-items: center; gap: 6px; padding: 2px 0 8px; }
@@ -679,9 +685,6 @@
         /* ── Drag‑style progress bar update (JS-driven CSS var) ─────────── */
         input[type=range] { cursor: pointer; }
 
-        /* ── Overlay base (shared by the Now Playing overlay) ────────────── */
-        .main-content { position: relative; }
-
         /* ── Now Playing full-screen overlay ─────────────────────────────── */
         /* The centre of the overlay follows the Drive music player: a dark
            stage under the blurred cover art, thin stroked icons, a white play
@@ -700,7 +703,6 @@
             z-index: 85; overflow: hidden; overflow: clip;
             background: var(--np-stage);
             color: var(--np-text);
-            height: calc(100vh - var(--player-h));
         }
         .now-playing-overlay .np-bg {
             position: absolute; inset: -60px; z-index: 0;
@@ -999,6 +1001,62 @@
         .toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
         .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
 
+        /* ── Equalizer View ──────────────────────────────────────────────── */
+        .nav-item svg.nav-svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .eq-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+        .eq-preset {
+            padding: 5px 12px; border-radius: 14px; cursor: pointer;
+            border: 1px solid var(--border); background: var(--bg3);
+            color: var(--text2); font-size: 12px; font-weight: 600;
+            font-family: inherit; transition: border-color .15s, background .15s, color .15s;
+        }
+        .eq-preset:hover { border-color: var(--accent); color: var(--text); }
+        .eq-preset.selected { border-color: var(--accent); background: var(--active-bg); color: var(--accent); }
+        .eq-preset.custom { cursor: default; }
+        .eq-curve {
+            display: block; width: 100%; height: 90px; margin-bottom: 14px;
+            background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+        }
+        .eq-curve .eq-grid { stroke: var(--border); stroke-width: 1; }
+        .eq-curve .eq-zero { stroke: var(--text3); stroke-width: 1; stroke-dasharray: 3 3; }
+        .eq-curve .eq-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+        .eq-curve .eq-fill { fill: var(--accent-glow); stroke: none; }
+        .eq-board { display: flex; align-items: stretch; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+        .eq-board.off { opacity: .5; }
+        .eq-band {
+            flex: 1; min-width: 38px; display: flex; flex-direction: column;
+            align-items: center; gap: 8px;
+        }
+        .eq-band.preamp { border-right: 1px solid var(--border); padding-right: 8px; margin-right: 6px; }
+        .eq-db   { font-size: 11px; color: var(--text2); font-variant-numeric: tabular-nums; min-height: 14px; }
+        .eq-freq { font-size: 11px; color: var(--text3); font-weight: 600; }
+        .eq-slider {
+            -webkit-appearance: none; appearance: none;
+            writing-mode: vertical-lr; direction: rtl;
+            width: 4px; height: 150px; margin: 0; padding: 0;
+            border-radius: 2px; outline: none; cursor: pointer;
+            background: linear-gradient(to top, var(--border) 0%, var(--border) var(--lo, 50%), var(--accent) var(--lo, 50%), var(--accent) var(--hi, 50%), var(--border) var(--hi, 50%), var(--border) 100%);
+        }
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px;
+            border-radius: 50%; background: var(--accent); cursor: pointer;
+            transition: transform .1s;
+        }
+        .eq-slider::-moz-range-thumb {
+            width: 14px; height: 14px; border: none;
+            border-radius: 50%; background: var(--accent); cursor: pointer;
+        }
+        .eq-slider:hover::-webkit-slider-thumb { transform: scale(1.2); }
+        .eq-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+        .eq-reset {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 7px; cursor: pointer;
+            border: 1px solid var(--border); background: var(--bg3);
+            color: var(--text2); font-size: 12.5px; font-family: inherit;
+        }
+        .eq-reset:hover { border-color: var(--accent); color: var(--text); }
+        .eq-reset i.icon { margin: 0; }
+
         /* ── Full-buffer loading overlay on album art ────────────────────── */
         .player-cover-loading {
             position: absolute; inset: 0;
@@ -1105,6 +1163,15 @@
                 </div>
 
                 <div class="sidebar-section-label" style="margin-top:8px;">App</div>
+                <a class="nav-item" :class="{active: view==='equalizer'}" x-show="eqSupported" x-on:click="navigateTo('equalizer')">
+                    <svg class="nav-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                        <path d="M3 2v12M8 2v12M13 2v12"/>
+                        <rect x="1.2" y="8.2" width="3.6" height="2.6" rx="1" fill="currentColor"/>
+                        <rect x="6.2" y="3.7" width="3.6" height="2.6" rx="1" fill="currentColor"/>
+                        <rect x="11.2" y="10.2" width="3.6" height="2.6" rx="1" fill="currentColor"/>
+                    </svg>
+                    Equalizer
+                </a>
                 <a class="nav-item" :class="{active: view==='settings'}" x-on:click="navigateTo('settings')">
                     <i class="ui sliders horizontal icon"></i> Settings
                 </a>
@@ -1112,6 +1179,9 @@
         </nav>
 
         <!-- ═══ MAIN CONTENT ═══════════════════════════════════════════════ -->
+        <!-- The Now Playing overlay sits beside the scrolling area, not in it,
+             so it always covers exactly the visible main area -->
+        <div class="main-wrap">
         <main class="main-content" id="mainContent">
 
             <!-- Loading overlay -->
@@ -1549,132 +1619,75 @@
                 </div>
             </div>
 
-            <!-- ── NOW PLAYING OVERLAY ──────────────────────────────────────── -->
-            <div x-show="showNowPlaying" class="now-playing-overlay" :class="{'np-noart': npNoArt}"
-                 x-on:touchstart="npTouchStart($event)"
-                 x-on:touchend="npTouchEnd($event)">
-                <!-- Blurred album art backdrop -->
-                <!-- Without cover art it falls back to a purple glow (.np-noart) -->
-                <div class="np-bg"
-                     :style="currentTrack && !npNoArt ? ('background-image:url(\'' + getCoverUrl(currentTrack) + '\')') : ''"></div>
-
-                <div class="np-content" :class="{'np-slide-left': _npSwipeDir==='left', 'np-slide-right': _npSwipeDir==='right'}">
-                    <!-- Header -->
-                    <div class="np-header">
-                        <button class="ctrl-btn" x-on:click="closeNowPlaying()" title="Close">
-                            <i class="ui chevron down icon" style="margin:0;"></i>
-                        </button>
-                        <span class="np-header-title">Now Playing</span>
-                        <button class="ctrl-btn" :class="{active: showTrackInfo}" x-on:click="toggleTrackInfo()" title="Song info">
-                            <i class="ui info circle icon" style="margin:0;"></i>
-                        </button>
-                    </div>
-
-                    <!-- Large cover art -->
-                    <div class="np-art-wrap">
-                        <img class="np-art" x-show="!privacyVisualizerMode"
-                             :src="currentTrack ? getCoverUrl(currentTrack) : 'img/placeholder.png'"
-                             x-on:error="npNoArt = true; $event.target.src='img/placeholder.png'; $event.target.onerror=null"
-                             x-on:load="npNoArt = $event.target.src.indexOf('img/placeholder.png') !== -1"
-                             alt="Cover">
-                        <canvas id="np-viz-canvas" class="np-art-viz" x-show="privacyVisualizerMode" title="Album art hidden — Privacy Mode"></canvas>
-                        <div class="np-art-loading" x-show="_fullBufferLoading">
-                            <i class="ui spinner loading icon"></i>
-                        </div>
-                    </div>
-
-                    <!-- Title + artist -->
-                    <div class="np-meta">
-                        <!-- A title too long for one line scrolls (two copies loop seamlessly) -->
-                        <div class="np-title" :title="currentTrack ? currentTrack.name : ''"><span class="np-mq"><span class="np-mq-text" x-text="currentTrack ? currentTrack.name : ''"></span><span class="np-mq-text np-mq-copy" aria-hidden="true" x-text="currentTrack ? currentTrack.name : ''"></span></span></div>
-                        <div class="np-artist" x-text="currentTrack ? getArtistLabel(currentTrack) : ''"></div>
-                    </div>
-
-                    <!-- Spectrum (needs Web Audio, so never on iOS / iPadOS) -->
-                    <canvas id="np-spectrum" class="np-vis" x-show="spectrumSupported"></canvas>
-
-                    <!-- Seek bar -->
-                    <div class="np-seek">
-                        <input type="range" class="np-range" min="0" :max="Math.floor(duration) || 100"
-                            aria-label="Seek"
-                            :value="Math.floor(currentTime)"
-                            :style="'--progress:' + progressPercent() + '%'"
-                            x-on:mousedown="beginSeek()"
-                            x-on:touchstart.stop="beginSeek()"
-                            x-on:touchmove.stop="currentTime = parseFloat($event.target.value)"
-                            x-on:touchend.stop="endSeek($event.target.value)"
-                            x-on:touchcancel.stop="endSeek($event.target.value)"
-                            x-on:change="endSeek($event.target.value)"
-                            x-on:input="currentTime = parseFloat($event.target.value)">
-                        <div class="np-times">
-                            <span x-text="formatTime(currentTime)"></span>
-                            <span x-text="(_currentTrackTranscoded && !duration) ? '--:--' : formatTime(duration)"></span>
-                        </div>
-                    </div>
-
-                    <!-- Transport controls -->
-                    <div class="np-controls">
-                        <button class="np-btn" :class="{on: shuffle}" x-on:click="toggleShuffle()" title="Shuffle">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h3.5c2 0 3.2 1 4.3 2.7l2.4 4.6c1.1 1.7 2.3 2.7 4.3 2.7H21"/><path d="M3 17h3.5c1.4 0 2.4-.5 3.2-1.4M14.3 8.4c.8-.9 1.8-1.4 3.2-1.4H21"/><path d="M18.5 4.5 21 7l-2.5 2.5M18.5 14.5 21 17l-2.5 2.5"/></svg>
-                        </button>
-                        <button class="np-btn" x-on:click="prevTrack()" title="Previous">
-                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM19 5.5v13l-9.5-6.5z"/></svg>
-                        </button>
-                        <button class="np-btn np-play" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
-                            <svg x-show="!isPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>
-                            <svg x-show="isPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
-                        </button>
-                        <button class="np-btn" x-on:click="nextTrack()" title="Next">
-                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM5 5.5v13l9.5-6.5z"/></svg>
-                        </button>
-                        <button class="np-btn" :class="{on: repeat !== 'none'}" x-on:click="cycleRepeat()" :title="repeatTitle()">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11V9a3 3 0 0 1 3-3h12"/><path d="M16 3l3 3-3 3"/><path d="M20 13v2a3 3 0 0 1-3 3H5"/><path d="M8 21l-3-3 3-3"/><text x-show="repeat === 'one'" x="12" y="14.6" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Segoe UI,Arial,sans-serif">1</text></svg>
-                        </button>
-                    </div>
-
-                    <div class="np-hint">Swipe left / right to change track</div>
-
-                    <!-- Song info (revealed by the info button; scrolls into view) -->
-                    <div class="np-info" x-show="showTrackInfo">
-                        <div class="track-info-divider"></div>
-                        <!-- Metadata table -->
-                        <div class="track-info-meta">
-                            <div class="track-meta-row">
-                                <span class="track-meta-label">Format</span>
-                                <span class="track-meta-value" x-text="trackInfoSong && trackInfoSong.ext ? trackInfoSong.ext.toUpperCase() : '—'"></span>
+            <!-- ── EQUALIZER ─────────────────────────────────────────────────── -->
+            <div x-show="view === 'equalizer' && eqSupported && !loading">
+                <div class="content-header"><h1>Equalizer</h1></div>
+                <div class="content-body">
+                    <div class="settings-section">
+                        <div class="settings-toggle-row">
+                            <div>
+                                <div class="settings-toggle-label">Enable Equalizer</div>
+                                <div class="settings-toggle-desc" x-text="eqEnabled ? 'Active – playback on this device is shaped by the bands below' : 'Inactive – playback is not altered'"></div>
                             </div>
-                            <div class="track-meta-row">
-                                <span class="track-meta-label">Size</span>
-                                <span class="track-meta-value" x-text="trackInfoSong ? trackInfoSong.hsize : '—'"></span>
-                            </div>
-                            <div class="track-meta-row">
-                                <span class="track-meta-label">Path</span>
-                                <span class="track-meta-value track-meta-path" x-text="trackInfoSong ? trackInfoSong.filepath : ''"></span>
-                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" x-model="eqEnabled" x-on:change="saveEq()">
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
-                        <!-- Action buttons -->
-                        <div class="track-info-actions">
-                            <button class="track-action-btn" x-on:click="downloadSong(trackInfoSong)">
-                                <i class="ui download icon"></i>
-                                <span>Download to Local Device</span>
-                            </button>
-                            <button class="track-action-btn" x-on:click="searchOnYoutube(trackInfoSong)">
-                                <i class="ui youtube icon"></i>
-                                <span>Search on YouTube</span>
-                            </button>
-                            <button class="track-action-btn" x-on:click="copyTrackTitle(trackInfoSong)">
-                                <i class="ui copy outline icon"></i>
-                                <span>Copy Song Title</span>
-                            </button>
-                            <button class="track-action-btn" x-on:click="openInFileManager(trackInfoSong)">
-                                <i class="ui folder open icon"></i>
-                                <span>Open in File Manager</span>
-                            </button>
-                            <button id="open-in-embedded" class="track-action-btn" x-on:click="openInEmbedded(trackInfoSong)">
-                                <i class="ui compress alternate icon"></i>
-                                <span>Open in Player View</span>
+                    </div>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title">Presets</div>
+                        <div class="settings-section-desc">Pick a starting point, then fine-tune the bands. Settings are kept on this device only.</div>
+                        <div class="eq-presets">
+                            <template x-for="p in eqPresetList()" :key="p.id">
+                                <button class="eq-preset" :class="{selected: eqPreset === p.id}"
+                                        x-on:click="applyEqPreset(p.id)" x-text="p.name"></button>
+                            </template>
+                            <span class="eq-preset custom selected" x-show="eqPreset === 'custom'">Custom</span>
+                        </div>
+
+                        <svg class="eq-curve" viewBox="0 0 600 90" preserveAspectRatio="none" aria-hidden="true">
+                            <line class="eq-grid" x1="0" y1="15" x2="600" y2="15"/>
+                            <line class="eq-grid" x1="0" y1="75" x2="600" y2="75"/>
+                            <line class="eq-zero" x1="0" y1="45" x2="600" y2="45"/>
+                            <path class="eq-fill" :d="eqCurvePath(true)"/>
+                            <path class="eq-line" :d="eqCurvePath(false)" vector-effect="non-scaling-stroke"/>
+                        </svg>
+
+                        <div class="eq-board" :class="{off: !eqEnabled}">
+                            <div class="eq-band preamp">
+                                <span class="eq-db" x-text="formatDb(eqPreamp)"></span>
+                                <input type="range" class="eq-slider" min="-12" max="12" step="0.5"
+                                       :value="eqPreamp" :style="eqSliderStyle(eqPreamp)"
+                                       x-on:input="setEqPreamp($event.target.value)"
+                                       x-on:dblclick="setEqPreamp(0)" title="Pre-amp (double-click to reset)">
+                                <span class="eq-freq">Pre</span>
+                            </div>
+                            <template x-for="(band, i) in eqBands" :key="band.freq">
+                                <div class="eq-band">
+                                    <span class="eq-db" x-text="formatDb(eqGains[i])"></span>
+                                    <input type="range" class="eq-slider" min="-12" max="12" step="0.5"
+                                           :value="eqGains[i]" :style="eqSliderStyle(eqGains[i])"
+                                           x-on:input="setEqGain(i, $event.target.value)"
+                                           x-on:dblclick="setEqGain(i, 0)" :title="band.label + ' Hz (double-click to reset)'">
+                                    <span class="eq-freq" x-text="band.label"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="eq-actions">
+                            <button class="eq-reset" x-on:click="applyEqPreset('flat')">
+                                <i class="ui undo icon"></i> Reset to Flat
                             </button>
                         </div>
+                    </div>
+
+                    <div style="padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
+                        <span style="font-size:12px;color:var(--text3);">
+                            <i class="ui info circle icon" style="color:var(--accent);"></i>
+                            The equalizer only shapes playback in this browser. It does not apply while casting to Arozcast. Lower the pre-amp when boosting bands to avoid distortion.
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1819,6 +1832,137 @@
             </div>
 
         </main><!-- /.main-content -->
+
+            <!-- ── NOW PLAYING OVERLAY ──────────────────────────────────────── -->
+            <div x-show="showNowPlaying" class="now-playing-overlay" :class="{'np-noart': npNoArt}"
+                 x-on:touchstart="npTouchStart($event)"
+                 x-on:touchend="npTouchEnd($event)">
+                <!-- Blurred album art backdrop -->
+                <!-- Without cover art it falls back to a purple glow (.np-noart) -->
+                <div class="np-bg"
+                     :style="currentTrack && !npNoArt ? ('background-image:url(\'' + getCoverUrl(currentTrack) + '\')') : ''"></div>
+
+                <div class="np-content" :class="{'np-slide-left': _npSwipeDir==='left', 'np-slide-right': _npSwipeDir==='right'}">
+                    <!-- Header -->
+                    <div class="np-header">
+                        <button class="ctrl-btn" x-on:click="closeNowPlaying()" title="Close">
+                            <i class="ui chevron down icon" style="margin:0;"></i>
+                        </button>
+                        <span class="np-header-title">Now Playing</span>
+                        <button class="ctrl-btn" :class="{active: showTrackInfo}" x-on:click="toggleTrackInfo()" title="Song info">
+                            <i class="ui info circle icon" style="margin:0;"></i>
+                        </button>
+                    </div>
+
+                    <!-- Large cover art -->
+                    <div class="np-art-wrap">
+                        <img class="np-art" x-show="!privacyVisualizerMode"
+                             :src="currentTrack ? getCoverUrl(currentTrack) : 'img/placeholder.png'"
+                             x-on:error="npNoArt = true; $event.target.src='img/placeholder.png'; $event.target.onerror=null"
+                             x-on:load="npNoArt = $event.target.src.indexOf('img/placeholder.png') !== -1"
+                             alt="Cover">
+                        <canvas id="np-viz-canvas" class="np-art-viz" x-show="privacyVisualizerMode" title="Album art hidden — Privacy Mode"></canvas>
+                        <div class="np-art-loading" x-show="_fullBufferLoading">
+                            <i class="ui spinner loading icon"></i>
+                        </div>
+                    </div>
+
+                    <!-- Title + artist -->
+                    <div class="np-meta">
+                        <!-- A title too long for one line scrolls (two copies loop seamlessly) -->
+                        <div class="np-title" :title="currentTrack ? currentTrack.name : ''"><span class="np-mq"><span class="np-mq-text" x-text="currentTrack ? currentTrack.name : ''"></span><span class="np-mq-text np-mq-copy" aria-hidden="true" x-text="currentTrack ? currentTrack.name : ''"></span></span></div>
+                        <div class="np-artist" x-text="currentTrack ? getArtistLabel(currentTrack) : ''"></div>
+                    </div>
+
+                    <!-- Spectrum (needs Web Audio, so never on iOS / iPadOS) -->
+                    <canvas id="np-spectrum" class="np-vis" x-show="spectrumSupported"></canvas>
+
+                    <!-- Seek bar -->
+                    <div class="np-seek">
+                        <input type="range" class="np-range" min="0" :max="Math.floor(duration) || 100"
+                            aria-label="Seek"
+                            :value="Math.floor(currentTime)"
+                            :style="'--progress:' + progressPercent() + '%'"
+                            x-on:mousedown="beginSeek()"
+                            x-on:touchstart.stop="beginSeek()"
+                            x-on:touchmove.stop="currentTime = parseFloat($event.target.value)"
+                            x-on:touchend.stop="endSeek($event.target.value)"
+                            x-on:touchcancel.stop="endSeek($event.target.value)"
+                            x-on:change="endSeek($event.target.value)"
+                            x-on:input="currentTime = parseFloat($event.target.value)">
+                        <div class="np-times">
+                            <span x-text="formatTime(currentTime)"></span>
+                            <span x-text="(_currentTrackTranscoded && !duration) ? '--:--' : formatTime(duration)"></span>
+                        </div>
+                    </div>
+
+                    <!-- Transport controls -->
+                    <div class="np-controls">
+                        <button class="np-btn" :class="{on: shuffle}" x-on:click="toggleShuffle()" title="Shuffle">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h3.5c2 0 3.2 1 4.3 2.7l2.4 4.6c1.1 1.7 2.3 2.7 4.3 2.7H21"/><path d="M3 17h3.5c1.4 0 2.4-.5 3.2-1.4M14.3 8.4c.8-.9 1.8-1.4 3.2-1.4H21"/><path d="M18.5 4.5 21 7l-2.5 2.5M18.5 14.5 21 17l-2.5 2.5"/></svg>
+                        </button>
+                        <button class="np-btn" x-on:click="prevTrack()" title="Previous">
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM19 5.5v13l-9.5-6.5z"/></svg>
+                        </button>
+                        <button class="np-btn np-play" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
+                            <svg x-show="!isPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>
+                            <svg x-show="isPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+                        </button>
+                        <button class="np-btn" x-on:click="nextTrack()" title="Next">
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM5 5.5v13l9.5-6.5z"/></svg>
+                        </button>
+                        <button class="np-btn" :class="{on: repeat !== 'none'}" x-on:click="cycleRepeat()" :title="repeatTitle()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11V9a3 3 0 0 1 3-3h12"/><path d="M16 3l3 3-3 3"/><path d="M20 13v2a3 3 0 0 1-3 3H5"/><path d="M8 21l-3-3 3-3"/><text x-show="repeat === 'one'" x="12" y="14.6" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Segoe UI,Arial,sans-serif">1</text></svg>
+                        </button>
+                    </div>
+
+                    <div class="np-hint">Swipe left / right to change track</div>
+
+                    <!-- Song info (revealed by the info button; scrolls into view) -->
+                    <div class="np-info" x-show="showTrackInfo">
+                        <div class="track-info-divider"></div>
+                        <!-- Metadata table -->
+                        <div class="track-info-meta">
+                            <div class="track-meta-row">
+                                <span class="track-meta-label">Format</span>
+                                <span class="track-meta-value" x-text="trackInfoSong && trackInfoSong.ext ? trackInfoSong.ext.toUpperCase() : '—'"></span>
+                            </div>
+                            <div class="track-meta-row">
+                                <span class="track-meta-label">Size</span>
+                                <span class="track-meta-value" x-text="trackInfoSong ? trackInfoSong.hsize : '—'"></span>
+                            </div>
+                            <div class="track-meta-row">
+                                <span class="track-meta-label">Path</span>
+                                <span class="track-meta-value track-meta-path" x-text="trackInfoSong ? trackInfoSong.filepath : ''"></span>
+                            </div>
+                        </div>
+                        <!-- Action buttons -->
+                        <div class="track-info-actions">
+                            <button class="track-action-btn" x-on:click="downloadSong(trackInfoSong)">
+                                <i class="ui download icon"></i>
+                                <span>Download to Local Device</span>
+                            </button>
+                            <button class="track-action-btn" x-on:click="searchOnYoutube(trackInfoSong)">
+                                <i class="ui youtube icon"></i>
+                                <span>Search on YouTube</span>
+                            </button>
+                            <button class="track-action-btn" x-on:click="copyTrackTitle(trackInfoSong)">
+                                <i class="ui copy outline icon"></i>
+                                <span>Copy Song Title</span>
+                            </button>
+                            <button class="track-action-btn" x-on:click="openInFileManager(trackInfoSong)">
+                                <i class="ui folder open icon"></i>
+                                <span>Open in File Manager</span>
+                            </button>
+                            <button id="open-in-embedded" class="track-action-btn" x-on:click="openInEmbedded(trackInfoSong)">
+                                <i class="ui compress alternate icon"></i>
+                                <span>Open in Player View</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /.main-wrap -->
 
         <!-- ═══ QUEUE PANEL ════════════════════════════════════════════════ -->
         <aside id="queue-panel" class="queue-panel" x-show="showQueue">

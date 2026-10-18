@@ -410,6 +410,7 @@
             }
         };
         global.setFloatWindowSize = function () { };
+        global.setFloatWindowMinSize = function () { };
         global.setFloatWindowResizePolicy = function () { };
         global.setFloatWindowMinimizePolicy = function () { };
         global.setFloatWindowTheme = function () { };

@@ -6,6 +6,38 @@
 // Set to true to enable verbose playback debug logging in the browser console.
 const MUSICIFY_DEBUG = false;
 
+// ─── Equalizer ───────────────────────────────────────────────────────────────
+// Ten octave bands; the outer two are shelves so they also cover the extremes.
+const MUSICIFY_EQ_BANDS = [
+    { freq: 31,    label: '31',  type: 'lowshelf' },
+    { freq: 62,    label: '62',  type: 'peaking' },
+    { freq: 125,   label: '125', type: 'peaking' },
+    { freq: 250,   label: '250', type: 'peaking' },
+    { freq: 500,   label: '500', type: 'peaking' },
+    { freq: 1000,  label: '1k',  type: 'peaking' },
+    { freq: 2000,  label: '2k',  type: 'peaking' },
+    { freq: 4000,  label: '4k',  type: 'peaking' },
+    { freq: 8000,  label: '8k',  type: 'peaking' },
+    { freq: 16000, label: '16k', type: 'highshelf' },
+];
+const MUSICIFY_EQ_Q = 1.41; // about one octave wide
+// Each preset lowers the pre-amp by roughly its largest boost so it does not clip.
+const MUSICIFY_EQ_PRESETS = [
+    { id: 'flat',       name: 'Flat',         preamp: 0,  gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { id: 'bass',       name: 'Bass Boost',   preamp: -5, gains: [6, 5, 4, 2, 0, 0, 0, 0, 0, 0] },
+    { id: 'bassreduce', name: 'Bass Reduce',  preamp: 0,  gains: [-6, -5, -4, -2, 0, 0, 0, 0, 0, 0] },
+    { id: 'treble',     name: 'Treble Boost', preamp: -5, gains: [0, 0, 0, 0, 0, 1, 2, 4, 5, 6] },
+    { id: 'vocal',      name: 'Vocal',        preamp: -3, gains: [-2, -2, -1, 1, 3, 4, 3, 1, 0, -1] },
+    { id: 'rock',       name: 'Rock',         preamp: -3, gains: [4, 3, 2, 0, -1, -1, 1, 2, 3, 4] },
+    { id: 'pop',        name: 'Pop',          preamp: -3, gains: [-1, 0, 2, 3, 4, 3, 1, 0, -1, -1] },
+    { id: 'jazz',       name: 'Jazz',         preamp: -2, gains: [3, 2, 1, 2, -1, -1, 0, 1, 2, 3] },
+    { id: 'classical',  name: 'Classical',    preamp: -2, gains: [3, 2, 1, 0, 0, 0, -1, -1, 1, 2] },
+    { id: 'electronic', name: 'Electronic',   preamp: -4, gains: [5, 4, 1, 0, -2, 1, 0, 1, 4, 5] },
+    { id: 'acoustic',   name: 'Acoustic',     preamp: -2, gains: [3, 3, 2, 1, 1, 1, 2, 2, 2, 1] },
+    { id: 'loudness',   name: 'Loudness',     preamp: -4, gains: [5, 3, 0, 0, -1, 0, -1, 1, 4, 3] },
+    { id: 'spoken',     name: 'Spoken Word',  preamp: -3, gains: [-4, -3, -1, 1, 3, 4, 4, 3, 1, -2] },
+];
+
 
 
 // ─── Default cover art SVG (music note) ──────────────────────────────────────
@@ -15,7 +47,7 @@ function musicifyApp() {
     return {
 
         // ── Navigation ──────────────────────────────────────────────────────
-        view: 'home',           // 'home' | 'folders' | 'artists' | 'recent' | 'playlist'
+        view: 'home',           // 'home' | 'folders' | 'artists' | 'recent' | 'playlist' | 'equalizer' | 'settings'
         sidebarOpen: false,
         isMobileLandscape: false, // true when a mobile browser is rotated into landscape
         loading: false,
@@ -140,6 +172,16 @@ function musicifyApp() {
         _syntheticViz: false,          // iOS: animate the bars without Web Audio so screen-lock doesn't stop playback
         spectrumSupported: false,      // Now Playing spectrum bars (hidden where Web Audio can't be used)
         _spectrumIdleKey: '',          // size of the last idle spectrum frame, so a paused one isn't repainted
+
+        // ── Equalizer ────────────────────────────────────────────────────────
+        eqSupported: false,            // hidden on iOS / iPadOS and on Safari for macOS
+        eqEnabled: false,
+        eqPreset: 'flat',              // a MUSICIFY_EQ_PRESETS id, or 'custom'
+        eqPreamp: 0,                   // dB
+        eqGains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // dB per band
+        eqBands: MUSICIFY_EQ_BANDS,
+        _eqPreampNode: null,
+        _eqFilters: null,
 
         // ── Arozcast ─────────────────────────────────────────────────────────
         castMode: false,
@@ -291,6 +333,17 @@ function musicifyApp() {
             // Now Playing spectrum: real Web Audio analysis only, so it is left
             // out wherever routing playback through Web Audio is not safe (iOS).
             this.spectrumSupported = !this._webAudioUnsafe() && !!(window.AudioContext || window.webkitAudioContext);
+
+            // Equalizer: restore from localStorage (per device, like volume)
+            this.eqSupported = this.spectrumSupported && !this._isMacSafari();
+            if (this.eqSupported) {
+                this._loadEq();
+                if (this.eqEnabled) this._ensureAnalyser();
+                this._applyEq(); // the graph may already exist for Privacy Mode
+            }
+
+            // Float window: below this the player bar runs out of room
+            if (typeof ao_module_setWindowMinSize === 'function') ao_module_setWindowMinSize(400, 480);
 
             // MediaSession
             this._setupMediaSession();
@@ -1324,6 +1377,15 @@ function musicifyApp() {
             return this._isIOS() || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         },
 
+        // Safari on macOS: its Web Audio handling of media elements is less
+        // dependable than Chrome's or Firefox's on the same Mac, so the
+        // equalizer is not offered there. Other Mac browsers keep it.
+        _isMacSafari() {
+            var ua = navigator.userAgent;
+            return /Macintosh|Mac OS X/.test(ua) && /Safari\//.test(ua) &&
+                !/Chrome|Chromium|CriOS|FxiOS|Firefox|Edg|OPR|Opera|Vivaldi|YaBrowser/.test(ua);
+        },
+
         _isMobile() {
             return this._isIOS() || this._isAndroid();
         },
@@ -1747,6 +1809,26 @@ function musicifyApp() {
                 // them back into the 32 bands they were tuned on.
                 this._analyser.fftSize = 256;
                 this._analyser.smoothingTimeConstant = 0.78;
+                // The equalizer sits ahead of the analyser so the bars show
+                // what is heard. A disabled equalizer is all 0 dB, which is
+                // transparent, so the chain is built whenever it may be used.
+                if (!this._isMacSafari()) {
+                    this._eqPreampNode = this._audioCtx.createGain();
+                    this._eqFilters = MUSICIFY_EQ_BANDS.map((band) => {
+                        var f = this._audioCtx.createBiquadFilter();
+                        f.type = band.type;
+                        f.frequency.value = band.freq;
+                        if (band.type === 'peaking') f.Q.value = MUSICIFY_EQ_Q;
+                        return f;
+                    });
+                    var node = source;
+                    [this._eqPreampNode].concat(this._eqFilters).forEach((next) => {
+                        node.connect(next);
+                        node = next;
+                    });
+                    source = node;
+                    this._applyEq();
+                }
                 source.connect(this._analyser);
                 this._analyser.connect(this._audioCtx.destination);
                 this._vizData = new Uint8Array(this._analyser.frequencyBinCount);
@@ -1754,8 +1836,139 @@ function musicifyApp() {
             } catch (e) {
                 if (MUSICIFY_DEBUG) console.warn('[Musicify] visualizer unavailable', e);
                 this._analyser = null;
+                this._eqPreampNode = null;
+                this._eqFilters = null;
                 this.spectrumSupported = false;
             }
+        },
+
+        // ── Equalizer ────────────────────────────────────────────────────────
+        eqPresetList() { return MUSICIFY_EQ_PRESETS; },
+
+        _loadEq() {
+            try {
+                var saved = JSON.parse(localStorage.getItem('musicify_eq') || 'null');
+                if (!saved) return;
+                var clamp = (v) => Math.max(-12, Math.min(12, Number(v) || 0));
+                this.eqEnabled = !!saved.enabled;
+                this.eqPreset = typeof saved.preset === 'string' ? saved.preset : 'custom';
+                this.eqPreamp = clamp(saved.preamp);
+                if (Array.isArray(saved.gains) && saved.gains.length === MUSICIFY_EQ_BANDS.length) {
+                    this.eqGains = saved.gains.map(clamp);
+                }
+            } catch (e) {}
+        },
+
+        // Persists the settings and applies them. Turning the equalizer on is a
+        // user gesture, so the AudioContext can be created and resumed here.
+        saveEq() {
+            try {
+                localStorage.setItem('musicify_eq', JSON.stringify({
+                    enabled: this.eqEnabled, preset: this.eqPreset,
+                    preamp: this.eqPreamp, gains: this.eqGains,
+                }));
+            } catch (e) {}
+            if (this.eqEnabled) {
+                this._ensureAnalyser();
+                if (this._audioCtx && this._audioCtx.state === 'suspended') this._audioCtx.resume().catch(() => {});
+            }
+            this._applyEq();
+        },
+
+        _applyEq() {
+            if (!this._eqFilters || !this._audioCtx) return;
+            var t = this._audioCtx.currentTime;
+            var on = this.eqEnabled;
+            // A short time constant avoids zipper noise while a slider is dragged
+            this._eqFilters.forEach((f, i) => f.gain.setTargetAtTime(on ? this.eqGains[i] : 0, t, 0.02));
+            this._eqPreampNode.gain.setTargetAtTime(on ? Math.pow(10, this.eqPreamp / 20) : 1, t, 0.02);
+        },
+
+        applyEqPreset(id) {
+            var p = MUSICIFY_EQ_PRESETS.find((x) => x.id === id);
+            if (!p) return;
+            this.eqPreset = id;
+            this.eqPreamp = p.preamp;
+            this.eqGains = p.gains.slice();
+            // Picking a shape means the user wants to hear it
+            if (id !== 'flat') this.eqEnabled = true;
+            this.saveEq();
+        },
+
+        setEqGain(i, v) {
+            var gains = this.eqGains.slice();
+            gains[i] = Number(v);
+            this.eqGains = gains;
+            this.eqPreset = 'custom';
+            this.eqEnabled = true;
+            this.saveEq();
+        },
+
+        setEqPreamp(v) {
+            this.eqPreamp = Number(v);
+            this.eqEnabled = true;
+            this.saveEq();
+        },
+
+        formatDb(v) {
+            v = Number(v) || 0;
+            return (v > 0 ? '+' : '') + (Number.isInteger(v) ? v : v.toFixed(1)) + ' dB';
+        },
+
+        // Fills a vertical slider from the 0 dB centre to its value
+        eqSliderStyle(v) {
+            var pct = (Number(v) + 12) / 24 * 100;
+            return '--lo:' + Math.min(50, pct) + '%;--hi:' + Math.max(50, pct) + '%';
+        },
+
+        // Combined response of the filter chain (RBJ biquad formulas, the same
+        // ones BiquadFilterNode uses), drawn over 20 Hz - 20 kHz into the
+        // 600 x 90 curve, +/-15 dB full scale. Computed here rather than read
+        // from the nodes so it also works before the audio graph exists.
+        eqCurvePath(fill) {
+            var fs = 48000, W = 600, H = 90, N = 120, range = 15;
+            var coeffs = MUSICIFY_EQ_BANDS.map((band, i) => this._biquadCoeffs(band, this.eqGains[i], fs));
+            var pts = [];
+            for (var k = 0; k <= N; k++) {
+                var freq = 20 * Math.pow(1000, k / N);
+                var w = 2 * Math.PI * freq / fs;
+                var db = this.eqPreamp;
+                coeffs.forEach((c) => { db += this._biquadDb(c, w); });
+                db = Math.max(-range, Math.min(range, db));
+                pts.push((k / N * W).toFixed(1) + ',' + (H / 2 - db / range * (H / 2)).toFixed(1));
+            }
+            var d = 'M' + pts.join('L');
+            return fill ? d + 'L' + W + ',' + (H / 2) + 'L0,' + (H / 2) + 'Z' : d;
+        },
+
+        _biquadCoeffs(band, gain, fs) {
+            var A = Math.pow(10, gain / 40);
+            var w0 = 2 * Math.PI * band.freq / fs;
+            var cs = Math.cos(w0), sn = Math.sin(w0);
+            if (band.type === 'peaking') {
+                var alpha = sn / (2 * MUSICIFY_EQ_Q);
+                return [1 + alpha * A, -2 * cs, 1 - alpha * A, 1 + alpha / A, -2 * cs, 1 - alpha / A];
+            }
+            // Shelves with slope S = 1, as Web Audio defines them
+            var s2 = 2 * Math.sqrt(A) * (sn / 2 * Math.SQRT2);
+            if (band.type === 'lowshelf') {
+                return [
+                    A * ((A + 1) - (A - 1) * cs + s2), 2 * A * ((A - 1) - (A + 1) * cs), A * ((A + 1) - (A - 1) * cs - s2),
+                    (A + 1) + (A - 1) * cs + s2, -2 * ((A - 1) + (A + 1) * cs), (A + 1) + (A - 1) * cs - s2,
+                ];
+            }
+            return [
+                A * ((A + 1) + (A - 1) * cs + s2), -2 * A * ((A - 1) + (A + 1) * cs), A * ((A + 1) + (A - 1) * cs - s2),
+                (A + 1) - (A - 1) * cs + s2, 2 * ((A - 1) - (A + 1) * cs), (A + 1) - (A - 1) * cs - s2,
+            ];
+        },
+
+        // Gain in dB of one biquad at angular frequency w
+        _biquadDb(c, w) {
+            var c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+            var nr = c[0] + c[1] * c1 + c[2] * c2, ni = -(c[1] * s1 + c[2] * s2);
+            var dr = c[3] + c[4] * c1 + c[5] * c2, di = -(c[4] * s1 + c[5] * s2);
+            return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
         },
 
         // Runs the animation loop only while something on screen draws from it:
@@ -2046,10 +2259,9 @@ function musicifyApp() {
         openNowPlaying() {
             if (!this.currentTrack) return;
             var mc = document.getElementById('mainContent');
-            // Pin the overlay to the current scroll position before Alpine shows it,
-            // then freeze scrolling underneath.
-            var overlay = mc ? mc.querySelector('.now-playing-overlay') : null;
-            if (overlay) overlay.style.top = (mc.scrollTop) + 'px';
+            // The overlay covers the main area from outside it (.main-wrap), so
+            // it needs no scroll offset; just freeze scrolling underneath.
+            var overlay = document.querySelector('.now-playing-overlay');
             if (mc) mc.style.overflow = 'hidden';
             this.showTrackInfo = false;   // start collapsed
             this.trackInfoSong = this.currentTrack;
@@ -2061,7 +2273,6 @@ function musicifyApp() {
             this.$nextTick(() => {
                 var c = overlay ? overlay.querySelector('.np-content') : null;
                 if (c) c.scrollTop = 0;
-                if (overlay) overlay.style.top = (mc.scrollTop) + 'px'; // readjust after content is revealed
                 this.updateQueuePanelPosition();
                 // x-show reveals the overlay on the next frame: measure the title then
                 requestAnimationFrame(() => this._updateTitleMarquee());
