@@ -1905,8 +1905,8 @@
                             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM19 5.5v13l-9.5-6.5z"/></svg>
                         </button>
                         <button class="np-btn np-play" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
-                            <svg x-show="!isPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>
-                            <svg x-show="isPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+                            <!-- One SVG with a bound path: two x-show siblings could both stay visible when isPlaying flips false->true quickly at track end -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="isPlaying ? 'M9 6v12M15 6v12' : 'M8 5.5v13l10-6.5z'" d="M8 5.5v13l10-6.5z"/></svg>
                         </button>
                         <button class="np-btn" x-on:click="nextTrack()" title="Next">
                             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM5 5.5v13l9.5-6.5z"/></svg>
