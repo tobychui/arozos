@@ -65,10 +65,9 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
 
         //Push to upload pending list if the max concurrent upload is reached
         if (uploadingFileCount >= maxConcurrentUpload){
+            //Queue the base directory; the Firefox subpath is added when it runs
             let uploadDir = currentPath;
             if (targetDir !== undefined){
-                uploadDir = targetDir;
-            }else if (isFirefox && uploadDir == currentPath && file.webkitRelativePath != ""){
                 uploadDir = targetDir;
             }
             uploadPendingList.push({
@@ -101,6 +100,14 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             uploadDir = targetDir;
         }
 
+        /*
+            Retry calls back into uploadFile with this as targetDir, so it must be
+            the directory before the Firefox subpath below is appended - storing
+            the final one makes a retry append the subpath a second time and
+            upload into "<folder><folder>".
+        */
+        let retryDir = JSON.parse(JSON.stringify(uploadDir));
+
         //Fixing Firefox path issues on or above FF48.0
         if (isFirefox && file.webkitRelativePath != ""){
             //Use the webkitRelativePath instead of the name, this is a folder upload
@@ -117,7 +124,7 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
         }
 
         // Store file reference in retry map so the user can retry on failure
-        uploadRetryMap.set(taskUUID, {file: file, targetDir: JSON.parse(JSON.stringify(uploadDir))});
+        uploadRetryMap.set(taskUUID, {file: file, targetDir: retryDir});
 
         let aborted = false;
         let completed = false;

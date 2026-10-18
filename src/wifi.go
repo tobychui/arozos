@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"runtime"
 	"strings"
 
 	wifi "imuslab.com/arozos/mod/network/wifi"
@@ -96,16 +97,18 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 		}
 
 		type WlanInterfaceStatus struct {
-			Name    string
-			Running bool
+			Name         string
+			Running      bool
+			Controllable bool //SetInterfacePower is supported on this platform
 		}
 
 		results := []WlanInterfaceStatus{}
 		for _, inf := range infs {
 			status, _ := wifiManager.GetInterfacePowerStatuts(strings.TrimSpace(inf))
 			results = append(results, WlanInterfaceStatus{
-				Name:    inf,
-				Running: status,
+				Name:         inf,
+				Running:      status,
+				Controllable: wifiManager.CanControlInterfacePower(),
 			})
 		}
 
@@ -167,8 +170,24 @@ func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Get the first ethernet interface and use it to scan nearby wifi
-	scannedWiFiInfo, err := wifiManager.ScanNearbyWiFi(wirelessInterfaces[0])
+	//Scan with the requested interface, or the first one if none is given
+	scanInterface := wirelessInterfaces[0]
+	requestedInterface, _ := utils.GetPara(r, "interface")
+	if requestedInterface != "" {
+		found := false
+		for _, inf := range wirelessInterfaces {
+			if strings.TrimSpace(inf) == requestedInterface {
+				scanInterface = inf
+				found = true
+				break
+			}
+		}
+		if !found {
+			utils.SendErrorResponse(w, "Wireless Interface Not Found")
+			return
+		}
+	}
+	scannedWiFiInfo, err := wifiManager.ScanNearbyWiFi(strings.TrimSpace(scanInterface))
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -242,6 +261,7 @@ func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
 	err = wifiManager.RemoveWifi(ESSID)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
+		return
 	}
 	utils.SendOK(w)
 }
@@ -254,15 +274,47 @@ func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ESSID, interfaceName, err := wifiManager.GetConnectedWiFi()
+	//Detailed state of every wireless interface
+	interfaces, err := wifiManager.GetInterfaceStatus()
 	if err != nil {
-		utils.SendErrorResponse(w, "Failed to retrieve WiFi Information")
+		utils.SendErrorResponse(w, "Failed to retrieve WiFi Information: "+err.Error())
 		return
 	}
 
-	jsonString, _ := json.Marshal(map[string]string{
-		"ESSID":     ESSID,
-		"Interface": interfaceName,
+	//ESSID and Interface are kept for older clients: the first connected
+	//interface, or the first interface when none is connected
+	ESSID, interfaceName := "", ""
+	for _, inf := range interfaces {
+		if inf.Connected {
+			ESSID, interfaceName = inf.SSID, inf.Name
+			break
+		}
+	}
+	if interfaceName == "" && len(interfaces) > 0 {
+		interfaceName = interfaces[0].Name
+	} else if interfaceName == "" {
+		//Platforms without a status implementation
+		ESSID, interfaceName, err = wifiManager.GetConnectedWiFi()
+		if err != nil {
+			utils.SendErrorResponse(w, "Failed to retrieve WiFi Information")
+			return
+		}
+	}
+
+	jsonString, _ := json.Marshal(struct {
+		ESSID           string
+		Interface       string
+		Interfaces      []wifi.WiFiInterfaceStatus
+		Platform        string
+		CanConnect      bool //Connecting to and forgetting networks is supported
+		CanControlPower bool //The radio power toggle is supported
+	}{
+		ESSID:           ESSID,
+		Interface:       interfaceName,
+		Interfaces:      interfaces,
+		Platform:        runtime.GOOS,
+		CanConnect:      wifiManager.CanConnect(),
+		CanControlPower: sudo_mode && wifiManager.CanControlInterfacePower(),
 	})
 	utils.SendJSONResponse(w, string(jsonString))
 }

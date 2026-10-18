@@ -53,6 +53,8 @@ function hideSearchBar(skipFilelistRefresh = false){
         return;
     }
 
+    //Any search still in flight now belongs to a search the user has left
+    searchRequestId++;
     $(".searchbar").hide();
     initWindowSizes(true);
     $("#searchInput").val("");
@@ -117,6 +119,16 @@ function handleHotSearch(starting, offset){
 
 }
 
+/*
+    A search on a large folder can take a while. If the user leaves search mode,
+    navigates to another folder or starts a newer search before it returns, the
+    late result must not paint over whatever they are looking at now.
+*/
+let searchRequestId = 0;
+function isStaleSearch(id, path){
+    return !searchMode || id != searchRequestId || path != currentPath;
+}
+
 function handleSearch(){
     var keyword = $("#searchInput").val();
 
@@ -139,10 +151,16 @@ function handleSearch(){
     $("#fileList").hide();
     $("#fileList").html("");
 
+    let thisSearchId = ++searchRequestId;
+    let searchPath = currentPath;
     $.ajax({
         url: "../../system/file_system/search",
-        data: {path: currentPath, keyword: keyword, casesensitive: searchCaseSensitive},
+        data: {path: searchPath, keyword: keyword, casesensitive: searchCaseSensitive},
         success: function(data){
+            if (isStaleSearch(thisSearchId, searchPath)){
+                console.log("[File Manager] Dropped stale search result for \"" + keyword + "\" in " + searchPath, data);
+                return;
+            }
             if (data.error !== undefined){
                 msgbox("red remove", applocale.getString("message/" + data.error, data.error));
                 hideSearchBar();
@@ -162,6 +180,10 @@ function handleSearch(){
                 
             }
         }, error: function(){
+            if (isStaleSearch(thisSearchId, searchPath)){
+                console.log("[File Manager] Dropped stale search error for \"" + keyword + "\" in " + searchPath);
+                return;
+            }
             $("#folderList").html(`<div class="ui basic segment">
             <div class="ui header">
                 <i class="remove icon"></i> Search Error

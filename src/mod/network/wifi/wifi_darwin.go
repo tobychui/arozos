@@ -37,3 +37,18 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 func (w *WiFiManager) RemoveWifi(ssid string) error {
 	return errors.New("Platform not supported")
 }
+
+// CanControlInterfacePower reports whether SetInterfacePower is supported
+func (w *WiFiManager) CanControlInterfacePower() bool {
+	return false
+}
+
+// CanConnect reports whether ConnectWiFi and RemoveWifi are supported
+func (w *WiFiManager) CanConnect() bool {
+	return false
+}
+
+// GetInterfaceStatus returns the live state of every wireless interface
+func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
+	return []WiFiInterfaceStatus{}, nil
+}

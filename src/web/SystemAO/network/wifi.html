@@ -1,376 +1,1102 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <title>WiFi Settings</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <style>
-        #sys-setting-page { padding: 20px; }
-    </style>
+    <title>WiFi Settings</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
 </head>
 <body>
-    <div class="ui container" id="sys-setting-page">
-        <div class="ui horizontal segments">
-            <div class="ui segment">
-                <h4 class="ui header">
-                    <i class="signal icon"></i>
-                    <div class="content">
-                        <span id="SSID">Loading...</span>
-                        <div class="sub header">WiFi SSID</div>
-                    </div>
-                </h4>
-            </div>
-            <div class="ui segment">
-                <h4 class="ui header">
-                    <i class="globe icon"></i>
-                    <div class="content">
-                        <span id="Interface">Loading...</span>
-                        <div class="sub header">Interface</div>
-                    </div>
-                </h4>
-            </div>
-        </div>
-        <!-- WiFi Interface Toggle -->
-        <div class="ui segment">
-            <p>Wireless Interface Power Toggle</p>
-            <div class="ui green message" id="updateSucceedMessage" style="display:none;">
-                 <p><i class="checkmark icon"></i> Interface Status Updated</p>
-            </div>
-            <form class="ui form" id="wlanlist">
-                <p><i class="remove icon"></i> No wlan interface attached</p>
-            </form>
-        </div>
+<!-- NOTE: <style> and <script> live in <body> so they survive being injected
+     into System Settings with jQuery .load(). No jQuery is required. -->
+<style>
+#ws-root {
+    --ws-card:      #ffffff;
+    --ws-border:    rgba(0,0,0,0.07);
+    --ws-shadow:    0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.05);
+    --ws-text:      #1a1a1a;
+    --ws-dim:       #5a5a5a;
+    --ws-muted:     #949494;
+    --ws-sep:       rgba(0,0,0,0.07);
+    --ws-chip:      #f1f3f5;
+    --ws-chip-fg:   #3d3d3d;
+    --ws-accent:    #0f6cbd;
+    --ws-accent-fg: #ffffff;
+    --ws-hover:     rgba(0,0,0,0.035);
+    --ws-select:    rgba(15,108,189,0.07);
+    --ws-track:     rgba(0,0,0,0.09);
+    --ws-good:      #13a10e;
+    --ws-ok:        #0f9d8a;
+    --ws-fair:      #c58a00;
+    --ws-weak:      #d13438;
+    --ws-off:       #a8a8a8;
+    --ws-input:     #ffffff;
+    --ws-grid:      rgba(0,0,0,0.06);
+    --ws-overlay:   rgba(0,0,0,0.35);
 
-        <!-- WiFi Scanning Results-->
-        <div>
-            <table class="ui very basic celled table">
-            <thead>
-                <tr>
-                    <th>Wifi Access Points</th>
-                    <th>Signal Level (Quality)</th>
-                    <th>Physical Address</th>
-                    <th>Connect</th>
-                    <th>Remove</th>
-                </tr>
-            </thead>
-            <div class="ui container">
-                <button class="ui small button" onclick="initWiFiScan();"><i class="refresh icon"></i> Rescan</button>
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: var(--ws-text);
+    -webkit-font-smoothing: antialiased;
+    max-width: 1200px;
+    padding: 4px 0 28px;
+    position: relative;
+}
+body.dark #ws-root {
+    --ws-card:      #2b2b2b;
+    --ws-border:    rgba(255,255,255,0.08);
+    --ws-shadow:    0 2px 10px rgba(0,0,0,0.3), 0 0 1px rgba(0,0,0,0.5);
+    --ws-text:      #f0f0f0;
+    --ws-dim:       #b4b4b4;
+    --ws-muted:     #828282;
+    --ws-sep:       rgba(255,255,255,0.07);
+    --ws-chip:      rgba(255,255,255,0.08);
+    --ws-chip-fg:   #d0d0d0;
+    --ws-accent:    #4cc2ff;
+    --ws-accent-fg: #0b1a26;
+    --ws-hover:     rgba(255,255,255,0.04);
+    --ws-select:    rgba(76,194,255,0.09);
+    --ws-track:     rgba(255,255,255,0.12);
+    --ws-good:      #6ccb5f;
+    --ws-ok:        #4fd1c5;
+    --ws-fair:      #f2c94c;
+    --ws-weak:      #ff6b6b;
+    --ws-off:       #6e6e6e;
+    --ws-input:     #1f1f1f;
+    --ws-grid:      rgba(255,255,255,0.07);
+    --ws-overlay:   rgba(0,0,0,0.55);
+}
+#ws-root * { box-sizing: border-box; }
+#ws-root .ws-wrap { container-type: inline-size; }
+#ws-root .ws-scroll { overflow-x: auto; }
+#ws-root i.icon { height: auto; }
+
+#ws-root .ws-card {
+    background: var(--ws-card); border: 1px solid var(--ws-border); border-radius: 12px;
+    box-shadow: var(--ws-shadow); margin-bottom: 14px;
+}
+#ws-root .ws-card-title {
+    display: flex; align-items: center; gap: 8px; padding: 11px 16px; flex-wrap: wrap;
+    font-size: 13px; font-weight: 600; color: var(--ws-dim); border-bottom: 1px solid var(--ws-sep);
+}
+#ws-root .ws-card-title i.icon { margin: 0; opacity: .75; }
+#ws-root .ws-card-title .ws-right { margin-left: auto; display: flex; gap: 6px; align-items: center; font-weight: 400; }
+
+/* Header: connection + radio */
+#ws-root .ws-head { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 14px; }
+#ws-root .ws-head .ws-card { margin: 0; padding: 16px 18px; display: flex; align-items: center; gap: 14px; min-width: 0; }
+#ws-root .ws-head-icon {
+    width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--ws-lv, var(--ws-off)) 14%, transparent);
+}
+#ws-root .ws-head-icon svg { width: 28px; height: 28px; }
+#ws-root .ws-head-text { min-width: 0; flex: 1; }
+#ws-root .ws-head-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ws-muted); font-weight: 600; }
+#ws-root .ws-head-value { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; }
+#ws-root .ws-head-sub { font-size: 12.5px; color: var(--ws-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ws-root select.ws-select {
+    font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--ws-border);
+    background: var(--ws-input); color: var(--ws-text); max-width: 180px;
+}
+
+/* Toggle switch */
+#ws-root .ws-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+#ws-root .ws-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+#ws-root .ws-switch span {
+    position: absolute; inset: 0; border-radius: 12px; background: var(--ws-track); cursor: pointer; transition: background .2s;
+}
+#ws-root .ws-switch span::after {
+    content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s;
+}
+#ws-root .ws-switch input:checked + span { background: var(--ws-accent); }
+#ws-root .ws-switch input:checked + span::after { transform: translateX(20px); }
+#ws-root .ws-switch input:disabled + span { opacity: .5; cursor: default; }
+
+/* Pills / chips */
+#ws-root .ws-pill {
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 20px; font-size: 11.5px;
+    font-weight: 600; background: var(--ws-chip); color: var(--ws-chip-fg); white-space: nowrap;
+}
+#ws-root .ws-pill.on { color: var(--ws-good); background: color-mix(in srgb, var(--ws-good) 14%, transparent); }
+#ws-root .ws-pill.off { color: var(--ws-weak); background: color-mix(in srgb, var(--ws-weak) 13%, transparent); }
+#ws-root .ws-pill.accent { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, transparent); }
+
+/* Toolbar */
+#ws-root .ws-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+#ws-root .ws-btn {
+    display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 14px; border-radius: 7px; border: 1px solid var(--ws-border); background: var(--ws-card);
+    color: var(--ws-text); cursor: pointer; box-shadow: var(--ws-shadow);
+}
+#ws-root .ws-btn:hover { background: var(--ws-hover); }
+#ws-root .ws-btn.primary { background: var(--ws-accent); border-color: var(--ws-accent); color: var(--ws-accent-fg); }
+#ws-root .ws-btn.danger { color: var(--ws-weak); }
+#ws-root .ws-btn:disabled { opacity: .55; cursor: default; }
+#ws-root .ws-btn i.icon { margin: 0; }
+#ws-root .ws-seg { display: inline-flex; border: 1px solid var(--ws-border); border-radius: 7px; overflow: hidden; background: var(--ws-card); }
+#ws-root .ws-seg button {
+    font: inherit; font-size: 12.5px; padding: 6px 12px; border: 0; background: transparent; color: var(--ws-dim); cursor: pointer;
+    border-left: 1px solid var(--ws-border);
+}
+#ws-root .ws-seg button:first-child { border-left: 0; }
+#ws-root .ws-seg button.active { background: var(--ws-accent); color: var(--ws-accent-fg); font-weight: 600; }
+#ws-root .ws-search { position: relative; margin-left: auto; }
+#ws-root .ws-search input {
+    font: inherit; font-size: 13px; padding: 7px 10px 7px 30px; border-radius: 7px; border: 1px solid var(--ws-border);
+    background: var(--ws-input); color: var(--ws-text); width: 220px; outline: none;
+}
+#ws-root .ws-search input:focus { border-color: var(--ws-accent); }
+#ws-root .ws-search i.icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--ws-muted); margin: 0; }
+#ws-root .ws-meta { font-size: 12px; color: var(--ws-muted); }
+
+/* Channel map */
+#ws-root .ws-chart { padding: 6px 12px 10px; position: relative; }
+#ws-root .ws-chart svg { display: block; width: 100%; overflow: visible; }
+#ws-root .ws-chart .grid { stroke: var(--ws-grid); stroke-width: 1; }
+#ws-root .ws-chart .axis-label { fill: var(--ws-muted); font-size: 10.5px; }
+#ws-root .ws-chart .axis-title { fill: var(--ws-muted); font-size: 10.5px; font-weight: 600; }
+#ws-root .ws-chart .ap { cursor: pointer; transition: opacity .15s; }
+#ws-root .ws-chart .ap path { stroke-width: 1.6; }
+#ws-root .ws-chart .ap.connected path { stroke-width: 3; }
+#ws-root .ws-chart.has-hover .ap { opacity: .18; }
+#ws-root .ws-chart.has-hover .ap.hover { opacity: 1; }
+#ws-root .ws-chart .ap text { font-size: 11px; font-weight: 600; pointer-events: none; }
+#ws-root .ws-chart-empty { padding: 40px 0; text-align: center; color: var(--ws-muted); font-size: 13px; }
+#ws-root .ws-tip {
+    position: absolute; pointer-events: none; background: var(--ws-card); border: 1px solid var(--ws-border);
+    box-shadow: var(--ws-shadow); border-radius: 8px; padding: 7px 10px; font-size: 12px; white-space: nowrap; display: none; z-index: 2;
+}
+#ws-root .ws-tip b { display: block; font-size: 12.5px; }
+
+/* Network table */
+#ws-root .ws-table { width: 100%; border-collapse: collapse; }
+#ws-root .ws-table th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ws-muted);
+    font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--ws-sep); cursor: pointer; user-select: none; white-space: nowrap;
+}
+#ws-root .ws-table th.nosort { cursor: default; }
+#ws-root .ws-table th .arrow { opacity: .8; margin-left: 3px; }
+#ws-root .ws-table td { padding: 9px 12px; border-bottom: 1px solid var(--ws-sep); vertical-align: middle; }
+#ws-root .ws-table tr.row { cursor: pointer; }
+#ws-root .ws-table tr.row:hover, #ws-root .ws-table tr.row.hover { background: var(--ws-hover); }
+#ws-root .ws-table tr.row.open { background: var(--ws-select); }
+#ws-root .ws-table tr.row.open td { border-bottom-color: transparent; }
+#ws-root .ws-table tr:last-child td { border-bottom: 0; }
+#ws-root .ws-net { display: flex; align-items: center; gap: 11px; min-width: 0; }
+#ws-root .ws-net svg.bars { width: 22px; height: 18px; flex-shrink: 0; }
+#ws-root .ws-net-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+#ws-root .ws-net-name.hidden-ssid { font-style: italic; font-weight: 500; color: var(--ws-dim); }
+#ws-root .ws-net-sub { font-size: 12px; color: var(--ws-dim); display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
+#ws-root .ws-swatch { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+#ws-root .ws-sig { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+#ws-root .ws-sig-bar { width: 54px; height: 5px; border-radius: 3px; background: var(--ws-track); overflow: hidden; }
+#ws-root .ws-sig-bar span { display: block; height: 100%; border-radius: 3px; }
+#ws-root .ws-sig b { font-weight: 600; min-width: 64px; display: inline-block; }
+#ws-root .ws-mono { font-family: 'Cascadia Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: var(--ws-dim); }
+#ws-root .ws-small { font-size: 12px; color: var(--ws-dim); }
+#ws-root .ws-sec { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+#ws-root .ws-sec i.icon { margin: 0; color: var(--ws-muted); }
+#ws-root .ws-sec.open-net i.icon { color: var(--ws-fair); }
+#ws-root .ws-actions { white-space: nowrap; text-align: right; }
+#ws-root .ws-link {
+    font: inherit; font-size: 12.5px; font-weight: 600; background: none; border: 0; color: var(--ws-accent);
+    cursor: pointer; padding: 3px 6px; border-radius: 5px;
+}
+#ws-root .ws-link:hover { background: var(--ws-hover); }
+#ws-root .ws-link.danger { color: var(--ws-weak); }
+#ws-root .ws-link:disabled { opacity: .5; cursor: default; }
+#ws-root .ws-state { padding: 46px 20px; text-align: center; color: var(--ws-dim); }
+#ws-root .ws-state i.icon { display: block; margin: 0 auto 10px; }
+
+/* Detail panel */
+#ws-root .ws-detail td { padding: 0 12px 14px; background: var(--ws-select); }
+#ws-root .ws-detail-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1px; background: var(--ws-card);
+    border: 1px solid var(--ws-sep); border-radius: 9px; overflow: hidden;
+}
+#ws-root .ws-detail-grid > div { background: var(--ws-card); padding: 8px 12px; min-width: 0; box-shadow: 0 0 0 1px var(--ws-sep); }
+#ws-root .ws-detail-grid > div.wide { grid-column: span 2; }
+#ws-root .ws-detail-grid dt { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ws-muted); font-weight: 600; margin-bottom: 2px; }
+#ws-root .ws-detail-grid dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+#ws-root .ws-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+#ws-root .ws-tag { background: var(--ws-chip); color: var(--ws-chip-fg); border-radius: 4px; padding: 0 6px; font-size: 11.5px; }
+#ws-root .ws-tag.basic { outline: 1px solid var(--ws-accent); outline-offset: -1px; }
+
+/* Notice */
+#ws-root .ws-notice {
+    display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px;
+    font-size: 13px; color: var(--ws-dim); background: color-mix(in srgb, var(--ws-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ws-accent) 22%, transparent);
+}
+#ws-root .ws-notice.error { background: color-mix(in srgb, var(--ws-weak) 9%, transparent); border-color: color-mix(in srgb, var(--ws-weak) 25%, transparent); }
+#ws-root .ws-notice i.icon { margin: 1px 0 0; color: var(--ws-accent); }
+#ws-root .ws-notice.error i.icon { color: var(--ws-weak); }
+
+/* Dialog */
+#ws-root .ws-overlay {
+    position: fixed; inset: 0; background: var(--ws-overlay); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+}
+#ws-root .ws-overlay.show { display: flex; }
+#ws-root .ws-dialog {
+    background: var(--ws-card); color: var(--ws-text); border-radius: 14px; width: 100%; max-width: 420px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.3); border: 1px solid var(--ws-border); overflow: hidden;
+}
+#ws-root .ws-dialog-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px 6px; }
+#ws-root .ws-dialog-head svg { width: 30px; height: 26px; }
+#ws-root .ws-dialog-head h3 { margin: 0; font-size: 17px; font-weight: 600; }
+#ws-root .ws-dialog-head div { min-width: 0; }
+#ws-root .ws-dialog-body { padding: 10px 20px 4px; }
+#ws-root .ws-field { margin-bottom: 12px; }
+#ws-root .ws-field label { display: block; font-size: 12px; font-weight: 600; color: var(--ws-dim); margin-bottom: 5px; }
+#ws-root .ws-input-wrap { display: flex; border: 1px solid var(--ws-border); border-radius: 7px; background: var(--ws-input); overflow: hidden; }
+#ws-root .ws-input-wrap:focus-within { border-color: var(--ws-accent); }
+#ws-root .ws-input-wrap input { flex: 1; font: inherit; padding: 8px 10px; border: 0; background: transparent; color: var(--ws-text); outline: none; min-width: 0; }
+#ws-root .ws-input-wrap button { border: 0; background: transparent; color: var(--ws-muted); cursor: pointer; padding: 0 10px; }
+#ws-root .ws-dialog-msg { font-size: 12.5px; min-height: 18px; color: var(--ws-weak); }
+#ws-root .ws-dialog-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 18px; }
+#ws-root .ws-toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px); opacity: 0; transition: all .25s;
+    background: #222; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 13px; z-index: 1001; pointer-events: none;
+}
+#ws-root .ws-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@container (max-width: 860px) {
+    #ws-root .ws-col-bssid { display: none; }
+}
+@container (max-width: 700px) {
+    #ws-root .ws-head { grid-template-columns: 1fr; }
+}
+@container (max-width: 620px) {
+    #ws-root .ws-col-std, #ws-root .ws-col-sec { display: none; }
+    #ws-root .ws-search { margin-left: 0; width: 100%; }
+    #ws-root .ws-search input { width: 100%; }
+    #ws-root .ws-net-name { max-width: 150px; }
+    #ws-root .ws-sig-bar { display: none; }
+}
+</style>
+
+<div id="ws-root">
+  <div class="ws-wrap">
+    <div class="ws-head">
+        <div class="ws-card" id="ws-conn">
+            <div class="ws-head-icon" id="ws-conn-icon"></div>
+            <div class="ws-head-text">
+                <div class="ws-head-label">Current network</div>
+                <div class="ws-head-value" id="ws-conn-ssid">Loading&hellip;</div>
+                <div class="ws-head-sub" id="ws-conn-sub">&nbsp;</div>
             </div>
-            <tbody id="wifilist">
-                <tr>
-                    <td><i class="loading spinner icon"></i> Scanning Nearby WiFi Access Points</td>
-                </tr>
-            </tbody>
-            </table>
         </div>
-    <br><br><br>
+        <div class="ws-card" id="ws-radio">
+            <div class="ws-head-icon" style="--ws-lv: var(--ws-accent)"><i class="large wifi icon" style="margin:0;color:var(--ws-accent)"></i></div>
+            <div class="ws-head-text">
+                <div class="ws-head-label">Wireless interface</div>
+                <div class="ws-head-value" id="ws-radio-name">&mdash;</div>
+                <div class="ws-head-sub" id="ws-radio-sub">&nbsp;</div>
+            </div>
+            <div id="ws-radio-ctrl"></div>
+        </div>
     </div>
-    <!-- WiFi Connection Interface-->
-    <div class="ui modal">
-        <i class="close icon"></i>
-        <div class="header">
-            <span id="wifiName"></span>
+
+    <div id="ws-notice"></div>
+
+    <div class="ws-toolbar">
+        <button class="ws-btn primary" id="ws-rescan"><i class="sync alternate icon"></i> Rescan</button>
+        <div class="ws-seg" id="ws-bands"></div>
+        <span class="ws-meta" id="ws-meta"></span>
+        <div class="ws-search"><i class="search icon"></i><input type="search" id="ws-filter" placeholder="Filter networks"></div>
+    </div>
+
+    <div class="ws-card">
+        <div class="ws-card-title"><i class="chart area icon"></i>Channel map
+            <div class="ws-right"><div class="ws-seg" id="ws-chart-bands"></div></div>
         </div>
-        <div class="image content">
-            <div class="ui mini image">
-            <img id="wifiImage" src="">
-            </div>
-            <div class="description" style="min-width:400px;">
-            <div class="ui header">Credential Required</div>
-                <div class="ui labeled fluid input" style="margin-top:12px;">
-                    <div class="ui teal label">
-                        SSID
-                    </div>
-                    <input type="text" value="" id="ssid" readonly=true>
-                </div>
-        
-                <div class="ui labeled action fluid input" style="margin-top:12px;">
-                    <div class="ui teal label">
-                        Password
-                    </div>
-                    <input type="password" id="pwd">
-                    <button class="ui icon black button"  onmousedown="showPassword();" onmouseup="hidePassword();" ontouchstart="showPassword();" ontouchend="hidePassword();">
-                        <i class="eye icon"></i>
-                    </button>
-                </div>
-            </div>
+        <div class="ws-chart" id="ws-chart"><div class="ws-chart-empty">Waiting for scan results&hellip;</div></div>
+    </div>
+
+    <div class="ws-card">
+        <div class="ws-card-title"><i class="list icon"></i>Nearby networks
+            <div class="ws-right ws-meta" id="ws-count"></div>
         </div>
-        <div class="actions">
-            <div class="ui black deny button">
-            Cancel
+        <div id="ws-list" class="ws-scroll"><div class="ws-state"><i class="big circle notch loading icon"></i>Scanning nearby access points&hellip;</div></div>
+    </div>
+  </div>
+
+    <div class="ws-overlay" id="ws-dialog">
+        <div class="ws-dialog" role="dialog" aria-modal="true" aria-labelledby="ws-dialog-title">
+            <div class="ws-dialog-head" id="ws-dialog-icon">
+                <div><h3 id="ws-dialog-title">Connect</h3><div class="ws-small" id="ws-dialog-desc"></div></div>
             </div>
-            <div class="ui positive right labeled icon button" onclick="confirmConnection();">
-            Connect
-            <i class="checkmark icon"></i>
+            <div class="ws-dialog-body">
+                <div class="ws-field" id="ws-pwd-field">
+                    <label for="ws-pwd">Password</label>
+                    <div class="ws-input-wrap">
+                        <input type="password" id="ws-pwd" autocomplete="new-password">
+                        <button type="button" id="ws-pwd-eye" title="Show password"><i class="eye icon"></i></button>
+                    </div>
+                </div>
+                <div class="ws-dialog-msg" id="ws-dialog-msg"></div>
+            </div>
+            <div class="ws-dialog-foot">
+                <button class="ws-btn" id="ws-dialog-cancel">Cancel</button>
+                <button class="ws-btn primary" id="ws-dialog-ok">Connect</button>
             </div>
         </div>
     </div>
+    <div class="ws-toast" id="ws-toast"></div>
+</div>
 
-    <script>
-        var retryCount = 0;
-        //Delete all previous modal if exists
-        //Funny bug of Semantic ui
-        for (var i =1; i < $(".ui.modal").length; i++){
-            $($(".ui.modal")[i]).remove();
+<script>
+(function () {
+    var root = document.getElementById('ws-root');
+    function $id(id) { return document.getElementById(id); }
+
+    var state = {
+        info: null,          // /system/network/wifiinfo response
+        power: null,         // /system/network/power response, null when unavailable
+        iface: null,         // selected interface name
+        networks: [],        // last scan results
+        scannedAt: null,
+        scanning: false,
+        retries: 0,
+        band: 'all',         // list filter
+        chartBand: null,     // channel map band
+        filter: '',
+        sort: { key: 'signal', dir: -1 },
+        open: {},            // BSSID -> expanded
+        hover: null
+    };
+    var infoTimer = null;
+
+    /* ---------- helpers ---------- */
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function alive() { return document.body.contains(root); }
+    function isDark() { return document.body.classList.contains('dark'); }
+
+    function api(url, params) {
+        var opt = { credentials: 'same-origin', cache: 'no-store' };
+        if (params) {
+            opt.method = 'POST';
+            opt.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+            opt.body = new URLSearchParams(params).toString();
         }
-        initWiFiScan();
-        initWlanPower();
-        function initWiFiScan(){
-            $("#wifilist").html(` <tr>
-                <td><i class="loading spinner icon"></i> Scanning Nearby WiFi Access Points</td>
-            </tr>`);
-            $.get("../../system/network/scanWifi",function(data){
-                if (data.error != undefined){
-                    console.log(data.error);
-                    if (retryCount > 5){
-                        //Stop retrtying
-                        $("#wifilist").html(` <tr>
-                            <td><i class="remove icon"></i> WiFi Scanning Failed</td>
-                        </tr>`);
-                        return
-                    }
-                    //Unknown error. Rescan later
-                    setTimeout(function(){
-                        initWiFiScan();
-                    },3000);
-                    retryCount++;
-                }else{
-                    retryCount = 0;
-                    $("#wifilist").html("");
-                    for (var i = 0; i < data.length; i++){
-                        var thisWiFi = data[i];
-                        var signalLevel = thisWiFi.SignalLevel.split(" ").shift();
-                        var signalIcon = "signal_0.svg"
-                        var warninglevel = 0;
-                        try{
-                            signalLevel = parseInt(signalLevel);
-                            if (signalLevel > -50){
-                                signalIcon = "signal_5.svg";
-                            }else if (signalLevel > -60){
-                                signalIcon = "signal_4.svg";
-                            }else if (signalLevel > -70){
-                                signalIcon = "signal_3.svg";
-                            }else if (signalLevel > -80){
-                                signalIcon = "signal_2.svg";
-                                warninglevel = 1;
-                            }else{
-                                signalIcon = "signal_1.svg";
-                                warninglevel = 2;
-                            }
-                        }catch(ex){
-                             
-                        }
-
-                        //This WiFi might be too week to connect
-                        classname = "";
-                        if (warninglevel == 0){
-                            classname = "positive";
-                        }
-
-                        //Only add remove button if the WiFi is connected before
-                        removeHTML = "";
-                        if (thisWiFi.ConnectedBefore){
-                            removeHTML = `<a href="#">Remove</a>`;
-                        }
-
-                        //Check if this WiFi has been connected. If yes, hide the connect button
-                        var connBtn = ` <td class="selectable" conncetedBefore="${thisWiFi.ConnectedBefore}" image="${signalIcon}" targetESSID="${thisWiFi.ESSID}" onclick="connectThis(this, event);">
-                            <a href="#">Connect</a>
-                        </td>`;
-                        if (thisWiFi.ESSID == $("#SSID").text().trim()){
-                            connBtn = `<td conncetedBefore="${thisWiFi.ConnectedBefore}">
-                            <i class="checkmark icon"></i>
-                        </td>`;
-                        }
-
-                        $("#wifilist").append(`<tr class="${classname}">
-                        <td>
-                            <h4 class="ui image header">
-                                <img src="../network/img/${signalIcon}" class="ui mini rounded image">
-                                <div class="content">
-                                    ${thisWiFi.ESSID}
-                                    <div class="sub header"> ${thisWiFi.Frequency} (Channel ${thisWiFi.Channel})
-                                </div>
-                                </div>
-                            </h4>
-                        </td>
-                        <td>
-                            ${thisWiFi.SignalLevel} ( ${thisWiFi.Quality})
-                        </td>
-                        <td>
-                            ${thisWiFi.Address}
-                        </td>
-                        ${connBtn}
-                        <td class="selectable"  image="${signalIcon}" targetESSID="${thisWiFi.ESSID}" onclick="removeThis(this, event);">
-                            ${removeHTML}
-                        </td>
-                    </tr>`);
-                    }
-                   
-                }   
+        return fetch(url, opt).then(function (r) {
+            return r.text().then(function (t) {
+                try { return JSON.parse(t); } catch (e) { return { error: r.ok ? 'Unexpected response' : 'HTTP ' + r.status, notFound: r.status === 404 }; }
             });
+        });
+    }
+
+    function rssiOf(n) {
+        if (n.SignalDBm) return n.SignalDBm;
+        if (n.QualityPercent >= 0) return n.QualityPercent / 2 - 100;
+        return -100;
+    }
+    function level(rssi) {
+        if (rssi >= -55) return { bars: 4, name: 'Excellent', color: 'var(--ws-good)' };
+        if (rssi >= -67) return { bars: 3, name: 'Good', color: 'var(--ws-ok)' };
+        if (rssi >= -75) return { bars: 2, name: 'Fair', color: 'var(--ws-fair)' };
+        if (rssi > -100) return { bars: 1, name: 'Weak', color: 'var(--ws-weak)' };
+        return { bars: 0, name: 'Unknown', color: 'var(--ws-off)' };
+    }
+    function qualityOf(n) {
+        if (n.QualityPercent >= 0) return n.QualityPercent;
+        return Math.max(0, Math.min(100, 2 * (rssiOf(n) + 100)));
+    }
+
+    // Bars glyph: four rising bars, the first `bars` filled
+    function barsSVG(bars, color, cls) {
+        var html = '<svg class="' + (cls || 'bars') + '" viewBox="0 0 22 18" aria-hidden="true">';
+        for (var i = 0; i < 4; i++) {
+            var h = 5 + i * 4.3;
+            html += '<rect x="' + (i * 5.6) + '" y="' + (18 - h) + '" width="3.8" height="' + h + '" rx="1.2" fill="' +
+                (i < bars ? color : 'var(--ws-track)') + '"/>';
+        }
+        return html + '</svg>';
+    }
+
+    // Stable colour per SSID, so a network looks the same on every band
+    function colorFor(n) {
+        var key = n.ESSID || n.Address || '';
+        var h = 0;
+        for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        var hue = (h * 137.508) % 360;
+        return isDark() ? 'hsl(' + hue.toFixed(0) + ',72%,64%)' : 'hsl(' + hue.toFixed(0) + ',66%,44%)';
+    }
+
+    function fmtRate(mbps) {
+        if (!mbps) return '';
+        if (mbps >= 1000) return (mbps / 1000).toFixed(2).replace(/\.?0+$/, '') + ' Gbps';
+        return (Math.round(mbps * 10) / 10) + ' Mbps';
+    }
+    function fmtUptime(sec) {
+        if (!sec) return '';
+        var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+        return d > 0 ? d + 'd ' + h + 'h' : (h > 0 ? h + 'h ' + m + 'm' : m + 'm');
+    }
+    function bandOf(n) {
+        if (n.Band) return n.Band;
+        if (n.FrequencyMHz >= 5925) return '6 GHz';
+        if (n.FrequencyMHz >= 4900) return '5 GHz';
+        if (n.FrequencyMHz >= 2400 || (n.Channel > 0 && n.Channel <= 14)) return '2.4 GHz';
+        if (n.Channel > 14) return '5 GHz';
+        return '';
+    }
+    function securityOf(n) {
+        if (n.Security) return n.Security;
+        return n.EncryptionKey ? 'Secured' : 'Open';
+    }
+    function isConnected(n) {
+        if (n.Connected) return true;
+        var cur = currentInterface();
+        if (!cur || !cur.Connected) return false;
+        if (cur.BSSID) return (n.Address || '').toLowerCase() === cur.BSSID.toLowerCase();
+        return !!n.ESSID && n.ESSID === cur.SSID;
+    }
+    function currentInterface() {
+        var list = (state.info && state.info.Interfaces) || [];
+        for (var i = 0; i < list.length; i++) if (list[i].Name === state.iface) return list[i];
+        return list[0] || null;
+    }
+
+    function toast(msg) {
+        var t = $id('ws-toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.classList.remove('show'); }, 3200);
+    }
+
+    /* ---------- header ---------- */
+    function renderHeader() {
+        var info = state.info;
+        var cur = currentInterface();
+        var connIcon = $id('ws-conn-icon');
+        if (!info || !cur) {
+            connIcon.innerHTML = barsSVG(0, 'var(--ws-off)', 'bars');
+            $id('ws-conn-ssid').textContent = info ? 'No wireless interface' : 'Loading…';
+            $id('ws-conn-sub').innerHTML = '&nbsp;';
+            $id('ws-radio-name').textContent = '—';
+            $id('ws-radio-sub').innerHTML = '&nbsp;';
+            $id('ws-radio-ctrl').innerHTML = '';
+            return;
         }
 
-        function initWlanPower(){
-            $.get("../../system/network/power", function(data){
-                $("#wlanlist").html("");
-                if (data.error != undefined){
-                    console.log(data.error);
-                }else{
-                   
-                    data.forEach(interface => {
-                        var checked = "false";
-                        if (interface.Running){
-                            checked = "true";
-                        }
-                        $("#wlanlist").append(`<div class="field"><div class="ui toggle checkbox" id="${interface.Name}">
-                            <input type="checkbox" name="${interface.Name}" tabindex="0" class="hidden">
-                            <label><i class="wifi icon"></i> ${interface.Name}</label>
-                        </div></div>`);
-                        if (interface.Running){
-                            $("#" + interface.Name).checkbox("check");
-                        }else{
-                            $("#" + interface.Name).checkbox("uncheck");
-                        }
-                        
-                        $("#" + interface.Name).find("input").attr("onchange","handleInterfacePowerToggle(this);")
-                        
-                    });
-
-                }
-            }); 
+        if (cur.Connected) {
+            var lv = level(cur.RSSI || (cur.SignalQuality >= 0 ? cur.SignalQuality / 2 - 100 : -100));
+            $id('ws-conn').style.setProperty('--ws-lv', lv.color);
+            connIcon.innerHTML = barsSVG(lv.bars, lv.color, 'bars');
+            $id('ws-conn-ssid').textContent = cur.SSID || 'Hidden network';
+            var sub = [];
+            if (cur.RSSI) sub.push(cur.RSSI + ' dBm');
+            if (cur.Band) sub.push(cur.Band + (cur.Channel ? ' · ch ' + cur.Channel : ''));
+            if (cur.Generation || cur.PHYType) sub.push(cur.Generation || cur.PHYType);
+            if (cur.RxRateMbps) sub.push(fmtRate(cur.RxRateMbps));
+            $id('ws-conn-sub').textContent = sub.join('  ·  ') || 'Connected';
+        } else {
+            $id('ws-conn').style.setProperty('--ws-lv', 'var(--ws-off)');
+            connIcon.innerHTML = barsSVG(0, 'var(--ws-off)', 'bars');
+            $id('ws-conn-ssid').textContent = 'Not connected';
+            $id('ws-conn-sub').textContent = cur.State && cur.State !== 'disconnected' ? 'State: ' + cur.State : 'Choose a network below';
         }
 
-        function handleInterfacePowerToggle(object){
-            var toggleState = object.checked;
-            var interfaeName = $(object).attr("name");
-            var status = "on";
-            if (toggleState == true){
-                status = "on";
-            }else{
-                status = "off";
+        // Interface name, or a selector when there are several
+        var list = info.Interfaces || [];
+        var nameEl = $id('ws-radio-name');
+        if (list.length > 1) {
+            nameEl.innerHTML = '<select class="ws-select" id="ws-iface">' + list.map(function (i) {
+                return '<option value="' + esc(i.Name) + '"' + (i.Name === state.iface ? ' selected' : '') + '>' + esc(i.Name) + '</option>';
+            }).join('') + '</select>';
+        } else {
+            nameEl.textContent = cur.Name;
+        }
+        var radioOn = cur.SoftwareRadio !== 'off' && cur.HardwareRadio !== 'off';
+        var radioKnown = cur.SoftwareRadio && cur.SoftwareRadio !== 'unknown';
+        var powerEntry = null;
+        (state.power || []).forEach(function (p) { if (p.Name === cur.Name) powerEntry = p; });
+        if (powerEntry && !radioKnown) radioOn = powerEntry.Running;
+
+        $id('ws-radio-sub').textContent = cur.Description || cur.MAC || '';
+        var ctrl = $id('ws-radio-ctrl');
+        if (info.CanControlPower && powerEntry && powerEntry.Controllable) {
+            ctrl.innerHTML = '<label class="ws-switch" title="Turn the wireless radio on or off"><input type="checkbox" id="ws-power"' +
+                (powerEntry.Running ? ' checked' : '') + '><span></span></label>';
+        } else if (cur.HardwareRadio === 'off') {
+            ctrl.innerHTML = '<span class="ws-pill off" title="The radio is disabled by a hardware switch">Radio off (switch)</span>';
+        } else if (radioKnown || powerEntry) {
+            ctrl.innerHTML = '<span class="ws-pill ' + (radioOn ? 'on' : 'off') + '">Radio ' + (radioOn ? 'on' : 'off') + '</span>';
+        } else {
+            ctrl.innerHTML = '';
+        }
+    }
+
+    function renderNotice(msg, isError) {
+        var html = '';
+        if (msg) {
+            html = '<div class="ws-notice' + (isError ? ' error' : '') + '"><i class="' + (isError ? 'exclamation triangle' : 'info circle') + ' icon"></i><div>' + msg + '</div></div>';
+        } else if (state.info && !state.info.CanConnect) {
+            html = '<div class="ws-notice"><i class="info circle icon"></i><div>Connecting to networks from ArozOS is not supported on this platform' +
+                (state.info.Platform ? ' (' + esc(state.info.Platform) + ')' : '') + '. Nearby networks are shown read-only; use the operating system to change the connection.</div></div>';
+        }
+        $id('ws-notice').innerHTML = html;
+    }
+
+    /* ---------- filters ---------- */
+    var BANDS = ['2.4 GHz', '5 GHz', '6 GHz', '60 GHz'];
+    function presentBands() {
+        var seen = {};
+        state.networks.forEach(function (n) { var b = bandOf(n); if (b) seen[b] = (seen[b] || 0) + 1; });
+        return BANDS.filter(function (b) { return seen[b]; }).map(function (b) { return { band: b, count: seen[b] }; });
+    }
+
+    function renderBandFilters() {
+        var bands = presentBands();
+        if (state.band !== 'all' && !bands.some(function (b) { return b.band === state.band; })) state.band = 'all';
+        var html = '<button data-band="all" class="' + (state.band === 'all' ? 'active' : '') + '">All</button>';
+        bands.forEach(function (b) {
+            html += '<button data-band="' + b.band + '" class="' + (state.band === b.band ? 'active' : '') + '">' + b.band + '</button>';
+        });
+        $id('ws-bands').innerHTML = bands.length > 1 ? html : '';
+        $id('ws-bands').style.display = bands.length > 1 ? '' : 'none';
+
+        if (!state.chartBand || !bands.some(function (b) { return b.band === state.chartBand; })) {
+            state.chartBand = bands.length ? bands.slice().sort(function (a, b) { return b.count - a.count; })[0].band : null;
+        }
+        var cur = currentInterface();
+        if (cur && cur.Connected && cur.Band && !state._chartChosen && bands.some(function (b) { return b.band === cur.Band; })) {
+            state.chartBand = cur.Band;
+        }
+        $id('ws-chart-bands').innerHTML = bands.map(function (b) {
+            return '<button data-chart-band="' + b.band + '" class="' + (state.chartBand === b.band ? 'active' : '') + '">' + b.band +
+                ' <span style="opacity:.7">(' + b.count + ')</span></button>';
+        }).join('');
+    }
+
+    function visibleNetworks() {
+        var q = state.filter.trim().toLowerCase();
+        var list = state.networks.filter(function (n) {
+            if (state.band !== 'all' && bandOf(n) !== state.band) return false;
+            if (!q) return true;
+            return [n.ESSID, n.Address, securityOf(n), n.PHYType, n.Generation, n.Country].join(' ').toLowerCase().indexOf(q) >= 0;
+        });
+        var s = state.sort;
+        var key = {
+            name: function (n) { return (n.ESSID || String.fromCharCode(0xffff)).toLowerCase(); },
+            signal: function (n) { return rssiOf(n); },
+            channel: function (n) { return (n.FrequencyMHz || 0) * 1000 + (n.Channel || 0); },
+            std: function (n) { return n.PHYType || ''; },
+            sec: function (n) { return securityOf(n); },
+            bssid: function (n) { return n.Address || ''; }
+        }[s.key];
+        list.sort(function (a, b) {
+            // The connected network always comes first
+            var ca = isConnected(a), cb = isConnected(b);
+            if (ca !== cb) return ca ? -1 : 1;
+            var x = key(a), y = key(b);
+            if (x < y) return -s.dir;
+            if (x > y) return s.dir;
+            return rssiOf(b) - rssiOf(a);
+        });
+        return list;
+    }
+
+    /* ---------- network list ---------- */
+    function detailItem(label, value, wide) {
+        if (value === '' || value === null || value === undefined) return '';
+        return '<div' + (wide ? ' class="wide"' : '') + '><dt>' + esc(label) + '</dt><dd>' + value + '</dd></div>';
+    }
+    function tagList(list, basic) {
+        if (!list || !list.length) return '';
+        return '<div class="ws-tags">' + list.map(function (r) {
+            return '<span class="ws-tag' + (basic && basic.indexOf(r) >= 0 ? ' basic' : '') + '">' + esc(r) + '</span>';
+        }).join('') + '</div>';
+    }
+
+    function detailHTML(n) {
+        var e = esc;
+        var chan = n.Channel ? e(n.Channel) + (n.CenterChannel ? ' (center ' + e(n.CenterChannel) + ')' : '') : '';
+        return '<div class="ws-detail-grid">' +
+            detailItem('SSID', n.Hidden ? '<i>Hidden network</i>' : e(n.ESSID)) +
+            detailItem('BSSID', '<span class="ws-mono">' + e(n.Address) + '</span>') +
+            detailItem('Signal', n.SignalDBm ? e(n.SignalDBm) + ' dBm' : e(n.SignalLevel)) +
+            detailItem('Link quality', n.QualityPercent >= 0 ? e(n.QualityPercent) + ' %' : '') +
+            detailItem('Band', e(bandOf(n))) +
+            detailItem('Channel', chan) +
+            detailItem('Frequency', n.FrequencyMHz ? e(n.FrequencyMHz) + ' MHz' : e(n.Frequency)) +
+            detailItem('Channel width', n.ChannelWidth ? e(n.ChannelWidth) + ' MHz' : '') +
+            detailItem('Standard', e([n.Generation, n.PHYType].filter(Boolean).join(' · '))) +
+            detailItem('Spatial streams', n.SpatialStreams ? e(n.SpatialStreams) : '') +
+            detailItem('Max PHY rate', n.MaxRateMbps ? e(fmtRate(n.MaxRateMbps)) + ' <span class="ws-small">(est.)</span>' : '') +
+            detailItem('Security', e(securityOf(n))) +
+            detailItem('Cipher', e(n.Cipher)) +
+            detailItem('Protected mgmt. frames', e(n.PMF)) +
+            detailItem('WPS', n.WPS ? 'Enabled' : '') +
+            detailItem('Fast roaming', e((n.Roaming || []).join(', '))) +
+            detailItem('Country', e(n.Country)) +
+            detailItem('Beacon interval', n.BeaconInterval ? e(n.BeaconInterval) + ' TU (' + (n.BeaconInterval * 1.024).toFixed(1) + ' ms)' : '') +
+            detailItem('AP uptime', e(fmtUptime(n.UptimeSeconds))) +
+            detailItem('Clients', n.StationCount != null ? e(n.StationCount) : '') +
+            detailItem('Channel busy', n.ChannelUtilization != null ? e(n.ChannelUtilization) + ' %' : '') +
+            detailItem('Network type', e(n.BSSType)) +
+            detailItem('Saved profile', n.ConnectedBefore ? 'Yes' : '') +
+            detailItem('Supported rates (Mbps)', tagList(n.SupportedRates, n.BasicRates), true) +
+            '</div>';
+    }
+
+    function renderList() {
+        var listEl = $id('ws-list');
+        var nets = visibleNetworks();
+        var canConnect = state.info && state.info.CanConnect;
+        $id('ws-count').textContent = state.networks.length
+            ? (nets.length === state.networks.length ? nets.length + ' access points' : nets.length + ' of ' + state.networks.length + ' access points')
+            : '';
+
+        if (!state.networks.length) {
+            if (!state.scanning) listEl.innerHTML = '<div class="ws-state"><i class="big wifi icon" style="opacity:.35"></i>No access points found.</div>';
+            return;
+        }
+        if (!nets.length) {
+            listEl.innerHTML = '<div class="ws-state">No access points match the filter.</div>';
+            return;
+        }
+
+        var s = state.sort;
+        function th(key, label, cls) {
+            var arrow = s.key === key ? '<i class="arrow caret ' + (s.dir > 0 ? 'up' : 'down') + ' icon"></i>' : '';
+            return '<th data-sort="' + key + '" class="' + (cls || '') + '">' + label + arrow + '</th>';
+        }
+        var cols = canConnect ? 7 : 6;
+        var html = '<table class="ws-table"><thead><tr>' +
+            th('name', 'Network') + th('signal', 'Signal') + th('channel', 'Channel') +
+            th('std', 'Standard', 'ws-col-std') + th('sec', 'Security', 'ws-col-sec') + th('bssid', 'BSSID', 'ws-col-bssid') +
+            (canConnect ? '<th class="nosort"></th>' : '') + '</tr></thead><tbody>';
+
+        nets.forEach(function (n) {
+            var rssi = rssiOf(n), lv = level(rssi), q = qualityOf(n);
+            var connected = isConnected(n);
+            var open = !!state.open[n.Address];
+            var badges = '';
+            if (connected) badges += '<span class="ws-pill on">Connected</span>';
+            if (n.ConnectedBefore && !connected) badges += '<span class="ws-pill accent">Saved</span>';
+            var sub = [bandOf(n), n.Generation].filter(Boolean).join(' · ');
+            var sec = securityOf(n);
+
+            var actions = '';
+            if (canConnect) {
+                if (connected) actions = '<span class="ws-small"><i class="check icon"></i></span>';
+                else if (!n.Hidden) actions = '<button class="ws-link" data-act="connect">Connect</button>';
+                if (n.ConnectedBefore && !n.Hidden) actions += '<button class="ws-link danger" data-act="forget">Forget</button>';
             }
-            $.ajax({
-                url: "../../system/network/power",
-                data: {status: status, interface: interfaeName},
-                success: function(data){
-                    console.log(data);
-                    initWlanPower();
-                    $("#updateSucceedMessage").stop().finish().slideDown("fast").delay(5000).slideUp("fast");
-                }
-            })
-        }
 
-        function removeThis(obj, event){
-            event.preventDefault();
-            targetSSID = $(obj).attr("targetESSID");
-            $.ajax({
-                url: "../../system/network/removeWifi",
-                data: {ESSID: targetSSID},
-                success: function(data){
-                    if (data.error !== undefined){
-                        alert(data.error)
-                    }else{
-                        resetInterface();
-                    }
-                }
-            });
-        }
+            html += '<tr class="row' + (open ? ' open' : '') + (state.hover === n.Address ? ' hover' : '') + '" data-bssid="' + esc(n.Address) + '">' +
+                '<td><div class="ws-net"><span class="ws-swatch" style="background:' + colorFor(n) + '"></span>' + barsSVG(lv.bars, lv.color) +
+                    '<div style="min-width:0"><div class="ws-net-name' + (n.Hidden ? ' hidden-ssid' : '') + '" title="' + esc(n.ESSID) + '">' +
+                    (n.Hidden ? 'Hidden network' : esc(n.ESSID)) + '</div>' +
+                    '<div class="ws-net-sub">' + esc(sub) + badges + '</div></div></div></td>' +
+                '<td><div class="ws-sig"><b>' + (n.SignalDBm ? esc(n.SignalDBm) + ' dBm' : esc(n.SignalLevel || '—')) + '</b>' +
+                    '<div class="ws-sig-bar" title="' + esc(lv.name) + ' · ' + esc(q) + '%"><span style="width:' + q + '%;background:' + lv.color + '"></span></div></div></td>' +
+                '<td><div>' + (n.Channel ? esc(n.Channel) : '—') + '</div><div class="ws-small">' + (n.ChannelWidth ? esc(n.ChannelWidth) + ' MHz' : esc(n.Frequency || '')) + '</div></td>' +
+                '<td class="ws-col-std"><div>' + esc(n.Generation || n.PHYType || '—') + '</div><div class="ws-small">' + (n.Generation ? esc(n.PHYType) : '') + '</div></td>' +
+                '<td class="ws-col-sec"><span class="ws-sec' + (sec === 'Open' ? ' open-net' : '') + '"><i class="' + (sec === 'Open' ? 'unlock' : 'lock') + ' icon"></i>' + esc(sec) + '</span>' +
+                    (n.Cipher ? '<div class="ws-small">' + esc(n.Cipher) + '</div>' : '') + '</td>' +
+                '<td class="ws-col-bssid ws-mono">' + esc(n.Address) + '</td>' +
+                (canConnect ? '<td class="ws-actions">' + actions + '</td>' : '') +
+                '</tr>';
+            if (open) html += '<tr class="ws-detail"><td colspan="' + cols + '">' + detailHTML(n) + '</td></tr>';
+        });
+        listEl.innerHTML = html + '</tbody></table>';
+    }
 
-        function resetInterface(obj=undefined){
-            $("#wifilist .selectable").removeClass("disabled");
-            if (obj !== undefined){
-                $(obj).html(`<a href="#">Connect</a>`);
+    /* ---------- channel map ---------- */
+    var BAND_AXIS = {
+        '2.4 GHz': { min: 2400, max: 2496, ticks: [1,2,3,4,5,6,7,8,9,10,11,12,13,14], freq: function (c) { return c === 14 ? 2484 : 2407 + c * 5; } },
+        '5 GHz':   { min: 5150, max: 5895, ticks: [36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165,169,173,177], freq: function (c) { return 5000 + c * 5; } },
+        '6 GHz':   { min: 5945, max: 7125, ticks: (function () { var t = []; for (var c = 1; c <= 233; c += 4) t.push(c); return t; }()), freq: function (c) { return 5950 + c * 5; } },
+        '60 GHz':  { min: 57240, max: 70200, ticks: [1,2,3,4,5,6], freq: function (c) { return 56160 + c * 2160; } }
+    };
+
+    function renderChart() {
+        var chart = $id('ws-chart');
+        var band = state.chartBand;
+        var axis = BAND_AXIS[band];
+        var nets = state.networks.filter(function (n) { return bandOf(n) === band; });
+        if (!axis || !nets.length) {
+            chart.innerHTML = '<div class="ws-chart-empty">' + (state.scanning ? 'Scanning…' : 'No access points to chart.') + '</div>';
+            return;
+        }
+        var W = Math.max(320, chart.clientWidth - 24), H = 250;
+        var padL = 40, padR = 12, padT = 20, padB = 34;
+        var plotW = W - padL - padR, plotH = H - padT - padB;
+        var dbmMin = -100, dbmMax = -20;
+        function x(mhz) { return padL + (mhz - axis.min) / (axis.max - axis.min) * plotW; }
+        function y(dbm) { return padT + (dbmMax - Math.max(dbmMin, Math.min(dbmMax, dbm))) / (dbmMax - dbmMin) * plotH; }
+
+        var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '">';
+        for (var d = -90; d <= -30; d += 10) {
+            svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(d) + '" y2="' + y(d) + '"/>' +
+                '<text class="axis-label" x="' + (padL - 6) + '" y="' + (y(d) + 3.5) + '" text-anchor="end">' + d + '</text>';
+        }
+        svg += '<text class="axis-title" x="' + (padL - 6) + '" y="' + (padT - 8) + '" text-anchor="end">dBm</text>';
+
+        // Channel ticks, thinned out to keep the labels apart
+        var minGap = 26, lastX = -1e9;
+        axis.ticks.forEach(function (c) {
+            var tx = x(axis.freq(c));
+            svg += '<line class="grid" x1="' + tx + '" x2="' + tx + '" y1="' + (padT + plotH) + '" y2="' + (padT + plotH + 4) + '"/>';
+            if (tx - lastX >= minGap) {
+                svg += '<text class="axis-label" x="' + tx + '" y="' + (padT + plotH + 16) + '" text-anchor="middle">' + c + '</text>';
+                lastX = tx;
             }
-            initWiFiScan();
-        }
+        });
+        svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + (padT + plotH) + '" y2="' + (padT + plotH) + '"/>';
+        svg += '<text class="axis-title" x="' + (padL + plotW / 2) + '" y="' + (H - 2) + '" text-anchor="middle">Channel</text>';
 
-        function connectThis(obj, event){
-            $("#pwd").val("");
-            targetSSID = $(obj).attr("targetESSID");
-            event.preventDefault();
-            //Create DOM elements
-            $("#wifiName").text(targetSSID);
-            $("#wifiImage").attr('src',"../network/img/" + $(obj).attr("image"));
-            $("#ssid").val(targetSSID);
-            
-            //Check if this is connected before. If yes, send out AP switch request
-            if ($(obj).attr("conncetedBefore") == "true"){
-                var ESSID = $(obj).attr("targetESSID");
-                $("#wifilist .selectable").addClass("disabled");
-                $(obj).html(`<div class="ui active centered inline loader"></div>`);
-                $.ajax({
-                    url: "../../system/network/connectWifi",
-                    data: {"ESSID": ESSID, "ConnType":"switch"},
-                    method: "POST",
-                    success: function(data){
-                        console.log(data);
-                        initWifiInfo();
-                        resetInterface(obj);
-                    },
-                    error: function(){
-                        $("#wifilist .selectable").removeClass("disabled");
-                        resetInterface(obj);
-                    },
-                    timeout: 30000
-                });
-            }else{
-                $('.ui.modal').modal('show');
-            }
-        }
-
-        function confirmConnection(){
-            var ESSID = $("#ssid").val();
-            var PWD = $("#pwd").val();
-            $("#wifilist .selectable").addClass("disabled");
-            $.ajax({
-                url: "../../system/network/connectWifi",
-                data: {"ESSID": ESSID, "pwd": PWD},
-                method: "POST",
-                success: function(data){
-                    console.log(data);
-                    initWifiInfo();
-                    resetInterface();
-                },
-                error: function(){
-                    $("#wifilist .selectable").removeClass("disabled");
-                    resetInterface();
-                },
-                timeout: 30000
-            });
-        }
-
-        function showPassword(){
-            $("#pwd").attr("type","text");
-        }
-
-        function hidePassword(){
-            $("#pwd").attr("type","password");
-        }
-
-        //Also init WiFi view in this interface
-        initWifiInfo();
-        function initWifiInfo(){
-            $.ajax({
-                url: "../../system/network/wifiinfo",
-                method:"GET",
-                success: function(data){
-                    if (data.error !== undefined){
-                        $("#SSID").text("Access Failed");
-                        $("#Interface").text("loopback");
-                    }else{
-                        $("#SSID").text(data.ESSID);
-                        $("#Interface").text(data.Interface);
-                    }
+        // Labels are placed strongest first; a label that would overlap one
+        // already placed moves inside its shape, or is left out (the tooltip
+        // still names it)
+        var placed = [];
+        var labelPos = {};
+        nets.slice().sort(function (a, b) { return rssiOf(b) - rssiOf(a); }).forEach(function (n) {
+            var g = geometry(n);
+            var text = n.Hidden ? '(hidden)' : n.ESSID;
+            var maxChars = Math.max(4, Math.floor((g.x1 - g.x0) / 6.2) + 6);
+            if (text.length > maxChars) text = text.slice(0, maxChars - 1) + '…';
+            var w = text.length * 6.4 + 4;
+            var cx = Math.max(padL + w / 2, Math.min(W - padR - w / 2, (g.x0 + g.x1) / 2));
+            var options = [g.yt - 5, g.yt + 14];
+            for (var i = 0; i < options.length; i++) {
+                var box = { l: cx - w / 2, r: cx + w / 2, t: options[i] - 11, b: options[i] + 2 };
+                if (box.b > padT + plotH) continue;
+                var clash = placed.some(function (o) { return box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t; });
+                if (!clash) {
+                    placed.push(box);
+                    labelPos[n.Address] = { x: cx, y: options[i], text: text };
+                    break;
                 }
-            });
+            }
+        });
+
+        function geometry(n) {
+            var width = n.ChannelWidth || (band === '2.4 GHz' ? 22 : 20);
+            if (band === '60 GHz') width = 2160;
+            var center = n.FrequencyMHz || axis.freq(n.Channel || 0);
+            if (n.CenterChannel && width > 20) center = axis.freq(n.CenterChannel);
+            return { x0: x(center - width / 2), x1: x(center + width / 2), yt: y(rssiOf(n)) };
         }
-    </script>
-   
+
+        // Weakest first so the strong ones sit on top
+        nets.slice().sort(function (a, b) { return rssiOf(a) - rssiOf(b); }).forEach(function (n) {
+            var g = geometry(n);
+            var x0 = g.x0, x1 = g.x1;
+            var yb = padT + plotH, yt = g.yt;
+            var ramp = Math.min((x1 - x0) * 0.22, 14);
+            var color = colorFor(n);
+            var path = 'M' + x0.toFixed(1) + ' ' + yb + ' C' + (x0 + ramp * 0.6).toFixed(1) + ' ' + yt.toFixed(1) + ' ' + (x0 + ramp).toFixed(1) + ' ' + yt.toFixed(1) + ' ' +
+                (x0 + ramp * 1.6).toFixed(1) + ' ' + yt.toFixed(1) + ' L' + (x1 - ramp * 1.6).toFixed(1) + ' ' + yt.toFixed(1) +
+                ' C' + (x1 - ramp).toFixed(1) + ' ' + yt.toFixed(1) + ' ' + (x1 - ramp * 0.6).toFixed(1) + ' ' + yt.toFixed(1) + ' ' + x1.toFixed(1) + ' ' + yb;
+            var label = labelPos[n.Address];
+            svg += '<g class="ap' + (isConnected(n) ? ' connected' : '') + (state.hover === n.Address ? ' hover' : '') + '" data-bssid="' + esc(n.Address) + '">' +
+                '<path d="' + path + '" fill="' + color + '" fill-opacity="0.14" stroke="' + color + '"/>' +
+                (label ? '<text x="' + label.x.toFixed(1) + '" y="' + label.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + esc(label.text) + '</text>' : '') +
+                '</g>';
+        });
+        svg += '</svg><div class="ws-tip" id="ws-tip"></div>';
+        chart.innerHTML = svg;
+        chart.classList.toggle('has-hover', !!state.hover);
+    }
+
+    function setHover(bssid) {
+        if (state.hover === bssid) return;
+        state.hover = bssid;
+        var chart = $id('ws-chart');
+        chart.classList.toggle('has-hover', !!bssid);
+        Array.prototype.forEach.call(chart.querySelectorAll('.ap'), function (g) {
+            g.classList.toggle('hover', g.getAttribute('data-bssid') === bssid);
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('tr.row'), function (tr) {
+            tr.classList.toggle('hover', tr.getAttribute('data-bssid') === bssid);
+        });
+    }
+
+    function findNetwork(bssid) {
+        for (var i = 0; i < state.networks.length; i++) if (state.networks[i].Address === bssid) return state.networks[i];
+        return null;
+    }
+
+    function renderAll() {
+        if (!alive()) return;
+        renderHeader();
+        renderBandFilters();
+        renderChart();
+        renderList();
+        var meta = [];
+        if (state.scanning) meta.push('Scanning…');
+        else if (state.scannedAt) meta.push('Scanned ' + state.scannedAt.toLocaleTimeString());
+        $id('ws-meta').textContent = meta.join(' ');
+    }
+
+    /* ---------- data ---------- */
+    function loadInfo() {
+        return api('../../system/network/wifiinfo').then(function (data) {
+            if (!alive()) return;
+            if (data.error !== undefined) {
+                renderNotice('Unable to read the interface state: ' + esc(data.error), true);
+                return;
+            }
+            state.info = data;
+            var list = data.Interfaces || [];
+            if (!state.iface || !list.some(function (i) { return i.Name === state.iface; })) {
+                var c = list.filter(function (i) { return i.Connected; })[0];
+                state.iface = c ? c.Name : (list[0] ? list[0].Name : (data.Interface || null));
+            }
+            if (!$id('ws-notice').querySelector('.error')) renderNotice();
+        });
+    }
+
+    function loadPower() {
+        return api('../../system/network/power').then(function (data) {
+            state.power = Array.isArray(data) ? data : null;
+        });
+    }
+
+    function scan() {
+        if (state.scanning) return;
+        state.scanning = true;
+        var btn = $id('ws-rescan');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="circle notch loading icon"></i> Scanning';
+        if (!state.networks.length) $id('ws-list').innerHTML = '<div class="ws-state"><i class="big circle notch loading icon"></i>Scanning nearby access points&hellip;</div>';
+        renderAll();
+        var url = '../../system/network/scanWifi' + (state.iface ? '?interface=' + encodeURIComponent(state.iface) : '');
+        api(url).then(function (data) {
+            if (!alive()) return;
+            state.scanning = false;
+            if (data.error !== undefined) {
+                // Linux drivers often report "busy" right after another scan
+                if (state.retries < 3 && !/not found/i.test(data.error)) {
+                    state.retries++;
+                    setTimeout(scan, 3000);
+                    return;
+                }
+                state.retries = 0;
+                renderNotice('WiFi scan failed: ' + esc(data.error), true);
+                if (!state.networks.length) $id('ws-list').innerHTML = '<div class="ws-state"><i class="big exclamation triangle icon" style="opacity:.4"></i>WiFi scanning failed.</div>';
+            } else {
+                state.retries = 0;
+                state.networks = Array.isArray(data) ? data : [];
+                state.scannedAt = new Date();
+                if ($id('ws-notice').querySelector('.error')) renderNotice();
+            }
+        }).catch(function (e) {
+            state.scanning = false;
+            renderNotice('WiFi scan failed: ' + esc(e.message || e), true);
+        }).then(function () {
+            if (!alive()) return;
+            if (!state.scanning) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="sync alternate icon"></i> Rescan';
+            }
+            renderAll();
+        });
+    }
+
+    function refreshInfo() {
+        clearTimeout(infoTimer);
+        if (!alive()) return;
+        if (!document.hidden) loadInfo().then(function () { if (alive()) { renderHeader(); } });
+        infoTimer = setTimeout(refreshInfo, 10000);
+    }
+
+    /* ---------- connect / forget ---------- */
+    var dialogNet = null;
+    function openConnectDialog(n) {
+        dialogNet = n;
+        var lv = level(rssiOf(n));
+        $id('ws-dialog-icon').innerHTML = barsSVG(lv.bars, lv.color, '') +
+            '<div><h3 id="ws-dialog-title">' + esc(n.ESSID) + '</h3><div class="ws-small">' + esc([securityOf(n), bandOf(n), n.SignalDBm ? n.SignalDBm + ' dBm' : ''].filter(Boolean).join(' · ')) + '</div></div>';
+        var needsPwd = securityOf(n) !== 'Open';
+        $id('ws-pwd-field').style.display = needsPwd ? '' : 'none';
+        $id('ws-pwd').value = '';
+        $id('ws-pwd').type = 'password';
+        $id('ws-dialog-msg').textContent = '';
+        $id('ws-dialog-ok').disabled = false;
+        $id('ws-dialog-ok').textContent = 'Connect';
+        $id('ws-dialog').classList.add('show');
+        setTimeout(function () { (needsPwd ? $id('ws-pwd') : $id('ws-dialog-ok')).focus(); }, 30);
+    }
+    function closeDialog() { $id('ws-dialog').classList.remove('show'); dialogNet = null; }
+
+    function connect(n, params, onDone) {
+        api('../../system/network/connectWifi', params).then(function (data) {
+            if (data.error !== undefined) { onDone(data.error); return; }
+            onDone(null, data);
+            toast(data.ConnectedSSID ? 'Connected to ' + data.ConnectedSSID : 'Connection request sent');
+            loadInfo().then(scan);
+        }).catch(function (e) { onDone(e.message || String(e)); });
+    }
+
+    function confirmDialog() {
+        if (!dialogNet) return;
+        var n = dialogNet;
+        var btn = $id('ws-dialog-ok');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="circle notch loading icon"></i> Connecting';
+        $id('ws-dialog-msg').textContent = '';
+        connect(n, { ESSID: n.ESSID, pwd: $id('ws-pwd').value }, function (err) {
+            if (err) {
+                btn.disabled = false;
+                btn.textContent = 'Connect';
+                $id('ws-dialog-msg').textContent = err;
+                return;
+            }
+            closeDialog();
+        });
+    }
+
+    function switchTo(n, button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="circle notch loading icon"></i>';
+        connect(n, { ESSID: n.ESSID, ConnType: 'switch' }, function (err) {
+            if (err) { toast('Connect failed: ' + err); renderList(); }
+        });
+    }
+
+    function forget(n) {
+        if (!window.confirm('Forget the saved network "' + n.ESSID + '"?')) return;
+        api('../../system/network/removeWifi', { ESSID: n.ESSID }).then(function (data) {
+            if (data.error !== undefined) { toast('Unable to forget network: ' + data.error); return; }
+            toast('Forgot ' + n.ESSID);
+            scan();
+        });
+    }
+
+    function setPower(on) {
+        var cur = currentInterface();
+        if (!cur) return;
+        api('../../system/network/power', { status: on ? 'on' : 'off', interface: cur.Name }).then(function (data) {
+            if (data.error !== undefined) toast('Unable to change radio state: ' + data.error);
+            else toast('Wireless radio turned ' + (on ? 'on' : 'off'));
+            return Promise.all([loadPower(), loadInfo()]);
+        }).then(renderHeader);
+    }
+
+    /* ---------- events ---------- */
+    root.addEventListener('click', function (ev) {
+        var t = ev.target;
+        var el;
+        if ((el = t.closest('#ws-rescan'))) { loadInfo().then(function () { renderHeader(); scan(); }); return; }
+        if ((el = t.closest('[data-band]'))) { state.band = el.getAttribute('data-band'); renderBandFilters(); renderList(); return; }
+        if ((el = t.closest('[data-chart-band]'))) { state.chartBand = el.getAttribute('data-chart-band'); state._chartChosen = true; renderBandFilters(); renderChart(); return; }
+        if ((el = t.closest('th[data-sort]'))) {
+            var key = el.getAttribute('data-sort');
+            if (state.sort.key === key) state.sort.dir = -state.sort.dir;
+            else state.sort = { key: key, dir: key === 'signal' ? -1 : 1 };
+            renderList();
+            return;
+        }
+        if ((el = t.closest('[data-act]'))) {
+            ev.stopPropagation();
+            var n = findNetwork(el.closest('tr').getAttribute('data-bssid'));
+            if (!n) return;
+            var act = el.getAttribute('data-act');
+            if (act === 'forget') forget(n);
+            else if (n.ConnectedBefore) switchTo(n, el);
+            else openConnectDialog(n);
+            return;
+        }
+        if ((el = t.closest('.ap'))) {
+            var bssid = el.getAttribute('data-bssid');
+            state.open[bssid] = true;
+            if (state.band !== 'all' && state.band !== state.chartBand) state.band = 'all';
+            renderBandFilters();
+            renderList();
+            var row = root.querySelector('tr.row[data-bssid="' + CSS.escape(bssid) + '"]');
+            if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        if ((el = t.closest('tr.row'))) {
+            var b = el.getAttribute('data-bssid');
+            state.open[b] = !state.open[b];
+            renderList();
+            return;
+        }
+        if (t.id === 'ws-dialog' || t.closest('#ws-dialog-cancel')) { closeDialog(); return; }
+        if (t.closest('#ws-dialog-ok')) { confirmDialog(); return; }
+        if ((el = t.closest('#ws-pwd-eye'))) {
+            var p = $id('ws-pwd');
+            p.type = p.type === 'password' ? 'text' : 'password';
+            el.innerHTML = '<i class="eye' + (p.type === 'text' ? ' slash' : '') + ' icon"></i>';
+        }
+    });
+    root.addEventListener('change', function (ev) {
+        if (ev.target.id === 'ws-iface') {
+            state.iface = ev.target.value;
+            state.networks = [];
+            state.open = {};
+            renderAll();
+            scan();
+        } else if (ev.target.id === 'ws-power') {
+            setPower(ev.target.checked);
+        }
+    });
+    root.addEventListener('input', function (ev) {
+        if (ev.target.id === 'ws-filter') { state.filter = ev.target.value; renderList(); }
+    });
+    root.addEventListener('keydown', function (ev) {
+        if (!$id('ws-dialog').classList.contains('show')) return;
+        if (ev.key === 'Escape') closeDialog();
+        if (ev.key === 'Enter') confirmDialog();
+    });
+    root.addEventListener('mouseover', function (ev) {
+        var el = ev.target.closest('.ap, tr.row');
+        setHover(el ? el.getAttribute('data-bssid') : null);
+    });
+    root.addEventListener('mouseleave', function () { setHover(null); });
+    $id('ws-chart').addEventListener('mousemove', function (ev) {
+        var tip = $id('ws-tip');
+        if (!tip) return;
+        var g = ev.target.closest('.ap');
+        var n = g && findNetwork(g.getAttribute('data-bssid'));
+        if (!n) { tip.style.display = 'none'; return; }
+        tip.innerHTML = '<b>' + esc(n.Hidden ? 'Hidden network' : n.ESSID) + '</b>' +
+            esc([n.SignalDBm ? n.SignalDBm + ' dBm' : '', 'ch ' + n.Channel + (n.ChannelWidth ? ' / ' + n.ChannelWidth + ' MHz' : ''), n.Generation || n.PHYType].filter(Boolean).join(' · ')) +
+            '<div class="ws-mono">' + esc(n.Address) + '</div>';
+        var box = this.getBoundingClientRect();
+        var px = ev.clientX - box.left + 14, py = ev.clientY - box.top + 12;
+        tip.style.display = 'block';
+        if (px + tip.offsetWidth > box.width) px = ev.clientX - box.left - tip.offsetWidth - 10;
+        tip.style.left = px + 'px';
+        tip.style.top = py + 'px';
+    });
+    $id('ws-chart').addEventListener('mouseleave', function () { var tip = $id('ws-tip'); if (tip) tip.style.display = 'none'; });
+
+    if (window.ResizeObserver) {
+        var lastW = 0;
+        var ro = new ResizeObserver(function () {
+            if (!alive()) { ro.disconnect(); return; }
+            var w = $id('ws-chart').clientWidth;
+            if (Math.abs(w - lastW) > 4) { lastW = w; renderChart(); }
+        });
+        ro.observe($id('ws-chart'));
+    }
+
+    /* ---------- start ---------- */
+    renderHeader();
+    Promise.all([loadInfo(), loadPower()]).then(function () {
+        renderAll();
+        if (state.info && !(state.info.Interfaces || []).length) {
+            renderNotice('No wireless interface was found on this host. Plug in or enable a WiFi adapter, then press Rescan.', true);
+            $id('ws-list').innerHTML = '<div class="ws-state"><i class="big wifi icon" style="opacity:.35"></i>No wireless interface.</div>';
+        } else {
+            scan();
+        }
+        infoTimer = setTimeout(refreshInfo, 10000);
+    });
+}());
+</script>
 </body>
-
 </html>

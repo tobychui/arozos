@@ -6,6 +6,7 @@ package wifi
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -147,9 +148,12 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 						continue
 					}
 
+					thisWifiInfo.Interface = interfaceName
+					normalizeWiFiInfo(thisWifiInfo)
 					results = append(results, *thisWifiInfo)
 				}
 
+				markConnectedBSS(results, interfaceName)
 				return results, nil
 			} else {
 				logger.PrintAndLog("Wifi", fmt.Sprint("*WiFi* Scan Failed: ", err.Error()), nil)
@@ -160,106 +164,45 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	}
 
 	//parse the output of the WiFi Scan
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for i, thisline := range lines {
-		lines[i] = strings.TrimSpace(thisline)
-	}
-
-	//Ignore first line if it contains "Scan completed"
-	if strings.Contains(lines[0], "Scan completed") {
-		lines = lines[1:]
-	}
-
-	var results = []WiFiInfo{}
-	//Loop through each line and construct the WiFi Info slice
-
-	processingWiFiNode := new(WiFiInfo)
-	for _, line := range lines {
-		if strings.Contains(line, "Address: ") {
-			//Push the previous results into results and create a new Node
-			if processingWiFiNode.Address != "" {
-				//Check if the ESSID already exists
-				if pkg_exists("nmcli") {
-					//Make use of nmcli storage
-					if w.database.KeyExists("wifi", processingWiFiNode.ESSID) {
-						processingWiFiNode.ConnectedBefore = true
-					} else {
-						processingWiFiNode.ConnectedBefore = false
-					}
-				} else {
-					//Direct access to wpa_supplicant
-					if fileExists("./system/network/wifi/ap/" + processingWiFiNode.ESSID + ".config") {
-						processingWiFiNode.ConnectedBefore = true
-					} else {
-						processingWiFiNode.ConnectedBefore = false
-					}
-
-				}
-				results = append(results, *processingWiFiNode)
-				processingWiFiNode = new(WiFiInfo)
-			}
-			//Analysis this node
-			datachunk := strings.Split(line, " ")
-			if len(datachunk) > 0 {
-				processingWiFiNode.Address = datachunk[len(datachunk)-1]
-			}
-		} else if strings.Contains(line, "Channel") && strings.Contains(line, "Frequency") == false {
-			datachunk := strings.Split(line, ":")
-			if len(datachunk) > 0 {
-				channel, err := strconv.Atoi(datachunk[len(datachunk)-1])
-				if err != nil {
-					channel = -1
-				}
-				processingWiFiNode.Channel = channel
-
-			}
-
-		} else if strings.Contains(line, "Frequency") {
-			tmp := strings.Split(line, ":")
-			if len(tmp) > 0 {
-				frequencyData := tmp[len(tmp)-1]
-				frequencyDataChunk := strings.Split(frequencyData, " ")
-				if len(frequencyDataChunk) > 1 {
-					frequencyString := frequencyDataChunk[:2]
-					processingWiFiNode.Frequency = strings.Join(frequencyString, " ")
-				}
-
-			}
-		} else if strings.Contains(line, "Quality=") {
-			//Need to seperate quality data from signal level. Example source: Quality=70/70  Signal level=-40 dBm
-			analysisItem := strings.Split(line, "  ")
-			if len(analysisItem) == 2 {
-				//Get the quality of connections
-				processingWiFiNode.Quality = analysisItem[0][8:]
-
-				//Get the signal level of the connections
-				processingWiFiNode.SignalLevel = analysisItem[1][13:]
-			}
-
-		} else if strings.Contains(line, "Encryption key") {
-			ek := strings.Split(line, ":")
-			if len(ek) > 0 {
-				status := ek[1]
-				if status == "on" {
-					processingWiFiNode.EncryptionKey = true
-				} else {
-					processingWiFiNode.EncryptionKey = false
-				}
-			}
-		} else if strings.Contains(line, "ESSID") {
-			iddata := strings.Split(line, ":")
-			if len(iddata) > 0 {
-				ESSID := iddata[1]
-				ESSID = strings.ReplaceAll(ESSID, "\"", "")
-				if ESSID == "" {
-					ESSID = "Hidden Network"
-				}
-				processingWiFiNode.ESSID = ESSID
-			}
+	results := parseIwlistScan(string(out))
+	useNmcliStore := pkg_exists("nmcli")
+	for i := range results {
+		results[i].Interface = interfaceName
+		if useNmcliStore {
+			//Make use of nmcli storage
+			results[i].ConnectedBefore = w.database.KeyExists("wifi", results[i].ESSID)
+		} else {
+			//Direct access to wpa_supplicant
+			results[i].ConnectedBefore = fileExists("./system/network/wifi/ap/" + results[i].ESSID + ".config")
 		}
 	}
-
+	markConnectedBSS(results, interfaceName)
 	return results, nil
+}
+
+// markConnectedBSS flags the scan result the interface is associated with
+func markConnectedBSS(results []WiFiInfo, interfaceName string) {
+	link, err := readIwLink(interfaceName)
+	if err != nil || !link.Connected {
+		return
+	}
+	for i := range results {
+		if strings.EqualFold(results[i].Address, link.BSSID) {
+			results[i].Connected = true
+		}
+	}
+}
+
+// readIwLink runs "iw dev <interface> link"
+func readIwLink(interfaceName string) (iwLinkInfo, error) {
+	if interfaceName == "" || strings.ContainsAny(interfaceName, " /\\") {
+		return iwLinkInfo{}, errors.New("invalid interface name")
+	}
+	out, err := exec.Command("iw", "dev", interfaceName, "link").CombinedOutput()
+	if err != nil {
+		return iwLinkInfo{}, errors.New(string(out))
+	}
+	return parseIwLink(string(out)), nil
 }
 
 // Hack the signal level out of the nmcli bars
@@ -555,8 +498,6 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 
 			return currentSSID, interfaceName, nil
 
-		} else {
-			return "", "", errors.New(string(out))
 		}
 		return "", "", errors.New(string(out))
 	}
@@ -624,6 +565,133 @@ func (w *WiFiManager) RemoveWifi(ssid string) error {
 	}
 
 	return nil
+}
+
+// CanControlInterfacePower reports whether SetInterfacePower is supported
+func (w *WiFiManager) CanControlInterfacePower() bool {
+	return true
+}
+
+// CanConnect reports whether ConnectWiFi and RemoveWifi are supported
+func (w *WiFiManager) CanConnect() bool {
+	return true
+}
+
+// GetInterfaceStatus returns the live state of every wireless interface
+func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
+	names, err := w.GetWirelessInterfaces()
+	if err != nil {
+		return []WiFiInterfaceStatus{}, err
+	}
+	results := []WiFiInterfaceStatus{}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		results = append(results, w.interfaceStatus(name))
+	}
+	return results, nil
+}
+
+func (w *WiFiManager) interfaceStatus(name string) WiFiInterfaceStatus {
+	status := WiFiInterfaceStatus{
+		Name:          name,
+		State:         "disconnected",
+		SoftwareRadio: "unknown",
+		HardwareRadio: "unknown",
+		SignalQuality: -1,
+		IPv4:          []string{},
+		IPv6:          []string{},
+		Gateways:      []string{},
+		DNS:           []string{},
+	}
+
+	sysDir := filepath.Join("/sys", "class", "net", name)
+	if driver, err := filepath.EvalSymlinks(filepath.Join(sysDir, "device", "driver")); err == nil {
+		status.Description = "Driver: " + filepath.Base(driver)
+	}
+	if blocked, ok := readRfkill(sysDir, "soft"); ok {
+		status.SoftwareRadio = map[bool]string{true: "off", false: "on"}[blocked]
+	}
+	if blocked, ok := readRfkill(sysDir, "hard"); ok {
+		status.HardwareRadio = map[bool]string{true: "off", false: "on"}[blocked]
+	}
+
+	if nic, err := net.InterfaceByName(name); err == nil {
+		status.MAC = nic.HardwareAddr.String()
+		status.MTU = nic.MTU
+		if nic.Flags&net.FlagUp == 0 {
+			status.State = "down"
+		}
+		if addrs, err := nic.Addrs(); err == nil {
+			for _, addr := range addrs {
+				ipnet, ok := addr.(*net.IPNet)
+				if !ok {
+					continue
+				}
+				if ipnet.IP.To4() != nil {
+					status.IPv4 = append(status.IPv4, ipnet.String())
+				} else {
+					status.IPv6 = append(status.IPv6, ipnet.String())
+				}
+			}
+		}
+	}
+	if routes, err := os.ReadFile(filepath.Join("/proc", "net", "route")); err == nil {
+		status.Gateways = parseProcRoute(string(routes), name)
+	}
+
+	link, err := readIwLink(name)
+	if err != nil {
+		//No iw: fall back to the connected SSID from iwgetid / nmcli
+		ssid, iface, err := w.GetConnectedWiFi()
+		if err == nil && iface == name && ssid != "" && ssid != "OFFLINE" {
+			status.SSID = ssid
+			status.Connected = true
+			status.State = "connected"
+		}
+		return status
+	}
+	if !link.Connected {
+		return status
+	}
+	status.Connected = true
+	status.State = "connected"
+	status.SSID = link.SSID
+	status.BSSID = link.BSSID
+	status.BSSType = "Infrastructure"
+	status.FrequencyMHz = link.FreqMHz
+	status.Band = bandOfFrequency(link.FreqMHz)
+	status.Channel = channelOfFrequency(link.FreqMHz)
+	status.ChannelWidth = link.Width
+	status.RSSI = link.SignalDBm
+	status.SignalQuality = qualityFromRSSI(link.SignalDBm)
+	status.RxRateMbps = link.RxRateMbps
+	status.TxRateMbps = link.TxRateMbps
+	status.PHYType = link.PHYType
+	status.Generation = generationOfPHY(link.PHYType, status.Band)
+	return status
+}
+
+// readRfkill reports whether any rfkill switch of the interface's PHY is
+// blocked (kind is "soft" or "hard"). ok is false when there is no switch.
+func readRfkill(sysDir string, kind string) (blocked bool, ok bool) {
+	matches, err := filepath.Glob(filepath.Join(sysDir, "phy80211", "rfkill*", kind))
+	if err != nil || len(matches) == 0 {
+		return false, false
+	}
+	for _, m := range matches {
+		content, err := os.ReadFile(m)
+		if err != nil {
+			continue
+		}
+		ok = true
+		if strings.TrimSpace(string(content)) == "1" {
+			blocked = true
+		}
+	}
+	return blocked, ok
 }
 
 // Helper functions

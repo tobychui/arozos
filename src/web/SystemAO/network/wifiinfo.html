@@ -1,127 +1,498 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="../../script/ao.css"></script>
-
-    <link href="../../script/aos/aos.css" rel="stylesheet">
-    <script src="../../script/aos/aos.js"></script>
-
-    <title>WiFi Info</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <style>
-        #sys-setting-page { padding: 20px; }
-
-        .gradientbg{
-            border-radius: 12px;
-            background: rgb(253,255,254);
-            background: linear-gradient(104deg, rgba(253,255,254,1) 29%, rgba(240,250,255,1) 100%);
-        }
-
-        .statusIcon{
-            color: #ffffff;
-            padding: 4em !important;
-            text-align: center;
-        }
-
-        #status{
-            font-size: 1.2em;
-            color: #1f1f1f;
-        }
-
-        #status.error{
-            color: rgb(245, 86, 86);
-        }
-
-        #status.connected{
-            color: rgb(68, 177, 132);
-        }
-
-        #wifiicon{
-            margin-left: auto;
-            margin-right: auto;
-            display: block;
-        }
-    </style>
+    <title>WiFi Info</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
 </head>
 <body>
-    <br><br>
-    <div class="ui container gradientbg" id="sys-setting-page">
-        <div class="ui stackable grid">
-            <div class="six wide column statusIcon" data-aos="fade-right"  align="center">
-                <img id="wifiicon" class="ui small image"  src="../network/img/wifi-on.svg">
-                <div id="status">Loading...</div>
-            </div>
-            <div class="ten wide column">
-                <div class="ui container" style="padding: 4em;" data-aos="fade-left">
-                    <div class="ui segment">
-                        <h4 class="ui header">
-                            <i class="signal icon"></i>
-                            <div class="content">
-                                <span id="SSID"><i class="loading spinner icon"></i> Loading...</span>
-                                <div class="sub header" >WiFi SSID</div>
-                            </div>
-                        </h4>
-                        <h4 class="ui header">
-                            <i class="globe icon"></i>
-                            <div class="content">
-                                <span id="Interface">Loading...</span>
-                                <div class="sub header">Interface</div>
-                            </div>
-                        </h4>
-                    </div>
-                </div>
-            </div>
+<!-- NOTE: <style> and <script> live in <body> so they survive being injected
+     into System Settings with jQuery .load(). No jQuery is required. -->
+<style>
+#wi-root {
+    --wi-card:      #ffffff;
+    --wi-border:    rgba(0,0,0,0.07);
+    --wi-shadow:    0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.05);
+    --wi-text:      #1a1a1a;
+    --wi-dim:       #5a5a5a;
+    --wi-muted:     #949494;
+    --wi-sep:       rgba(0,0,0,0.07);
+    --wi-chip:      #f1f3f5;
+    --wi-chip-fg:   #3d3d3d;
+    --wi-accent:    #0f6cbd;
+    --wi-track:     rgba(0,0,0,0.08);
+    --wi-good:      #13a10e;
+    --wi-ok:        #0f9d8a;
+    --wi-fair:      #c58a00;
+    --wi-weak:      #d13438;
+    --wi-off:       #a0a0a0;
+    --wi-hero-a:    #fdfefe;
+    --wi-hero-b:    #eef6fc;
+    --wi-tile:      #fafbfc;
+
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: var(--wi-text);
+    -webkit-font-smoothing: antialiased;
+    max-width: 1100px;
+    padding: 4px 0 28px;
+}
+body.dark #wi-root {
+    --wi-card:      #2b2b2b;
+    --wi-border:    rgba(255,255,255,0.08);
+    --wi-shadow:    0 2px 10px rgba(0,0,0,0.3), 0 0 1px rgba(0,0,0,0.5);
+    --wi-text:      #f0f0f0;
+    --wi-dim:       #b4b4b4;
+    --wi-muted:     #828282;
+    --wi-sep:       rgba(255,255,255,0.07);
+    --wi-chip:      rgba(255,255,255,0.08);
+    --wi-chip-fg:   #d0d0d0;
+    --wi-accent:    #4cc2ff;
+    --wi-track:     rgba(255,255,255,0.1);
+    --wi-good:      #6ccb5f;
+    --wi-ok:        #4fd1c5;
+    --wi-fair:      #f2c94c;
+    --wi-weak:      #ff6b6b;
+    --wi-off:       #6e6e6e;
+    --wi-hero-a:    #2d2d2d;
+    --wi-hero-b:    #24303a;
+    --wi-tile:      #313131;
+}
+#wi-root * { box-sizing: border-box; }
+#wi-root .wi-wrap { container-type: inline-size; }
+
+/* Interface tabs */
+#wi-root .wi-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+#wi-root .wi-tab {
+    border: 1px solid var(--wi-border); background: var(--wi-card); color: var(--wi-dim);
+    border-radius: 18px; padding: 5px 14px; font: inherit; font-size: 13px; cursor: pointer;
+}
+#wi-root .wi-tab.active { background: var(--wi-accent); border-color: var(--wi-accent); color: #fff; }
+body.dark #wi-root .wi-tab.active { color: #102030; }
+
+/* Cards */
+#wi-root .wi-card {
+    background: var(--wi-card); border: 1px solid var(--wi-border); border-radius: 12px;
+    box-shadow: var(--wi-shadow); margin-bottom: 14px; overflow: hidden;
+}
+#wi-root .wi-card-title {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    font-size: 13px; font-weight: 600; color: var(--wi-dim); border-bottom: 1px solid var(--wi-sep);
+}
+#wi-root .wi-card-title i.icon { margin: 0; opacity: .75; }
+#wi-root .wi-card-title .wi-sub { margin-left: auto; font-weight: 400; color: var(--wi-muted); font-size: 12px; }
+
+/* Hero */
+#wi-root .wi-hero {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center;
+    padding: 24px 26px; background: linear-gradient(110deg, var(--wi-hero-a) 35%, var(--wi-hero-b) 100%);
+}
+#wi-root .wi-glyph { width: 108px; height: 108px; position: relative; }
+#wi-root .wi-glyph svg { width: 100%; height: 100%; display: block; }
+#wi-root .wi-glyph .arc { fill: none; stroke-width: 9; stroke-linecap: round; stroke: var(--wi-track); transition: stroke .4s; }
+#wi-root .wi-glyph .dot { fill: var(--wi-track); transition: fill .4s; }
+#wi-root .wi-glyph .on { stroke: var(--wi-level); }
+#wi-root .wi-glyph .dot.on { fill: var(--wi-level); }
+#wi-root .wi-glyph .slash { stroke: var(--wi-weak); stroke-width: 8; stroke-linecap: round; }
+#wi-root .wi-pulse {
+    position: absolute; left: 50%; bottom: 10px; width: 22px; height: 22px; margin-left: -11px;
+    border-radius: 50%; background: var(--wi-level); opacity: 0; animation: wi-pulse 2.6s ease-out infinite;
+}
+@keyframes wi-pulse { 0% { transform: scale(.6); opacity: .45; } 100% { transform: scale(4.2); opacity: 0; } }
+
+#wi-root .wi-hero-main { min-width: 0; }
+#wi-root .wi-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; background: var(--wi-chip); color: var(--wi-chip-fg);
+}
+#wi-root .wi-badge .wi-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+#wi-root .wi-badge.connected { color: var(--wi-good); background: color-mix(in srgb, var(--wi-good) 14%, transparent); }
+#wi-root .wi-badge.warn { color: var(--wi-fair); background: color-mix(in srgb, var(--wi-fair) 15%, transparent); }
+#wi-root .wi-badge.error { color: var(--wi-weak); background: color-mix(in srgb, var(--wi-weak) 13%, transparent); }
+#wi-root .wi-ssid {
+    font-size: 26px; font-weight: 600; line-height: 1.2; margin: 8px 0 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#wi-root .wi-ssid.none { color: var(--wi-muted); font-weight: 500; }
+#wi-root .wi-adapter { color: var(--wi-dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#wi-root .wi-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+#wi-root .wi-chip {
+    display: inline-flex; align-items: center; gap: 5px; background: var(--wi-chip); color: var(--wi-chip-fg);
+    border-radius: 6px; padding: 3px 9px; font-size: 12px; font-weight: 500;
+}
+#wi-root .wi-chip i.icon { margin: 0; font-size: 11px; height: auto; }
+
+/* Gauge */
+#wi-root .wi-gauge { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 170px; }
+#wi-root .wi-ring { width: 120px; height: 120px; position: relative; }
+#wi-root .wi-ring svg { width: 100%; height: 100%; transform: rotate(135deg); }
+#wi-root .wi-ring .track { fill: none; stroke: var(--wi-track); stroke-width: 10; stroke-linecap: round; }
+#wi-root .wi-ring .value { fill: none; stroke: var(--wi-level); stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray .6s, stroke .4s; }
+#wi-root .wi-ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#wi-root .wi-ring-text b { font-size: 26px; font-weight: 600; line-height: 1; }
+#wi-root .wi-ring-text span { font-size: 12px; color: var(--wi-dim); margin-top: 4px; }
+#wi-root .wi-quality-label { font-size: 12px; font-weight: 600; color: var(--wi-level); }
+#wi-root .wi-spark { width: 170px; height: 38px; display: block; }
+#wi-root .wi-spark path.line { fill: none; stroke: var(--wi-level); stroke-width: 1.6; }
+#wi-root .wi-spark path.area { fill: var(--wi-level); opacity: .12; stroke: none; }
+#wi-root .wi-spark-caption { font-size: 11px; color: var(--wi-muted); }
+
+/* Stat tiles */
+#wi-root .wi-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; padding: 14px 16px 16px; }
+#wi-root .wi-tile { background: var(--wi-tile); border: 1px solid var(--wi-sep); border-radius: 10px; padding: 11px 13px; min-width: 0; }
+#wi-root .wi-tile dt { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--wi-muted); font-weight: 600; margin-bottom: 4px; }
+#wi-root .wi-tile dd { margin: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#wi-root .wi-tile dd small { font-size: 12px; font-weight: 400; color: var(--wi-dim); margin-left: 3px; }
+#wi-root .wi-tile .wi-tile-sub { font-size: 12px; color: var(--wi-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Property list */
+#wi-root .wi-props { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--wi-sep); margin: 0; }
+#wi-root .wi-prop { background: var(--wi-card); padding: 10px 16px; min-width: 0; }
+#wi-root .wi-prop.full { grid-column: 1 / -1; }
+#wi-root .wi-prop dt { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--wi-muted); font-weight: 600; margin-bottom: 3px; }
+#wi-root .wi-prop dd { margin: 0; font-size: 13px; font-family: 'Cascadia Mono', Consolas, Menlo, monospace; word-break: break-all; }
+#wi-root .wi-prop dd.text { font-family: inherit; word-break: normal; }
+#wi-root .wi-prop dd.na { color: var(--wi-muted); font-family: inherit; font-style: italic; }
+#wi-root .wi-prop dd .wi-line { display: block; }
+
+#wi-root .wi-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+#wi-root .wi-tag { background: var(--wi-chip); color: var(--wi-chip-fg); border-radius: 4px; padding: 1px 7px; font-size: 11.5px; font-family: inherit; }
+#wi-root .wi-tag.basic { outline: 1px solid var(--wi-accent); outline-offset: -1px; }
+
+/* Utilisation meter */
+#wi-root .wi-meter { height: 6px; border-radius: 3px; background: var(--wi-track); margin-top: 8px; overflow: hidden; }
+#wi-root .wi-meter > span { display: block; height: 100%; background: var(--wi-accent); border-radius: 3px; }
+
+/* Footer / state */
+#wi-root .wi-footer { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--wi-muted); font-size: 12px; padding: 4px 2px; }
+#wi-root .wi-footer label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin-left: auto; }
+#wi-root .wi-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 70px 24px; color: var(--wi-dim); text-align: center; }
+#wi-root .wi-state svg { width: 64px; height: 64px; opacity: .45; }
+#wi-root .wi-hint { padding: 12px 16px; font-size: 13px; color: var(--wi-dim); }
+
+@container (max-width: 680px) {
+    #wi-root .wi-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 22px 16px; }
+    #wi-root .wi-hero-main { max-width: 100%; }
+    #wi-root .wi-chips { justify-content: center; }
+    #wi-root .wi-ssid { font-size: 22px; }
+}
+@container (max-width: 520px) {
+    #wi-root .wi-props { grid-template-columns: 1fr; }
+}
+</style>
+
+<div id="wi-root">
+    <div id="wi-content" class="wi-wrap">
+        <div class="wi-state">
+            <i class="big circle notch loading icon"></i>
+            <div>Reading wireless interfaces&hellip;</div>
         </div>
     </div>
-    <div class="ui container" style="margin-top: 2em;">
-        <div class="ui divider"></div>
-        <small>WiFi information is supplied by wpa-supplicant or nmcli on Linux and Wireless AutoConfig Service (wlansvc) on Windows</small>
+    <div class="wi-footer">
+        <span id="wi-source">WiFi information is read from the native WLAN API (WlanSvc) on Windows and from iw / iwlist, wpa_supplicant or nmcli on Linux.</span>
+        <label><input type="checkbox" id="wi-live" checked> Live update</label>
     </div>
-    <script>
-        AOS.init();
+</div>
 
-        initWifiInfo();
-        function initWifiInfo(){
-            $.ajax({
-                url: "../../system/network/wifiinfo",
-                method:"GET",
-                success: function(data){
-                    if (data.error !== undefined){
-                        $("#SSID").text("N/A");
-                        $("#Interface").text("loopback");
-                        $("#status").text("Access Error");
-                        $("#wifiicon").attr('src', "../network/img/wifi-off.svg");
-                        console.log(data.error);
-                    }else if (data.ESSID == "" && data.Interface != ""){
-                        //Have WiFi interface but not connected to any hostspot
-                        $("#SSID").text("N/A");
-                        $("#Interface").text(data.Interface);
-                        $("#status").text("Standby");
-                        $("#wifiicon").attr('src', "../network/img/wifi-on.svg");
-                    }else if (data.Interface == ""){
-                        //No WiFi Interface
-                        $("#SSID").text("N/A");
-                        $("#Interface").text("No WiFi Interface");
-                        $("#status").html(`<i class="ui remove icon"></i> Missing WiFi Interface`);
-                        $("#wifiicon").attr('src', "../network/img/wifi-noiface.svg");
-                        $("#status").addClass("error");
-                    }else{
-                        //Connection Established
-                        $("#SSID").text(data.ESSID);
-                        $("#Interface").text(data.Interface);
-                        $("#status").html(`<i class="ui checkmark icon"></i> Connected`);
-                        $("#wifiicon").attr('src', "../network/img/wifi-on.svg");
-                        $("#status").addClass("connected");
-                    }
-                }
-            });
+<script>
+(function () {
+    var root = document.getElementById('wi-root');
+    var content = document.getElementById('wi-content');
+    var liveBox = document.getElementById('wi-live');
+
+    var REFRESH_MS = 3000;
+    var HISTORY = 40;
+    var selected = null;      // name of the selected interface
+    var history = {};         // interface name -> [rssi, ...]
+    var lastData = null;
+    var timer = null;
+
+    /* ---------- helpers ---------- */
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function has(v) { return !(v === undefined || v === null || v === '' || v === 0 || (Array.isArray(v) && v.length === 0)); }
+    function fmtRate(mbps) {
+        if (!mbps) return null;
+        if (mbps >= 1000) return (mbps / 1000).toFixed(2).replace(/\.?0+$/, '') + ' Gbps';
+        return (Math.round(mbps * 10) / 10) + ' Mbps';
+    }
+    function fmtUptime(sec) {
+        if (!sec) return null;
+        var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+        if (d > 0) return d + 'd ' + h + 'h';
+        if (h > 0) return h + 'h ' + m + 'm';
+        return m + 'm';
+    }
+    function fmtFreq(mhz) { return mhz ? (mhz / 1000).toFixed(3) + ' GHz' : null; }
+
+    // Signal level from RSSI (dBm) or quality (%)
+    function level(rssi, quality) {
+        var q = quality;
+        if (rssi) q = Math.max(0, Math.min(100, 2 * (rssi + 100)));
+        if (q === undefined || q === null || q < 0) return { bars: 0, name: 'Unknown', color: 'var(--wi-off)', q: 0 };
+        if (rssi ? rssi >= -55 : q >= 90) return { bars: 4, name: 'Excellent', color: 'var(--wi-good)', q: q };
+        if (rssi ? rssi >= -67 : q >= 66) return { bars: 3, name: 'Good', color: 'var(--wi-ok)', q: q };
+        if (rssi ? rssi >= -75 : q >= 50) return { bars: 2, name: 'Fair', color: 'var(--wi-fair)', q: q };
+        return { bars: 1, name: 'Weak', color: 'var(--wi-weak)', q: q };
+    }
+
+    function glyphSVG(bars, crossed) {
+        // Three arcs and a dot, all centred on (60, 96)
+        var arcs = [
+            'M24 60 A51 51 0 0 1 96 60',
+            'M37 73 A33 33 0 0 1 83 73',
+            'M49 85 A16 16 0 0 1 71 85'
+        ];
+        var html = '<svg viewBox="0 0 120 112" aria-hidden="true">';
+        arcs.forEach(function (d, i) {
+            html += '<path class="arc' + (bars >= 4 - i ? ' on' : '') + '" d="' + d + '"/>';
+        });
+        html += '<circle class="dot' + (bars >= 1 ? ' on' : '') + '" cx="60" cy="97" r="7"/>';
+        if (crossed) html += '<line class="slash" x1="22" y1="16" x2="98" y2="104"/>';
+        return html + '</svg>';
+    }
+
+    function ringSVG(q) {
+        var r = 50, c = 2 * Math.PI * r, span = c * 0.75;
+        var v = Math.max(0, Math.min(100, q || 0)) / 100 * span;
+        return '<svg viewBox="0 0 120 120" aria-hidden="true">' +
+            '<circle class="track" cx="60" cy="60" r="' + r + '" stroke-dasharray="' + span + ' ' + c + '"/>' +
+            '<circle class="value" cx="60" cy="60" r="' + r + '" stroke-dasharray="' + v + ' ' + c + '"/>' +
+            '</svg>';
+    }
+
+    function sparkSVG(samples) {
+        var w = 170, h = 38;
+        if (!samples || samples.length < 2) return '<svg class="wi-spark" viewBox="0 0 170 38"></svg>';
+        var min = -95, max = -25;
+        var step = w / (HISTORY - 1);
+        var off = (HISTORY - samples.length) * step;
+        var pts = samples.map(function (v, i) {
+            var y = h - 2 - (Math.max(min, Math.min(max, v)) - min) / (max - min) * (h - 4);
+            return [off + i * step, y];
+        });
+        var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+        var area = line + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + h + ' L' + pts[0][0].toFixed(1) + ' ' + h + ' Z';
+        return '<svg class="wi-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+            '<path class="area" d="' + area + '"/><path class="line" d="' + line + '"/></svg>';
+    }
+
+    function tile(label, value, unit, sub) {
+        if (!has(value)) return '';
+        return '<div class="wi-tile"><dt>' + esc(label) + '</dt><dd>' + esc(value) +
+            (unit ? '<small>' + esc(unit) + '</small>' : '') + '</dd>' +
+            (sub ? '<div class="wi-tile-sub">' + esc(sub) + '</div>' : '') + '</div>';
+    }
+
+    function prop(label, value, opt) {
+        opt = opt || {};
+        var empty = !has(value);
+        var body;
+        if (empty) body = '&mdash;';
+        else if (Array.isArray(value)) body = value.map(function (v) { return '<span class="wi-line">' + esc(v) + '</span>'; }).join('');
+        else if (opt.html) body = value;
+        else body = esc(value);
+        var cls = empty ? 'na' : (opt.text ? 'text' : '');
+        return '<div class="wi-prop' + (opt.full ? ' full' : '') + '"><dt>' + esc(label) + '</dt><dd class="' + cls + '">' + body + '</dd></div>';
+    }
+
+    function tags(list, basic) {
+        if (!list || !list.length) return null;
+        return '<div class="wi-tags">' + list.map(function (r) {
+            return '<span class="wi-tag' + (basic && basic.indexOf(r) >= 0 ? ' basic' : '') + '">' + esc(r) + '</span>';
+        }).join('') + '</div>';
+    }
+
+    function radioText(s) {
+        if (!s || s === 'unknown') return null;
+        return s === 'on' ? 'On' : 'Off';
+    }
+
+    /* ---------- rendering ---------- */
+    function statusBadge(inf) {
+        if (inf.HardwareRadio === 'off') return '<span class="wi-badge error"><span class="wi-dot"></span>Radio switched off (hardware)</span>';
+        if (inf.SoftwareRadio === 'off') return '<span class="wi-badge error"><span class="wi-dot"></span>Radio off</span>';
+        if (inf.Connected) return '<span class="wi-badge connected"><span class="wi-dot"></span>Connected</span>';
+        var s = inf.State || 'disconnected';
+        if (s === 'disconnected') return '<span class="wi-badge"><span class="wi-dot"></span>Not connected</span>';
+        if (s === 'down' || s === 'not ready') return '<span class="wi-badge error"><span class="wi-dot"></span>' + esc(s === 'down' ? 'Interface down' : 'Not ready') + '</span>';
+        return '<span class="wi-badge warn"><span class="wi-dot"></span>' + esc(s.charAt(0).toUpperCase() + s.slice(1)) + '&hellip;</span>';
+    }
+
+    function renderInterface(inf) {
+        var lv = inf.Connected ? level(inf.RSSI, inf.SignalQuality) : { bars: 0, name: '', color: 'var(--wi-off)', q: 0 };
+        var radioOff = inf.SoftwareRadio === 'off' || inf.HardwareRadio === 'off';
+        var ap = inf.AP || {};
+        var samples = history[inf.Name] || [];
+
+        var chips = [];
+        if (inf.Connected) {
+            if (inf.Band) chips.push('<span class="wi-chip"><i class="podcast icon"></i>' + esc(inf.Band) + '</span>');
+            if (inf.Generation || inf.PHYType) chips.push('<span class="wi-chip">' + esc(inf.Generation ? inf.Generation + ' · ' + inf.PHYType : inf.PHYType) + '</span>');
+            if (inf.Security) chips.push('<span class="wi-chip"><i class="' + (inf.Security === 'Open' ? 'unlock' : 'lock') + ' icon"></i>' + esc(inf.Security) + '</span>');
+            if (inf.Channel) chips.push('<span class="wi-chip">Channel ' + esc(inf.Channel) + (inf.ChannelWidth ? ' · ' + inf.ChannelWidth + ' MHz' : '') + '</span>');
         }
-    </script>
-</body>
 
+        var hero =
+            '<div class="wi-card"><div class="wi-hero" style="--wi-level:' + lv.color + '">' +
+                '<div class="wi-glyph">' + (inf.Connected ? '<span class="wi-pulse"></span>' : '') + glyphSVG(lv.bars, radioOff) + '</div>' +
+                '<div class="wi-hero-main">' +
+                    statusBadge(inf) +
+                    (inf.Connected
+                        ? '<div class="wi-ssid" title="' + esc(inf.SSID) + '">' + esc(inf.SSID || 'Hidden network') + '</div>'
+                        : '<div class="wi-ssid none">' + (radioOff ? 'Wireless radio is off' : 'Not connected to a network') + '</div>') +
+                    '<div class="wi-adapter">' + esc(inf.Name) + (inf.Description ? ' · ' + esc(inf.Description) : '') + '</div>' +
+                    (chips.length ? '<div class="wi-chips">' + chips.join('') + '</div>' : '') +
+                '</div>' +
+                (inf.Connected
+                    ? '<div class="wi-gauge">' +
+                        '<div class="wi-ring">' + ringSVG(lv.q) +
+                            '<div class="wi-ring-text"><b>' + (inf.RSSI ? esc(inf.RSSI) : esc(lv.q)) + '</b><span>' + (inf.RSSI ? 'dBm' : '%') + '</span></div>' +
+                        '</div>' +
+                        '<div class="wi-quality-label">' + esc(lv.name) + (inf.SignalQuality >= 0 ? ' · ' + esc(inf.SignalQuality) + '% quality' : '') + '</div>' +
+                        sparkSVG(samples) +
+                        '<div class="wi-spark-caption">Signal over the last ' + Math.round(HISTORY * REFRESH_MS / 60000) + ' minutes</div>' +
+                      '</div>'
+                    : '<div></div>') +
+            '</div></div>';
+
+        var connection = '';
+        if (inf.Connected) {
+            var tiles =
+                tile('Receive rate', fmtRate(inf.RxRateMbps), '', 'Current link rate') +
+                tile('Transmit rate', fmtRate(inf.TxRateMbps), '', 'Current link rate') +
+                tile('Channel', inf.Channel, inf.ChannelWidth ? inf.ChannelWidth + ' MHz' : '', [fmtFreq(inf.FrequencyMHz), inf.Band].filter(Boolean).join(' · ')) +
+                tile('Standard', inf.Generation || inf.PHYType, '', inf.Generation ? inf.PHYType : '') +
+                tile('Security', inf.Security, '', inf.Cipher ? inf.Cipher + (inf.OneX ? ' · 802.1X' : '') : '') +
+                tile('Signal', inf.RSSI || null, inf.RSSI ? 'dBm' : '', inf.SignalQuality >= 0 ? inf.SignalQuality + '% link quality' : '');
+            connection =
+                '<div class="wi-card"><div class="wi-card-title"><i class="exchange icon"></i>Connection</div>' +
+                '<dl class="wi-tiles">' + tiles + '</dl>' +
+                '<dl class="wi-props">' +
+                    prop('BSSID', inf.BSSID) +
+                    prop('Profile', inf.ProfileName, { text: true }) +
+                    prop('Connection mode', inf.ConnectionMode, { text: true }) +
+                    prop('Network type', inf.BSSType, { text: true }) +
+                '</dl></div>';
+        }
+
+        var apCard = '';
+        if (inf.Connected && inf.AP) {
+            var util = ap.ChannelUtilization;
+            apCard =
+                '<div class="wi-card"><div class="wi-card-title"><i class="sitemap icon"></i>Access point' +
+                    '<span class="wi-sub">From the AP\'s beacon</span></div>' +
+                '<dl class="wi-tiles">' +
+                    tile('Max PHY rate', fmtRate(ap.MaxRateMbps), '', 'Estimated from capabilities') +
+                    tile('Spatial streams', ap.SpatialStreams ? ap.SpatialStreams + ' × ' + ap.SpatialStreams : null, '', 'MIMO') +
+                    tile('AP uptime', fmtUptime(ap.UptimeSeconds), '', 'From the beacon timestamp') +
+                    (ap.StationCount != null ? tile('Clients', String(ap.StationCount), '', 'Associated stations') : '') +
+                    (util != null ? '<div class="wi-tile"><dt>Channel busy</dt><dd>' + esc(util) + '<small>%</small></dd><div class="wi-meter"><span style="width:' + Math.min(100, util) + '%"></span></div></div>' : '') +
+                '</dl>' +
+                '<dl class="wi-props">' +
+                    prop('Country', ap.Country, { text: true }) +
+                    prop('Beacon interval', ap.BeaconInterval ? ap.BeaconInterval + ' TU (' + (ap.BeaconInterval * 1.024).toFixed(1) + ' ms)' : null, { text: true }) +
+                    prop('Protected management frames', ap.PMF, { text: true }) +
+                    prop('WPS', inf.AP ? (ap.WPS ? 'Enabled' : 'Disabled') : null, { text: true }) +
+                    prop('Fast roaming', ap.Roaming && ap.Roaming.length ? ap.Roaming.join(', ') : null, { text: true }) +
+                    prop('Center channel', ap.CenterChannel || null, { text: true }) +
+                    prop('Basic rates (Mbps)', tags(ap.BasicRates), { html: true, full: true }) +
+                    prop('Supported rates (Mbps)', tags(ap.SupportedRates, ap.BasicRates), { html: true, full: true }) +
+                '</dl></div>';
+        }
+
+        var adapter =
+            '<div class="wi-card"><div class="wi-card-title"><i class="microchip icon"></i>Adapter</div>' +
+            '<dl class="wi-props">' +
+                prop('Interface', inf.Name, { text: true }) +
+                prop('Model', inf.Description, { text: true }) +
+                prop('MAC address', inf.MAC) +
+                prop('MTU', inf.MTU || null) +
+                prop('Radio (software)', radioText(inf.SoftwareRadio), { text: true }) +
+                prop('Radio (hardware switch)', radioText(inf.HardwareRadio), { text: true }) +
+                prop('IPv4 address', inf.IPv4) +
+                prop('Default gateway', inf.Gateways) +
+                prop('IPv6 address', inf.IPv6, { full: true }) +
+                prop('DNS servers', inf.DNS, { full: true }) +
+                (inf.GUID ? prop('Interface GUID', inf.GUID, { full: true }) : '') +
+            '</dl></div>';
+
+        return hero + connection + apCard + adapter;
+    }
+
+    function render(data) {
+        var list = data.Interfaces || [];
+        if (!list.length) {
+            content.innerHTML = '<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
+                '<div><b>No wireless interface found</b></div><div>This host has no WiFi adapter, or the wireless service is not running.</div></div></div>';
+            return;
+        }
+        if (!selected || !list.some(function (i) { return i.Name === selected; })) {
+            var connected = list.filter(function (i) { return i.Connected; })[0];
+            selected = (connected || list[0]).Name;
+        }
+        var tabs = '';
+        if (list.length > 1) {
+            tabs = '<div class="wi-tabs">' + list.map(function (i) {
+                return '<button class="wi-tab' + (i.Name === selected ? ' active' : '') + '" data-name="' + esc(i.Name) + '">' +
+                    '<i class="wifi icon"></i>' + esc(i.Name) + '</button>';
+            }).join('') + '</div>';
+        }
+        var inf = list.filter(function (i) { return i.Name === selected; })[0];
+        content.innerHTML = tabs + renderInterface(inf);
+    }
+
+    function showError(msg) {
+        content.innerHTML = '<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
+            '<div><b>Unable to read WiFi information</b></div><div>' + esc(msg) + '</div></div></div>';
+    }
+
+    /* ---------- data ---------- */
+    function alive() { return document.body.contains(root); }
+
+    function load() {
+        if (!alive()) { clearTimeout(timer); return; }
+        fetch('../../system/network/wifiinfo', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!alive()) return;
+                if (data.error !== undefined) { showError(data.error); return; }
+                (data.Interfaces || []).forEach(function (i) {
+                    var h = history[i.Name] = history[i.Name] || [];
+                    if (i.Connected && i.RSSI) h.push(i.RSSI);
+                    else if (!i.Connected) h.length = 0;
+                    while (h.length > HISTORY) h.shift();
+                });
+                lastData = data;
+                render(data);
+            })
+            .catch(function (e) { if (alive()) showError(e && e.message ? e.message : 'Request failed'); })
+            .then(schedule);
+    }
+
+    function schedule() {
+        clearTimeout(timer);
+        if (alive() && liveBox.checked) timer = setTimeout(load, REFRESH_MS);
+    }
+
+    root.addEventListener('click', function (ev) {
+        var tab = ev.target.closest('.wi-tab');
+        if (!tab) return;
+        selected = tab.getAttribute('data-name');
+        if (lastData) render(lastData);
+    });
+    liveBox.addEventListener('change', function () { if (liveBox.checked) load(); else clearTimeout(timer); });
+    document.addEventListener('visibilitychange', function () {
+        if (!alive()) return;
+        if (document.hidden) clearTimeout(timer); else if (liveBox.checked) load();
+    });
+
+    load();
+}());
+</script>
+</body>
 </html>
