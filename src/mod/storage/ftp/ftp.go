@@ -25,12 +25,11 @@ type Handler struct {
 type mainDriver struct {
 	setting           ftp.Settings
 	userHandler       *user.UserHandler
-	tmpFolder         string
 	connectedUserList *sync.Map
 }
 
 // NewFTPHandler creates a new handler for FTP Server as a wrapper to the ftpserverlib
-func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, tmpFolder string, PassiveModeIP string) (*Handler, error) {
+func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, PassiveModeIP string) (*Handler, error) {
 	//Create table for ftp if it doesn't exists
 	db := userHandler.GetDatabase()
 	db.NewTable("ftp")
@@ -46,7 +45,6 @@ func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, t
 			},
 		},
 		userHandler:       userHandler,
-		tmpFolder:         tmpFolder,
 		connectedUserList: &sync.Map{},
 	})
 	return &Handler{

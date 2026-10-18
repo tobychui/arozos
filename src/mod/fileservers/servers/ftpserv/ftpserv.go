@@ -101,7 +101,7 @@ func (m *Manager) StartFtpServer() error {
 		passiveModeIP = externalIP
 	}
 
-	h, err := ftp.NewFTPHandler(m.option.UserManager, m.option.Hostname, serverPort, m.option.TmpFolder, passiveModeIP)
+	h, err := ftp.NewFTPHandler(m.option.UserManager, m.option.Hostname, serverPort, passiveModeIP)
 	if err != nil {
 		return err
 	}

@@ -32,7 +32,7 @@ import (
 type Server struct {
 	hostname    string            //The hostname of this devices
 	userHandler *user.UserHandler //The central userHandler
-	filesystems sync.Map          //The syncmap for storing opened file server
+	filesystems sync.Map          //Lock system per user and root, shared across requests
 	prefix      string            //The prefix to strip away from filepath
 	tlsMode     bool              //Bypass tls windows mode if enabled
 	Enabled     bool              //If the server is enabled. Set this to false for disable this service
@@ -344,13 +344,23 @@ func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getLockSystem returns the lock system shared by every request of a user on
+// one root. The handler is rebuilt per request, but locks must outlive it:
+// macOS Finder LOCKs a file and then PUTs the content with the lock token in
+// an If header, which fails with 412 against a fresh lock system and leaves
+// a 0 byte file behind.
+func (s *Server) getLockSystem(username string, prefix string) webdav.LockSystem {
+	ls, _ := s.filesystems.LoadOrStore(username+"\x00"+prefix, webdav.NewMemLS())
+	return ls.(webdav.LockSystem)
+}
+
 func (s *Server) getFsFromRealRoot(fsh *filesystem.FileSystemHandler, username string, prefix string) *webdav.Handler {
 	//Create a webdav adapter from the fsh
 	fshadapter := NewFshWebDAVAdapter(fsh, username)
 	fs := &webdav.Handler{
 		Prefix:     prefix,
 		FileSystem: fshadapter,
-		LockSystem: webdav.NewMemLS(),
+		LockSystem: s.getLockSystem(username, prefix),
 	}
 
 	//Create event listener for the path request

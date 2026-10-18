@@ -12,6 +12,7 @@ import (
 
 	"imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/network/webdav"
 	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/storage"
@@ -595,5 +596,61 @@ func TestHandleConnectionList_Empty(t *testing.T) {
 	// Should return empty JSON array
 	if !strings.Contains(body, "[") {
 		t.Errorf("expected JSON array in response, got %q", body)
+	}
+}
+
+func TestGetLockSystem_SharedPerUserAndRoot(t *testing.T) {
+	s := newTestServer()
+	a := s.getLockSystem("alice", "/webdav/user")
+	if a != s.getLockSystem("alice", "/webdav/user") {
+		t.Error("expected the same lock system for the same user and root")
+	}
+	if a == s.getLockSystem("bob", "/webdav/user") {
+		t.Error("expected different users to get different lock systems")
+	}
+	if a == s.getLockSystem("alice", "/webdav/tmp") {
+		t.Error("expected different roots to get different lock systems")
+	}
+}
+
+// Finder LOCKs a file, then PUTs its content with the lock token in an If
+// header, each in its own request. The PUT must succeed and write the body.
+func TestLockThenPut_AcrossRequests(t *testing.T) {
+	s := newTestServer()
+	dir := t.TempDir()
+	newHandler := func() *webdav.Handler {
+		return &webdav.Handler{
+			Prefix:     "/webdav/user",
+			FileSystem: webdav.Dir(dir),
+			LockSystem: s.getLockSystem("alice", "/webdav/user"),
+		}
+	}
+
+	lockBody := `<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>finder</D:owner></D:lockinfo>`
+	req := httptest.NewRequest("LOCK", "/webdav/user/1.jpg", strings.NewReader(lockBody))
+	req.Header.Set("User-Agent", "WebDAVFS/3.0.0 (03008000) Darwin/25.6.0")
+	w := httptest.NewRecorder()
+	newHandler().ServeHTTP(w, req)
+	token := w.Header().Get("Lock-Token")
+	if w.Code != http.StatusOK && w.Code != http.StatusCreated || token == "" {
+		t.Fatalf("LOCK: got status %d, token %q", w.Code, token)
+	}
+
+	content := "jpeg bytes"
+	req = httptest.NewRequest(http.MethodPut, "/webdav/user/1.jpg", strings.NewReader(content))
+	req.Header.Set("User-Agent", "WebDAVFS/3.0.0 (03008000) Darwin/25.6.0")
+	req.Header.Set("If", "("+token+")")
+	w = httptest.NewRecorder()
+	newHandler().ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("PUT with lock token: expected 201, got %d", w.Code)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "1.jpg"))
+	if err != nil {
+		t.Fatalf("read uploaded file: %v", err)
+	}
+	if string(got) != content {
+		t.Errorf("uploaded file content = %q, want %q", got, content)
 	}
 }

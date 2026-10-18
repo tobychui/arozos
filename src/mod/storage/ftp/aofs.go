@@ -21,8 +21,34 @@ var (
 )
 
 type aofs struct {
-	userinfo  *user.User
-	tmpFolder string
+	userinfo *user.User
+}
+
+// isVirtualRootPath reports whether name is served by the in-memory FTP root
+// (the root listing itself and its README.txt) rather than a real storage.
+func isVirtualRootPath(name string) bool {
+	path := filepath.ToSlash(filepath.Clean(name))
+	return path == "/" || path == "/README.txt"
+}
+
+// rootFs builds the FTP root as a read-only in-memory file system: one folder
+// per storage the user can reach (buffered remote storages are not supported
+// by the FTP driver) plus a README.txt. It is rebuilt on every root access so
+// newly mounted or closed storages show up immediately.
+func (a aofs) rootFs() afero.Fs {
+	memfs := afero.NewMemMapFs()
+	for _, fsh := range a.userinfo.GetAllFileSystemHandler() {
+		if !fsh.RequireBuffer {
+			memfs.Mkdir("/"+fsh.UUID, 0555)
+		}
+	}
+
+	readmeContent, err := os.ReadFile(filepath.Join("system", "ftp", "README.txt"))
+	if err != nil {
+		readmeContent = []byte("DO NOT UPLOAD FILES INTO THE ROOT DIRECTORY")
+	}
+	afero.WriteFile(memfs, "/README.txt", readmeContent, 0444)
+	return afero.NewReadOnlyFs(memfs)
 }
 
 func (a aofs) Create(name string) (afero.File, error) {
@@ -71,6 +97,9 @@ func (a aofs) MkdirAll(path string, perm os.FileMode) error {
 
 func (a aofs) Open(name string) (afero.File, error) {
 	//fmt.Println("FTP OPEN")
+	if isVirtualRootPath(name) {
+		return a.rootFs().Open(name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -84,6 +113,9 @@ func (a aofs) Open(name string) (afero.File, error) {
 
 func (a aofs) Stat(name string) (os.FileInfo, error) {
 	//fmt.Println("FTP STAT")
+	if isVirtualRootPath(name) {
+		return a.rootFs().Stat(name)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -96,6 +128,9 @@ func (a aofs) Stat(name string) (os.FileInfo, error) {
 
 func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	//fmt.Println("FTP OPEN FILE")
+	if isVirtualRootPath(name) {
+		return a.rootFs().OpenFile(name, flag, perm)
+	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -212,29 +247,9 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, error) {
 	path = filepath.ToSlash(filepath.Clean(path))
 	//log.Println("Original path: ", path)
-	if path == "/" {
-		//Roots. Show ftpbuf root
-		fshs := a.userinfo.GetAllFileSystemHandler()
-		for _, fsh := range fshs {
-			//Create a folder representation for this virtual directory
-
-			if !fsh.RequireBuffer {
-				os.MkdirAll(filepath.Join(a.tmpFolder, fsh.UUID), 0755)
-			}
-		}
-
-		readmeContent, err := os.ReadFile("./system/ftp/README.txt")
-		if err != nil {
-			readmeContent = []byte("DO NOT UPLOAD FILES INTO THE ROOT DIRECTORY")
-		}
-		os.WriteFile(filepath.Join(a.tmpFolder, "README.txt"), readmeContent, 0755)
-
-		//Return the tmpFolder root
-		tmpfs, _ := a.userinfo.GetFileSystemHandlerFromVirtualPath("tmp:/")
-		return tmpfs, a.tmpFolder, nil
-	} else if path == "/README.txt" {
-		tmpfs, _ := a.userinfo.GetFileSystemHandlerFromVirtualPath("tmp:/")
-		return tmpfs, a.tmpFolder + "README.txt", nil
+	if isVirtualRootPath(path) {
+		//The root is an in-memory read-only listing, see rootFs
+		return nil, "", errors.New("FTP root directory is read only")
 	} else if len(path) > 0 {
 		//Rewrite the path for any alternative filepath
 		//Get the uuid of the filepath

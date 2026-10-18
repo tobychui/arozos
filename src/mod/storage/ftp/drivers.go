@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	ftp "github.com/fclairamb/ftpserverlib"
@@ -76,18 +75,13 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 			return nil, errors.New("User " + userinfo.Username + " has no permission to access FTP endpoint")
 		}
 
-		//Create tmp buffer for this user
-		tmpFolder := m.tmpFolder + "users/" + userinfo.Username + "/ftpbuf/"
-		os.MkdirAll(tmpFolder, 0755)
-
 		//Record username into connected user list
 		m.connectedUserList.Store(cc.ID(), userinfo.Username)
 		//log the signin request
 		m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(userinfo.Username, cc.RemoteAddr().String(), time.Now().Unix(), true, "ftp")
 		//Return the aofs object
 		return aofs{
-			userinfo:  userinfo,
-			tmpFolder: tmpFolder,
+			userinfo: userinfo,
 		}, nil
 	} else {
 		//log the signin request
