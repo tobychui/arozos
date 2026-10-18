@@ -56,3 +56,8 @@ src/system/git/
 /src/system/cache
 /src/system/mail
 /test
+
+# Per-install runtime data (mail secret key/db, cluster node identity)
+src/system/mail/
+src/system/cluster/
+src/system/cluster.db

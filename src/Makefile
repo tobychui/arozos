@@ -48,6 +48,11 @@ web.tar.gz:
 	-rm ./dist/system/cron.json
 	-rm ./dist/system/bridge.json
 	-rm ./dist/system/auth/authlog.db
+	-rm -rf ./dist/system/git/
+	-rm -rf ./dist/system/mail/
+	-rm -rf ./dist/system/cluster/
+	-rm ./dist/system/cluster.db
+	-rm ./dist/system/telegram_conf.json
 	
 	@ echo "Remove ip2country, todo: Add binary base searching for this function"
 	-rm -rf "./dist/system/ip2country"
@@ -60,7 +65,7 @@ web.tar.gz:
 
 	@echo "Creating tarball for all required files"
 	-rm ./dist/web.tar.gz
-	-cd ./dist/ && tar --exclude='*.psd' -czf ./web.tar.gz system/ web/
+	-cd ./dist/ && COPYFILE_DISABLE=1 tar --exclude='*.psd' --exclude='.DS_Store' --exclude='._*' -czf ./web.tar.gz system/ web/
 
 	@echo "Clearing up unzipped folder structures"
 	-rm -rf "./dist/web"
