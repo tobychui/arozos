@@ -992,11 +992,27 @@ button.vw-pill-label:hover {
     position: relative;
     overflow: hidden;
     display: flex;
+}
+
+/* Scrolls instead of clipping the art and the controls when the window is short */
+.ap-stage {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 22px;
     padding: 30px 28px 66px;
+}
+
+/* Centered while it fits; justify-content: center would cut off the top */
+.ap-stage>:first-child {
+    margin-top: auto;
+}
+
+.ap-stage>:last-child {
+    margin-bottom: auto;
 }
 
 .ap-bg {
@@ -1132,6 +1148,7 @@ button.vw-pill-label:hover {
     align-items: center;
     gap: 6px;
     color: var(--vw-text-2);
+    flex: none;
 }
 
 .ap-extra .vw-range {
@@ -1804,13 +1821,11 @@ button.vw-pill-label:hover {
 /* ---------------------------------------------------------------- */
 @media (max-width: 900px) {
 
-    .ap-side,
     .iv-info,
     .dv-toc {
         display: none;
     }
 
-    .ap-side.open,
     .iv-info.open,
     .dv-toc.open {
         display: flex;
@@ -1844,6 +1859,63 @@ button.vw-pill-label:hover {
     .dv-paper {
         margin: 16px;
         padding: 28px 22px;
+    }
+
+    /* The queue goes under the player and the whole page scrolls */
+    .ap {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .ap-main {
+        flex: none;
+    }
+
+    .ap-stage {
+        overflow: visible;
+    }
+
+    .ap-side {
+        width: auto;
+        flex: 1 0 auto;
+        border-left: 0;
+        border-top: 1px solid var(--vw-line);
+    }
+
+    .ap-list {
+        flex: none;
+        overflow: visible;
+    }
+}
+
+/* Short windows: a smaller cover, then none, then no visualiser */
+@media (max-height: 760px) {
+    .ap-art {
+        width: min(200px, 28vh);
+        border-radius: 16px;
+    }
+
+    .ap-stage {
+        gap: 14px;
+        padding-top: 20px;
+        padding-bottom: 44px;
+    }
+}
+
+@media (max-height: 560px) {
+    .ap-art {
+        display: none;
+    }
+}
+
+@media (max-height: 380px) {
+    .ap-vis {
+        display: none;
+    }
+
+    .ap-stage {
+        padding-top: 12px;
+        padding-bottom: 16px;
     }
 }
 
@@ -1889,9 +1961,9 @@ button.vw-pill-label:hover {
         height: 36px;
     }
 
-    .ap-main {
+    .ap-stage {
         gap: 16px;
-        padding: 18px 16px 62px;
+        padding: 18px 16px 24px;
     }
 
     .ap-meta h2 {

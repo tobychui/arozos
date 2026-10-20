@@ -218,7 +218,7 @@
         var st = { mode: BROWSER_FORMATS[ext] ? "direct" : "transcode", offset: 0, duration: 0, speed: mem.speed || 1, destroyed: false, tried: false, artURL: "" };
 
         ctx.body.innerHTML =
-            '<div class="ap"><div class="ap-main"><div class="ap-bg"></div>' +
+            '<div class="ap"><div class="ap-main"><div class="ap-bg"></div><div class="ap-stage">' +
             '<div class="ap-art">' + I("music") + '</div>' +
             '<div class="ap-meta"><h2></h2><p></p></div>' +
             '<canvas class="ap-vis"></canvas>' +
@@ -231,9 +231,8 @@
             '<button class="vp-btn' + (mem.repeat != "off" ? " on" : "") + '" data-c="repeat" title="' + esc(T("vw/repeat", "Repeat")) + ' (R)">' + repeatIcon(mem.repeat) + '</button>' +
             '</div>' +
             '<div class="ap-extra"><button class="vp-btn" data-c="mute"></button><input class="vw-range" type="range" min="0" max="1" step="0.02" data-c="vol" aria-label="' + esc(T("vw/volume", "Volume")) + '">' +
-            '<button class="vp-btn" data-c="speed" title="' + esc(T("vw/speed", "Speed")) + '" style="width:auto;padding:0 10px;font-size:13px;font-weight:600">' + st.speed + 'x</button>' +
-            '<button class="vp-btn" data-c="queue" title="' + esc(T("vw/queue", "Queue")) + '">' + I("list") + '</button></div>' +
-            '</div><aside class="vw-panel ap-side"><div class="ap-side-head"><span>' + esc(T("vw/queue", "Queue")) + '</span><small>' +
+            '<button class="vp-btn" data-c="speed" title="' + esc(T("vw/speed", "Speed")) + '" style="width:auto;padding:0 10px;font-size:13px;font-weight:600">' + st.speed + 'x</button></div>' +
+            '</div></div><aside class="vw-panel ap-side"><div class="ap-side-head"><span>' + esc(T("vw/queue", "Queue")) + '</span><small>' +
             esc(T("drag/items", "{n} items", { n: ctx.list.length })) + '</small></div><div class="ap-list vw-scroll"></div></aside></div><audio preload="metadata"></audio>';
 
         var main = ctx.body.querySelector(".ap-main");
@@ -244,7 +243,6 @@
         var playBtn = main.querySelector('[data-c="play"]');
         var volInput = main.querySelector('[data-c="vol"]');
         var muteBtn = main.querySelector('[data-c="mute"]');
-        var side = ctx.body.querySelector(".ap-side");
         var listEl = ctx.body.querySelector(".ap-list");
 
         main.querySelector("h2").textContent = title(item, null);
@@ -593,8 +591,6 @@
                             }
                         };
                     }));
-                } else if (c == "queue") {
-                    side.classList.toggle("open");
                 }
             });
         });

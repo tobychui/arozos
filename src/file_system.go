@@ -1340,10 +1340,7 @@ func system_fs_clearExpiredTrash() {
 			fshAbs.RemoveAll(file)
 
 			//Drop the .trash folder too once nothing is left in it
-			remaining, _ := fshAbs.Glob(filepath.Dir(file) + "/*")
-			if len(remaining) == 0 {
-				fshAbs.Remove(filepath.Dir(file))
-			}
+			system_fs_removeTrashDirIfEmpty(fshAbs, filepath.Dir(file))
 			removed++
 		}
 
@@ -1392,8 +1389,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		err = thisFshAbs.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-			oneLevelUpper := filepath.Base(filepath.Dir(path))
-			if oneLevelUpper == ".trash" {
+			if system_fs_isTrashEntry(path) {
 				//This is a trashbin dir.
 				file := path
 
@@ -1540,10 +1536,7 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	fshAbs.Rename(realpath, targetPath)
 
 	//Check if the parent dir has no more fileds. If yes, remove it
-	filescounter, _ := fshAbs.Glob(filepath.Dir(realpath) + "/*")
-	if len(filescounter) == 0 {
-		fshAbs.Remove(filepath.Dir(realpath))
-	}
+	system_fs_removeTrashDirIfEmpty(fshAbs, filepath.Dir(realpath))
 
 	utils.SendOK(w)
 }
@@ -1574,13 +1567,42 @@ func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 		fshAbs := fshs[c].FileSystemAbstraction
 		fshAbs.RemoveAll(file)
 		//Check if its parent directory have no files. If yes, remove the dir itself as well.
-		filesInThisTrashBin, _ := fshAbs.Glob(filepath.Dir(file) + "/*")
-		if len(filesInThisTrashBin) == 0 {
-			fshAbs.Remove(filepath.Dir(file))
-		}
+		system_fs_removeTrashDirIfEmpty(fshAbs, filepath.Dir(file))
 	}
 
 	utils.SendOK(w)
+}
+
+/*
+Check if a path is a trashed item: an entry right inside a .trash folder whose
+name ends with the .<unix time> it was removed at. Anything else in there,
+like the .metadata folder a thumbnail of a trashed file leaves behind or a
+.DS_Store, is not something the user put in the trash.
+*/
+func system_fs_isTrashEntry(path string) bool {
+	if filepath.Base(filepath.Dir(path)) != ".trash" {
+		return false
+	}
+	ext := filepath.Ext(path)
+	if len(ext) < 2 {
+		return false
+	}
+	_, err := utils.StringToInt64(ext[1:])
+	return err == nil
+}
+
+// Remove a .trash folder (with the leftovers in it) once no trashed item is left inside
+func system_fs_removeTrashDirIfEmpty(fshAbs filesystem.FileSystemAbstraction, trashDir string) {
+	entries, err := fshAbs.Glob(filepath.ToSlash(trashDir) + "/*")
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if system_fs_isTrashEntry(entry) {
+			return
+		}
+	}
+	fshAbs.RemoveAll(trashDir)
 }
 
 // Get all trash in a string list
@@ -1603,8 +1625,7 @@ func system_fs_listTrash(username string) ([]string, []*filesystem.FileSystemHan
 		thisFshAbs := thisFsh.FileSystemAbstraction
 		rootPath, _ := thisFshAbs.VirtualPathToRealPath("", userinfo.Username)
 		err := thisFshAbs.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-			oneLevelUpper := filepath.Base(filepath.Dir(path))
-			if oneLevelUpper == ".trash" {
+			if system_fs_isTrashEntry(path) {
 				//This is a trashbin dir.
 				files = append(files, path)
 				fshs = append(fshs, thisFsh)
@@ -2591,6 +2612,11 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					systemWideLogger.PrintAndLog("File System", "Unable to remove file from "+srcFsh.UUID, err)
 					utils.SendErrorResponse(w, err.Error())
 					return
+				}
+
+				//Deleted from the trash bin. Drop the .trash folder once it is empty
+				if filepath.Base(filepath.Dir(rsrcFile)) == ".trash" {
+					system_fs_removeTrashDirIfEmpty(srcFshAbs, filepath.Dir(rsrcFile))
 				}
 
 			} else if operation == "recycle" {
