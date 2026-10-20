@@ -31,25 +31,29 @@
     <div class="dkl-head">
         <div>
             <div class="dkl-title">Docker List</div>
-            <div class="dkl-sub">Containers currently running on this host.</div>
+            <div class="dkl-sub" locale="docker/list/sub">Containers currently running on this host.</div>
         </div>
-        <div class="right"><button class="dkl-btn" id="dkl-refresh"><i class="refresh icon"></i> Refresh</button></div>
+        <div class="right"><button class="dkl-btn" id="dkl-refresh"><i class="refresh icon"></i> <span locale="docker/refresh">Refresh</span></button></div>
     </div>
 
     <table class="dkl-table">
-        <thead><tr><th>Name</th><th>Image</th><th>Status</th></tr></thead>
-        <tbody id="dkl-body"><tr><td colspan="3" class="dkl-empty">Loading...</td></tr></tbody>
+        <thead><tr><th locale="docker/list/name">Name</th><th locale="docker/list/image">Image</th><th locale="docker/list/status">Status</th></tr></thead>
+        <tbody id="dkl-body"><tr><td colspan="3" class="dkl-empty" locale="docker/loading">Loading...</td></tr></tbody>
     </table>
 
     <div class="dkl-footer">
-        <button class="dkl-btn primary" id="dkl-manage"><i class="cube icon"></i> Manage Containers</button>
-        <span class="note">Opens the full Docker Manager app to start/stop, edit, view logs, open a console and manage images, compose stacks and registries.</span>
+        <button class="dkl-btn primary" id="dkl-manage"><i class="cube icon"></i> <span locale="docker/list/manage">Manage Containers</span></button>
+        <span class="note" locale="docker/list/manage_note">Opens the full Docker Manager app to start/stop, edit, view logs, open a console and manage images, compose stacks and registries.</span>
     </div>
 </div>
 
 <script>
 (function () {
     var API = "../../system/docker/";
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('docker/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
 
     (function applyTheme(){
         try { if (typeof preferredTheme !== 'undefined') { document.body.classList.toggle('dark', (preferredTheme==='dark'||preferredTheme==='darkTheme')); return; } } catch(e){}
@@ -60,11 +64,11 @@
 
     function loadRunning(){
         var $b = $("#dkl-body");
-        $b.html('<tr><td colspan="3" class="dkl-empty">Loading...</td></tr>');
+        $b.html('<tr><td colspan="3" class="dkl-empty">' + esc(t("loading", "Loading...")) + '</td></tr>');
         $.get(API + "containers/list", function(list){
             if (list && list.error){ $b.html('<tr><td colspan="3" class="dkl-empty">' + esc(list.error) + '</td></tr>'); return; }
             var running = (list || []).filter(function(c){ return (c.State || "").toLowerCase() === "running"; });
-            if (running.length === 0){ $b.html('<tr><td colspan="3" class="dkl-empty">No running containers.</td></tr>'); return; }
+            if (running.length === 0){ $b.html('<tr><td colspan="3" class="dkl-empty">' + esc(t("list/none", "No running containers.")) + '</td></tr>'); return; }
             $b.html(running.map(function(c){
                 return '<tr>' +
                     '<td class="dkl-mono">' + esc(c.Names) + '</td>' +
@@ -72,7 +76,7 @@
                     '<td><span class="dkl-badge">' + esc(c.Status || "running") + '</span></td>' +
                     '</tr>';
             }).join(""));
-        }).fail(function(){ $b.html('<tr><td colspan="3" class="dkl-empty">Failed to load (admin only).</td></tr>'); });
+        }).fail(function(){ $b.html('<tr><td colspan="3" class="dkl-empty">' + esc(t("load_failed", "Failed to load (admin only).")) + '</td></tr>'); });
     }
 
     function launchDockerManager(){
@@ -92,6 +96,13 @@
     $("#dkl-refresh").on("click", loadRunning);
     $("#dkl-manage").on("click", launchDockerManager);
 
-    loadRunning();
+    if (L) {
+        L.init('../locale/system_settings/docker.json', function () {
+            L.translate();
+            loadRunning();
+        }, loadRunning);
+    } else {
+        loadRunning();
+    }
 })();
 </script>
