@@ -11,25 +11,25 @@
      into System Settings with jQuery .load(). No jQuery is required. -->
 <style>
 #wi-root {
-    --wi-card:      #ffffff;
-    --wi-border:    rgba(0,0,0,0.07);
-    --wi-shadow:    0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.05);
-    --wi-text:      #1a1a1a;
-    --wi-dim:       #5a5a5a;
-    --wi-muted:     #949494;
-    --wi-sep:       rgba(0,0,0,0.07);
-    --wi-chip:      #f1f3f5;
-    --wi-chip-fg:   #3d3d3d;
-    --wi-accent:    #0f6cbd;
-    --wi-track:     rgba(0,0,0,0.08);
+    --wi-card:      var(--ss-surface);
+    --wi-border:    var(--ss-border);
+    --wi-shadow:    none;
+    --wi-text:      var(--ss-text);
+    --wi-dim:       var(--ss-text-2);
+    --wi-muted:     var(--ss-muted);
+    --wi-sep:       var(--ss-border);
+    --wi-chip:      var(--ss-surface-3);
+    --wi-chip-fg:   var(--ss-text-2);
+    --wi-accent:    var(--ss-link);
+    --wi-track:     var(--ss-surface-3);
     --wi-good:      #13a10e;
     --wi-ok:        #0f9d8a;
     --wi-fair:      #c58a00;
     --wi-weak:      #d13438;
     --wi-off:       #a0a0a0;
-    --wi-hero-a:    #fdfefe;
-    --wi-hero-b:    #eef6fc;
-    --wi-tile:      #fafbfc;
+    --wi-hero-a:    var(--ss-surface);
+    --wi-hero-b:    var(--ss-surface-2);
+    --wi-tile:      var(--ss-surface-2);
 
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 14px;
@@ -39,25 +39,25 @@
     padding: 4px 0 28px;
 }
 body.dark #wi-root {
-    --wi-card:      #2b2b2b;
-    --wi-border:    rgba(255,255,255,0.08);
-    --wi-shadow:    0 2px 10px rgba(0,0,0,0.3), 0 0 1px rgba(0,0,0,0.5);
-    --wi-text:      #f0f0f0;
-    --wi-dim:       #b4b4b4;
-    --wi-muted:     #828282;
-    --wi-sep:       rgba(255,255,255,0.07);
-    --wi-chip:      rgba(255,255,255,0.08);
-    --wi-chip-fg:   #d0d0d0;
-    --wi-accent:    #4cc2ff;
-    --wi-track:     rgba(255,255,255,0.1);
+    --wi-card:      var(--ss-surface);
+    --wi-border:    var(--ss-border);
+    --wi-shadow:    none;
+    --wi-text:      var(--ss-text);
+    --wi-dim:       var(--ss-text-2);
+    --wi-muted:     var(--ss-muted);
+    --wi-sep:       var(--ss-border);
+    --wi-chip:      var(--ss-surface-3);
+    --wi-chip-fg:   var(--ss-text-2);
+    --wi-accent:    var(--ss-link);
+    --wi-track:     var(--ss-surface-3);
     --wi-good:      #6ccb5f;
     --wi-ok:        #4fd1c5;
     --wi-fair:      #f2c94c;
     --wi-weak:      #ff6b6b;
     --wi-off:       #6e6e6e;
-    --wi-hero-a:    #2d2d2d;
-    --wi-hero-b:    #24303a;
-    --wi-tile:      #313131;
+    --wi-hero-a:    var(--ss-surface);
+    --wi-hero-b:    var(--ss-surface-2);
+    --wi-tile:      var(--ss-surface-2);
 }
 #wi-root * { box-sizing: border-box; }
 #wi-root .wi-wrap { container-type: inline-size; }
@@ -186,12 +186,12 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
     <div id="wi-content" class="wi-wrap">
         <div class="wi-state">
             <i class="big circle notch loading icon"></i>
-            <div>Reading wireless interfaces&hellip;</div>
+            <div data-i18n="reading">Reading wireless interfaces&hellip;</div>
         </div>
     </div>
     <div class="wi-footer">
-        <span id="wi-source">WiFi information is read from the native WLAN API (WlanSvc) on Windows and from iw / iwlist, wpa_supplicant or nmcli on Linux.</span>
-        <label><input type="checkbox" id="wi-live" checked> Live update</label>
+        <span id="wi-source" data-i18n="source">WiFi information is read from the native WLAN API (WlanSvc) on Windows and from iw / iwlist, wpa_supplicant or nmcli on Linux.</span>
+        <label><input type="checkbox" id="wi-live" checked> <span data-i18n="live">Live update</span></label>
     </div>
 </div>
 
@@ -207,6 +207,31 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
     var history = {};         // interface name -> [rssi, ...]
     var lastData = null;
     var timer = null;
+
+    /* ---------- locale (shared with WiFi Settings: locale/system_settings/wifi.json) ---------- */
+    var STR = {};
+    var LANG = (function () {
+        var l = null;
+        try { l = localStorage.getItem('global_language'); } catch (e) {}
+        return (!l || l === 'default' ? navigator.language : l).toLowerCase();
+    }());
+    function T(key, fallback, vars) {
+        var s = STR['wifi/' + key];
+        if (s == null || s === '') s = fallback;
+        if (vars) Object.keys(vars).forEach(function (k) { s = s.split('{' + k + '}').join(vars[k]); });
+        return s;
+    }
+    function loadLocale() {
+        return fetch('../locale/system_settings/wifi.json', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { var k = d && d.keys && d.keys[LANG]; if (k && k.strings) STR = k.strings; })
+            .catch(function () {})
+            .then(function () {
+                Array.prototype.forEach.call(root.querySelectorAll('[data-i18n]'), function (el) {
+                    el.textContent = T(el.getAttribute('data-i18n'), el.textContent);
+                });
+            });
+    }
 
     /* ---------- helpers ---------- */
     function esc(s) {
@@ -233,11 +258,11 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
     function level(rssi, quality) {
         var q = quality;
         if (rssi) q = Math.max(0, Math.min(100, 2 * (rssi + 100)));
-        if (q === undefined || q === null || q < 0) return { bars: 0, name: 'Unknown', color: 'var(--wi-off)', q: 0 };
-        if (rssi ? rssi >= -55 : q >= 90) return { bars: 4, name: 'Excellent', color: 'var(--wi-good)', q: q };
-        if (rssi ? rssi >= -67 : q >= 66) return { bars: 3, name: 'Good', color: 'var(--wi-ok)', q: q };
-        if (rssi ? rssi >= -75 : q >= 50) return { bars: 2, name: 'Fair', color: 'var(--wi-fair)', q: q };
-        return { bars: 1, name: 'Weak', color: 'var(--wi-weak)', q: q };
+        if (q === undefined || q === null || q < 0) return { bars: 0, name: T('unknown', 'Unknown'), color: 'var(--wi-off)', q: 0 };
+        if (rssi ? rssi >= -55 : q >= 90) return { bars: 4, name: T('excellent', 'Excellent'), color: 'var(--wi-good)', q: q };
+        if (rssi ? rssi >= -67 : q >= 66) return { bars: 3, name: T('good', 'Good'), color: 'var(--wi-ok)', q: q };
+        if (rssi ? rssi >= -75 : q >= 50) return { bars: 2, name: T('fair', 'Fair'), color: 'var(--wi-fair)', q: q };
+        return { bars: 1, name: T('weak', 'Weak'), color: 'var(--wi-weak)', q: q };
     }
 
     function glyphSVG(bars, crossed) {
@@ -307,19 +332,25 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         }).join('') + '</div>';
     }
 
+    function securityText(s) {
+        if (s === 'Open') return T('open', 'Open');
+        if (s === 'Secured') return T('secured', 'Secured');
+        return s;
+    }
+
     function radioText(s) {
         if (!s || s === 'unknown') return null;
-        return s === 'on' ? 'On' : 'Off';
+        return s === 'on' ? T('on', 'On') : T('off', 'Off');
     }
 
     /* ---------- rendering ---------- */
     function statusBadge(inf) {
-        if (inf.HardwareRadio === 'off') return '<span class="wi-badge error"><span class="wi-dot"></span>Radio switched off (hardware)</span>';
-        if (inf.SoftwareRadio === 'off') return '<span class="wi-badge error"><span class="wi-dot"></span>Radio off</span>';
-        if (inf.Connected) return '<span class="wi-badge connected"><span class="wi-dot"></span>Connected</span>';
+        if (inf.HardwareRadio === 'off') return '<span class="wi-badge error"><span class="wi-dot"></span>' + esc(T('radio_hw_off', 'Radio switched off (hardware)')) + '</span>';
+        if (inf.SoftwareRadio === 'off') return '<span class="wi-badge error"><span class="wi-dot"></span>' + esc(T('radio_off', 'Radio off')) + '</span>';
+        if (inf.Connected) return '<span class="wi-badge connected"><span class="wi-dot"></span>' + esc(T('connected', 'Connected')) + '</span>';
         var s = inf.State || 'disconnected';
-        if (s === 'disconnected') return '<span class="wi-badge"><span class="wi-dot"></span>Not connected</span>';
-        if (s === 'down' || s === 'not ready') return '<span class="wi-badge error"><span class="wi-dot"></span>' + esc(s === 'down' ? 'Interface down' : 'Not ready') + '</span>';
+        if (s === 'disconnected') return '<span class="wi-badge"><span class="wi-dot"></span>' + esc(T('not_connected', 'Not connected')) + '</span>';
+        if (s === 'down' || s === 'not ready') return '<span class="wi-badge error"><span class="wi-dot"></span>' + esc(s === 'down' ? T('iface_down', 'Interface down') : T('not_ready', 'Not ready')) + '</span>';
         return '<span class="wi-badge warn"><span class="wi-dot"></span>' + esc(s.charAt(0).toUpperCase() + s.slice(1)) + '&hellip;</span>';
     }
 
@@ -333,8 +364,8 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         if (inf.Connected) {
             if (inf.Band) chips.push('<span class="wi-chip"><i class="podcast icon"></i>' + esc(inf.Band) + '</span>');
             if (inf.Generation || inf.PHYType) chips.push('<span class="wi-chip">' + esc(inf.Generation ? inf.Generation + ' · ' + inf.PHYType : inf.PHYType) + '</span>');
-            if (inf.Security) chips.push('<span class="wi-chip"><i class="' + (inf.Security === 'Open' ? 'unlock' : 'lock') + ' icon"></i>' + esc(inf.Security) + '</span>');
-            if (inf.Channel) chips.push('<span class="wi-chip">Channel ' + esc(inf.Channel) + (inf.ChannelWidth ? ' · ' + inf.ChannelWidth + ' MHz' : '') + '</span>');
+            if (inf.Security) chips.push('<span class="wi-chip"><i class="' + (inf.Security === 'Open' ? 'unlock' : 'lock') + ' icon"></i>' + esc(securityText(inf.Security)) + '</span>');
+            if (inf.Channel) chips.push('<span class="wi-chip">' + esc(T('channel_n', 'Channel {n}', { n: inf.Channel })) + (inf.ChannelWidth ? ' · ' + inf.ChannelWidth + ' MHz' : '') + '</span>');
         }
 
         var hero =
@@ -343,8 +374,8 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
                 '<div class="wi-hero-main">' +
                     statusBadge(inf) +
                     (inf.Connected
-                        ? '<div class="wi-ssid" title="' + esc(inf.SSID) + '">' + esc(inf.SSID || 'Hidden network') + '</div>'
-                        : '<div class="wi-ssid none">' + (radioOff ? 'Wireless radio is off' : 'Not connected to a network') + '</div>') +
+                        ? '<div class="wi-ssid" title="' + esc(inf.SSID) + '">' + esc(inf.SSID || T('hidden', 'Hidden network')) + '</div>'
+                        : '<div class="wi-ssid none">' + esc(radioOff ? T('radio_is_off', 'Wireless radio is off') : T('not_connected_net', 'Not connected to a network')) + '</div>') +
                     '<div class="wi-adapter">' + esc(inf.Name) + (inf.Description ? ' · ' + esc(inf.Description) : '') + '</div>' +
                     (chips.length ? '<div class="wi-chips">' + chips.join('') + '</div>' : '') +
                 '</div>' +
@@ -353,9 +384,9 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
                         '<div class="wi-ring">' + ringSVG(lv.q) +
                             '<div class="wi-ring-text"><b>' + (inf.RSSI ? esc(inf.RSSI) : esc(lv.q)) + '</b><span>' + (inf.RSSI ? 'dBm' : '%') + '</span></div>' +
                         '</div>' +
-                        '<div class="wi-quality-label">' + esc(lv.name) + (inf.SignalQuality >= 0 ? ' · ' + esc(inf.SignalQuality) + '% quality' : '') + '</div>' +
+                        '<div class="wi-quality-label">' + esc(lv.name) + (inf.SignalQuality >= 0 ? ' · ' + esc(T('quality_n', '{n}% quality', { n: inf.SignalQuality })) : '') + '</div>' +
                         sparkSVG(samples) +
-                        '<div class="wi-spark-caption">Signal over the last ' + Math.round(HISTORY * REFRESH_MS / 60000) + ' minutes</div>' +
+                        '<div class="wi-spark-caption">' + esc(T('spark_caption', 'Signal over the last {n} minutes', { n: Math.round(HISTORY * REFRESH_MS / 60000) })) + '</div>' +
                       '</div>'
                     : '<div></div>') +
             '</div></div>';
@@ -363,20 +394,20 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         var connection = '';
         if (inf.Connected) {
             var tiles =
-                tile('Receive rate', fmtRate(inf.RxRateMbps), '', 'Current link rate') +
-                tile('Transmit rate', fmtRate(inf.TxRateMbps), '', 'Current link rate') +
-                tile('Channel', inf.Channel, inf.ChannelWidth ? inf.ChannelWidth + ' MHz' : '', [fmtFreq(inf.FrequencyMHz), inf.Band].filter(Boolean).join(' · ')) +
-                tile('Standard', inf.Generation || inf.PHYType, '', inf.Generation ? inf.PHYType : '') +
-                tile('Security', inf.Security, '', inf.Cipher ? inf.Cipher + (inf.OneX ? ' · 802.1X' : '') : '') +
-                tile('Signal', inf.RSSI || null, inf.RSSI ? 'dBm' : '', inf.SignalQuality >= 0 ? inf.SignalQuality + '% link quality' : '');
+                tile(T('rx_rate', 'Receive rate'), fmtRate(inf.RxRateMbps), '', T('link_rate', 'Current link rate')) +
+                tile(T('tx_rate', 'Transmit rate'), fmtRate(inf.TxRateMbps), '', T('link_rate', 'Current link rate')) +
+                tile(T('channel', 'Channel'), inf.Channel, inf.ChannelWidth ? inf.ChannelWidth + ' MHz' : '', [fmtFreq(inf.FrequencyMHz), inf.Band].filter(Boolean).join(' · ')) +
+                tile(T('standard', 'Standard'), inf.Generation || inf.PHYType, '', inf.Generation ? inf.PHYType : '') +
+                tile(T('security', 'Security'), securityText(inf.Security), '', inf.Cipher ? inf.Cipher + (inf.OneX ? ' · 802.1X' : '') : '') +
+                tile(T('signal', 'Signal'), inf.RSSI || null, inf.RSSI ? 'dBm' : '', inf.SignalQuality >= 0 ? T('link_quality_n', '{n}% link quality', { n: inf.SignalQuality }) : '');
             connection =
-                '<div class="wi-card"><div class="wi-card-title"><i class="exchange icon"></i>Connection</div>' +
+                '<div class="wi-card"><div class="wi-card-title"><i class="exchange icon"></i>' + esc(T('card_connection', 'Connection')) + '</div>' +
                 '<dl class="wi-tiles">' + tiles + '</dl>' +
                 '<dl class="wi-props">' +
-                    prop('BSSID', inf.BSSID) +
-                    prop('Profile', inf.ProfileName, { text: true }) +
-                    prop('Connection mode', inf.ConnectionMode, { text: true }) +
-                    prop('Network type', inf.BSSType, { text: true }) +
+                    prop(T('bssid', 'BSSID'), inf.BSSID) +
+                    prop(T('profile', 'Profile'), inf.ProfileName, { text: true }) +
+                    prop(T('connection_mode', 'Connection mode'), inf.ConnectionMode, { text: true }) +
+                    prop(T('network_type', 'Network type'), inf.BSSType, { text: true }) +
                 '</dl></div>';
         }
 
@@ -384,41 +415,41 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         if (inf.Connected && inf.AP) {
             var util = ap.ChannelUtilization;
             apCard =
-                '<div class="wi-card"><div class="wi-card-title"><i class="sitemap icon"></i>Access point' +
-                    '<span class="wi-sub">From the AP\'s beacon</span></div>' +
+                '<div class="wi-card"><div class="wi-card-title"><i class="sitemap icon"></i>' + esc(T('card_ap', 'Access point')) +
+                    '<span class="wi-sub">' + esc(T('ap_sub', 'From the AP\'s beacon')) + '</span></div>' +
                 '<dl class="wi-tiles">' +
-                    tile('Max PHY rate', fmtRate(ap.MaxRateMbps), '', 'Estimated from capabilities') +
-                    tile('Spatial streams', ap.SpatialStreams ? ap.SpatialStreams + ' × ' + ap.SpatialStreams : null, '', 'MIMO') +
-                    tile('AP uptime', fmtUptime(ap.UptimeSeconds), '', 'From the beacon timestamp') +
-                    (ap.StationCount != null ? tile('Clients', String(ap.StationCount), '', 'Associated stations') : '') +
-                    (util != null ? '<div class="wi-tile"><dt>Channel busy</dt><dd>' + esc(util) + '<small>%</small></dd><div class="wi-meter"><span style="width:' + Math.min(100, util) + '%"></span></div></div>' : '') +
+                    tile(T('max_phy', 'Max PHY rate'), fmtRate(ap.MaxRateMbps), '', T('est_caps', 'Estimated from capabilities')) +
+                    tile(T('streams', 'Spatial streams'), ap.SpatialStreams ? ap.SpatialStreams + ' × ' + ap.SpatialStreams : null, '', 'MIMO') +
+                    tile(T('ap_uptime', 'AP uptime'), fmtUptime(ap.UptimeSeconds), '', T('from_beacon', 'From the beacon timestamp')) +
+                    (ap.StationCount != null ? tile(T('clients', 'Clients'), String(ap.StationCount), '', T('stations', 'Associated stations')) : '') +
+                    (util != null ? '<div class="wi-tile"><dt>' + esc(T('channel_busy', 'Channel busy')) + '</dt><dd>' + esc(util) + '<small>%</small></dd><div class="wi-meter"><span style="width:' + Math.min(100, util) + '%"></span></div></div>' : '') +
                 '</dl>' +
                 '<dl class="wi-props">' +
-                    prop('Country', ap.Country, { text: true }) +
-                    prop('Beacon interval', ap.BeaconInterval ? ap.BeaconInterval + ' TU (' + (ap.BeaconInterval * 1.024).toFixed(1) + ' ms)' : null, { text: true }) +
-                    prop('Protected management frames', ap.PMF, { text: true }) +
-                    prop('WPS', inf.AP ? (ap.WPS ? 'Enabled' : 'Disabled') : null, { text: true }) +
-                    prop('Fast roaming', ap.Roaming && ap.Roaming.length ? ap.Roaming.join(', ') : null, { text: true }) +
-                    prop('Center channel', ap.CenterChannel || null, { text: true }) +
-                    prop('Basic rates (Mbps)', tags(ap.BasicRates), { html: true, full: true }) +
-                    prop('Supported rates (Mbps)', tags(ap.SupportedRates, ap.BasicRates), { html: true, full: true }) +
+                    prop(T('country', 'Country'), ap.Country, { text: true }) +
+                    prop(T('beacon_interval', 'Beacon interval'), ap.BeaconInterval ? ap.BeaconInterval + ' TU (' + (ap.BeaconInterval * 1.024).toFixed(1) + ' ms)' : null, { text: true }) +
+                    prop(T('pmf', 'Protected management frames'), ap.PMF, { text: true }) +
+                    prop('WPS', inf.AP ? (ap.WPS ? T('enabled', 'Enabled') : T('disabled', 'Disabled')) : null, { text: true }) +
+                    prop(T('fast_roaming', 'Fast roaming'), ap.Roaming && ap.Roaming.length ? ap.Roaming.join(', ') : null, { text: true }) +
+                    prop(T('center_channel', 'Center channel'), ap.CenterChannel || null, { text: true }) +
+                    prop(T('basic_rates', 'Basic rates (Mbps)'), tags(ap.BasicRates), { html: true, full: true }) +
+                    prop(T('supported_rates', 'Supported rates (Mbps)'), tags(ap.SupportedRates, ap.BasicRates), { html: true, full: true }) +
                 '</dl></div>';
         }
 
         var adapter =
-            '<div class="wi-card"><div class="wi-card-title"><i class="microchip icon"></i>Adapter</div>' +
+            '<div class="wi-card"><div class="wi-card-title"><i class="microchip icon"></i>' + esc(T('card_adapter', 'Adapter')) + '</div>' +
             '<dl class="wi-props">' +
-                prop('Interface', inf.Name, { text: true }) +
-                prop('Model', inf.Description, { text: true }) +
-                prop('MAC address', inf.MAC) +
+                prop(T('interface', 'Interface'), inf.Name, { text: true }) +
+                prop(T('model', 'Model'), inf.Description, { text: true }) +
+                prop(T('mac', 'MAC address'), inf.MAC) +
                 prop('MTU', inf.MTU || null) +
-                prop('Radio (software)', radioText(inf.SoftwareRadio), { text: true }) +
-                prop('Radio (hardware switch)', radioText(inf.HardwareRadio), { text: true }) +
-                prop('IPv4 address', inf.IPv4) +
-                prop('Default gateway', inf.Gateways) +
-                prop('IPv6 address', inf.IPv6, { full: true }) +
-                prop('DNS servers', inf.DNS, { full: true }) +
-                (inf.GUID ? prop('Interface GUID', inf.GUID, { full: true }) : '') +
+                prop(T('radio_sw', 'Radio (software)'), radioText(inf.SoftwareRadio), { text: true }) +
+                prop(T('radio_hw', 'Radio (hardware switch)'), radioText(inf.HardwareRadio), { text: true }) +
+                prop(T('ipv4', 'IPv4 address'), inf.IPv4) +
+                prop(T('gateway', 'Default gateway'), inf.Gateways) +
+                prop(T('ipv6', 'IPv6 address'), inf.IPv6, { full: true }) +
+                prop(T('dns', 'DNS servers'), inf.DNS, { full: true }) +
+                (inf.GUID ? prop(T('guid', 'Interface GUID'), inf.GUID, { full: true }) : '') +
             '</dl></div>';
 
         return hero + connection + apCard + adapter;
@@ -428,7 +459,7 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         var list = data.Interfaces || [];
         if (!list.length) {
             content.innerHTML = '<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
-                '<div><b>No wireless interface found</b></div><div>This host has no WiFi adapter, or the wireless service is not running.</div></div></div>';
+                '<div><b>' + esc(T('no_iface_title', 'No wireless interface found')) + '</b></div><div>' + esc(T('no_iface_desc', 'This host has no WiFi adapter, or the wireless service is not running.')) + '</div></div></div>';
             return;
         }
         if (!selected || !list.some(function (i) { return i.Name === selected; })) {
@@ -448,7 +479,7 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
 
     function showError(msg) {
         content.innerHTML = '<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
-            '<div><b>Unable to read WiFi information</b></div><div>' + esc(msg) + '</div></div></div>';
+            '<div><b>' + esc(T('read_failed', 'Unable to read WiFi information')) + '</b></div><div>' + esc(msg) + '</div></div></div>';
     }
 
     /* ---------- data ---------- */
@@ -470,7 +501,7 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
                 lastData = data;
                 render(data);
             })
-            .catch(function (e) { if (alive()) showError(e && e.message ? e.message : 'Request failed'); })
+            .catch(function (e) { if (alive()) showError(e && e.message ? e.message : T('request_failed', 'Request failed')); })
             .then(schedule);
     }
 
@@ -491,7 +522,7 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         if (document.hidden) clearTimeout(timer); else if (liveBox.checked) load();
     });
 
-    load();
+    loadLocale().then(load);
 }());
 </script>
 </body>

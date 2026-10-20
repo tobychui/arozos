@@ -1,27 +1,630 @@
-<iframe id="managerFrame" src="../info/taskManager.html" style="border: 0px solid transparent; display: block; width: 100%;">
+<!--
+    Performance
 
-</iframe>
+    Loaded into System Settings. Live mode polls the usage endpoints every
+    second; the 1 h and 24 h views read the in-memory history the server keeps
+    (/system/info/getUsageHistory).
+-->
+<script type="text/javascript" src="../info/js/chart/Chart.min.js"></script>
+<style>
+    #perf-root .perf-card {
+        padding: 13px 16px 14px;
+        margin-bottom: 12px;
+    }
+
+    #perf-root .perf-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 10px;
+    }
+
+    #perf-root .perf-title {
+        font-size: 13px;
+        line-height: 18px;
+        font-weight: 700;
+        color: var(--ss-text);
+    }
+
+    #perf-root .perf-sub {
+        margin-top: 1px;
+        font-size: 11.5px;
+        line-height: 16px;
+        color: var(--ss-text-3);
+    }
+
+    #perf-root .perf-hw {
+        flex-shrink: 1;
+        min-width: 0;
+        max-width: 55%;
+        padding-top: 1px;
+        font-size: 11.5px;
+        color: var(--ss-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: right;
+    }
+
+    #perf-root .perf-chart {
+        position: relative;
+        height: 114px;
+        border: 1px solid var(--ss-chart-border);
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--ss-surface);
+    }
+
+    #perf-root .perf-chart canvas { display: block; }
+
+    #perf-root .perf-nodata {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        text-align: center;
+        font-size: 11.5px;
+        color: var(--ss-muted);
+        pointer-events: none;
+    }
+
+    #perf-root .perf-nodata.show { display: flex; }
+
+    #perf-root .perf-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 28px;
+        margin-top: 12px;
+    }
+
+    #perf-root .perf-stat { min-width: 52px; }
+
+    #perf-root .perf-stat .v {
+        font-size: 16px;
+        line-height: 21px;
+        font-weight: 700;
+        color: var(--ss-text);
+        white-space: nowrap;
+    }
+
+    #perf-root .perf-stat .k {
+        margin-top: 2px;
+        font-size: 11px;
+        line-height: 15px;
+        color: var(--ss-muted);
+        white-space: nowrap;
+    }
+
+    #perf-root .perf-key {
+        display: inline-block;
+        width: 14px;
+        height: 0;
+        margin-right: 5px;
+        vertical-align: middle;
+        border-top: 2px solid var(--perf-net-line);
+    }
+
+    #perf-root .perf-key.dashed { border-top-style: dashed; }
+
+    #perf-root {
+        --perf-cpu-line: #1577c8;
+        --perf-ram-line: #8959ba;
+        --perf-net-line: #c46510;
+    }
+
+    body.dark #perf-root {
+        --perf-cpu-line: #5aa9f0;
+        --perf-ram-line: #b28ae6;
+        --perf-net-line: #f0a050;
+    }
+</style>
+
+<div id="perf-root">
+    <div data-ss-page-actions>
+        <div class="ss-segmented" id="perf-range" role="tablist">
+            <button type="button" class="active" data-range="live" locale="taskManager/range_live">Live</button>
+            <button type="button" data-range="1h" locale="taskManager/range_1h">1 h</button>
+            <button type="button" data-range="24h" locale="taskManager/range_24h">24 h</button>
+        </div>
+    </div>
+
+    <!-- Processor -->
+    <section class="ss-card perf-card">
+        <div class="perf-head">
+            <div>
+                <div class="perf-title" locale="taskManager/processor">Processor</div>
+                <div class="perf-sub" id="perf-cpu-sub">CPU usage over the last 60 s</div>
+            </div>
+            <div class="perf-hw" id="perf-cpu-name">&nbsp;</div>
+        </div>
+        <div class="perf-chart"><canvas id="perf-cpu-chart"></canvas><div class="perf-nodata"></div></div>
+        <div class="perf-stats">
+            <div class="perf-stat"><div class="v" id="perf-cpu-a">&ndash;</div><div class="k" id="perf-cpu-a-k">Usage</div></div>
+            <div class="perf-stat"><div class="v" id="perf-cpu-b">&ndash;</div><div class="k" id="perf-cpu-b-k">Clock</div></div>
+            <div class="perf-stat"><div class="v" id="perf-cpu-c">&ndash;</div><div class="k" id="perf-cpu-c-k">Cores / threads</div></div>
+        </div>
+    </section>
+
+    <!-- Memory -->
+    <section class="ss-card perf-card">
+        <div class="perf-head">
+            <div>
+                <div class="perf-title" locale="taskManager/memory">Memory</div>
+                <div class="perf-sub" id="perf-ram-sub">RAM in use</div>
+            </div>
+            <div class="perf-hw" id="perf-ram-total">&nbsp;</div>
+        </div>
+        <div class="perf-chart"><canvas id="perf-ram-chart"></canvas><div class="perf-nodata"></div></div>
+        <div class="perf-stats">
+            <div class="perf-stat"><div class="v" id="perf-ram-a">&ndash;</div><div class="k" id="perf-ram-a-k">Used</div></div>
+            <div class="perf-stat"><div class="v" id="perf-ram-b">&ndash;</div><div class="k" id="perf-ram-b-k">Used (%)</div></div>
+            <div class="perf-stat"><div class="v" id="perf-ram-c">&ndash;</div><div class="k" id="perf-ram-c-k">Total</div></div>
+        </div>
+    </section>
+
+    <!-- Network -->
+    <section class="ss-card perf-card">
+        <div class="perf-head">
+            <div>
+                <div class="perf-title" locale="taskManager/network">Network</div>
+                <div class="perf-sub" id="perf-net-sub">Throughput over the last 60 s &middot; solid in, dashed out</div>
+            </div>
+            <div class="perf-hw" id="perf-net-scope" locale="taskManager/all_interfaces">All interfaces</div>
+        </div>
+        <div class="perf-chart"><canvas id="perf-net-chart"></canvas><div class="perf-nodata"></div></div>
+        <div class="perf-stats">
+            <div class="perf-stat"><div class="v" id="perf-net-a">&ndash;</div><div class="k"><span class="perf-key"></span><span id="perf-net-a-k">Received</span></div></div>
+            <div class="perf-stat"><div class="v" id="perf-net-b">&ndash;</div><div class="k"><span class="perf-key dashed"></span><span id="perf-net-b-k">Sent</span></div></div>
+            <div class="perf-stat"><div class="v" id="perf-net-c">&ndash;</div><div class="k" id="perf-net-c-k">Peak</div></div>
+        </div>
+    </section>
+</div>
+
 <script>
-    var managerInIframe = true;
-    resizeIframe();
-    $(window).on("resize", function(){
-        resizeIframe();
-    })
-    function resizeIframe(){
-        $("#managerFrame").css({
-            "width": "100%",
-            "height": "100vh",
+(function () {
+    var LIVE_POINTS = 60;
+    var root = document.getElementById('perf-root');
+    var rangeBar = document.getElementById('perf-range');
+    var mode = 'live';
+    var timer = null;
+    var stopped = false;
+    var charts = {};
+    var cpuInfo = { freq: '', cores: 0, threads: 0 };
+    var prevNet = null;
+
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('taskManager/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+
+    function alive() {
+        return !stopped && document.body.contains(root);
+    }
+
+    /* ── Theme aware colours ── */
+    function cssVar(el, name) {
+        return getComputedStyle(el).getPropertyValue(name).trim();
+    }
+
+    function withAlpha(hex, alpha) {
+        var m = /^#?([0-9a-f]{6})$/i.exec(hex);
+        if (!m) return hex;
+        var n = parseInt(m[1], 16);
+        return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+    }
+
+    function palette() {
+        return {
+            cpu: cssVar(root, '--perf-cpu-line'),
+            ram: cssVar(root, '--perf-ram-line'),
+            net: cssVar(root, '--perf-net-line'),
+            grid: cssVar(document.body, '--ss-chart-grid'),
+            text: cssVar(document.body, '--ss-text'),
+            text2: cssVar(document.body, '--ss-text-2'),
+            surface: cssVar(document.body, '--ss-surface'),
+            border: cssVar(document.body, '--ss-border-strong'),
+            dark: document.body.classList.contains('dark')
+        };
+    }
+
+    /* ── Formatting ── */
+    function fmtPct(v) { return (v == null || isNaN(v)) ? '–' : v.toFixed(1) + '%'; }
+
+    function fmtRate(bits) {
+        if (bits == null || isNaN(bits) || bits < 0) return '–';
+        var units = ['b/s', 'Kb/s', 'Mb/s', 'Gb/s', 'Tb/s'];
+        var i = 0;
+        while (bits >= 1000 && i < units.length - 1) { bits /= 1000; i++; }
+        return (i === 0 ? Math.round(bits) : bits.toFixed(bits >= 100 ? 0 : 1)) + ' ' + units[i];
+    }
+
+    function fmtBytes(bytes) {
+        if (!(bytes > 0)) return '';
+        var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        var i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+        return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function clock(ms, withSeconds) {
+        var d = new Date(ms);
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + (withSeconds ? ':' + pad(d.getSeconds()) : '');
+    }
+
+    /* ── Charts ── */
+    function gridEvery(count) {
+        return Math.max(1, Math.round(count / 20));
+    }
+
+    function makeChart(id, kind) {
+        var p = palette();
+        var canvas = document.getElementById(id);
+        var datasets;
+        if (kind === 'net') {
+            datasets = [
+                { data: [], borderColor: p.net, backgroundColor: withAlpha(p.net, p.dark ? 0.14 : 0.10), fill: 'start' },
+                { data: [], borderColor: p.net, backgroundColor: 'transparent', borderDash: [4, 3], fill: false }
+            ];
+        } else {
+            var line = kind === 'cpu' ? p.cpu : p.ram;
+            datasets = [{ data: [], borderColor: line, backgroundColor: withAlpha(line, p.dark ? 0.16 : 0.12), fill: 'start' }];
+        }
+        datasets.forEach(function (d) {
+            d.borderWidth = 1.6;
+            d.pointRadius = 0;
+            d.pointHoverRadius = 3;
+            d.pointHitRadius = 6;
+            d.tension = 0.25;
+            d.cubicInterpolationMode = 'monotone';
+            d.spanGaps = false;
+        });
+
+        var chart = new Chart(canvas, {
+            type: 'line',
+            data: { labels: [], datasets: datasets },
+            options: {
+                animation: false,
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                layout: { padding: 0 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        displayColors: false,
+                        backgroundColor: p.surface,
+                        titleColor: p.text,
+                        bodyColor: p.text2,
+                        borderColor: p.border,
+                        borderWidth: 1,
+                        padding: 8,
+                        titleFont: { weight: '600', size: 11 },
+                        bodyFont: { size: 11 },
+                        callbacks: {
+                            label: function (item) {
+                                var v = item.raw;
+                                if (v == null) return '';
+                                if (kind === 'net') {
+                                    return (item.datasetIndex === 0 ? t('received', 'Received') : t('sent', 'Sent')) + ': ' + fmtRate(v);
+                                }
+                                return fmtPct(v);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            drawBorder: false,
+                            drawTicks: false,
+                            color: function (ctx) {
+                                var every = gridEvery(chart.data.labels.length);
+                                return (ctx.index % every === 0) ? palette().grid : 'transparent';
+                            }
+                        },
+                        ticks: { display: false }
+                    },
+                    y: {
+                        min: 0,
+                        max: kind === 'net' ? undefined : 100,
+                        suggestedMax: kind === 'net' ? 1000 : undefined,
+                        grid: { drawBorder: false, drawTicks: false, color: function () { return palette().grid; } },
+                        ticks: { display: false, stepSize: kind === 'net' ? undefined : 25, maxTicksLimit: 5 }
+                    }
+                }
+            }
+        });
+        chart.$kind = kind;
+        return chart;
+    }
+
+    function applyColors() {
+        var p = palette();
+        Object.keys(charts).forEach(function (k) {
+            var c = charts[k];
+            var line = k === 'cpu' ? p.cpu : (k === 'ram' ? p.ram : p.net);
+            c.data.datasets[0].borderColor = line;
+            c.data.datasets[0].backgroundColor = withAlpha(line, p.dark ? (k === 'net' ? 0.14 : 0.16) : (k === 'net' ? 0.10 : 0.12));
+            if (c.data.datasets[1]) c.data.datasets[1].borderColor = line;
+            var tip = c.options.plugins.tooltip;
+            tip.backgroundColor = p.surface;
+            tip.titleColor = p.text;
+            tip.bodyColor = p.text2;
+            tip.borderColor = p.border;
+            c.update('none');
         });
     }
 
-    /* Receive theme change from system settings and forward into the iframe */
-    window.detailPageThemeCallback = function(isDark) {
-        try {
-            var fw = document.getElementById('managerFrame').contentWindow;
-            if (fw && typeof fw.desktopThemeChanged === 'function') {
-                fw.desktopThemeChanged(isDark ? 'dark' : 'light');
+    function setSeries(chart, labels, series) {
+        chart.data.labels = labels;
+        series.forEach(function (s, i) { chart.data.datasets[i].data = s; });
+        if (chart.$kind === 'net') {
+            var max = 0;
+            series.forEach(function (s) { s.forEach(function (v) { if (v != null && v > max) max = v; }); });
+            chart.options.scales.y.max = max > 0 ? max * 1.2 : 1000;
+        }
+        chart.update('none');
+    }
+
+    function showNoData(chart, show, text) {
+        var el = chart.canvas.parentNode.querySelector('.perf-nodata');
+        el.textContent = text || '';
+        el.classList.toggle('show', !!show);
+    }
+
+    /* ── Live mode ── */
+    var live = { labels: [], cpu: [], ram: [], rx: [], tx: [] };
+
+    function resetLive() {
+        var now = Date.now();
+        live = { labels: [], cpu: [], ram: [], rx: [], tx: [] };
+        for (var i = LIVE_POINTS - 1; i >= 0; i--) {
+            live.labels.push(clock(now - i * 1000, true));
+            live.cpu.push(null);
+            live.ram.push(null);
+            live.rx.push(null);
+            live.tx.push(null);
+        }
+        prevNet = null;
+    }
+
+    function pushLive(key, value) {
+        live[key].push(value);
+        if (live[key].length > LIVE_POINTS) live[key].shift();
+    }
+
+    function renderLive() {
+        setSeries(charts.cpu, live.labels.slice(), [live.cpu.slice()]);
+        setSeries(charts.ram, live.labels.slice(), [live.ram.slice()]);
+        setSeries(charts.net, live.labels.slice(), [live.rx.slice(), live.tx.slice()]);
+    }
+
+    function pollLive() {
+        if (!alive() || mode !== 'live') return;
+        var pending = 2;
+        var sample = { cpu: null, ram: null, rx: null, tx: null };
+        function done() {
+            if (--pending > 0) return;
+            if (!alive() || mode !== 'live') return;
+            pushLive('labels', clock(Date.now(), true));
+            pushLive('cpu', sample.cpu);
+            pushLive('ram', sample.ram);
+            pushLive('rx', sample.rx);
+            pushLive('tx', sample.tx);
+            renderLive();
+            var peak = Math.max.apply(null, live.rx.concat(live.tx).filter(function (v) { return v != null; }).concat([0]));
+            $('#perf-net-c').text(peak > 0 ? fmtRate(peak) : '–');
+            timer = setTimeout(pollLive, 1000);
+        }
+
+        $.ajax({ url: '../../system/info/getUsageInfo', timeout: 2500 }).done(function (d) {
+            if (!d || d.error !== undefined) return;
+            sample.cpu = d.CPU || 0;
+            sample.ram = d.RamUsage || 0;
+            $('#perf-cpu-a').text(fmtPct(sample.cpu));
+            $('#perf-ram-a').text(d.UsedRAM || '–');
+            $('#perf-ram-b').text(fmtPct(sample.ram));
+            $('#perf-ram-c').text(d.TotalRam || '–');
+            cpuInfo.cores = d.Cores || 0;
+            cpuInfo.threads = d.Threads || 0;
+            renderCoreStat();
+        }).always(done);
+
+        $.ajax({ url: '../../system/network/getNICUsage', timeout: 2500 }).done(function (d) {
+            if (!d || d.error !== undefined) {
+                showNoData(charts.net, true, (d && d.error) || t('net_unavailable', 'Network counters are not available on this host.'));
+                return;
             }
-        } catch(e) {}
+            showNoData(charts.net, false);
+            var now = Date.now();
+            if (prevNet && d.RX >= prevNet.rx && d.TX >= prevNet.tx) {
+                var secs = Math.max(0.2, (now - prevNet.at) / 1000);
+                sample.rx = (d.RX - prevNet.rx) / secs;
+                sample.tx = (d.TX - prevNet.tx) / secs;
+                $('#perf-net-a').text(fmtRate(sample.rx));
+                $('#perf-net-b').text(fmtRate(sample.tx));
+            }
+            prevNet = { rx: d.RX, tx: d.TX, at: now };
+        }).always(done);
+    }
+
+    function renderCoreStat() {
+        if (mode !== 'live' && mode !== '1h' && mode !== '24h') return;
+        if (cpuInfo.cores > 0 && cpuInfo.threads > 0) {
+            $('#perf-cpu-c').text(cpuInfo.cores + ' / ' + cpuInfo.threads);
+            $('#perf-cpu-c-k').text(t('cores_threads', 'Cores / threads'));
+        } else if (cpuInfo.threads > 0) {
+            $('#perf-cpu-c').text(cpuInfo.threads);
+            $('#perf-cpu-c-k').text(t('threads', 'Threads'));
+        }
+    }
+
+    /* ── History modes ── */
+    function loadHistory() {
+        if (!alive() || mode === 'live') return;
+        var requested = mode;
+        $.ajax({ url: '../../system/info/getUsageHistory', data: { range: requested }, timeout: 5000 }).done(function (d) {
+            if (!alive() || mode !== requested || !d || d.error !== undefined) return;
+            renderHistory(d);
+        }).always(function () {
+            if (alive() && mode === requested) {
+                timer = setTimeout(loadHistory, requested === '1h' ? 10000 : 60000);
+            }
+        });
+    }
+
+    function renderHistory(d) {
+        var step = (d.Step || 10) * 1000;
+        var slots = Math.round((d.Range === '24h' ? 86400000 : 3600000) / step);
+        var points = d.Points || [];
+        var end = points.length ? points[points.length - 1].T * 1000 : Date.now();
+        end = Math.max(end, Date.now() - step);
+
+        var labels = [], cpu = [], ram = [], rx = [], tx = [];
+        for (var i = 0; i < slots; i++) {
+            labels.push(clock(end - (slots - 1 - i) * step, false));
+            cpu.push(null); ram.push(null); rx.push(null); tx.push(null);
+        }
+        points.forEach(function (p) {
+            var idx = slots - 1 - Math.round((end - p.T * 1000) / step);
+            if (idx < 0 || idx >= slots) return;
+            cpu[idx] = p.CPU;
+            ram[idx] = p.RAM;
+            rx[idx] = p.RX >= 0 ? p.RX : null;
+            tx[idx] = p.TX >= 0 ? p.TX : null;
+        });
+
+        setSeries(charts.cpu, labels, [cpu]);
+        setSeries(charts.ram, labels, [ram]);
+        setSeries(charts.net, labels, [rx, tx]);
+
+        var empty = points.length === 0;
+        var waiting = t('collecting', 'Collecting data. History is kept in memory from the time ArozOS started.');
+        showNoData(charts.cpu, empty, waiting);
+        showNoData(charts.ram, empty, waiting);
+        var netKnown = rx.some(function (v) { return v != null; });
+        showNoData(charts.net, empty || !netKnown, empty ? waiting : t('net_unavailable', 'Network counters are not available on this host.'));
+
+        function stats(arr) {
+            var vals = arr.filter(function (v) { return v != null; });
+            if (!vals.length) return { avg: null, max: null };
+            var sum = 0, max = 0;
+            vals.forEach(function (v) { sum += v; if (v > max) max = v; });
+            return { avg: sum / vals.length, max: max };
+        }
+
+        var c = stats(cpu), r = stats(ram), sr = stats(rx), st = stats(tx);
+        $('#perf-cpu-a').text(fmtPct(c.avg));
+        $('#perf-cpu-b').text(fmtPct(c.max));
+        $('#perf-ram-a').text(fmtPct(r.avg));
+        $('#perf-ram-b').text(fmtPct(r.max));
+        $('#perf-net-a').text(fmtRate(sr.avg));
+        $('#perf-net-b').text(fmtRate(st.avg));
+        var peak = Math.max(sr.max || 0, st.max || 0);
+        $('#perf-net-c').text(peak > 0 ? fmtRate(peak) : '–');
+    }
+
+    /* ── Mode switching ── */
+    function setMode(next) {
+        mode = next;
+        clearTimeout(timer);
+        $(rangeBar).find('button').each(function () {
+            $(this).toggleClass('active', $(this).attr('data-range') === next);
+        });
+
+        var SUB = {
+            live: [t('cpu_sub_live', 'CPU usage over the last 60 s'), t('ram_sub_live', 'RAM in use'), t('net_sub_live', 'Throughput over the last 60 s')],
+            '1h': [t('cpu_sub_1h', 'CPU usage over the last hour'), t('ram_sub_1h', 'RAM in use over the last hour'), t('net_sub_1h', 'Throughput over the last hour')],
+            '24h': [t('cpu_sub_24h', 'CPU usage over the last 24 hours'), t('ram_sub_24h', 'RAM in use over the last 24 hours'), t('net_sub_24h', 'Throughput over the last 24 hours')]
+        }[next];
+        $('#perf-cpu-sub').text(SUB[0]);
+        $('#perf-ram-sub').text(SUB[1]);
+        $('#perf-net-sub').text(SUB[2] + ' · ' + t('net_legend', 'solid in, dashed out'));
+
+        if (next === 'live') {
+            $('#perf-cpu-a-k').text(t('usage', 'Usage'));
+            $('#perf-cpu-b-k').text(t('clock', 'Clock'));
+            $('#perf-cpu-b').text(cpuInfo.freq || '–');
+            $('#perf-ram-a-k').text(t('used', 'Used'));
+            $('#perf-ram-b-k').text(t('used_pct', 'Used (%)'));
+            $('#perf-ram-c-k').text(t('total', 'Total'));
+            $('#perf-net-a-k').text(t('received', 'Received'));
+            $('#perf-net-b-k').text(t('sent', 'Sent'));
+            $('#perf-net-c-k').text(t('peak_60s', 'Peak (60 s)'));
+            [charts.cpu, charts.ram].forEach(function (c) { showNoData(c, false); });
+            resetLive();
+            renderLive();
+            pollLive();
+        } else {
+            $('#perf-cpu-a-k').text(t('average', 'Average'));
+            $('#perf-cpu-b-k').text(t('peak', 'Peak'));
+            $('#perf-ram-a-k').text(t('average', 'Average'));
+            $('#perf-ram-b-k').text(t('peak', 'Peak'));
+            $('#perf-ram-c-k').text(t('total', 'Total'));
+            $('#perf-net-a-k').text(t('avg_received', 'Avg. received'));
+            $('#perf-net-b-k').text(t('avg_sent', 'Avg. sent'));
+            $('#perf-net-c-k').text(t('peak', 'Peak'));
+            loadHistory();
+        }
+        renderCoreStat();
+    }
+
+    /* ── Static info ── */
+    function loadStatic() {
+        $.getJSON('../../system/info/getCPUinfo', function (d) {
+            var model = String(d.Model || '').replace(/\s+/g, ' ')
+                .replace(/\s*@\s*[\d.]+\s*[GM]Hz/i, '')
+                .replace(/\s+(\d+-Core\s+)?Processor\s*$/i, '')
+                .trim();
+            $('#perf-cpu-name').text(model || ' ').attr('title', d.Model || '');
+            var mhz = parseFloat(d.Freq);
+            if (mhz > 0) cpuInfo.freq = mhz >= 1000 ? (mhz / 1000).toFixed(2) + ' GHz' : Math.round(mhz) + ' MHz';
+            if (mode === 'live') $('#perf-cpu-b').text(cpuInfo.freq || '–');
+        });
+        $.get('../../system/info/getRAMinfo', function (bytes) {
+            $('#perf-ram-total').text(fmtBytes(parseInt(bytes, 10)) || ' ');
+        });
+    }
+
+    /* ── Boot ── */
+    function start() {
+        if (typeof Chart === 'undefined') return;
+        Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+        charts.cpu = makeChart('perf-cpu-chart', 'cpu');
+        charts.ram = makeChart('perf-ram-chart', 'ram');
+        charts.net = makeChart('perf-net-chart', 'net');
+
+        $(rangeBar).find('button').on('click', function () {
+            var next = $(this).attr('data-range');
+            if (next !== mode) setMode(next);
+        });
+
+        loadStatic();
+        setMode('live');
+    }
+
+    window.detailPageThemeCallback = function () {
+        //Colours come from CSS variables: re-read them after the class flip
+        setTimeout(applyColors, 0);
     };
 
+    window.ssOnPageLeave = function () {
+        stopped = true;
+        clearTimeout(timer);
+        Object.keys(charts).forEach(function (k) { try { charts[k].destroy(); } catch (e) {} });
+    };
+
+    if (L) {
+        L.init('../locale/system_settings/spec.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+})();
 </script>

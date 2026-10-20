@@ -1,267 +1,393 @@
-<!DOCTYPE html>
-<html>
-<head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
-    <script src="../../script/clipboard.min.js"></script>
-    <style>
-        #sys-setting-page { padding: 20px; }
-        .hidden{
-            display:none;
-        }
+<!--
+    File Servers
 
-        .disabled{
-            opacity: 0.5;
-            pointer-events: none;
-        }
-        
+    Loaded into System Settings. Lists the network file servers (WebDAV, SFTP,
+    FTP, ...), lets an admin turn them on and off, and shows the selected
+    server's connection addresses, its connection instructions
+    (Server.ConnInstrPage) and its settings (Server.ConfigPage).
+-->
+<script src="../../script/clipboard.min.js"></script>
+<style>
+    #fs-root { container-type: inline-size; }
 
-        .detailBtn{
-            position: absolute;
-            right: 0.4em;
-            top: calc(30% + 0.5em);
-        }
+    #fs-root .fs-desc {
+        margin: 0 2px 14px;
+        font-size: 12px;
+        color: var(--ss-text-3);
+    }
 
-        .servertype.active .detailBtn{
-            pointer-events: none;
-            opacity: 0.3;
-        }
+    #fs-root .fs-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+    }
 
-        .servertype:hover{
-            opacity: 0.7;
-        }
+    @container (min-width: 900px) {
+        #fs-root .fs-layout { grid-template-columns: 300px minmax(0, 1fr); }
+        #fs-root .fs-list-wrap { position: sticky; top: 0; }
+    }
 
-        .servertype.active{
-            background-color: #f7f7f7  !important;
-            border-right: 3px solid #6bc2ec !important;
-        }
+    /* Server list */
+    #fs-root .fs-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 56px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--ss-border);
+        cursor: pointer;
+        user-select: none;
+    }
 
-        .clickable{
-            cursor: pointer;
-        }
+    #fs-root .fs-item:last-child { border-bottom: none; }
+    #fs-root .fs-item:hover { background: var(--ss-hover); }
+    #fs-root .fs-item.active { background: var(--ss-surface-2); }
+    #fs-root .fs-item.active::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 8px;
+        bottom: 8px;
+        width: 3px;
+        border-radius: 0 3px 3px 0;
+        background: var(--ss-accent);
+    }
 
-        .fileservice{
-            margin-bottom: 1em;
-        }
+    #fs-root .fs-icon {
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        object-fit: contain;
+    }
 
-        .serviceConnEndpoints{
-            margin-top: 0 !important;
-            display: inline-block;
-            vertical-align:top;
-        }
-        
-        .ui.toggle.checkbox input[type=checkbox]:checked~label::before,
-        .ui.toggle.checkbox input[type=checkbox]:checked:focus~label::before {
-        background: #8cd493 !important;
-        }
-    </style>
-</head>
-<body>
-    <br>
-   <div class="ui container" id="sys-setting-page">
-        <div class="ui header">
-            <div class="content">
-                Network File Transfer Servers
-                <div class="sub header">Manage the exported file server interface for ArozOS Virtual File System</div>
+    #fs-root .fs-text { flex: 1; min-width: 0; }
+
+    #fs-root .fs-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 18px;
+        color: var(--ss-text);
+    }
+
+    #fs-root .fs-sub {
+        margin-top: 1px;
+        font-size: 11.5px;
+        line-height: 16px;
+        color: var(--ss-text-3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Detail */
+    #fs-root .fs-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--ss-border);
+    }
+
+    #fs-root .fs-head img { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
+    #fs-root .fs-head-name { font-size: 14px; font-weight: 700; color: var(--ss-text); }
+    #fs-root .fs-head-desc { margin-top: 1px; font-size: 11.5px; color: var(--ss-text-3); }
+    #fs-root .fs-head .ss-badge { margin-left: auto; }
+
+    #fs-root .fs-endpoints { padding: 6px 0; border-bottom: 1px solid var(--ss-border); }
+    #fs-root .fs-endpoints:empty { display: none; }
+
+    #fs-root .fs-ep {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 16px;
+    }
+
+    #fs-root .fs-ep-url {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--ss-mono);
+        font-size: 11.5px;
+        color: var(--ss-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #fs-root .fs-ep .ss-btn { height: 24px; padding: 0 9px; font-size: 11.5px; }
+
+    #fs-root .fs-pane { padding: 14px 16px; }
+    #fs-root .fs-pane:empty { display: none; }
+
+    /* Connection instructions (instr/*.html) */
+    #fs-root #serviceInstruction .ui.message { margin: 0 0 10px; }
+    #fs-root #serviceInstruction .ui.message:last-of-type { margin-bottom: 8px; }
+    #fs-root #serviceInstruction .ui.message h4 { font-size: 13px; margin-bottom: 6px; }
+    #fs-root #serviceInstruction .ui.message p,
+    #fs-root #serviceInstruction .ui.message li { font-size: 12.5px; line-height: 1.55; }
+    #fs-root #serviceInstruction > a { font-size: 12px; color: var(--ss-link); }
+
+    /* Server settings (disk/<server>.html) */
+    #fs-root #serviceSettings .ui.form { font-size: 13px; }
+    #fs-root #serviceSettings .ui.form .field { margin-bottom: 14px; }
+    #fs-root #serviceSettings .ui.form .field > label { font-size: 12.5px; font-weight: 600; }
+    #fs-root #serviceSettings .ui.checkbox small,
+    #fs-root #serviceSettings .ui.form .field > small {
+        display: block;
+        margin-top: 4px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--ss-text-3);
+    }
+    #fs-root #serviceSettings .ui.checkbox small { padding-left: 0; }
+    #fs-root #serviceSettings .ui.divider { margin: 16px 0; }
+    #fs-root #serviceSettings h4 { font-size: 13px; margin: 0 0 8px; }
+    #fs-root #serviceSettings > br:last-child,
+    #fs-root #serviceSettings .ui.form + br { display: none; }
+    #fs-root #serviceSettings .ui.secondary.button,
+    #fs-root #serviceSettings .ui.black.button {
+        background: var(--ss-accent);
+        color: #ffffff;
+        border-radius: var(--ss-radius-sm);
+        font-size: 12.5px;
+    }
+    #fs-root #serviceSettings .ui.secondary.button:hover,
+    #fs-root #serviceSettings .ui.black.button:hover { background: var(--ss-accent-hover); }
+    #fs-root #serviceSettings .ui.inverted.green.segment {
+        background: var(--ss-success-soft) !important;
+        color: var(--ss-success) !important;
+        border-radius: var(--ss-radius-sm);
+        box-shadow: none;
+    }
+    #fs-root #serviceSettings .ui.inverted.red.segment {
+        background: var(--ss-danger-soft) !important;
+        color: var(--ss-danger) !important;
+        border-radius: var(--ss-radius-sm);
+        box-shadow: none;
+    }
+    #fs-root .fs-quiet { font-size: 12.5px; color: var(--ss-text-3); }
+</style>
+
+<div id="fs-root">
+    <div class="fs-desc" locale="fileservers/desc">Servers that let other devices reach the ArozOS virtual file system. Select one to see how to connect and to change its settings.</div>
+
+    <div class="fs-layout">
+        <div class="fs-list-wrap">
+            <div class="ss-section-title" locale="fileservers/servers">Servers</div>
+            <div class="ss-card" id="fs-list">
+                <div class="ss-loading"><div class="ss-spinner"></div><span locale="fileservers/loading">Loading</span></div>
             </div>
         </div>
-        <br>
-        <div class="ui stackable grid">
-            <div class="six wide column" style="border-right: 1px solid #e0e0e0;">
-                <div id="serviceList"></div>
-                <div class="ui divider"></div>
-             
-            </div>
-            <div class="ten wide column">
-                <div id="serviceInstruction"></div>
-                <div class="ui divider"></div>
-                <div id="serviceSettings"></div>
-            </div>
-        </div>
-        <br><br>
-    </div>
-    <script>
-        var isAdmin = false;
-        var fileServerServices = [];
-        
-        function isAdminCheck(){
-            $.get("../../system/desktop/user?noicon=true", function(data){
-                isAdmin = data.IsAdmin;
-                initServiceList();
-            });
-        }
-        isAdminCheck();
 
-        function initServiceList(callback=undefined){
-            $("#serviceList").html("");
-            $.get("../../system/network/server/list", function(data){
-                console.log(data);
-                fileServerServices = data;
-                data.forEach(server => {
-                    console.log(server);
-                    let checkboxDefaultState = "";
-                    let messageDefaultColor = "";
-                    if (server.Enabled){
-                        checkboxDefaultState = "checked";
-                        messageDefaultColor = "green";
-                    }
-                    $("#serviceList").append(`<div class="fileservice">
-                        <div class="ui clickable servertype top attached segment" uuid="${server.ID}" onclick="openServerConfig('${server.ID}', event, this);">
-                            <h4 class="ui header">
-                                <img src="../../${server.IconPath}">
-                                <div class="content">
-                                    ${server.Name}
-                                    <div class="sub header">
-                                        ${server.Desc}
-                                    </div>
-                                </div>
-                            </h4>
-                            <a title="Details" onclick="openServerConfig('${server.ID}', event, this.parent);" class="detailBtn">
-                                <i class="grey angle right icon"></i>
-                            </a>
+        <div class="fs-detail">
+            <div class="ss-section">
+                <div class="ss-section-title" locale="fileservers/connect">Connect</div>
+                <div class="ss-card">
+                    <div class="fs-head">
+                        <img id="fs-head-icon" src="" alt="" style="visibility:hidden">
+                        <div>
+                            <div class="fs-head-name" id="fs-head-name">&nbsp;</div>
+                            <div class="fs-head-desc" id="fs-head-desc"></div>
                         </div>
-                        <div class="ui bottom attached ${messageDefaultColor} mini message">
-                            <div class="ui toggle mini checkbox enableState" fserv="${server.ID}" onclick="handleServiceStateChange(this, event);">
-                                <input type="checkbox" ${checkboxDefaultState} onchange="updateCheckboxBackground(this, event);">
-                                <label></label>
-                            </div>
-                            <p fserv="${server.ID}" class="serviceConnEndpoints"></p>
-                    </div>`);
-                });
+                        <span class="ss-badge" id="fs-head-state"></span>
+                    </div>
+                    <div class="fs-endpoints" id="fs-endpoints"></div>
+                    <div class="fs-pane" id="serviceInstruction"></div>
+                </div>
+            </div>
+            <div class="ss-section">
+                <div class="ss-section-title" locale="fileservers/settings">Settings</div>
+                <div class="ss-card">
+                    <div class="fs-pane" id="serviceSettings"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-                if (data.length > 0){
-                    openServerConfig(data[0].ID);
-                    $($(".servertype")[0]).addClass("active");
-                }
+<script>
+(function () {
+    var isAdmin = false;
+    var servers = [];
+    var endpoints = {};
+    var states = {};
+    var selected = null;
+    var loadToken = 0;
+    var clipboard = null;
 
-                //Get a list of endpoints that is dedicated for this file server
-                $.get("../../system/network/server/endpoints", function(data){
-                    for (let [id, endpoints] of Object.entries(data)){
-                        console.log(id, endpoints)
-                        //Get the target connection display for this endpoint
-                        $(".serviceConnEndpoints").each(function(){
-                            if ($(this).attr("fserv") == id){
-                                //This is the one. Render the endpoints on it
-                                let endpointHTML = "";
-                                endpoints.forEach(ep => {
-                                    var portName = ":" + ep.Port;
-                                    if (ep.Port == 0){
-                                        //Do not define port. Hence do not show it
-                                        portName = "";
-                                    }
-                                    let connURL = ep.ProtocolName + window.location.hostname + portName + ep.Subpath;
-                                    endpointHTML += `<i class="ui grey caret right icon"></i> <a class="clip" data-clipboard-text="${connURL}" style="cursor:pointer;" conn="${connURL}">${connURL}</a><br>`
-                                });
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('fileservers/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+    // Server names and descriptions come from Go in English: translate them by server ID
+    function serverName(s) { return t('name/' + s.ID, s.Name); }
+    function serverDesc(s) { return t('desc/' + s.ID, s.Desc); }
 
-                                $(this).html(endpointHTML);
-                            }
-                        });
-                        var clipboard = new ClipboardJS('.clip');
-                        
-                        clipboard.on('success', function(e) {
-                            //console.info('Action:', e.action);
-                            //console.info('Text:', e.text);
-                            console.info('Trigger:', e.trigger);
-                            let targetElement = e.trigger;
-                            $(targetElement).html(`<i class="ui green checkmark icon"></i> Copied`);
-                            setTimeout(function(){
-                                let originalURL = $(targetElement).attr("conn");
-                                $(targetElement).html(originalURL);
-                            }, 3000);
-                            e.clearSelection();
-                        });
+    function esc(text) { return $('<span>').text(text == null ? '' : String(text)).html(); }
 
-                        //Activate all checkbox
-                        $(".ui.checkbox").checkbox();
-                        if (!isAdmin){
-                            //This user not admin. Disable all checkbox
-                            $(".ui.checkbox").addClass("disabled");
-                        }
-                        updateAllServiceState();
-                    }
+    function endpointURL(ep) {
+        var port = ep.Port == 0 ? '' : ':' + ep.Port;
+        return ep.ProtocolName + window.location.hostname + port + ep.Subpath;
+    }
 
-                    if (callback != undefined){
-                        callback();
-                    }
-                });
-            });
-       }
-
-        function updateAllServiceState(){
-            $.get("../../system/network/server/status", function(data){
-                $(".enableState").each(function(){
-                    var fservid = $(this).attr("fserv");
-                    var enableState = data[fservid];
-                    if (enableState){
-                        $(this).checkbox("set checked");
-                    }else{
-                        $(this).checkbox("set unchecked");
-                    }
-                });
-            });
+    function serverById(id) {
+        for (var i = 0; i < servers.length; i++) {
+            if (servers[i].ID === id) return servers[i];
         }
+        return null;
+    }
 
-       function handleServiceStateChange(object, event){
-            event.preventDefault();
-            let targetElement = object;
-            setTimeout(function(){
-                //This delay is to make sure the checkbox event is executed first
-                //Before the state is checked
-                let isChecked = $(targetElement).checkbox("is checked");
-                let isCheckedString = isChecked?"true":"false";
-                let serviceId = $(targetElement).attr("fserv");
-                $.ajax({
-                    url: "../../system/network/server/toggle",
-                    method: "POST",
-                    data: {id: serviceId, enable: isCheckedString},
-                    success: function(){
-                        updateAllServiceState();
-                    }
-                })
-            }, 100);
-       }
+    /* ── List ── */
+    function renderList() {
+        var $list = $('#fs-list').empty();
+        if (!servers.length) {
+            $list.html('<div class="ss-empty">' + esc(t('none', 'No file servers are available on this host.')) + '</div>');
+            return;
+        }
+        servers.forEach(function (s) {
+            var $item = $('<div class="fs-item" role="button" tabindex="0"></div>').attr('data-id', s.ID);
+            $item.append($('<img class="fs-icon" alt="">').attr('src', '../../' + s.IconPath));
+            $item.append('<div class="fs-text"><div class="fs-name"><span>' + esc(serverName(s)) + '</span></div>' +
+                '<div class="fs-sub">' + esc(serverDesc(s)) + '</div></div>');
+            var $switch = $('<label class="ss-switch"><input type="checkbox"><span class="ss-track"></span></label>').attr('title', t('toggle', 'Turn this server on or off'));
+            $switch.find('input').prop('disabled', !isAdmin).on('change', function () { toggleServer(s.ID, this.checked); });
+            $switch.on('click', function (e) { e.stopPropagation(); });
+            $item.append($switch);
+            $item.on('click', function () { select(s.ID); });
+            $item.on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(s.ID); }
+            });
+            $list.append($item);
+        });
+        renderStates();
+    }
 
-       function getServiceById(serviceid){
-            for (var i =0; i < fileServerServices.length; i++){
-                if (fileServerServices[i].ID == serviceid){
-                    return fileServerServices[i];
+    function renderStates() {
+        $('#fs-list .fs-item').each(function () {
+            var on = !!states[$(this).attr('data-id')];
+            $(this).find('input').prop('checked', on);
+        });
+        if (selected) {
+            var on = !!states[selected];
+            $('#fs-head-state').attr('class', 'ss-badge ' + (on ? 'success' : '')).text(on ? t('running', 'Running') : t('stopped', 'Stopped'));
+        }
+    }
+
+    function loadStates() {
+        $.get('../../system/network/server/status', function (data) {
+            if (data && data.error === undefined) {
+                states = data;
+                renderStates();
+            }
+        });
+    }
+
+    function toggleServer(id, enable) {
+        $.ajax({
+            url: '../../system/network/server/toggle',
+            method: 'POST',
+            data: { id: id, enable: enable ? 'true' : 'false' },
+            success: function (data) {
+                if (data && data.error !== undefined && typeof msgbox === 'function') msgbox(data.error, false);
+            },
+            complete: loadStates
+        });
+    }
+
+    /* ── Detail ── */
+    function renderEndpoints() {
+        var $box = $('#fs-endpoints').empty();
+        (endpoints[selected] || []).forEach(function (ep) {
+            var url = endpointURL(ep);
+            var $row = $('<div class="fs-ep"></div>');
+            $row.append($('<span class="fs-ep-url"></span>').text(url).attr('title', url));
+            $row.append($('<button type="button" class="ss-btn fs-copy"></button>').text(t('copy', 'Copy')).attr('data-clipboard-text', url));
+            $box.append($row);
+        });
+    }
+
+    function loadFragment(target, path, token) {
+        $.ajax({ url: '../../' + path, dataType: 'html', cache: false }).done(function (html) {
+            if (token !== loadToken) return;
+            $(target).html(html);
+        }).fail(function () {
+            if (token !== loadToken) return;
+            $(target).html('<div class="fs-quiet">' + esc(t('part_failed', 'This part could not be loaded.')) + '</div>');
+        });
+    }
+
+    function select(id) {
+        var s = serverById(id);
+        if (!s) return;
+        selected = id;
+        var token = ++loadToken;
+        $('#fs-list .fs-item').removeClass('active').filter(function () { return $(this).attr('data-id') === id; }).addClass('active');
+        $('#fs-head-icon').attr('src', '../../' + s.IconPath).css('visibility', 'visible');
+        $('#fs-head-name').text(serverName(s));
+        $('#fs-head-desc').text(serverDesc(s));
+        renderEndpoints();
+        renderStates();
+
+        $('#serviceInstruction, #serviceSettings').empty();
+        if (s.ConnInstrPage) loadFragment('#serviceInstruction', s.ConnInstrPage, token);
+        if (!s.ConfigPage) {
+            $('#serviceSettings').html('<div class="fs-quiet">' + esc(t('no_settings', 'This server has no settings.')) + '</div>');
+        } else if (isAdmin) {
+            loadFragment('#serviceSettings', s.ConfigPage, token);
+        } else {
+            loadFragment('#serviceSettings', 'SystemAO/disk/instr/noaccess.html', token);
+        }
+    }
+
+    /* ── Boot ── */
+    function bindCopy() {
+        if (typeof ClipboardJS === 'undefined') return;
+        clipboard = new ClipboardJS('#fs-root .fs-copy');
+        clipboard.on('success', function (e) {
+            var btn = e.trigger;
+            $(btn).text(t('copied', 'Copied'));
+            setTimeout(function () { $(btn).text(t('copy', 'Copy')); }, 2000);
+            e.clearSelection();
+        });
+    }
+
+    window.ssOnPageLeave = function () {
+        if (clipboard) clipboard.destroy();
+    };
+
+    function start() {
+    $.get('../../system/desktop/user?noicon=true', function (u) {
+        isAdmin = !!(u && u.IsAdmin);
+    }).always(function () {
+        $.get('../../system/network/server/list', function (data) {
+            servers = $.isArray(data) ? data : [];
+            servers.forEach(function (s) { states[s.ID] = !!s.Enabled; });
+            renderList();
+            bindCopy();
+            if (servers.length) select(servers[0].ID);
+            $.get('../../system/network/server/endpoints', function (eps) {
+                if (eps && eps.error === undefined) {
+                    endpoints = eps;
+                    renderEndpoints();
                 }
-            }
-       }
+            });
+            loadStates();
+        });
+    });
+    }
 
-       function openServerConfig(serviceid, evt=undefined, object=undefined){
-            if (evt != undefined){
-                evt.preventDefault();
-            }
-            $(".servertype.active").removeClass("active");
-            $(object).addClass("active");
-            let targetService = getServiceById(serviceid);
-            let targetServiceConfigPage = targetService.ConfigPage;
-            if (targetServiceConfigPage == "" || targetServiceConfigPage == undefined){
-                $("#serviceSettings").html(`No Configuration Avabile`);
-            }else{
-                $("#serviceInstruction").load("../../" + targetService.ConnInstrPage);
-                if (isAdmin){
-                    $("#serviceSettings").load("../../" + targetService.ConfigPage);
-                }else{
-                    $("#serviceSettings").load("../disk/instr/noaccess.html");
-                }
-               
-            }
-       }    
-
-       function updateCheckboxBackground(object, event){
-            let message = $(object).parent().parent();
-            if (object.checked){
-                $(message).addClass("green");
-            }else{
-                $(message).removeClass("green");
-            }
-       }
-    </script>
-</body>
-</html>
+    if (L) {
+        L.init('../locale/system_settings/fileservers.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+})();
+</script>

@@ -1,34 +1,21 @@
 <style>
 #ntf-root {
-    --ntf-bg: #ffffff;
-    --ntf-border: #e5e5e5;
-    --ntf-text: #1f1f1f;
-    --ntf-dim: #676767;
-    --ntf-soft: #f5f5f5;
-    --ntf-accent: #4d6bff;
-    --ntf-ok: #107c10;
-    --ntf-danger: #c42b1c;
-    background: var(--ntf-bg);
-    border: 1px solid var(--ntf-border);
-    border-radius: 12px;
+    --ntf-bg: var(--ss-surface);
+    --ntf-border: var(--ss-border);
+    --ntf-text: var(--ss-text);
+    --ntf-dim: var(--ss-text-3);
+    --ntf-soft: var(--ss-surface);
+    --ntf-accent: var(--ss-accent);
+    --ntf-ok: var(--ss-success);
+    --ntf-danger: var(--ss-danger);
     color: var(--ntf-text);
-    padding: 16px;
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 13px;
 }
-body.dark #ntf-root {
-    --ntf-bg: #2b2b2b;
-    --ntf-border: #3b3b3b;
-    --ntf-text: #ececec;
-    --ntf-dim: #aaaaaa;
-    --ntf-soft: #343434;
-    --ntf-accent: #5a78ff;
-    --ntf-ok: #2ecc71;
-    --ntf-danger: #ff6b5e;
-}
 #ntf-root * { box-sizing: border-box; }
-.ntf-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-.ntf-head .ntf-title { font-size:17px; font-weight:600; }
+/* The System Settings header already shows the page title */
+.ntf-head { margin: 0 2px 14px; }
+.ntf-head > .icon, .ntf-head .ntf-title { display:none; }
 .ntf-head .ntf-sub { font-size:12px; color:var(--ntf-dim); margin-top:2px; }
 .ntf-card {
     border:1px solid var(--ntf-border);

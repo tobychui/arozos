@@ -2,38 +2,35 @@
 <!-- Paths resolve relative to SystemAO/system_setting/                                   -->
 <style>
 #wp-root {
-    --wp-text:    #1a1a1a;
-    --wp-dim:     #5a5a5a;
-    --wp-muted:   #9a9a9a;
-    --wp-border:  rgba(0,0,0,0.10);
-    --wp-green:   #107c10;
+    --wp-text:    var(--ss-text);
+    --wp-dim:     var(--ss-text-2);
+    --wp-muted:   var(--ss-text-3);
+    --wp-border:  var(--ss-border);
+    --wp-green:   var(--ss-accent);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     color: var(--wp-text);
-    padding: 4px 0 32px;
-}
-body.dark #wp-root {
-    --wp-text:    #f0f0f0;
-    --wp-dim:     #b0b0b0;
-    --wp-muted:   #808080;
-    --wp-border:  rgba(255,255,255,0.10);
+    padding: 0 0 4px;
 }
 #wp-root h3.section-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--wp-text);
     margin: 0 0 4px;
 }
 #wp-root .section-desc {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--wp-muted);
     margin: 0 0 12px;
 }
 #wp-root .wp-section {
-    padding: 16px;
-    border-bottom: 1px solid var(--wp-border);
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
-#wp-root .wp-section:last-child { border-bottom: none; }
+#wp-root .wp-section:last-child { margin-bottom: 0; }
 #wp-root .preview-main {
     width: 100%;
     max-height: 200px;

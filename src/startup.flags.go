@@ -36,6 +36,7 @@ type bootFlags struct {
 	DisableIPResolver bool
 	EnableHomePage    bool
 	EnableDirListing  bool
+	EnableGzip        bool
 }
 
 // bootFlagNames maps each bootFlags field to the command line flag it mirrors
@@ -47,6 +48,7 @@ var bootFlagNames = map[string]string{
 	"DisableIPResolver": "disable_ip_resolver",
 	"EnableHomePage":    "homepage",
 	"EnableDirListing":  "dir_list",
+	"EnableGzip":        "gzip",
 }
 
 // currentBootFlags reads the boot flags from the runtime globals
@@ -59,6 +61,7 @@ func currentBootFlags() bootFlags {
 		DisableIPResolver: *disable_ip_resolve_services,
 		EnableHomePage:    *allow_homepage,
 		EnableDirListing:  *enable_dir_listing,
+		EnableGzip:        *enable_gzip,
 	}
 }
 
@@ -72,6 +75,7 @@ func applyBootFlags(c bootFlags) {
 	*disable_ip_resolve_services = c.DisableIPResolver
 	*allow_homepage = c.EnableHomePage
 	*enable_dir_listing = c.EnableDirListing
+	*enable_gzip = c.EnableGzip
 }
 
 // validateBootFlags normalises and checks a config before it is applied
@@ -125,6 +129,7 @@ func mergeBootFlags(runtime bootFlags, stored map[string]json.RawMessage, explic
 	restore("DisableIPResolver", &merged.DisableIPResolver)
 	restore("EnableHomePage", &merged.EnableHomePage)
 	restore("EnableDirListing", &merged.EnableDirListing)
+	restore("EnableGzip", &merged.EnableGzip)
 
 	//A damaged stored value must not stop the system from booting
 	if strings.TrimSpace(merged.Hostname) == "" {

@@ -8,125 +8,106 @@
     <script src="../../script/jquery.min.js"></script>
     <title>Shared Spaces</title>
     <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body { background: transparent; overflow-x: hidden; }
+    /* Scoped to #ss-root: this page is loaded into the System Settings document */
+    :where(#ss-root, #ss-root *, #ss-root *::before, #ss-root *::after) { box-sizing: border-box; margin: 0; padding: 0; }
 
     #ss-root {
-        --bg:      #f2f2f7;
-        --card:    #ffffff;
-        --border:  rgba(0,0,0,0.10);
-        --text:    #1d1d1f;
-        --dim:     #6e6e73;
-        --muted:   #aeaeb2;
-        --accent:  #007AFF;
-        --accentH: #0063d1;
-        --success: #34c759;
-        --danger:  #ff3b30;
-        --radius:  12px;
-        --shadow:  0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+        --bg:      transparent;
+        --card:    var(--ss-surface);
+        --border:  var(--ss-border);
+        --text:    var(--ss-text);
+        --dim:     var(--ss-text-2);
+        --muted:   var(--ss-muted);
+        --accent:  var(--ss-accent);
+        --accentH: var(--ss-accent-hover);
+        --success: var(--ss-success);
+        --danger:  var(--ss-danger);
+        --radius:  var(--ss-radius);
+        --shadow:  none;
 
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
         font-size: 13px;
         color: var(--text);
         background: var(--bg);
-        min-height: 100vh;
-        padding: 18px 18px 32px 18px;
     }
 
-    #ss-root h1 { font-size: 1.35em; margin-bottom: 2px; }
-    #ss-root .subtitle { color: var(--dim); margin-bottom: 16px; }
+    /* The System Settings header already shows the page title */
+    #ss-root h1 { display: none; }
+    #ss-root .subtitle { color: var(--ss-text-3); font-size: 12px; margin: 0 2px 14px; }
 
-    .card {
+    #ss-root .card {
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: var(--radius);
         box-shadow: var(--shadow);
         padding: 14px 16px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
     }
-    .card h2 { font-size: 1.05em; margin-bottom: 10px; }
+    #ss-root .card h2 { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
 
-    .conf-grid {
+    #ss-root .conf-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 12px;
         margin-bottom: 12px;
     }
-    .conf-field label { display: block; color: var(--dim); margin-bottom: 4px; }
-    .conf-field input[type="number"] {
+    #ss-root .conf-field label { display: block; color: var(--dim); margin-bottom: 4px; }
+    #ss-root .conf-field input[type="number"] {
         width: 100%;
-        padding: 6px 8px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid var(--ss-border-strong);
+        border-radius: var(--ss-radius-sm);
+        background: var(--ss-field);
+        color: var(--text);
         font-size: 13px;
     }
-    .conf-field .checkline { display: flex; align-items: center; gap: 6px; padding-top: 7px; }
+    #ss-root .conf-field .checkline { display: flex; align-items: center; gap: 6px; padding-top: 7px; }
 
-    .btn {
+    #ss-root .btn {
         display: inline-block;
         border: none;
-        border-radius: 8px;
-        padding: 7px 14px;
-        font-size: 13px;
+        border-radius: var(--ss-radius-sm);
+        padding: 6px 14px;
+        font-size: 12.5px;
+        font-weight: 600;
         cursor: pointer;
         background: var(--accent);
         color: #fff;
     }
-    .btn:hover { background: var(--accentH); }
-    .btn.secondary { background: rgba(0,0,0,0.06); color: var(--text); }
-    .btn.secondary:hover { background: rgba(0,0,0,0.12); }
-    .btn.danger { background: var(--danger); }
-    .btn.danger:hover { background: #d70015; }
-    .btn.mini { padding: 4px 10px; font-size: 12px; }
+    #ss-root .btn:hover { background: var(--accentH); }
+    #ss-root .btn.secondary { background: var(--ss-surface); color: var(--text); box-shadow: 0 0 0 1px var(--ss-border-strong) inset; }
+    #ss-root .btn.secondary:hover { background: var(--ss-surface-2); }
+    #ss-root .btn.danger { background: var(--ss-danger-solid); }
+    #ss-root .btn.danger:hover { background: var(--ss-danger-hover); }
+    #ss-root .btn.mini { padding: 4px 10px; font-size: 12px; }
 
     #statusMsg { display: none; margin-left: 10px; color: var(--success); }
 
-    table { width: 100%; border-collapse: collapse; }
-    th, td {
+    #ss-root table { width: 100%; border-collapse: collapse; }
+    #ss-root th, #ss-root td {
         text-align: left;
         padding: 7px 8px;
         border-bottom: 1px solid var(--border);
         white-space: nowrap;
     }
-    th { color: var(--dim); font-weight: 600; }
-    td.name-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-    .tablewrap { overflow-x: auto; }
-    .pill {
+    #ss-root th { color: var(--ss-muted); font-weight: 400; font-size: 11.5px; }
+    #ss-root table tr:hover > td { background: var(--ss-hover); }
+    #ss-root td.name-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+    #ss-root .tablewrap { overflow-x: auto; }
+    #ss-root .pill {
         display: inline-block;
         border-radius: 10px;
         padding: 1px 9px;
-        font-size: 12px;
-        background: rgba(0,0,0,0.06);
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--ss-surface-3);
         color: var(--dim);
     }
-    .pill.public { background: rgba(52,199,89,0.15); color: #1e7d3c; }
-    .pill.private { background: rgba(255,59,48,0.12); color: #a52a22; }
-    .pill.persist { background: rgba(0,122,255,0.12); color: #0a58b6; }
-    .empty-row { color: var(--muted); text-align: center; padding: 18px 0; }
-
-    /* ── Dark theme (System Settings toggles .dark on #ss-root) ── */
-    #ss-root.dark {
-        --bg:      #1c1c1e;
-        --card:    #2c2c2e;
-        --border:  rgba(255,255,255,0.12);
-        --text:    #ececec;
-        --dim:     #aeaeb2;
-        --muted:   #6e6e73;
-        --shadow:  0 1px 3px rgba(0,0,0,0.4), 0 1px 8px rgba(0,0,0,0.3);
-    }
-    #ss-root.dark .conf-field input[type="number"] {
-        background: #1c1c1e;
-        color: var(--text);
-        border-color: var(--border);
-    }
-    #ss-root.dark .btn.secondary { background: rgba(255,255,255,0.10); color: var(--text); }
-    #ss-root.dark .btn.secondary:hover { background: rgba(255,255,255,0.16); }
-    #ss-root.dark .pill { background: rgba(255,255,255,0.10); color: var(--dim); }
-    #ss-root.dark .pill.public { background: rgba(52,199,89,0.22); color: #5be084; }
-    #ss-root.dark .pill.private { background: rgba(255,59,48,0.22); color: #ff8a80; }
-    #ss-root.dark .pill.persist { background: rgba(10,132,255,0.24); color: #7fbcff; }
-    #ss-root.dark table tr:hover > td { background: rgba(255,255,255,0.04); }
+    #ss-root .pill.public { background: var(--ss-success-soft); color: var(--ss-success); }
+    #ss-root .pill.private { background: var(--ss-danger-soft); color: var(--ss-danger); }
+    #ss-root .pill.persist { background: var(--ss-accent-soft); color: var(--ss-accent-text); }
+    #ss-root .empty-row { color: var(--muted); text-align: center; padding: 18px 0; }
     </style>
 </head>
 <body>

@@ -18,6 +18,25 @@
     }
 */
 
+/*
+    A page that styles its own fonts (e.g. System Settings) can set
+    window.applocaleSkipFontFamily = true before loading its locale: the
+    language's preferred font family is then not written inline onto every
+    element, and the page applies it itself.
+*/
+function applocaleInjectsFont(){
+    return typeof window === "undefined" || window.applocaleSkipFontFamily !== true;
+}
+
+/*
+    A page that hosts other pages' fragments (System Settings) sets
+    window.applocaleKeepWindowTitle = true once its own title is in place, so
+    a fragment's locale file does not rename the float window.
+*/
+function applocaleSetsWindowTitle(){
+    return typeof window === "undefined" || window.applocaleKeepWindowTitle !== true;
+}
+
 function NewAppLocale(){
     return {
         lang: (localStorage.getItem('global_language') == null || localStorage.getItem('global_language') == "default" ? navigator.language : localStorage.getItem('global_language')).toLowerCase(),
@@ -41,12 +60,12 @@ function NewAppLocale(){
                         callback(data);
                     }
                     
-                    if (data.keys[targetApplocaleObject.lang] != undefined && data.keys[targetApplocaleObject.lang].fwtitle != undefined && data.keys[targetApplocaleObject.lang].fwtitle != "" && ao_module_virtualDesktop) {
+                    if (applocaleSetsWindowTitle() && data.keys[targetApplocaleObject.lang] != undefined && data.keys[targetApplocaleObject.lang].fwtitle != undefined && data.keys[targetApplocaleObject.lang].fwtitle != "" && ao_module_virtualDesktop) {
                         //Update the floatwindow title as well
                         ao_module_setWindowTitle(data.keys[targetApplocaleObject.lang].fwtitle);
                     }
     
-                    if (data.keys[targetApplocaleObject.lang] != undefined && data.keys[targetApplocaleObject.lang].fontFamily != undefined){
+                    if (applocaleInjectsFont() && data.keys[targetApplocaleObject.lang] != undefined && data.keys[targetApplocaleObject.lang].fontFamily != undefined){
                         //This language has a prefered font family. Inject it
                         $("h1, h2, h3, p, span, div, a, button").css({
                             "font-family":data.keys[targetApplocaleObject.lang].fontFamily
@@ -94,7 +113,7 @@ function NewAppLocale(){
                 }
             })
     
-            if (this.localData.keys[this.lang] != undefined && this.localData.keys[this.lang].fontFamily != undefined){
+            if (applocaleInjectsFont() && this.localData.keys[this.lang] != undefined && this.localData.keys[this.lang].fontFamily != undefined){
                 //This language has a prefered font family. Inject it
                 $("h1, h2, h3, h4, h5, p, span, div, a").css({
                     "font-family":this.localData.keys[this.lang].fontFamily

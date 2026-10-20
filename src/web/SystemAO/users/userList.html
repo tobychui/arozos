@@ -11,49 +11,33 @@
     body { background: transparent; }
 
     #ul-root {
-        --ul-text:        #1d1d1f;
-        --ul-dim:         #6e6e73;
-        --ul-muted:       #98989d;
-        --ul-divider:     #d2d2d7;
-        --ul-selected:    rgba(0,113,227,0.08);
-        --ul-hover:       rgba(0,0,0,0.045);
-        --ul-active:      rgba(0,0,0,0.09);
-        --ul-accent:      #0071e3;
-        --ul-danger:      #ff3b30;
-        --ul-bg:          #ffffff;
-        --ul-card-bg:     #f5f5f7;
-        --ul-card-border: #e5e5ea;
-        --ul-shadow:      rgba(0,0,0,0.10);
+        --ul-text:        var(--ss-text);
+        --ul-dim:         var(--ss-text-2);
+        --ul-muted:       var(--ss-muted);
+        --ul-divider:     var(--ss-border);
+        --ul-selected:    var(--ss-accent-soft);
+        --ul-hover:       var(--ss-hover);
+        --ul-active:      var(--ss-pressed);
+        --ul-accent:      var(--ss-accent);
+        --ul-danger:      var(--ss-danger);
+        --ul-bg:          var(--ss-surface);
+        --ul-card-bg:     var(--ss-surface-2);
+        --ul-card-border: var(--ss-border);
+        --ul-shadow:      rgba(0,0,0,0.12);
 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         -webkit-font-smoothing: antialiased;
         color: var(--ul-text);
-        background: var(--ul-bg);
-        border-radius: 0.6em;
+
     }
 
-    #ul-root.dark {
-        --ul-text:        #f0f0f0;
-        --ul-dim:         #a0a0a5;
-        --ul-muted:       #dadada;
-        --ul-divider:     #3a3a3c;
-        --ul-hover:       rgba(255,255,255,0.06);
-        --ul-selected:    rgba(41,151,255,0.12);
-        --ul-active:      rgba(255,255,255,0.12);
-        --ul-accent:      #2997ff;
-        --ul-danger:      #ff453a;
-        --ul-bg:          #2b2b2b;
-        --ul-card-bg:     #3a3a3c;
-        --ul-card-border: #48484a;
-        --ul-shadow:      rgba(0,0,0,0.45);
-    }
 
-    #ul-page { padding: 16px 0 24px; }
+    #ul-page { padding: 0; }
 
     /* ── Toolbar ── */
     #ul-toolbar {
-        padding: 4px 12px 10px;
+        padding: 6px 0 4px;
     }
     #ul-btn-row {
         display: flex;
@@ -97,20 +81,22 @@
 
     /* ── Section label ── */
     .ul-section-label {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        padding: 0 16px;
-        margin: 12px 0 6px;
+        line-height: 16px;
+        color: var(--ss-text-2);
+        padding: 0 2px;
+        margin: 18px 0 7px;
     }
+    /* The System Settings header already names this list */
+    #ul-page > .ul-section-label:first-child { display: none; }
 
     /* ── List card ── */
     .ul-list {
         border: 1px solid var(--ul-divider);
-        border-radius: 10px;
+        border-radius: var(--ss-radius);
         overflow: hidden;
-        margin: 0 12px 6px;
+        margin: 0 0 6px;
         background: var(--ul-bg);
     }
 
@@ -214,9 +200,9 @@
     /* ── Advanced cards ── */
     .ul-adv-card {
         border: 1px solid var(--ul-divider);
-        border-radius: 10px;
+        border-radius: var(--ss-radius);
         overflow: hidden;
-        margin: 0 12px 6px;
+        margin: 0 0 6px;
         background: var(--ul-bg);
     }
     .ul-adv-card-header {

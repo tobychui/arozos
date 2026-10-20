@@ -10,7 +10,7 @@
     <style>
         #sys-setting-page { padding: 20px; }
         a.pageFocus {
-            background: #222222;
+            background: var(--ss-accent);
             color: white !important;
             border-radius: 50%;
             -moz-border-radius: 50%;
@@ -38,11 +38,7 @@
     <br>
     <div class="ui container" id="sys-setting-page" style="height: 100% !important;">
         <div>
-            <h3 class="ui header">
-                Access Control
-                <div class="sub header">Manage IPs from logging into this host</div>
-            </h3>
-            <div class="ui divider"></div>
+            <div class="ss-page-desc">Manage IPs from logging into this host</div>
             <h3><i class="ui green checkmark icon"></i> Whitelist</h3>
             <div class="ui toggle checkbox">
                 <input type="checkbox" id="enableWhiteList" onchange="">

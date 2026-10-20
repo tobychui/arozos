@@ -1,20 +1,16 @@
 <style>
 #dkl-root {
-    --dk-bg:#ffffff; --dk-border:#e5e5e5; --dk-text:#1f1f1f; --dk-dim:#676767;
-    --dk-soft:#f5f5f5; --dk-soft2:#efefef; --dk-accent:#2b6cb0; --dk-accent-text:#fff;
-    --dk-ok:#107c10; --dk-danger:#c42b1c; --dk-shadow:0 4px 20px rgba(0,0,0,0.08);
-    background:var(--dk-bg); border:1px solid var(--dk-border); border-radius:12px;
+    --dk-bg:var(--ss-surface); --dk-border:var(--ss-border); --dk-text:var(--ss-text); --dk-dim:var(--ss-text-3);
+    --dk-soft:var(--ss-surface-2); --dk-soft2:var(--ss-surface-2); --dk-accent:var(--ss-accent); --dk-accent-text:#ffffff;
+    --dk-ok:var(--ss-success); --dk-danger:var(--ss-danger); --dk-shadow:none;
+    background:var(--dk-bg); border:1px solid var(--dk-border); border-radius:var(--ss-radius);
     box-shadow:var(--dk-shadow); color:var(--dk-text); padding:16px; margin-bottom:4px;
     font-family:'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-size:13px;
 }
-body.dark #dkl-root {
-    --dk-bg:#2b2b2b; --dk-border:#3b3b3b; --dk-text:#ececec; --dk-dim:#aaaaaa;
-    --dk-soft:#343434; --dk-soft2:#3c3c3c; --dk-accent:#4a90d9; --dk-ok:#2ecc71;
-    --dk-danger:#ff6b5e; --dk-shadow:0 8px 22px rgba(0,0,0,0.3);
-}
 #dkl-root * { box-sizing:border-box; }
 .dkl-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-.dkl-title { font-size:17px; font-weight:600; }
+/* The System Settings header already shows the page title */
+.dkl-title { display:none; }
 .dkl-sub { font-size:12px; color:var(--dk-dim); margin-top:2px; }
 .dkl-head .right { margin-left:auto; }
 .dkl-table { width:100%; border-collapse:collapse; font-size:12.5px; }

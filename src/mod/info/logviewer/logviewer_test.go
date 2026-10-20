@@ -352,3 +352,51 @@ func TestHandleReadLogFileNotFound(t *testing.T) {
 		t.Errorf("HandleReadLog for missing file expected error response, got: %s", body)
 	}
 }
+
+// TestListLogFilesSkipsUnreadableLocations verifies that only logs inside a
+// category folder are listed: a log in the root folder (the legacy location)
+// or nested deeper could never be opened by LoadLogFile.
+func TestListLogFilesSkipsUnreadableLocations(t *testing.T) {
+	tmpRoot := t.TempDir()
+	nested := filepath.Join(tmpRoot, "system", "archive")
+	if err := os.MkdirAll(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	files := []string{
+		filepath.Join(tmpRoot, "system_2026-9.log"),
+		filepath.Join(tmpRoot, "system", "system_2026-10.log"),
+		filepath.Join(nested, "old.log"),
+	}
+	for _, path := range files {
+		if err := os.WriteFile(path, []byte("line"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	v := NewLogViewer(&ViewerOption{RootFolder: tmpRoot, Extension: ".log"})
+	result := v.ListLogFiles(false)
+
+	tests := []struct {
+		catergory string
+		want      int
+	}{
+		{catergory: "system", want: 1},
+		{catergory: filepath.Base(tmpRoot), want: 0},
+		{catergory: "archive", want: 0},
+	}
+	for _, tt := range tests {
+		if got := len(result[tt.catergory]); got != tt.want {
+			t.Errorf("catergory %q: got %d logs, want %d", tt.catergory, got, tt.want)
+		}
+	}
+
+	//Every listed log must be readable
+	for catergory, logs := range result {
+		for _, lf := range logs {
+			if _, err := v.LoadLogFile(catergory, lf.Filename); err != nil {
+				t.Errorf("listed log %s/%s cannot be loaded: %v", catergory, lf.Filename, err)
+			}
+		}
+	}
+}

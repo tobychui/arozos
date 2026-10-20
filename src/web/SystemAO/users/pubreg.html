@@ -12,40 +12,25 @@
     body { background: transparent; overflow-x: hidden; }
 
     #pr-root {
-        --pr-bg:      #f3f3f3;
-        --pr-card:    #ffffff;
-        --pr-border:  #e0e0e0;
-        --pr-text:    #1b1b1b;
-        --pr-dim:     #5a5a5a;
-        --pr-muted:   #8a8a8a;
-        --pr-accent:  #0067c0;
-        --pr-accentH: #1475c8;
-        --pr-danger:  #c42b1c;
-        --pr-success: #107c10;
-        --pr-shadow:  0 1px 4px rgba(0,0,0,0.08);
-        --pr-radius:  6px;
+        --pr-bg:      transparent;
+        --pr-card:    var(--ss-surface);
+        --pr-border:  var(--ss-border);
+        --pr-text:    var(--ss-text);
+        --pr-dim:     var(--ss-text-2);
+        --pr-muted:   var(--ss-muted);
+        --pr-accent:  var(--ss-accent);
+        --pr-accentH: var(--ss-accent-hover);
+        --pr-danger:  var(--ss-danger);
+        --pr-success: var(--ss-success);
+        --pr-shadow:  none;
+        --pr-radius:  var(--ss-radius);
 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         color: var(--pr-text);
         background: var(--pr-bg);
-        min-height: 100vh;
-        padding-bottom: 32px;
     }
 
-    #pr-root.dark {
-        --pr-bg:      #202020;
-        --pr-card:    #2d2d2d;
-        --pr-border:  #404040;
-        --pr-text:    #e8e8e8;
-        --pr-dim:     #aaaaaa;
-        --pr-muted:   #666666;
-        --pr-accent:  #60cdff;
-        --pr-accentH: #8cd9ff;
-        --pr-danger:  #ff7070;
-        --pr-success: #6ccb5f;
-        --pr-shadow:  0 1px 6px rgba(0,0,0,0.4);
-    }
 
     /* ── Page header ── */
     .pr-page-hd { padding: 20px 20px 8px; }
@@ -62,7 +47,7 @@
         background: var(--pr-card);
         border: 1px solid var(--pr-border);
         border-radius: var(--pr-radius);
-        margin: 10px 12px;
+        margin: 0 0 14px;
         box-shadow: var(--pr-shadow);
         overflow: hidden;
     }

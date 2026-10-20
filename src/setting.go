@@ -42,7 +42,7 @@ func SystemSettingInit() {
 		Version:     "1.0",
 		StartDir:    "SystemAO/system_setting/index.html",
 		SupportFW:   true,
-		InitFWSize:  []int{1200, 580},
+		InitFWSize:  []int{1024, 685},
 		LaunchFWDir: "SystemAO/system_setting/index.html",
 		SupportEmb:  false,
 	})
@@ -157,6 +157,32 @@ func registerSetting(thismodule settingModule) {
 	settingModules = append(settingModules, thismodule)
 }
 
+// settingGroupTree is a setting group together with the pages in it that the
+// requesting user may open. It marshals as the group fields plus "Modules".
+type settingGroupTree struct {
+	settingGroup
+	Modules []settingModule
+}
+
+// buildSettingTree pairs every group with the pages a user may see in it, in
+// registration order. Groups left without a visible page are dropped, so the
+// sidebar never shows an empty group.
+func buildSettingTree(groups []settingGroup, mods []settingModule, isAdmin bool) []settingGroupTree {
+	tree := []settingGroupTree{}
+	for _, g := range groups {
+		visible := []settingModule{}
+		for _, m := range mods {
+			if m.Group == g.Group && (!m.RequireAdmin || isAdmin) {
+				visible = append(visible, m)
+			}
+		}
+		if len(visible) > 0 {
+			tree = append(tree, settingGroupTree{settingGroup: g, Modules: visible})
+		}
+	}
+	return tree
+}
+
 // List all the setting modules and output it as JSON
 func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -166,6 +192,14 @@ func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allSettingGroups := system_setting_getSettingGroups()
+
+	//tree=true returns every group with its visible pages in one response
+	if asTree, _ := utils.GetPara(r, "tree"); asTree == "true" {
+		js, _ := json.Marshal(buildSettingTree(allSettingGroups, settingModules, userinfo.IsAdmin()))
+		utils.SendJSONResponse(w, string(js))
+		return
+	}
+
 	listGroup, _ := utils.GetPara(r, "listGroup")
 	if len(listGroup) > 0 {
 		//List the given group

@@ -11,27 +11,27 @@
      into System Settings with jQuery .load(). No jQuery is required. -->
 <style>
 #ws-root {
-    --ws-card:      #ffffff;
-    --ws-border:    rgba(0,0,0,0.07);
-    --ws-shadow:    0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.05);
-    --ws-text:      #1a1a1a;
-    --ws-dim:       #5a5a5a;
-    --ws-muted:     #949494;
-    --ws-sep:       rgba(0,0,0,0.07);
-    --ws-chip:      #f1f3f5;
-    --ws-chip-fg:   #3d3d3d;
-    --ws-accent:    #0f6cbd;
+    --ws-card:      var(--ss-surface);
+    --ws-border:    var(--ss-border);
+    --ws-shadow:    none;
+    --ws-text:      var(--ss-text);
+    --ws-dim:       var(--ss-text-2);
+    --ws-muted:     var(--ss-muted);
+    --ws-sep:       var(--ss-border);
+    --ws-chip:      var(--ss-surface-3);
+    --ws-chip-fg:   var(--ss-text-2);
+    --ws-accent:    var(--ss-accent);
     --ws-accent-fg: #ffffff;
-    --ws-hover:     rgba(0,0,0,0.035);
-    --ws-select:    rgba(15,108,189,0.07);
-    --ws-track:     rgba(0,0,0,0.09);
+    --ws-hover:     var(--ss-hover);
+    --ws-select:    var(--ss-accent-soft);
+    --ws-track:     var(--ss-surface-3);
     --ws-good:      #13a10e;
     --ws-ok:        #0f9d8a;
     --ws-fair:      #c58a00;
     --ws-weak:      #d13438;
     --ws-off:       #a8a8a8;
-    --ws-input:     #ffffff;
-    --ws-grid:      rgba(0,0,0,0.06);
+    --ws-input:     var(--ss-field);
+    --ws-grid:      var(--ss-chart-grid);
     --ws-overlay:   rgba(0,0,0,0.35);
 
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -43,27 +43,27 @@
     position: relative;
 }
 body.dark #ws-root {
-    --ws-card:      #2b2b2b;
-    --ws-border:    rgba(255,255,255,0.08);
-    --ws-shadow:    0 2px 10px rgba(0,0,0,0.3), 0 0 1px rgba(0,0,0,0.5);
-    --ws-text:      #f0f0f0;
-    --ws-dim:       #b4b4b4;
-    --ws-muted:     #828282;
-    --ws-sep:       rgba(255,255,255,0.07);
-    --ws-chip:      rgba(255,255,255,0.08);
-    --ws-chip-fg:   #d0d0d0;
-    --ws-accent:    #4cc2ff;
-    --ws-accent-fg: #0b1a26;
-    --ws-hover:     rgba(255,255,255,0.04);
-    --ws-select:    rgba(76,194,255,0.09);
-    --ws-track:     rgba(255,255,255,0.12);
+    --ws-card:      var(--ss-surface);
+    --ws-border:    var(--ss-border);
+    --ws-shadow:    none;
+    --ws-text:      var(--ss-text);
+    --ws-dim:       var(--ss-text-2);
+    --ws-muted:     var(--ss-muted);
+    --ws-sep:       var(--ss-border);
+    --ws-chip:      var(--ss-surface-3);
+    --ws-chip-fg:   var(--ss-text-2);
+    --ws-accent:    var(--ss-accent);
+    --ws-accent-fg: #ffffff;
+    --ws-hover:     var(--ss-hover);
+    --ws-select:    var(--ss-accent-soft);
+    --ws-track:     var(--ss-surface-3);
     --ws-good:      #6ccb5f;
     --ws-ok:        #4fd1c5;
     --ws-fair:      #f2c94c;
     --ws-weak:      #ff6b6b;
     --ws-off:       #6e6e6e;
-    --ws-input:     #1f1f1f;
-    --ws-grid:      rgba(255,255,255,0.07);
+    --ws-input:     var(--ss-field);
+    --ws-grid:      var(--ss-chart-grid);
     --ws-overlay:   rgba(0,0,0,0.55);
 }
 #ws-root * { box-sizing: border-box; }
@@ -282,7 +282,7 @@ body.dark #ws-root {
         <div class="ws-card" id="ws-conn">
             <div class="ws-head-icon" id="ws-conn-icon"></div>
             <div class="ws-head-text">
-                <div class="ws-head-label">Current network</div>
+                <div class="ws-head-label" data-i18n="current_network">Current network</div>
                 <div class="ws-head-value" id="ws-conn-ssid">Loading&hellip;</div>
                 <div class="ws-head-sub" id="ws-conn-sub">&nbsp;</div>
             </div>
@@ -290,7 +290,7 @@ body.dark #ws-root {
         <div class="ws-card" id="ws-radio">
             <div class="ws-head-icon" style="--ws-lv: var(--ws-accent)"><i class="large wifi icon" style="margin:0;color:var(--ws-accent)"></i></div>
             <div class="ws-head-text">
-                <div class="ws-head-label">Wireless interface</div>
+                <div class="ws-head-label" data-i18n="wireless_interface">Wireless interface</div>
                 <div class="ws-head-value" id="ws-radio-name">&mdash;</div>
                 <div class="ws-head-sub" id="ws-radio-sub">&nbsp;</div>
             </div>
@@ -301,45 +301,45 @@ body.dark #ws-root {
     <div id="ws-notice"></div>
 
     <div class="ws-toolbar">
-        <button class="ws-btn primary" id="ws-rescan"><i class="sync alternate icon"></i> Rescan</button>
+        <button class="ws-btn primary" id="ws-rescan"><i class="sync alternate icon"></i> <span data-i18n="rescan">Rescan</span></button>
         <div class="ws-seg" id="ws-bands"></div>
         <span class="ws-meta" id="ws-meta"></span>
-        <div class="ws-search"><i class="search icon"></i><input type="search" id="ws-filter" placeholder="Filter networks"></div>
+        <div class="ws-search"><i class="search icon"></i><input type="search" id="ws-filter" placeholder="Filter networks" data-i18n-ph="filter_networks"></div>
     </div>
 
     <div class="ws-card">
-        <div class="ws-card-title"><i class="chart area icon"></i>Channel map
+        <div class="ws-card-title"><i class="chart area icon"></i><span data-i18n="channel_map">Channel map</span>
             <div class="ws-right"><div class="ws-seg" id="ws-chart-bands"></div></div>
         </div>
-        <div class="ws-chart" id="ws-chart"><div class="ws-chart-empty">Waiting for scan results&hellip;</div></div>
+        <div class="ws-chart" id="ws-chart"><div class="ws-chart-empty" data-i18n="waiting_scan">Waiting for scan results&hellip;</div></div>
     </div>
 
     <div class="ws-card">
-        <div class="ws-card-title"><i class="list icon"></i>Nearby networks
+        <div class="ws-card-title"><i class="list icon"></i><span data-i18n="nearby_networks">Nearby networks</span>
             <div class="ws-right ws-meta" id="ws-count"></div>
         </div>
-        <div id="ws-list" class="ws-scroll"><div class="ws-state"><i class="big circle notch loading icon"></i>Scanning nearby access points&hellip;</div></div>
+        <div id="ws-list" class="ws-scroll"><div class="ws-state"><i class="big circle notch loading icon"></i><span data-i18n="scanning_nearby">Scanning nearby access points&hellip;</span></div></div>
     </div>
   </div>
 
     <div class="ws-overlay" id="ws-dialog">
         <div class="ws-dialog" role="dialog" aria-modal="true" aria-labelledby="ws-dialog-title">
             <div class="ws-dialog-head" id="ws-dialog-icon">
-                <div><h3 id="ws-dialog-title">Connect</h3><div class="ws-small" id="ws-dialog-desc"></div></div>
+                <div><h3 id="ws-dialog-title" data-i18n="connect">Connect</h3><div class="ws-small" id="ws-dialog-desc"></div></div>
             </div>
             <div class="ws-dialog-body">
                 <div class="ws-field" id="ws-pwd-field">
-                    <label for="ws-pwd">Password</label>
+                    <label for="ws-pwd" data-i18n="password">Password</label>
                     <div class="ws-input-wrap">
                         <input type="password" id="ws-pwd" autocomplete="new-password">
-                        <button type="button" id="ws-pwd-eye" title="Show password"><i class="eye icon"></i></button>
+                        <button type="button" id="ws-pwd-eye" title="Show password" data-i18n-title="show_password"><i class="eye icon"></i></button>
                     </div>
                 </div>
                 <div class="ws-dialog-msg" id="ws-dialog-msg"></div>
             </div>
             <div class="ws-dialog-foot">
-                <button class="ws-btn" id="ws-dialog-cancel">Cancel</button>
-                <button class="ws-btn primary" id="ws-dialog-ok">Connect</button>
+                <button class="ws-btn" id="ws-dialog-cancel" data-i18n="cancel">Cancel</button>
+                <button class="ws-btn primary" id="ws-dialog-ok" data-i18n="connect">Connect</button>
             </div>
         </div>
     </div>
@@ -368,6 +368,43 @@ body.dark #ws-root {
     };
     var infoTimer = null;
 
+    /* ---------- locale (shared with WiFi Info: locale/system_settings/wifi.json) ---------- */
+    var STR = {};
+    var LANG = (function () {
+        var l = null;
+        try { l = localStorage.getItem('global_language'); } catch (e) {}
+        return (!l || l === 'default' ? navigator.language : l).toLowerCase();
+    }());
+    function T(key, fallback, vars) {
+        var s = STR['wifi/' + key];
+        if (s == null || s === '') s = fallback;
+        if (vars) Object.keys(vars).forEach(function (k) { s = s.split('{' + k + '}').join(vars[k]); });
+        return s;
+    }
+    function loadLocale() {
+        return fetch('../locale/system_settings/wifi.json', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { var k = d && d.keys && d.keys[LANG]; if (k && k.strings) STR = k.strings; })
+            .catch(function () {})
+            .then(function () {
+                Array.prototype.forEach.call(root.querySelectorAll('[data-i18n]'), function (el) {
+                    el.textContent = T(el.getAttribute('data-i18n'), el.textContent);
+                });
+                Array.prototype.forEach.call(root.querySelectorAll('[data-i18n-ph]'), function (el) {
+                    el.placeholder = T(el.getAttribute('data-i18n-ph'), el.placeholder);
+                });
+                Array.prototype.forEach.call(root.querySelectorAll('[data-i18n-title]'), function (el) {
+                    el.title = T(el.getAttribute('data-i18n-title'), el.title);
+                });
+            });
+    }
+    // Security names are shown translated, the raw value is kept for logic
+    function securityText(s) {
+        if (s === 'Open') return T('open', 'Open');
+        if (s === 'Secured') return T('secured', 'Secured');
+        return s;
+    }
+
     /* ---------- helpers ---------- */
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -386,7 +423,7 @@ body.dark #ws-root {
         }
         return fetch(url, opt).then(function (r) {
             return r.text().then(function (t) {
-                try { return JSON.parse(t); } catch (e) { return { error: r.ok ? 'Unexpected response' : 'HTTP ' + r.status, notFound: r.status === 404 }; }
+                try { return JSON.parse(t); } catch (e) { return { error: r.ok ? T('unexpected_response', 'Unexpected response') : 'HTTP ' + r.status, notFound: r.status === 404 }; }
             });
         });
     }
@@ -397,11 +434,11 @@ body.dark #ws-root {
         return -100;
     }
     function level(rssi) {
-        if (rssi >= -55) return { bars: 4, name: 'Excellent', color: 'var(--ws-good)' };
-        if (rssi >= -67) return { bars: 3, name: 'Good', color: 'var(--ws-ok)' };
-        if (rssi >= -75) return { bars: 2, name: 'Fair', color: 'var(--ws-fair)' };
-        if (rssi > -100) return { bars: 1, name: 'Weak', color: 'var(--ws-weak)' };
-        return { bars: 0, name: 'Unknown', color: 'var(--ws-off)' };
+        if (rssi >= -55) return { bars: 4, name: T('excellent', 'Excellent'), color: 'var(--ws-good)' };
+        if (rssi >= -67) return { bars: 3, name: T('good', 'Good'), color: 'var(--ws-ok)' };
+        if (rssi >= -75) return { bars: 2, name: T('fair', 'Fair'), color: 'var(--ws-fair)' };
+        if (rssi > -100) return { bars: 1, name: T('weak', 'Weak'), color: 'var(--ws-weak)' };
+        return { bars: 0, name: T('unknown', 'Unknown'), color: 'var(--ws-off)' };
     }
     function qualityOf(n) {
         if (n.QualityPercent >= 0) return n.QualityPercent;
@@ -478,7 +515,7 @@ body.dark #ws-root {
         var connIcon = $id('ws-conn-icon');
         if (!info || !cur) {
             connIcon.innerHTML = barsSVG(0, 'var(--ws-off)', 'bars');
-            $id('ws-conn-ssid').textContent = info ? 'No wireless interface' : 'Loading…';
+            $id('ws-conn-ssid').textContent = info ? T('no_iface_short', 'No wireless interface') : T('loading', 'Loading…');
             $id('ws-conn-sub').innerHTML = '&nbsp;';
             $id('ws-radio-name').textContent = '—';
             $id('ws-radio-sub').innerHTML = '&nbsp;';
@@ -490,18 +527,18 @@ body.dark #ws-root {
             var lv = level(cur.RSSI || (cur.SignalQuality >= 0 ? cur.SignalQuality / 2 - 100 : -100));
             $id('ws-conn').style.setProperty('--ws-lv', lv.color);
             connIcon.innerHTML = barsSVG(lv.bars, lv.color, 'bars');
-            $id('ws-conn-ssid').textContent = cur.SSID || 'Hidden network';
+            $id('ws-conn-ssid').textContent = cur.SSID || T('hidden', 'Hidden network');
             var sub = [];
             if (cur.RSSI) sub.push(cur.RSSI + ' dBm');
             if (cur.Band) sub.push(cur.Band + (cur.Channel ? ' · ch ' + cur.Channel : ''));
             if (cur.Generation || cur.PHYType) sub.push(cur.Generation || cur.PHYType);
             if (cur.RxRateMbps) sub.push(fmtRate(cur.RxRateMbps));
-            $id('ws-conn-sub').textContent = sub.join('  ·  ') || 'Connected';
+            $id('ws-conn-sub').textContent = sub.join('  ·  ') || T('connected', 'Connected');
         } else {
             $id('ws-conn').style.setProperty('--ws-lv', 'var(--ws-off)');
             connIcon.innerHTML = barsSVG(0, 'var(--ws-off)', 'bars');
-            $id('ws-conn-ssid').textContent = 'Not connected';
-            $id('ws-conn-sub').textContent = cur.State && cur.State !== 'disconnected' ? 'State: ' + cur.State : 'Choose a network below';
+            $id('ws-conn-ssid').textContent = T('not_connected', 'Not connected');
+            $id('ws-conn-sub').textContent = cur.State && cur.State !== 'disconnected' ? T('state_is', 'State: {s}', { s: cur.State }) : T('choose_below', 'Choose a network below');
         }
 
         // Interface name, or a selector when there are several
@@ -523,12 +560,12 @@ body.dark #ws-root {
         $id('ws-radio-sub').textContent = cur.Description || cur.MAC || '';
         var ctrl = $id('ws-radio-ctrl');
         if (info.CanControlPower && powerEntry && powerEntry.Controllable) {
-            ctrl.innerHTML = '<label class="ws-switch" title="Turn the wireless radio on or off"><input type="checkbox" id="ws-power"' +
+            ctrl.innerHTML = '<label class="ws-switch" title="' + esc(T('radio_toggle', 'Turn the wireless radio on or off')) + '"><input type="checkbox" id="ws-power"' +
                 (powerEntry.Running ? ' checked' : '') + '><span></span></label>';
         } else if (cur.HardwareRadio === 'off') {
-            ctrl.innerHTML = '<span class="ws-pill off" title="The radio is disabled by a hardware switch">Radio off (switch)</span>';
+            ctrl.innerHTML = '<span class="ws-pill off" title="' + esc(T('radio_hw_title', 'The radio is disabled by a hardware switch')) + '">' + esc(T('radio_off_switch', 'Radio off (switch)')) + '</span>';
         } else if (radioKnown || powerEntry) {
-            ctrl.innerHTML = '<span class="ws-pill ' + (radioOn ? 'on' : 'off') + '">Radio ' + (radioOn ? 'on' : 'off') + '</span>';
+            ctrl.innerHTML = '<span class="ws-pill ' + (radioOn ? 'on' : 'off') + '">' + esc(radioOn ? T('radio_on', 'Radio on') : T('radio_off', 'Radio off')) + '</span>';
         } else {
             ctrl.innerHTML = '';
         }
@@ -539,8 +576,9 @@ body.dark #ws-root {
         if (msg) {
             html = '<div class="ws-notice' + (isError ? ' error' : '') + '"><i class="' + (isError ? 'exclamation triangle' : 'info circle') + ' icon"></i><div>' + msg + '</div></div>';
         } else if (state.info && !state.info.CanConnect) {
-            html = '<div class="ws-notice"><i class="info circle icon"></i><div>Connecting to networks from ArozOS is not supported on this platform' +
-                (state.info.Platform ? ' (' + esc(state.info.Platform) + ')' : '') + '. Nearby networks are shown read-only; use the operating system to change the connection.</div></div>';
+            html = '<div class="ws-notice"><i class="info circle icon"></i><div>' +
+                esc(T('not_supported', 'Connecting to networks from ArozOS is not supported on this platform{platform}. Nearby networks are shown read-only; use the operating system to change the connection.',
+                    { platform: state.info.Platform ? ' (' + state.info.Platform + ')' : '' })) + '</div></div>';
         }
         $id('ws-notice').innerHTML = html;
     }
@@ -556,7 +594,7 @@ body.dark #ws-root {
     function renderBandFilters() {
         var bands = presentBands();
         if (state.band !== 'all' && !bands.some(function (b) { return b.band === state.band; })) state.band = 'all';
-        var html = '<button data-band="all" class="' + (state.band === 'all' ? 'active' : '') + '">All</button>';
+        var html = '<button data-band="all" class="' + (state.band === 'all' ? 'active' : '') + '">' + esc(T('all', 'All')) + '</button>';
         bands.forEach(function (b) {
             html += '<button data-band="' + b.band + '" class="' + (state.band === b.band ? 'active' : '') + '">' + b.band + '</button>';
         });
@@ -618,32 +656,32 @@ body.dark #ws-root {
 
     function detailHTML(n) {
         var e = esc;
-        var chan = n.Channel ? e(n.Channel) + (n.CenterChannel ? ' (center ' + e(n.CenterChannel) + ')' : '') : '';
+        var chan = n.Channel ? e(n.Channel) + (n.CenterChannel ? ' ' + e(T('center_n', '(center {n})', { n: n.CenterChannel })) : '') : '';
         return '<div class="ws-detail-grid">' +
-            detailItem('SSID', n.Hidden ? '<i>Hidden network</i>' : e(n.ESSID)) +
-            detailItem('BSSID', '<span class="ws-mono">' + e(n.Address) + '</span>') +
-            detailItem('Signal', n.SignalDBm ? e(n.SignalDBm) + ' dBm' : e(n.SignalLevel)) +
-            detailItem('Link quality', n.QualityPercent >= 0 ? e(n.QualityPercent) + ' %' : '') +
-            detailItem('Band', e(bandOf(n))) +
-            detailItem('Channel', chan) +
-            detailItem('Frequency', n.FrequencyMHz ? e(n.FrequencyMHz) + ' MHz' : e(n.Frequency)) +
-            detailItem('Channel width', n.ChannelWidth ? e(n.ChannelWidth) + ' MHz' : '') +
-            detailItem('Standard', e([n.Generation, n.PHYType].filter(Boolean).join(' · '))) +
-            detailItem('Spatial streams', n.SpatialStreams ? e(n.SpatialStreams) : '') +
-            detailItem('Max PHY rate', n.MaxRateMbps ? e(fmtRate(n.MaxRateMbps)) + ' <span class="ws-small">(est.)</span>' : '') +
-            detailItem('Security', e(securityOf(n))) +
-            detailItem('Cipher', e(n.Cipher)) +
-            detailItem('Protected mgmt. frames', e(n.PMF)) +
-            detailItem('WPS', n.WPS ? 'Enabled' : '') +
-            detailItem('Fast roaming', e((n.Roaming || []).join(', '))) +
-            detailItem('Country', e(n.Country)) +
-            detailItem('Beacon interval', n.BeaconInterval ? e(n.BeaconInterval) + ' TU (' + (n.BeaconInterval * 1.024).toFixed(1) + ' ms)' : '') +
-            detailItem('AP uptime', e(fmtUptime(n.UptimeSeconds))) +
-            detailItem('Clients', n.StationCount != null ? e(n.StationCount) : '') +
-            detailItem('Channel busy', n.ChannelUtilization != null ? e(n.ChannelUtilization) + ' %' : '') +
-            detailItem('Network type', e(n.BSSType)) +
-            detailItem('Saved profile', n.ConnectedBefore ? 'Yes' : '') +
-            detailItem('Supported rates (Mbps)', tagList(n.SupportedRates, n.BasicRates), true) +
+            detailItem('SSID', n.Hidden ? '<i>' + e(T('hidden', 'Hidden network')) + '</i>' : e(n.ESSID)) +
+            detailItem(T('bssid', 'BSSID'), '<span class="ws-mono">' + e(n.Address) + '</span>') +
+            detailItem(T('signal', 'Signal'), n.SignalDBm ? e(n.SignalDBm) + ' dBm' : e(n.SignalLevel)) +
+            detailItem(T('link_quality', 'Link quality'), n.QualityPercent >= 0 ? e(n.QualityPercent) + ' %' : '') +
+            detailItem(T('band', 'Band'), e(bandOf(n))) +
+            detailItem(T('channel', 'Channel'), chan) +
+            detailItem(T('frequency', 'Frequency'), n.FrequencyMHz ? e(n.FrequencyMHz) + ' MHz' : e(n.Frequency)) +
+            detailItem(T('channel_width', 'Channel width'), n.ChannelWidth ? e(n.ChannelWidth) + ' MHz' : '') +
+            detailItem(T('standard', 'Standard'), e([n.Generation, n.PHYType].filter(Boolean).join(' · '))) +
+            detailItem(T('streams', 'Spatial streams'), n.SpatialStreams ? e(n.SpatialStreams) : '') +
+            detailItem(T('max_phy', 'Max PHY rate'), n.MaxRateMbps ? e(fmtRate(n.MaxRateMbps)) + ' <span class="ws-small">' + e(T('estimated', '(est.)')) + '</span>' : '') +
+            detailItem(T('security', 'Security'), e(securityText(securityOf(n)))) +
+            detailItem(T('cipher', 'Cipher'), e(n.Cipher)) +
+            detailItem(T('pmf_short', 'Protected mgmt. frames'), e(n.PMF)) +
+            detailItem('WPS', n.WPS ? e(T('enabled', 'Enabled')) : '') +
+            detailItem(T('fast_roaming', 'Fast roaming'), e((n.Roaming || []).join(', '))) +
+            detailItem(T('country', 'Country'), e(n.Country)) +
+            detailItem(T('beacon_interval', 'Beacon interval'), n.BeaconInterval ? e(n.BeaconInterval) + ' TU (' + (n.BeaconInterval * 1.024).toFixed(1) + ' ms)' : '') +
+            detailItem(T('ap_uptime', 'AP uptime'), e(fmtUptime(n.UptimeSeconds))) +
+            detailItem(T('clients', 'Clients'), n.StationCount != null ? e(n.StationCount) : '') +
+            detailItem(T('channel_busy', 'Channel busy'), n.ChannelUtilization != null ? e(n.ChannelUtilization) + ' %' : '') +
+            detailItem(T('network_type', 'Network type'), e(n.BSSType)) +
+            detailItem(T('saved_profile', 'Saved profile'), n.ConnectedBefore ? e(T('yes', 'Yes')) : '') +
+            detailItem(T('supported_rates', 'Supported rates (Mbps)'), tagList(n.SupportedRates, n.BasicRates), true) +
             '</div>';
     }
 
@@ -652,15 +690,15 @@ body.dark #ws-root {
         var nets = visibleNetworks();
         var canConnect = state.info && state.info.CanConnect;
         $id('ws-count').textContent = state.networks.length
-            ? (nets.length === state.networks.length ? nets.length + ' access points' : nets.length + ' of ' + state.networks.length + ' access points')
+            ? (nets.length === state.networks.length ? T('ap_count', '{n} access points', { n: nets.length }) : T('ap_count_of', '{n} of {total} access points', { n: nets.length, total: state.networks.length }))
             : '';
 
         if (!state.networks.length) {
-            if (!state.scanning) listEl.innerHTML = '<div class="ws-state"><i class="big wifi icon" style="opacity:.35"></i>No access points found.</div>';
+            if (!state.scanning) listEl.innerHTML = '<div class="ws-state"><i class="big wifi icon" style="opacity:.35"></i>' + esc(T('no_aps', 'No access points found.')) + '</div>';
             return;
         }
         if (!nets.length) {
-            listEl.innerHTML = '<div class="ws-state">No access points match the filter.</div>';
+            listEl.innerHTML = '<div class="ws-state">' + esc(T('no_match', 'No access points match the filter.')) + '</div>';
             return;
         }
 
@@ -671,8 +709,8 @@ body.dark #ws-root {
         }
         var cols = canConnect ? 7 : 6;
         var html = '<table class="ws-table"><thead><tr>' +
-            th('name', 'Network') + th('signal', 'Signal') + th('channel', 'Channel') +
-            th('std', 'Standard', 'ws-col-std') + th('sec', 'Security', 'ws-col-sec') + th('bssid', 'BSSID', 'ws-col-bssid') +
+            th('name', esc(T('network', 'Network'))) + th('signal', esc(T('signal', 'Signal'))) + th('channel', esc(T('channel', 'Channel'))) +
+            th('std', esc(T('standard', 'Standard')), 'ws-col-std') + th('sec', esc(T('security', 'Security')), 'ws-col-sec') + th('bssid', esc(T('bssid', 'BSSID')), 'ws-col-bssid') +
             (canConnect ? '<th class="nosort"></th>' : '') + '</tr></thead><tbody>';
 
         nets.forEach(function (n) {
@@ -680,28 +718,28 @@ body.dark #ws-root {
             var connected = isConnected(n);
             var open = !!state.open[n.Address];
             var badges = '';
-            if (connected) badges += '<span class="ws-pill on">Connected</span>';
-            if (n.ConnectedBefore && !connected) badges += '<span class="ws-pill accent">Saved</span>';
+            if (connected) badges += '<span class="ws-pill on">' + esc(T('connected', 'Connected')) + '</span>';
+            if (n.ConnectedBefore && !connected) badges += '<span class="ws-pill accent">' + esc(T('saved', 'Saved')) + '</span>';
             var sub = [bandOf(n), n.Generation].filter(Boolean).join(' · ');
             var sec = securityOf(n);
 
             var actions = '';
             if (canConnect) {
                 if (connected) actions = '<span class="ws-small"><i class="check icon"></i></span>';
-                else if (!n.Hidden) actions = '<button class="ws-link" data-act="connect">Connect</button>';
-                if (n.ConnectedBefore && !n.Hidden) actions += '<button class="ws-link danger" data-act="forget">Forget</button>';
+                else if (!n.Hidden) actions = '<button class="ws-link" data-act="connect">' + esc(T('connect', 'Connect')) + '</button>';
+                if (n.ConnectedBefore && !n.Hidden) actions += '<button class="ws-link danger" data-act="forget">' + esc(T('forget', 'Forget')) + '</button>';
             }
 
             html += '<tr class="row' + (open ? ' open' : '') + (state.hover === n.Address ? ' hover' : '') + '" data-bssid="' + esc(n.Address) + '">' +
                 '<td><div class="ws-net"><span class="ws-swatch" style="background:' + colorFor(n) + '"></span>' + barsSVG(lv.bars, lv.color) +
                     '<div style="min-width:0"><div class="ws-net-name' + (n.Hidden ? ' hidden-ssid' : '') + '" title="' + esc(n.ESSID) + '">' +
-                    (n.Hidden ? 'Hidden network' : esc(n.ESSID)) + '</div>' +
+                    (n.Hidden ? esc(T('hidden', 'Hidden network')) : esc(n.ESSID)) + '</div>' +
                     '<div class="ws-net-sub">' + esc(sub) + badges + '</div></div></div></td>' +
                 '<td><div class="ws-sig"><b>' + (n.SignalDBm ? esc(n.SignalDBm) + ' dBm' : esc(n.SignalLevel || '—')) + '</b>' +
                     '<div class="ws-sig-bar" title="' + esc(lv.name) + ' · ' + esc(q) + '%"><span style="width:' + q + '%;background:' + lv.color + '"></span></div></div></td>' +
                 '<td><div>' + (n.Channel ? esc(n.Channel) : '—') + '</div><div class="ws-small">' + (n.ChannelWidth ? esc(n.ChannelWidth) + ' MHz' : esc(n.Frequency || '')) + '</div></td>' +
                 '<td class="ws-col-std"><div>' + esc(n.Generation || n.PHYType || '—') + '</div><div class="ws-small">' + (n.Generation ? esc(n.PHYType) : '') + '</div></td>' +
-                '<td class="ws-col-sec"><span class="ws-sec' + (sec === 'Open' ? ' open-net' : '') + '"><i class="' + (sec === 'Open' ? 'unlock' : 'lock') + ' icon"></i>' + esc(sec) + '</span>' +
+                '<td class="ws-col-sec"><span class="ws-sec' + (sec === 'Open' ? ' open-net' : '') + '"><i class="' + (sec === 'Open' ? 'unlock' : 'lock') + ' icon"></i>' + esc(securityText(sec)) + '</span>' +
                     (n.Cipher ? '<div class="ws-small">' + esc(n.Cipher) + '</div>' : '') + '</td>' +
                 '<td class="ws-col-bssid ws-mono">' + esc(n.Address) + '</td>' +
                 (canConnect ? '<td class="ws-actions">' + actions + '</td>' : '') +
@@ -725,7 +763,7 @@ body.dark #ws-root {
         var axis = BAND_AXIS[band];
         var nets = state.networks.filter(function (n) { return bandOf(n) === band; });
         if (!axis || !nets.length) {
-            chart.innerHTML = '<div class="ws-chart-empty">' + (state.scanning ? 'Scanning…' : 'No access points to chart.') + '</div>';
+            chart.innerHTML = '<div class="ws-chart-empty">' + esc(state.scanning ? T('scanning', 'Scanning…') : T('nothing_to_chart', 'No access points to chart.')) + '</div>';
             return;
         }
         var W = Math.max(320, chart.clientWidth - 24), H = 250;
@@ -753,7 +791,7 @@ body.dark #ws-root {
             }
         });
         svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + (padT + plotH) + '" y2="' + (padT + plotH) + '"/>';
-        svg += '<text class="axis-title" x="' + (padL + plotW / 2) + '" y="' + (H - 2) + '" text-anchor="middle">Channel</text>';
+        svg += '<text class="axis-title" x="' + (padL + plotW / 2) + '" y="' + (H - 2) + '" text-anchor="middle">' + esc(T('channel', 'Channel')) + '</text>';
 
         // Labels are placed strongest first; a label that would overlap one
         // already placed moves inside its shape, or is left out (the tooltip
@@ -762,7 +800,7 @@ body.dark #ws-root {
         var labelPos = {};
         nets.slice().sort(function (a, b) { return rssiOf(b) - rssiOf(a); }).forEach(function (n) {
             var g = geometry(n);
-            var text = n.Hidden ? '(hidden)' : n.ESSID;
+            var text = n.Hidden ? T('hidden_short', '(hidden)') : n.ESSID;
             var maxChars = Math.max(4, Math.floor((g.x1 - g.x0) / 6.2) + 6);
             if (text.length > maxChars) text = text.slice(0, maxChars - 1) + '…';
             var w = text.length * 6.4 + 4;
@@ -834,8 +872,8 @@ body.dark #ws-root {
         renderChart();
         renderList();
         var meta = [];
-        if (state.scanning) meta.push('Scanning…');
-        else if (state.scannedAt) meta.push('Scanned ' + state.scannedAt.toLocaleTimeString());
+        if (state.scanning) meta.push(T('scanning', 'Scanning…'));
+        else if (state.scannedAt) meta.push(T('scanned_at', 'Scanned {time}', { time: state.scannedAt.toLocaleTimeString() }));
         $id('ws-meta').textContent = meta.join(' ');
     }
 
@@ -844,7 +882,7 @@ body.dark #ws-root {
         return api('../../system/network/wifiinfo').then(function (data) {
             if (!alive()) return;
             if (data.error !== undefined) {
-                renderNotice('Unable to read the interface state: ' + esc(data.error), true);
+                renderNotice(esc(T('state_failed', 'Unable to read the interface state: {e}', { e: data.error })), true);
                 return;
             }
             state.info = data;
@@ -868,8 +906,8 @@ body.dark #ws-root {
         state.scanning = true;
         var btn = $id('ws-rescan');
         btn.disabled = true;
-        btn.innerHTML = '<i class="circle notch loading icon"></i> Scanning';
-        if (!state.networks.length) $id('ws-list').innerHTML = '<div class="ws-state"><i class="big circle notch loading icon"></i>Scanning nearby access points&hellip;</div>';
+        btn.innerHTML = '<i class="circle notch loading icon"></i> ' + esc(T('scanning_btn', 'Scanning'));
+        if (!state.networks.length) $id('ws-list').innerHTML = '<div class="ws-state"><i class="big circle notch loading icon"></i>' + esc(T('scanning_nearby', 'Scanning nearby access points…')) + '</div>';
         renderAll();
         var url = '../../system/network/scanWifi' + (state.iface ? '?interface=' + encodeURIComponent(state.iface) : '');
         api(url).then(function (data) {
@@ -883,8 +921,8 @@ body.dark #ws-root {
                     return;
                 }
                 state.retries = 0;
-                renderNotice('WiFi scan failed: ' + esc(data.error), true);
-                if (!state.networks.length) $id('ws-list').innerHTML = '<div class="ws-state"><i class="big exclamation triangle icon" style="opacity:.4"></i>WiFi scanning failed.</div>';
+                renderNotice(esc(T('scan_failed', 'WiFi scan failed: {e}', { e: data.error })), true);
+                if (!state.networks.length) $id('ws-list').innerHTML = '<div class="ws-state"><i class="big exclamation triangle icon" style="opacity:.4"></i>' + esc(T('scan_failed_short', 'WiFi scanning failed.')) + '</div>';
             } else {
                 state.retries = 0;
                 state.networks = Array.isArray(data) ? data : [];
@@ -893,12 +931,12 @@ body.dark #ws-root {
             }
         }).catch(function (e) {
             state.scanning = false;
-            renderNotice('WiFi scan failed: ' + esc(e.message || e), true);
+            renderNotice(esc(T('scan_failed', 'WiFi scan failed: {e}', { e: e.message || e })), true);
         }).then(function () {
             if (!alive()) return;
             if (!state.scanning) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="sync alternate icon"></i> Rescan';
+                btn.innerHTML = '<i class="sync alternate icon"></i> ' + esc(T('rescan', 'Rescan'));
             }
             renderAll();
         });
@@ -917,14 +955,14 @@ body.dark #ws-root {
         dialogNet = n;
         var lv = level(rssiOf(n));
         $id('ws-dialog-icon').innerHTML = barsSVG(lv.bars, lv.color, '') +
-            '<div><h3 id="ws-dialog-title">' + esc(n.ESSID) + '</h3><div class="ws-small">' + esc([securityOf(n), bandOf(n), n.SignalDBm ? n.SignalDBm + ' dBm' : ''].filter(Boolean).join(' · ')) + '</div></div>';
+            '<div><h3 id="ws-dialog-title">' + esc(n.ESSID) + '</h3><div class="ws-small">' + esc([securityText(securityOf(n)), bandOf(n), n.SignalDBm ? n.SignalDBm + ' dBm' : ''].filter(Boolean).join(' · ')) + '</div></div>';
         var needsPwd = securityOf(n) !== 'Open';
         $id('ws-pwd-field').style.display = needsPwd ? '' : 'none';
         $id('ws-pwd').value = '';
         $id('ws-pwd').type = 'password';
         $id('ws-dialog-msg').textContent = '';
         $id('ws-dialog-ok').disabled = false;
-        $id('ws-dialog-ok').textContent = 'Connect';
+        $id('ws-dialog-ok').textContent = T('connect', 'Connect');
         $id('ws-dialog').classList.add('show');
         setTimeout(function () { (needsPwd ? $id('ws-pwd') : $id('ws-dialog-ok')).focus(); }, 30);
     }
@@ -934,7 +972,7 @@ body.dark #ws-root {
         api('../../system/network/connectWifi', params).then(function (data) {
             if (data.error !== undefined) { onDone(data.error); return; }
             onDone(null, data);
-            toast(data.ConnectedSSID ? 'Connected to ' + data.ConnectedSSID : 'Connection request sent');
+            toast(data.ConnectedSSID ? T('connected_to', 'Connected to {ssid}', { ssid: data.ConnectedSSID }) : T('request_sent', 'Connection request sent'));
             loadInfo().then(scan);
         }).catch(function (e) { onDone(e.message || String(e)); });
     }
@@ -944,12 +982,12 @@ body.dark #ws-root {
         var n = dialogNet;
         var btn = $id('ws-dialog-ok');
         btn.disabled = true;
-        btn.innerHTML = '<i class="circle notch loading icon"></i> Connecting';
+        btn.innerHTML = '<i class="circle notch loading icon"></i> ' + esc(T('connecting', 'Connecting'));
         $id('ws-dialog-msg').textContent = '';
         connect(n, { ESSID: n.ESSID, pwd: $id('ws-pwd').value }, function (err) {
             if (err) {
                 btn.disabled = false;
-                btn.textContent = 'Connect';
+                btn.textContent = T('connect', 'Connect');
                 $id('ws-dialog-msg').textContent = err;
                 return;
             }
@@ -961,15 +999,15 @@ body.dark #ws-root {
         button.disabled = true;
         button.innerHTML = '<i class="circle notch loading icon"></i>';
         connect(n, { ESSID: n.ESSID, ConnType: 'switch' }, function (err) {
-            if (err) { toast('Connect failed: ' + err); renderList(); }
+            if (err) { toast(T('connect_failed', 'Connect failed: {e}', { e: err })); renderList(); }
         });
     }
 
     function forget(n) {
-        if (!window.confirm('Forget the saved network "' + n.ESSID + '"?')) return;
+        if (!window.confirm(T('forget_confirm', 'Forget the saved network "{ssid}"?', { ssid: n.ESSID }))) return;
         api('../../system/network/removeWifi', { ESSID: n.ESSID }).then(function (data) {
-            if (data.error !== undefined) { toast('Unable to forget network: ' + data.error); return; }
-            toast('Forgot ' + n.ESSID);
+            if (data.error !== undefined) { toast(T('forget_failed', 'Unable to forget network: {e}', { e: data.error })); return; }
+            toast(T('forgot', 'Forgot {ssid}', { ssid: n.ESSID }));
             scan();
         });
     }
@@ -978,8 +1016,8 @@ body.dark #ws-root {
         var cur = currentInterface();
         if (!cur) return;
         api('../../system/network/power', { status: on ? 'on' : 'off', interface: cur.Name }).then(function (data) {
-            if (data.error !== undefined) toast('Unable to change radio state: ' + data.error);
-            else toast('Wireless radio turned ' + (on ? 'on' : 'off'));
+            if (data.error !== undefined) toast(T('radio_failed', 'Unable to change radio state: {e}', { e: data.error }));
+            else toast(on ? T('radio_turned_on', 'Wireless radio turned on') : T('radio_turned_off', 'Wireless radio turned off'));
             return Promise.all([loadPower(), loadInfo()]);
         }).then(renderHeader);
     }
@@ -1062,7 +1100,7 @@ body.dark #ws-root {
         var g = ev.target.closest('.ap');
         var n = g && findNetwork(g.getAttribute('data-bssid'));
         if (!n) { tip.style.display = 'none'; return; }
-        tip.innerHTML = '<b>' + esc(n.Hidden ? 'Hidden network' : n.ESSID) + '</b>' +
+        tip.innerHTML = '<b>' + esc(n.Hidden ? T('hidden', 'Hidden network') : n.ESSID) + '</b>' +
             esc([n.SignalDBm ? n.SignalDBm + ' dBm' : '', 'ch ' + n.Channel + (n.ChannelWidth ? ' / ' + n.ChannelWidth + ' MHz' : ''), n.Generation || n.PHYType].filter(Boolean).join(' · ')) +
             '<div class="ws-mono">' + esc(n.Address) + '</div>';
         var box = this.getBoundingClientRect();
@@ -1085,12 +1123,14 @@ body.dark #ws-root {
     }
 
     /* ---------- start ---------- */
-    renderHeader();
-    Promise.all([loadInfo(), loadPower()]).then(function () {
+    loadLocale().then(function () {
+        renderHeader();
+        return Promise.all([loadInfo(), loadPower()]);
+    }).then(function () {
         renderAll();
         if (state.info && !(state.info.Interfaces || []).length) {
-            renderNotice('No wireless interface was found on this host. Plug in or enable a WiFi adapter, then press Rescan.', true);
-            $id('ws-list').innerHTML = '<div class="ws-state"><i class="big wifi icon" style="opacity:.35"></i>No wireless interface.</div>';
+            renderNotice(esc(T('no_iface_notice', 'No wireless interface was found on this host. Plug in or enable a WiFi adapter, then press Rescan.')), true);
+            $id('ws-list').innerHTML = '<div class="ws-state"><i class="big wifi icon" style="opacity:.35"></i>' + esc(T('no_iface_list', 'No wireless interface.')) + '</div>';
         } else {
             scan();
         }

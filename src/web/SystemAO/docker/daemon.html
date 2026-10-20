@@ -1,23 +1,18 @@
 <style>
 #dkd-root {
-    --dk-bg: #ffffff; --dk-border: #e5e5e5; --dk-text: #1f1f1f; --dk-dim: #676767;
-    --dk-soft: #f5f5f5; --dk-soft2: #efefef; --dk-accent: #2b6cb0; --dk-accent-text:#fff;
-    --dk-ok: #107c10; --dk-warn: #b7791f; --dk-danger: #c42b1c;
-    --dk-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    background: var(--dk-bg); border: 1px solid var(--dk-border); border-radius: 12px;
-    box-shadow: var(--dk-shadow); color: var(--dk-text); padding: 16px; margin-bottom: 4px;
+    --dk-bg: var(--ss-surface); --dk-border: var(--ss-border); --dk-text: var(--ss-text); --dk-dim: var(--ss-text-3);
+    --dk-soft: var(--ss-surface); --dk-soft2: var(--ss-surface-2); --dk-accent: var(--ss-accent); --dk-accent-text:#ffffff;
+    --dk-ok: var(--ss-success); --dk-warn: var(--ss-warning); --dk-danger: var(--ss-danger);
+    --dk-shadow: none;
+    color: var(--dk-text);
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px;
-}
-body.dark #dkd-root {
-    --dk-bg:#2b2b2b; --dk-border:#3b3b3b; --dk-text:#ececec; --dk-dim:#aaaaaa;
-    --dk-soft:#343434; --dk-soft2:#3c3c3c; --dk-accent:#4a90d9; --dk-ok:#2ecc71;
-    --dk-warn:#e0a838; --dk-danger:#ff6b5e; --dk-shadow:0 8px 22px rgba(0,0,0,0.3);
 }
 #dkd-root * { box-sizing: border-box; }
 .dkd-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-.dkd-title { font-size:17px; font-weight:600; }
+/* The System Settings header already shows the page title */
+.dkd-title { display:none; }
 .dkd-sub { font-size:12px; color:var(--dk-dim); margin-top:2px; }
-.dkd-card { border:1px solid var(--dk-border); border-radius:10px; background:var(--dk-soft); padding:14px; margin-bottom:12px; }
+.dkd-card { border:1px solid var(--dk-border); border-radius:var(--ss-radius); background:var(--dk-soft); padding:14px 16px; margin-bottom:14px; }
 .dkd-card-title { font-size:13.5px; font-weight:600; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
 .dkd-card-desc { font-size:11.5px; color:var(--dk-dim); margin-bottom:12px; line-height:1.5; }
 .dkd-grid { display:grid; grid-template-columns: repeat(2, minmax(120px,1fr)); gap:8px; margin-bottom:14px; }

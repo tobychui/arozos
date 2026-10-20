@@ -71,10 +71,19 @@ func (v *Viewer) HandleReadLog(w http.ResponseWriter, r *http.Request) {
 	Log Access Functions
 */
 
+// isCategoryLog reports whether path is a log the viewer can open: a file
+// directly inside a category folder of root (root/<catergory>/<file>).
+// Logs written straight into root by older versions, or nested deeper, are
+// skipped because LoadLogFile could never find them.
+func isCategoryLog(root string, path string) bool {
+	catergoryDir := filepath.Dir(path)
+	return filepath.Clean(filepath.Dir(catergoryDir)) == filepath.Clean(root)
+}
+
 func (v *Viewer) ListLogFiles(showFullpath bool) map[string][]*LogFile {
 	result := map[string][]*LogFile{}
 	filepath.WalkDir(v.option.RootFolder, func(path string, di fs.DirEntry, err error) error {
-		if filepath.Ext(path) == v.option.Extension {
+		if filepath.Ext(path) == v.option.Extension && isCategoryLog(v.option.RootFolder, path) {
 			catergory := filepath.Base(filepath.Dir(path))
 			logList, ok := result[catergory]
 			if !ok {

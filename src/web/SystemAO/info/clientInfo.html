@@ -4,48 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title locale="clientinfo/client-information-title">Client Information</title>
-    <script src="../../script/jquery.min.js"></script>
     <script src="/SystemAO/info/js/ua-parser.min.js"></script>
-    <script type="text/javascript" src="../../script/applocale.js"></script>
     <style>
-/* ─── Scoped to #ci-root to avoid conflicts with parent page CSS ─── */
+/* ─── Scoped to #ci-root. Colours come from the System Settings tokens ─── */
 #ci-root {
-    --ci-text:        #1d1d1f;
-    --ci-dim:         #6e6e73;
-    --ci-muted:       #98989d;
-    --ci-divider:     #d2d2d7;
-    --ci-hover:       rgba(0,0,0,0.045);
-    --ci-active:      rgba(0,0,0,0.09);
-    --ci-accent:      #0071e3;
-    --ci-soft:        #f5f5f7;
-    --ci-bg:          #f3f3f3;
-    --ci-card-bg:     #f5f5f7;
-    --ci-card-border: #e5e5ea;
-    --ci-shadow:      rgba(0,0,0,0.10);
-    --ci-nav-strip:   rgba(0,0,0,0.022);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    font-size: 14px;
-    -webkit-font-smoothing: antialiased;
+    --ci-text:        var(--ss-text, #1c1c1a);
+    --ci-dim:         var(--ss-text-2, #62625d);
+    --ci-muted:       var(--ss-muted, #95958f);
+    --ci-divider:     var(--ss-border, #ebebea);
+    --ci-hover:       var(--ss-hover, rgba(0,0,0,0.045));
+    --ci-active:      var(--ss-surface, #ffffff);
+    --ci-accent:      var(--ss-link, #1f74bf);
+    --ci-card-bg:     var(--ss-surface, #ffffff);
+    --ci-card-border: var(--ss-border, #ebebea);
+    --ci-nav-strip:   var(--ss-surface-2, #f3f3f1);
+    font-size: 13px;
     color: var(--ci-text);
-    background: var(--ci-bg);
-    border-radius: 0.6em;
-    padding: 20px;
-}
-
-#ci-root.dark {
-    --ci-text:        #f0f0f0;
-    --ci-dim:         #a0a0a5;
-    --ci-muted:       #636368;
-    --ci-divider:     #3a3a3c;
-    --ci-hover:       rgba(255,255,255,0.06);
-    --ci-active:      rgba(255,255,255,0.12);
-    --ci-accent:      #2997ff;
-    --ci-soft:        #1c1c1e;
-    --ci-bg:          #1f1f1f;
-    --ci-card-bg:     #3a3a3c;
-    --ci-card-border: #48484a;
-    --ci-shadow:      rgba(0,0,0,0.45);
-    --ci-nav-strip:   rgba(255,255,255,0.03);
 }
 
 /* Hero */
@@ -53,110 +27,103 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 30px 16px 18px;
+    padding: 8px 16px 20px;
 }
 #ci-browser-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 18px;
-    margin-bottom: 14px;
-    background: var(--ci-card-bg);
-    border: 1px solid var(--ci-card-border);
+    width: 56px;
+    height: 56px;
+    border-radius: 13px;
+    margin-bottom: 15px;
+    background: var(--tone-teal-bg);
+    color: var(--tone-teal-fg);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 14px var(--ci-shadow);
     user-select: none;
-    overflow: hidden;
-    padding: 10px;
-    box-sizing: border-box;
 }
-#ci-browser-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-}
+#ci-browser-icon svg { width: 26px; height: 26px; display: block; }
 #ci-hero-title {
-    font-size: 20px;
+    font-size: 15px;
+    line-height: 20px;
     font-weight: 700;
-    letter-spacing: -0.3px;
     color: var(--ci-text);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     text-align: center;
 }
 #ci-hero-sub {
-    font-size: 12px;
-    color: var(--ci-dim);
+    font-size: 11.5px;
+    color: var(--ss-text-3, #6f6f6a);
     text-align: center;
     max-width: 340px;
-    line-height: 1.5;
+    line-height: 16px;
 }
 
 /* Section labels */
 .ci-section-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ci-muted);
-    padding: 0 16px;
-    margin: 18px 0 6px;
+    line-height: 16px;
+    color: var(--ci-dim);
+    padding: 0 2px;
+    margin: 0 0 7px;
 }
+.ci-list + .ci-section-label { margin-top: 18px; }
 
 /* Info list */
 .ci-list {
-    border: 1px solid var(--ci-divider);
-    border-radius: 10px;
+    border: 1px solid var(--ci-card-border);
+    border-radius: var(--ss-radius, 10px);
     overflow: hidden;
-    margin: 0 12px 6px;
-    background: var(--ci-bg);
+    background: var(--ci-card-bg);
 }
 .ci-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 14px;
+    min-height: 37px;
+    padding: 8px 14px;
     border-bottom: 1px solid var(--ci-divider);
-    gap: 12px;
+    gap: 16px;
 }
 .ci-row:last-child { border-bottom: none; }
 .ci-row-label {
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--ci-text);
     white-space: nowrap;
     flex-shrink: 0;
 }
 .ci-row-value {
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--ci-dim);
     text-align: right;
-    word-break: break-all;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .ci-row-value.mono {
-    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-family: var(--ss-mono, Consolas, monospace);
     font-size: 11px;
-    color: var(--ci-muted);
+    color: var(--ci-dim);
+    text-align: left;
+    flex: 1;
 }
+.ci-row-value.mono + * { display: none; }
 
 /* Status badges */
 .ci-badge {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    padding: 2px 9px;
-    border-radius: 20px;
-    font-weight: 500;
+    height: 19px;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
 }
-.ci-badge.green { background: rgba(52,199,89,0.13);  color: #248a3d; }
-.ci-badge.red   { background: rgba(255,59,48,0.13);  color: #c0392b; }
-.ci-badge.blue  { background: rgba(0,113,227,0.11);  color: #0071e3; }
-.ci-badge.gray  { background: rgba(150,150,150,0.11);color: var(--ci-dim); }
-#ci-root.dark .ci-badge.green { color: #30d158; }
-#ci-root.dark .ci-badge.red   { color: #ff453a; }
-#ci-root.dark .ci-badge.blue  { color: #2997ff; }
+.ci-badge.green { background: var(--ss-success-soft); color: var(--ss-success); }
+.ci-badge.red   { background: var(--ss-danger-soft);  color: var(--ss-danger); }
+.ci-badge.blue  { background: var(--ss-accent-soft);  color: var(--ss-accent-text); }
+.ci-badge.gray  { background: var(--ss-surface-3);   color: var(--ci-dim); }
 
 /* Show More button */
 #ci-more-btn {
@@ -164,17 +131,18 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin: 10px 12px 4px;
-    padding: 9px 14px;
+    margin: 12px 0 0;
+    height: 34px;
+    padding: 0 14px;
     background: var(--ci-card-bg);
     border: 1px solid var(--ci-card-border);
-    border-radius: 10px;
+    border-radius: var(--ss-radius, 10px);
     color: var(--ci-accent);
-    font-size: 13px;
+    font-size: 12.5px;
     font-family: inherit;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    width: calc(100% - 24px);
+    width: 100%;
     box-sizing: border-box;
     transition: background 0.12s;
     outline: none;
@@ -197,44 +165,45 @@
 /* Developer panel */
 #ci-dev-panel {
     display: none;
-    margin: 0 12px 16px;
-    border: 1px solid var(--ci-divider);
-    border-radius: 10px;
+    margin: 12px 0 0;
+    border: 1px solid var(--ci-card-border);
+    border-radius: var(--ss-radius, 10px);
+    background: var(--ci-card-bg);
     overflow: hidden;
-    min-height: 500px;
+    min-height: 420px;
 }
 #ci-dev-panel.open { display: flex; }
 
 /* Left nav */
 #ci-dev-nav {
-    width: 148px;
-    min-width: 148px;
-    padding: 10px 6px;
-    border-right: 1px solid var(--ci-divider);
+    width: 165px;
+    min-width: 165px;
+    padding: 7px;
+    border-right: 1px solid var(--ss-divider, #e0e0dd);
     background: var(--ci-nav-strip);
     flex-shrink: 0;
 }
 .ci-nav-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    border-radius: 7px;
+    gap: 9px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 12.5px;
-    color: var(--ci-text);
+    color: var(--ci-dim);
     user-select: none;
-    transition: background 0.08s;
-    margin-bottom: 2px;
 }
-.ci-nav-item:hover  { background: var(--ci-hover); }
-.ci-nav-item.active { background: var(--ci-active); font-weight: 600; }
+.ci-nav-item:hover  { background: var(--ci-hover); color: var(--ci-text); }
+.ci-nav-item.active { background: var(--ci-active); border-color: var(--ss-divider, #e0e0dd); color: var(--ci-text); font-weight: 600; }
 .ci-nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .ci-nav-icon img { width: 16px; height: 16px; display: block; }
 /* Theme-aware icon variants */
 .ci-icon-dark { display: none !important; }
-#ci-root.dark .ci-icon-light { display: none  !important;; }
-#ci-root.dark .ci-icon-dark  { display: block  !important;; }
+body.dark #ci-root .ci-icon-light { display: none  !important; }
+body.dark #ci-root .ci-icon-dark  { display: block !important; }
 
 /* Detail pane */
 #ci-dev-content {
@@ -243,7 +212,7 @@
     min-height: 320px;
     max-height: 480px;
 }
-.ci-dev-page { display: none; padding: 10px 12px; }
+.ci-dev-page { display: none; padding: 8px 18px; }
 .ci-dev-page.active { display: block; }
 
 /* Developer tables */
@@ -254,9 +223,9 @@
 }
 .ci-dev-table tr { border-bottom: 1px solid var(--ci-divider); }
 .ci-dev-table tr:last-child { border-bottom: none; }
-.ci-dev-table td { padding: 7px 6px; vertical-align: top; }
+.ci-dev-table td { padding: 8px 6px 8px 0; vertical-align: top; }
 .ci-dev-table td:first-child {
-    color: var(--ci-muted);
+    color: var(--ci-dim);
     white-space: nowrap;
     width: 170px;
     font-weight: 500;
@@ -264,7 +233,7 @@
 .ci-dev-table td:last-child {
     color: var(--ci-text);
     word-break: break-all;
-    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-family: var(--ss-mono, Consolas, monospace);
     font-size: 11.5px;
 }
 
@@ -284,7 +253,8 @@
     font-size: 11.5px;
     font-weight: 500;
     border: 1px solid var(--ci-divider);
-    background: var(--ci-card-bg);
+    background: var(--ss-surface-2, #f3f3f1);
+    color: var(--ci-text);
 }
 .ci-api-chip .dot {
     width: 7px;
@@ -292,10 +262,8 @@
     border-radius: 50%;
     flex-shrink: 0;
 }
-.ci-api-chip.yes .dot { background: #34c759; }
-.ci-api-chip.no  .dot { background: #ff3b30; }
-#ci-root.dark .ci-api-chip.yes .dot { background: #30d158; }
-#ci-root.dark .ci-api-chip.no  .dot { background: #ff453a; }
+.ci-api-chip.yes .dot { background: var(--ss-success-solid); }
+.ci-api-chip.no  .dot { background: var(--ss-danger); }
 
 /* Responsive */
 @media (max-width: 500px) {
@@ -311,9 +279,14 @@
 
     <!-- Hero -->
     <div id="ci-hero">
-        <div id="ci-browser-icon"><img id="ci-browser-img" src="img/browsers/unknown_browser.svg" alt="browser icon"></div>
-        <div id="ci-hero-title" locale="clientinfo/client-device-information">Client Device Information</div>
-        <div id="ci-hero-sub" locale="clientinfo/client-device-information-subheader">These are the information that your browser is telling the ArozOS.</div>
+        <div id="ci-browser-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4.5" width="18" height="15" rx="2.5"/>
+                <path d="M3 9h18M6.5 6.8h.01M9 6.8h.01M11.5 6.8h.01"/>
+            </svg>
+        </div>
+        <div id="ci-hero-title">&nbsp;</div>
+        <div id="ci-hero-sub" locale="clientinfo/what-browser-reports">What this browser reports to ArozOS.</div>
     </div>
 
     <!-- Browser section -->
@@ -340,20 +313,20 @@
             <span class="ci-row-value" id="ci-network">-</span>
         </div>
         <div class="ci-row">
-            <span class="ci-row-label" locale="clientinfo/user-agent">User Agent</span>
+            <span class="ci-row-label" locale="clientinfo/user-agent">User agent</span>
             <span class="ci-row-value mono" id="ci-ua">-</span>
         </div>
     </div>
 
     <!-- System section -->
-    <div class="ci-section-label" locale="clientinfo/system-information">System &amp; Display</div>
+    <div class="ci-section-label" locale="clientinfo/system-information">System &amp; display</div>
     <div class="ci-list">
         <div class="ci-row">
-            <span class="ci-row-label" locale="clientinfo/operation-system">OS</span>
+            <span class="ci-row-label" locale="clientinfo/operation-system">Operating system</span>
             <span class="ci-row-value" id="ci-os">-</span>
         </div>
         <div class="ci-row">
-            <span class="ci-row-label" locale="clientinfo/device-type">Device Type</span>
+            <span class="ci-row-label" locale="clientinfo/device-type">Device type</span>
             <span class="ci-row-value" id="ci-device-type">-</span>
         </div>
         <div class="ci-row">
@@ -373,11 +346,11 @@
             <span class="ci-row-value" id="ci-screen">-</span>
         </div>
         <div class="ci-row">
-            <span class="ci-row-label" locale="clientinfo/pixel-ratio">Pixel Ratio</span>
+            <span class="ci-row-label" locale="clientinfo/pixel-ratio">Pixel ratio</span>
             <span class="ci-row-value" id="ci-dpr">-</span>
         </div>
         <div class="ci-row">
-            <span class="ci-row-label" locale="clientinfo/color-depth">Color Depth</span>
+            <span class="ci-row-label" locale="clientinfo/color-depth">Color depth</span>
             <span class="ci-row-value" id="ci-color-depth">-</span>
         </div>
     </div>
@@ -427,36 +400,15 @@
             <div class="ci-dev-page"        id="ci-page-caps"><table class="ci-dev-table" id="ci-caps-table"></table></div>
         </div>
     </div>
-    <br><br>
 </div>
 <script>
     /* ── Locale ── */
     var ciLocale = NewAppLocale();
     ciLocale.init("../locale/system_settings/clientinfo.json", function() {
         ciLocale.translate();
-    });
+        ciInit();
+    }, ciInit);
 
-    /* ── Theme ── */
-    (function() {
-        if (typeof(preferredTheme) != "undefined" && preferredTheme === "dark") {
-            document.getElementById('ci-root').classList.add('dark');
-            return;
-        }
-        try {
-            if (typeof ao_module_getSystemThemeColor === 'function') {
-                ao_module_getSystemThemeColor(function(c) {
-                    document.getElementById('ci-root').classList.toggle('dark', c !== 'whiteTheme');
-                });
-            } else if (typeof preferredTheme !== 'undefined') {
-                document.getElementById('ci-root').classList.toggle('dark',
-                    preferredTheme === 'dark' || preferredTheme === 'darkTheme');
-            }
-        } catch(e) {}
-    })();
-
-    window.detailPageThemeCallback = function(isDark) {
-        document.getElementById('ci-root').classList.toggle('dark', isDark);
-    };
 
     /* ── UA Parsing ── */
     var ciUA = {};
@@ -511,22 +463,16 @@
 
         // Cookie badge
         $('#ci-cookie').html('<span class="ci-badge ' + (navigator.cookieEnabled ? 'green' : 'red') + '">' +
-            (navigator.cookieEnabled ? '✓ Enabled' : '✗ Disabled') + '</span>');
+            (navigator.cookieEnabled ? ciLocale.getString('clientinfo/enabled', 'Enabled') : ciLocale.getString('clientinfo/disabled', 'Disabled')) + '</span>');
         // Network badge
         $('#ci-network').html('<span class="ci-badge ' + (navigator.onLine ? 'green' : 'red') + '">' +
-            (navigator.onLine ? '● Online' : '○ Offline') + '</span>');
+            (navigator.onLine ? ciLocale.getString('clientinfo/online', 'Online') : ciLocale.getString('clientinfo/offline', 'Offline')) + '</span>');
 
-        // Browser icon
-        var bn = browserName.toLowerCase();
-        var iconFile = 'unknown_browser.svg';
-        if (bn.includes('brave'))                          iconFile = 'brave.svg';
-        else if (bn.includes('firefox'))                   iconFile = 'firefox.svg';
-        else if (bn.includes('edge') || bn.includes('edg')) iconFile = 'edge.svg';
-        else if (bn.includes('opera') || bn.includes('opr')) iconFile = 'opera.svg';
-        else if (bn.includes('chromium'))                  iconFile = 'chromium.svg';
-        else if (bn.includes('chrome'))                    iconFile = 'chrome.svg';
-        else if (bn.includes('safari'))                    iconFile = 'safari.svg';
-        $('#ci-browser-img').attr('src', '../info/img/browsers/' + iconFile);
+        // Hero: "Chrome 152 on Windows 10"
+        var major = String(browserVersion || '').split('.')[0];
+        var heroName = (browserName && browserName !== '-') ? browserName + (major && major !== '-' ? ' ' + major : '') : ciLocale.getString('clientinfo/this-browser', 'This browser');
+        var heroFormat = ciLocale.getString('clientinfo/hero-format', '{browser} on {os}');
+        $('#ci-hero-title').text(osStr && osStr !== '-' ? heroFormat.replace('{browser}', heroName).replace('{os}', osStr) : heroName);
     }
 
     /* ── Developer panel population (lazy) ── */
@@ -751,7 +697,6 @@
         }
     }
 
-    ciInit();
 </script>
 </body>
 </html>

@@ -1,37 +1,34 @@
 <!-- Sounds Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
 <style>
 #snd-root {
-    --snd-text:   #1a1a1a;
-    --snd-dim:    #5a5a5a;
-    --snd-muted:  #9a9a9a;
-    --snd-border: rgba(0,0,0,0.10);
+    --snd-text:   var(--ss-text);
+    --snd-dim:    var(--ss-text-2);
+    --snd-muted:  var(--ss-text-3);
+    --snd-border: var(--ss-border);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     color: var(--snd-text);
-    padding: 4px 0 32px;
-}
-body.dark #snd-root {
-    --snd-text:   #f0f0f0;
-    --snd-dim:    #b0b0b0;
-    --snd-muted:  #808080;
-    --snd-border: rgba(255,255,255,0.10);
+    padding: 0 0 4px;
 }
 #snd-root h3.section-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--snd-text);
     margin: 0 0 4px;
 }
 #snd-root .section-desc {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--snd-muted);
     margin: 0 0 12px;
 }
 #snd-root .snd-section {
-    padding: 16px;
-    border-bottom: 1px solid var(--snd-border);
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
-#snd-root .snd-section:last-child { border-bottom: none; }
+#snd-root .snd-section:last-child { margin-bottom: 0; }
 #snd-root .snd-path {
     font-size: 13px;
     color: var(--snd-dim);

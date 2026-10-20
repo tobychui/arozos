@@ -13,41 +13,26 @@
 
         #nb-root {
             /* Light-theme variables */
-            --nb-bg:        #f5f5f7;
-            --nb-card:      #ffffff;
-            --nb-card-head: #fafafa;
-            --nb-border:    rgba(0,0,0,0.08);
-            --nb-text:      #1d1d1f;
-            --nb-dim:       #6e6e73;
-            --nb-muted:     #98989d;
-            --nb-accent:    #0071e3;
-            --nb-success:   #34c759;
-            --nb-danger:    #ff3b30;
-            --nb-hover:     rgba(0,0,0,0.04);
-            --nb-shadow:    0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+            --nb-bg:        transparent;
+            --nb-card:      var(--ss-surface);
+            --nb-card-head: var(--ss-surface-2);
+            --nb-border:    var(--ss-border);
+            --nb-text:      var(--ss-text);
+            --nb-dim:       var(--ss-text-2);
+            --nb-muted:     var(--ss-muted);
+            --nb-accent:    var(--ss-accent);
+            --nb-success:   var(--ss-success-solid);
+            --nb-danger:    var(--ss-danger);
+            --nb-hover:     var(--ss-hover);
+            --nb-shadow:    0 0 0 1px var(--ss-border);
 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             font-size: 14px;
             -webkit-font-smoothing: antialiased;
             color: var(--nb-text);
             background: var(--nb-bg);
-            padding: 20px;
         }
 
-        #nb-root.dark {
-            --nb-bg:        #1f1f1f;
-            --nb-card:      #2c2c2e;
-            --nb-card-head: #232325;
-            --nb-border:    rgba(255,255,255,0.09);
-            --nb-text:      #f2f2f7;
-            --nb-dim:       #aeaeb2;
-            --nb-muted:     #636366;
-            --nb-accent:    #2997ff;
-            --nb-success:   #30d158;
-            --nb-danger:    #ff453a;
-            --nb-hover:     rgba(255,255,255,0.05);
-            --nb-shadow:    0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
-        }
 
         /* ── Page header ── */
         #nb-header {
@@ -97,7 +82,7 @@
         /* ── Host card ── */
         .nb-card {
             background: var(--nb-card);
-            border-radius: 12px;
+            border-radius: var(--ss-radius);
             box-shadow: var(--nb-shadow);
             margin-bottom: 10px;
             overflow: hidden;
@@ -194,7 +179,7 @@
         /* ── Empty state ── */
         .nb-empty {
             background: var(--nb-card);
-            border-radius: 12px;
+            border-radius: var(--ss-radius);
             box-shadow: var(--nb-shadow);
             padding: 22px 16px;
             text-align: center;

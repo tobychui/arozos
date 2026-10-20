@@ -22,33 +22,20 @@
         body.dark { background: #2b2b2b; color: #f0f0f0; }
 
         #ae-root {
-            --ae-accent:       #0071e3;
-            --ae-danger:       #ff3b30;
-            --ae-success:      #34c759;
-            --ae-divider:      #d2d2d7;
-            --ae-hover:        rgba(0,0,0,0.04);
-            --ae-card-bg:      #f5f5f7;
-            --ae-card-border:  #e5e5ea;
-            --ae-muted:        #6e6e73;
-            --ae-badge-bg:     rgba(0,113,227,0.10);
-            --ae-badge-color:  #0071e3;
-        }
-        #ae-root.dark {
-            --ae-accent:       #2997ff;
-            --ae-danger:       #ff453a;
-            --ae-success:      #30d158;
-            --ae-divider:      #3a3a3c;
-            --ae-hover:        rgba(255,255,255,0.06);
-            --ae-card-bg:      #3a3a3c;
-            --ae-card-border:  #48484a;
-            --ae-muted:        #a0a0a5;
-            --ae-badge-bg:     rgba(41,151,255,0.15);
-            --ae-badge-color:  #2997ff;
+            --ae-accent:       var(--ss-accent);
+            --ae-danger:       var(--ss-danger);
+            --ae-success:      var(--ss-success-solid);
+            --ae-divider:      var(--ss-border);
+            --ae-hover:        var(--ss-hover);
+            --ae-card-bg:      var(--ss-surface);
+            --ae-card-border:  var(--ss-border);
+            --ae-muted:        var(--ss-text-3);
+            --ae-badge-bg:     var(--ss-accent-soft);
+            --ae-badge-color:  var(--ss-accent-text);
         }
 
         #ae-root {
-            padding: 16px 16px 24px;
-            max-width: 900px;
+            padding: 0;
         }
 
         /* ── Page header ── */
@@ -56,9 +43,11 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 20px;
+            margin: 0 2px 14px;
         }
-        #ae-page-header img {
+        /* The System Settings header already shows the page title */
+        #ae-page-header img, #ae-page-header .ae-title { display: none !important; }
+        #ae-page-header img.ae-unused {
             width: 36px;
             height: 36px;
             border-radius: 8px;
@@ -189,7 +178,7 @@
             transition: left 0.2s;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
-        .ae-toggle-label input:checked + .ae-toggle-track { background: var(--ae-success); }
+        .ae-toggle-label input:checked + .ae-toggle-track { background: var(--ae-accent); }
         .ae-toggle-label input:checked + .ae-toggle-track .ae-toggle-thumb { left: 16px; }
         .ae-toggle-label.admin-locked { opacity: 0.5; cursor: default; pointer-events: none; }
         .ae-group-name { font-size: 13px; font-weight: 500; }

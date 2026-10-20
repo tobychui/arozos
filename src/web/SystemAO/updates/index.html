@@ -13,53 +13,38 @@
 
     /* ── Scoped root + CSS variables ── */
     #up-root {
-        --up-text:        #1d1d1f;
-        --up-dim:         #6e6e73;
-        --up-muted:       #98989d;
-        --up-divider:     #d2d2d7;
-        --up-hover:       rgba(0,0,0,0.045);
-        --up-accent:      #0071e3;
-        --up-danger:      #ff3b30;
-        --up-success:     #34c759;
-        --up-warning-col: #ff9500;
-        --up-bg:          #f3f3f3;
-        --up-card:        #ffffff;
-        --up-card-border: #e5e5ea;
-        --up-input-bg:    #ffffff;
-        --up-shadow:      0 1px 3px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+        --up-text:        var(--ss-text);
+        --up-dim:         var(--ss-text-2);
+        --up-muted:       var(--ss-muted);
+        --up-divider:     var(--ss-border);
+        --up-hover:       var(--ss-hover);
+        --up-accent:      var(--ss-accent);
+        --up-danger:      var(--ss-danger);
+        --up-success:     var(--ss-success-solid);
+        --up-warning-col: #e08a00;
+        --up-bg:          transparent;
+        --up-card:        var(--ss-surface);
+        --up-card-border: var(--ss-border);
+        --up-input-bg:    var(--ss-field);
+        --up-shadow:      none;
 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         -webkit-font-smoothing: antialiased;
         color: var(--up-text);
         background: var(--up-bg);
-        padding: 20px;
     }
 
-    #up-root.dark {
-        --up-text:        #f0f0f0;
-        --up-dim:         #a0a0a5;
-        --up-muted:       #636368;
-        --up-divider:     #3a3a3c;
-        --up-hover:       rgba(255,255,255,0.06);
-        --up-accent:      #2997ff;
-        --up-danger:      #ff453a;
-        --up-success:     #30d158;
-        --up-warning-col: #ffd60a;
-        --up-bg:          #1f1f1f;
-        --up-card:        #2c2c2e;
-        --up-card-border: #3a3a3c;
-        --up-input-bg:    #383838;
-        --up-shadow:      0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
-    }
 
     /* ── Page header ── */
     #up-header {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 20px;
+        margin: 0 2px 14px;
     }
+    /* The System Settings header already shows the page title */
+    .up-header-icon, .up-page-title { display: none !important; }
     .up-header-icon {
         width: 38px;
         height: 38px;
@@ -79,7 +64,7 @@
     .up-card {
         background: var(--up-card);
         border: 1px solid var(--up-card-border);
-        border-radius: 10px;
+        border-radius: var(--ss-radius);
         box-shadow: var(--up-shadow);
         margin-bottom: 12px;
         overflow: hidden;

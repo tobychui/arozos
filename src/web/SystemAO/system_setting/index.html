@@ -5,6 +5,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="tokens.css">
         <link rel="stylesheet" href="main.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
@@ -14,56 +15,58 @@
     <body>
         <div id="app">
 
-            <!-- Mobile sidebar overlay -->
-            <div id="sidebar-overlay" onclick="closeSidebar()"></div>
-
-            <!-- Mobile menu toggle button (top-right, shown only on narrow screens) -->
-            <button id="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
-                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" stroke-width="1.6"
-                          stroke-linecap="round"/>
-                </svg>
-            </button>
-
-            <!-- Left sidebar -->
-            <div id="sidebar">
-                
-                <div id="sidebar-title">
-                    <img src="img/small_icon.png" onerror="this.style.display='none'">
-                    Settings
+            <!-- Sidebar: search, account, group tree. Collapses to an icon rail. -->
+            <aside id="sidebar">
+                <div id="sb-search">
+                    <label class="sb-search-box">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="7" cy="7" r="4.5"/>
+                            <path d="M10.5 10.5L14 14"/>
+                        </svg>
+                        <input id="sb-search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Search settings">
+                        <span class="sb-kbd" aria-hidden="true">/</span>
+                    </label>
+                    <button id="sb-search-btn" type="button" title="Search settings">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="7" cy="7" r="4.5"/>
+                            <path d="M10.5 10.5L14 14"/>
+                        </svg>
+                    </button>
                 </div>
-                <!-- Back button — shown when in sub-category (detail) view -->
-                <div id="back-row" onclick="goBack()">
-                    <svg class="back-chevron" viewBox="0 0 16 16" fill="none">
-                        <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5"
-                              stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <span class="back-label">Settings</span>
-                </div>
-                <!-- Group name shown above sub-category nav items -->
-                <div id="group-label"></div>
-                <div id="sidebar-nav"></div>
-            </div>
 
-            <!-- Right content -->
-            <div id="main">
-
-                <!-- Level 1: card grid of sub-categories for the selected group -->
-                <div id="overview">
-                    <div id="overview-inner">
-                        <div id="overview-title">Settings</div>
-                        <div id="info-banner"></div>
-                        <div id="card-grid"></div>
+                <div id="sb-scroll">
+                    <div id="sb-account" role="button" tabindex="0">
+                        <div class="sb-avatar"><span id="sb-initials"></span></div>
+                        <div class="sb-account-text">
+                            <div class="sb-account-name" id="sb-username"></div>
+                            <div class="sb-account-sub"><span id="sb-role"></span> &middot; <span id="sb-myaccount">My Account</span></div>
+                        </div>
                     </div>
+                    <div class="sb-rail-divider"></div>
+                    <nav id="sb-tree"></nav>
+                    <div id="sb-empty">No settings match your search</div>
                 </div>
 
-                <!-- Level 2: loaded setting page with padded inner wrapper -->
+                <div id="sb-resizer" title="Drag to resize, double click to collapse"></div>
+            </aside>
+
+            <!-- Main panel: page header + the loaded setting page -->
+            <main id="main">
+                <header id="page-header">
+                    <div id="page-heading">
+                        <div id="page-crumb"></div>
+                        <h1 id="page-title"></h1>
+                    </div>
+                    <div id="page-actions"></div>
+                </header>
                 <div id="detail">
                     <div id="detail-inner"></div>
                 </div>
-
-            </div>
+            </main>
         </div>
+
+        <!-- Pages of one group, opened from the icon rail -->
+        <div id="sb-flyout" role="menu"></div>
 
         <!-- Toast notification -->
         <div id="msgbox"></div>

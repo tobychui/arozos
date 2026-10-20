@@ -14,70 +14,44 @@
 
             /* ── CSS custom properties (light) ── */
             #do-root {
-                --bg:          #f5f5f7;
-                --text:        #1d1d1f;
-                --dim:         #6e6e73;
-                --muted:       #8e8e93;
-                --card:        #ffffff;
-                --card-head:   #fafafa;
-                --border:      rgba(0,0,0,0.06);
-                --border-row:  #f2f2f2;
-                --row-hover:   #fafafa;
-                --soft:        #f2f2f7;
-                --accent:      #0071e3;
-                --pill-bg:     #e8f1fd;
-                --shadow:      0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
-                --select-focus: rgba(0,113,227,0.28);
-                --sk-a:        #ececec;
-                --sk-b:        #dddddd;
+                --bg:          transparent;
+                --text:        var(--ss-text);
+                --dim:         var(--ss-text-2);
+                --muted:       var(--ss-muted);
+                --card:        var(--ss-surface);
+                --card-head:   var(--ss-surface-2);
+                --border:      var(--ss-border);
+                --border-row:  var(--ss-border);
+                --row-hover:   var(--ss-hover);
+                --soft:        var(--ss-surface-3);
+                --accent:      var(--ss-accent);
+                --pill-bg:     var(--ss-accent-soft);
+                --shadow:      0 0 0 1px var(--ss-border);
+                --select-focus: var(--ss-focus);
+                --sk-a:        var(--ss-surface-2);
+                --sk-b:        var(--ss-surface-3);
 
                 background: var(--bg);
                 color: var(--text);
                 font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
                 font-size: 14px;
-                min-height: 100vh;
                 -webkit-font-smoothing: antialiased;
             }
 
             /* ── Dark overrides ── */
-            #do-root.dark {
-                --bg:          #1c1c1e;
-                --text:        #ececec;
-                --dim:         #aeaeb2;
-                --muted:       #636366;
-                --card:        #2c2c2e;
-                --card-head:   #3a3a3c;
-                --border:      rgba(255,255,255,0.07);
-                --border-row:  #3a3a3c;
-                --row-hover:   #323234;
-                --soft:        #3a3a3c;
-                --accent:      #2997ff;
-                --pill-bg:     rgba(41,151,255,0.15);
-                --shadow:      0 1px 6px rgba(0,0,0,0.30), 0 0 0 0.5px rgba(255,255,255,0.04);
-                --select-focus: rgba(41,151,255,0.35);
-                --sk-a:        #3a3a3c;
-                --sk-b:        #2c2c2e;
-            }
 
             .page-wrap {
-                max-width: 700px;
-                margin: 0 auto;
-                padding: 36px 20px 56px;
+                padding: 0 0 8px;
             }
 
             /* ── Page header ── */
-            .page-hd { margin-bottom: 28px; }
-            .page-hd h1 {
-                font-size: 26px;
-                font-weight: 700;
-                letter-spacing: -0.4px;
-                margin: 0 0 5px;
-                color: var(--text);
-            }
+            /* The System Settings header already shows the page title */
+            .page-hd { margin: 0 2px 14px; }
+            .page-hd h1 { display: none; }
             .page-hd p {
                 margin: 0;
-                font-size: 13px;
-                color: var(--dim);
+                font-size: 12px;
+                color: var(--ss-text-3);
             }
 
             /* ── Toast notification ── */
@@ -104,9 +78,9 @@
             /* ── Group card ── */
             .group-card {
                 background: var(--card);
-                border-radius: 13px;
+                border-radius: var(--ss-radius);
                 box-shadow: var(--shadow);
-                margin-bottom: 18px;
+                margin-bottom: 14px;
                 overflow: hidden;
             }
 

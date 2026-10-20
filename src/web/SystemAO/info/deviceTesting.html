@@ -10,17 +10,17 @@
 <body style="margin:0;padding:0;background:transparent;">
 <style>
 #dt-root {
-    --dt-bg:          #f3f3f3;
-    --dt-bg2:         #f5f5f7;
-    --dt-border:      #d2d2d7;
-    --dt-text:        #1d1d1f;
-    --dt-dim:         #6e6e73;
-    --dt-muted:       #98989d;
-    --dt-accent:      #0071e3;
-    --dt-accent-bg:   rgba(0,113,227,0.09);
-    --dt-success:     #28a745;
-    --dt-card:        #ffffff;
-    --dt-card-border: #e5e5ea;
+    --dt-bg:          transparent;
+    --dt-bg2:         var(--ss-surface);
+    --dt-border:      var(--ss-border);
+    --dt-text:        var(--ss-text);
+    --dt-dim:         var(--ss-text-2);
+    --dt-muted:       var(--ss-muted);
+    --dt-accent:      var(--ss-accent);
+    --dt-accent-bg:   var(--ss-accent-soft);
+    --dt-success:     var(--ss-success-solid);
+    --dt-card:        var(--ss-surface);
+    --dt-card-border: var(--ss-border);
     --dt-shadow:      0 2px 10px rgba(0,0,0,0.07);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     font-size: 14px;
@@ -30,20 +30,6 @@
     border-radius: 0.6em;
 }
 
-#dt-root.dark {
-    --dt-bg:          #1f1f1f;
-    --dt-bg2:         #2c2c2e;
-    --dt-border:      #3a3a3c;
-    --dt-text:        #f2f2f7;
-    --dt-dim:         #aeaeb2;
-    --dt-muted:       #636366;
-    --dt-accent:      #2997ff;
-    --dt-accent-bg:   rgba(41,151,255,0.12);
-    --dt-success:     #34c759;
-    --dt-card:        #2c2c2e;
-    --dt-card-border: #3a3a3c;
-    --dt-shadow:      0 2px 16px rgba(0,0,0,0.3);
-}
 
 /* ── Tab bar ── */
 #dt-tabs {
@@ -73,11 +59,11 @@
     transition: color 0.12s;
 }
 .dt-tab:hover  { color: var(--dt-text); }
-.dt-tab.active { color: var(--dt-accent); border-bottom-color: var(--dt-accent); }
+.dt-tab.active { color: var(--ss-link); border-bottom-color: var(--ss-accent); }
 .dt-tab-icon   { width: 14px; height: 14px; flex-shrink: 0; }
 
 /* ── Sections ── */
-#dt-content      { padding: 18px 18px 24px; }
+#dt-content      { padding: 16px 0 8px; }
 .dt-section      { display: none; }
 .dt-section.active { display: block; }
 
@@ -97,7 +83,7 @@
 .dt-card {
     background: var(--dt-bg2);
     border: 1px solid var(--dt-card-border);
-    border-radius: 12px;
+    border-radius: var(--ss-radius);
     padding: 14px 16px;
     margin-bottom: 12px;
 }

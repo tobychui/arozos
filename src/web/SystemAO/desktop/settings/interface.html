@@ -1,44 +1,38 @@
 <!-- Startup Interface Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
 <style>
 #sif-root {
-    --sif-text:   #1a1a1a;
-    --sif-dim:    #5a5a5a;
-    --sif-muted:  #9a9a9a;
-    --sif-border: rgba(0,0,0,0.10);
-    --sif-hover:  rgba(0,0,0,0.04);
-    --sif-accent: #2f6fed;
-    --sif-accent-soft: rgba(47,111,237,0.08);
-    --sif-green:  #107c10;
+    --sif-text:   var(--ss-text);
+    --sif-dim:    var(--ss-text-2);
+    --sif-muted:  var(--ss-text-3);
+    --sif-border: var(--ss-border);
+    --sif-hover:  var(--ss-hover);
+    --sif-accent: var(--ss-accent);
+    --sif-accent-soft: var(--ss-accent-soft);
+    --sif-green:  var(--ss-accent);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     color: var(--sif-text);
-    padding: 4px 0 32px;
-}
-body.dark #sif-root {
-    --sif-text:   #f0f0f0;
-    --sif-dim:    #b0b0b0;
-    --sif-muted:  #808080;
-    --sif-border: rgba(255,255,255,0.10);
-    --sif-hover:  rgba(255,255,255,0.05);
-    --sif-accent: #6b9bff;
-    --sif-accent-soft: rgba(107,155,255,0.12);
+    padding: 0 0 4px;
 }
 #sif-root h3.section-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--sif-text);
     margin: 0 0 4px;
 }
 #sif-root .section-desc {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--sif-muted);
     margin: 0 0 12px;
 }
 #sif-root .sif-section {
-    padding: 16px;
-    border-bottom: 1px solid var(--sif-border);
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
-#sif-root .sif-section:last-child { border-bottom: none; }
+#sif-root .sif-section:last-child { margin-bottom: 0; }
 #sif-root .sif-list {
     display: flex;
     flex-direction: column;
@@ -129,7 +123,6 @@ body.dark #sif-root .confirm-msg { background: rgba(16,124,16,0.15); }
 
 <div id="sif-root">
     <div class="sif-section">
-        <h3 class="section-title" locale="sif/title">Startup Interface</h3>
         <p class="section-desc" locale="sif/desc">Choose which workspace opens after you sign in. This setting only applies to this browser.</p>
         <div id="sif-list" class="sif-list"></div>
         <div id="sif-single" class="sif-note" style="display:none;" locale="sif/single">Your account has only one workspace, so it always opens after you sign in.</div>

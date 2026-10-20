@@ -11,57 +11,43 @@
     body { background: transparent; overflow-x: hidden; }
 
     #oa-root {
-        --oa-bg:       #f3f3f3;
-        --oa-card:     #ffffff;
-        --oa-border:   #e0e0e0;
-        --oa-text:     #1b1b1b;
-        --oa-dim:      #5a5a5a;
-        --oa-muted:    #8a8a8a;
-        --oa-accent:   #0067c0;
-        --oa-accentH:  #1475c8;
-        --oa-ok:       #107c10;
-        --oa-warn-bg:  rgba(0,103,192,0.07);
-        --oa-warn-bdr: rgba(0,103,192,0.22);
-        --oa-shadow:   0 1px 4px rgba(0,0,0,0.08);
-        --oa-radius:   6px;
+        --oa-bg:       transparent;
+        --oa-card:     var(--ss-surface);
+        --oa-border:   var(--ss-border);
+        --oa-text:     var(--ss-text);
+        --oa-dim:      var(--ss-text-2);
+        --oa-muted:    var(--ss-muted);
+        --oa-accent:   var(--ss-accent);
+        --oa-accentH:  var(--ss-accent-hover);
+        --oa-ok:       var(--ss-success);
+        --oa-warn-bg:  var(--ss-accent-soft);
+        --oa-warn-bdr: transparent;
+        --oa-shadow:   none;
+        --oa-radius:   var(--ss-radius);
 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         color: var(--oa-text);
         background: var(--oa-bg);
-        min-height: 100vh;
-        padding-bottom: 32px;
     }
 
-    #oa-root.dark {
-        --oa-bg:       #202020;
-        --oa-card:     #2d2d2d;
-        --oa-border:   #404040;
-        --oa-text:     #e8e8e8;
-        --oa-dim:      #aaaaaa;
-        --oa-muted:    #666666;
-        --oa-accent:   #60cdff;
-        --oa-accentH:  #8cd9ff;
-        --oa-ok:       #6ccb5f;
-        --oa-warn-bg:  rgba(96,205,255,0.07);
-        --oa-warn-bdr: rgba(96,205,255,0.18);
-        --oa-shadow:   0 1px 6px rgba(0,0,0,0.4);
-    }
 
     /* ── Hero ── */
-    #oa-hero { display:flex; align-items:center; gap:14px; padding:20px 20px 16px; }
+    /* The System Settings header already shows the page title */
+    #oa-hero { padding:0 2px 14px; }
+    #oa-hero-icon, #oa-hero-title { display:none !important; }
     #oa-hero-icon {
         width:44px; height:44px; border-radius:10px; background:var(--oa-accent);
         display:flex; align-items:center; justify-content:center; flex-shrink:0; opacity:.9;
     }
     #oa-hero-icon svg { color:#fff; }
     #oa-hero-title  { font-size:17px; font-weight:600; color:var(--oa-text); margin-bottom:3px; }
-    #oa-hero-sub    { font-size:12.5px; color:var(--oa-dim); }
+    #oa-hero-sub    { font-size:12px; color:var(--ss-text-3); }
 
     /* ── Cards ── */
     .oa-section {
         background:var(--oa-card); border:1px solid var(--oa-border);
-        border-radius:var(--oa-radius); margin:0 12px 10px;
+        border-radius:var(--oa-radius); margin:0 0 12px;
         box-shadow:var(--oa-shadow); overflow:hidden;
     }
     .oa-section-header {

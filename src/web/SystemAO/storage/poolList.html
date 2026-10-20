@@ -24,7 +24,7 @@
             opacity: 0.6;
         }
         .storagepool.active{
-            background-color: #f7f7f7;
+            background-color: var(--ss-surface-2) !important;
         }
 
         .reloadpoolBtn{
@@ -59,12 +59,7 @@
 </head>
 <body>
     <div class="ui container" id="sys-setting-page">
-        <div class="ui basic segment">
-            <h3 class="ui header">
-                Storage Pools
-                <div class="sub header">Manage system and permission group storage pools</div>
-            </h3>
-        </div>
+        <div class="ss-page-desc">Manage system and permission group storage pools</div>
         <div id="ok" class="ui basic modal">
             <div class="ui icon header">
                 <i class="green checkmark icon"></i>

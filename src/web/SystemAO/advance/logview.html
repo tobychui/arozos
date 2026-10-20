@@ -2,47 +2,49 @@
 <style>
 #logview-root {
     display: flex;
-    height: 100vh;
+    height: 100%;
     overflow: hidden;
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 14px;
-    color: var(--text, #202020);
-    background: var(--bg, #f3f3f3);
+    color: var(--ss-text);
+    background: var(--ss-bg);
 }
 
 /* ── File-list sidebar ── */
 #lv-sidebar {
     width: 220px;
     min-width: 220px;
-    background: var(--sidebar-bg, #ebebeb);
-    border-right: 1px solid var(--sidebar-border, #dcdcdc);
+    background: var(--ss-surface-2);
+    border-right: 1px solid var(--ss-border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 #lv-sidebar-head {
-    padding: 18px 16px 10px 18px;
+    padding: 14px 16px 8px 18px;
     flex-shrink: 0;
 }
 
-#lv-sidebar-head h2 {
+/* The System Settings header already shows the page title */
+#lv-sidebar-head h2 { display: none; }
+#lv-sidebar-head h2.lv-unused {
     font-size: 17px;
     font-weight: 600;
     letter-spacing: -0.2px;
-    color: var(--title-color, #1a1a1a);
+    color: var(--ss-text);
     margin: 0 0 2px;
 }
 
 #lv-sidebar-head p {
     font-size: 11.5px;
-    color: var(--text-muted, #888);
+    color: var(--ss-muted);
     margin: 0;
 }
 
 #lv-sidebar-divider {
     height: 1px;
-    background: var(--sidebar-border, #dcdcdc);
+    background: var(--ss-border);
     margin: 6px 0 2px;
     flex-shrink: 0;
 }
@@ -55,7 +57,7 @@
 
 #lv-file-list::-webkit-scrollbar { width: 3px; }
 #lv-file-list::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb, #c8c8c8);
+    background: var(--ss-border-strong);
     border-radius: 2px;
 }
 
@@ -70,14 +72,14 @@
     font-weight: 600;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: var(--text-muted, #888);
+    color: var(--ss-muted);
     cursor: pointer;
     user-select: none;
     border-radius: 5px;
     transition: background 0.08s;
 }
 
-.lv-group-title:hover { background: var(--nav-hover, rgba(0,0,0,0.055)); }
+.lv-group-title:hover { background: var(--ss-hover); }
 
 .lv-group-title svg {
     width: 11px;
@@ -99,12 +101,12 @@
     user-select: none;
     transition: background 0.08s;
     font-size: 12.5px;
-    color: var(--text, #202020);
+    color: var(--ss-text);
     margin-bottom: 1px;
 }
 
-.lv-item:hover  { background: var(--nav-hover, rgba(0,0,0,0.055)); }
-.lv-item.active { background: var(--nav-active, rgba(0,0,0,0.09)); font-weight: 500; }
+.lv-item:hover  { background: var(--ss-hover); }
+.lv-item.active { background: var(--ss-pressed); font-weight: 500; }
 
 .lv-item svg {
     width: 13px;
@@ -122,7 +124,7 @@
 
 .lv-item-size {
     font-size: 10.5px;
-    color: var(--text-muted, #888);
+    color: var(--ss-muted);
     flex-shrink: 0;
 }
 
@@ -140,9 +142,9 @@
 #lv-note {
     padding: 8px 12px 12px;
     font-size: 11px;
-    color: var(--text-muted, #888);
+    color: var(--ss-muted);
     line-height: 1.5;
-    border-top: 1px solid var(--sidebar-border, #dcdcdc);
+    border-top: 1px solid var(--ss-border);
     flex-shrink: 0;
 }
 
@@ -152,7 +154,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: var(--bg, #f3f3f3);
+    background: var(--ss-bg);
 }
 
 #lv-toolbar {
@@ -160,7 +162,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 18px;
-    border-bottom: 1px solid var(--sidebar-border, #dcdcdc);
+    border-bottom: 1px solid var(--ss-border);
     flex-shrink: 0;
     gap: 10px;
 }
@@ -176,7 +178,7 @@
 #lv-toolbar-title {
     font-size: 12.5px;
     font-weight: 500;
-    color: var(--title-color, #1a1a1a);
+    color: var(--ss-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -185,7 +187,7 @@
 
 #lv-hint {
     font-size: 12.5px;
-    color: var(--text-muted, #888);
+    color: var(--ss-muted);
 }
 
 /* Live indicator */
@@ -226,10 +228,10 @@
     padding: 4px 10px;
     font-size: 11.5px;
     font-family: inherit;
-    background: var(--card-bg, #fff);
-    border: 1px solid var(--card-border, #e5e5e5);
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
     border-radius: 6px;
-    color: var(--text-dim, #555);
+    color: var(--ss-text-2);
     cursor: pointer;
     text-decoration: none;
     white-space: nowrap;
@@ -237,8 +239,8 @@
 }
 
 #lv-btn-newtab:hover {
-    background: var(--nav-hover, rgba(0,0,0,0.055));
-    border-color: var(--scrollbar-thumb, #c8c8c8);
+    background: var(--ss-hover);
+    border-color: var(--ss-border-strong);
 }
 
 #lv-btn-newtab svg { width: 12px; height: 12px; opacity: 0.65; }
@@ -259,7 +261,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    color: var(--text-muted, #888);
+    color: var(--ss-muted);
     user-select: none;
     pointer-events: none;
 }
@@ -272,8 +274,8 @@
     display: none;
     flex: 1;
     overflow: auto;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--card-border, #e5e5e5);
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
     border-radius: 8px;
     padding: 12px 14px;
     font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Menlo', monospace;
@@ -282,13 +284,12 @@
 }
 
 body.dark #lv-log-box {
-    background: #1a1a1a !important;
-    border-color: var(--card-border, #3a3a3a) !important;
+    background: var(--ss-field) !important;
 }
 
 #lv-log-box::-webkit-scrollbar { width: 5px; height: 5px; }
 #lv-log-box::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb, #c8c8c8);
+    background: var(--ss-border-strong);
     border-radius: 3px;
 }
 
@@ -301,12 +302,11 @@ body.dark #lv-log-box {
 #lv-log-box .ll-warn  { color: #d4a017 !important; font-weight: 600; }
 #lv-log-box .ll-error { color: #e05555 !important; font-weight: 600; }
 #lv-log-box .ll-debug { color: #8080c0 !important; font-weight: 600; }
-#lv-log-box .ll-msg   { color: #202020 !important; }
+#lv-log-box .ll-msg   { color: var(--ss-text) !important; }
 
 body.dark #lv-log-box .ll-date  { color: #4a6878 !important; }
 body.dark #lv-log-box .ll-time  { color: #4a6890 !important; }
 body.dark #lv-log-box .ll-src   { color: #606060 !important; }
-body.dark #lv-log-box .ll-msg   { color: #c8c8c8 !important; }
 
 /* New-line highlight on auto-refresh */
 @keyframes lv-new-line {
@@ -513,7 +513,9 @@ body.dark #lv-log-box .ll-msg   { color: #c8c8c8 !important; }
     /* ── Auto-refresh ── */
     function stopRefresh() {
         if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-        document.getElementById('lv-live-badge').style.display = 'none';
+        //The badge is gone once System Settings has switched to another page
+        var badge = document.getElementById('lv-live-badge');
+        if (badge) badge.style.display = 'none';
     }
 
     function startRefresh() {

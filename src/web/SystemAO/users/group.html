@@ -12,58 +12,44 @@
     body { background: transparent; }
 
     #gr-root {
-        --gr-text:        #1d1d1f;
-        --gr-dim:         #6e6e73;
-        --gr-muted:       #98989d;
-        --gr-divider:     #d2d2d7;
-        --gr-hover:       rgba(0,0,0,0.045);
-        --gr-active:      rgba(0,0,0,0.09);
-        --gr-selected:    rgba(0,113,227,0.08);
-        --gr-accent:      #0071e3;
-        --gr-danger:      #ff3b30;
-        --gr-success:     #34c759;
-        --gr-bg:          #ffffff;
-        --gr-card-bg:     #f5f5f7;
-        --gr-card-border: #e5e5ea;
+        --gr-text:        var(--ss-text);
+        --gr-dim:         var(--ss-text-2);
+        --gr-muted:       var(--ss-muted);
+        --gr-divider:     var(--ss-border);
+        --gr-hover:       var(--ss-hover);
+        --gr-active:      var(--ss-pressed);
+        --gr-selected:    var(--ss-accent-soft);
+        --gr-accent:      var(--ss-accent);
+        --gr-danger:      var(--ss-danger);
+        --gr-success:     var(--ss-success-solid);
+        --gr-bg:          var(--ss-surface);
+        --gr-card-bg:     var(--ss-surface-2);
+        --gr-card-border: var(--ss-border);
 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         -webkit-font-smoothing: antialiased;
         color: var(--gr-text);
-        background: var(--gr-bg);
-        border-radius: 0.6em;
+
     }
 
-    #gr-root.dark {
-        --gr-text:        #f0f0f0;
-        --gr-dim:         #a0a0a5;
-        --gr-muted:       #ececee;
-        --gr-divider:     #3a3a3c;
-        --gr-hover:       rgba(255,255,255,0.06);
-        --gr-active:      rgba(255,255,255,0.12);
-        --gr-selected:    rgba(41,151,255,0.12);
-        --gr-accent:      #2997ff;
-        --gr-danger:      #ff453a;
-        --gr-success:     #30d158;
-        --gr-bg:          #2b2b2b;
-        --gr-card-bg:     #3a3a3c;
-        --gr-card-border: #48484a;
-    }
 
-    #gr-page { padding: 16px 0 24px; }
+    #gr-page { padding: 0; }
 
     /* ── Section label ── */
     .gr-section-label {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        padding: 0 16px;
-        margin: 12px 0 6px;
+        line-height: 16px;
+        color: var(--ss-text-2);
+        padding: 0 2px;
+        margin: 18px 0 7px;
     }
+    /* The System Settings header already names this list */
+    #gr-page > .gr-section-label:first-child { display: none; }
 
     /* ── Toolbar ── */
-    #gr-toolbar { padding: 4px 12px 10px; }
+    #gr-toolbar { padding: 6px 0 4px; }
     #gr-btn-row {
         display: flex;
         align-items: center;
@@ -102,9 +88,9 @@
     /* ── List card ── */
     .gr-list {
         border: 1px solid var(--gr-divider);
-        border-radius: 10px;
+        border-radius: var(--ss-radius);
         overflow: hidden;
-        margin: 0 12px 6px;
+        margin: 0 0 6px;
         background: var(--gr-bg);
     }
 
@@ -176,13 +162,12 @@
         font-weight: 500;
     }
     .gr-badge.admin  { background: rgba(52,199,89,0.13);  color: var(--gr-success); }
-    .gr-badge.module { background: rgba(0,113,227,0.10);  color: var(--gr-accent); }
-    .gr-badge.all    { background: rgba(52,199,89,0.13);  color: var(--gr-success); }
-    .gr-badge.none   { background: rgba(155,155,160,0.12); color: var(--gr-muted); }
-    .gr-badge.noadmin{ background: rgba(155,155,160,0.12); color: var(--gr-muted); }
+    .gr-badge.module { background: var(--ss-accent-soft);  color: var(--ss-accent-text); }
+    .gr-badge.all    { background: var(--ss-success-soft); color: var(--ss-success); }
+    .gr-badge.none   { background: var(--ss-surface-3);    color: var(--ss-text-2); }
+    .gr-badge.noadmin{ background: var(--ss-surface-3);    color: var(--ss-text-2); }
     #gr-root.dark .gr-badge.admin  { background: rgba(48,209,88,0.15); }
     #gr-root.dark .gr-badge.all    { background: rgba(48,209,88,0.15); }
-    #gr-root.dark .gr-badge.module { background: rgba(41,151,255,0.15); }
 
     /* ── Empty / loading ── */
     .gr-empty {
@@ -195,9 +180,9 @@
     /* ── Delete panel ── */
     #gr-delete-panel {
         display: none;
-        border: 1px solid var(--gr-danger);
-        border-radius: 10px;
-        margin: 0 12px 10px;
+        border: 1px solid var(--ss-danger-border);
+        border-radius: var(--ss-radius);
+        margin: 10px 0;
         background: var(--gr-bg);
         overflow: hidden;
     }

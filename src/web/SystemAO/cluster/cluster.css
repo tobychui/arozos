@@ -6,59 +6,40 @@
 :where(#cl-root, #cl-root *) { box-sizing: border-box; margin: 0; padding: 0; }
 
 #cl-root {
-    --cl-bg:        #f5f5f7;
-    --cl-card:      #ffffff;
-    --cl-card-head: #fafafa;
-    --cl-border:    rgba(0,0,0,0.08);
-    --cl-text:      #1d1d1f;
-    --cl-dim:       #6e6e73;
-    --cl-muted:     #98989d;
-    --cl-accent:    #0071e3;
-    --cl-success:   #34c759;
-    --cl-warn:      #ff9f0a;
-    --cl-danger:    #ff3b30;
-    --cl-hover:     rgba(0,0,0,0.04);
-    --cl-input:     #ffffff;
-    --cl-chip:      rgba(0,113,227,0.10);
-    --cl-shadow:    0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+    --cl-bg:        transparent;
+    --cl-card:      var(--ss-surface);
+    --cl-card-head: var(--ss-surface-2);
+    --cl-border:    var(--ss-border);
+    --cl-text:      var(--ss-text);
+    --cl-dim:       var(--ss-text-2);
+    --cl-muted:     var(--ss-muted);
+    --cl-accent:    var(--ss-accent);
+    --cl-success:   var(--ss-success-solid);
+    --cl-warn:      #e08a00;
+    --cl-danger:    var(--ss-danger);
+    --cl-hover:     var(--ss-hover);
+    --cl-input:     var(--ss-field);
+    --cl-chip:      var(--ss-accent-soft);
+    --cl-shadow:    0 0 0 1px var(--ss-border);
 
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
     color: var(--cl-text);
     background: var(--cl-bg);
-    padding: 20px;
-    min-height: 100vh;
-}
-#cl-root.dark {
-    --cl-bg:        #1f1f1f;
-    --cl-card:      #2c2c2e;
-    --cl-card-head: #232325;
-    --cl-border:    rgba(255,255,255,0.09);
-    --cl-text:      #f2f2f7;
-    --cl-dim:       #aeaeb2;
-    --cl-muted:     #636366;
-    --cl-accent:    #2997ff;
-    --cl-success:   #30d158;
-    --cl-warn:      #ffd60a;
-    --cl-danger:    #ff453a;
-    --cl-hover:     rgba(255,255,255,0.05);
-    --cl-input:     #1c1c1e;
-    --cl-chip:      rgba(41,151,255,0.18);
-    --cl-shadow:    0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
 }
 
-#cl-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-#cl-header img { width: 40px; height: 40px; border-radius: 9px; }
-#cl-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
-#cl-header p  { font-size: 13px; color: var(--cl-dim); margin-top: 2px; }
+#cl-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+/* The System Settings header already shows the page title */
+#cl-header img, #cl-header h1 { display: none; }
+#cl-header p  { font-size: 12px; color: var(--ss-text-3); margin-left: 2px; }
 
 .cl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 900px) { .cl-grid { grid-template-columns: 1fr; } }
 
 .cl-card {
-    background: var(--cl-card); border-radius: 12px; box-shadow: var(--cl-shadow);
-    overflow: hidden; margin-bottom: 16px;
+    background: var(--cl-card); border-radius: var(--ss-radius); box-shadow: var(--cl-shadow);
+    overflow: hidden; margin-bottom: 14px;
 }
 .cl-card-head {
     display: flex; align-items: center; justify-content: space-between;
@@ -100,7 +81,7 @@
 .cl-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
 
 .cl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.cl-chip { background: var(--cl-chip); color: var(--cl-accent); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 500; }
+.cl-chip { background: var(--cl-chip); color: var(--ss-accent-text); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 500; }
 
 .cl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; color: #fff; }
 .cl-badge.ONLINE      { background: var(--cl-success); }
@@ -140,7 +121,7 @@ table.cl-table tr:hover td { background: var(--cl-hover); }
 
 /* Shared by Cluster Settings and Cluster Info */
 #cl-header .cl-links { display: flex; gap: 6px; }
-#cl-header .cl-links a { font-size: 12px; color: var(--cl-accent); text-decoration: none; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--cl-border); background: var(--cl-card); }
+#cl-header .cl-links a { font-size: 12px; color: var(--ss-link); text-decoration: none; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--cl-border); background: var(--cl-card); }
 #cl-header .cl-links a:hover { background: var(--cl-hover); }
 .cl-notice { background: var(--cl-card); border-radius: 12px; box-shadow: var(--cl-shadow); padding: 18px 20px; margin-bottom: 16px; font-size: 13px; color: var(--cl-dim); }
 .cl-notice b { color: var(--cl-text); }

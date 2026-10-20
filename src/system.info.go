@@ -11,6 +11,7 @@ import (
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
 	"imuslab.com/arozos/mod/info/logviewer"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
+	"imuslab.com/arozos/mod/network/netstat"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/updates"
 	"imuslab.com/arozos/mod/utils"
@@ -104,8 +105,11 @@ func SystemInfoInit() {
 		})
 
 		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
+		router.HandleFunc("/system/info/getUsageHistory", InfoHandleUsageHistory)
 
 		// Sample CPU and RAM in the background so the endpoint is non-blocking.
+		// The same samples, plus the NIC counters, feed the 1 h / 24 h history.
+		usage.SetNetworkCounterSource(netstat.GetNetworkInterfaceStats)
 		usage.StartBackgroundMonitor()
 
 	} else {
@@ -223,17 +227,38 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 		UsedRAM  string
 		TotalRam string
 		RamUsage float64
+		Cores    int //Physical cores, 0 when unknown
+		Threads  int
 	}
 
 	cpuUsage, usedRam, totalRam, usagePercentage, _ := usage.GetCachedStats()
+	cores, threads := usage.GetCPUCounts()
 
 	info := UsageInfo{
 		CPU:      cpuUsage,
 		UsedRAM:  usedRam,
 		TotalRam: totalRam,
 		RamUsage: usagePercentage,
+		Cores:    cores,
+		Threads:  threads,
 	}
 
 	js, _ := json.Marshal(info)
+	utils.SendJSONResponse(w, string(js))
+}
+
+// InfoHandleUsageHistory returns the in-memory CPU, RAM and network history
+// of the range given by "range" (1h or 24h), oldest point first
+func InfoHandleUsageHistory(w http.ResponseWriter, r *http.Request) {
+	rangeName, _ := utils.GetPara(r, "range")
+	if rangeName != "24h" {
+		rangeName = "1h"
+	}
+	points, step := usage.GetHistory(rangeName)
+	js, _ := json.Marshal(struct {
+		Range  string
+		Step   int //Seconds covered by each point
+		Points []usage.HistoryPoint
+	}{rangeName, int(step / time.Second), points})
 	utils.SendJSONResponse(w, string(js))
 }

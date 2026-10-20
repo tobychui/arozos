@@ -1,38 +1,35 @@
 <!-- Theme Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
 <style>
 #thm-root {
-    --thm-text:   #1a1a1a;
-    --thm-dim:    #5a5a5a;
-    --thm-muted:  #9a9a9a;
-    --thm-border: rgba(0,0,0,0.10);
-    --thm-green:  #107c10;
+    --thm-text:   var(--ss-text);
+    --thm-dim:    var(--ss-text-2);
+    --thm-muted:  var(--ss-text-3);
+    --thm-border: var(--ss-border);
+    --thm-green:  var(--ss-accent);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     color: var(--thm-text);
-    padding: 4px 0 32px;
-}
-body.dark #thm-root {
-    --thm-text:   #f0f0f0;
-    --thm-dim:    #b0b0b0;
-    --thm-muted:  #808080;
-    --thm-border: rgba(255,255,255,0.10);
+    padding: 0 0 4px;
 }
 #thm-root h3.section-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--thm-text);
     margin: 0 0 4px;
 }
 #thm-root .section-desc {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--thm-muted);
     margin: 0 0 12px;
 }
 #thm-root .thm-section {
-    padding: 16px;
-    border-bottom: 1px solid var(--thm-border);
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
-#thm-root .thm-section:last-child { border-bottom: none; }
+#thm-root .thm-section:last-child { margin-bottom: 0; }
 #thm-root .color-row {
     display: flex;
     align-items: center;

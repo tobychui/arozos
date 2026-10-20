@@ -11,46 +11,28 @@
     html, body { height: 100%; }
 
     #sm-root {
-        --sm-bg:        #f3f3f3;
-        --sm-card:      #ffffff;
-        --sm-border:    #e0e0e0;
-        --sm-text:      #1b1b1b;
-        --sm-dim:       #5a5a5a;
-        --sm-muted:     #8a8a8a;
-        --sm-accent:    #0067c0;
-        --sm-ok:        #107c10;
-        --sm-ok-bg:     #dff6dd;
-        --sm-warn:      #7a4100;
-        --sm-warn-bg:   #fff4ce;
-        --sm-danger:    #c42b1c;
-        --sm-danger-bg: #fde7e9;
-        --sm-shadow:    0 1px 4px rgba(0,0,0,0.08);
-        --sm-radius:    6px;
+        --sm-bg:        transparent;
+        --sm-card:      var(--ss-surface);
+        --sm-border:    var(--ss-border);
+        --sm-text:      var(--ss-text);
+        --sm-dim:       var(--ss-text-2);
+        --sm-muted:     var(--ss-muted);
+        --sm-accent:    var(--ss-link);
+        --sm-ok:        var(--ss-success);
+        --sm-ok-bg:     var(--ss-success-soft);
+        --sm-warn:      var(--ss-warning);
+        --sm-warn-bg:   var(--ss-warning-soft);
+        --sm-danger:    var(--ss-danger);
+        --sm-danger-bg: var(--ss-danger-soft);
+        --sm-shadow:    none;
+        --sm-radius:    var(--ss-radius);
 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         color: var(--sm-text);
         background: var(--sm-bg);
-        min-height: 100vh;
-        padding-bottom: 32px;
     }
 
-    #sm-root.dark {
-        --sm-bg:        #202020;
-        --sm-card:      #2d2d2d;
-        --sm-border:    #404040;
-        --sm-text:      #e8e8e8;
-        --sm-dim:       #aaaaaa;
-        --sm-muted:     #666666;
-        --sm-accent:    #60cdff;
-        --sm-ok:        #6ccb5f;
-        --sm-ok-bg:     #1a3a1a;
-        --sm-warn:      #ffd966;
-        --sm-warn-bg:   #3a2e00;
-        --sm-danger:    #ff7070;
-        --sm-danger-bg: #3a1a1a;
-        --sm-shadow:    0 1px 6px rgba(0,0,0,0.4);
-    }
 
     body { background: var(--sm-bg); }
 
@@ -59,8 +41,10 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 20px 16px 14px;
+        padding: 0 2px 14px;
     }
+    /* The System Settings header already shows the page title */
+    #sm-hero-icon, #sm-hero-title { display: none !important; }
 
     #sm-hero-icon {
         width: 34px;
@@ -101,7 +85,7 @@
     .sm-badge.ok      { color: var(--sm-ok);     background: var(--sm-ok-bg); }
     .sm-badge.warn    { color: var(--sm-warn);   background: var(--sm-warn-bg); }
     .sm-badge.danger  { color: var(--sm-danger); background: var(--sm-danger-bg); }
-    .sm-badge.unknown { color: var(--sm-muted);  background: var(--sm-border); }
+    .sm-badge.unknown { color: var(--ss-text-2); background: var(--ss-surface-3); }
 
     .sm-badge-dot {
         width: 7px;
@@ -120,7 +104,7 @@
         background: var(--sm-card);
         border: 1px solid var(--sm-border);
         border-radius: var(--sm-radius);
-        margin: 0 12px 10px;
+        margin: 0 0 12px;
         box-shadow: var(--sm-shadow);
         overflow: hidden;
     }

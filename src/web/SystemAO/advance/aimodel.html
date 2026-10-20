@@ -1,42 +1,25 @@
 <style>
 #aim-root {
-    --aim-bg: #ffffff;
-    --aim-border: #e5e5e5;
-    --aim-text: #1f1f1f;
-    --aim-dim: #676767;
-    --aim-soft: #f5f5f5;
-    --aim-soft2: #efefef;
-    --aim-accent: #4d6bff;
+    --aim-bg: var(--ss-surface);
+    --aim-border: var(--ss-border);
+    --aim-text: var(--ss-text);
+    --aim-dim: var(--ss-text-3);
+    --aim-soft: var(--ss-surface);
+    --aim-soft2: var(--ss-surface-2);
+    --aim-accent: var(--ss-accent);
     --aim-accent-text: #ffffff;
-    --aim-ok: #107c10;
-    --aim-danger: #c42b1c;
-    --aim-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    background: var(--aim-bg);
-    border: 1px solid var(--aim-border);
-    border-radius: 12px;
-    box-shadow: var(--aim-shadow);
+    --aim-ok: var(--ss-success);
+    --aim-danger: var(--ss-danger);
+    --aim-shadow: none;
     color: var(--aim-text);
-    padding: 16px;
-    margin-bottom: 4px;
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 13px;
-}
-body.dark #aim-root {
-    --aim-bg: #2b2b2b;
-    --aim-border: #3b3b3b;
-    --aim-text: #ececec;
-    --aim-dim: #aaaaaa;
-    --aim-soft: #343434;
-    --aim-soft2: #3c3c3c;
-    --aim-accent: #5a78ff;
-    --aim-ok: #2ecc71;
-    --aim-danger: #ff6b5e;
-    --aim-shadow: 0 8px 22px rgba(0,0,0,0.3);
 }
 
 #aim-root * { box-sizing: border-box; }
 .aim-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
-.aim-head .aim-title { font-size: 17px; font-weight: 600; }
+/* The System Settings header already shows the page title */
+.aim-head .aim-title { display: none; }
 .aim-head .aim-sub { font-size: 12px; color: var(--aim-dim); margin-top: 2px; }
 .aim-head .aim-badge { margin-left:auto; font-size:11px; color:var(--aim-dim); display:inline-flex; align-items:center; gap:6px; }
 .aim-dot { width:8px; height:8px; border-radius:50%; background: var(--aim-dim); }
@@ -45,10 +28,10 @@ body.dark #aim-root {
 
 .aim-card {
     border: 1px solid var(--aim-border);
-    border-radius: 10px;
+    border-radius: var(--ss-radius);
     background: var(--aim-soft);
-    padding: 14px;
-    margin-bottom: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
 .aim-card-title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; display:flex; align-items:center; gap:8px; }
 .aim-card-desc { font-size: 11.5px; color: var(--aim-dim); margin-bottom: 12px; line-height: 1.5; }

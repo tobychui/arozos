@@ -10,7 +10,7 @@
     <style>
         #sys-setting-page { padding: 20px; }
         a.pageFocus {
-            background: #222222;
+            background: var(--ss-accent);
             color: white !important;
             border-radius: 50%;
             -moz-border-radius: 50%;
@@ -37,8 +37,7 @@
 <body>
     <div class="ui container" id="sys-setting-page" style="height: 100% !important;">
         <div>
-            <p>Connection Attempts</p>
-            <h1 class="ui header">
+            <h1 class="ui header" style="margin-top:0">
                 <span id="normalStatus">Analysing</span>
                 <div class="sub header">
                     <span id="loginAptCount"></span> login request logged this month with <span id="incorrectRatio"></span> incorrect password attempts.

@@ -2,46 +2,15 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <script src="../../script/jquery.min.js"></script>
-    <script src="../../script/ao_module.js"></script>
-    <script src="../../script/applocale.js"></script>
     <style>
-/* 
-   System Info 
-   Scoped entirely to #si-root to avoid conflicts
-   with the parent system-settings CSS.
+/*
+   System Info
+   Scoped to #si-root. Colours come from the System Settings tokens.
 */
 
 #si-root {
-    /* Light-theme variables (default) */
-    --si-text:       #1d1d1f;
-    --si-dim:        #6e6e73;
-    --si-muted:      #98989d;
-    --si-divider:    #d2d2d7;
-    --si-hover:      rgba(0, 0, 0, 0.045);
-    --si-active:     rgba(0, 0, 0, 0.09);
-    --si-accent:     #0071e3;
-    --si-nav-strip:  rgba(0, 0, 0, 0.025);
-    --si-shadow:     rgba(0, 0, 0, 0.13);
-
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-    color: var(--si-text);
-    padding: 20px;
-}
-
-/* Dark-mode overrides */
-#si-root.dark {
-    --si-text:       #f0f0f0;
-    --si-dim:        #a0a0a5;
-    --si-muted:      #636368;
-    --si-divider:    #3a3a3a;
-    --si-hover:      rgba(255, 255, 255, 0.06);
-    --si-active:     rgba(255, 255, 255, 0.12);
-    --si-accent:     #2997ff;
-    --si-nav-strip:  rgba(255, 255, 255, 0.03);
-    --si-shadow:     rgba(0, 0, 0, 0.45);
+    font-size: 13px;
+    color: var(--ss-text);
 }
 
 /* Hero section */
@@ -50,18 +19,18 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 28px 0 10px;
+    padding: 14px 0 22px;
 }
 
 #si-avatar-ring {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     overflow: hidden;
-    margin-bottom: 18px;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 4px 18px var(--si-shadow);
+    margin-bottom: 14px;
+    box-shadow: 0 0 0 1px var(--ss-border);
     flex-shrink: 0;
-    background: #888;
+    background: var(--tone-sky-bg);
 }
 
 #si-avatar-ring img {
@@ -73,26 +42,26 @@
 }
 
 #si-model-name {
-    font-size: 21px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-    color: var(--si-text) !important;
-    margin-bottom: 4px;
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 700;
+    color: var(--ss-text);
     text-align: center;
 }
 
 #si-build-label {
-    font-size: 13px;
-    color: var(--si-dim) !important;
-    margin-bottom: 24px;
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--ss-text-3);
     text-align: center;
 }
 
 .si-hero-rule {
-    width: 260px;
+    width: 225px;
     height: 1px;
-    background: var(--si-divider);
-    margin-bottom: 18px;
+    background: var(--ss-border);
+    margin: 14px 0 9px;
     flex-shrink: 0;
 }
 
@@ -100,87 +69,49 @@
 
 .si-qs-grid {
     display: grid;
-    grid-template-columns: max-content 1fr;
-    column-gap: 14px;
-    row-gap: 0;
-    width: 100%;
-    max-width: 400px;
-    margin-bottom: 18px;
+    grid-template-columns: max-content minmax(0, max-content);
+    column-gap: 12px;
+    max-width: 100%;
 }
 
 .si-qs-k {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--si-muted) !important;
+    font-size: 11.5px;
+    color: var(--ss-muted);
     text-align: right;
-    padding: 4px 0;
+    line-height: 20px;
     white-space: nowrap;
-    line-height: 1.55;
 }
 
 .si-qs-v {
-    font-size: 12px;
-    color: var(--si-text) !important;
-    padding: 4px 0;
-    line-height: 1.55;
+    font-size: 11.5px;
+    color: var(--ss-text);
+    line-height: 20px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* More Info button */
+#hero-sn { font-family: var(--ss-mono); font-size: 11px; }
 
-#si-more-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-top: 10px;
-    padding: 5px 12px;
-    min-height: 400px;
-    background: none;
-    border: none;
-    color: var(--si-accent) !important;
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.1s;
-    outline: none;
-}
-
-#si-more-btn:hover   { background: rgba(0, 113, 227, 0.09); }
-#si-root.dark #si-more-btn:hover { background: rgba(41, 151, 255, 0.11); }
-
-#si-btn-chevron {
-    width: 11px;
-    height: 11px;
-    transition: transform 0.2s ease;
-    flex-shrink: 0;
-}
-
-#si-btn-chevron.flipped { transform: rotate(180deg); }
-
-/* More Info panel */
+/* Detail card */
 
 #si-more {
-    display: none;
-    margin-top: 18px;
-    border-top: 1px solid var(--si-divider);
-    border-radius: 1em;
+    display: flex;
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius);
     overflow: hidden;
-    min-height: 400px;
+    min-height: 296px;
 }
-
-#si-more.open { display: flex; }
 
 /* Left nav strip */
 
 #si-nav {
-    width: 158px;
-    min-width: 158px;
-    padding: 14px 8px;
-    border-right: 1px solid var(--si-divider);
-    background: var(--si-nav-strip);
+    width: 165px;
+    min-width: 165px;
+    padding: 7px;
+    border-right: 1px solid var(--ss-divider);
+    background: var(--ss-surface-2);
     flex-shrink: 0;
 }
 
@@ -188,33 +119,39 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    padding: 7px 10px;
-    border-radius: 7px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 13px;
-    color: var(--si-text) !important;
+    font-size: 12.5px;
+    color: var(--ss-text-2);
     user-select: none;
-    transition: background 0.08s;
-    margin-bottom: 2px;
 }
 
-.si-nav-item:hover  { background: var(--si-hover); }
-.si-nav-item.active { background: var(--si-active); font-weight: 500; }
+.si-nav-item:hover  { background: var(--ss-hover); color: var(--ss-text); }
+.si-nav-item.active {
+    background: var(--ss-surface);
+    border-color: var(--ss-divider);
+    color: var(--ss-text);
+    font-weight: 600;
+}
 
 .si-nav-icon {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    color: var(--si-dim);
+    color: var(--ss-text-3);
 }
 
-.si-nav-item > span { color: var(--si-text) !important; }
+.si-nav-item.active .si-nav-icon { color: var(--ss-text); }
+.si-nav-item > span { color: inherit; }
 
 /* Right content pane */
 
 #si-content {
     flex: 1;
-    padding: 22px 28px;
+    padding: 14px 18px 8px;
     min-width: 0;
 }
 
@@ -222,11 +159,12 @@
 .si-section.active  { display: block; }
 
 .si-section-title {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.15px;
-    color: var(--si-text) !important;
-    margin: 0 0 16px;
+    font-size: 13px;
+    line-height: 20px;
+    font-weight: 700;
+    color: var(--ss-text);
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--ss-border);
 }
 
 /* Key-value spec table */
@@ -236,44 +174,48 @@
     border-collapse: collapse;
 }
 
-.si-kv tr            { border-bottom: 1px solid var(--si-divider); }
+.si-kv tr            { border-bottom: 1px solid var(--ss-border); }
 .si-kv tr:last-child { border-bottom: none; }
 
 .si-kv td {
-    padding: 9px 0;
-    font-size: 13px;
-    vertical-align: top;
-    line-height: 1.5;
+    padding: 8px 0;
+    height: 34px;
+    font-size: 12.5px;
+    vertical-align: middle;
+    line-height: 17px;
 }
 
 .si-kv td.k {
-    width: 160px;
-    padding-right: 24px;
+    width: 142px;
+    padding-right: 18px;
     white-space: nowrap;
-    color: var(--si-dim) !important;
+    color: var(--ss-text-2);
 }
 
 .si-kv td.v {
-    color: var(--si-text) !important;
+    color: var(--ss-text);
     word-break: break-word;
 }
+
+.si-kv td.v.mono { font-family: var(--ss-mono); font-size: 11.5px; }
 
 /* List rows (drives, NICs) */
 
 .si-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--si-divider);
-    font-size: 13px;
+    align-items: center;
+    min-height: 34px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--ss-border);
+    font-size: 12.5px;
     gap: 12px;
 }
 
 .si-row:last-child { border-bottom: none; }
 
 .si-row-name {
-    color: var(--si-text) !important;
+    color: var(--ss-text);
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -282,100 +224,49 @@
 }
 
 .si-row-meta {
-    color: var(--si-dim) !important;
+    color: var(--ss-text-2);
     font-size: 12px;
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 .si-empty {
-    font-size: 13px;
-    color: var(--si-muted) !important;
+    font-size: 12.5px;
+    color: var(--ss-muted);
     padding: 12px 0;
 }
 
-/* ── Responsive ── */
-
-/* Medium: tighten content padding when space gets tight */
-@media (max-width: 600px) {
-    #si-content {
-        padding: 16px 16px;
-    }
-}
-
 /* Narrow: collapse nav into a horizontal scrollable tab strip */
-@media (max-width: 500px) {
-    #si-more {
-        flex-direction: column;
-    }
+@media (max-width: 560px) {
+    #si-more { flex-direction: column; }
 
     #si-nav {
         width: 100%;
         min-width: 0;
         border-right: none;
-        border-bottom: 1px solid var(--si-divider);
-        padding: 6px 8px;
+        border-bottom: 1px solid var(--ss-divider);
         display: flex;
         flex-direction: row;
         overflow-x: auto;
         gap: 2px;
-        /* hide scrollbar but keep scrollability */
         scrollbar-width: none;
     }
     #si-nav::-webkit-scrollbar { display: none; }
 
-    .si-nav-item {
-        flex-shrink: 0;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 10px;
-        margin-bottom: 0;
-        font-size: 11px;
-    }
+    .si-nav-item { flex-shrink: 0; }
 
-    .si-nav-icon {
-        width: 17px;
-        height: 17px;
-    }
+    #si-content { padding: 12px 14px 6px; }
 
-    #si-content {
-        padding: 14px 14px;
-    }
-
-    /* Stack key-value table: key on top, value below */
     .si-kv,
     .si-kv tbody,
     .si-kv tr,
-    .si-kv td { display: block; width: 100%; }
+    .si-kv td { display: block; width: 100%; height: auto; }
 
-    .si-kv tr {
-        border-bottom: 1px solid var(--si-divider);
-        padding: 8px 0;
-    }
-    .si-kv tr:last-child { border-bottom: none; padding-bottom: 0; }
+    .si-kv tr { padding: 7px 0; }
+    .si-kv td { padding: 0; }
+    .si-kv td.k { font-size: 11px; padding-right: 0; margin-bottom: 2px; }
 
-    .si-kv td {
-        padding: 0;
-        border: none;
-    }
-    .si-kv td.k {
-        width: 100%;
-        font-size: 11px;
-        white-space: normal;
-        padding-right: 0;
-        margin-bottom: 2px;
-    }
-    .si-kv td.v {
-        font-size: 13px;
-    }
-
-    /* Row items (storage / network): stack name + meta vertically */
-    .si-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-    }
+    .si-row { flex-direction: column; align-items: flex-start; gap: 2px; }
     .si-row-name { white-space: normal; }
 }
     </style>
@@ -388,8 +279,7 @@
     <div id="si-hero">
 
         <div id="si-avatar-ring">
-            <img src="../../system/info/wallpaper.jpg" alt=""
-                 onerror="this.parentElement.style.background='#555'">
+            <img src="../../system/info/wallpaper.jpg" alt="" onerror="this.style.display='none'">
         </div>
 
         <div id="si-model-name">ArozOS</div>
@@ -398,25 +288,15 @@
         <div class="si-hero-rule"></div>
 
         <div class="si-qs-grid">
-            <span class="si-qs-k" locale="info/cpu">CPU</span>
+            <span class="si-qs-k" locale="info/processor">Processor</span>
             <span class="si-qs-v" id="hero-cpu">—</span>
 
             <span class="si-qs-k" locale="info/memory">Memory</span>
             <span class="si-qs-v" id="hero-ram">—</span>
 
-            <span class="si-qs-k" locale="info/serial_number">Serial Number</span>
+            <span class="si-qs-k" locale="info/serial">Serial</span>
             <span class="si-qs-v" id="hero-sn">—</span>
         </div>
-
-        <div class="si-hero-rule"></div>
-
-        <!-- <button id="si-more-btn" onclick="siToggleMore()">
-            <span>More Info</span>
-            <svg id="si-btn-chevron" viewBox="0 0 12 12" fill="none">
-                <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </button> -->
 
     </div><!-- #si-hero -->
 
@@ -491,10 +371,10 @@
                     <tr><td class="k" locale="info/ov_model">Model</td>            <td class="v" id="ov-model">—</td></tr>
                     <tr><td class="k" locale="info/ov_hostname">Hostname</td>       <td class="v" id="ov-host-name">—</td></tr>
                     <tr><td class="k" locale="info/ov_vendor">Vendor</td>           <td class="v" id="ov-vendor">—</td></tr>
-                    <tr><td class="k" locale="info/ov_os">Operating System</td>     <td class="v" id="ov-os">—</td></tr>
+                    <tr><td class="k" locale="info/ov_os">Operating system</td>     <td class="v" id="ov-os">—</td></tr>
                     <tr><td class="k" locale="info/ov_arch">Architecture</td>       <td class="v" id="ov-arch">—</td></tr>
-                    <tr><td class="k" locale="info/ov_build">Build Version</td>     <td class="v" id="ov-build">—</td></tr>
-                    <tr><td class="k" locale="info/ov_sn">Serial Number</td>        <td class="v" id="ov-sn">—</td></tr>
+                    <tr><td class="k" locale="info/ov_build">Build</td>     <td class="v" id="ov-build">—</td></tr>
+                    <tr><td class="k" locale="info/ov_sn">Serial</td>        <td class="v mono" id="ov-sn">—</td></tr>
                 </table>
             </div>
 
@@ -545,21 +425,6 @@
 </div><!-- #si-root -->
 
 <script>
-/* Theme */
-if (preferredTheme || parent.preferredTheme){
-    var theme = preferredTheme || parent.preferredTheme;
-    document.getElementById('si-root').classList.toggle('dark', theme === 'dark');
-}else{
-    // Fallback to AO module if no theme info from parent
-     ao_module_getSystemThemeColor(function (color) {
-        document.getElementById('si-root').classList.toggle('dark', color !== 'whiteTheme');
-    });
-}
-
-window.detailPageThemeCallback = function(isDark) {
-    document.getElementById('si-root').classList.toggle('dark', isDark);
-};
-
 /* Navigation */
 function siNav(el) {
     var sec = el.getAttribute('data-sec');
@@ -571,19 +436,6 @@ function siNav(el) {
         s.classList.remove('active');
     });
     document.getElementById(sec).classList.add('active');
-}
-
-/* More-Info toggle */
-function siToggleMore() {
-    var panel   = document.getElementById('si-more');
-    var chevron = document.getElementById('si-btn-chevron');
-    var isOpen  = panel.classList.toggle('open');
-    chevron.classList.toggle('flipped', isOpen);
-    if (isOpen) {
-        setTimeout(function () {
-            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 40);
-    }
 }
 
 /* Data loading */
@@ -615,8 +467,9 @@ function loadArOZInfo() {
         var model  = d.DeviceModel  || 'ArozOS';
         var build  = d.BuildVersion || '';
         $('#si-model-name').text(model);
-        $('#si-build-label').text('ArozOS  ' + build);
-        $('#hero-sn').text(d.SN || '??');
+        //"development.3.0.4" reads as "development 3.0.4" under the model name
+        $('#si-build-label').text('ArozOS ' + build.replace(/^([A-Za-z]+)\.(?=\d)/, '$1 '));
+        $('#hero-sn').text(shortSerial(d.SN || '??')).attr('title', d.SN || '');
 
         $('#ov-model').text(model);
         $('#ov-host-name').text(d.HostName  || '??');
@@ -632,7 +485,7 @@ function loadCPUInfo() {
     $.getJSON('../../system/info/getCPUinfo', function (d) {
         var model     = (d.Model || '??').replace(/\s+/g, ' ').trim();
         // Hero: strip trailing "@ X.XXGHz" for a cleaner one-liner
-        var heroModel = model.replace(/\s*@\s*[\d.]+\s*[GM]Hz/i, '').trim() || model;
+        var heroModel = model.replace(/\s*@\s*[\d.]+\s*[GM]Hz/i, '').replace(/\s+Processor\s*$/i, '').trim() || model;
         $('#hero-cpu').text(heroModel);
         $('#cpu-model').text(model);
 
@@ -731,6 +584,13 @@ function formatDuration(secs) {
     if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
     if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
     return m + 'm ' + s + 's';
+}
+
+//Long serials keep their first and last group: be0aa2a7-...-1be29243f632
+function shortSerial(sn) {
+    var parts = String(sn).split('-');
+    if (sn.length <= 24 || parts.length < 3) return sn;
+    return parts[0] + '-\u2026-' + parts[parts.length - 1];
 }
 
 function capitalise(str) {

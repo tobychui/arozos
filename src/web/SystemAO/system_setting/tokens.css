@@ -1,0 +1,151 @@
+/*
+    System Settings design tokens
+
+    One palette for the shell and every settings page. Pages loaded into the
+    shell read these variables instead of hard coding colours, so the light
+    and dark themes stay consistent. body.dark switches the whole set; pages
+    opened on their own can link this file and toggle the same class.
+*/
+
+:root {
+    color-scheme: light;
+
+    /* Surfaces */
+    --ss-sidebar:          #f3f3f1;
+    --ss-bg:               #fbfbfa;
+    --ss-surface:          #ffffff;
+    --ss-surface-2:        #f3f3f1;
+    --ss-surface-3:        #e9e9e6;
+    --ss-field:            #ffffff;
+    --ss-account:          #e8e8e6;
+    --ss-rail-active:      #e2e2df;
+    --ss-hover:            rgba(28, 28, 26, 0.045);
+    --ss-pressed:          rgba(28, 28, 26, 0.08);
+
+    /* Lines */
+    --ss-border:           #ebebea;
+    --ss-border-strong:    #dededd;
+    --ss-divider:          #e0e0dd;
+    --ss-kbd:              #cbcbc8;
+
+    /* Text */
+    --ss-text:             #1c1c1a;
+    --ss-text-2:           #62625d;
+    --ss-text-3:           #6f6f6a;
+    --ss-muted:            #95958f;
+    --ss-faint:            #c1c1bd;
+
+    /* Accent */
+    --ss-accent:           #1f74bf;
+    --ss-accent-hover:     #1a66a8;
+    --ss-accent-soft:      #d7eaff;
+    --ss-accent-text:      #00569f;
+    --ss-link:             #1f74bf;
+    --ss-focus:            rgba(31, 116, 191, 0.18);
+
+    /* States */
+    --ss-success:          #067132;
+    --ss-success-soft:     #d9f3dd;
+    --ss-success-solid:    #2e9b52;
+    --ss-warning:          #8a4b00;
+    --ss-warning-soft:     #fbe6ce;
+    --ss-danger:           #c53637;
+    --ss-danger-solid:     #c53637;
+    --ss-danger-hover:     #ad2c2d;
+    --ss-danger-soft:      #fdeceb;
+    --ss-danger-border:    #f6c2bd;
+    --ss-toggle-off:       #d5d5d4;
+
+    /* Charts */
+    --ss-chart-grid:       #edf0f3;
+    --ss-chart-border:     #e7e7e5;
+
+    /* Shape */
+    --ss-radius:           10px;
+    --ss-radius-sm:        7px;
+    --ss-shadow:           0 1px 2px rgba(28, 28, 26, 0.06);
+    --ss-shadow-pop:       0 8px 28px rgba(28, 28, 26, 0.16), 0 1px 3px rgba(28, 28, 26, 0.08);
+
+    --ss-font:             'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    --ss-mono:             ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+
+    /* Group tile tones: background / glyph */
+    --tone-blue-bg:   #d9ebff;  --tone-blue-fg:   #2063b0;
+    --tone-teal-bg:   #cdf2f2;  --tone-teal-fg:   #23898b;
+    --tone-indigo-bg: #e6e7ff;  --tone-indigo-fg: #5d53ae;
+    --tone-pink-bg:   #fee0ef;  --tone-pink-fg:   #983c75;
+    --tone-orange-bg: #fbe6ce;  --tone-orange-fg: #945000;
+    --tone-sky-bg:    #cff0fd;  --tone-sky-fg:    #00719e;
+    --tone-green-bg:  #d8f1dc;  --tone-green-fg:  #097c3a;
+    --tone-purple-bg: #f2e3fe;  --tone-purple-fg: #7b489e;
+    --tone-red-bg:    #ffe0dc;  --tone-red-fg:    #a53d3a;
+    --tone-olive-bg:  #ebeccf;  --tone-olive-fg:  #6c6b06;
+    --tone-peri-bg:   #dfe9ff;  --tone-peri-fg:   #4c61b5;
+    --tone-steel-bg:  #dde7ee;  --tone-steel-fg:  #2f5d7c;
+    --tone-gray-bg:   #e9e9e9;  --tone-gray-fg:   #5f5f5b;
+}
+
+body.dark {
+    color-scheme: dark;
+
+    --ss-sidebar:          #222221;
+    --ss-bg:               #1b1b1a;
+    --ss-surface:          #282826;
+    --ss-surface-2:        #222221;
+    --ss-surface-3:        #31312f;
+    --ss-field:            #1f1f1e;
+    --ss-account:          #2d2d2c;
+    --ss-rail-active:      #353533;
+    --ss-hover:            rgba(255, 255, 255, 0.05);
+    --ss-pressed:          rgba(255, 255, 255, 0.09);
+
+    --ss-border:           #393936;
+    --ss-border-strong:    #464644;
+    --ss-divider:          #333331;
+    --ss-kbd:              #4e4e4b;
+
+    --ss-text:             #ececea;
+    --ss-text-2:           #a5a5a0;
+    --ss-text-3:           #8f8f8a;
+    --ss-muted:            #757570;
+    --ss-faint:            #5a5a57;
+
+    --ss-accent:           #1f74bf;
+    --ss-accent-hover:     #2a82cf;
+    --ss-accent-soft:      #1b3753;
+    --ss-accent-text:      #92c9ff;
+    --ss-link:             #92c9ff;
+    --ss-focus:            rgba(146, 201, 255, 0.22);
+
+    --ss-success:          #83d494;
+    --ss-success-soft:     #1f3a26;
+    --ss-success-solid:    #5cb572;
+    --ss-warning:          #f2b66d;
+    --ss-warning-soft:     #3d2c16;
+    --ss-danger:           #ff7b72;
+    --ss-danger-solid:     #b83132;
+    --ss-danger-hover:     #c93b3c;
+    --ss-danger-soft:      #3a2120;
+    --ss-danger-border:    #6e3330;
+    --ss-toggle-off:       #4a4a47;
+
+    --ss-chart-grid:       rgba(255, 255, 255, 0.06);
+    --ss-chart-border:     #393936;
+
+    --ss-shadow:           0 1px 2px rgba(0, 0, 0, 0.3);
+    --ss-shadow-pop:       0 10px 30px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+
+    --tone-blue-bg:   #233954;  --tone-blue-fg:   #9fceff;
+    --tone-teal-bg:   #044141;  --tone-teal-fg:   #73d6d6;
+    --tone-indigo-bg: #353454;  --tone-indigo-fg: #c3c2ff;
+    --tone-pink-bg:   #4c2c3f;  --tone-pink-fg:   #f9b1d9;
+    --tone-orange-bg: #4a3418;  --tone-orange-fg: #ffc58a;
+    --tone-sky-bg:    #0d3a4d;  --tone-sky-fg:    #8fd8f8;
+    --tone-green-bg:  #1d3d26;  --tone-green-fg:  #9be0ad;
+    --tone-purple-bg: #3d2b52;  --tone-purple-fg: #dcb8fb;
+    --tone-red-bg:    #522826;  --tone-red-fg:    #ffb4ab;
+    --tone-olive-bg:  #3a3a1a;  --tone-olive-fg:  #e0e08a;
+    --tone-peri-bg:   #2b3556;  --tone-peri-fg:   #b3c5ff;
+    --tone-steel-bg:  #26343f;  --tone-steel-fg:  #a9c6dc;
+    --tone-gray-bg:   #363634;  --tone-gray-fg:   #c4c4c0;
+}

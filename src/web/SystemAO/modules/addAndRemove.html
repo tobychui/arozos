@@ -1,38 +1,25 @@
 ﻿<style>
 /* ══ WebApp Manager ══════════════════════════════════════════════ */
 #webapp-root {
-    --wa-bg:      #ffffff;
-    --wa-card:    #f5f5f7;
-    --wa-border:  #e0e0e0;
-    --wa-text:    #1d1d1f;
-    --wa-dim:     #6e6e73;
-    --wa-muted:   #98989d;
-    --wa-soft:    #f0f0f2;
-    --wa-accent:  #0071e3;
-    --wa-danger:  #ff3b30;
-    --wa-success: #34c759;
+    --wa-bg:      var(--ss-surface);
+    --wa-card:    var(--ss-surface);
+    --wa-border:  var(--ss-border);
+    --wa-text:    var(--ss-text);
+    --wa-dim:     var(--ss-text-2);
+    --wa-muted:   var(--ss-muted);
+    --wa-soft:    var(--ss-hover);
+    --wa-accent:  var(--ss-accent);
+    --wa-danger:  var(--ss-danger);
+    --wa-success: var(--ss-success-solid);
     --wa-shadow:  0 2px 14px rgba(0,0,0,0.08);
 
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
     color: var(--wa-text);
-    padding: 20px;
+    padding: 0;
 }
 
-#webapp-root.dark {
-    --wa-bg:      #1c1c1e;
-    --wa-card:    #2c2c2e;
-    --wa-border:  #3a3a3c;
-    --wa-text:    #ececec;
-    --wa-dim:     #aeaeb2;
-    --wa-muted:   #636366;
-    --wa-soft:    #343436;
-    --wa-accent:  #2997ff;
-    --wa-danger:  #ff453a;
-    --wa-success: #30d158;
-    --wa-shadow:  0 2px 16px rgba(0,0,0,0.35);
-}
 
 /* ── Status banners ─────────────────────────────────────────── */
 .wa-banner {
@@ -44,8 +31,6 @@
 }
 .wa-banner.ok  { background: rgba(52,199,89,0.12);  border: 1px solid rgba(52,199,89,0.28);  color: #1a6e30; }
 .wa-banner.err { background: rgba(255,59,48,0.10);  border: 1px solid rgba(255,59,48,0.25);  color: #b02020; }
-#webapp-root.dark .wa-banner.ok  { color: #30d158; }
-#webapp-root.dark .wa-banner.err { color: #ff453a; }
 
 /* ── Install card ───────────────────────────────────────────── */
 #wa-install-card {

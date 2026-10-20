@@ -1,42 +1,25 @@
 <style>
 #cnn-root {
-    --cnn-bg: #ffffff;
-    --cnn-border: #e5e5e5;
-    --cnn-text: #1f1f1f;
-    --cnn-dim: #676767;
-    --cnn-soft: #f5f5f5;
-    --cnn-soft2: #efefef;
-    --cnn-accent: #4d6bff;
+    --cnn-bg: var(--ss-surface);
+    --cnn-border: var(--ss-border);
+    --cnn-text: var(--ss-text);
+    --cnn-dim: var(--ss-text-3);
+    --cnn-soft: var(--ss-surface);
+    --cnn-soft2: var(--ss-surface-2);
+    --cnn-accent: var(--ss-accent);
     --cnn-accent-text: #ffffff;
-    --cnn-ok: #107c10;
-    --cnn-danger: #c42b1c;
-    --cnn-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    background: var(--cnn-bg);
-    border: 1px solid var(--cnn-border);
-    border-radius: 12px;
-    box-shadow: var(--cnn-shadow);
+    --cnn-ok: var(--ss-success);
+    --cnn-danger: var(--ss-danger);
+    --cnn-shadow: none;
     color: var(--cnn-text);
-    padding: 16px;
-    margin-bottom: 4px;
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 13px;
-}
-body.dark #cnn-root {
-    --cnn-bg: #2b2b2b;
-    --cnn-border: #3b3b3b;
-    --cnn-text: #ececec;
-    --cnn-dim: #aaaaaa;
-    --cnn-soft: #343434;
-    --cnn-soft2: #3c3c3c;
-    --cnn-accent: #5a78ff;
-    --cnn-ok: #2ecc71;
-    --cnn-danger: #ff6b5e;
-    --cnn-shadow: 0 8px 22px rgba(0,0,0,0.3);
 }
 
 #cnn-root * { box-sizing: border-box; }
 .cnn-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
-.cnn-head .cnn-title { font-size: 17px; font-weight: 600; }
+/* The System Settings header already shows the page title */
+.cnn-head .cnn-title { display: none; }
 .cnn-head .cnn-sub { font-size: 12px; color: var(--cnn-dim); margin-top: 2px; }
 .cnn-head .cnn-badge { margin-left:auto; font-size:11px; color:var(--cnn-dim); display:inline-flex; align-items:center; gap:6px; min-width: 100px; }
 .cnn-dot { width:8px; height:8px; border-radius:50%; background: var(--cnn-dim); }
@@ -45,10 +28,10 @@ body.dark #cnn-root {
 
 .cnn-card {
     border: 1px solid var(--cnn-border);
-    border-radius: 10px;
+    border-radius: var(--ss-radius);
     background: var(--cnn-soft);
-    padding: 14px;
-    margin-bottom: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
 }
 .cnn-card-title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; display:flex; align-items:center; gap:8px; }
 .cnn-card-desc { font-size: 11.5px; color: var(--cnn-dim); margin-bottom: 12px; line-height: 1.5; }

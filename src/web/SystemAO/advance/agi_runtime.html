@@ -41,9 +41,8 @@
             .execid-cell {
                 font-family: 'Cascadia Code', 'Consolas', monospace;
                 font-size: 0.82em;
-                color: #555;
+                color: var(--ss-text-2);
             }
-            body.dark .execid-cell { color: #9b9b9b; }
 
             /* ── Refresh bar ──────────────────────────────── */
             .refresh-bar {
@@ -53,10 +52,10 @@
                 margin-bottom: 10px;
             }
             .refresh-bar .left { display: flex; align-items: center; gap: 14px; }
-            #countdownText { color: #aaa; font-size: 0.88em; }
+            #countdownText { color: var(--ss-muted); font-size: 0.88em; }
 
             /* ── Empty / error states ─────────────────────── */
-            #emptyRow td { text-align: center; color: #aaa; padding: 28px 0 !important; }
+            #emptyRow td { text-align: center; color: var(--ss-muted); padding: 28px 0 !important; }
 
             /* ── Toast notification ───────────────────────── */
             #toast {
@@ -73,19 +72,9 @@
         <div id="sys-setting-page">
 
             <!-- Page header -->
-            <div class="ui basic segment" style="padding-bottom:0">
-                <div class="ui header">
-                    <i class="microchip icon"></i>
-                    <div class="content">
-                        <span locale="agi_runtime/title">AGI Runtimes</span>
-                        <div class="sub header">
-                            <span locale="agi_runtime/subtitle">Monitor and force-stop running AGI script VM instances. Regular users see their own scripts; administrators see all.</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="ss-page-desc">
+                <span locale="agi_runtime/subtitle">Monitor and force-stop running AGI script VM instances. Regular users see their own scripts; administrators see all.</span>
             </div>
-
-            <div class="ui divider"></div>
 
             <!-- Toolbar -->
             <div class="refresh-bar">

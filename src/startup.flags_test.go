@@ -15,6 +15,7 @@ func testDefaultBootFlags() bootFlags {
 		DisableIPResolver: false,
 		EnableHomePage:    true,
 		EnableDirListing:  true,
+		EnableGzip:        true,
 	}
 }
 
@@ -40,6 +41,7 @@ func TestMergeBootFlags(t *testing.T) {
 		"DisableIPResolver": true,
 		"EnableHomePage":    false,
 		"EnableDirListing":  false,
+		"EnableGzip":        false,
 	}
 
 	tests := []struct {
@@ -67,6 +69,7 @@ func TestMergeBootFlags(t *testing.T) {
 				DisableIPResolver: true,
 				EnableHomePage:    false,
 				EnableDirListing:  false,
+				EnableGzip:        false,
 			},
 		},
 		{
@@ -78,9 +81,10 @@ func TestMergeBootFlags(t *testing.T) {
 				FileIOBuffer:      1024,
 				EnableHomePage:    true,
 				EnableDirListing:  true,
+				EnableGzip:        true,
 			},
 			stored:   fullStored,
-			explicit: map[string]bool{"hostname": true, "homepage": true},
+			explicit: map[string]bool{"hostname": true, "homepage": true, "gzip": true},
 			want: bootFlags{
 				Hostname:          "Flag Host",
 				MaxUploadSize:     1024,
@@ -89,6 +93,7 @@ func TestMergeBootFlags(t *testing.T) {
 				DisableIPResolver: true,
 				EnableHomePage:    true,
 				EnableDirListing:  false,
+				EnableGzip:        true,
 			},
 		},
 		{
@@ -159,7 +164,7 @@ func TestBootFlagNamesCoverFlags(t *testing.T) {
 			t.Errorf("field %s maps to unknown start flag -%s", field, name)
 		}
 	}
-	if len(bootFlagNames) != 7 {
-		t.Errorf("expected 7 mapped fields, got %d", len(bootFlagNames))
+	if len(bootFlagNames) != 8 {
+		t.Errorf("expected 8 mapped fields, got %d", len(bootFlagNames))
 	}
 }

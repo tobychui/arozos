@@ -1,472 +1,152 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <title>Runtime</title>
-    <script src="../../script/jquery.min.js"></script>
-    <script src="../../script/ao_module.js"></script>
-    <script src="../../script/applocale.js"></script>
-    <style>
-/*
-   Runtime (startup parameters)
-   Scoped entirely to #rt-root to avoid conflicts with the parent
-   system-settings CSS. Follows the look of the Host Info page.
-*/
+<!--
+    Runtime (startup parameters)
 
-#rt-root {
-    --rt-text:      #1d1d1f;
-    --rt-dim:       #6e6e73;
-    --rt-muted:     #98989d;
-    --rt-divider:   #e0e0e3;
-    --rt-card:      #ffffff;
-    --rt-card-bd:   #e5e5e7;
-    --rt-field:     #ffffff;
-    --rt-field-bd:  #d2d2d7;
-    --rt-soft:      rgba(0, 0, 0, 0.035);
-    --rt-accent:    #0071e3;
-    --rt-accent-bg: rgba(0, 113, 227, 0.10);
-    --rt-toggle:    #d1d1d6;
-    --rt-ok:        #1f9d55;
-    --rt-ok-bg:     rgba(31, 157, 85, 0.10);
-    --rt-err:       #d93025;
-    --rt-err-bg:    rgba(217, 48, 37, 0.09);
-    --rt-shadow:    rgba(0, 0, 0, 0.13);
+    Loaded into System Settings. Changes apply to the running system and are
+    saved, so they are restored on the next boot. A value given as a start
+    parameter on this boot wins over the saved one and is marked with its flag.
+-->
+<style>
+    #rt-root input[name="Hostname"] { width: 220px; }
+    #rt-root .rt-flag { display: none; }
+    #rt-root .rt-flag.show { display: inline-flex; }
 
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-    color: var(--rt-text);
-    padding: 20px;
-    max-width: 760px;
-    margin: 0 auto;
-    box-sizing: border-box;
-}
-
-#rt-root.dark {
-    --rt-text:      #f0f0f0;
-    --rt-dim:       #a0a0a5;
-    --rt-muted:     #737378;
-    --rt-divider:   #3a3a3a;
-    --rt-card:      #2b2b2b;
-    --rt-card-bd:   #3b3b3b;
-    --rt-field:     #1f1f1f;
-    --rt-field-bd:  #48484a;
-    --rt-soft:      rgba(255, 255, 255, 0.05);
-    --rt-accent:    #2997ff;
-    --rt-accent-bg: rgba(41, 151, 255, 0.14);
-    --rt-toggle:    #48484a;
-    --rt-ok:        #4cc47f;
-    --rt-ok-bg:     rgba(76, 196, 127, 0.13);
-    --rt-err:       #ff6b61;
-    --rt-err-bg:    rgba(255, 107, 97, 0.13);
-    --rt-shadow:    rgba(0, 0, 0, 0.45);
-}
-
-#rt-root *, #rt-root *::before, #rt-root *::after { box-sizing: border-box; }
-
-/* Header */
-
-#rt-head {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 8px 0 22px;
-}
-
-#rt-head-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    flex-shrink: 0;
-    object-fit: cover;
-}
-
-#rt-title {
-    font-size: 21px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-    color: var(--rt-text) !important;
-    margin-bottom: 3px;
-}
-
-#rt-subtitle {
-    font-size: 13px;
-    color: var(--rt-dim) !important;
-    line-height: 1.45;
-}
-
-/* Groups */
-
-.rt-group { margin-bottom: 22px; }
-
-.rt-group-title {
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    text-transform: uppercase;
-    color: var(--rt-muted) !important;
-    margin: 0 0 8px 4px;
-}
-
-.rt-card {
-    background: var(--rt-card);
-    border: 1px solid var(--rt-card-bd);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.rt-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    padding: 13px 16px;
-    border-bottom: 1px solid var(--rt-divider);
-}
-
-.rt-row:last-child { border-bottom: none; }
-
-.rt-row-text { min-width: 0; flex: 1; }
-
-.rt-row-label {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: var(--rt-text) !important;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.rt-row-desc {
-    font-size: 12px;
-    color: var(--rt-dim) !important;
-    margin-top: 3px;
-    line-height: 1.45;
-}
-
-.rt-flag {
-    display: none;
-    font-size: 11px;
-    font-weight: 500;
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    color: var(--rt-accent) !important;
-    background: var(--rt-accent-bg);
-    padding: 1px 7px;
-    border-radius: 20px;
-    white-space: nowrap;
-    cursor: help;
-}
-
-.rt-flag.show { display: inline-block; }
-
-/* Controls */
-
-.rt-control {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#rt-root input[type="text"],
-#rt-root input[type="number"] {
-    font-family: inherit;
-    font-size: 13.5px;
-    color: var(--rt-text);
-    background: var(--rt-field);
-    border: 1px solid var(--rt-field-bd);
-    border-radius: 8px;
-    padding: 7px 10px;
-    outline: none;
-    transition: border-color 0.12s, box-shadow 0.12s;
-}
-
-#rt-root input[type="text"]   { width: 240px; }
-#rt-root input[type="number"] { width: 120px; text-align: right; }
-
-#rt-root input[type="text"]:focus,
-#rt-root input[type="number"]:focus {
-    border-color: var(--rt-accent);
-    box-shadow: 0 0 0 3px var(--rt-accent-bg);
-}
-
-#rt-root input.rt-invalid {
-    border-color: var(--rt-err);
-    box-shadow: 0 0 0 3px var(--rt-err-bg);
-}
-
-.rt-unit {
-    font-size: 12px;
-    color: var(--rt-dim) !important;
-    min-width: 34px;
-}
-
-/* Toggle switch */
-
-.rt-switch {
-    position: relative;
-    display: inline-block;
-    width: 42px;
-    height: 24px;
-    flex-shrink: 0;
-    cursor: pointer;
-}
-
-.rt-switch input {
-    position: absolute;
-    opacity: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    cursor: pointer;
-    z-index: 1;
-}
-
-.rt-switch .rt-track {
-    position: absolute;
-    inset: 0;
-    border-radius: 24px;
-    background: var(--rt-toggle);
-    transition: background 0.18s;
-}
-
-.rt-switch .rt-track::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #ffffff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    transition: transform 0.18s;
-}
-
-.rt-switch input:checked + .rt-track { background: var(--rt-accent); }
-.rt-switch input:checked + .rt-track::after { transform: translateX(18px); }
-.rt-switch input:focus-visible + .rt-track { box-shadow: 0 0 0 3px var(--rt-accent-bg); }
-
-/* Info note */
-
-.rt-note {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    border-radius: 10px;
-    background: var(--rt-soft);
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: var(--rt-dim) !important;
-    margin-bottom: 18px;
-}
-
-.rt-note svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    margin-top: 1px;
-    color: var(--rt-accent);
-}
-
-.rt-note code {
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    font-size: 11.5px;
-}
-
-/* Action bar */
-
-#rt-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding-top: 16px;
-    border-top: 1px solid var(--rt-divider);
-}
-
-#rt-status {
-    margin-right: auto;
-    font-size: 12.5px;
-    padding: 5px 10px;
-    border-radius: 7px;
-    display: none;
-    align-items: center;
-    gap: 6px;
-}
-
-#rt-status.ok  { display: inline-flex; color: var(--rt-ok) !important;  background: var(--rt-ok-bg); }
-#rt-status.err { display: inline-flex; color: var(--rt-err) !important; background: var(--rt-err-bg); }
-#rt-status svg { width: 14px; height: 14px; flex-shrink: 0; }
-
-.rt-btn {
-    font-family: inherit;
-    font-size: 13.5px;
-    padding: 8px 18px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    transition: opacity 0.12s, background 0.12s;
-}
-
-.rt-btn:disabled { opacity: 0.45; cursor: default; }
-
-.rt-btn-primary { background: var(--rt-accent); color: #ffffff !important; }
-.rt-btn-primary:not(:disabled):hover { opacity: 0.88; }
-
-.rt-btn-plain {
-    background: transparent;
-    color: var(--rt-accent) !important;
-}
-.rt-btn-plain:not(:disabled):hover { background: var(--rt-accent-bg); }
-
-/* Responsive */
-
-@media (max-width: 560px) {
-    #rt-root { padding: 14px; }
-    .rt-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
+    @media (max-width: 560px) {
+        #rt-root input[name="Hostname"] { width: 100%; }
+        #rt-root .ss-control.rt-wide { width: 100%; }
     }
-    .rt-control { justify-content: flex-start; }
-    .rt-row.rt-row-toggle {
-        flex-direction: row;
-        align-items: center;
-    }
-    #rt-root input[type="text"] { width: 100%; }
-    .rt-control-text { width: 100%; }
-    #rt-status { width: 100%; margin-right: 0; }
-}
-    </style>
-</head>
-<body>
+</style>
 
 <div id="rt-root">
-
-    <div id="rt-head">
-        <img id="rt-head-icon" src="../info/img/runtime.png" alt="">
-        <div>
-            <div id="rt-title" locale="runtime/title">Runtime</div>
-            <div id="rt-subtitle" locale="runtime/subtitle">Adjust startup parameters while the system is running. Changes are saved and restored on every boot.</div>
-        </div>
-    </div>
-
     <form id="rt-form" autocomplete="off" onsubmit="return false;">
 
-        <div class="rt-group">
-            <div class="rt-group-title" locale="runtime/group_general">General</div>
-            <div class="rt-card">
-                <div class="rt-row">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/host_name">Host Name</span>
-                            <span class="rt-flag" data-for="Hostname">-hostname</span>
+        <div class="ss-section">
+            <div class="ss-section-title" locale="runtime/group_general">General</div>
+            <div class="ss-card">
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/host_name">Host name</span>
+                            <span class="ss-badge flag rt-flag" data-for="Hostname">-hostname</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/host_name_note">Name shown to users and on the local network. Network discovery picks up a new name after a restart.</div>
+                        <div class="ss-row-desc" locale="runtime/host_name_note">Name shown to users and on the local network. Network discovery picks up a new name after a restart.</div>
                     </div>
-                    <div class="rt-control rt-control-text">
-                        <input class="rt-config" type="text" name="Hostname" placeholder="My ArOZ" maxlength="64">
+                    <div class="ss-control rt-wide">
+                        <input class="ss-input rt-config" type="text" name="Hostname" placeholder="My ArOZ" maxlength="64">
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="rt-group">
-            <div class="rt-group-title" locale="runtime/group_upload">Upload &amp; File I/O</div>
-            <div class="rt-card">
-                <div class="rt-row">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/max_upload_size">Max Upload Size</span>
-                            <span class="rt-flag" data-for="MaxUploadSize">-max_upload_size</span>
+        <div class="ss-section">
+            <div class="ss-section-title" locale="runtime/group_upload">Uploads &amp; files</div>
+            <div class="ss-card">
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/max_upload_size">Max upload size</span>
+                            <span class="ss-badge flag rt-flag" data-for="MaxUploadSize">-max_upload_size</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/max_upload_size_note">Largest file a user can upload. Must not exceed the memory available on this host.</div>
+                        <div class="ss-row-desc" locale="runtime/max_upload_size_note">Largest single file the web uploader accepts. Must not exceed the memory available on this host.</div>
                     </div>
-                    <div class="rt-control">
-                        <input class="rt-config" type="number" name="MaxUploadSize" min="1" step="1" placeholder="8192">
-                        <span class="rt-unit">MB</span>
+                    <div class="ss-control">
+                        <label class="ss-unit-input">
+                            <input class="rt-config" type="number" name="MaxUploadSize" min="1" step="1" placeholder="8192">
+                            <span class="ss-unit">MB</span>
+                        </label>
                     </div>
                 </div>
-                <div class="rt-row">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/file_upload_buffer">File Upload Buffer</span>
-                            <span class="rt-flag" data-for="MaxFileUploadBuff">-upload_buf</span>
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/file_upload_buffer">Upload buffer</span>
+                            <span class="ss-badge flag rt-flag" data-for="MaxFileUploadBuff">-upload_buf</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/file_upload_buffer_note">Uploads larger than this are buffered to disk instead of memory (slower).</div>
+                        <div class="ss-row-desc" locale="runtime/file_upload_buffer_note">Uploads larger than this are buffered to disk instead of memory (slower).</div>
                     </div>
-                    <div class="rt-control">
-                        <input class="rt-config" type="number" name="MaxFileUploadBuff" min="1" step="1" placeholder="25">
-                        <span class="rt-unit">MB</span>
+                    <div class="ss-control">
+                        <label class="ss-unit-input">
+                            <input class="rt-config" type="number" name="MaxFileUploadBuff" min="1" step="1" placeholder="25">
+                            <span class="ss-unit">MB</span>
+                        </label>
                     </div>
                 </div>
-                <div class="rt-row">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/file_io_buffer">File IO Buffer</span>
-                            <span class="rt-flag" data-for="FileIOBuffer">-iobuf</span>
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/file_io_buffer">File I/O buffer</span>
+                            <span class="ss-badge flag rt-flag" data-for="FileIOBuffer">-iobuf</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/file_io_buffer_note">Memory used for each file operation. Default is 1024.</div>
+                        <div class="ss-row-desc" locale="runtime/file_io_buffer_note">Memory used for each file operation. Default is 1024.</div>
                     </div>
-                    <div class="rt-control">
-                        <input class="rt-config" type="number" name="FileIOBuffer" min="1" step="1" placeholder="1024">
-                        <span class="rt-unit" locale="runtime/unit_bytes">Bytes</span>
+                    <div class="ss-control">
+                        <label class="ss-unit-input">
+                            <input class="rt-config" type="number" name="FileIOBuffer" min="1" step="1" placeholder="1024">
+                            <span class="ss-unit" locale="runtime/unit_bytes">bytes</span>
+                        </label>
                     </div>
+                </div>
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/compress_transfers">Compress transfers</span>
+                            <span class="ss-badge flag rt-flag" data-for="EnableGzip">-gzip</span>
+                        </div>
+                        <div class="ss-row-desc" locale="runtime/compress_transfers_note">Gzip text-based files on download. Uses more CPU on small boards.</div>
+                    </div>
+                    <label class="ss-switch">
+                        <input class="rt-config" type="checkbox" name="EnableGzip">
+                        <span class="ss-track"></span>
+                    </label>
                 </div>
             </div>
         </div>
 
-        <div class="rt-group">
-            <div class="rt-group-title" locale="runtime/group_web">Web Services</div>
-            <div class="rt-card">
-                <div class="rt-row rt-row-toggle">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/disable_ip_resolver">Disable IP Resolver</span>
-                            <span class="rt-flag" data-for="DisableIPResolver">-disable_ip_resolver</span>
+        <div class="ss-section">
+            <div class="ss-section-title" locale="runtime/group_web">Web services</div>
+            <div class="ss-card">
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/disable_ip_resolver">Disable IP resolver</span>
+                            <span class="ss-badge flag rt-flag" data-for="DisableIPResolver">-disable_ip_resolver</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/disable_ip_resolver_note">Do not try to analyze the client IP address. Useful when the server is hosted behind NAT or a reverse proxy.</div>
+                        <div class="ss-row-desc" locale="runtime/disable_ip_resolver_note">Do not try to analyze the client IP address. Useful when the server is hosted behind NAT or a reverse proxy.</div>
                     </div>
-                    <label class="rt-switch">
+                    <label class="ss-switch">
                         <input class="rt-config" type="checkbox" name="DisableIPResolver">
-                        <span class="rt-track"></span>
+                        <span class="ss-track"></span>
                     </label>
                 </div>
-                <div class="rt-row rt-row-toggle">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/enable_home_page">Enable Home Page</span>
-                            <span class="rt-flag" data-for="EnableHomePage">-homepage</span>
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/enable_home_page">Personal home pages</span>
+                            <span class="ss-badge flag rt-flag" data-for="EnableHomePage">-homepage</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/enable_home_page_note">Allow users to host their own static web pages.</div>
+                        <div class="ss-row-desc" locale="runtime/enable_home_page_note">Allow users to host their own static web pages.</div>
                     </div>
-                    <label class="rt-switch">
+                    <label class="ss-switch">
                         <input class="rt-config" type="checkbox" name="EnableHomePage">
-                        <span class="rt-track"></span>
+                        <span class="ss-track"></span>
                     </label>
                 </div>
-                <div class="rt-row rt-row-toggle">
-                    <div class="rt-row-text">
-                        <div class="rt-row-label">
-                            <span locale="runtime/enable_directory_listing">Enable Directory Listing</span>
-                            <span class="rt-flag" data-for="EnableDirListing">-dir_list</span>
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label">
+                            <span locale="runtime/enable_directory_listing">Directory listing</span>
+                            <span class="ss-badge flag rt-flag" data-for="EnableDirListing">-dir_list</span>
                         </div>
-                        <div class="rt-row-desc" locale="runtime/enable_directory_listing_note">Allow listing the contents of a directory if the request URL is a folder.</div>
+                        <div class="ss-row-desc" locale="runtime/enable_directory_listing_note">List the contents of a folder when the requested URL is a directory.</div>
                     </div>
-                    <label class="rt-switch">
+                    <label class="ss-switch">
                         <input class="rt-config" type="checkbox" name="EnableDirListing">
-                        <span class="rt-track"></span>
+                        <span class="ss-track"></span>
                     </label>
                 </div>
             </div>
         </div>
 
-        <div class="rt-note">
+        <div class="ss-note">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <circle cx="8" cy="8" r="6.5"/>
                 <path d="M8 7.2v4" stroke-linecap="round"/>
@@ -475,14 +155,13 @@
             <div locale="runtime/priority_note">Saved values are restored when the system starts. A value passed as a start parameter (for example <code>-hostname</code>) takes priority: it replaces the saved value on that boot. Settings marked with their flag name were set this way.</div>
         </div>
 
-        <div id="rt-actions">
-            <span id="rt-status"></span>
-            <button type="button" class="rt-btn rt-btn-plain" id="rt-revert" disabled locale="runtime/revert">Revert</button>
-            <button type="button" class="rt-btn rt-btn-primary" id="rt-save" disabled locale="runtime/save">Save</button>
+        <div class="ss-savebar">
+            <span class="ss-status" id="rt-status"></span>
+            <button type="button" class="ss-btn" id="rt-revert" disabled locale="runtime/revert">Revert</button>
+            <button type="button" class="ss-btn primary" id="rt-save" disabled locale="runtime/save">Save</button>
         </div>
     </form>
-
-</div><!-- #rt-root -->
+</div>
 
 <script>
 (function () {
@@ -512,29 +191,13 @@
     var loaded = null;      // last values read from the server
     var statusTimer = null;
 
-    /* Theme */
-    function rtApplyTheme() {
-        try {
-            var theme = (typeof preferredTheme !== "undefined") ? preferredTheme :
-                        (parent && parent.preferredTheme) ? parent.preferredTheme : undefined;
-            if (theme && theme !== "auto") {
-                root.classList.toggle("dark", theme === "dark");
-            } else if (typeof ao_module_getSystemThemeColor === "function") {
-                ao_module_getSystemThemeColor(function (c) {
-                    root.classList.toggle("dark", c !== "whiteTheme");
-                });
-            }
-        } catch (e) {}
-    }
-
-    window.detailPageThemeCallback = function (isDark) {
-        var el = document.getElementById("rt-root");
-        if (el) el.classList.toggle("dark", isDark);
-    };
-
     /* Form helpers */
     function fields() {
         return root.querySelectorAll(".rt-config");
+    }
+
+    function invalidTarget(input) {
+        return input.closest(".ss-unit-input") || input;
     }
 
     function readForm() {
@@ -559,7 +222,7 @@
             } else {
                 input.value = data[input.name];
             }
-            input.classList.remove("rt-invalid");
+            invalidTarget(input).classList.remove("invalid");
         });
 
         var fromFlag = data.FromStartFlag || [];
@@ -589,7 +252,7 @@
             } else if (input.type === "text") {
                 bad = input.value.trim() === "";
             }
-            input.classList.toggle("rt-invalid", bad);
+            invalidTarget(input).classList.toggle("invalid", bad);
             if (bad) ok = false;
         });
         return ok;
@@ -604,13 +267,13 @@
     function showStatus(ok, text) {
         var el = document.getElementById("rt-status");
         clearTimeout(statusTimer);
-        el.className = ok ? "ok" : "err";
+        el.className = "ss-status " + (ok ? "ok" : "err");
         el.innerHTML = (ok ? ICON_OK : ICON_ERR);
         var span = document.createElement("span");
         span.textContent = text;
         el.appendChild(span);
         if (ok) {
-            statusTimer = setTimeout(function () { el.className = ""; }, 3500);
+            statusTimer = setTimeout(function () { el.className = "ss-status"; }, 3500);
         }
     }
 
@@ -660,12 +323,18 @@
         });
     }
 
-    /* Boot */
-    rtApplyTheme();
+    function currentFlagFields() {
+        var list = [];
+        root.querySelectorAll(".rt-flag.show").forEach(function (b) {
+            list.push(b.getAttribute("data-for"));
+        });
+        return list;
+    }
 
+    /* Boot */
     fields().forEach(function (input) {
         input.addEventListener("input", function () {
-            input.classList.remove("rt-invalid");
+            invalidTarget(input).classList.remove("invalid");
             refreshButtons();
         });
         input.addEventListener("change", refreshButtons);
@@ -683,19 +352,9 @@
         }
     });
 
-    function currentFlagFields() {
-        var list = [];
-        root.querySelectorAll(".rt-flag.show").forEach(function (b) {
-            list.push(b.getAttribute("data-for"));
-        });
-        return list;
-    }
-
     rtLocale.init("../locale/system_settings/runtime.json", function () {
         rtLocale.translate();
         rtLoad();
-    });
+    }, rtLoad);
 })();
 </script>
-</body>
-</html>

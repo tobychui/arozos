@@ -16,53 +16,38 @@
 
     /* ── Design tokens ── */
     #hp-root {
-        --bg:        #f2f2f7;
-        --card:      #ffffff;
-        --border:    rgba(0,0,0,0.10);
-        --text:      #1d1d1f;
-        --dim:       #6e6e73;
-        --muted:     #aeaeb2;
-        --accent:    #007AFF;
-        --accentH:   #0063d1;
-        --success:   #34c759;
-        --warn-bg:   #fff7ed;
-        --warn-text: #7c4e00;
-        --warn-bdr:  rgba(255,149,0,0.28);
-        --radius:    12px;
-        --shadow:    0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+        --bg:        transparent;
+        --card:      var(--ss-surface);
+        --border:    var(--ss-border);
+        --text:      var(--ss-text);
+        --dim:       var(--ss-text-3);
+        --muted:     var(--ss-muted);
+        --accent:    var(--ss-accent);
+        --accentH:   var(--ss-accent-hover);
+        --success:   var(--ss-success-solid);
+        --warn-bg:   var(--ss-warning-soft);
+        --warn-text: var(--ss-warning);
+        --warn-bdr:  transparent;
+        --radius:    var(--ss-radius);
+        --shadow:    0 0 0 1px var(--ss-border);
 
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
         font-size: 13px;
         color: var(--text);
         background: var(--bg);
-        min-height: 100vh;
-        padding-bottom: 32px;
     }
 
     /* ── Dark mode ── */
-    #hp-root.dark {
-        --bg:        #000000;
-        --card:      #1c1c1e;
-        --border:    rgba(255,255,255,0.10);
-        --text:      #f2f2f7;
-        --dim:       #98989d;
-        --muted:     #636366;
-        --accent:    #0a84ff;
-        --accentH:   #409cff;
-        --success:   #30d158;
-        --warn-bg:   #2d1f00;
-        --warn-text: #ffd60a;
-        --warn-bdr:  rgba(255,214,10,0.22);
-        --shadow:    0 1px 3px rgba(0,0,0,0.4), 0 1px 8px rgba(0,0,0,0.3);
-    }
 
     /* ── Page header ── */
+    /* The System Settings header already shows the page title */
     .hp-page-hd {
-        padding: 18px 16px 6px;
+        padding: 0 2px 14px;
         display: flex;
         align-items: center;
         gap: 12px;
     }
+    .hp-page-hd-icon, .hp-page-hd-text h1 { display: none !important; }
     .hp-page-hd-icon {
         width: 36px;
         height: 36px;
@@ -92,7 +77,7 @@
         background: var(--card);
         border-radius: var(--radius);
         box-shadow: var(--shadow);
-        margin: 10px 12px;
+        margin: 0 0 14px;
         overflow: hidden;
     }
     .hp-card-hd {
@@ -116,20 +101,21 @@
     /* ── Info list ── */
     .hp-info-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
     .hp-info-list li {
-        display: flex;
-        gap: 10px;
+        position: relative;
+        padding-left: 15px;
         font-size: 12.5px;
         color: var(--dim);
-        line-height: 1.5;
+        line-height: 1.6;
     }
     .hp-info-list li::before {
         content: '';
+        position: absolute;
+        left: 0;
+        top: 0.62em;
         width: 5px;
         height: 5px;
         border-radius: 50%;
         background: var(--accent);
-        flex-shrink: 0;
-        margin-top: 6px;
     }
     .hp-info-list a { color: var(--accent); text-decoration: none; word-break: break-all; }
     .hp-info-list a:hover { text-decoration: underline; }
