@@ -74,17 +74,26 @@ function scheduleResponsiveLayout(){
     responsiveLayoutTimer = setTimeout(applyResponsiveLayout, 250);
 }
 
-$(window).on("resize", scheduleResponsiveLayout);
-
 /*
+    Bound on ready, not while this file runs: the layout pass calls into
+    render.js, pathbar.js, splitter.js, viewmode.js and trash.js, which are
+    loaded after this one. A resize that lands while those are still being
+    fetched (a float window settling its size, a phone's toolbar collapsing,
+    a slow network stretching the gap) would otherwise throw
+    "updateListDensity is not defined". Ready only fires once every script
+    in the page has run.
+
     orientationchange fires on phones where a resize sometimes does not, and
     visualViewport catches the browser chrome collapsing on scroll - which
     changes the usable height without a window resize event.
 */
-window.addEventListener("orientationchange", scheduleResponsiveLayout);
-if (window.visualViewport != undefined){
-    window.visualViewport.addEventListener("resize", scheduleResponsiveLayout);
-}
+$(function(){
+    $(window).on("resize", scheduleResponsiveLayout);
+    window.addEventListener("orientationchange", scheduleResponsiveLayout);
+    if (window.visualViewport != undefined){
+        window.visualViewport.addEventListener("resize", scheduleResponsiveLayout);
+    }
+});
 
 function toggleMobileSidebar(show=undefined, callback=undefined){
     if(show == true){

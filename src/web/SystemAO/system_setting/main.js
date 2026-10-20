@@ -1,6 +1,6 @@
 /* system_setting/main.js */
 
-/* Fonts come from tokens.css; applocale must not write them inline (see applyLocaleFont) */
+/* Fonts come from --ss-font (tokens.css, applyLocaleFont); applocale must not write them inline */
 window.applocaleSkipFontFamily = true;
 
 /* ── Flags and state read by the loaded setting pages (keep these names) ── */
@@ -130,6 +130,9 @@ function boot() {
 
     $.get('../../system/setting/list?tree=true', function (data) {
         allGroups = $.isArray(data) ? data : [];
+        //Start with every group folded: opening the first page unfolds its group
+        sbState.collapsed = {};
+        allGroups.forEach(function (g) { sbState.collapsed[g.Group] = true; });
         renderTree();
         restoreFromHash();
     }).fail(function () {
@@ -142,20 +145,50 @@ function boot() {
    ══════════════════════════════════════════════ */
 
 /*
-    CJK languages name a preferred font in their locale. Keep the UI font for
-    Latin text and let the browser fall through to that font for the CJK
-    glyphs, instead of applocale's inline font on every element.
+    The page font goes through --ss-font instead of applocale's inline font on
+    every element. A font picked in System Fonts (the server names it in the
+    locale block as systemFont, its fontFamily starting with it) leads, the
+    UI font follows for what it lacks. Otherwise CJK languages keep the UI font
+    for Latin text and fall through to their locale's font for CJK glyphs.
 */
+var UI_FONTS = "'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont";
+
 function applyLocaleFont(cache) {
     try {
         var lang = applocale.lang;
-        var pref = cache && cache.keys && cache.keys[lang] && cache.keys[lang].fontFamily;
-        if (pref && /^(zh|ja|ko)/.test(lang)) {
-            document.documentElement.style.setProperty('--ss-font',
-                "'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, " + pref + ", sans-serif");
+        var block = cache && cache.keys && cache.keys[lang];
+        var pref = block && block.fontFamily;
+        var root = document.documentElement.style;
+        if (block && block.systemFont && pref) {
+            root.setProperty('--ss-font', pref.replace(/,\s*sans-serif\s*$/, '') + ', ' + UI_FONTS + ', sans-serif');
+        } else if (pref && /^(zh|ja|ko)/.test(lang)) {
+            root.setProperty('--ss-font', UI_FONTS + ', ' + pref + ', sans-serif');
+        } else {
+            root.removeProperty('--ss-font');
         }
     } catch (e) {}
 }
+
+/*
+    Called by the System Fonts page after the font of a language changed:
+    reload the locale and the font style sheet, then apply the new font.
+*/
+window.ssRefreshFont = function () {
+    $.ajax({
+        dataType: 'json',
+        url: '../locale/system_settings.json',
+        cache: false,
+        success: function (data) {
+            localeCache = data;
+            applocale.localData = data;
+            var block = data && data.keys && data.keys[applocale.lang];
+            if (typeof applocaleLinkFonts === 'function') {
+                applocaleLinkFonts('../locale/system_settings.json', block, true);
+            }
+            applyLocaleFont(data);
+        }
+    });
+};
 
 function str(key, fallback) {
     try { return applocale.getString(key, fallback) || fallback; } catch (e) { return fallback; }
@@ -513,14 +546,14 @@ function readSidebarState() {
         if (saved) {
             if (typeof saved.width === 'number') state.width = Math.max(SB_MIN, Math.min(SB_MAX, saved.width));
             state.rail = !!saved.rail;
-            if (saved.collapsed && typeof saved.collapsed === 'object') state.collapsed = saved.collapsed;
         }
     } catch (e) {}
     return state;
 }
 
+//Only the size is remembered; which groups are open is decided on every start
 function saveSidebarState() {
-    try { localStorage.setItem(SB_STORE, JSON.stringify(sbState)); } catch (e) {}
+    try { localStorage.setItem(SB_STORE, JSON.stringify({ width: sbState.width, rail: sbState.rail })); } catch (e) {}
 }
 
 function isRail() {

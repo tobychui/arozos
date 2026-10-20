@@ -90,7 +90,9 @@ const MOBILE_DOUBLE_TAP_MS = 350;
 
 //Upload related
 let uploadingFileCount = 0;
-let maxConcurrentUpload = 4; //Maxmium number of oncurrent upload
+let maxConcurrentUpload = 2; //Maxmium number of oncurrent upload
+const UPLOAD_AUTO_RETRY_LIMIT = 1; //Silent retries of a large-file upload after a dropped connection
+const UPLOAD_AUTO_RETRY_DELAY_MS = 2000; //Pause before that retry, so a flaky network can recover
 let uploadPendingList = []; //Upload pending queue for mass upoad
 let uploadRetryMap = new Map(); //taskUUID -> {file, targetDir} for WebSocket upload retry
 let lowMemoryMode = true;   //Upload with low memory mode channel

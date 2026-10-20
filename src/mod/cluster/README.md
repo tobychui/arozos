@@ -465,7 +465,7 @@ The UI is three System Settings tabs in the Cluster group:
 | Cluster Jobs | [`jobs.html`](../../web/SystemAO/cluster/jobs.html) | submit, follow and cancel jobs |
 
 They share `cluster.css` and `cluster.common.js`. Every string is localized
-through [`web/SystemAO/locale/cluster.json`](../../web/SystemAO/locale/cluster.json)
+through [`system/locale/cluster.json`](../../system/locale/cluster.json)
 (en-us, zh-tw, zh-hk, zh-cn, ja-jp, ko-kr): static labels carry a `locale`
 attribute, scripts call `CL.t(key, fallback)`, and messages that come back
 from the server go through `CL.tr(message)`, which matches `msg/<text>`

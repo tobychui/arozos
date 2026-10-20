@@ -124,6 +124,7 @@ func RunStartup() {
 	NightlyTasksInit() //Start Nightly task scheduler
 	FileSystemInit()   //Start FileSystem
 	DesktopInit()      //Start Desktop
+	LocaleInit()       //System locale files (./system/locale) and the system font library
 
 	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 

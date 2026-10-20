@@ -1,0 +1,12 @@
+{
+    "about": "Factory defaults of the system font library. defaults: the installed family a language uses until an administrator picks another in System Settings > System Fonts (none: every language uses the device fonts, so no font has to ship with the system). fallback: the device fonts that follow a library font in a locale file that names none of its own.",
+    "defaults": {},
+    "fallback": {
+        "zh-hk": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+        "zh-tw": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+        "zh-cn": "\"Microsoft YaHei\", \"PingFang SC\", \"STHeiti\", sans-serif",
+        "ja-jp": "\"Meiryo UI\", \"Hiragino Kaku Gothic Pro\", sans-serif",
+        "ko-kr": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
+        "en-us": "Arial, Helvetica, sans-serif"
+    }
+}

@@ -263,6 +263,39 @@ through AGI, while a **subservice** is an *external* program ArozOS launches,
 supervises and reverse-proxies. Use a webapp by default; reach for a subservice
 when the work doesn't fit the in-core JavaScript sandbox.
 
+## System locale files and fonts
+
+The translation files of the system pages (SystemAO, the desktop, File
+Manager, System Settings) live in [`src/system/locale/`](src/system/locale/),
+not in the web root, and are still loaded from their old address
+`/SystemAO/locale/<file>.json`: the router hands every request below that path
+to the locale server ([`src/mod/locale/`](src/mod/locale/), wired in
+[`src/locale.fonts.go`](src/locale.fonts.go)). Add new system locale files
+there; WebApps keep their own `<App>/locale/` folder in the web root.
+
+- **Fonts are not set per locale file.** A language's font is picked in System
+  Settings > Desktop & Themes > System Fonts: per user, else the admin's
+  default, else the factory default in
+  [`src/system/locale/fonts/defaults.json`](src/system/locale/fonts/defaults.json).
+  When a language uses a library font, the server puts it in front of the
+  file's own `fontFamily` and adds `systemFont` and `fontCSS` to that
+  language's block; [`applocale.js`](src/web/script/applocale.js) links
+  `fontCSS` once per page and, instead of inline fonts, adds a style sheet
+  that puts the system font in front of every `font-family` rule naming a
+  general UI font (Segoe UI, Arial, Lato, Microsoft JhengHei, ...), so text
+  created later gets it too. Rules naming any other font (monospace, icon
+  fonts, an app's own web fonts) are the app's choice and stay. Files whose
+  languages use no library font are sent byte for byte. No font ships with
+  the system: every language defaults to the device fonts.
+- **Font library** ([`src/mod/locale/fonts/`](src/mod/locale/fonts/)): one
+  folder per family in `src/system/locale/fonts/`. Admins upload TTF, OTF,
+  WOFF or WOFF2; uploads are validated and WOFF is unpacked. Big TrueType
+  fonts are cut on demand into WOFF2 slices with disjoint `unicode-range`s (a
+  "ui" slice holding the characters of the interface strings, then 2000
+  codepoints each), cached in `system/cache/fonts/`. API:
+  `/system/fonts/{list,preference}` for users,
+  `/system/fonts/{default,upload,delete}` for admins.
+
 ## What Container Apps are
 
 **Container Apps** publish a web server running on another port (usually a
@@ -324,7 +357,7 @@ before changing how a phase works, but start new work from the packages below.
   Settings ([`cluster.html`](src/web/SystemAO/cluster/cluster.html)), Cluster
   Info ([`clusterinfo.html`](src/web/SystemAO/cluster/clusterinfo.html)) and
   Cluster Jobs; all three are localized through
-  [`src/web/SystemAO/locale/cluster.json`](src/web/SystemAO/locale/cluster.json)
+  [`src/system/locale/cluster.json`](src/system/locale/cluster.json)
   (server messages included, via `CL.tr`), so add new user-facing strings and
   server messages there. Wiring in [`src/cluster.go`](src/cluster.go);
   `-disable_cluster` turns the whole feature off.
@@ -595,6 +628,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
 - [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/office/`](src/mod/office/) — converters behind the `office` AGI library and the Office suite ([`src/web/Office/`](src/web/Office/), read its `README.md` first): one package per format — `docx` / `xlsx` / `pptx` and `odf` import and export, import-only `doc` / `xls` / `ppt` for Office 97-2003 (converted to OOXML), `pdf`; the map is in [`doc.go`](src/mod/office/doc.go).
+- [`src/mod/locale/`](src/mod/locale/) — serves [`src/system/locale/`](src/system/locale/) at `/SystemAO/locale/` and the system font library (see "System locale files and fonts").
 - [`src/mod/subservice/`](src/mod/subservice/) — reverse-proxied binary subservices (see "What a SubService is"); wired up in [`src/subservice.go`](src/subservice.go).
 - [`src/mod/appproxy/`](src/mod/appproxy/) — Container Apps reverse proxy (see "What Container Apps are").
 - [`src/web/`](src/web/) — front-end assets and WebApps (one folder per module; see "What a WebApp is").

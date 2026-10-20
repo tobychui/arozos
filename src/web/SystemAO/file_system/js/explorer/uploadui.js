@@ -661,13 +661,8 @@ function cancelUploadTask(taskUUID){
     }
 }
 
-function retryUploadFile(taskUUID){
-    let retryInfo = uploadRetryMap.get(taskUUID);
-    if (!retryInfo){
-        console.warn("[Upload] No retry info found for task " + taskUUID);
-        return;
-    }
-
+//Back to zero before a task's file is sent again from the start
+function resetUploadTaskProgress(taskUUID){
     let info = uploadTaskInfo.get(taskUUID);
     if (info !== undefined){
         info.loaded = 0;
@@ -675,6 +670,16 @@ function retryUploadFile(taskUUID){
         info.lastLoaded = 0;
         info.lastTime = Date.now();
     }
+}
+
+function retryUploadFile(taskUUID){
+    let retryInfo = uploadRetryMap.get(taskUUID);
+    if (!retryInfo){
+        console.warn("[Upload] No retry info found for task " + taskUUID);
+        return;
+    }
+
+    resetUploadTaskProgress(taskUUID);
     setUploadTaskState(taskUUID, "pending");
 
     //Re-queue the file for upload using the same task UUID

@@ -42,6 +42,20 @@
     //Handle drag drop upload
     function drop(event){
         event.preventDefault();
+
+        /*
+            A drop on a folder row belongs to dropToFolder(). That handler is
+            delegated from #folderView - the same element this inline ondrop
+            sits on, and the inline one is registered first - so stopping
+            propagation there cannot keep this one from running too. Without
+            this check a folder drop uploads into both the folder and the
+            current directory.
+        */
+        if (!isSpecialViewPath(currentPath) &&
+                $(event.target).closest(".fileObject[type='folder']").length > 0){
+            return;
+        }
+
         //Check if this is file upload or file move / copy function
         let dt = event.dataTransfer
         let files = dt.files
@@ -198,14 +212,28 @@
         return filesInside;
     }
 
-function dropToFolder(event){
+function dropToFolder(event, folderObject=undefined){
     event.preventDefault();
     event.stopImmediatePropagation();
     console.log("Drop to folder detected");
 
-    //Extract target folder path from object
-    var targetPath = $(event.target).attr("filepath");
-    if (targetPath == ""){
+    //A special view's rows are not directories to paste into; drop() has
+    //already handed the drop to the view
+    if (isSpecialViewPath(currentPath)){
+        return;
+    }
+
+    /*
+        Extract target folder path from the folder row. event.target is
+        whatever was under the cursor - the icon, the name text, a details
+        cell - and only the row itself carries filepath, so look it up from
+        the row the delegate matched, or the nearest one around the target.
+    */
+    if (folderObject === undefined){
+        folderObject = $(event.target).closest(".fileObject");
+    }
+    var targetPath = $(folderObject).attr("filepath");
+    if (targetPath === undefined || targetPath == ""){
         return
     }
     
@@ -217,6 +245,7 @@ function dropToFolder(event){
             targetPath = targetPath.substr(0, targetPath.length-1);
         }
         var folderBase = targetPath.split("/").pop() + "/";
+        msgbox("upload",applocale.getString("message/upload/started", "Upload Started"));
         var items = event.dataTransfer.items;
         for (let i=0; i<items.length; i++) {
             let item = items[i].webkitGetAsEntry();

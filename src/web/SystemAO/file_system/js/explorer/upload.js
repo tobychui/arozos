@@ -46,7 +46,71 @@ function initUploadMode(){
     });
 }
 
-function uploadFile(file, uuid=undefined, targetDir=undefined) {
+/*
+    Server errors that another attempt cannot fix. Everything else - a dropped
+    WebSocket, a stalled or reset connection, a checksum mismatch, a write
+    that failed mid-way - is worth one silent retry before the task is shown
+    as failed, because on a poor network that is usually all it takes.
+*/
+var UPLOAD_FATAL_ERRORS = ["too large", "quota exceeded"];
+
+function isRetryableUploadError(message){
+    let lower = String(message).toLowerCase();
+    for (var i = 0; i < UPLOAD_FATAL_ERRORS.length; i++){
+        if (lower.indexOf(UPLOAD_FATAL_ERRORS[i]) >= 0){
+            return false;
+        }
+    }
+    return true;
+}
+
+//An upload ended one way or another: free its slot and start the next queued file
+function releaseUploadSlot(){
+    uploadingFileCount--;
+    updateUploadFileCount();
+    setTimeout(function(){
+        if (uploadPendingList.length > 0){
+            let nextFile = uploadPendingList.shift();
+            uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir, nextFile.Attempt);
+        }
+    }, 100);
+}
+
+/*
+    Run a dropped large-file upload again after a short pause.
+
+    The task keeps its concurrency slot while it waits, so the retry is not
+    sent to the back of a long queue, and the row reads as pending rather
+    than failed - the red bar and the retry button are for when this second
+    attempt fails too. Cancelling the row during the wait frees the slot.
+*/
+function scheduleUploadAutoRetry(taskUUID, file, targetDir, attempt){
+    console.warn("[Upload] Connection lost, retrying " + file.name + " (attempt " + (attempt + 1) + ")");
+    resetUploadTaskProgress(taskUUID);
+    setUploadTaskState(taskUUID, "pending");
+
+    let timer = setTimeout(function(){
+        unregisterUploadTransfer(taskUUID);
+        //Hand the slot straight to the retry
+        uploadingFileCount--;
+        uploadFile(file, taskUUID, targetDir, attempt);
+    }, UPLOAD_AUTO_RETRY_DELAY_MS);
+
+    registerUploadTransfer(taskUUID, {
+        pausable: false,
+        abort: function(){
+            clearTimeout(timer);
+            releaseUploadSlot();
+        }
+    });
+}
+
+/*
+    attempt counts the automatic retries already made for this task; it only
+    matters to the low memory (WebSocket) mode. A retry from the row's button
+    starts again at 0, so it gets its own silent retry as well.
+*/
+function uploadFile(file, uuid=undefined, targetDir=undefined, attempt=0) {
     if (file.size > postUploadModeCutoff && lowMemoryMode){
         /*
             Low Memory Upload Mode
@@ -74,6 +138,7 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 File: file,
                 UUID: taskUUID,
                 TargetDir: JSON.parse(JSON.stringify(uploadDir)),
+                Attempt: attempt,
             });
             return
         }
@@ -129,12 +194,25 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
         let aborted = false;
         let completed = false;
 
-        // Mark an upload task as failed and reveal the retry button
+        /*
+            Whether this ending is worth an automatic retry. Every way a
+            transfer ends passes through onClose, so the error callbacks only
+            record what went wrong and onClose decides.
+        */
+        let failMessage = null;
+        let retryable = true;
+        let reported = false;
+
+        //Show the task as failed for good - red bar and the retry button
         function markUploadFailed(tUUID) {
-            if (aborted) {
+            if (aborted || reported) {
                 return;
             }
+            reported = true;
             unregisterUploadTransfer(tUUID);
+            if (failMessage != null){
+                msgbox("red remove", failMessage);
+            }
             setUploadTaskState(tUUID, "failed");
         }
 
@@ -171,42 +249,52 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             },
             onError: function(message, fromServer){
                 if (fromServer){
-                    msgbox("red remove", message);
+                    failMessage = message;
                 }
-                markUploadFailed(taskUUID);
+                if (!isRetryableUploadError(message)){
+                    //Another attempt hits the same limit; say so right away
+                    retryable = false;
+                    markUploadFailed(taskUUID);
+                }
             },
             onClose: function(event){
                 unregisterUploadTransfer(taskUUID);
 
-                /*
-                    Any close that is not the end of a finished upload and not the
-                    user cancelling leaves the task stranded mid-transfer, so offer
-                    retry rather than a row frozen at whatever percentage it reached.
-                    The server closes with uploadPauseCloseCode when a pause has been
-                    left running for too long, which is the case worth naming.
-                */
-                if (!completed && !aborted){
-                    if (event.code == UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE){
-                        msgbox("caution", applocale.getString("upload/pauseExpired",
-                            "Upload cancelled: paused for too long"));
-                    }
-                    setUploadTaskState(taskUUID, "failed");
+                if (completed || aborted || reported){
+                    releaseUploadSlot();
+                    return;
                 }
 
-                uploadingFileCount--;
-                updateUploadFileCount();
-                //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
-                setTimeout(function(){
-                    if (uploadPendingList.length > 0){
-                        let nextFile = uploadPendingList.shift();
-                        uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
-                    }
-                }, 100)
+                /*
+                    Any close that is not the end of a finished upload and not the
+                    user cancelling leaves the task stranded mid-transfer. The server
+                    closes with uploadPauseCloseCode when a pause has been left
+                    running for too long - the user stopped it, so that one is not
+                    retried behind their back, and neither is a dropped connection
+                    while paused. Anything else gets one more attempt before the
+                    row offers retry rather than freezing at whatever percentage it
+                    reached.
+                */
+                if (event.code == UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE){
+                    msgbox("caution", applocale.getString("upload/pauseExpired",
+                        "Upload cancelled: paused for too long"));
+                    retryable = false;
+                }else if (transfer.isPaused()){
+                    retryable = false;
+                }
+
+                if (retryable && attempt < UPLOAD_AUTO_RETRY_LIMIT){
+                    //Keeps the slot until the retry takes it over
+                    scheduleUploadAutoRetry(taskUUID, file, retryDir, attempt + 1);
+                    return;
+                }
+
+                markUploadFailed(taskUUID);
+                releaseUploadSlot();
             },
             onSocketError: function(error){
+                //Always followed by onClose, which decides between retry and failure
                 console.error("[Upload] WebSocket error:", error);
-                // Mark the task as failed and show the retry button
-                markUploadFailed(taskUUID);
             }
         });
 
@@ -259,6 +347,7 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 File: file,
                 UUID: taskUUID,
                 TargetDir: JSON.parse(JSON.stringify(uploadDir)),
+                Attempt: attempt,
             });
             return
         }
@@ -316,15 +405,8 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 }else{
                     uploadRetryMap.delete(taskUUID);
                 }
-                uploadingFileCount--;
-
                 //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
-                setTimeout(function(){
-                    if (uploadPendingList.length > 0){
-                        let nextFile = uploadPendingList.shift();
-                        uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
-                    }
-                }, 100)
+                releaseUploadSlot();
                 
             }else if (xhr.readyState == 4 && xhr.status != 200) {
                 unregisterUploadTransfer(taskUUID);
@@ -334,15 +416,8 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                     console.log(xhr);
                     setUploadTaskState(taskUUID, "failed");
                 }
-                uploadingFileCount--;
-
                 //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
-                setTimeout(function(){
-                    if (uploadPendingList.length > 0){
-                        let nextFile = uploadPendingList.shift();
-                        uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
-                    }
-                }, 100)
+                releaseUploadSlot();
             }
 
         

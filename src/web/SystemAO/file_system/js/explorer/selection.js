@@ -548,7 +548,7 @@ function bindFileListDelegates(){
     });
 
     view.on("drop", ".fileObject[type='folder']", function(event){
-        dropToFolder(event.originalEvent || event);
+        dropToFolder(event.originalEvent || event, this);
     });
 
     /*

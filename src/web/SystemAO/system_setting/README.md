@@ -10,10 +10,11 @@ the shell document.
 
 - **Sidebar**: search (`/` focuses it), account card (opens My Account), and
   every group with its pages. Drag the right edge to resize; narrower than
-  140 px snaps to the icon rail, double click toggles it. The width, rail
-  state and collapsed groups are kept in `localStorage`
-  (`ao_systemsetting_sidebar`). Windows under 640 px always use the rail; the
-  search button then opens the full tree over the content.
+  140 px snaps to the icon rail, double click toggles it. The width and rail
+  state are kept in `localStorage` (`ao_systemsetting_sidebar`). On start
+  every group is folded except the one holding the opened page. Windows under
+  640 px always use the rail; the search button then opens the full tree over
+  the content.
 - **Group tiles**: `GROUP_STYLE` in `main.js` maps a group id to a tone
   (`--tone-<name>-bg/fg` in `tokens.css`) and a 24 px stroke icon. A new
   group falls back to the gray tone and a generic icon.
@@ -55,8 +56,16 @@ the shell document.
     own handler and calls the page's after it;
   - `msgbox(text, ok, ms)` shows a toast; `openSubcat(moduleInfo)` opens
     another settings page.
-- **Locale**: the shell sets `window.applocaleSkipFontFamily`, so applocale
-  does not write fonts inline; CJK fonts come through `--ss-font`.
+- **Locale**: the locale files are served from `src/system/locale` at
+  `../locale/` (see "System locale files and fonts" in the root CLAUDE.md).
+  The shell sets `window.applocaleSkipFontFamily`, so applocale does not
+  write fonts inline; the page font comes through `--ss-font`. When the
+  language uses a font from the font library (System Fonts page), the locale
+  block names it in `systemFont` and it leads `--ss-font`; otherwise CJK
+  languages put the UI font first and their locale's `fontFamily` after it.
+  A page that sets its own font stack writes it as
+  `var(--ss-font, <fallback>)` so that it follows the shell. A page that
+  changes the font calls `window.ssRefreshFont()` to apply it at once.
   It also sets `window.applocaleKeepWindowTitle` once its own title is in
   place, so a page's locale file (with an `fwtitle`) cannot rename the
   window.

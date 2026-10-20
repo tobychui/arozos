@@ -12,6 +12,9 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
+// localeRoot holds the system locale files, served at /SystemAO/locale/ (see locale.fonts.go)
+var localeRoot = filepath.Join("system", "locale")
+
 // localeFileSchema is the top-level structure shared by all locale JSON files.
 type localeFileSchema struct {
 	Author string                    `json:"author"`
@@ -23,7 +26,7 @@ type localeKeyEntry struct {
 }
 
 // InfoHandleGetLocaleInfo returns locale coverage statistics.
-// It reads every JSON file under ./web/SystemAO/locale/ (one level of sub-dirs),
+// It reads every JSON file under ./system/locale/ (one level of sub-dirs),
 // uses file_explorer.json as the canonical language baseline, and reports:
 //   - coverage % per language (how many files have that language)
 //   - a deduplicated contributors list
@@ -41,8 +44,6 @@ func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
 		TotalFiles   int             `json:"totalFiles"`
 	}
 
-	localeRoot := "./web/SystemAO/locale"
-
 	// ── 1. Collect all JSON file paths (root + one level of sub-dirs) ──────────
 	var jsonFiles []string
 	entries, err := os.ReadDir(localeRoot)
@@ -51,6 +52,9 @@ func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, e := range entries {
+		if e.IsDir() && e.Name() == "fonts" {
+			continue //the font library, not interface strings
+		}
 		if e.IsDir() {
 			subEntries, err2 := os.ReadDir(filepath.Join(localeRoot, e.Name()))
 			if err2 != nil {

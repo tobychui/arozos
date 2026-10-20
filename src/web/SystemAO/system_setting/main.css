@@ -183,7 +183,7 @@ body.ss-resizing, body.ss-resizing * { cursor: col-resize !important; user-selec
 
 .sb-account-name {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--ss-text);
     line-height: 17px;
     overflow: hidden;
@@ -240,7 +240,7 @@ body.ss-resizing, body.ss-resizing * { cursor: col-resize !important; user-selec
     flex: 1;
     min-width: 0;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--ss-text);
     white-space: nowrap;
     overflow: hidden;
@@ -570,7 +570,7 @@ body.ss-resizing #sb-resizer::after { background: var(--ss-accent); opacity: 0.5
     gap: 8px;
     font-size: 13px;
     line-height: 18px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--ss-text);
 }
 
@@ -737,7 +737,7 @@ body.ss-resizing #sb-resizer::after { background: var(--ss-accent); opacity: 0.5
     color: var(--ss-text);
     font: inherit;
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s;
@@ -779,7 +779,7 @@ body.ss-resizing #sb-resizer::after { background: var(--ss-accent); opacity: 0.5
     color: var(--ss-text-2);
     font: inherit;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
 }
 
@@ -800,7 +800,7 @@ body.dark .ss-segmented button.active { background: #3b3b38; }
     padding: 0 8px;
     border-radius: 10px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
     background: var(--ss-surface-3);
     color: var(--ss-text-2);
@@ -1009,7 +1009,7 @@ body.dark .ss-segmented button.active { background: #3b3b38; }
     background: var(--ss-surface-2);
     color: var(--ss-text-2);
     font-size: 11.5px;
-    font-weight: 600;
+    font-weight: 500;
     border-color: var(--ss-border);
 }
 

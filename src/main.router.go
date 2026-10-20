@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/locale"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -155,6 +156,11 @@ func mrouter(h http.Handler) http.Handler {
 		} else if authAgent.CheckAuth(r) {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
+			if localeServer != nil && strings.HasPrefix(r.URL.Path, locale.URLPrefix) {
+				//System locale files live in ./system/locale, rendered per user (locale.fonts.go)
+				serveLocaleRequest(w, r)
+				return
+			}
 			if build_version == "development" {
 				//Do something if development build
 				//w.Header().Add("Cross-Origin-Opener-Policy", "same-origin")

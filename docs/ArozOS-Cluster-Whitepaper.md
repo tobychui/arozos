@@ -158,7 +158,7 @@ Related code outside the package:
 | `src/mod/agi/agi.cluster.go` | The AGI `cluster` library |
 | `src/main.router.go` | Mounts `/cluster/acn/*` before the session check |
 | `src/web/SystemAO/cluster/` | Cluster Settings, Cluster Info and Cluster Jobs pages |
-| `src/web/SystemAO/locale/cluster.json` | UI and server message translations |
+| `src/system/locale/cluster.json` | UI and server message translations |
 | `examples/clusters_jobs/` | Runnable job examples |
 
 ### 3.3 Start-up order
@@ -1130,7 +1130,7 @@ zh-tw, zh-hk, zh-cn, ja-jp, ko-kr):
    build tags for OS-specific code.
 6. No emoji in code or UI; use Semantic UI icons or SVG.
 7. Add user-facing strings and server messages to
-   `src/web/SystemAO/locale/cluster.json` (`CL.t` for labels, `CL.tr` for
+   `src/system/locale/cluster.json` (`CL.t` for labels, `CL.tr` for
    server messages via `msg/<text>` and `msgp/<template>` entries).
 
 ### 20.2 Adding a replicated feature

@@ -1,0 +1,595 @@
+<!--
+    System Fonts
+
+    Loaded into System Settings. Picks the font each language uses (for the
+    user, or as the default for everyone when an administrator switches the
+    scope) and shows the system font library, where text can be previewed in
+    every installed font. Administrators install fonts (TTF, OTF, WOFF,
+    WOFF2) by upload or drag and drop, and remove them.
+
+    Backend: /system/fonts/* (src/locale.fonts.go, mod/locale/fonts). The
+    previews use ../locale/fonts/fonts.css?preview=1, which declares every
+    family under its preview name ("AO Preview <family>").
+-->
+<style>
+#fnt-root {
+    --fnt-size: 34px;
+    --fnt-weight: 400;
+    font-family: var(--ss-font, 'Segoe UI', system-ui, -apple-system, sans-serif);
+    font-size: 13px;
+    color: var(--ss-text);
+    position: relative;
+}
+#fnt-root .fnt-scope { margin-left: auto; }
+#fnt-root .fnt-hint {
+    margin: -2px 2px 10px;
+    font-size: 11.5px;
+    color: var(--ss-text-3);
+}
+#fnt-root .ss-row { flex-wrap: wrap; row-gap: 8px; }
+#fnt-root .ss-row-text { flex: 1 1 180px; }
+#fnt-root .fnt-lang-select { min-width: min(220px, 100%); max-width: 280px; }
+#fnt-root .fnt-current {
+    color: var(--ss-text-3);
+    font-weight: 400;
+}
+
+/* Library toolbar */
+#fnt-root .fnt-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+#fnt-root .fnt-search {
+    position: relative;
+    flex: 0 1 220px;
+    min-width: 160px;
+}
+#fnt-root .fnt-search svg {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    width: 13px;
+    height: 13px;
+    margin-top: -6.5px;
+    color: var(--ss-muted);
+    pointer-events: none;
+}
+#fnt-root .fnt-search .ss-input { width: 100%; padding-left: 28px; box-sizing: border-box; }
+#fnt-root .fnt-sample-input { flex: 1 1 240px; min-width: 180px; box-sizing: border-box; }
+#fnt-root .fnt-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    font-size: 12px;
+    color: var(--ss-text-2);
+}
+#fnt-root .fnt-size input[type="range"] { width: 110px; accent-color: var(--ss-accent); }
+#fnt-root .fnt-size-value { width: 34px; font-variant-numeric: tabular-nums; color: var(--ss-text-3); }
+
+/* Cards */
+#fnt-root .fnt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    align-items: start; /* an opened card does not stretch its neighbours */
+    gap: 12px;
+}
+#fnt-root .fnt-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius);
+    transition: border-color 0.12s;
+}
+#fnt-root .fnt-card:hover { border-color: var(--ss-border-strong); }
+#fnt-root .fnt-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px 0;
+}
+#fnt-root .fnt-card-title { flex: 1; min-width: 0; }
+#fnt-root .fnt-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#fnt-root .fnt-meta {
+    margin-top: 1px;
+    font-size: 11.5px;
+    line-height: 16px;
+    color: var(--ss-text-3);
+}
+#fnt-root .fnt-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--ss-radius-sm);
+    background: transparent;
+    color: var(--ss-muted);
+    cursor: pointer;
+}
+#fnt-root .fnt-icon-btn:hover { background: var(--ss-danger-soft); color: var(--ss-danger); }
+#fnt-root .fnt-icon-btn svg { width: 14px; height: 14px; }
+#fnt-root .fnt-preview {
+    flex: 1;
+    margin: 10px 14px 12px;
+    font-size: var(--fnt-size);
+    font-weight: var(--fnt-weight);
+    line-height: 1.3;
+    color: var(--ss-text);
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    min-height: 1.3em;
+}
+#fnt-root .fnt-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    padding: 9px 14px 11px;
+    border-top: 1px solid var(--ss-border);
+}
+#fnt-root .fnt-more {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--ss-link);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+#fnt-root .fnt-details {
+    padding: 0 14px 12px;
+    font-size: 12px;
+    line-height: 17px;
+    color: var(--ss-text-2);
+}
+#fnt-root .fnt-details dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 3px 12px;
+    margin: 0;
+}
+#fnt-root .fnt-details dt { color: var(--ss-text-3); }
+#fnt-root .fnt-details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+#fnt-root .fnt-details .fnt-file { font-family: var(--ss-mono); font-size: 11px; }
+#fnt-root .fnt-license { max-height: 68px; overflow: auto; }
+
+/* Upload */
+#fnt-root .fnt-formats { font-size: 11.5px; color: var(--ss-text-3); }
+#fnt-root .fnt-drop {
+    display: none;
+    position: absolute;
+    inset: -8px;
+    z-index: 20;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--ss-accent);
+    border-radius: var(--ss-radius);
+    background: var(--ss-accent-soft);
+    color: var(--ss-accent-text);
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.95;
+}
+#fnt-root.dragging .fnt-drop { display: flex; }
+#fnt-progress { min-width: 90px; }
+</style>
+
+<div id="fnt-root">
+    <div class="ss-page-desc" locale="fnt/desc">Choose the font each language uses, and manage the fonts installed on this system.</div>
+
+    <div data-ss-page-actions id="fnt-actions" style="display:none">
+        <span class="ss-status" id="fnt-progress"></span>
+        <button type="button" class="ss-btn primary" id="fnt-upload-btn">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.5V2.5M4.8 5.6L8 2.4l3.2 3.2M2.5 10.5v2.2c0 .5.4.8.8.8h9.4c.4 0 .8-.3.8-.8v-2.2"/></svg>
+            <span locale="fnt/upload">Upload fonts</span>
+        </button>
+        <input type="file" id="fnt-file" multiple accept=".ttf,.otf,.woff,.woff2" style="display:none">
+    </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M1.9 6h12.2M1.9 10h12.2M7.6 1.7a10.5 10.5 0 0 0 0 12.6M8.4 1.7a10.5 10.5 0 0 1 0 12.6"/></svg>
+            <span locale="fnt/lang-title">Language fonts</span>
+            <div class="ss-segmented fnt-scope" id="fnt-scope" style="display:none">
+                <button type="button" class="active" data-scope="user" locale="fnt/scope-me">For me</button>
+                <button type="button" data-scope="default" locale="fnt/scope-all">Default for everyone</button>
+            </div>
+        </div>
+        <div class="fnt-hint" id="fnt-scope-hint"></div>
+        <div class="ss-card" id="fnt-langs"><div class="ss-loading"><div class="ss-spinner"></div></div></div>
+    </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 13L5.6 3.5h.8L10 13M3.3 9.8h5.4"/><path d="M14 13V9.6a1.9 1.9 0 0 0-3.4-1.1M14 11.2c-.6-.4-1.3-.6-2-.6-1.1 0-1.9.6-1.9 1.4s.7 1.3 1.6 1.3c1 0 1.8-.6 2.3-1.3"/></svg>
+            <span locale="fnt/library-title">Font library</span>
+        </div>
+        <div class="fnt-toolbar">
+            <label class="fnt-search">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+                <input type="search" class="ss-input" id="fnt-search" placeholder="Search fonts" autocomplete="off" spellcheck="false">
+            </label>
+            <input type="text" class="ss-input fnt-sample-input" id="fnt-sample" placeholder="Type something to preview" autocomplete="off">
+            <select class="ss-select" id="fnt-weight" title="Weight"></select>
+            <label class="fnt-size">
+                <span locale="fnt/size">Size</span>
+                <input type="range" id="fnt-size" min="12" max="96" step="2" value="34">
+                <span class="fnt-size-value" id="fnt-size-value">34px</span>
+            </label>
+        </div>
+        <div class="fnt-grid" id="fnt-grid"></div>
+        <div class="ss-empty" id="fnt-empty" style="display:none"></div>
+        <div class="fnt-formats" id="fnt-formats" style="display:none; margin-top:10px"></div>
+    </div>
+
+    <div class="fnt-drop" locale="fnt/drop">Drop font files to install them</div>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('fnt-root');
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    var state = { isAdmin: false, scope: 'user', languages: [], families: [], maxFontSize: 0, open: {} };
+    var FONT_EXT = /\.(ttf|otf|woff2?)$/i;
+    var WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+    var WEIGHT_NAMES = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
+    var SCRIPT_NAMES = { latin: 'Latin', greek: 'Greek', cyrillic: 'Cyrillic', hebrew: 'Hebrew', arabic: 'Arabic', devanagari: 'Devanagari', thai: 'Thai', kana: 'Japanese kana', han: 'Chinese characters', hangul: 'Hangul' };
+
+    function t(key, fallback) {
+        try { return (L && L.getString('fnt/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+    function fmt(text) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        return String(text).replace(/\{(\d)\}/g, function (m, i) { return args[i] !== undefined ? args[i] : m; });
+    }
+    // safe in text and in attribute values
+    function esc(text) {
+        return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function cssFamily(name) { return '"' + String(name).replace(/["\\]/g, '') + '"'; }
+    function alive() { return document.body.contains(root); }
+    function toast(text, ok) {
+        if (typeof msgbox === 'function') { msgbox(text, ok !== false, ok === false ? 6000 : 3000); } else { alert(text); }
+    }
+    function bytes(n) {
+        if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+        return Math.max(1, Math.round(n / 1024)) + ' KB';
+    }
+    function langName(code) {
+        for (var i = 0; i < state.languages.length; i++) {
+            if (state.languages[i].code === code) return state.languages[i].name;
+        }
+        return code;
+    }
+
+    /* ── Preview style sheet: every family under its preview name ── */
+    function loadPreviewFonts() {
+        var href = '../locale/fonts/fonts.css?preview=1&lang=' + encodeURIComponent((typeof applocale !== 'undefined' && applocale.lang) || '') + '&v=' + Date.now();
+        var link = document.getElementById('fnt-preview-css');
+        if (!link) {
+            link = document.createElement('link');
+            link.id = 'fnt-preview-css';
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+        }
+        link.href = href;
+    }
+
+    /* ── Data ── */
+    function load(cb) {
+        $.getJSON('../../system/fonts/list', function (d) {
+            if (!alive()) return;
+            if (!d || d.error !== undefined) {
+                $('#fnt-langs').html('<div class="ss-empty">' + esc(d && d.error ? d.error : t('load-failed', 'The font library could not be loaded.')) + '</div>');
+                return;
+            }
+            state.isAdmin = !!d.isAdmin;
+            state.languages = d.languages || [];
+            state.families = d.families || [];
+            state.maxFontSize = d.maxFontSize || 0;
+            $('#fnt-actions').toggle(state.isAdmin);
+            $('#fnt-scope').css('display', state.isAdmin ? '' : 'none');
+            if (state.isAdmin) {
+                $('#fnt-formats').show().text(fmt(t('formats', 'TrueType, OpenType, WOFF or WOFF2, up to {0} MB each. You can also drop the files on this page.'), Math.round(state.maxFontSize / 1048576)));
+            }
+            renderLanguages();
+            renderLibrary();
+            if (cb) cb();
+        }).fail(function () {
+            if (alive()) $('#fnt-langs').html('<div class="ss-empty">' + esc(t('load-failed', 'The font library could not be loaded.')) + '</div>');
+        });
+    }
+
+    /* ── Language fonts ── */
+    function familyLabel(value) {
+        return (value === '' || value === '@system') ? t('device', 'device font') : value;
+    }
+
+    function renderLanguages() {
+        var userScope = state.scope === 'user';
+        $('#fnt-scope button').each(function () { $(this).toggleClass('active', $(this).attr('data-scope') === state.scope); });
+        $('#fnt-scope-hint').text(userScope
+            ? t('hint-me', 'Your choice applies to the apps you open from now on.')
+            : t('hint-all', 'Users who have not picked a font of their own use these.'));
+
+        if (!state.languages.length) {
+            $('#fnt-langs').html('<div class="ss-empty">' + esc(t('no-languages', 'No languages found.')) + '</div>');
+            return;
+        }
+        var html = '';
+        state.languages.forEach(function (lang) {
+            var value = userScope ? lang.choice : lang.adminDefault;
+            var options = [];
+            if (userScope) {
+                options.push(['', fmt(t('opt-default', 'System default ({0})'), familyLabel(lang.default))]);
+            } else {
+                options.push(['', fmt(t('opt-factory', 'Factory default ({0})'), familyLabel(lang.factory))]);
+            }
+            options.push(['@system', t('opt-device', 'Device font')]);
+            var listed = {};
+            state.families.forEach(function (f) {
+                if (f.languages.indexOf(lang.code) >= 0 || f.name === value) {
+                    options.push([f.name, f.name]);
+                    listed[f.name] = true;
+                }
+            });
+            if (value && value !== '@system' && !listed[value]) {
+                options.push([value, fmt(t('missing', '{0} (not installed)'), value)]);
+            }
+            var select = '<select class="ss-select fnt-lang-select" data-lang="' + esc(lang.code) + '">';
+            options.forEach(function (o) {
+                select += '<option value="' + esc(o[0]) + '"' + (o[0] === value ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
+            });
+            select += '</select>';
+            var desc = esc(lang.code) + ' &middot; ' + esc(fmt(t('in-use', 'In use: {0}'), familyLabel(lang.effective)));
+            html += '<div class="ss-row">' +
+                '<div class="ss-row-text"><div class="ss-row-label">' + esc(lang.name || lang.code) + '</div>' +
+                '<div class="ss-row-desc">' + desc + '</div></div>' +
+                '<div class="ss-control">' + select + '</div></div>';
+        });
+        $('#fnt-langs').html(html);
+    }
+
+    $('#fnt-scope').on('click', 'button', function () {
+        state.scope = $(this).attr('data-scope');
+        renderLanguages();
+    });
+
+    $('#fnt-langs').on('change', '.fnt-lang-select', function () {
+        var lang = $(this).attr('data-lang');
+        var family = $(this).val();
+        var url = state.scope === 'user' ? '../../system/fonts/preference' : '../../system/fonts/default';
+        $.post(url, { lang: lang, family: family }, function (d) {
+            if (d && d.error) { toast(d.error, false); load(); return; }
+            toast(t('saved', 'Saved'), true);
+            load(function () {
+                if (typeof applocale !== 'undefined' && lang === applocale.lang && typeof window.ssRefreshFont === 'function') {
+                    window.ssRefreshFont();
+                }
+            });
+        }).fail(function () { toast(t('save-failed', 'The change could not be saved.'), false); load(); });
+    });
+
+    /* ── Library ── */
+    function sampleText() {
+        var typed = $('#fnt-sample').val();
+        return typed !== '' ? typed : t('sample', 'The quick brown fox jumps over the lazy dog 0123456789');
+    }
+
+    function metaLine(f) {
+        var parts = [];
+        if (f.variable) {
+            parts.push(t('variable', 'Variable'));
+        } else {
+            parts.push(f.faces.length === 1 ? t('style1', '1 style') : fmt(t('styles', '{0} styles'), f.faces.length));
+        }
+        parts.push(f.weightMin === f.weightMax ? String(f.weightMin) : f.weightMin + '–' + f.weightMax);
+        if (f.italic) parts.push(t('italic', 'Italic'));
+        parts.push(bytes(f.size));
+        return parts.join(' · ');
+    }
+
+    function usedFor(f) {
+        return state.languages.filter(function (l) { return l.effective === f.name; }).map(function (l) { return l.name || l.code; });
+    }
+
+    function detailsHtml(f) {
+        var files = f.faces.map(function (face) {
+            return '<div><span class="fnt-file">' + esc(face.file) + '</span> &middot; ' + esc(face.style) + ' &middot; ' + bytes(face.size) +
+                ' &middot; ' + esc(fmt(t('glyphs', '{0} glyphs'), face.glyphs)) + ' &middot; ' +
+                esc(face.sliced ? t('sliced', 'sent in slices') : t('whole', 'sent whole')) + '</div>';
+        }).join('');
+        var rows = '<dt>' + esc(t('files', 'Files')) + '</dt><dd>' + files + '</dd>';
+        if (f.designer) rows += '<dt>' + esc(t('designer', 'Designer')) + '</dt><dd>' + esc(f.designer) + '</dd>';
+        if (f.version) rows += '<dt>' + esc(t('version', 'Version')) + '</dt><dd>' + esc(f.version) + '</dd>';
+        if (f.license || f.licenseURL) {
+            var link = /^https?:\/\//i.test(f.licenseURL || '') ? ' <a href="' + esc(f.licenseURL) + '" target="_blank" rel="noopener noreferrer">' + esc(f.licenseURL) + '</a>' : '';
+            rows += '<dt>' + esc(t('license', 'License')) + '</dt><dd><div class="fnt-license">' + esc(f.license) + link + '</div></dd>';
+        }
+        return '<dl>' + rows + '</dl>';
+    }
+
+    function renderLibrary() {
+        var q = String($('#fnt-search').val() || '').trim().toLowerCase();
+        var text = sampleText();
+        var shown = 0;
+        var html = '';
+        state.families.forEach(function (f) {
+            var scripts = f.scripts.map(function (s) { return t('script/' + s, SCRIPT_NAMES[s] || s); });
+            var hay = (f.name + ' ' + scripts.join(' ')).toLowerCase();
+            if (q && hay.indexOf(q) < 0) return;
+            shown++;
+            var badges = scripts.map(function (s) { return '<span class="ss-badge">' + esc(s) + '</span>'; }).join('');
+            usedFor(f).forEach(function (name) {
+                badges += '<span class="ss-badge accent">' + esc(fmt(t('used-for', 'Used for {0}'), name)) + '</span>';
+            });
+            var open = !!state.open[f.name];
+            html += '<div class="fnt-card" data-family="' + esc(f.name) + '">' +
+                '<div class="fnt-card-head"><div class="fnt-card-title">' +
+                '<div class="fnt-name" title="' + esc(f.name) + '">' + esc(f.name) + '</div>' +
+                '<div class="fnt-meta">' + esc(metaLine(f)) + '</div></div>' +
+                (state.isAdmin ? '<button type="button" class="fnt-icon-btn fnt-remove" title="' + esc(t('remove', 'Remove')) + '">' +
+                    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.8 4.3h10.4M6.3 4.3V2.8h3.4v1.5M4.2 4.3l.6 8.6c0 .5.4.8.9.8h4.6c.5 0 .9-.3.9-.8l.6-8.6M6.7 7v4.3M9.3 7v4.3"/></svg>' +
+                    '</button>' : '') +
+                '</div>' +
+                '<div class="fnt-preview" style="font-family:' + esc(cssFamily(f.preview)) + ', var(--ss-font, sans-serif)">' + esc(text) + '</div>' +
+                '<div class="fnt-card-foot">' + badges +
+                '<button type="button" class="fnt-more">' + esc(open ? t('hide', 'Hide details') : t('details', 'Details')) + '</button></div>' +
+                '<div class="fnt-details"' + (open ? '' : ' style="display:none"') + '>' + detailsHtml(f) + '</div>' +
+                '</div>';
+        });
+        $('#fnt-grid').html(html);
+        if (!state.families.length) {
+            $('#fnt-empty').show().text(t('empty', 'No fonts are installed yet.'));
+        } else if (!shown) {
+            $('#fnt-empty').show().text(t('no-match', 'No font matches your search.'));
+        } else {
+            $('#fnt-empty').hide();
+        }
+    }
+
+    $('#fnt-search').on('input', renderLibrary);
+    $('#fnt-sample').on('input', function () {
+        var text = sampleText();
+        $('#fnt-grid .fnt-preview').text(text);
+    });
+    $('#fnt-size').on('input', function () {
+        root.style.setProperty('--fnt-size', this.value + 'px');
+        $('#fnt-size-value').text(this.value + 'px');
+    });
+    $('#fnt-weight').on('change', function () {
+        root.style.setProperty('--fnt-weight', this.value);
+    });
+
+    $('#fnt-grid').on('click', '.fnt-more', function () {
+        var $card = $(this).closest('.fnt-card');
+        var name = $card.attr('data-family');
+        state.open[name] = !state.open[name];
+        $card.find('.fnt-details').toggle(state.open[name]);
+        $(this).text(state.open[name] ? t('hide', 'Hide details') : t('details', 'Details'));
+    });
+
+    $('#fnt-grid').on('click', '.fnt-remove', function () {
+        var name = $(this).closest('.fnt-card').attr('data-family');
+        if (!confirm(fmt(t('remove-confirm', 'Remove {0} from this system? Pages using it switch to the next font in their list.'), name))) return;
+        $.post('../../system/fonts/delete', { family: name }, function (d) {
+            if (d && d.error) { toast(d.error, false); return; }
+            toast(fmt(t('removed', 'Removed {0}'), name), true);
+            loadPreviewFonts();
+            load(function () { if (typeof window.ssRefreshFont === 'function') window.ssRefreshFont(); });
+        }).fail(function () { toast(t('remove-failed', 'The font could not be removed.'), false); });
+    });
+
+    /* ── Upload ── */
+    function setProgress(text) {
+        $('#fnt-progress').attr('class', text ? 'ss-status ok' : 'ss-status').text(text || '');
+    }
+
+    function upload(files) {
+        files = Array.prototype.filter.call(files, function (f) { return FONT_EXT.test(f.name); });
+        if (!state.isAdmin || !files.length) return;
+        var form = new FormData();
+        files.forEach(function (f) { form.append('file', f, f.name); });
+        var label = files.length === 1 ? files[0].name : fmt(t('n-files', '{0} files'), files.length);
+        setProgress(fmt(t('uploading', 'Uploading {0}…'), label));
+        $('#fnt-upload-btn').prop('disabled', true);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '../../system/fonts/upload');
+        xhr.upload.onprogress = function (e) {
+            if (e.lengthComputable) setProgress(fmt(t('uploading', 'Uploading {0}…'), label) + ' ' + Math.round(e.loaded / e.total * 100) + '%');
+        };
+        xhr.onloadend = function () {
+            $('#fnt-upload-btn').prop('disabled', false);
+            setProgress('');
+            var res = null;
+            try { res = JSON.parse(xhr.responseText); } catch (e) {}
+            if (!res || res.error) {
+                toast((res && res.error) || t('upload-failed', 'The upload failed.'), false);
+                return;
+            }
+            var ok = [], failed = [];
+            res.forEach(function (r) {
+                if (r.error) failed.push(fmt(t('failed', '{0}: {1}'), r.file, r.error));
+                else ok.push(r.face.family + ' ' + r.face.style);
+            });
+            if (ok.length) toast(fmt(t('installed', 'Installed {0}'), ok.join(', ')), true);
+            if (failed.length) setTimeout(function () { toast(failed.join('\n'), false); }, ok.length ? 600 : 0);
+            loadPreviewFonts();
+            load();
+        };
+        xhr.send(form);
+    }
+
+    $('#fnt-upload-btn').on('click', function () { $('#fnt-file').val('').trigger('click'); });
+    $('#fnt-file').on('change', function () { upload(this.files); });
+
+    var dragDepth = 0;
+    root.addEventListener('dragenter', function (e) {
+        if (!state.isAdmin || !e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') < 0) return;
+        e.preventDefault();
+        dragDepth++;
+        root.classList.add('dragging');
+    });
+    root.addEventListener('dragover', function (e) {
+        if (root.classList.contains('dragging')) e.preventDefault();
+    });
+    root.addEventListener('dragleave', function () {
+        if (--dragDepth <= 0) { dragDepth = 0; root.classList.remove('dragging'); }
+    });
+    root.addEventListener('drop', function (e) {
+        if (!root.classList.contains('dragging')) return;
+        e.preventDefault();
+        dragDepth = 0;
+        root.classList.remove('dragging');
+        upload(e.dataTransfer.files);
+    });
+
+    /* ── Start ── */
+    function start() {
+        var wsel = '';
+        WEIGHTS.forEach(function (w) {
+            wsel += '<option value="' + w + '"' + (w === 400 ? ' selected' : '') + '>' + w + ' ' + esc(t('weight/' + w, WEIGHT_NAMES[w])) + '</option>';
+        });
+        $('#fnt-weight').html(wsel).attr('title', t('weight', 'Weight'));
+        $('#fnt-search').attr('placeholder', t('search', 'Search fonts'));
+        $('#fnt-sample').attr('placeholder', t('sample-placeholder', 'Type something to preview'));
+        loadPreviewFonts();
+        load();
+    }
+
+    window.ssOnPageLeave = function () {
+        $('#fnt-preview-css').remove();
+    };
+
+    if (L) {
+        L.init('../locale/system_settings/desktop.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+}());
+</script>
