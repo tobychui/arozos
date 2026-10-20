@@ -331,11 +331,11 @@ function musicifyApp() {
             }
 
             // Now Playing spectrum: real Web Audio analysis only, so it is left
-            // out wherever routing playback through Web Audio is not safe (iOS).
+            // out wherever routing playback through Web Audio is not safe (iOS, Safari).
             this.spectrumSupported = !this._webAudioUnsafe() && !!(window.AudioContext || window.webkitAudioContext);
 
             // Equalizer: restore from localStorage (per device, like volume)
-            this.eqSupported = this.spectrumSupported && !this._isMacSafari();
+            this.eqSupported = this.spectrumSupported;
             if (this.eqSupported) {
                 this._loadEq();
                 if (this.eqEnabled) this._ensureAnalyser();
@@ -1373,13 +1373,14 @@ function musicifyApp() {
         // iOS suspends a Web Audio graph when the screen locks, which would stop
         // background playback once the <audio> element is routed through it.
         // iPadOS reports a desktop Mac user agent, so it is caught by touch support.
+        // Safari on macOS stops honouring the <audio> element's volume once it is
+        // routed through Web Audio, so the volume slider would do nothing there.
         _webAudioUnsafe() {
-            return this._isIOS() || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            return this._isIOS() || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+                this._isMacSafari();
         },
 
-        // Safari on macOS: its Web Audio handling of media elements is less
-        // dependable than Chrome's or Firefox's on the same Mac, so the
-        // equalizer is not offered there. Other Mac browsers keep it.
+        // Safari on macOS. Other Mac browsers keep Web Audio.
         _isMacSafari() {
             var ua = navigator.userAgent;
             return /Macintosh|Mac OS X/.test(ua) && /Safari\//.test(ua) &&
@@ -1793,7 +1794,8 @@ function musicifyApp() {
             if (this._analyser || this._syntheticViz || !this._audio) return;
             // iOS: routing the <audio> element through a Web Audio AudioContext
             // (createMediaElementSource) hands playback to that context, which iOS
-            // suspends when the screen locks — stopping background audio. Skip Web
+            // suspends when the screen locks — stopping background audio. Safari
+            // on macOS ignores the element's volume once it is routed. Skip Web
             // Audio there and drive the bars with a synthetic animation instead, so
             // playback behaves exactly like non-privacy mode.
             if (this._webAudioUnsafe()) {
@@ -1812,23 +1814,21 @@ function musicifyApp() {
                 // The equalizer sits ahead of the analyser so the bars show
                 // what is heard. A disabled equalizer is all 0 dB, which is
                 // transparent, so the chain is built whenever it may be used.
-                if (!this._isMacSafari()) {
-                    this._eqPreampNode = this._audioCtx.createGain();
-                    this._eqFilters = MUSICIFY_EQ_BANDS.map((band) => {
-                        var f = this._audioCtx.createBiquadFilter();
-                        f.type = band.type;
-                        f.frequency.value = band.freq;
-                        if (band.type === 'peaking') f.Q.value = MUSICIFY_EQ_Q;
-                        return f;
-                    });
-                    var node = source;
-                    [this._eqPreampNode].concat(this._eqFilters).forEach((next) => {
-                        node.connect(next);
-                        node = next;
-                    });
-                    source = node;
-                    this._applyEq();
-                }
+                this._eqPreampNode = this._audioCtx.createGain();
+                this._eqFilters = MUSICIFY_EQ_BANDS.map((band) => {
+                    var f = this._audioCtx.createBiquadFilter();
+                    f.type = band.type;
+                    f.frequency.value = band.freq;
+                    if (band.type === 'peaking') f.Q.value = MUSICIFY_EQ_Q;
+                    return f;
+                });
+                var node = source;
+                [this._eqPreampNode].concat(this._eqFilters).forEach((next) => {
+                    node.connect(next);
+                    node = next;
+                });
+                source = node;
+                this._applyEq();
                 source.connect(this._analyser);
                 this._analyser.connect(this._audioCtx.destination);
                 this._vizData = new Uint8Array(this._analyser.frequencyBinCount);
