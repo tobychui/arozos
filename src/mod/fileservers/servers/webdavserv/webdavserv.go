@@ -84,19 +84,18 @@ func (m *Manager) WebDavToogle(enabled bool) error {
 }
 
 func (m *Manager) WebDavGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	eps := []*fileservers.Endpoint{}
 	protocolName := "http://"
 	if m.option.UseTls {
 		protocolName = "https://"
 	}
-	for _, fsh := range userinfo.GetAllAccessibleFileSystemHandler() {
-		eps = append(eps, &fileservers.Endpoint{
+	//One endpoint for every storage, which shows up as a folder in its root
+	return []*fileservers.Endpoint{
+		{
 			ProtocolName: protocolName,
 			Port:         m.option.Port,
-			Subpath:      "/webdav/" + fsh.UUID,
-		})
+			Subpath:      "/webdav/",
+		},
 	}
-	return eps
 }
 
 func (m *Manager) GetWebDavEnabled() bool {

@@ -12,6 +12,7 @@ import (
 
 	"imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/network/webdav"
 	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/share/shareEntry"
@@ -133,15 +134,22 @@ func TestHandleRequest_Disabled(t *testing.T) {
 	}
 }
 
+// The bare endpoint is the virtual root now, so it asks for credentials
+// instead of being rejected.
 func TestHandleRequest_RootPath(t *testing.T) {
-	s := newTestServer()
+	for _, p := range []string{"/webdav", "/webdav/", "/webdav//"} {
+		s := newTestServer()
 
-	req := httptest.NewRequest(http.MethodGet, "/webdav", nil)
-	w := httptest.NewRecorder()
-	s.HandleRequest(w, req)
+		req := httptest.NewRequest("PROPFIND", p, nil)
+		w := httptest.NewRecorder()
+		s.HandleRequest(w, req)
 
-	if w.Code != http.StatusNotFound {
-		t.Errorf("root-only path: expected 404, got %d", w.Code)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("%s: expected 401, got %d", p, w.Code)
+		}
+		if w.Header().Get("WWW-Authenticate") == "" {
+			t.Errorf("%s: expected WWW-Authenticate header to be set", p)
+		}
 	}
 }
 
@@ -433,19 +441,6 @@ func TestHandleRequest_NoBasicAuth(t *testing.T) {
 	}
 }
 
-func TestHandleRequest_EmptyVroot(t *testing.T) {
-	s := newTestServer()
-
-	// Path like /webdav// has empty segment after stripping
-	req := httptest.NewRequest(http.MethodGet, "/webdav//", nil)
-	w := httptest.NewRecorder()
-	s.HandleRequest(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404 for empty vroot, got %d", w.Code)
-	}
-}
-
 // --- auto-login access token authentication (X-Access-Token / X-Aroz-User) ---
 
 func TestAutoLoginTokenMatchesUsername(t *testing.T) {
@@ -599,17 +594,14 @@ func TestHandleConnectionList_Empty(t *testing.T) {
 	}
 }
 
-func TestGetLockSystem_SharedPerUserAndRoot(t *testing.T) {
+func TestGetLockSystem_SharedPerUser(t *testing.T) {
 	s := newTestServer()
-	a := s.getLockSystem("alice", "/webdav/user")
-	if a != s.getLockSystem("alice", "/webdav/user") {
-		t.Error("expected the same lock system for the same user and root")
+	a := s.getLockSystem("alice")
+	if a != s.getLockSystem("alice") {
+		t.Error("expected the same lock system for the same user")
 	}
-	if a == s.getLockSystem("bob", "/webdav/user") {
+	if a == s.getLockSystem("bob") {
 		t.Error("expected different users to get different lock systems")
-	}
-	if a == s.getLockSystem("alice", "/webdav/tmp") {
-		t.Error("expected different roots to get different lock systems")
 	}
 }
 
@@ -617,13 +609,9 @@ func TestGetLockSystem_SharedPerUserAndRoot(t *testing.T) {
 // header, each in its own request. The PUT must succeed and write the body.
 func TestLockThenPut_AcrossRequests(t *testing.T) {
 	s := newTestServer()
-	dir := t.TempDir()
+	fsh, dir := newLocalTestFsh(t, "user")
 	newHandler := func() *webdav.Handler {
-		return &webdav.Handler{
-			Prefix:     "/webdav/user",
-			FileSystem: webdav.Dir(dir),
-			LockSystem: s.getLockSystem("alice", "/webdav/user"),
-		}
+		return s.getRootFs([]*filesystem.FileSystemHandler{fsh}, "alice")
 	}
 
 	lockBody := `<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>finder</D:owner></D:lockinfo>`
@@ -652,5 +640,26 @@ func TestLockThenPut_AcrossRequests(t *testing.T) {
 	}
 	if string(got) != content {
 		t.Errorf("uploaded file content = %q, want %q", got, content)
+	}
+}
+
+// A logged in client opening the bare endpoint gets the virtual root.
+func TestHandleRequest_BasicAuth_ServesVirtualRoot(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	for _, p := range []string{"/webdav", "/webdav/"} {
+		req := httptest.NewRequest("PROPFIND", p, nil)
+		req.SetBasicAuth("alice", "alicepw")
+		req.Header.Set("Depth", "1")
+		w := httptest.NewRecorder()
+		env.server.HandleRequest(w, req)
+
+		if w.Code != http.StatusMultiStatus {
+			t.Errorf("PROPFIND %s: expected 207, got %d: %s", p, w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "<D:href>/webdav/</D:href>") {
+			t.Errorf("PROPFIND %s: expected the root listing, got %s", p, w.Body.String())
+		}
 	}
 }

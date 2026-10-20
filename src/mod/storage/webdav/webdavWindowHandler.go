@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,7 +19,7 @@ import (
 )
 
 // Handle request from Windows File Explorer
-func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request, vroot string) {
+func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request) {
 	coookieName := "arozosWebdavToken"
 	cookie, err := r.Cookie(coookieName)
 	if err != nil {
@@ -121,15 +120,8 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vroot + ":/")
-			if err != nil {
-				logger.PrintAndLog("Webdav", fmt.Sprint("[WebDAV] Failed to load File System Handler from request root: ", err.Error()), nil)
-				http.Error(w, "Invalid ", http.StatusUnauthorized)
-				return
-			}
-
 			//Get and serve the file content
-			fs := s.getFsFromRealRoot(fsh, userinfo.Username, filepath.ToSlash(filepath.Join(s.prefix, vroot)))
+			fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username)
 			fs.ServeHTTP(w, r)
 		}
 	}

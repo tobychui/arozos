@@ -10,12 +10,10 @@ package webdav
 */
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -32,7 +30,7 @@ import (
 type Server struct {
 	hostname    string            //The hostname of this devices
 	userHandler *user.UserHandler //The central userHandler
-	filesystems sync.Map          //Lock system per user and root, shared across requests
+	filesystems sync.Map          //Lock system per user, shared across requests
 	prefix      string            //The prefix to strip away from filepath
 	tlsMode     bool              //Bypass tls windows mode if enabled
 	Enabled     bool              //If the server is enabled. Set this to false for disable this service
@@ -202,29 +200,16 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/webdav" {
-		//No vRoot defined. Reject connection
-		http.NotFound(w, r)
-		return
-	}
-
-	reqInfo := strings.Split(r.URL.RequestURI()[1:], "/")
-	reqRoot := "user"
-	if len(reqInfo) > 1 {
-		reqRoot = reqInfo[1]
-	}
-
-	if strings.TrimSpace(reqRoot) == "" {
-		//No vroot defined.
-		http.NotFound(w, r)
-		return
+	if r.URL.Path == s.prefix {
+		//The virtual root, served the same as its trailing slash form
+		r.URL.Path = s.prefix + "/"
 	}
 
 	//Windows File Explorer. Handle with special case
 	/*
 		if r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir") && r.TLS == nil {
 			logger.PrintAndLog("Webdav", "Windows File Explorer Connection. Routing using alternative handler", nil)
-			s.HandleWindowClientAccess(w, r, reqRoot)
+			s.HandleWindowClientAccess(w, r)
 			return
 		}
 	*/
@@ -283,25 +268,8 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(reqRoot + ":/")
-	if err != nil {
-		logger.PrintAndLog("Webdav", fmt.Sprint("[WebDAV] Failed to load File System Handler from request root: ", reqRoot+":/", err.Error()), nil)
-		http.Error(w, "Invalid ", http.StatusInternalServerError)
-		return
-	}
-
-	//Try to resolve the realpath of the vroot
-	/*
-		realRoot, err := userinfo.VirtualPathToRealPath(reqRoot + ":/")
-		if err != nil {
-			logger.PrintAndLog("Webdav", err.Error(), nil)
-			http.Error(w, "Invalid ", http.StatusUnauthorized)
-			return
-		}
-	*/
-
-	//Ok. Check if the file server of this root already exists
-	fs := s.getFsFromRealRoot(fsh, userinfo.Username, filepath.ToSlash(filepath.Join(s.prefix, reqRoot)))
+	//Serve all storages of the user under one virtual root, like the FTP server
+	fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username)
 
 	//Serve the content
 	fs.ServeHTTP(w, r)
@@ -344,29 +312,34 @@ func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// getLockSystem returns the lock system shared by every request of a user on
-// one root. The handler is rebuilt per request, but locks must outlive it:
-// macOS Finder LOCKs a file and then PUTs the content with the lock token in
-// an If header, which fails with 412 against a fresh lock system and leaves
-// a 0 byte file behind.
-func (s *Server) getLockSystem(username string, prefix string) webdav.LockSystem {
-	ls, _ := s.filesystems.LoadOrStore(username+"\x00"+prefix, webdav.NewMemLS())
+// getLockSystem returns the lock system shared by every request of a user.
+// The handler is rebuilt per request, but locks must outlive it: macOS
+// Finder LOCKs a file and then PUTs the content with the lock token in an If
+// header, which fails with 412 against a fresh lock system and leaves a 0
+// byte file behind.
+func (s *Server) getLockSystem(username string) webdav.LockSystem {
+	ls, _ := s.filesystems.LoadOrStore(username, webdav.NewMemLS())
 	return ls.(webdav.LockSystem)
 }
 
-func (s *Server) getFsFromRealRoot(fsh *filesystem.FileSystemHandler, username string, prefix string) *webdav.Handler {
-	//Create a webdav adapter from the fsh
-	fshadapter := NewFshWebDAVAdapter(fsh, username)
+// getRootFs builds the WebDAV handler of a user, with the virtual root
+// listing every given storage (see RootFsWebDAVAdapter).
+func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string) *webdav.Handler {
+	rootfs := NewRootFsWebDAVAdapter(fshs, username)
 	fs := &webdav.Handler{
-		Prefix:     prefix,
-		FileSystem: fshadapter,
-		LockSystem: s.getLockSystem(username, prefix),
+		Prefix:     s.prefix,
+		FileSystem: rootfs,
+		LockSystem: s.getLockSystem(username),
 	}
 
 	//Create event listener for the path request
 	fs.RequestEventListener = func(path string) {
 		//Generate thumbnail in the background if listed
-		vpath, _ := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, username)
+		fsh, vpath, err := rootfs.VirtualPath(path)
+		if err != nil {
+			//The virtual root has no thumbnails to build
+			return
+		}
 		go func() {
 			isHidden, _ := hidden.IsHidden(vpath, false)
 			if !isHidden {

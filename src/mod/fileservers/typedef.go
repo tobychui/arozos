@@ -9,7 +9,7 @@ import user "imuslab.com/arozos/mod/user"
 type Endpoint struct {
 	ProtocolName string //Protocol name of the endpoint, e.g. ftp
 	Port         int    //Port for the endpoint, e.g. 21
-	Subpath      string //Subpath of the endpoint, e.g. /webdav/user
+	Subpath      string //Subpath of the endpoint, e.g. /fileview
 }
 
 type Server struct {
