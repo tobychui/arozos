@@ -159,7 +159,7 @@
             '<button class="vw-ic" data-act="download" title="' + esc(T("toolbar/download", "Download")) + '" hidden>' + I("download") + '</button>' +
             '<button class="vw-ic vw-hide-sm" data-act="print" title="' + esc(T("vw/print", "Print")) + '" hidden>' + I("printer") + '</button>' +
             '<button class="vw-ic" data-act="more" title="' + esc(T("toolbar/more", "More")) + '">' + I("moreV") + '</button>' +
-            (ao_module_virtualDesktop ? '<button class="vw-ic vw-hide-sm" data-act="close" title="' + esc(T("common/close", "Close")) + '">' + I("x") + '</button>' : "") +
+            (!ao_module_virtualDesktop ? '<button class="vw-ic vw-hide-sm" data-act="close" title="' + esc(T("common/close", "Close")) + '">' + I("x") + '</button>' : "") +
             '</div></header>' +
             '<div class="vw-body" data-slot="body"></div><div class="vw-osd"></div></div>');
         root.querySelectorAll("[data-act]").forEach(function (b) {
