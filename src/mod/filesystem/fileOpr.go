@@ -104,6 +104,11 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 		archive.Close()
 	}
 
+	//Keep listening to the user while a large file is being extracted
+	reporter := newProgressReporter(func(currentFile string, _ int64, _ int64) int {
+		return progressHandler(currentFile, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+	}, 0)
+
 	//Start extracting
 	for _, srcFile := range filelist {
 		archive, err := zip.OpenReader(srcFile)
@@ -152,7 +157,8 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 			if err != nil {
 				return err
 			}
-			_, err = io.Copy(writer, reader)
+			reporter.currentFile = file.Name
+			_, err = io.Copy(writer, newProgressReader(reader, reporter, 0))
 			if err != nil {
 				//Extraction failed. Remove this file if exists
 				writer.Close()
@@ -187,143 +193,7 @@ Returns the following progress: (current filename / current file count / total f
 if output is local path that is out of the scope of any fsh, leave outputFsh as nil
 */
 func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64) int) error {
-	//fmt.Println("WEBSOCKET ZIPPING", targetFshs, filelist)
-	//Get the file count from the filelist
-	totalFileCount := 0
-	for i, srcpath := range filelist {
-		thisFsh := targetFshs[i]
-		fshAbs := thisFsh.FileSystemAbstraction
-		if thisFsh.FileSystemAbstraction.IsDir(srcpath) {
-			fshAbs.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
-				if !info.IsDir() {
-					totalFileCount++
-				}
-				return nil
-			})
-		} else {
-			totalFileCount++
-		}
-
-	}
-
-	//Create the target zip file
-	var file arozfs.File
-	var err error
-	if outputFsh != nil {
-		file, err = outputFsh.FileSystemAbstraction.Create(outputfile)
-	} else {
-		//Force local fs
-		file, err = os.Create(outputfile)
-	}
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := zip.NewWriter(file)
-	defer writer.Close()
-
-	currentFileCount := 0
-	for i, srcpath := range filelist {
-		thisFsh := targetFshs[i]
-		fshAbs := thisFsh.FileSystemAbstraction
-		//Local File System
-		if fshAbs.IsDir(srcpath) {
-			//This is a directory
-			topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
-			err = fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if info.IsDir() {
-					return nil
-				}
-
-				if insideHiddenFolder(path) {
-					//This is hidden file / folder. Skip this
-					return nil
-				}
-
-				thisFile, err := fshAbs.ReadStream(path)
-				if err != nil {
-					return err
-				}
-				defer thisFile.Close()
-
-				relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
-				if includeTopLevelFolder {
-					relativePath = topLevelFolderName + "/" + relativePath
-				} else {
-					relativePath = arozfs.Base(srcpath) + "/" + relativePath
-				}
-
-				f, err := writer.Create(relativePath)
-				if err != nil {
-					return err
-				}
-
-				_, err = io.Copy(f, thisFile)
-				if err != nil {
-					return err
-				}
-
-				//Update the zip progress
-				currentFileCount++
-				statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-				for statusCode == 1 {
-					//Wait for the task to be resumed
-					time.Sleep(1 * time.Second)
-					statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-				}
-				if statusCode == 2 {
-					//Cancel
-					return errors.New("Operation cancelled by user")
-				}
-				return nil
-			})
-
-			if err != nil {
-				return err
-			}
-		} else {
-			//This is a file
-			topLevelFolderName := arozfs.Base(filepath.Dir(srcpath))
-			thisFile, err := fshAbs.ReadStream(srcpath)
-			if err != nil {
-				return err
-			}
-			defer thisFile.Close()
-			relativePath := arozfs.Base(srcpath)
-			if includeTopLevelFolder {
-				relativePath = topLevelFolderName + "/" + relativePath
-			}
-
-			f, err := writer.Create(relativePath)
-			if err != nil {
-				return err
-			}
-
-			_, err = io.Copy(f, thisFile)
-			if err != nil {
-				return err
-			}
-
-			//Update the zip progress
-			currentFileCount++
-			statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-			for statusCode == 1 {
-				//Wait for the task to be resumed
-				time.Sleep(1 * time.Second)
-				statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-			}
-			if statusCode == 2 {
-				//Cancel
-				return errors.New("Operation cancelled by user")
-			}
-		}
-	}
-
-	return nil
+	return ArozZipFileWithProgressAndCompression(targetFshs, filelist, outputFsh, outputfile, includeTopLevelFolder, flate.DefaultCompression, progressHandler)
 }
 
 /*
@@ -340,6 +210,64 @@ func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *
 }
 
 func ArozZipFileWithCompressionLevel(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int) error {
+	return ArozZipFileWithProgressAndCompression(sourceFshs, filelist, outputFsh, outputfile, includeTopLevelFolder, compressionLevel, nil)
+}
+
+/*
+ArozZipFileWithProgressAndCompression combines compression level control with real-time progress updates.
+Accepts nil fsh entries for locally-buffered source paths, a nil outputFsh for a
+local output file and a nil progressHandler for zipping without progress updates.
+
+The progress handler returns the FsOpr_* control signal of the operation, and it
+is asked for it all the way through: while the source folders are scanned,
+after every file and while a large file streams into the archive. A pause holds
+the zipping where it stands and a cancel stops it within a fraction of a second,
+instead of only once the scan or the current file is done. An archive that is
+cancelled or fails half way is removed rather than left behind half written.
+*/
+func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int, progressHandler func(string, int, int, float64) int) error {
+	//The archive progress is counted in files. It goes through a progressReporter
+	//so the handler calls are rate limited and its pause / cancel signal applied
+	currentFileCount := 0
+	totalFileCount := 0
+	var reporter *progressReporter
+	if progressHandler != nil {
+		reporter = newProgressReporter(func(currentFile string, _ int64, _ int64) int {
+			progress := float64(0)
+			if totalFileCount > 0 {
+				progress = float64(currentFileCount) / float64(totalFileCount) * 100
+			}
+			return progressHandler(currentFile, currentFileCount, totalFileCount, progress)
+		}, 0)
+
+		//Count the files first so the progress has a total to measure against
+		for i, srcpath := range filelist {
+			fshAbs := zipSourceAbstraction(sourceFshs[i])
+			reporter.currentFile = arozfs.Base(srcpath)
+			if !fshAbs.IsDir(srcpath) {
+				totalFileCount++
+				continue
+			}
+
+			fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+				//Scanning a large folder takes a while, keep listening to the user
+				if reportErr := reporter.report(0, false); reportErr != nil {
+					return reportErr
+				}
+				if err != nil || info == nil || info.IsDir() || insideHiddenFolder(path) {
+					//Unreadable entries fail the zipping below, not the count
+					return nil
+				}
+				totalFileCount++
+				return nil
+			})
+
+			//The walk may have ended on a pause or a cancel, see where it stands
+			if err := reporter.report(0, true); err != nil {
+				return err
+			}
+		}
+	}
 
 	//Create the target zip file
 	var file arozfs.File
@@ -353,384 +281,115 @@ func ArozZipFileWithCompressionLevel(sourceFshs []*FileSystemHandler, filelist [
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
 	writer := zip.NewWriter(file)
-	defer writer.Close()
 	writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
 		return flate.NewWriter(out, compressionLevel)
 	})
 
-	for i, srcpath := range filelist {
-		thisFsh := sourceFshs[i]
-		var fshAbs FileSystemAbstraction
-		if thisFsh == nil {
-			//Use local fs functions
-			if IsDir(srcpath) {
-				//This is a directory
-				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
-				err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-					if info.IsDir() {
-						return nil
-					}
-
-					if insideHiddenFolder(path) {
-						//This is hidden file / folder. Skip this
-						return nil
-					}
-					thisFile, err := os.Open(path)
-					if err != nil {
-						return err
-					}
-					defer thisFile.Close()
-
-					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
-					if includeTopLevelFolder {
-						relativePath = topLevelFolderName + "/" + relativePath
-					} else {
-						relativePath = arozfs.Base(srcpath) + "/" + relativePath
-					}
-
-					f, err := writer.Create(relativePath)
-					if err != nil {
-						return err
-					}
-
-					_, err = io.Copy(f, thisFile)
-					if err != nil {
-						return err
-					}
-
-					return nil
-				})
-
-				if err != nil {
-					return err
-				}
-			} else {
+	err = func() error {
+		for i, srcpath := range filelist {
+			fshAbs := zipSourceAbstraction(sourceFshs[i])
+			if !fshAbs.IsDir(srcpath) {
 				//This is a file
-				topLevelFolderName := arozfs.Base(filepath.Dir(srcpath))
-				thisFile, err := os.Open(srcpath)
-				if err != nil {
-					return err
-				}
-				defer thisFile.Close()
 				relativePath := arozfs.Base(srcpath)
 				if includeTopLevelFolder {
-					relativePath = topLevelFolderName + "/" + relativePath
+					relativePath = arozfs.Base(filepath.Dir(srcpath)) + "/" + relativePath
 				}
-				f, err := writer.Create(relativePath)
-				if err != nil {
+				if err := addZipEntry(writer, fshAbs, srcpath, relativePath, reporter); err != nil {
 					return err
 				}
-
-				_, err = io.Copy(f, thisFile)
-				if err != nil {
+				currentFileCount++
+				if err := reporter.report(0, true); err != nil {
 					return err
 				}
-
+				continue
 			}
-		} else {
-			//Use file system abstraction
-			fshAbs = thisFsh.FileSystemAbstraction
-			if fshAbs.IsDir(srcpath) {
-				//This is a directory
-				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
-				err = fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
 
-					if info.IsDir() {
-						return nil
-					}
-
-					if insideHiddenFolder(path) {
-						//This is hidden file / folder. Skip this
-						return nil
-					}
-
-					thisFile, err := fshAbs.ReadStream(path)
-					if err != nil {
-						fmt.Println(err)
-						return err
-					}
-					defer thisFile.Close()
-
-					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
-					if includeTopLevelFolder {
-						relativePath = topLevelFolderName + "/" + relativePath
-					} else {
-						relativePath = arozfs.Base(srcpath) + "/" + relativePath
-					}
-
-					f, err := writer.Create(relativePath)
-					if err != nil {
-						return err
-					}
-
-					_, err = io.Copy(f, thisFile)
-					if err != nil {
-						return err
-					}
-
+			//This is a directory
+			topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+			err := fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
 					return nil
-				})
+				}
+				if insideHiddenFolder(path) {
+					//This is hidden file / folder. Skip this
+					return nil
+				}
 
-				if err != nil {
-					return err
-				}
-			} else {
-				//This is a file
-				topLevelFolderName := arozfs.Base(filepath.Dir(srcpath))
-				thisFile, err := fshAbs.ReadStream(srcpath)
-				if err != nil {
-					return err
-				}
-				defer thisFile.Close()
-				relativePath := arozfs.Base(srcpath)
+				relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
 				if includeTopLevelFolder {
 					relativePath = topLevelFolderName + "/" + relativePath
+				} else {
+					relativePath = arozfs.Base(srcpath) + "/" + relativePath
 				}
-				f, err := writer.Create(relativePath)
-				if err != nil {
+				if err := addZipEntry(writer, fshAbs, path, relativePath, reporter); err != nil {
 					return err
 				}
-
-				_, err = io.Copy(f, thisFile)
-				if err != nil {
-					return err
-				}
-
+				currentFileCount++
+				return reporter.report(0, true)
+			})
+			if err != nil {
+				return err
 			}
 		}
+		return nil
+	}()
+
+	//Close the writer before the file, it still has the central directory to write
+	if closeErr := writer.Close(); err == nil {
+		err = closeErr
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		//Never leave a half written archive behind
+		if outputFsh != nil {
+			outputFsh.FileSystemAbstraction.Remove(outputfile)
+		} else {
+			os.Remove(outputfile)
+		}
+		return err
 	}
 
 	return nil
 }
 
-// ArozZipFileWithProgressAndCompression combines compression level control with real-time progress updates.
-// Accepts nil fsh entries for locally-buffered source paths.
-func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int, progressHandler func(string, int, int, float64) int) error {
-	// Count total files for progress calculation
-	totalFileCount := 0
-	for i, srcpath := range filelist {
-		thisFsh := sourceFshs[i]
-		if thisFsh == nil {
-			if IsDir(srcpath) {
-				filepath.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
-					if !info.IsDir() {
-						totalFileCount++
-					}
-					return nil
-				})
-			} else {
-				totalFileCount++
-			}
-		} else {
-			fshAbs := thisFsh.FileSystemAbstraction
-			if fshAbs.IsDir(srcpath) {
-				fshAbs.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
-					if !info.IsDir() {
-						totalFileCount++
-					}
-					return nil
-				})
-			} else {
-				totalFileCount++
-			}
-		}
+// zipSourceAbstraction returns the abstraction a zip source is read through.
+// A nil handler stands for a path on the local disk, like a remote file that
+// was buffered to local first.
+func zipSourceAbstraction(fsh *FileSystemHandler) FileSystemAbstraction {
+	if fsh == nil {
+		return localfs.NewLocalFileSystemAbstraction("", "", "", true)
+	}
+	return fsh.FileSystemAbstraction
+}
+
+// addZipEntry streams one source file into the archive under relativePath.
+// The stream reports to the reporter, so a pause or cancel also reaches a file
+// that takes minutes to compress. Pass in a nil reporter to skip the reporting.
+func addZipEntry(writer *zip.Writer, fshAbs FileSystemAbstraction, path string, relativePath string, reporter *progressReporter) error {
+	if reporter != nil {
+		reporter.currentFile = arozfs.Base(path)
 	}
 
-	var file arozfs.File
-	var err error
-	if outputFsh != nil {
-		file, err = outputFsh.FileSystemAbstraction.Create(outputfile)
-	} else {
-		file, err = os.Create(outputfile)
-	}
+	thisFile, err := fshAbs.ReadStream(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer thisFile.Close()
 
-	writer := zip.NewWriter(file)
-	defer writer.Close()
-	writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
-		return flate.NewWriter(out, compressionLevel)
-	})
-
-	currentFileCount := 0
-
-	for i, srcpath := range filelist {
-		thisFsh := sourceFshs[i]
-
-		if thisFsh == nil {
-			// Local filesystem path (e.g. after buffering a remote FS)
-			if IsDir(srcpath) {
-				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
-				err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-					if info.IsDir() {
-						return nil
-					}
-					if insideHiddenFolder(path) {
-						return nil
-					}
-
-					thisFile, err := os.Open(path)
-					if err != nil {
-						return err
-					}
-					defer thisFile.Close()
-
-					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
-					if includeTopLevelFolder {
-						relativePath = topLevelFolderName + "/" + relativePath
-					} else {
-						relativePath = arozfs.Base(srcpath) + "/" + relativePath
-					}
-
-					f, err := writer.Create(relativePath)
-					if err != nil {
-						return err
-					}
-					if _, err = io.Copy(f, thisFile); err != nil {
-						return err
-					}
-
-					currentFileCount++
-					statusCode := progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-					for statusCode == 1 {
-						time.Sleep(time.Second)
-						statusCode = progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-					}
-					if statusCode == 2 {
-						return errors.New("Operation cancelled by user")
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-			} else {
-				thisFile, err := os.Open(srcpath)
-				if err != nil {
-					return err
-				}
-				defer thisFile.Close()
-
-				relativePath := arozfs.Base(srcpath)
-				if includeTopLevelFolder {
-					relativePath = arozfs.Base(filepath.Dir(srcpath)) + "/" + relativePath
-				}
-				f, err := writer.Create(relativePath)
-				if err != nil {
-					return err
-				}
-				if _, err = io.Copy(f, thisFile); err != nil {
-					return err
-				}
-
-				currentFileCount++
-				statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-				for statusCode == 1 {
-					time.Sleep(time.Second)
-					statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-				}
-				if statusCode == 2 {
-					return errors.New("Operation cancelled by user")
-				}
-			}
-		} else {
-			// FileSystemHandler abstraction (remote FS)
-			fshAbs := thisFsh.FileSystemAbstraction
-			if fshAbs.IsDir(srcpath) {
-				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
-				err = fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-					if info.IsDir() {
-						return nil
-					}
-					if insideHiddenFolder(path) {
-						return nil
-					}
-
-					thisFile, err := fshAbs.ReadStream(path)
-					if err != nil {
-						return err
-					}
-					defer thisFile.Close()
-
-					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
-					if includeTopLevelFolder {
-						relativePath = topLevelFolderName + "/" + relativePath
-					} else {
-						relativePath = arozfs.Base(srcpath) + "/" + relativePath
-					}
-
-					f, err := writer.Create(relativePath)
-					if err != nil {
-						return err
-					}
-					if _, err = io.Copy(f, thisFile); err != nil {
-						return err
-					}
-
-					currentFileCount++
-					statusCode := progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-					for statusCode == 1 {
-						time.Sleep(time.Second)
-						statusCode = progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-					}
-					if statusCode == 2 {
-						return errors.New("Operation cancelled by user")
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-			} else {
-				thisFile, err := fshAbs.ReadStream(srcpath)
-				if err != nil {
-					return err
-				}
-				defer thisFile.Close()
-
-				relativePath := arozfs.Base(srcpath)
-				if includeTopLevelFolder {
-					relativePath = arozfs.Base(filepath.Dir(srcpath)) + "/" + relativePath
-				}
-				f, err := writer.Create(relativePath)
-				if err != nil {
-					return err
-				}
-				if _, err = io.Copy(f, thisFile); err != nil {
-					return err
-				}
-
-				currentFileCount++
-				statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-				for statusCode == 1 {
-					time.Sleep(time.Second)
-					statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
-				}
-				if statusCode == 2 {
-					return errors.New("Operation cancelled by user")
-				}
-			}
-		}
+	f, err := writer.Create(relativePath)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	_, err = io.Copy(f, newProgressReader(thisFile, reporter, 0))
+	return err
 }
 
 func insideHiddenFolder(path string) bool {

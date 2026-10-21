@@ -328,7 +328,13 @@ func (s SFTPFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) e
 	root = arozfs.GenericPathFilter(root)
 	walker := s.client.Walk(root)
 	for walker.Step() {
-		walkFn(walker.Path(), walker.Stat(), walker.Err())
+		err := walkFn(walker.Path(), walker.Stat(), walker.Err())
+		if err == filepath.SkipDir {
+			walker.SkipDir()
+		} else if err != nil {
+			//The callback asked to stop, e.g. the user cancelled the operation
+			return err
+		}
 	}
 	return nil
 }
