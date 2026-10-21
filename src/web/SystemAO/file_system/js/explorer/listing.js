@@ -293,28 +293,85 @@ function getDirHash(callback){
         data: {dir: currentPath},
         success: function(data){
             if (data.error !== undefined){
-                if (data.error == "Invalid dir given"){
-                    //Storage has been unmounted. Back to parent
-                    var pdir = currentPath.split("/");
-                    pdir.pop();pdir.pop();
-                    pdir = pdir.join("/");
-                    currentPath = pdir;
-                    listDirectory(currentPath, function(){
-                        window.location.reload();
-                    });
-                    return;
+                if (data.error == "Invalid dir given" || data.error == "Directory not found"){
+                    //Folder removed (e.g. deleted in another window). Back to the nearest existing parent
+                    returnToExistingParentDir(currentPath);
                 }else if (data.error == "Unable to resolve target directory"){
-                    //Resolve failed. Back to user:/
-                    var pdir = currentPath.split("/");
-                    pdir = pdir.shift() + "/";
-                    listDirectory(pdir, function(){
-                        window.location.reload();
-                    });
+                    //The whole root is gone (e.g. disk hot-swapped). Back to user:/
+                    returnToExistingParentDir("user:/");
                 }
             }
             callback(data);
         }
     })
+}
+
+//Walk up from the given path until a directory that still exists is found,
+//then list it. Falls back to user:/ when even the root is gone.
+var returningToParentDir = false;
+function returnToExistingParentDir(path){
+    if (returningToParentDir){
+        return;
+    }
+    returningToParentDir = true;
+    let startPath = currentPath;
+    let rootGone = false;
+
+    let finish = function(targetPath){
+        returningToParentDir = false;
+        if (currentPath != startPath){
+            //User already navigated somewhere else
+            return;
+        }
+        listDirectory(targetPath, function(){
+            if (rootGone){
+                //Reload the root list in the side bar
+                initRootDirs();
+            }
+        });
+    }
+
+    let probe = function(dir){
+        $.ajax({
+            url: "../../system/file_system/listDirHash",
+            data: {dir: dir},
+            success: function(data){
+                if (data.error === undefined){
+                    finish(dir);
+                    return;
+                }
+                if (data.error == "Unable to resolve target directory" || /^[^\/]+:\/$/.test(dir)){
+                    //Root no longer mounted, or reached the root and it is still not readable
+                    rootGone = true;
+                    if (dir == "user:/"){
+                        returningToParentDir = false;
+                        return;
+                    }
+                    finish("user:/");
+                    return;
+                }
+                probe(getParentDir(dir));
+            },
+            error: function(){
+                //Network or server issue. Try again on next refresh tick
+                returningToParentDir = false;
+            }
+        });
+    }
+
+    probe(getParentDir(path));
+}
+
+//Return the parent of a virtual path, e.g. user:/Document/Myfolder/ => user:/Document/
+function getParentDir(path){
+    if (/^[^\/]+:\/$/.test(path)){
+        //Already a root
+        return path;
+    }
+    let segments = path.replace(/\/+$/, "").split("/");
+    segments.pop();
+    let parent = segments.join("/") + "/";
+    return parent;
 }
 
 //=================================== FILE OPERATIONS ========================

@@ -3329,6 +3329,12 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//The folder might have been removed by another window or client
+	if !fshAbs.FileExists(rpath) || !fshAbs.IsDir(rpath) {
+		utils.SendErrorResponse(w, "Directory not found")
+		return
+	}
+
 	//Get a list of files in this directory
 	/*
 		currentDir = filepath.ToSlash(filepath.Clean(rpath)) + "/"
