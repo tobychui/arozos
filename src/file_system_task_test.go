@@ -230,6 +230,31 @@ func TestSetFileOperationTaskEnded(t *testing.T) {
 	}
 }
 
+func TestFileOperationCancelled(t *testing.T) {
+	tests := []struct {
+		name   string
+		signal int
+		want   bool
+	}{
+		{"running", filesystem.FsOpr_Continue, false},
+		{"paused", filesystem.FsOpr_Pause, false},
+		{"cancelled", filesystem.FsOpr_Cancel, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			thisTask := newTestFileOperationTask(t, "test_opr_cancelled_"+tt.name, []int64{100})
+			thisTask.FileOperationSignal = tt.signal
+			if got := fileOperationCancelled(thisTask.ID); got != tt.want {
+				t.Errorf("fileOperationCancelled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	if fileOperationCancelled("test_opr_not_exists") {
+		t.Error("an unknown operation should not be reported as cancelled")
+	}
+}
+
 // A file operation stopped by the user reports the abort as an error on its way
 // out. That must be recorded as a cancellation, not as a failure.
 func TestSetFileOperationTaskEndedAfterUserCancel(t *testing.T) {

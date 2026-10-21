@@ -341,8 +341,8 @@ func (a ServerMessageBlockFileSystemAbstraction) Walk(root string, walkFn filepa
 		if err != nil {
 			return err
 		}
-		walkFn(filepath.ToSlash(filepath.Join(root, path)), statInfo, err)
-		return nil
+		//Hand the callback result back, so a walk can be stopped or a folder skipped
+		return walkFn(filepath.ToSlash(filepath.Join(root, path)), statInfo, err)
 	})
 	return err
 }

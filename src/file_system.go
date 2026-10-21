@@ -2117,10 +2117,16 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		})
 
 		if err != nil {
-			systemWideLogger.PrintAndLog("File System", "Zipping request failed: "+err.Error(), err)
-		}
-
-		if destFsh.RequireBuffer {
+			//The half written archive is already removed by the zipper
+			if destFsh.RequireBuffer {
+				cleanFsBufferFileFromList(realSourceFiles)
+			}
+			if !fileOperationCancelled(oprId) {
+				systemWideLogger.PrintAndLog("File System", "Zipping request failed: "+err.Error(), err)
+				failTask(filepath.Base(outputFilename), err.Error())
+				return
+			}
+		} else if destFsh.RequireBuffer {
 			//Move the buffer result to remote
 			f, _ := os.Open(zipDestPath)
 			err = destFshAbs.WriteStream(outputFilename, f, 0775)
@@ -2267,15 +2273,22 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 
 	//Check if the operation was cancelled by the user half way through
 	endingSignal := filesystem.FsOpr_Continue
-	if t, err := GetOngoingFileOperationByOprID(oprId); err == nil {
-		fileOprTaskLock.RLock()
-		if t.FileOperationSignal == filesystem.FsOpr_Cancel {
-			endingSignal = filesystem.FsOpr_Cancel
-		}
-		fileOprTaskLock.RUnlock()
+	if fileOperationCancelled(oprId) {
+		endingSignal = filesystem.FsOpr_Cancel
 	}
 
 	SetFileOperationTaskEnded(oprId, endingSignal, "")
+}
+
+// fileOperationCancelled reports whether the user asked to cancel the given operation
+func fileOperationCancelled(oprId string) bool {
+	t, err := GetOngoingFileOperationByOprID(oprId)
+	if err != nil {
+		return false
+	}
+	fileOprTaskLock.RLock()
+	defer fileOprTaskLock.RUnlock()
+	return t.FileOperationSignal == filesystem.FsOpr_Cancel
 }
 
 /*
