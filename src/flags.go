@@ -123,4 +123,6 @@ var nightlyTaskRunTime = flag.Int("ntt", 3, "Nightly tasks execution time. Defau
 var maxTempFileKeepTime = flag.Int("tmp_time", 86400, "Time before tmp file will be deleted in seconds. Default 86400 seconds = 24 hours")
 
 // Flags related to ArozOS Cluster services
-var allow_iot = flag.Bool("allow_iot", true, "Enable IoT related APIs and scanner. Require MDNS enabled")
+// Deprecated: IoT support has been removed. The flag is still accepted so launch
+// commands that pass -allow_iot keep starting; its value is ignored.
+var _ = flag.Bool("allow_iot", false, "Deprecated and ignored: IoT support has been removed")

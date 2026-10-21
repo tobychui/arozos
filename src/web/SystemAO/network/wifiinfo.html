@@ -455,11 +455,43 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
         return hero + connection + apCard + adapter;
     }
 
+    /* Bring the live DOM in line with freshly rendered markup, touching only
+       what changed. Replacing innerHTML every refresh made the page jump to the
+       top and restarted the signal pulse animation. */
+    function syncAttrs(cur, next) {
+        var i;
+        for (i = cur.attributes.length - 1; i >= 0; i--) {
+            if (!next.hasAttribute(cur.attributes[i].name)) cur.removeAttribute(cur.attributes[i].name);
+        }
+        for (i = 0; i < next.attributes.length; i++) {
+            var a = next.attributes[i];
+            if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value);
+        }
+    }
+    function patchChildren(cur, next) {
+        var nodes = Array.prototype.slice.call(next.childNodes);
+        nodes.forEach(function (n, i) {
+            var c = cur.childNodes[i];
+            if (!c) { cur.appendChild(n); return; }
+            if (c.nodeType !== n.nodeType || c.nodeName !== n.nodeName) { cur.replaceChild(n, c); return; }
+            if (c.nodeType !== 1) { if (c.nodeValue !== n.nodeValue) c.nodeValue = n.nodeValue; return; }
+            if (c.isEqualNode(n)) return;
+            syncAttrs(c, n);
+            patchChildren(c, n);
+        });
+        while (cur.childNodes.length > nodes.length) cur.removeChild(cur.lastChild);
+    }
+    function setContent(html) {
+        var next = document.createElement('div');
+        next.innerHTML = html;
+        patchChildren(content, next);
+    }
+
     function render(data) {
         var list = data.Interfaces || [];
         if (!list.length) {
-            content.innerHTML = '<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
-                '<div><b>' + esc(T('no_iface_title', 'No wireless interface found')) + '</b></div><div>' + esc(T('no_iface_desc', 'This host has no WiFi adapter, or the wireless service is not running.')) + '</div></div></div>';
+            setContent('<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
+                '<div><b>' + esc(T('no_iface_title', 'No wireless interface found')) + '</b></div><div>' + esc(T('no_iface_desc', 'This host has no WiFi adapter, or the wireless service is not running.')) + '</div></div></div>');
             return;
         }
         if (!selected || !list.some(function (i) { return i.Name === selected; })) {
@@ -474,12 +506,12 @@ body.dark #wi-root .wi-tab.active { color: #102030; }
             }).join('') + '</div>';
         }
         var inf = list.filter(function (i) { return i.Name === selected; })[0];
-        content.innerHTML = tabs + renderInterface(inf);
+        setContent(tabs + renderInterface(inf));
     }
 
     function showError(msg) {
-        content.innerHTML = '<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
-            '<div><b>' + esc(T('read_failed', 'Unable to read WiFi information')) + '</b></div><div>' + esc(msg) + '</div></div></div>';
+        setContent('<div class="wi-card"><div class="wi-state">' + glyphSVG(0, true) +
+            '<div><b>' + esc(T('read_failed', 'Unable to read WiFi information')) + '</b></div><div>' + esc(msg) + '</div></div></div>');
     }
 
     /* ---------- data ---------- */

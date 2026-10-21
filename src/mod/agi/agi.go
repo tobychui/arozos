@@ -23,7 +23,6 @@ import (
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/git"
 	"imuslab.com/arozos/mod/info/logger"
-	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/meetroom"
 	notification "imuslab.com/arozos/mod/notification"
 	"imuslab.com/arozos/mod/share"
@@ -73,7 +72,6 @@ type AgiSysInfo struct {
 	ModuleListProvider    func(username string) string                             //Returns JSON of accessible modules for a user
 	ExtIconRegisterParser func(ext, iconPath string)                               //Called when registerExtensionIcon() fires in an init.agi
 	FileSystemRender      *metadata.RenderHandler
-	IotManager            *iot.Manager
 	ShareManager          *share.Manager
 	NightlyManager        *nightly.TaskManager
 	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)

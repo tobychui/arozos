@@ -18,7 +18,7 @@ In this codebase **AGI** stands for **ArOZ Online JavaScript Gateway Interface**
 runtime that powers ArozOS web apps: module scripts with a `.agi` (or `.js`)
 extension are executed inside a sandboxed [Otto](https://github.com/robertkrimen/otto)
 JavaScript VM, **one fresh VM per request/script**, with permission-checked
-access to ArozOS functions (file system, database, sharing, IoT, image/zip/
+access to ArozOS functions (file system, database, sharing, image/zip/
 ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
 
 - **Where it lives:** [`src/mod/agi/`](src/mod/agi/) (`agi*.go`); the runtime
@@ -33,7 +33,7 @@ ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
 - **Loadable libraries** — pulled in on demand with `requirelib("name")`;
   registered in `LoadAllFunctionalModules`
   ([`src/mod/agi/moduleManager.go`](src/mod/agi/moduleManager.go)): `filelib`,
-  `imagelib`, `http`, `share`, `iot`, `appdata`, `sysinfo`, `ziplib` (incl. 7z),
+  `imagelib`, `http`, `share`, `appdata`, `sysinfo`, `ziplib` (incl. 7z),
   `sqlite`, `aimodel`, `sharedspace` (multi-user collaboration spaces with
   texts/images/files, revision-synced documents, open/public/private ACLs and
   optional persistence, [`src/mod/sharedspace/`](src/mod/sharedspace/); web

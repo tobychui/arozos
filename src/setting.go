@@ -58,10 +58,10 @@ func system_setting_getSettingGroups() []settingGroup {
 			Desc:     "Config and info about the Server Host",
 		},
 		{
-			Name:     "Devices & IoT",
+			Name:     "Devices",
 			Group:    "Device",
 			IconPath: "SystemAO/system_setting/img/device.svg",
-			Desc:     "Connected clients and IoT devices",
+			Desc:     "Connected clients and devices",
 		},
 		{
 			Name:     "Module Management",

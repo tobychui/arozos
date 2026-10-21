@@ -16,7 +16,10 @@
                 "table/modes/embedded": "嵌入式",
                 "desc/reload": "在手動安裝 WebApp 後，你可以按「重新載入 WebApp」以載入新安裝的應用程式而不需要重啟 ArozOS 系統。",
                 "button/reload": "重新載入 WebApp",
-                "item/version": "版本："
+                "item/version": "版本：",
+                "item/empty": "沒有已載入的模組",
+                "item/loadfail": "無法載入模組列表",
+                "button/nopermission": "沒有權限"
             },
             "titles": {},
             "placeholder": {}
@@ -35,7 +38,10 @@
                 "table/modes/embedded": "嵌入式",
                 "desc/reload": "在手動安裝 WebApp 後，你可以按「重新載入 WebApp」以載入新安裝的應用程式而不需要重啟 ArozOS 系統。",
                 "button/reload": "重新載入 WebApp",
-                "item/version": "版本："
+                "item/version": "版本：",
+                "item/empty": "沒有已載入的模組",
+                "item/loadfail": "無法載入模組列表",
+                "button/nopermission": "沒有權限"
             },
             "titles": {},
             "placeholder": {}
@@ -54,7 +60,10 @@
                 "table/modes/embedded": "Embedded",
                 "desc/reload": "If you have installed WebApps manually, you can click the \"Reload WebApps\" button to load it without restarting ArozOS.",
                 "button/reload": "Reload WebApps",
-                "item/version": "Version: "
+                "item/version": "Version: ",
+                "item/empty": "No modules loaded",
+                "item/loadfail": "Failed to load the module list",
+                "button/nopermission": "No Permission"
             },
             "titles": {},
             "placeholder": {}
@@ -73,7 +82,10 @@
                 "table/modes/embedded": "嵌入式",
                 "desc/reload": "手动安装 WebApp 后，可点击「重新加载 WebApp」以加载新安装的应用程序，而无需重启 ArozOS。",
                 "button/reload": "重新加载 WebApp",
-                "item/version": "版本："
+                "item/version": "版本：",
+                "item/empty": "没有已加载的模块",
+                "item/loadfail": "无法加载模块列表",
+                "button/nopermission": "没有权限"
             },
             "titles": {},
             "placeholder": {}
@@ -92,7 +104,10 @@
                 "table/modes/embedded": "埋め込み",
                 "desc/reload": "WebAppを手動でインストールした場合、「WebAppを再読み込み」ボタンをクリックするとArozOSを再起動せずに読み込めます。",
                 "button/reload": "WebAppを再読み込み",
-                "item/version": "バージョン："
+                "item/version": "バージョン：",
+                "item/empty": "読み込まれたモジュールはありません",
+                "item/loadfail": "モジュール一覧を読み込めませんでした",
+                "button/nopermission": "権限がありません"
             },
             "titles": {},
             "placeholder": {}
@@ -111,7 +126,10 @@
                 "table/modes/embedded": "임베디드",
                 "desc/reload": "WebApp을 수동으로 설치한 경우 'WebApp 다시 로드' 버튼을 클릭하면 ArozOS를 재시작하지 않고 불러올 수 있습니다.",
                 "button/reload": "WebApp 다시 로드",
-                "item/version": "버전: "
+                "item/version": "버전: ",
+                "item/empty": "로드된 모듈이 없습니다",
+                "item/loadfail": "모듈 목록을 불러오지 못했습니다",
+                "button/nopermission": "권한 없음"
             },
             "titles": {},
             "placeholder": {}

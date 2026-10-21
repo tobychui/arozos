@@ -109,10 +109,29 @@
 
 #lc-root #lc-language-select { max-width: 200px; }
 
+/* The code shows under the name on narrow screens, where its column is hidden */
+#lc-root .lc-name-code { display: none; }
+
 @media (max-width: 560px) {
     #lc-root .lc-bar { display: none; }
     #lc-root .lc-cov { width: auto; }
-    #lc-root .lc-pct { margin-left: 0; }
+    #lc-root .lc-pct { margin-left: 0; min-width: 0; }
+    #lc-root .lc-table .lc-code,
+    #lc-root .lc-table .lc-files { display: none; }
+    #lc-root .lc-table td { height: auto; padding-top: 8px; padding-bottom: 8px; }
+    #lc-root .lc-table th:nth-child(2),
+    #lc-root .lc-table td.lc-name { padding-left: 14px; white-space: normal; }
+    #lc-root .lc-name .ss-badge { margin-left: 6px; }
+    #lc-root .lc-table .lc-cov { text-align: right; padding-right: 14px; }
+    #lc-root .lc-name-code {
+        display: block;
+        margin-top: 2px;
+        font-family: var(--ss-mono);
+        font-size: 10.5px;
+        color: var(--ss-muted);
+    }
+    #lc-root .lc-foot { flex-wrap: wrap; }
+    #lc-root .lc-foot .v { text-align: left; }
 }
 </style>
 
@@ -140,15 +159,15 @@
             <table class="lc-table">
                 <thead>
                     <tr>
-                        <th locale="locale/lang-col-code">Code</th>
+                        <th class="lc-code" locale="locale/lang-col-code">Code</th>
                         <th locale="locale/lang-col-name">Language</th>
                         <th class="lc-cov" locale="locale/lang-col-coverage">Coverage</th>
-                        <th locale="locale/lang-col-files">Files</th>
+                        <th class="lc-files" locale="locale/lang-col-files">Files</th>
                     </tr>
                 </thead>
                 <tbody id="lc-coverage-tbody">
-                    <tr><td><span class="lc-skel" style="width:36px"></span></td><td><span class="lc-skel" style="width:120px"></span></td><td class="lc-cov"><span class="lc-skel" style="width:148px"></span></td><td><span class="lc-skel" style="width:36px;margin-left:auto"></span></td></tr>
-                    <tr><td><span class="lc-skel" style="width:36px"></span></td><td><span class="lc-skel" style="width:90px"></span></td><td class="lc-cov"><span class="lc-skel" style="width:148px"></span></td><td><span class="lc-skel" style="width:36px;margin-left:auto"></span></td></tr>
+                    <tr><td class="lc-code"><span class="lc-skel" style="width:36px"></span></td><td class="lc-name"><span class="lc-skel" style="width:120px"></span></td><td class="lc-cov"><span class="lc-skel" style="width:148px"></span></td><td class="lc-files"><span class="lc-skel" style="width:36px;margin-left:auto"></span></td></tr>
+                    <tr><td class="lc-code"><span class="lc-skel" style="width:36px"></span></td><td class="lc-name"><span class="lc-skel" style="width:90px"></span></td><td class="lc-cov"><span class="lc-skel" style="width:148px"></span></td><td class="lc-files"><span class="lc-skel" style="width:36px;margin-left:auto"></span></td></tr>
                 </tbody>
             </table>
             <div class="lc-foot" id="lc-contributors" style="display:none;">
@@ -207,7 +226,7 @@
                 var badge = code.toLowerCase() === inUse ? '<span class="ss-badge accent">' + esc(t('in-use', 'In use')) + '</span>' : '';
                 $tbody.append('<tr>' +
                     '<td class="lc-code">' + esc(code) + '</td>' +
-                    '<td class="lc-name">' + esc(lang.name || code) + badge + '</td>' +
+                    '<td class="lc-name">' + esc(lang.name || code) + badge + '<span class="lc-name-code">' + esc(code) + '</span></td>' +
                     '<td class="lc-cov"><span class="lc-bar"><span class="' + cls + '" style="width:' + Math.min(lang.coverage, 100) + '%"></span></span>' +
                         '<span class="lc-pct ' + cls + '">' + lang.coverage.toFixed(1) + '%</span></td>' +
                     '<td class="lc-files">' + lang.fileCount + ' / ' + lang.totalFiles + '</td>' +

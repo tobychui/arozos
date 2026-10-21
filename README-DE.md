@@ -175,8 +175,6 @@ Die folgenden Startparameter werden unterstützt (v1.113)
     	Erlaubt eine RESTFUL Login-Umleitung, die es Maschinen wie Billboards erlaubt, sich beim Systemstart anzumelden (Standardwert true)
   -allow_cluster
     	Erlaubt Cluster-Operationen im LAN. Erfordert das allow_mdns=true Flag (Voreinstellung true)
-  -allow_iot
-    	Ermöglicht IoT-bezogene APIs und Scanner. Erfordert die Aktivierung von MDNS (Standard true)
   -allow_mdns
     	Aktiviert den MDNS-Dienst. Erlaubt, dass das Gerät von nahegelegenen ArOZ-Hosts gescannt wird (standardmäßig true)
   -allow_pkg_install

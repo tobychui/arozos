@@ -266,7 +266,6 @@ Registered library IDs:
 - `imagelib`
 - `http`
 - `share`
-- `iot`
 - `appdata`
 - `sysinfo`
 - `ziplib` (includes 7z support via `ziplib.extract7zFile`, `ziplib.list7zFileContents`, etc.)
@@ -588,62 +587,6 @@ var sid = share.getFileShareUUID("user:/report.pdf");
 ### `share.checkSharePermission(shareUUID)`
 ```javascript
 var perm = share.checkSharePermission(uuid);
-```
-
-## iot API
-
-Load:
-
-```javascript
-requirelib("iot");
-```
-
-### `iot.ready()`
-```javascript
-if (!iot.ready()) sendResp("iot unavailable");
-```
-
-### `iot.scan()`
-Returns scanned device array.
-
-```javascript
-var devices = iot.scan();
-```
-
-### `iot.list()`
-Returns cached device array.
-
-```javascript
-var devices = iot.list();
-```
-
-### `iot.connect(deviceId, username, password, token)`
-```javascript
-iot.connect("dev-1", "admin", "pass", "");
-```
-
-### `iot.status(deviceId)`
-Returns parsed status object.
-
-```javascript
-var s = iot.status("dev-1");
-```
-
-### `iot.exec(deviceId, endpointName, payloadObject)`
-Returns parsed result object or `false`.
-
-```javascript
-var resp = iot.exec("dev-1", "toggle", { value: true });
-```
-
-### `iot.disconnect(deviceId)`
-```javascript
-iot.disconnect("dev-1");
-```
-
-### `iot.iconTag(deviceId)`
-```javascript
-var tag = iot.iconTag("dev-1");
 ```
 
 ## appdata API (read-only web root access)

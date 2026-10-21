@@ -89,26 +89,26 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
         <i class="big bell icon" style="color:var(--ntf-accent);"></i>
         <div>
             <div class="ntf-title">Notifications</div>
-            <div class="ntf-sub">Choose how ArozOS reaches you and configure delivery agents.</div>
+            <div class="ntf-sub" locale="ntf/sub">Choose how ArozOS reaches you and configure delivery agents.</div>
         </div>
     </div>
 
     <!-- Delivery matrix -->
     <div class="ntf-card">
-        <div class="ntf-card-title"><i class="th icon"></i> Delivery Matrix</div>
-        <div class="ntf-card-desc">Pick which channels deliver each priority of notification. For example, get everything on the desktop but only high-priority alerts by email. A channel with no ticks is off. Channels needing extra details are configured below.</div>
+        <div class="ntf-card-title"><i class="th icon"></i> <span locale="ntf/matrix-title">Delivery Matrix</span></div>
+        <div class="ntf-card-desc" locale="ntf/matrix-desc">Pick which channels deliver each priority of notification. For example, get everything on the desktop but only high-priority alerts by email. A channel with no ticks is off. Channels needing extra details are configured below.</div>
         <div class="ntf-matrix-wrap">
             <table class="ntf-matrix" id="ntf-matrix">
                 <thead>
                     <tr>
-                        <th class="ntf-matrix-channel">Channel</th>
-                        <th><span class="ntf-prio-low">Low</span></th>
-                        <th>Medium</th>
-                        <th><span class="ntf-prio-high">High</span></th>
+                        <th class="ntf-matrix-channel" locale="ntf/col-channel">Channel</th>
+                        <th><span class="ntf-prio-low" locale="ntf/prio-low">Low</span></th>
+                        <th locale="ntf/prio-medium">Medium</th>
+                        <th><span class="ntf-prio-high" locale="ntf/prio-high">High</span></th>
                     </tr>
                 </thead>
                 <tbody id="ntf-matrix-body">
-                    <tr><td colspan="4" style="color:var(--ntf-dim);">Loading channels…</td></tr>
+                    <tr><td colspan="4" style="color:var(--ntf-dim);" locale="ntf/loading-channels">Loading channels…</td></tr>
                 </tbody>
             </table>
         </div>
@@ -116,115 +116,115 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
 
     <!-- Browser notifications -->
     <div class="ntf-card">
-        <div class="ntf-card-title"><i class="chrome icon"></i> Browser Notifications</div>
-        <div class="ntf-card-desc">Allow ArozOS to raise browser (Chrome / Edge / Firefox) notifications on your device when the desktop tab is not focused. This grants permission for this browser only.</div>
+        <div class="ntf-card-title"><i class="chrome icon"></i> <span locale="ntf/browser-title">Browser Notifications</span></div>
+        <div class="ntf-card-desc" locale="ntf/browser-desc">Allow ArozOS to raise browser (Chrome / Edge / Firefox) notifications on your device when the desktop tab is not focused. This grants permission for this browser only.</div>
         <div class="ntf-perm">
-            <button class="ntf-btn" id="ntf-perm-btn">Enable browser notifications</button>
-            <span class="ntf-pill" id="ntf-perm-status"><i class="circle outline icon"></i> Checking…</span>
+            <button class="ntf-btn" id="ntf-perm-btn" locale="ntf/browser-enable">Enable browser notifications</button>
+            <span class="ntf-pill" id="ntf-perm-status"><i class="circle outline icon"></i> <span locale="ntf/perm-checking">Checking…</span></span>
         </div>
     </div>
 
     <!-- Telegram per-user -->
     <div class="ntf-card ntf-hidden" id="ntf-telegram-card">
         <div class="ntf-card-title"><i class="telegram plane icon"></i> Telegram</div>
-        <div class="ntf-card-desc">Link your Telegram chat. Start a chat with the bot configured by your administrator, then enter your chat id below.</div>
+        <div class="ntf-card-desc" locale="ntf/telegram-desc">Link your Telegram chat. Start a chat with the bot configured by your administrator, then enter your chat id below.</div>
         <div class="ntf-field">
-            <label>Your Telegram chat id</label>
+            <label locale="ntf/telegram-chatid">Your Telegram chat id</label>
             <input type="text" id="ntf-telegram-chatid" placeholder="e.g. 123456789">
-            <div class="ntf-hint">You can obtain your chat id by messaging a bot such as <code>@userinfobot</code>.</div>
+            <div class="ntf-hint" locale="ntf/telegram-hint">You can obtain your chat id by messaging a bot such as <code>@userinfobot</code>.</div>
         </div>
     </div>
 
     <!-- Webhook per-user -->
     <div class="ntf-card ntf-hidden" id="ntf-webhook-card">
-        <div class="ntf-card-title"><i class="linkify icon"></i> Custom HTML API (Webhook)</div>
-        <div class="ntf-card-desc">Deliver notifications to your own HTTP endpoint. Placeholders <code>{{title}}</code>, <code>{{message}}</code>, <code>{{sender}}</code>, <code>{{priority}}</code>, <code>{{id}}</code> and <code>{{timestamp}}</code> are substituted in the body.</div>
+        <div class="ntf-card-title"><i class="linkify icon"></i> <span locale="ntf/webhook-title">Custom HTML API (Webhook)</span></div>
+        <div class="ntf-card-desc" locale="ntf/webhook-desc">Deliver notifications to your own HTTP endpoint. Placeholders <code>{{title}}</code>, <code>{{message}}</code>, <code>{{sender}}</code>, <code>{{priority}}</code>, <code>{{id}}</code> and <code>{{timestamp}}</code> are substituted in the body.</div>
         <div class="ntf-field">
-            <label>Endpoint URL</label>
+            <label locale="ntf/webhook-url">Endpoint URL</label>
             <input type="text" id="ntf-webhook-url" placeholder="https://example.com/my-hook">
         </div>
         <div class="ntf-row">
             <div class="ntf-field">
-                <label>Method</label>
+                <label locale="ntf/webhook-method">Method</label>
                 <select id="ntf-webhook-method">
                     <option value="POST">POST</option>
                     <option value="GET">GET</option>
                 </select>
             </div>
             <div class="ntf-field">
-                <label>Content-Type (POST)</label>
+                <label locale="ntf/webhook-contenttype">Content-Type (POST)</label>
                 <input type="text" id="ntf-webhook-contenttype" placeholder="application/json">
             </div>
         </div>
         <div class="ntf-field">
-            <label>Body template (POST, optional)</label>
+            <label locale="ntf/webhook-body">Body template (POST, optional)</label>
             <textarea id="ntf-webhook-body" placeholder='{"title":"{{title}}","message":"{{message}}","priority":"{{priority}}"}'></textarea>
-            <div class="ntf-hint">Leave blank to send a default JSON body.</div>
+            <div class="ntf-hint" locale="ntf/webhook-body-hint">Leave blank to send a default JSON body.</div>
         </div>
     </div>
 
     <div class="ntf-actions" style="margin:4px 0 14px 0;">
-        <button class="ntf-btn primary" id="ntf-save">Save preferences</button>
+        <button class="ntf-btn primary" id="ntf-save" locale="ntf/save">Save preferences</button>
     </div>
 
     <!-- Test notification -->
     <div class="ntf-card">
-        <div class="ntf-card-title"><i class="paper plane icon"></i> Send a Test Notification</div>
-        <div class="ntf-card-desc">Send yourself a notification at the chosen priority to check your setup. It is routed just like a real one, so it only arrives on the channels you enabled for that priority.</div>
+        <div class="ntf-card-title"><i class="paper plane icon"></i> <span locale="ntf/test-title">Send a Test Notification</span></div>
+        <div class="ntf-card-desc" locale="ntf/test-desc">Send yourself a notification at the chosen priority to check your setup. It is routed just like a real one, so it only arrives on the channels you enabled for that priority.</div>
         <div class="ntf-actions" style="margin-top:0;">
             <select class="ntf-select" id="ntf-test-priority">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
+                <option value="low" locale="ntf/prio-low">Low</option>
+                <option value="medium" selected locale="ntf/prio-medium">Medium</option>
+                <option value="high" locale="ntf/prio-high">High</option>
             </select>
-            <button class="ntf-btn" id="ntf-test">Send test notification</button>
+            <button class="ntf-btn" id="ntf-test" locale="ntf/test-send">Send test notification</button>
         </div>
     </div>
     <div class="ntf-toast" id="ntf-toast"></div>
 
     <!-- Admin agent configuration -->
     <div class="ntf-card ntf-hidden" id="ntf-admin-card" style="margin-top:16px;">
-        <div class="ntf-card-title"><i class="cogs icon"></i> Agent Configuration (Administrator)</div>
-        <div class="ntf-card-desc">System-wide credentials used by the delivery agents. These are shared by all users.</div>
+        <div class="ntf-card-title"><i class="cogs icon"></i> <span locale="ntf/admin-title">Agent Configuration (Administrator)</span></div>
+        <div class="ntf-card-desc" locale="ntf/admin-desc">System-wide credentials used by the delivery agents. These are shared by all users.</div>
 
         <div class="ntf-field">
-            <label>Telegram bot token</label>
+            <label locale="ntf/admin-telegram-token">Telegram bot token</label>
             <input type="password" id="ntf-admin-telegram-token" placeholder="Paste a new bot token to update">
             <div class="ntf-hint" id="ntf-admin-telegram-status"></div>
         </div>
         <div class="ntf-actions" style="margin-bottom:14px;">
-            <button class="ntf-btn" id="ntf-admin-save-telegram">Save Telegram token</button>
+            <button class="ntf-btn" id="ntf-admin-save-telegram" locale="ntf/admin-save-telegram">Save Telegram token</button>
         </div>
 
         <div class="ui divider"></div>
 
         <div class="ntf-row">
             <div class="ntf-field">
-                <label>SMTP sender display name</label>
+                <label locale="ntf/smtp-name">SMTP sender display name</label>
                 <input type="text" id="ntf-admin-smtp-name" placeholder="ArozOS">
             </div>
             <div class="ntf-field">
-                <label>SMTP sender address</label>
+                <label locale="ntf/smtp-sender">SMTP sender address</label>
                 <input type="text" id="ntf-admin-smtp-sender" placeholder="no-reply@example.com">
             </div>
         </div>
         <div class="ntf-row">
             <div class="ntf-field">
-                <label>SMTP server domain</label>
+                <label locale="ntf/smtp-domain">SMTP server domain</label>
                 <input type="text" id="ntf-admin-smtp-domain" placeholder="smtp.example.com">
             </div>
             <div class="ntf-field">
-                <label>SMTP port</label>
+                <label locale="ntf/smtp-port">SMTP port</label>
                 <input type="number" id="ntf-admin-smtp-port" placeholder="587">
             </div>
         </div>
         <div class="ntf-field">
-            <label>SMTP password</label>
+            <label locale="ntf/smtp-password">SMTP password</label>
             <input type="password" id="ntf-admin-smtp-password" placeholder="Leave blank to keep existing">
             <div class="ntf-hint" id="ntf-admin-smtp-status"></div>
         </div>
         <div class="ntf-actions">
-            <button class="ntf-btn" id="ntf-admin-save-smtp">Save SMTP settings</button>
+            <button class="ntf-btn" id="ntf-admin-save-smtp" locale="ntf/admin-save-smtp">Save SMTP settings</button>
         </div>
     </div>
 </div>
@@ -232,6 +232,10 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
 <script>
 (function () {
     var API = "../../system/notification/";
+    var ntfLocale = NewAppLocale();
+    function t(key, fallback) {
+        try { return ntfLocale.getString('ntf/' + key, fallback) || fallback; } catch (e) { return fallback; }
+    }
 
     /* theme */
     (function applyTheme() {
@@ -260,7 +264,7 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
         var s = document.createElement("script");
         s.src = "../notification/notification.js";
         s.onload = function () { callback(window.NotificationUI); };
-        s.onerror = function () { toast("Failed to load notification helper", false); };
+        s.onerror = function () { toast(t("helper-failed", "Failed to load notification helper"), false); };
         document.head.appendChild(s);
     }
 
@@ -271,24 +275,24 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
         var CHANNEL_LABELS = { smtpn: "Email", telegram: "Telegram", desktop: "Desktop", webhook: "Custom Webhook" };
 
         function channelLabel(name) {
-            return CHANNEL_LABELS[name] || (name.charAt(0).toUpperCase() + name.slice(1));
+            return t("chan-" + name, CHANNEL_LABELS[name] || (name.charAt(0).toUpperCase() + name.slice(1)));
         }
 
         function renderMatrix(agents, channels) {
             matrixBody.innerHTML = "";
             if (!agents.length) {
-                matrixBody.innerHTML = '<tr><td colspan="4" style="color:var(--ntf-dim);">No delivery channels registered.</td></tr>';
+                matrixBody.innerHTML = '<tr><td colspan="4" style="color:var(--ntf-dim);">' + N.escapeHtml(t("no-channels", "No delivery channels registered.")) + '</td></tr>';
                 return;
             }
             agents.forEach(function (a) {
                 var row = channels[a.name] || {};
                 var note = "";
                 if (!a.available) {
-                    note = '<div class="ntf-chan-desc">Not configured by administrator</div>';
+                    note = '<div class="ntf-chan-desc">' + N.escapeHtml(t("chan-not-configured", "Not configured by administrator")) + '</div>';
                 } else if (a.requiresUserSetup) {
-                    note = '<div class="ntf-chan-desc">Needs your details below</div>';
+                    note = '<div class="ntf-chan-desc">' + N.escapeHtml(t("chan-needs-setup", "Needs your details below")) + '</div>';
                 } else {
-                    note = '<div class="ntf-chan-desc">' + N.escapeHtml(a.desc) + '</div>';
+                    note = '<div class="ntf-chan-desc">' + N.escapeHtml(t("desc-" + a.name, a.desc)) + '</div>';
                 }
                 var tr = document.createElement("tr");
                 var cells = '<td class="ntf-matrix-channel' + (a.available ? '' : ' ntf-chan-off') + '">' +
@@ -330,13 +334,13 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
                         $("#ntf-webhook-body").val(pref.webhook.bodyTemplate || "");
                     }
                 }});
-            }, error: function () { toast("Unable to load channels", false); }});
+            }, error: function () { toast(t("load-failed", "Unable to load channels"), false); }});
         }
 
         function savePreference() {
             var url = $("#ntf-webhook-url").val().trim();
             if (url !== "" && !N.isValidWebhookURL(url)) {
-                toast("Webhook URL must be a valid http/https URL", false);
+                toast(t("webhook-invalid", "Webhook URL must be a valid http/https URL"), false);
                 return;
             }
             var payload = N.buildPreferencePayload({
@@ -349,8 +353,8 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
             });
             $.ajax({ url: API + "preference", method: "POST", data: payload, success: function (resp) {
                 if (resp && resp.error) { toast(resp.error, false); return; }
-                toast("Preferences saved", true);
-            }, error: function () { toast("Failed to save preferences", false); }});
+                toast(t("saved", "Preferences saved"), true);
+            }, error: function () { toast(t("save-failed", "Failed to save preferences"), false); }});
         }
 
         /* ── Browser notification permission ── */
@@ -362,17 +366,17 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
             pill.className = "ntf-pill";
             if (state === "granted") {
                 pill.classList.add("granted");
-                pill.innerHTML = '<i class="check circle icon"></i> Enabled';
+                pill.innerHTML = '<i class="check circle icon"></i> ' + N.escapeHtml(t("perm-granted", "Enabled"));
                 btn.disabled = true;
             } else if (state === "denied") {
                 pill.classList.add("denied");
-                pill.innerHTML = '<i class="times circle icon"></i> Blocked in browser settings';
+                pill.innerHTML = '<i class="times circle icon"></i> ' + N.escapeHtml(t("perm-denied", "Blocked in browser settings"));
                 btn.disabled = true;
             } else if (state === "unsupported") {
-                pill.innerHTML = '<i class="ban icon"></i> Not supported by this browser';
+                pill.innerHTML = '<i class="ban icon"></i> ' + N.escapeHtml(t("perm-unsupported", "Not supported by this browser"));
                 btn.disabled = true;
             } else {
-                pill.innerHTML = '<i class="circle outline icon"></i> Not enabled';
+                pill.innerHTML = '<i class="circle outline icon"></i> ' + N.escapeHtml(t("perm-default", "Not enabled"));
                 btn.disabled = false;
             }
         }
@@ -393,8 +397,8 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
                 data: { priority: $("#ntf-test-priority").val() },
                 success: function (resp) {
                     if (resp && resp.error) { toast(resp.error, false); return; }
-                    toast("Test notification sent", true);
-                }, error: function () { toast("Failed to send test", false); }});
+                    toast(t("test-sent", "Test notification sent"), true);
+                }, error: function () { toast(t("test-failed", "Failed to send test"), false); }});
         }
 
         $("#ntf-save").on("click", savePreference);
@@ -404,13 +408,13 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
         function loadAdmin() {
             $.ajax({ url: API + "config/telegram", method: "GET", success: function (view) {
                 document.getElementById("ntf-admin-card").classList.remove("ntf-hidden");
-                $("#ntf-admin-telegram-status").text(view.botTokenSet ? "A bot token is currently set." : "No bot token configured yet.");
+                $("#ntf-admin-telegram-status").text(view.botTokenSet ? t("token-set", "A bot token is currently set.") : t("token-unset", "No bot token configured yet."));
                 $.ajax({ url: API + "config/smtp", method: "GET", success: function (smtp) {
                     $("#ntf-admin-smtp-name").val(smtp.SMTPSenderDisplayName || "");
                     $("#ntf-admin-smtp-sender").val(smtp.SMTPSender || "");
                     $("#ntf-admin-smtp-domain").val(smtp.SMTPDomain || "");
                     $("#ntf-admin-smtp-port").val(smtp.SMTPPort || "");
-                    $("#ntf-admin-smtp-status").text(smtp.PasswordSet ? "A password is currently set." : "No password configured yet.");
+                    $("#ntf-admin-smtp-status").text(smtp.PasswordSet ? t("password-set", "A password is currently set.") : t("password-unset", "No password configured yet."));
                 }});
             }, error: function () { /* not an admin — keep the section hidden */ }});
         }
@@ -420,10 +424,10 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
                 data: { botToken: $("#ntf-admin-telegram-token").val() },
                 success: function (resp) {
                     if (resp && resp.error) { toast(resp.error, false); return; }
-                    toast("Telegram token saved", true);
+                    toast(t("token-saved", "Telegram token saved"), true);
                     $("#ntf-admin-telegram-token").val("");
                     loadPreference();
-                }, error: function () { toast("Failed to save token", false); }});
+                }, error: function () { toast(t("token-save-failed", "Failed to save token"), false); }});
         });
 
         $("#ntf-admin-save-smtp").on("click", function () {
@@ -435,16 +439,21 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
                 password: $("#ntf-admin-smtp-password").val()
             }, success: function (resp) {
                 if (resp && resp.error) { toast(resp.error, false); return; }
-                toast("SMTP settings saved", true);
+                toast(t("smtp-saved", "SMTP settings saved"), true);
                 $("#ntf-admin-smtp-password").val("");
                 loadPreference();
-            }, error: function () { toast("Failed to save SMTP settings", false); }});
+            }, error: function () { toast(t("smtp-save-failed", "Failed to save SMTP settings"), false); }});
         });
 
         loadPreference();
         loadAdmin();
     }
 
-    loadHelper(boot);
+    // Translate the static text first; the page still starts when the locale file is missing
+    function start() { loadHelper(boot); }
+    ntfLocale.init("../locale/system_settings/notification.json", function () {
+        ntfLocale.translate();
+        start();
+    }, start);
 })();
 </script>

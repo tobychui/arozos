@@ -169,8 +169,6 @@ The following startup parameters are supported (v2.016)
         Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot (default true)
   -allow_cluster
         Enable cluster operations within LAN. Require allow_mdns=true flag (default true)
-  -allow_iot
-        Enable IoT related APIs and scanner. Require MDNS enabled (default true)
   -allow_mdns
         Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts (default true)
   -allow_pkg_install

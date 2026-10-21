@@ -1,167 +1,183 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title locale="title/title">Module List</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-        <style>
-        #sys-setting-page { padding: 20px; }
+<!--
+    Module List
 
-        #sys-setting-page.dark { background: #1f1f1f; color: #ececec; }
-        #sys-setting-page.dark .ui.table {
-            background: #2c2c2e;
-            color: #ececec;
-            border-color: #3a3a3c;
-        }
-        #sys-setting-page.dark .ui.table thead th {
-            background: #1c1c1e;
-            color: #aeaeb2;
-            border-color: #3a3a3c !important;
-        }
-        #sys-setting-page.dark .ui.table td,
-        #sys-setting-page.dark .ui.table th { border-color: #3a3a3c !important; }
-        #sys-setting-page.dark .ui.table tr:hover > td { background: rgba(255,255,255,0.04) !important; }
-        #sys-setting-page.dark .ui.divider { border-color: #3a3a3c !important; }
-        #sys-setting-page.dark p { color: #aeaeb2; }
-        #sys-setting-page.dark .ui.image.header .content { color: #ececec; }
-        #sys-setting-page.dark .ui.image.header .sub.header { color: #aeaeb2; }
-        #sys-setting-page.dark .ui.button { background: #3a3a3c; color: #ececec; }
-        </style>
-    </head>
-    <body>
-        <div class="ui container" id="sys-setting-page">
-            <div style="width: 100%; overflow-y: auto;">
-                <table class="ui basic celled structured unstackable table">
-                    <thead>
-                    <tr>
-                        <th rowspan="2" locale="table/module">Module</th>
-                        <th rowspan="2" locale="table/group">Group</th>
-                        <th rowspan="2" locale="table/ext">Supported Extensions</th>
-                        <th colspan="3" locale="table/modes">Supported Mode</th>
-                    </tr>
-                    <tr>
-                        <th locale="table/modes/default">Default</th>
-                        <th locale="table/modes/floatwindow">FloatWindow</th>
-                        <th locale="table/modes/embedded">Embedded</th>
-                    </tr>
-                    </thead>
-                    <tbody id="moduleList">
-                    
-                    </tbody>
-                </table>
-            </div>
-              <div class="ui divider"></div>
-              <p locale="desc/reload">If you have installed WebApps manually, you can click the "Reload WebApps" button to load it without restarting ArozOS.</p>
-              <button id="reloadWebappButton" class="ui basic small blue button" onclick="reloadWebapps();">
-                <i class="refresh icon"></i> <span locale="button/reload">Reload WebApps</span>
-              </button>
-              <br><br>
+    Loaded into System Settings. Lists every loaded module (WebApps and
+    subservices) from /system/modules/list as one row each, so the page reads
+    the same in a wide window and on a phone.
+-->
+<style>
+#ml-root .ml-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--ss-border);
+}
+#ml-root .ml-item:last-child { border-bottom: none; }
+
+#ml-root .ml-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    object-fit: contain;
+}
+
+#ml-root .ml-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px 16px;
+}
+#ml-root .ml-text { flex: 1 1 200px; min-width: 0; }
+#ml-root .ml-name {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+    color: var(--ss-text);
+    overflow-wrap: anywhere;
+}
+#ml-root .ml-version {
+    margin-left: 6px;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--ss-muted);
+}
+#ml-root .ml-ext {
+    margin-top: 3px;
+    font-family: var(--ss-mono);
+    font-size: 11px;
+    line-height: 16px;
+    color: var(--ss-text-3);
+    overflow-wrap: anywhere;
+}
+#ml-root .ml-ext .k {
+    font-family: var(--ss-font, inherit);
+    color: var(--ss-muted);
+}
+
+#ml-root .ml-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+    max-width: 100%;
+}
+#ml-root .ml-meta .ss-badge svg { width: 10px; height: 10px; }
+#ml-root .ml-group { font-weight: 600; }
+
+#ml-root .ml-skel {
+    display: block;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--ss-surface-3);
+}
+
+@media (max-width: 560px) {
+    #ml-root .ml-meta { justify-content: flex-start; }
+}
+</style>
+
+<div id="ml-root">
+    <div class="ss-section">
+        <div class="ss-card" id="ml-list">
+            <div class="ml-item"><span class="ml-skel" style="width:32px;height:32px;border-radius:7px"></span><div class="ml-main"><span class="ml-skel" style="width:160px;margin-top:4px"></span></div></div>
+            <div class="ml-item"><span class="ml-skel" style="width:32px;height:32px;border-radius:7px"></span><div class="ml-main"><span class="ml-skel" style="width:120px;margin-top:4px"></span></div></div>
         </div>
-        <script>
+    </div>
 
-            //Applocale
-            var moduleListLocale = NewAppLocale();
-            moduleListLocale.init("../locale/system_settings/modulelist.json", function(){
-                moduleListLocale.translate();
-                initModuleList();
-            });
+    <div class="ss-section">
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="button/reload">Reload WebApps</div>
+                    <div class="ss-row-desc" locale="desc/reload">If you have installed WebApps manually, you can click the "Reload WebApps" button to load it without restarting ArozOS.</div>
+                </div>
+                <div class="ss-control">
+                    <button type="button" id="ml-reload-btn" class="ss-btn">
+                        <i class="refresh icon"></i><span locale="button/reload">Reload WebApps</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-            
+<script>
+(function () {
+    var mlLocale = NewAppLocale();
+    function t(key, fallback) {
+        try { return mlLocale.getString(key, fallback) || fallback; } catch (e) { return fallback; }
+    }
+    function esc(text) { return $('<span>').text(text == null ? '' : String(text)).html(); }
 
-            function reloadWebapps(){
-                let moduleListBackup = $("#moduleList").html();
-                $("#moduleList").html(`<tr><td colspan="6"><i class="ui loading spinner icon"></i> Reloading...</tr></td>`);
-                $.ajax({
-                   url: "../../system/modules/reload", 
-                   success: function(data){
-                        initModuleList();
-                   },
-                   error: function(){
-                       //Reload failed (Permission denied?)
-                       $("#moduleList").html(moduleListBackup);
-                       $("#reloadWebappButton").addClass("disabled").html("<i class='ui remove icon'></i> No Permission");
-                   }    
-                });
+    var CHECK = '<svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6.2l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var MAX_EXT = 8;
+
+    function renderModule(mod) {
+        var icon = mod.IconPath ? '../../' + mod.IconPath : '../../img/system/service.png';
+
+        var modes = [];
+        if (mod.StartDir) modes.push(t('table/modes/default', 'Default'));
+        if (mod.SupportFW) modes.push(t('table/modes/floatwindow', 'FloatWindow'));
+        if (mod.SupportEmb) modes.push(t('table/modes/embedded', 'Embedded'));
+
+        var ext = '';
+        var list = mod.SupportedExt || [];
+        if (list.length > 0) {
+            var shown = list.slice(0, MAX_EXT).join(' ');
+            if (list.length > MAX_EXT) shown += ' +' + (list.length - MAX_EXT);
+            ext = '<div class="ml-ext" title="' + esc(list.join(' ')) + '"><span class="k">' + esc(t('table/ext', 'Supported Extensions')) + ':</span> ' + esc(shown) + '</div>';
+        }
+
+        return '<div class="ml-item">' +
+            '<img class="ml-icon" src="' + esc(icon) + '" alt="" onerror="this.onerror=null;this.src=\'../../img/system/service.png\'">' +
+            '<div class="ml-main">' +
+                '<div class="ml-text">' +
+                    '<div class="ml-name">' + esc(mod.Name) + (mod.Version ? '<span class="ml-version">' + esc(t('item/version', 'Version:')) + ' ' + esc(mod.Version) + '</span>' : '') + '</div>' +
+                    ext +
+                '</div>' +
+                '<div class="ml-meta">' +
+                    '<span class="ss-badge ml-group" title="' + esc(t('table/group', 'Group')) + '">' + esc(mod.Group || 'Other') + '</span>' +
+                    modes.map(function (m) { return '<span class="ss-badge accent" title="' + esc(t('table/modes', 'Supported Mode')) + '">' + CHECK + esc(m) + '</span>'; }).join('') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function loadModules() {
+        $.getJSON('../../system/modules/list', function (data) {
+            var $list = $('#ml-list');
+            if (!data || data.length === 0) {
+                $list.html('<div class="ss-empty">' + esc(t('item/empty', 'No modules loaded')) + '</div>');
+                return;
             }
+            $list.html(data.map(renderModule).join(''));
+        }).fail(function () {
+            $('#ml-list').html('<div class="ss-empty">' + esc(t('item/loadfail', 'Failed to load the module list')) + '</div>');
+        });
+    }
 
-            function initModuleList(){
-                $("#moduleList").html("");
-                $.ajax({
-                    url: "../../system/modules/list",
-                    success: function(data){
-                        console.log(data);
-                        for (var i =0; i < data.length; i++){
-                            var thisModule = data[i];
-                            var iconURL = "../../img/system/service.png";
-                            if (thisModule.IconPath !== ""){
-                                iconURL = "../../" + thisModule.IconPath;
-                            }
-                            var supportMode = ['<i class="large red remove icon"></i>', '<i class="large red remove icon"></i>', '<i class="large red remove icon"></i>'];
-                            var group = "Unknown";
-                            if (thisModule.Group != ""){
-                                group = thisModule.Group;
-                            }
-                            if (thisModule.StartDir != ""){
-                                supportMode[0] = '<i class="large green checkmark icon"></i>';
-                            }
-                            if (thisModule.SupportFW == true){
-                                supportMode[1] = '<i class="large green checkmark icon"></i>';
-                            }
-                            if (thisModule.SupportEmb == true){
-                                supportMode[2] = '<i class="large green checkmark icon"></i>';
-                            }
-                            var supportedExt = "N/A";
-                            if (thisModule.SupportedExt !== null){
-                                supportedExt = thisModule.SupportedExt.join("<br>");
-                            }
-                            $("#moduleList").append(`<tr>
-                                <td>
-                                    <h4 class="ui image header" style="white-space: nowrap;">
-                                        <img src="${iconURL}" class="ui mini rounded image">
-                                        <div class="content">
-                                            ${thisModule.Name}
-                                            <div class="sub header">${moduleListLocale.getString("item/version", "Version:")} ${thisModule.Version} </div>
-                                        </div>
-                                    </h4>
-                                </td>
-                                <td>
-                                ${group}
-                                </td>
-                                <td>
-                                ${supportedExt}
-                                </td>
-                                <td>
-                                ${supportMode[0]}
-                                </td>
-                                <td>
-                                ${supportMode[1]}
-                                </td>
-                                <td>
-                                ${supportMode[2]}
-                                </td>
-                            </tr>`);
-                        }
-                    }
-                });
+    $('#ml-reload-btn').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        $.ajax({
+            url: '../../system/modules/reload',
+            success: function () {
+                $btn.prop('disabled', false);
+                loadModules();
+            },
+            error: function () {
+                $btn.html('<i class="remove icon"></i>' + esc(t('button/nopermission', 'No Permission')));
             }
+        });
+    });
 
-            /* ── Theme ── */
-            (function() {
-                var el = document.getElementById('sys-setting-page');
-                if (!el) return;
-                if (typeof preferredTheme !== 'undefined') {
-                    el.classList.toggle('dark', preferredTheme === 'dark' || preferredTheme === 'darkTheme');
-                }
-            })();
-
-            window.detailPageThemeCallback = function(isDark) {
-                var el = document.getElementById('sys-setting-page');
-                if (el) el.classList.toggle('dark', isDark);
-            };
-        </script>
-    </body>
-</html>
+    mlLocale.init('../locale/system_settings/modulelist.json', function () {
+        mlLocale.translate();
+        loadModules();
+    }, loadModules);
+})();
+</script>

@@ -38,7 +38,7 @@
 
 #ni-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
     gap: 12px;
     padding: 8px 16px;
 }
@@ -198,6 +198,52 @@
 
 .ni-state svg { opacity: 0.3; }
 .ni-state-msg { font-size: 13px; }
+
+/* ── Narrow screens: one column, properties as a label / value list ── */
+@media (max-width: 640px) {
+    #ni-root { padding: 0 0 16px; }
+    #ni-grid { padding: 0; gap: 10px; }
+
+    .ni-header { gap: 10px; padding: 11px 14px; }
+    .ni-icon { width: 36px; height: 36px; border-radius: 8px; }
+    .ni-icon img { width: 22px; height: 22px; }
+    .ni-name { font-size: 14px; }
+    .ni-type { font-size: 11.5px; margin-top: 1px; }
+
+    .ni-props {
+        grid-template-columns: 1fr;
+        gap: 0;
+        background: none;
+    }
+    .ni-prop {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--ni-sep);
+    }
+    .ni-prop:last-child { border-bottom: none; }
+    .ni-prop dt {
+        flex-shrink: 0;
+        margin: 0;
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--ni-dim);
+    }
+    .ni-prop dd {
+        min-width: 0;
+        font-size: 12px;
+        text-align: right;
+    }
+    /* IPv6 addresses are long: put them under their label */
+    .ni-prop.full { flex-direction: column; align-items: stretch; gap: 3px; }
+    .ni-prop.full dd { text-align: left; }
+
+    .ni-chips { padding: 9px 14px 11px; }
+}
 </style>
 
 <div id="ni-root">

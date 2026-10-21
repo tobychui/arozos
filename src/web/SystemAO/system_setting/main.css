@@ -1304,6 +1304,8 @@ body.dark #detail-inner code { background: var(--ss-surface-3); color: var(--ss-
     #page-title { font-size: 16px; line-height: 22px; }
     #detail-inner { padding: 2px 14px 22px; }
     .ss-savebar { margin: 18px -14px -22px; padding: 10px 14px 12px; }
-    .ss-row { flex-wrap: wrap; }
+    .ss-row { flex-wrap: wrap; row-gap: 10px; }
+    /* The text keeps a readable width; the control drops below it instead */
+    .ss-row-text { flex: 1 1 180px; }
     .ss-row .ss-control { margin-left: auto; }
 }

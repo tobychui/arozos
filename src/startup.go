@@ -178,7 +178,6 @@ func RunStartup() {
 	//FTPServerInit() //Start FTP Server Endpoints
 	//WebDAVInit()    //Start WebDAV Endpoint
 	ClusterInit() //Start Cluster Services
-	IoTHubInit()  //Inialize ArozOS IoT Hub module
 
 	ModuleInstallerInit() //Start Module Installer
 

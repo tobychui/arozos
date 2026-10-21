@@ -3,8 +3,8 @@ package main
 /*
 	Device Handler
 
-	This script mainly handle the external devices like client devices reflect information
-	or IoT devices. If you want to handle storage devices mounting, use system.storage.go instead.
+	This script mainly handle the external devices like client devices reflect information.
+	If you want to handle storage devices mounting, use system.storage.go instead.
 */
 
 func DeviceServiceInit() {
