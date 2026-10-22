@@ -1212,7 +1212,7 @@ Space a single trashed entry takes up
 A folder counts for everything inside it, not the zero bytes its own entry
 reports - otherwise a user could fill the bin with folders and never reach
 the quota. Hidden files are included because they were moved along with the
-rest, and the trash itself lives inside a hidden folder.
+rest, and the trash itself is a hidden folder.
 */
 func system_fs_getTrashEntrySize(fsh *filesystem.FileSystemHandler, rpath string) int64 {
 	if fsh.FileSystemAbstraction.IsDir(rpath) {
@@ -1224,13 +1224,9 @@ func system_fs_getTrashEntrySize(fsh *filesystem.FileSystemHandler, rpath string
 
 // Total bytes currently sitting in a user's trash across every file system
 func system_fs_getTrashUsage(username string) int64 {
-	files, fshs, err := system_fs_listTrash(username)
-	if err != nil {
-		return 0
-	}
 	total := int64(0)
-	for c, file := range files {
-		total += system_fs_getTrashEntrySize(fshs[c], file)
+	for _, item := range system_fs_listTrash(username) {
+		total += system_fs_getTrashEntrySize(item.Fsh, item.Realpath)
 	}
 	return total
 }
@@ -1285,11 +1281,279 @@ func system_fs_handleTrashSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
+Trash layout
+
+Every file system root keeps a single .trash folder. A removed item keeps the
+folders it was removed from, and the unix time it was removed at is appended
+to its name:
+
+	user:/foo/bar/deleteme.txt  ->  user:/.trash/foo/bar/deleteme.txt.1712345678
+
+so scanning the trash only reads that one folder instead of the whole drive,
+and never looks inside a trashed folder. A folder on the way whose own name
+looks like a trashed item ("backup.2024") would be taken for one, so such a
+name gets a "~" appended (plus one for every "~" it already ends with), which
+keeps the mapping reversible.
+*/
+const trashFolderSubpath = "/.trash"
+
+// A trashed item found in the .trash folder of a file system root
+type trashItem struct {
+	Fsh             *filesystem.FileSystemHandler
+	Subpath         string //Where it sits, e.g. /.trash/foo/bar/deleteme.txt.1712345678
+	Realpath        string
+	OriginalSubpath string //Where it was removed from, e.g. /foo/bar/deleteme.txt
+	Timestamp       int64  //Unix time it was removed at
+}
+
+// Check if a name is a trashed item name: <name>.<unix time>
+func system_fs_isTrashName(name string) bool {
+	ext := path.Ext(name)
+	if len(ext) < 2 || len(ext) == len(name) {
+		return false
+	}
+	for _, c := range ext[1:] {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	_, err := strconv.ParseInt(ext[1:], 10, 64)
+	return err == nil
+}
+
+// Escape a folder name on the way to a trashed item so it is never taken for one
+func system_fs_escapeTrashFolder(name string) string {
+	if system_fs_isTrashName(strings.TrimRight(name, "~")) {
+		return name + "~"
+	}
+	return name
+}
+
+func system_fs_unescapeTrashFolder(name string) string {
+	if strings.HasSuffix(name, "~") && system_fs_isTrashName(strings.TrimRight(name, "~")) {
+		return strings.TrimSuffix(name, "~")
+	}
+	return name
+}
+
+// Check if a subpath is the .trash folder or anything inside it
+func system_fs_isInTrash(subpath string) bool {
+	cleaned := path.Clean("/" + filepath.ToSlash(subpath))
+	return cleaned == trashFolderSubpath || strings.HasPrefix(cleaned, trashFolderSubpath+"/")
+}
+
+/*
+Where an item removed at the given time goes inside the trash
+
+	/foo/bar/deleteme.txt -> /.trash/foo/bar/deleteme.txt.<timestamp>
+
+Returns an empty string for the root folder, which cannot be trashed.
+*/
+func system_fs_trashSubpathOf(originalSubpath string, timestamp int64) string {
+	cleaned := strings.Trim(path.Clean("/"+filepath.ToSlash(originalSubpath)), "/")
+	if cleaned == "" {
+		return ""
+	}
+	segments := strings.Split(cleaned, "/")
+	last := len(segments) - 1
+	for i := 0; i < last; i++ {
+		segments[i] = system_fs_escapeTrashFolder(segments[i])
+	}
+	segments[last] += "." + strconv.FormatInt(timestamp, 10)
+	return trashFolderSubpath + "/" + strings.Join(segments, "/")
+}
+
+/*
+Where a trashed item came from and when it was removed
+
+	/.trash/foo/bar/deleteme.txt.<timestamp> -> /foo/bar/deleteme.txt, <timestamp>
+
+ok is false for anything that is not a trashed item: a folder on the way, a
+file inside a trashed folder or a path outside the trash.
+*/
+func system_fs_originalSubpathOf(trashSubpath string) (string, int64, bool) {
+	cleaned := path.Clean("/" + filepath.ToSlash(trashSubpath))
+	if !strings.HasPrefix(cleaned, trashFolderSubpath+"/") {
+		return "", 0, false
+	}
+	segments := strings.Split(strings.TrimPrefix(cleaned, trashFolderSubpath+"/"), "/")
+	last := len(segments) - 1
+	for i := 0; i < last; i++ {
+		if system_fs_isTrashName(segments[i]) {
+			//Inside a trashed folder
+			return "", 0, false
+		}
+		segments[i] = system_fs_unescapeTrashFolder(segments[i])
+	}
+	if !system_fs_isTrashName(segments[last]) {
+		return "", 0, false
+	}
+	ext := path.Ext(segments[last])
+	timestamp, _ := strconv.ParseInt(ext[1:], 10, 64)
+	segments[last] = strings.TrimSuffix(segments[last], ext)
+	return "/" + strings.Join(segments, "/"), timestamp, true
+}
+
+/*
+Scan the .trash folder of one file system root and call fn for every trashed
+item in it. Only the folders on the way are read, never the inside of a
+trashed folder. An error returned by fn stops the scan and is returned.
+*/
+func system_fs_scanTrashOf(fsh *filesystem.FileSystemHandler, username string, fn func(trashItem) error) error {
+	fshAbs := fsh.FileSystemAbstraction
+	trashRoot, err := fshAbs.VirtualPathToRealPath(trashFolderSubpath, username)
+	if err != nil || !fshAbs.IsDir(trashRoot) {
+		return nil
+	}
+
+	var visit func(rdir string, subdir string) error
+	visit = func(rdir string, subdir string) error {
+		entries, err := fshAbs.ReadDir(rdir)
+		if err != nil {
+			return nil
+		}
+		for _, entry := range entries {
+			rpath := rdir + "/" + entry.Name()
+			subpath := subdir + "/" + entry.Name()
+			if system_fs_isTrashName(entry.Name()) {
+				originalSubpath, timestamp, ok := system_fs_originalSubpathOf(subpath)
+				if !ok {
+					continue
+				}
+				err := fn(trashItem{
+					Fsh:             fsh,
+					Subpath:         subpath,
+					Realpath:        rpath,
+					OriginalSubpath: originalSubpath,
+					Timestamp:       timestamp,
+				})
+				if err != nil {
+					return err
+				}
+			} else if entry.IsDir() {
+				//A folder on the way, or leftovers like a thumbnail .metadata folder
+				if err := visit(rpath, subpath); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return visit(filepath.ToSlash(trashRoot), trashFolderSubpath)
+}
+
+// The file system roots whose trash a user sees
+func system_fs_trashRootsOf(userinfo *user.User) []*filesystem.FileSystemHandler {
+	roots := []*filesystem.FileSystemHandler{}
+	for _, storage := range userinfo.GetAllFileSystemHandler() {
+		if storage.Hierarchy == "backup" {
+			//Skip this fsh
+			continue
+		}
+		roots = append(roots, storage)
+	}
+	return roots
+}
+
+// Get every trashed item of a user across all their file system roots
+func system_fs_listTrash(username string) []trashItem {
+	userinfo, err := userHandler.GetUserInfoFromUsername(username)
+	if err != nil {
+		return []trashItem{}
+	}
+	items := []trashItem{}
+	for _, fsh := range system_fs_trashRootsOf(userinfo) {
+		system_fs_scanTrashOf(fsh, username, func(item trashItem) error {
+			items = append(items, item)
+			return nil
+		})
+	}
+	return items
+}
+
+// Describe a trashed item to the client
+func system_fs_getTrashedFileInfo(item trashItem) trashedFile {
+	fshAbs := item.Fsh.FileSystemAbstraction
+	originalName := path.Base(item.OriginalSubpath)
+	isDir := fshAbs.IsDir(item.Realpath)
+	originalExt := ""
+	if !isDir {
+		originalExt = path.Ext(originalName)
+	}
+	return trashedFile{
+		Filename:         path.Base(item.Subpath),
+		Filepath:         item.Fsh.UUID + ":" + item.Subpath,
+		FileExt:          originalExt,
+		IsDir:            isDir,
+		Filesize:         int64(fshAbs.GetFileSize(item.Realpath)),
+		RemoveTimestamp:  item.Timestamp,
+		RemoveDate:       time.Unix(item.Timestamp, 0).Format("2006-01-02 15:04:05"),
+		OriginalPath:     item.Fsh.UUID + ":" + path.Dir(item.OriginalSubpath),
+		OriginalFilename: originalName,
+	}
+}
+
+// Remove a trashed item for good, along with the owner's quota record of it
+func system_fs_removeTrashItem(userinfo *user.User, item trashItem) error {
+	vpath := item.Fsh.UUID + ":" + item.Subpath
+	if userinfo.IsOwnerOfFile(item.Fsh, vpath) {
+		userinfo.RemoveOwnershipFromFile(item.Fsh, vpath)
+	}
+	return item.Fsh.FileSystemAbstraction.RemoveAll(item.Realpath)
+}
+
+/*
+Remove every folder below rdir (rdir included) that holds no trashed item,
+and report whether rdir still holds one. Leftovers such as the .metadata
+folder a thumbnail of a trashed file leaves behind, or a .DS_Store, go too.
+*/
+func system_fs_pruneTrashTree(fshAbs filesystem.FileSystemAbstraction, rdir string) bool {
+	entries, err := fshAbs.ReadDir(rdir)
+	if err != nil {
+		//Cannot tell what is in there; leave it alone
+		return true
+	}
+	kept := false
+	for _, entry := range entries {
+		if system_fs_isTrashName(entry.Name()) {
+			kept = true
+		} else if entry.IsDir() && system_fs_pruneTrashTree(fshAbs, rdir+"/"+entry.Name()) {
+			kept = true
+		}
+	}
+	if !kept {
+		fshAbs.RemoveAll(rdir)
+	}
+	return kept
+}
+
+// After an item left the trash, remove the folders it left empty, up to the .trash folder itself
+func system_fs_pruneTrashParents(fsh *filesystem.FileSystemHandler, username string, rdir string) {
+	fshAbs := fsh.FileSystemAbstraction
+	trashRoot, err := fshAbs.VirtualPathToRealPath(trashFolderSubpath, username)
+	if err != nil {
+		return
+	}
+	trashRoot = path.Clean(filepath.ToSlash(trashRoot))
+	rdir = path.Clean(filepath.ToSlash(rdir))
+	for rdir == trashRoot || strings.HasPrefix(rdir, trashRoot+"/") {
+		if !fshAbs.FileExists(rdir) {
+			//Already gone, try its parent
+		} else if system_fs_pruneTrashTree(fshAbs, rdir) {
+			return
+		}
+		if rdir == trashRoot {
+			return
+		}
+		rdir = path.Dir(rdir)
+	}
+}
+
+/*
 Nightly cleanup
 
 Removes trashed files past their owner's retention window. Users who have
-not set a retention (or set it to zero) keep their trash indefinitely, which
-is the behaviour every account had before this setting existed.
+set the retention to zero keep their trash indefinitely.
 */
 func system_fs_clearExpiredTrash() {
 	for _, username := range authAgent.ListUsers() {
@@ -1305,43 +1569,36 @@ func system_fs_clearExpiredTrash() {
 		}
 
 		cutoff := time.Now().Unix() - int64(retentionDays)*86400
-		files, fshs, err := system_fs_listTrash(username)
-		if err != nil {
-			continue
-		}
-
 		removed := 0
-		for c, file := range files {
-			if !nightlyShouldMaintainFsh(fshs[c]) {
+		for _, fsh := range system_fs_trashRootsOf(userinfo) {
+			if !nightlyShouldMaintainFsh(fsh) {
 				//Trash inside a drive shared by the cluster is emptied by the
 				//master node, so it is not purged once per member
 				continue
 			}
 
-			/*
-				The removal time is stored as the file extension when the file
-				was recycled. Anything without a parsable timestamp is left
-				alone rather than guessed at.
-			*/
-			ext := filepath.Ext(file)
-			if len(ext) < 2 {
-				continue
-			}
-			timestamp, err := utils.StringToInt64(ext[1:])
-			if err != nil || timestamp > cutoff {
+			expired := []trashItem{}
+			system_fs_scanTrashOf(fsh, username, func(item trashItem) error {
+				if item.Timestamp <= cutoff {
+					expired = append(expired, item)
+				}
+				return nil
+			})
+			if len(expired) == 0 {
 				continue
 			}
 
-			fshAbs := fshs[c].FileSystemAbstraction
-			fileVpath, err := fshAbs.RealPathToVirtualPath(file, username)
-			if err == nil && userinfo.IsOwnerOfFile(fshs[c], fileVpath) {
-				userinfo.RemoveOwnershipFromFile(fshs[c], fileVpath)
+			for _, item := range expired {
+				if system_fs_removeTrashItem(userinfo, item) == nil {
+					removed++
+				}
 			}
-			fshAbs.RemoveAll(file)
 
-			//Drop the .trash folder too once nothing is left in it
-			system_fs_removeTrashDirIfEmpty(fshAbs, filepath.Dir(file))
-			removed++
+			//Drop the folders the removed items left empty in one pass
+			trashRoot, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(trashFolderSubpath, username)
+			if err == nil {
+				system_fs_pruneTrashTree(fsh.FileSystemAbstraction, filepath.ToSlash(trashRoot))
+			}
 		}
 
 		if removed > 0 {
@@ -1351,7 +1608,7 @@ func system_fs_clearExpiredTrash() {
 	}
 }
 
-// Scan all directory and get trash file and send back results with WebSocket
+// Scan the trash of every root and send back the results with WebSocket
 func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -1371,117 +1628,34 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Start Scanning
-	scanningRoots := []*filesystem.FileSystemHandler{}
-	//Get all roots to scan
-	for _, storage := range userinfo.GetAllFileSystemHandler() {
-		if storage.Hierarchy == "backup" {
-			//Skip this fsh
-			continue
-		}
-		scanningRoots = append(scanningRoots, storage)
-	}
-
-	for _, fsh := range scanningRoots {
-		thisFshAbs := fsh.FileSystemAbstraction
-		rootPath, err := thisFshAbs.VirtualPathToRealPath("", userinfo.Username)
-		if err != nil {
-			continue
-		}
-		err = thisFshAbs.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-			if system_fs_isTrashEntry(path) {
-				//This is a trashbin dir.
-				file := path
-
-				//Parse the trashFile struct
-				timestamp := filepath.Ext(file)[1:]
-				originalName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
-				originalExt := filepath.Ext(filepath.Base(originalName))
-				virtualFilepath, _ := thisFshAbs.RealPathToVirtualPath(file, userinfo.Username)
-				virtualOrgPath, _ := thisFshAbs.RealPathToVirtualPath(filepath.Dir(filepath.Dir(filepath.Dir(file))), userinfo.Username)
-				rawsize := thisFshAbs.GetFileSize(file)
-				timestampInt64, _ := utils.StringToInt64(timestamp)
-				removeTimeDate := time.Unix(timestampInt64, 0)
-				if thisFshAbs.IsDir(file) {
-					originalExt = ""
-				}
-
-				thisTrashFileObject := trashedFile{
-					Filename:         filepath.Base(file),
-					Filepath:         virtualFilepath,
-					FileExt:          originalExt,
-					IsDir:            thisFshAbs.IsDir(file),
-					Filesize:         int64(rawsize),
-					RemoveTimestamp:  timestampInt64,
-					RemoveDate:       removeTimeDate.Format("2006-01-02 15:04:05"),
-					OriginalPath:     virtualOrgPath,
-					OriginalFilename: originalName,
-				}
-
-				//Send out the result as JSON string
-				js, _ := json.Marshal(thisTrashFileObject)
-				err := c.WriteMessage(1, js)
-				if err != nil {
-					//Connection already closed
-					return err
-				}
-			}
-
-			return nil
+	for _, fsh := range system_fs_trashRootsOf(userinfo) {
+		err = system_fs_scanTrashOf(fsh, userinfo.Username, func(item trashItem) error {
+			//Send out the result as JSON string
+			js, _ := json.Marshal(system_fs_getTrashedFileInfo(item))
+			return c.WriteMessage(1, js)
 		})
 
 		if err != nil {
-			//Scan or client connection error (Connection closed?)
+			//Client connection error (Connection closed?)
 			return
 		}
 	}
 
 	//Close connection after finished
 	c.Close()
-
 }
 
-// Scan all the directory and get trash files within the system
+// Scan the trash of every root and return the trashed files within the system
 func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	username := userinfo.Username
 
 	results := []trashedFile{}
-	files, fshs, err := system_fs_listTrash(username)
-	if err != nil {
-		utils.SendErrorResponse(w, err.Error())
-		return
-	}
-
-	//Get information of each files and process it into results
-	for c, file := range files {
-		fsAbs := fshs[c].FileSystemAbstraction
-		timestamp := filepath.Ext(file)[1:]
-		originalName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
-		originalExt := filepath.Ext(filepath.Base(originalName))
-		virtualFilepath, _ := fsAbs.RealPathToVirtualPath(file, userinfo.Username)
-		virtualOrgPath, _ := fsAbs.RealPathToVirtualPath(filepath.Dir(filepath.Dir(filepath.Dir(file))), userinfo.Username)
-		rawsize := fsAbs.GetFileSize(file)
-		timestampInt64, _ := utils.StringToInt64(timestamp)
-		removeTimeDate := time.Unix(timestampInt64, 0)
-		if fsAbs.IsDir(file) {
-			originalExt = ""
-		}
-		results = append(results, trashedFile{
-			Filename:         filepath.Base(file),
-			Filepath:         virtualFilepath,
-			FileExt:          originalExt,
-			IsDir:            fsAbs.IsDir(file),
-			Filesize:         int64(rawsize),
-			RemoveTimestamp:  timestampInt64,
-			RemoveDate:       removeTimeDate.Format("2006-01-02 15:04:05"),
-			OriginalPath:     virtualOrgPath,
-			OriginalFilename: originalName,
-		})
+	for _, item := range system_fs_listTrash(userinfo.Username) {
+		results = append(results, system_fs_getTrashedFileInfo(item))
 	}
 
 	//Sort the results by date, latest on top
@@ -1494,7 +1668,7 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(jsonString))
 }
 
-// Restore a trashed file to its parent dir
+// Restore a trashed file to the folder it was removed from
 func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -1515,28 +1689,45 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	}
 	fshAbs := fsh.FileSystemAbstraction
 
-	//Translate it to realpath
-	realpath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
-	if !fshAbs.FileExists(realpath) {
-		utils.SendErrorResponse(w, "File not exists")
-		return
-	}
-
 	//Check if this is really a trashed file
-	if filepath.Base(filepath.Dir(realpath)) != ".trash" {
+	originalSubpath, _, ok := system_fs_originalSubpathOf(subpath)
+	if !ok {
 		utils.SendErrorResponse(w, "File not in trashbin")
 		return
 	}
 
-	//OK to proceed.
-	originalFilename := strings.TrimSuffix(filepath.Base(realpath), filepath.Ext(filepath.Base(realpath)))
-	restoreFolderRoot := filepath.Dir(filepath.Dir(filepath.Dir(realpath)))
-	targetPath := filepath.ToSlash(filepath.Join(restoreFolderRoot, originalFilename))
-	//systemWideLogger.PrintAndLog("File System", (targetPath)
-	fshAbs.Rename(realpath, targetPath)
+	realpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil || !fshAbs.FileExists(realpath) {
+		utils.SendErrorResponse(w, "File not exists")
+		return
+	}
 
-	//Check if the parent dir has no more fileds. If yes, remove it
-	system_fs_removeTrashDirIfEmpty(fshAbs, filepath.Dir(realpath))
+	if !userinfo.CanWrite(fsh.UUID + ":" + originalSubpath) {
+		utils.SendErrorResponse(w, "Access Denied")
+		return
+	}
+
+	targetPath, err := fshAbs.VirtualPathToRealPath(originalSubpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+	if fshAbs.FileExists(targetPath) {
+		utils.SendErrorResponse(w, "An item with the same name already exists in the original location")
+		return
+	}
+
+	//The folder it came from may have been removed since
+	fshAbs.MkdirAll(path.Dir(filepath.ToSlash(targetPath)), 0755)
+	err = fshAbs.Rename(realpath, targetPath)
+	if err != nil {
+		systemWideLogger.PrintAndLog("File System", "Failed to restore file from trash", err)
+		utils.SendErrorResponse(w, "Failed to restore file from trash")
+		return
+	}
+
+	//Drop the folders in the trash it leaves empty
+	system_fs_pruneTrashParents(fsh, userinfo.Username, path.Dir(filepath.ToSlash(realpath)))
 
 	utils.SendOK(w)
 }
@@ -1549,95 +1740,25 @@ func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileList, fshs, err := system_fs_listTrash(u.Username)
-
-	if err != nil {
-		utils.SendErrorResponse(w, "Unable to clear trash: "+err.Error())
-		return
-	}
-
-	//Get list success. Remove each of them.
-	for c, file := range fileList {
-		fileVpath, _ := fshs[c].FileSystemAbstraction.RealPathToVirtualPath(file, u.Username)
-		isOwner := u.IsOwnerOfFile(fshs[c], fileVpath)
-		if isOwner {
-			//This user own this system. Remove this file from his quota
-			u.RemoveOwnershipFromFile(fshs[c], fileVpath)
+	for _, fsh := range system_fs_trashRootsOf(u) {
+		items := []trashItem{}
+		system_fs_scanTrashOf(fsh, u.Username, func(item trashItem) error {
+			items = append(items, item)
+			return nil
+		})
+		for _, item := range items {
+			system_fs_removeTrashItem(u, item)
 		}
-		fshAbs := fshs[c].FileSystemAbstraction
-		fshAbs.RemoveAll(file)
-		//Check if its parent directory have no files. If yes, remove the dir itself as well.
-		system_fs_removeTrashDirIfEmpty(fshAbs, filepath.Dir(file))
+
+		//Everything left in there is a leftover. Remove the whole .trash folder
+		fshAbs := fsh.FileSystemAbstraction
+		trashRoot, err := fshAbs.VirtualPathToRealPath(trashFolderSubpath, u.Username)
+		if err == nil && fshAbs.FileExists(trashRoot) {
+			fshAbs.RemoveAll(trashRoot)
+		}
 	}
 
 	utils.SendOK(w)
-}
-
-/*
-Check if a path is a trashed item: an entry right inside a .trash folder whose
-name ends with the .<unix time> it was removed at. Anything else in there,
-like the .metadata folder a thumbnail of a trashed file leaves behind or a
-.DS_Store, is not something the user put in the trash.
-*/
-func system_fs_isTrashEntry(path string) bool {
-	if filepath.Base(filepath.Dir(path)) != ".trash" {
-		return false
-	}
-	ext := filepath.Ext(path)
-	if len(ext) < 2 {
-		return false
-	}
-	_, err := utils.StringToInt64(ext[1:])
-	return err == nil
-}
-
-// Remove a .trash folder (with the leftovers in it) once no trashed item is left inside
-func system_fs_removeTrashDirIfEmpty(fshAbs filesystem.FileSystemAbstraction, trashDir string) {
-	entries, err := fshAbs.Glob(filepath.ToSlash(trashDir) + "/*")
-	if err != nil {
-		return
-	}
-	for _, entry := range entries {
-		if system_fs_isTrashEntry(entry) {
-			return
-		}
-	}
-	fshAbs.RemoveAll(trashDir)
-}
-
-// Get all trash in a string list
-func system_fs_listTrash(username string) ([]string, []*filesystem.FileSystemHandler, error) {
-	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
-	scanningRoots := []*filesystem.FileSystemHandler{}
-	//Get all roots to scan
-	for _, storage := range userinfo.GetAllFileSystemHandler() {
-		if storage.Hierarchy == "backup" {
-			//Skip this fsh
-			continue
-		}
-
-		scanningRoots = append(scanningRoots, storage)
-	}
-
-	files := []string{}
-	fshs := []*filesystem.FileSystemHandler{}
-	for _, thisFsh := range scanningRoots {
-		thisFshAbs := thisFsh.FileSystemAbstraction
-		rootPath, _ := thisFshAbs.VirtualPathToRealPath("", userinfo.Username)
-		err := thisFshAbs.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-			if system_fs_isTrashEntry(path) {
-				//This is a trashbin dir.
-				files = append(files, path)
-				fshs = append(fshs, thisFsh)
-			}
-			return nil
-		})
-		if err != nil {
-			continue
-		}
-	}
-
-	return files, fshs, nil
 }
 
 /*
@@ -2627,13 +2748,13 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				//Deleted from the trash bin. Drop the .trash folder once it is empty
-				if filepath.Base(filepath.Dir(rsrcFile)) == ".trash" {
-					system_fs_removeTrashDirIfEmpty(srcFshAbs, filepath.Dir(rsrcFile))
+				//Deleted from the trash bin. Drop the folders it left empty there
+				if system_fs_isInTrash(subpath) {
+					system_fs_pruneTrashParents(srcFsh, userinfo.Username, path.Dir(filepath.ToSlash(rsrcFile)))
 				}
 
 			} else if operation == "recycle" {
-				//Put it into a subfolder named trash and allow it to to be removed later
+				//Move it into the .trash folder of its root and allow it to to be removed later
 				if !srcFshAbs.FileExists(rsrcFile) {
 					//Check if it is a non escapted file instead
 					utils.SendErrorResponse(w, "Source file not exists")
@@ -2644,6 +2765,15 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Check if the upload target is read only.
 				if !userinfo.CanWrite(vsrcFile) {
 					utils.SendErrorResponse(w, "Access Denied")
+					return
+				}
+
+				if system_fs_isInTrash(subpath) {
+					utils.SendErrorResponse(w, "This item is already in the trash bin")
+					return
+				}
+				if system_fs_trashSubpathOf(subpath, 0) == "" {
+					utils.SendErrorResponse(w, "The root folder cannot be moved to the trash bin")
 					return
 				}
 
@@ -2674,13 +2804,25 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
-				//Create a trash directory for this folder
-				trashDir := filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.trash/"
-				srcFshAbs.MkdirAll(trashDir, 0755)
-				hidden.HideFile(filepath.Dir(trashDir))
-				hidden.HideFile(trashDir)
-				err = srcFshAbs.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+utils.Int64ToString(time.Now().Unix()))
+				//Mirror the folders it was removed from inside the .trash folder of this root
+				removeTime := time.Now().Unix()
+				trashPath, err := srcFshAbs.VirtualPathToRealPath(system_fs_trashSubpathOf(subpath, removeTime), userinfo.Username)
+				for err == nil && srcFshAbs.FileExists(trashPath) {
+					//Another item of the same name was removed from there within this second
+					removeTime++
+					trashPath, err = srcFshAbs.VirtualPathToRealPath(system_fs_trashSubpathOf(subpath, removeTime), userinfo.Username)
+				}
+				trashRoot, rootErr := srcFshAbs.VirtualPathToRealPath(trashFolderSubpath, userinfo.Username)
+				if err != nil || rootErr != nil {
+					utils.SendErrorResponse(w, "Failed to move file to trash")
+					return
+				}
+				srcFshAbs.MkdirAll(path.Dir(filepath.ToSlash(trashPath)), 0755)
+				hidden.HideFile(trashRoot)
+				err = srcFshAbs.Rename(rsrcFile, trashPath)
 				if err != nil {
+					//Do not leave the folders made for it behind
+					system_fs_pruneTrashParents(srcFsh, userinfo.Username, path.Dir(filepath.ToSlash(trashPath)))
 					if srcFsh.RequireBuffer {
 						utils.SendErrorResponse(w, "Incompatible File System Type: Try SHIFT + DELETE to delete file permanently")
 					} else {

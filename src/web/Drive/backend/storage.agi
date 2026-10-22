@@ -9,8 +9,9 @@
 
     The visible tree is walked breadth first with filelib.readdir, which
     returns sizes in the same call. readdir hides dot folders, so for every
-    folder the hidden ".metadata" folder (trash, version history, thumbnail
-    caches) is walked separately.
+    folder the hidden ".metadata" folder (version history, thumbnail caches)
+    is walked separately, and the trash, which lives in a single ".trash"
+    folder at the root, is walked on its own by walkTrash.
 */
 
 requirelib("filelib");
@@ -125,6 +126,44 @@ function walkDrive(root, visit) {
     return truncated;
 }
 
+/*
+    walkTrash(visit) calls visit(vpath, entry, origin) for every file in the
+    trash. A trashed item keeps the folders it was removed from:
+
+        user:/.trash/foo/bar/deleteme.txt.<unix time>
+
+    entry is the trashed item the file belongs to (itself, or the trashed
+    folder it is inside) and origin the folder it was removed from. A folder
+    on the way whose name looks like a trashed item carries an extra "~".
+*/
+var TRASH_ROOT = "user:/.trash/";
+var TRASH_NAME = /^.+\.\d+$/;
+
+function walkTrash(visit) {
+    var files = [];
+    try {
+        if (filelib.fileExists(TRASH_ROOT) && filelib.isDir(TRASH_ROOT)) {
+            files = filelib.walk(TRASH_ROOT, "file");
+        }
+    } catch (e) {
+        files = [];
+    }
+    for (var i = 0; i < files.length; i++) {
+        var segments = String(files[i]).substring(TRASH_ROOT.length).split("/");
+        for (var k = 0; k < segments.length; k++) {
+            if (TRASH_NAME.test(segments[k])) {
+                break;
+            }
+        }
+        if (k == segments.length) {
+            //A leftover, such as a thumbnail cache
+            continue;
+        }
+        var folders = segments.slice(0, k).map(function (s) { return s.replace(/^(.+\.\d+~*)~$/, "$1"); });
+        visit(files[i], TRASH_ROOT + segments.slice(0, k + 1).join("/"), "user:/" + folders.join("/"));
+    }
+}
+
 function sizeOf(path) {
     try {
         return filelib.filesize(path);
@@ -175,18 +214,7 @@ if (opr == "analyze") {
         meta: function (path, dir) {
             var rel = path.substring(dir.length + ".metadata/".length);
             var size = sizeOf(path);
-            if (rel.indexOf(".trash/") == 0) {
-                var entry = rel.substring(7).split("/")[0];
-                trash.size += size;
-                if (!trash.entries[dir + entry]) {
-                    trash.entries[dir + entry] = true;
-                    trash.count++;
-                }
-                //Trashed names end with .<unix time>
-                var shown = entry.replace(/\.\d+$/, "");
-                //A file inside a trashed folder shows its own name
-                push({ name: rel.indexOf("/", 7) > 0 ? basename(path) : shown, path: path, size: size, mtime: 0, where: "trash", origin: dir });
-            } else if (rel.indexOf(".localver/") == 0) {
+            if (rel.indexOf(".localver/") == 0) {
                 versions.size += size;
                 versions.count++;
                 var histid = rel.substring(10).split("/")[0];
@@ -199,6 +227,17 @@ if (opr == "analyze") {
                 cache.count++;
             }
         }
+    });
+    walkTrash(function (path, entry, origin) {
+        var size = sizeOf(path);
+        trash.size += size;
+        if (!trash.entries[entry]) {
+            trash.entries[entry] = true;
+            trash.count++;
+        }
+        //Trashed names end with .<unix time>; a file inside a trashed folder shows its own name
+        var name = path == entry ? basename(entry).replace(/\.\d+$/, "") : basename(path);
+        push({ name: name, path: path, size: size, mtime: 0, where: "trash", origin: origin });
     });
     delete trash.entries;
 

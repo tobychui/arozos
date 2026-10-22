@@ -44,10 +44,11 @@ let trashKindFilter = "all";    //all | file | folder, set by the card layout ch
 /*
     Scan state
 
-    A bin on a large NAS takes a while to list: the server walks every folder
-    of every mounted root looking for .trash directories. Rather than hold a
-    blank screen for all of it, the scan is streamed and each file is drawn as
-    the server finds it - see the loading section below.
+    Every mounted root keeps its trash in one .trash folder at its top, so a
+    scan only reads those folders, but a slow network drive still takes a
+    while. Rather than hold a blank screen for all of it, the scan is streamed
+    and each file is drawn as the server finds it - see the loading section
+    below.
 */
 let trashScanning = false;      //A scan is in flight
 let trashScanGeneration = 0;    //Bumped per scan, so a stale one draws nothing
