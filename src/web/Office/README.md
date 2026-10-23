@@ -173,9 +173,9 @@ every format keeps it):
   superscript (Ctrl+, / Ctrl+.), paragraph shading and borders (the .docx
   writer's `w:shd` / `w:pBdr`), sort paragraphs, formatting marks (an
   absolutely positioned pilcrow, so it cannot move a line), format painter,
-  footnotes (Ctrl+Alt+F), a table of contents (heading text, a right tab with
-  a dot leader and the page number as laid out now - Update table redoes
-  it), margin / orientation / size presets, word count, page-width zoom.
+  footnotes (Ctrl+Alt+F), a table of contents (see
+  [Docs: table of contents](#docs-table-of-contents)), margin / orientation
+  / size presets, word count, page-width zoom.
 - Sheets: font family, size in points, strikethrough (Ctrl+5) and vertical
   alignment (`s.ff`, `s.st`, `s.va` - written to and read from .xlsx and
   .ods), merge and center, the number-format box and comma style, cell
@@ -1212,6 +1212,50 @@ anchored picture is its `margin-left`**, which the writer saves as the
 horizontal offset: `text-align` cannot move a block image, so the Home
 align buttons call `alignPicture` while a picture is selected, and a
 centred or right-set picture is placed again whenever its width changes.
+
+### Docs: table of contents
+
+References > Table of contents inserts a "Contents" title and one line
+per Heading 1-3 (not the Title): the heading's text, a right tab with a
+dot leader at the margin and the page it is on as laid out now. They are
+**ordinary paragraphs** - `p.doc-toc` (`.doc-toc-title` for the title,
+`data-toc-level` on an entry, `data-toc-max` the deepest heading the
+table lists when it is not 3) - so the layout, the PDF and every writer
+handle them like any text, and nothing new had to be taught to the
+paginator: a long table splits across pages like any paragraphs.
+
+- **The area and its tab** are editor chrome, not content:
+  `drawTocOverlay()` in `docs.js` puts a `.doc-toc-frame` in `#page`
+  (layout px, zoomed with the page) with one box per page the table covers
+  and an "Update table" tab above the first, while the caret is in the
+  table (solid) or the mouse is over it (dashed). It is never saved, print
+  hides it and `docs_pdf.js` skips it. A table is a run of `.doc-toc`
+  paragraphs that follow each other (`tocGroups()`), so two tables are
+  updated separately.
+- **Update** (the tab, or Update table on the ribbon, which does every
+  table) undoes the page splits first, replaces the entry lines and lays
+  the document out again until the page numbers stop changing (the new
+  lines can push a heading onto the next page). The title and anything
+  the user typed outside the entries stay. Ctrl+click an entry goes to its
+  heading (matched by level and text).
+- **DOCX**: the writer ([`mod/office/docx/toc.go`](../../mod/office/docx/toc.go))
+  wraps a table in Word's Table of Contents building-block control
+  (`w:sdt` with `docPartGallery`) and the entries in a
+  `TOC \o "1-3" \h \z \u` field, and styles the lines with Word's
+  `TOC Heading` / `toc 1..9` styles, so Word offers its own Update Table.
+  The reader maps those styles back to `.doc-toc` - Word's `TOC Heading`
+  is based on Heading 1, so `tocLevel` is asked before `headingLevel`
+  would call the title a heading. **Google Docs** writes no TOC styles:
+  its entries are only the result of a `TOC \t "Heading 1,1,...Heading
+  6,6,"` field, each a link to its heading's bookmark (and its "Table of
+  Contents" title is a real Heading 3 outside the control, listed in the
+  table itself). So a paragraph shown inside a TOC field that has text
+  and a tab or a `#` link is an entry too; its level comes from the
+  heading its link points at once the body is read (`resolveTocLevels`),
+  and the field's range becomes `data-toc-max` (an update must not drop
+  the Heading 4-6 lines). An update indents from the top level present,
+  so a document whose chapters are Heading 2 still starts at the margin.
+  ODT has no table of contents element yet (the lines export as text).
 
 ### Header / footer
 

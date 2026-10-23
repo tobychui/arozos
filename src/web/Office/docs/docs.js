@@ -146,6 +146,9 @@
                 if (editor.contains(r.commonAncestorContainer)) {
                     savedRange = r.cloneRange();
                     scheduleToolbarState();
+                    scheduleTocOverlay();
+                } else if (tocOverlay && tocOverlay.style.display !== "none") {
+                    scheduleTocOverlay();
                 }
             }
         });
@@ -1400,64 +1403,337 @@
         } catch (err) { }
         fn.scrollIntoView({ block: "nearest" });
     }
-    /* A table of contents is ordinary paragraphs: each heading's text, a
-       right tab with a dot leader at the margin, and the page it is on as
-       the layout has it now. That is what Word stores once a TOC field is
-       updated, so it round-trips as plain text with real tab stops. The
-       .doc-toc class marks the lines Update table replaces. */
+    /* A table of contents is ordinary paragraphs: a "Contents" title, then
+       each heading's text, a right tab with a dot leader at the margin, and
+       the page it is on as the layout has it now. That is what Word stores
+       once a TOC field is updated, so the layout, the PDF and the writers
+       treat it as plain text with real tab stops (the DOCX writer wraps it
+       in a TOC field Word can update). The .doc-toc class marks the lines,
+       data-toc-level the heading level of an entry and data-toc-max the
+       deepest heading the table lists (3 when absent; an imported table
+       keeps its own range, Google Docs lists 1-6); a run of them is one
+       table, which the editor frames with an "Update table" tab on top
+       while the caret or the mouse is in it (tocOverlay, not saved). */
+    var ZWSP = String.fromCharCode(0x200B);
+    function tocSelector(max) {
+        var sel = ["h1:not(.doc-title)"];
+        for (var l = 2; l <= max; l++) sel.push("h" + l);
+        return sel.join(", ");
+    }
+    // the deepest heading level a table lists
+    function tocMaxOf(lines) {
+        var max = 0;
+        (lines || []).forEach(function (p) {
+            var v = parseInt(p.getAttribute("data-toc-max"), 10);
+            if (v > max) max = v;
+        });
+        return max >= 1 ? Math.min(6, max) : 3;
+    }
     function hasToc() { return !!editor.querySelector("p.doc-toc"); }
-    function tocHtml() {
-        var heads = editor.querySelectorAll("h1, h2, h3");
-        var geo = pageGeometry();
-        var tabPt = Math.round(geo.contentW * 0.75 * 10) / 10;
-        var html = "";
+    // a heading's text, all of it when a page boundary divides it
+    function headingText(h) {
+        var parts = [];
+        var el = h;
+        for (var guard = 0; el && guard < 50; guard++) {
+            var c = el.cloneNode(true);
+            var drop = c.querySelectorAll("sup.doc-fnref, .doc-autobreak");
+            for (var i = 0; i < drop.length; i++) drop[i].parentNode.removeChild(drop[i]);
+            parts.push(c.textContent || "");
+            var tok = el.getAttribute("data-split");
+            el = tok ? editor.querySelector('[data-split-of="' + tok + '"]') : null;
+        }
+        return parts.join("").split(ZWSP).join("").replace(/\s+/g, " ").trim();
+    }
+    function tocEntries(max) {
+        var heads = editor.querySelectorAll(tocSelector(max || 3));
+        var out = [];
         for (var i = 0; i < heads.length; i++) {
             var h = heads[i];
-            if (h.closest(".doc-fn-area") || h.classList.contains("doc-split-tail")) continue;
-            var text = (h.textContent || "").replace(/\s+/g, " ").trim();
+            if (h.closest(".doc-fn-area, .doc-hf") || h.classList.contains("doc-split-tail")) continue;
+            var text = headingText(h);
             if (!text) continue;
-            var level = h.classList.contains("doc-title") ? 1 : parseInt(h.tagName.substring(1), 10);
-            var page = pageIndexAt(offsetTopInPage(h)) + 1;
-            var indent = (level - 1) * 14;
-            html += '<p class="doc-toc" data-tabs="right:' + tabPt + ':dot" style="margin-left:' + indent + 'pt;margin-bottom:3pt;">' +
-                esc(text) + '<span class="doc-tab"></span>' + page + "</p>";
+            out.push({
+                level: parseInt(h.tagName.substring(1), 10),
+                text: text,
+                page: pageIndexAt(offsetTopInPage(h)) + 1
+            });
+        }
+        return out;
+    }
+    function tocLinesHtml(entries, max) {
+        max = max || 3;
+        var geo = pageGeometry();
+        var tabPt = Math.round(geo.contentW * 0.75 * 10) / 10;
+        var maxAttr = max !== 3 ? ' data-toc-max="' + max + '"' : "";
+        if (!entries.length) {
+            return '<p class="doc-toc" data-toc-level="0"' + maxAttr + ' style="margin-bottom:3pt;color:#80868b;">' +
+                esc("No headings found - use Heading 1-" + max + " for the lines this table should list") + "</p>";
+        }
+        // the top level present starts at the margin (a document whose
+        // chapters are Heading 2 has no empty first step)
+        var top = 9;
+        entries.forEach(function (e) { top = Math.min(top, e.level); });
+        var html = "";
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            html += '<p class="doc-toc" data-toc-level="' + e.level + '"' + maxAttr + ' data-tabs="right:' + tabPt + ':dot" style="margin-left:' +
+                ((e.level - top) * 14) + 'pt;margin-bottom:3pt;">' + esc(e.text) + '<span class="doc-tab"></span>' + e.page + "</p>";
         }
         return html;
+    }
+    function tocSignature(entries) {
+        return entries.map(function (e) { return e.level + "|" + e.page + "|" + e.text; }).join("\n");
+    }
+    /* the tables in the document: each a run of .doc-toc paragraphs that
+       follow one another (a page spacer between two of them is the layout's) */
+    function tocGroups() {
+        var groups = [];
+        var cur = null, last = null;
+        var lines = editor.querySelectorAll("p.doc-toc");
+        for (var i = 0; i < lines.length; i++) {
+            var p = lines[i];
+            if (p.closest(".doc-hf")) continue;
+            var prev = p.previousElementSibling;
+            while (prev && prev.classList.contains("doc-autobreak")) prev = prev.previousElementSibling;
+            if (!cur || prev !== last) {
+                cur = [];
+                groups.push(cur);
+            }
+            cur.push(p);
+            last = p;
+        }
+        return groups;
+    }
+    function tocGroupOf(node) {
+        var p = node && node.nodeType === 1 ? node : (node ? node.parentNode : null);
+        p = p && p.closest ? p.closest("p.doc-toc") : null;
+        if (!p || !editor.contains(p)) return null;
+        var groups = tocGroups();
+        for (var i = 0; i < groups.length; i++) {
+            if (groups[i].indexOf(p) >= 0) return groups[i];
+        }
+        return null;
     }
     function insertToc() {
         if (inHeaderFooter()) return;
         if (hasToc()) { updateToc(); return; }
-        var body = tocHtml();
-        if (!body) {
-            OfficeApp.setStatus("Add some headings first (Heading 1-3) - the table lists them", "info", 5000);
-            return;
-        }
+        var entries = tocEntries();
         restoreSel();
         try {
             document.execCommand("insertHTML", false,
-                '<p class="doc-toc doc-toc-title" style="font-size:16pt;margin-bottom:6pt;">Contents</p>' + body + "<p><br></p>");
+                '<p class="doc-toc doc-toc-title" style="font-size:16pt;margin-bottom:6pt;">Contents</p>' +
+                tocLinesHtml(entries) + "<p><br></p>");
         } catch (e) { return; }
         afterEdit(true);
         updatePageGuides();
         // the table itself moved the headings: number it again
-        setTimeout(updateTocQuiet, 80);
+        updateToc(true);
+        if (!entries.length) OfficeApp.setStatus("Table of contents added - give your headings a Heading 1-3 style, then click Update table", "info", 6000);
     }
     function updateTocQuiet() { updateToc(true); }
-    function updateToc(quiet) {
-        var lines = editor.querySelectorAll("p.doc-toc:not(.doc-toc-title)");
-        if (!lines.length) return;
-        var html = tocHtml();
-        var holder = document.createElement("div");
-        holder.innerHTML = html;
-        var first = lines[0];
-        var parent = first.parentNode;
-        while (holder.firstChild) parent.insertBefore(holder.firstChild, first);
-        for (var i = 0; i < lines.length; i++) {
-            if (lines[i].parentNode) lines[i].parentNode.removeChild(lines[i]);
+    /* updateToc rebuilds every table (or only `only`, one group) from the
+       headings. The new lines can push the headings to other pages, so the
+       numbers are taken again until they stop changing. */
+    function updateToc(quiet, only) {
+        if (!hasToc()) return;
+        var groups = tocGroups();
+        if (only) {
+            var first = only[0];
+            groups = groups.filter(function (g) { return g.indexOf(first) >= 0; });
+        }
+        if (!groups.length) return;
+        // the headings each table lists, from the pages as laid out now
+        var maxes = groups.map(tocMaxOf);
+        function entriesByMax() {
+            var out = {};
+            maxes.forEach(function (m) { if (!out[m]) out[m] = tocEntries(m); });
+            return out;
+        }
+        var entries = entriesByMax();
+        // then every page split is undone: the lines replaced may be cut in two
+        removeAutoBreaks(editor);
+        groups = tocGroups();
+        if (only) groups = groups.filter(function (g) { return g.indexOf(first) >= 0; });
+        if (!groups.length) return;
+        // where each table goes once its lines are gone: the first old line
+        var anchors = groups.map(function (g, i) {
+            var lines = g.filter(function (p) { return !p.classList.contains("doc-toc-title"); });
+            var title = g.filter(function (p) { return p.classList.contains("doc-toc-title"); })[0] || null;
+            return { lines: lines, after: title, before: lines.length ? lines[0] : null, max: maxes[i] || 3 };
+        });
+        var caretInside = groups.some(function (g) {
+            var sel = window.getSelection();
+            return sel && sel.rangeCount && g.some(function (p) { return p.contains(sel.anchorNode); });
+        });
+        var sig = null;
+        for (var pass = 0; pass < 4; pass++) {
+            if (pass > 0) entries = entriesByMax();
+            var s = Object.keys(entries).sort().map(function (m) { return m + ":" + tocSignature(entries[m]); }).join("\n");
+            if (s === sig) break;
+            sig = s;
+            anchors.forEach(function (a) {
+                var holder = document.createElement("div");
+                holder.innerHTML = tocLinesHtml(entries[a.max], a.max);
+                var fresh = Array.prototype.slice.call(holder.children);
+                var ref = a.before || (a.after ? a.after.nextSibling : null);
+                var parent = (a.before || a.after).parentNode;
+                fresh.forEach(function (n) { parent.insertBefore(n, ref); });
+                a.lines.forEach(function (p) { if (p.parentNode) p.parentNode.removeChild(p); });
+                a.lines = fresh;
+                a.before = fresh[0] || null;
+            });
+            dirtyFromY = null;
+            updatePageGuides();
+        }
+        if (caretInside && anchors[0].lines[0]) {
+            // the caret's line is gone: put it at the start of the new table
+            try {
+                var r = document.createRange();
+                r.setStart(anchors[0].lines[0], 0);
+                r.collapse(true);
+                var sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(r);
+                savedRange = r.cloneRange();
+            } catch (err) { }
         }
         afterEdit(true);
-        updatePageGuides();
+        scheduleTocOverlay();
         if (quiet !== true) OfficeApp.setStatus("Table of contents updated");
+    }
+    // Ctrl+click on an entry: go to the heading it lists
+    function followTocEntry(p) {
+        if (p.classList.contains("doc-toc-title")) return false;
+        var level = parseInt(p.getAttribute("data-toc-level"), 10);
+        if (level === 0) return false;   // the "no headings" line
+        var hit = null;
+        // an imported entry links to its heading's bookmark
+        var link = p.querySelector('a[href^="#"]');
+        if (link) {
+            try {
+                var target = editor.querySelector("#" + CSS.escape(decodeURIComponent(link.getAttribute("href").substring(1))));
+                if (target && /^H[1-6]$/.test(target.tagName)) hit = target;
+            } catch (err) { }
+        }
+        var c = p.cloneNode(true);
+        var tabs = c.querySelectorAll(".doc-tab");
+        if (tabs.length) {
+            // the text before the tab; the page number follows it
+            var t = tabs[tabs.length - 1];
+            var cut = document.createRange();
+            cut.setStartBefore(t);
+            cut.setEndAfter(c.lastChild);
+            cut.deleteContents();
+        }
+        var want = (c.textContent || "").split(ZWSP).join("").replace(/\s+/g, " ").trim();
+        var heads = editor.querySelectorAll("h1, h2, h3, h4, h5, h6");
+        for (var i = 0; i < heads.length && !hit; i++) {
+            var h = heads[i];
+            if (h.classList.contains("doc-split-tail") || headingText(h) !== want) continue;
+            if (!(level > 0) || parseInt(h.tagName.substring(1), 10) === level) hit = h;
+        }
+        if (!hit) {
+            OfficeApp.setStatus("That heading is not in the document any more - update the table", "info", 4000);
+            return true;
+        }
+        try {
+            var r = document.createRange();
+            r.setStart(hit, 0);
+            r.collapse(true);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
+            savedRange = r.cloneRange();
+        } catch (err) { }
+        hit.scrollIntoView({ block: "start" });
+        return true;
+    }
+
+    /* The frame and tab of the table the caret or the mouse is in: drawn
+       in #page (layout px, zoomed with it) above the text, one box per
+       page the table covers, the tab above the first. Editor chrome only -
+       the PDF exporter skips .doc-toc-frame and print hides it. */
+    var tocOverlay = null, tocHover = null, tocHoverTimer = null, tocOverlayTimer = null;
+    function scheduleTocOverlay() {
+        if (tocOverlayTimer) return;
+        tocOverlayTimer = setTimeout(function () {
+            tocOverlayTimer = null;
+            drawTocOverlay();
+        }, 0);
+    }
+    function caretTocGroup() {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return null;
+        return tocGroupOf(sel.anchorNode);
+    }
+    function drawTocOverlay() {
+        if (!pageEl) return;
+        var group = caretTocGroup();
+        var active = !!group;
+        if (!group && tocHover && tocHover[0] && tocHover[0].isConnected) group = tocGroupOf(tocHover[0]);
+        if (!group) {
+            if (tocOverlay) tocOverlay.style.display = "none";
+            return;
+        }
+        if (!tocOverlay) {
+            tocOverlay = document.createElement("div");
+            tocOverlay.className = "doc-toc-frame of-noprint";
+            tocOverlay.addEventListener("mouseenter", function () { clearTimeout(tocHoverTimer); });
+            tocOverlay.addEventListener("mouseleave", leaveTocHover);
+            pageEl.appendChild(tocOverlay);
+        }
+        tocOverlay.style.display = "";
+        tocOverlay.classList.toggle("active", active);
+        // one box per page the table is on
+        var boxes = [];
+        group.forEach(function (p) {
+            var top = offsetTopInPage(p);
+            var pg = pageIndexAt(top);
+            var b = boxes.length ? boxes[boxes.length - 1] : null;
+            if (!b || b.page !== pg) boxes.push(b = { page: pg, top: top, bottom: top });
+            b.bottom = Math.max(b.bottom, top + p.offsetHeight);
+        });
+        var left = editor.offsetLeft - 6;
+        var width = editor.offsetWidth + 12;
+        var html = "";
+        boxes.forEach(function (b, i) {
+            html += '<div class="doc-toc-box" style="left:' + left + "px;top:" + (b.top - 4) + "px;width:" + width +
+                "px;height:" + (b.bottom - b.top + 8) + 'px;"></div>';
+            if (i === 0) {
+                html += '<div class="doc-toc-tab" style="left:' + left + "px;top:" + (b.top - 4) + 'px;">' +
+                    '<button type="button" class="doc-toc-update" title="Update the table from the headings (Ctrl+click an entry to go to its heading)">' +
+                    '<i class="sync alternate icon"></i>Update table</button></div>';
+            }
+        });
+        tocOverlay.innerHTML = html;
+        var btn = tocOverlay.querySelector(".doc-toc-update");
+        // keep the caret where it is: the button never takes the focus
+        btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+        btn.addEventListener("click", function (e) {
+            e.preventDefault();
+            var g = caretTocGroup() || (tocHover && tocHover[0] && tocHover[0].isConnected ? tocGroupOf(tocHover[0]) : null);
+            updateToc(false, g || undefined);
+        });
+    }
+    function leaveTocHover() {
+        clearTimeout(tocHoverTimer);
+        // time to cross from the lines to the tab above them
+        tocHoverTimer = setTimeout(function () {
+            tocHover = null;
+            scheduleTocOverlay();
+        }, 400);
+    }
+    function trackTocHover(e) {
+        var p = e.target && e.target.closest ? e.target.closest("p.doc-toc") : null;
+        if (p && editor.contains(p)) {
+            clearTimeout(tocHoverTimer);
+            if (!tocHover || tocHover.indexOf(p) < 0) {
+                tocHover = tocGroupOf(p);
+                scheduleTocOverlay();
+            }
+        } else if (tocHover && !(e.target.closest && e.target.closest(".doc-toc-frame"))) {
+            leaveTocHover();
+        }
     }
 
     /* ---------- Review / View ---------- */
@@ -3391,6 +3667,7 @@
         } finally {
             relayoutH = editor.offsetHeight;
             relayouting = false;
+            if (tocOverlay || tocHover) scheduleTocOverlay();
         }
     }
     function layoutPages() {
@@ -4922,6 +5199,11 @@
                 showCommentsPanel(true);
                 renderCommentsPanel(cmtHit.getAttribute("data-cid"));
             }
+            var tocLine = (e.ctrlKey || e.metaKey) && t.closest ? t.closest("p.doc-toc") : null;
+            if (tocLine && editor.contains(tocLine) && followTocEntry(tocLine)) {
+                e.preventDefault();
+                return;
+            }
             var a = t.closest ? t.closest("a") : null;
             if (a && editor.contains(a)) {
                 e.preventDefault();
@@ -4932,6 +5214,8 @@
                 }
             }
         });
+        pageEl.addEventListener("mousemove", trackTocHover);
+        pageEl.addEventListener("mouseleave", function () { if (tocHover) leaveTocHover(); });
         editor.addEventListener("dblclick", function (e) {
             if (e.target.tagName === "IMG") {
                 selectImage(e.target);

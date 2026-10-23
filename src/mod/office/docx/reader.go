@@ -159,7 +159,7 @@ func Parse(data []byte) (*model.Document, error) {
 		cv.markSpanSections(body)
 	}
 	cv.collectSectionBreaks(body)
-	doc.HTML = cv.blocks(body, docPart, blockCtx{top: true})
+	doc.HTML = resolveTocLevels(cv.blocks(body, docPart, blockCtx{top: true}))
 
 	// footnotes, in the order the text references them
 	if len(cv.fnOrder) > 0 {
@@ -336,9 +336,13 @@ type docxConv struct {
 	marginL   float64 // pt
 	textW     float64 // pt
 	fields    []fieldFrame
-	fnNumber  map[string]int
-	fnOrder   []string
-	parts     map[string]*docxPartCtx
+	// a TOC field was shown or ended in the paragraph at hand, and the
+	// heading levels the last one lists (toc.go)
+	tocTouched bool
+	tocMax     int
+	fnNumber   map[string]int
+	fnOrder    []string
+	parts      map[string]*docxPartCtx
 	// Google Docs exports: a handful of its layout habits are imitated so
 	// the import matches its own PDF (see the gdocs uses)
 	gdocs bool
@@ -781,6 +785,12 @@ func (cv *docxConv) paragraph(p *xmltree.Node, part *docxPartCtx, ctx blockCtx, 
 	if direct.style == "" {
 		level = cv.ss.headingLevel(cv.ss.defPara)
 	}
+	// a table of contents line; Word's TOC Heading is based on Heading 1
+	// but titles the table, it is no heading of the document
+	tocLvl := cv.ss.tocLevel(direct.style)
+	if tocLvl != 0 {
+		level = 0
+	}
 
 	// list membership (numbering from the paragraph or its style)
 	var li *docxListItem
@@ -832,7 +842,10 @@ func (cv *docxConv) paragraph(p *xmltree.Node, part *docxPartCtx, ctx blockCtx, 
 	// paragraph mark's rPr formats only the mark (the empty line's height,
 	// a list number), so runs must not inherit it - but they are written
 	// against the block, which does
+	inTocField := cv.tocFieldOpen()
+	cv.tocTouched = false
 	runs := cv.runs(p, part, *styleR, baseR)
+	inTocField = inTocField || cv.tocTouched || cv.tocFieldOpen()
 
 	tag := "p"
 	var classes []string
@@ -847,6 +860,18 @@ func (cv *docxConv) paragraph(p *xmltree.Node, part *docxPartCtx, ctx blockCtx, 
 	}
 	if spanAll {
 		classes = append(classes, "col-span-all")
+	}
+	// a line of a TOC field's result that names no TOC style (Google Docs
+	// writes none): an entry, when it reads like one
+	if tocLvl == 0 && inTocField && level == 0 && looksLikeTocEntry(strings.Join(runs.segments, "")) {
+		tocLvl = tocLevelUnknown
+	}
+	isToc := tocLvl != 0 && li == nil && !ctx.cell && !ctx.hf
+	if isToc {
+		classes = append(classes, "doc-toc")
+		if tocLvl < 0 {
+			classes = append(classes, "doc-toc-title")
+		}
 	}
 
 	style, data := cv.blockStyle(tag, eff, baseR, li != nil, level, runs.preWrap)
@@ -869,6 +894,12 @@ func (cv *docxConv) paragraph(p *xmltree.Node, part *docxPartCtx, ctx blockCtx, 
 		attrs += ` style="` + style + `"`
 	}
 	attrs += data
+	if isToc && tocLvl > 0 && tocLvl != tocLevelUnknown {
+		attrs += ` data-toc-level="` + strconv.Itoa(tocLvl) + `"`
+	}
+	if isToc && tocLvl > 0 && inTocField && cv.tocMax > 0 {
+		attrs += ` data-toc-max="` + strconv.Itoa(cv.tocMax) + `"`
+	}
 
 	if li != nil {
 		inner := strings.Join(runs.segments, "")
@@ -1481,9 +1512,16 @@ func (cv *docxConv) run(r *xmltree.Node, part *docxPartCtx, baseR docxRPr, block
 			case "separate":
 				if n := len(cv.fields); n > 0 {
 					cv.fields[n-1].inResult = true
+					if isTocInstr(cv.fields[n-1].instr) {
+						cv.tocTouched = true
+						cv.tocMax = tocInstrMaxLevel(cv.fields[n-1].instr)
+					}
 				}
 			case "end":
 				if n := len(cv.fields); n > 0 {
+					if isTocInstr(cv.fields[n-1].instr) {
+						cv.tocTouched = true
+					}
 					// a page number with no stored result (Google Docs
 					// writes none) is still a page number: the layout fills
 					// in each page's own

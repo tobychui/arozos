@@ -39,7 +39,7 @@ var DocsPdf = (function () {
     var PT = 96 / 72;
 
     // subtrees that are editor chrome, not page content
-    var SKIP_SELECTOR = "#pageSheets, .doc-fn-measure, .of-img-handle, .doc-autobreak";
+    var SKIP_SELECTOR = "#pageSheets, .doc-fn-measure, .of-img-handle, .doc-autobreak, .doc-toc-frame";
 
     function skipped(el) {
         return !!(el && el.closest && el.closest(SKIP_SELECTOR));

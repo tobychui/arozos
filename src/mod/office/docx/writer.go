@@ -731,6 +731,9 @@ type docxBuilder struct {
 	lastSpan    bool
 	anyBlock    bool
 	usedDivider bool
+	// runs the next paragraph writes before and after its text: the
+	// begin and end of a table of contents' TOC field
+	paraPre, paraPost string
 }
 
 // Build serializes a Document into a complete .docx file; pictures
@@ -1309,6 +1312,9 @@ func (b *docxBuilder) blockStyleOf(n *html.Node, parent wRunStyle) (pProps, wRun
 	if id := htmlutil.Attr(n, "id"); id != "" {
 		pp.bookmark = id
 	}
+	if hasClass(n, "doc-toc") {
+		pp.style = tocStyleOf(n)
+	}
 	return pp, rs
 }
 
@@ -1344,6 +1350,7 @@ func tabsXML(v string) string {
 
 // blocks emits the block-level children of an element
 func (b *docxBuilder) blocks(n *html.Node, part *docxPart, rs wRunStyle, sb *strings.Builder, top bool) {
+	var toc tocRun
 	var pending *html.Node // first of a run of stray inline nodes
 	flushInline := func(stop *html.Node) {
 		if pending == nil {
@@ -1370,6 +1377,9 @@ func (b *docxBuilder) blocks(n *html.Node, part *docxPart, rs wRunStyle, sb *str
 			continue
 		}
 		flushInline(c)
+		if !isTocPara(c) {
+			toc.close(sb)
+		}
 		if top && b.multiCol {
 			span := hasClass(c, "col-span-all")
 			if b.anyBlock && b.lastSpan && !span {
@@ -1383,9 +1393,11 @@ func (b *docxBuilder) blocks(n *html.Node, part *docxPart, rs wRunStyle, sb *str
 			}
 		}
 		b.anyBlock = true
+		toc.before(c, sb, b)
 		b.block(c, part, rs, sb)
 	}
 	flushInline(nil)
+	toc.close(sb)
 }
 
 func isBlockElement(n *html.Node) bool {
@@ -1510,6 +1522,11 @@ func (b *docxBuilder) paragraph(first, stop *html.Node, pp pProps, rs wRunStyle,
 		b.bookmarkN++
 		sb.WriteString(fmt.Sprintf(`<w:bookmarkStart w:id="%d" w:name="%s"/><w:bookmarkEnd w:id="%d"/>`,
 			b.bookmarkN, xmltree.Escape(pp.bookmark), b.bookmarkN))
+	}
+	if b.paraPre != "" || b.paraPost != "" {
+		runs = b.paraPre + runs + b.paraPost
+		rb.any = true
+		b.paraPre, b.paraPost = "", ""
 	}
 	sb.WriteString(runs)
 	if !rb.any {
@@ -2386,6 +2403,12 @@ func docxStylesXML(doc *model.Document) string {
 		sb.WriteString(fmt.Sprintf(`<w:style w:type="paragraph" w:styleId="%s"><w:name w:val="%s"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>`+
 			`<w:pPr>%s<w:spacing w:before="%d" w:after="%d"/></w:pPr><w:rPr>%s</w:rPr></w:style>`,
 			d.style, n.name, keep, twip(d.beforePt), twip(d.afterPt), rpr))
+	}
+	// a table of contents: Word's own style names, so Word and the reader
+	// know the lines for what they are (the look is on each paragraph)
+	sb.WriteString(`<w:style w:type="paragraph" w:styleId="` + tocHeadingStyle + `"><w:name w:val="TOC Heading"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:qFormat/></w:style>`)
+	for lvl := 1; lvl <= 9; lvl++ {
+		sb.WriteString(fmt.Sprintf(`<w:style w:type="paragraph" w:styleId="TOC%d"><w:name w:val="toc %d"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="39"/><w:unhideWhenUsed/></w:style>`, lvl, lvl))
 	}
 	sb.WriteString(`<w:style w:type="paragraph" w:customStyle="1" w:styleId="` + autoRuleStyle + `"><w:name w:val="Horizontal Rule"/></w:style>`)
 	sb.WriteString(`<w:style w:type="paragraph" w:customStyle="1" w:styleId="` + autoPageNumberStyle + `"><w:name w:val="Page Number Line"/><w:pPr><w:jc w:val="center"/></w:pPr></w:style>`)

@@ -305,6 +305,55 @@ span.doc-tab[data-leader="underscore"]::after { top: 0.44em; border-top: 1px sol
     outline: 2px solid var(--of-accent);
     outline-offset: 1px;
 }
+/* Table of contents: the frame and "Update table" tab of the table the
+   caret or the mouse is in (docs.js drawTocOverlay; editor chrome, never
+   saved, printed or exported). Dashed while hovered, solid with the caret
+   inside. The paper is white in both themes, so are these colours. */
+.doc-toc-frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    /* above the header band (6): a table at the top of a page has its
+       tab in the margin */
+    z-index: 7;
+}
+.doc-toc-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px dashed rgba(33, 133, 208, 0.55);
+    border-radius: 2px;
+    pointer-events: none;
+}
+.doc-toc-frame.active .doc-toc-box {
+    border-style: solid;
+    border-color: var(--of-accent);
+}
+.doc-toc-tab {
+    position: absolute;
+    transform: translateY(-100%);
+}
+.doc-toc-update {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 22px;
+    padding: 0 8px 0 5px;
+    font: 12px/1 "Segoe UI", Arial, sans-serif;
+    color: #1f2328;
+    background: #eef4fb;
+    border: 1px solid rgba(33, 133, 208, 0.55);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.doc-toc-frame.active .doc-toc-update { border-color: var(--of-accent); }
+.doc-toc-update:hover { background: #dbe9f7; }
+.doc-toc-update i.icon { margin: 0 2px 0 0; height: auto; font-size: 11px; color: var(--of-accent); }
+@media print { .doc-toc-frame { display: none !important; } }
+
 /* Picture Format: the crop dialog and size & properties */
 .doc-crop { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .doc-crop-stage {
