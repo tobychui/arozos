@@ -36,12 +36,17 @@
         });
         
         event.dataTransfer.setData("filedata", JSON.stringify(fileList));
+        setDragSources(fileList.map(function(file){
+            return file.filepath;
+        }));
     }
 
     //Function for getting file objects in the same row
     //Handle drag drop upload
     function drop(event){
         event.preventDefault();
+        hideDropIndicator();
+        clearDragSources();
 
         /*
             A drop on a folder row belongs to dropToFolder(). That handler is
@@ -127,36 +132,31 @@
 
                     //Start processing the local files
                     let currentVroot = currentPath.split(":/").shift();
-                    clipboard = [];
 
                     //Assume all files are from the same directory
                     if (localFiles.length > 0){
-                        //Check if drag drop from the same directory
-                        let currentDirname = currentPath.split("/")
-                        currentDirname.pop();
-                        currentDirname = currentDirname.join("/");
-                        let firstFileDirname = localFiles[0].filepath.split("/")
-                        firstFileDirname.pop();
-                        firstFileDirname = firstFileDirname.join("/");
-                        if (currentDirname == firstFileDirname){
-                            //Drag start and drop location are the same directory
-                            msgbox("red remove",applocale.getString("message/destIdentical", "Source and destination file names are the same"));
+                        let fileVroot = localFiles[0].filepath.split(":/").shift();
+                        let isMove = (currentVroot == fileVroot);
+
+                        /*
+                            Caught here rather than left to the server: a drop
+                            back where the files came from, or a folder into
+                            itself, would otherwise open the file operation
+                            dialog just to report an error.
+                        */
+                        let checked = checkDropSources(localFiles.map(function(file){
+                            return file.filepath;
+                        }), currentPath, isMove);
+                        if (checked.error != null){
+                            showRefusedDrop(checked.error);
                             return;
                         }
 
-                        let fileVroot = localFiles[0].filepath.split(":/").shift();
-                        if (currentVroot == fileVroot){
-                            //Same device same root. Move the file
-                            cutMode = true;
-                        }else{
-                            //Same device differnet root. Copy the file
-                            cutMode = false;
-                        }
+                        //Same device same root moves, a different root copies
+                        cutMode = isMove;
 
                         //Move all localFiles into clipboard
-                        localFiles.forEach(file => {
-                            clipboard.push(file.filepath);
-                        });
+                        clipboard = checked.paths.slice();
 
                         if (useLocalstorage){
                             localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
@@ -215,6 +215,8 @@
 function dropToFolder(event, folderObject=undefined){
     event.preventDefault();
     event.stopImmediatePropagation();
+    hideDropIndicator();
+    clearDragSources();
     console.log("Drop to folder detected");
 
     //A special view's rows are not directories to paste into; drop() has
@@ -256,26 +258,35 @@ function dropToFolder(event, folderObject=undefined){
     }else if (event.dataTransfer.getData("filedata") != ""){
         var targetVroot = targetPath.split(":/").shift();
         //Get the source files
-        var filelist = JSON.parse(event.dataTransfer.getData("filedata"));
+        var filelist = [];
+        try {
+            filelist = JSON.parse(event.dataTransfer.getData("filedata"));
+        } catch (ex){
+            msgbox("red remove",applocale.getString("message/decodeFilelistFail", "File drop failed. Unable to decode filelist."));
+            return;
+        }
         if (filelist.length > 0){
             var srcVroot = filelist[0].filepath.split(":/").shift();
-            if (srcVroot == targetVroot){
-                //Use move mode
-                cutMode = true;
-                
-            }else{
-                //Use copy mode
-                cutMode = false;
+            //Same root moves, a different root copies
+            cutMode = (srcVroot == targetVroot);
+
+            /*
+                A folder dropped onto its own row - easy to do by accident
+                with a short drag - is a move into itself. Stop it here
+                instead of letting the server answer with an error dialog.
+            */
+            var checked = checkDropSources(filelist.map(function(file){
+                return file.filepath;
+            }), targetPath, cutMode);
+            if (checked.error != null){
+                showRefusedDrop(checked.error);
+                return;
             }
 
-            //Parse the filelist
-            clipboard = [];
-            filelist.forEach(file=>{
-                clipboard.push(file.filepath);
-            });
+            clipboard = checked.paths.slice();
             if (useLocalstorage){
                 localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
-                localStorage.setItem("ao/file_system/cutmode","true");
+                localStorage.setItem("ao/file_system/cutmode", cutMode ? "true" : "false");
             }
             
             //Perform operations
@@ -295,6 +306,8 @@ function dropToFolder(event, folderObject=undefined){
 function dropToSpecialView(event, sentinelPath){
     event.preventDefault();
     event.stopImmediatePropagation();
+    hideDropIndicator();
+    clearDragSources();
 
     let payload = event.dataTransfer.getData("filedata");
     if (payload == undefined || payload == ""){
@@ -321,12 +334,245 @@ function allowDrop(event){
 }
 
 
+/* ---------------------------------------------------------------------- */
+/*  Drop checks                                                            */
+/* ---------------------------------------------------------------------- */
+//Path without its trailing slash, keeping the one a root ("user:/") needs
+function normaliseDropPath(path){
+    path = String(path);
+    while (path.length > 1 && path.endsWith("/") && !path.endsWith(":/")){
+        path = path.substring(0, path.length - 1);
+    }
+    return path;
+}
+
+function parentDirOfPath(path){
+    path = normaliseDropPath(path);
+    let cut = path.lastIndexOf("/");
+    if (cut < 0){
+        return path;
+    }
+    let parent = path.substring(0, cut);
+    return parent.endsWith(":") ? parent + "/" : parent;
+}
+
+/*
+    Which of the dragged paths can go into targetDir. Returns
+    {error, paths}: error is the message to show when the drop must not be
+    sent at all, otherwise paths is what is left to move or copy.
+
+    A folder into itself or one of its own subfolders is refused outright.
+    Items already sitting in targetDir are skipped on a move, and only when
+    that leaves nothing is the drop refused - so a drag of several files that
+    happens to include one already there still moves the rest.
+*/
+function checkDropSources(sourcePaths, targetDir, isMove){
+    let target = normaliseDropPath(targetDir);
+    let remaining = [];
+    for (let i = 0; i < sourcePaths.length; i++){
+        let src = normaliseDropPath(sourcePaths[i]);
+        if (src == target){
+            return {error: applocale.getString("message/drop/intoItself", "A folder cannot be moved into itself"), paths: []};
+        }
+        if (target.indexOf(src + "/") == 0){
+            return {error: applocale.getString("message/drop/intoSubfolder", "A folder cannot be moved into its own subfolder"), paths: []};
+        }
+        if (isMove && parentDirOfPath(src) == target){
+            continue;
+        }
+        remaining.push(sourcePaths[i]);
+    }
+    if (remaining.length == 0){
+        return {error: applocale.getString("message/drop/alreadyHere", "Already in this folder"), paths: []};
+    }
+    return {error: null, paths: remaining};
+}
+
+
+/* ---------------------------------------------------------------------- */
+/*  Drop target indicator                                                  */
+/* ---------------------------------------------------------------------- */
+/*
+    While something is dragged over the file area, the folder it would land
+    in is highlighted - the row under the cursor when that is a folder, the
+    whole file area otherwise - and a pill at the bottom names it. Dropping
+    onto a neighbouring folder row instead of the empty space beside it was
+    an easy way to upload into the wrong place without noticing.
+
+    dragenter / dragleave fire for every child the cursor crosses, so they
+    are not used. dragover repeats for as long as the cursor is over a drop
+    zone, even standing still, so each one refreshes the indicator and
+    re-arms a short timer that clears it once they stop.
+
+    The paths being dragged are not readable from dataTransfer until the
+    drop. Drags started in a File Manager window record them in localStorage
+    (shared by every File Manager window on this origin, which is how a drag
+    from another window still gets "cannot move into itself"); the drop
+    itself always re-checks against the real payload.
+*/
+const DRAG_SOURCES_KEY = "ao/file_system/dragsources";
+let dragSourcesFallback = [];
+let dropIndicatorTimer = null;
+
+function setDragSources(paths){
+    dragSourcesFallback = paths;
+    try {
+        localStorage.setItem(DRAG_SOURCES_KEY, JSON.stringify(paths));
+    } catch (ex){}
+}
+
+function clearDragSources(){
+    dragSourcesFallback = [];
+    try {
+        localStorage.removeItem(DRAG_SOURCES_KEY);
+    } catch (ex){}
+}
+
+function getDragSources(){
+    try {
+        let stored = localStorage.getItem(DRAG_SOURCES_KEY);
+        if (stored){
+            return JSON.parse(stored);
+        }
+    } catch (ex){}
+    return dragSourcesFallback;
+}
+
+function dragTypes(event){
+    let dt = event.dataTransfer;
+    return (dt && dt.types) ? Array.prototype.slice.call(dt.types) : [];
+}
+
+//Last segment of a path, or the root itself ("user:/") for a root
+function displayNameOfPath(path){
+    path = normaliseDropPath(path);
+    if (path.endsWith(":/")){
+        return path;
+    }
+    return path.split("/").pop();
+}
+
+/*
+    dragover on #folderView. Works out what a drop at the cursor would do
+    and shows it.
+*/
+function updateDropIndicator(event){
+    let types = dragTypes(event);
+    let isUpload = types.indexOf("Files") >= 0;
+    let isInternal = types.indexOf("filedata") >= 0;
+    if ((!isUpload && !isInternal) || isSpecialViewPath(currentPath)){
+        hideDropIndicator();
+        return;
+    }
+
+    let row = $(event.target).closest(".fileObject[type='folder']");
+    let targetPath = row.length > 0 ? row.attr("filepath") : currentPath;
+    let label;
+    let valid = true;
+
+    if (isUpload && !isInternal){
+        label = applocale.getString("drop/uploadTo", "Upload to “{name}”");
+    }else{
+        let sources = getDragSources();
+        let isMove = sources.length == 0 ||
+            sources[0].split(":/").shift() == targetPath.split(":/").shift();
+        let checked = checkDropSources(sources, targetPath, isMove);
+        if (sources.length > 0 && checked.error != null){
+            label = checked.error;
+            valid = false;
+        }else if (isMove){
+            label = applocale.getString("drop/moveTo", "Move to “{name}”");
+        }else{
+            label = applocale.getString("drop/copyTo", "Copy to “{name}”");
+        }
+    }
+
+    showDropIndicator(row.length > 0 ? row : $("#folderView"),
+        label.replace("{name}", displayNameOfPath(targetPath)), valid);
+}
+
+/*
+    dragover on a sidebar special view (the trash bin). Those only take
+    files already inside ArozOS.
+*/
+function updateSpecialViewDropIndicator(event, item){
+    if (dragTypes(event).indexOf("filedata") < 0){
+        hideDropIndicator();
+        return;
+    }
+    let name = $(item).text().trim();
+    showDropIndicator($(item),
+        applocale.getString("drop/moveTo", "Move to “{name}”").replace("{name}", name), true);
+}
+
+function showDropIndicator(target, label, valid){
+    $(".fmDropTarget").not(target).removeClass("fmDropTarget");
+    target.toggleClass("fmDropTarget", valid);
+
+    showDropHint(label, valid);
+    $("#fmDropHint").removeClass("refused");
+
+    clearTimeout(dropIndicatorTimer);
+    dropIndicatorTimer = setTimeout(hideDropIndicator, 160);
+}
+
+function showDropHint(label, valid){
+    let hint = $("#fmDropHint");
+    hint.toggleClass("invalid", !valid);
+    hint.find(".fmDropHintText").text(label);
+
+    //Pinned to the bottom of the file area, which scrolls, so it sits over
+    //it rather than inside it
+    let area = document.getElementById("folderView").getBoundingClientRect();
+    hint.css({
+        left: (area.left + area.width / 2) + "px",
+        top: (area.bottom - 16) + "px",
+        maxWidth: Math.max(160, area.width - 32) + "px"
+    });
+    hint.addClass("visible");
+}
+
+/*
+    A drop the checks refused. The hint pill was already saying why while
+    the drag hovered, so it stays up a moment longer with the same text
+    rather than a second message appearing in the toast.
+*/
+function showRefusedDrop(label){
+    $(".fmDropTarget").removeClass("fmDropTarget");
+    showDropHint(label, false);
+    $("#fmDropHint").addClass("refused");
+    clearTimeout(dropIndicatorTimer);
+    dropIndicatorTimer = setTimeout(hideDropIndicator, 1800);
+}
+
+function hideDropIndicator(){
+    clearTimeout(dropIndicatorTimer);
+    $(".fmDropTarget").removeClass("fmDropTarget");
+    $("#fmDropHint").removeClass("visible refused");
+}
+
+//dragend on the dragged row, which fires after the drop has been handled
+function onFileObjectDragEnd(){
+    clearDragSources();
+    //A refused drop's message is still meant to be read
+    if (!$("#fmDropHint").hasClass("refused")){
+        hideDropIndicator();
+    }
+}
+
+
 /*
     Reachable from outside this file: inline on* attributes in the markup,
     handlers generated in template strings, or another frame. Renaming any
     of these means updating those call sites too.
 */
 window.allowDrop = allowDrop;
+window.checkDropSources = checkDropSources;
+window.clearDragSources = clearDragSources;
+window.hideDropIndicator = hideDropIndicator;
+window.onFileObjectDragEnd = onFileObjectDragEnd;
+window.updateDropIndicator = updateDropIndicator;
+window.updateSpecialViewDropIndicator = updateSpecialViewDropIndicator;
 window.dropToSpecialView = dropToSpecialView;
 window.disableDrag = disableDrag;
 window.drop = drop;

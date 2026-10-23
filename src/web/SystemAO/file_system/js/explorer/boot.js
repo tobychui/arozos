@@ -44,6 +44,9 @@ $(document).ready(function(){
             updateHiddenFilesToggle();
         });
 
+        //Restore the details view's column order and widths
+        loadDetailsColumns();
+
         //Restore the saved grid tile size
         loadPreference("file_explorer/gridZoom", function(value){
             let z = parseInt(value);

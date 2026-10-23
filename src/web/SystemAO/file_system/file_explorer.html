@@ -517,6 +517,13 @@
         </div>
 
         <!--
+            Names the folder a drag would land in. Positioned over the bottom
+            of the file area by dragdrop.js; never takes pointer events, so it
+            cannot become the drop target itself.
+        -->
+        <div id="fmDropHint"><span class="fmDropHintText"></span></div>
+
+        <!--
             Toast. Lives at body level so its position:fixed is resolved against
             the viewport and cannot be captured by a transformed ancestor.
         -->
@@ -694,6 +701,7 @@
         <script type="text/javascript" src="js/explorer/properties.js"></script>
         <script type="text/javascript" src="js/explorer/thumbnail.js"></script>
         <script type="text/javascript" src="js/explorer/render.js"></script>
+        <script type="text/javascript" src="js/explorer/columns.js"></script>
         <script type="text/javascript" src="js/explorer/listing.js"></script>
         <script type="text/javascript" src="js/explorer/selection.js"></script>
         <script type="text/javascript" src="js/explorer/keyboard.js"></script>

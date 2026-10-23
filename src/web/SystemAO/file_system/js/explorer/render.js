@@ -231,12 +231,17 @@ function renderDetailsRow(d){
     });
     let size = d.isDir ? "--" : d.displaysize;
 
-    return `<tr class="fileObject details" ${fileObjectAttributes(d)}>
-                <td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${d.displayName}</span>${sharedMark}</span></td>
-                <td class="fmColDate light-text">${d.modTimeText}</td>
-                <td class="fmColType light-text">${typeName}</td>
-                <td class="fmColSize light-text">${size}</td>
-            </tr>`;
+    //Cells follow the user's column order (columns.js)
+    let cells = {
+        name: `<td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${d.displayName}</span>${sharedMark}</span></td>`,
+        date: `<td class="fmColDate light-text">${d.modTimeText}</td>`,
+        type: `<td class="fmColType light-text">${typeName}</td>`,
+        size: `<td class="fmColSize light-text">${size}</td>`
+    };
+
+    return `<tr class="fileObject details" ${fileObjectAttributes(d)}>` +
+           orderedDetailsColumns().map(function(col){ return cells[col.key]; }).join("") +
+           `</tr>`;
 }
 
 /*
@@ -244,7 +249,8 @@ function renderDetailsRow(d){
     than in a <colgroup>. With table-layout:fixed the first row defines the
     columns, so CSS widths apply to the header table and the row tables alike,
     and a column can be hidden outright when the file area gets narrow - which a
-    <colgroup> cannot do.
+    <colgroup> cannot do. Widths the user dragged are layered on top by
+    columns.js.
 */
 
 /*
@@ -260,11 +266,13 @@ var FM_SORT_COLUMNS = [
 ];
 
 function renderDetailsHeader(){
-    let cells = FM_SORT_COLUMNS.map(function(col){
+    //Each header cell carries a grip on its right edge for resizing
+    let cells = orderedDetailsColumns().map(function(col){
         let active = (sortMode == col.asc) ? "asc" : ((sortMode == col.desc) ? "desc" : "");
         let mark = active == "asc" ? "&#8593;" : (active == "desc" ? "&#8595;" : "");
         return `<th class="${col.cls} fmSortable ${active ? "sorted" : ""}" data-sortkey="${col.key}">` +
-               `${applocale.getString(col.label, col.fallback)}<span class="fmSortMark">${mark}</span></th>`;
+               `<span class="fmHeaderLabel">${applocale.getString(col.label, col.fallback)}<span class="fmSortMark">${mark}</span></span>` +
+               `<span class="fmColResize" title="${applocale.getString("list/resizeColumn", "Drag to resize, double click to reset")}"></span></th>`;
     }).join("");
 
     return `<table class="ui very basic unstackable table detailstable fmHeaderTable">

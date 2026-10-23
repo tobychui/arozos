@@ -551,6 +551,15 @@ function bindFileListDelegates(){
         dropToFolder(event.originalEvent || event, this);
     });
 
+    //Highlights where a drop would land, for uploads and moves alike
+    view.on("dragover", function(event){
+        updateDropIndicator(event.originalEvent || event);
+    });
+
+    view.on("dragend", ".fileObject", function(){
+        onFileObjectDragEnd();
+    });
+
     /*
         The sidebar's special views accept drops too - dragging onto the trash
         bin is how every other desktop deletes something. The rows are redrawn
@@ -559,6 +568,7 @@ function bindFileListDelegates(){
     */
     $("#storageroot").off("dragover.specialview").on("dragover.specialview", ".fmSpecialSideItem", function(event){
         allowDrop(event.originalEvent || event);
+        updateSpecialViewDropIndicator(event.originalEvent || event, this);
     });
 
     $("#storageroot").off("drop.specialview").on("drop.specialview", ".fmSpecialSideItem", function(event){
@@ -567,8 +577,15 @@ function bindFileListDelegates(){
 
     //Sortable column headers in details view
     $("#fmListHeader").on("click", ".fmSortable", function(){
+        //A column that was just dragged or resized is not a sort request
+        if (columnHeaderClickSuppressed()){
+            return;
+        }
         sortByColumn($(this).attr("data-sortkey"));
     });
+
+    //Rearranging and resizing the details columns
+    bindDetailsColumnEvents();
 }
 
 //Status bar tile zoom. Grid only; re-renders so tiles pick up the new width.

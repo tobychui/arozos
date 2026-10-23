@@ -3645,3 +3645,128 @@ i.blue{
 
 /* Menu entries that only make sense on a touch device */
 .fmMobileOnly { display: none; }
+
+/* ---------- Drop target indicator ----------
+   dragdrop.js marks the folder a drop would land in: the folder row under
+   the cursor, or the whole file area for the current folder. */
+#folderView.fmDropTarget {
+    box-shadow: inset 0 0 0 2px var(--fs-accent);
+    background-color: color-mix(in srgb, var(--fs-accent) 5%, transparent);
+}
+.fileviewList .fileObject.item.fmDropTarget,
+.fileviewList .fileObject.card.fmDropTarget,
+.fsSideItem.fmDropTarget {
+    background: var(--fs-accent-soft) !important;
+    box-shadow: inset 0 0 0 2px var(--fs-accent);
+}
+/* Shadows on a <tr> are unreliable, so the row outline is drawn per cell */
+.detailstable tr.fileObject.details.fmDropTarget td {
+    background: var(--fs-accent-soft) !important;
+    box-shadow: inset 0 2px 0 var(--fs-accent), inset 0 -2px 0 var(--fs-accent);
+}
+.detailstable tr.fileObject.details.fmDropTarget td:first-child {
+    box-shadow: inset 0 2px 0 var(--fs-accent), inset 0 -2px 0 var(--fs-accent), inset 2px 0 0 var(--fs-accent);
+}
+.detailstable tr.fileObject.details.fmDropTarget td:last-child {
+    box-shadow: inset 0 2px 0 var(--fs-accent), inset 0 -2px 0 var(--fs-accent), inset -2px 0 0 var(--fs-accent);
+}
+
+#fmDropHint {
+    position: fixed;
+    z-index: 998;
+    transform: translate(-50%, -100%) translateY(6px);
+    padding: 5px 14px;
+    border-radius: 999px;
+    background-color: var(--fs-accent);
+    color: var(--fs-primary-fg);
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.25);
+    font-size: 12.5px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s linear 0.12s;
+}
+#fmDropHint.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -100%);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+/* A drop that would be refused reads as the toast does, not as a target */
+#fmDropHint.invalid {
+    background-color: var(--fs-toast-bg);
+    color: var(--fs-toast-fg);
+}
+/* The id wins over ao.css's blanket themed span colour */
+#fmDropHint .fmDropHintText { color: inherit; }
+
+/* ---------- Details view: column drag and resize (columns.js) ---------- */
+#fmListHeader th.fmSortable {
+    position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#fmListHeader .fmHeaderLabel {
+    color: inherit;
+    pointer-events: none;
+}
+/* Grip on each header cell's right edge, with a hairline that shows on hover */
+#fmListHeader .fmColResize {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 7px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 1;
+}
+/* The last column ends at the table edge: nothing to trade width with */
+#fmListHeader th:last-child .fmColResize { display: none; }
+#fmListHeader .fmColResize::after {
+    content: "";
+    position: absolute;
+    top: 25%;
+    right: 3px;
+    width: 1px;
+    height: 50%;
+    background: var(--fs-line);
+}
+#fmListHeader th.fmSortable:hover .fmColResize::after,
+#fmListHeader .fmColResize:hover::after {
+    background: var(--fs-text-faint);
+}
+#fmListHeader th.fmColDragging {
+    opacity: 0.35;
+}
+body.fmColResizing,
+body.fmColResizing * { cursor: col-resize !important; user-select: none !important; }
+body.fmColMoving,
+body.fmColMoving * { cursor: grabbing !important; user-select: none !important; }
+
+#fmColGhost {
+    position: fixed;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: var(--fs-surface);
+    color: var(--fs-text);
+    box-shadow: 0px 4px 14px var(--fs-shadow);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    opacity: 0.92;
+    pointer-events: none;
+}
+#fmColDropMarker {
+    position: fixed;
+    z-index: 1001;
+    width: 2px;
+    background: var(--fs-accent);
+    pointer-events: none;
+}
