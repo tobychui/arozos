@@ -15,6 +15,7 @@ package docx
 */
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -34,31 +35,70 @@ const (
 	tocFieldEnd = `<w:r><w:fldChar w:fldCharType="end"/></w:r>`
 )
 
-// tocFieldBegin opens the field: the headings the table lists (Heading 1
-// to maxLevel), as hyperlinks, without tab leaders or page numbers in Web
-// view, keeping outline levels
-func tocFieldBegin(maxLevel int) string {
+// tocField is what a table's TOC field says: the heading levels it lists
+// and whether its entries carry page numbers
+type tocField struct {
+	from, to int
+	noPages  bool
+}
+
+// tocFieldBegin opens the field: the headings the table lists, as
+// hyperlinks, without tab leaders or page numbers in Web view, keeping
+// outline levels (and no page numbers at all when the table shows none)
+func tocFieldBegin(f tocField) string {
+	instr := ` TOC \o "` + strconv.Itoa(f.from) + `-` + strconv.Itoa(f.to) + `" \h \z \u `
+	if f.noPages {
+		instr += `\n `
+	}
 	return `<w:r><w:fldChar w:fldCharType="begin"/></w:r>` +
-		`<w:r><w:instrText xml:space="preserve"> TOC \o "1-` + strconv.Itoa(maxLevel) + `" \h \z \u </w:instrText></w:r>` +
+		`<w:r><w:instrText xml:space="preserve">` + instr + `</w:instrText></w:r>` +
 		`<w:r><w:fldChar w:fldCharType="separate"/></w:r>`
 }
 
-// tocMaxLevel is the deepest heading level the entries from c on list
-// (data-toc-max, an imported field's range; 3 when none says)
-func tocMaxLevel(c *html.Node) int {
+// tocCfg is the look the editor stores on every entry (data-toc-cfg)
+type tocCfg struct {
+	PageNumbers *bool `json:"pn"`
+	Levels      []int `json:"lv"`
+}
+
+// tocFieldOf reads the field of the table whose entries start at c: the
+// editor's data-toc-cfg, else data-toc-max (an imported field's range),
+// else Heading 1-3
+func tocFieldOf(c *html.Node) tocField {
+	f := tocField{from: 1, to: 3}
 	max := 0
 	for n := c; isTocEntry(n); n = nextBlockSibling(n) {
+		var cfg tocCfg
+		if raw := htmlutil.Attr(n, "data-toc-cfg"); raw != "" && json.Unmarshal([]byte(raw), &cfg) == nil {
+			lo, hi := 0, 0
+			for _, l := range cfg.Levels {
+				if l < 1 || l > 9 {
+					continue
+				}
+				if lo == 0 || l < lo {
+					lo = l
+				}
+				if l > hi {
+					hi = l
+				}
+			}
+			if lo > 0 {
+				f.from, f.to = lo, hi
+			}
+			f.noPages = cfg.PageNumbers != nil && !*cfg.PageNumbers
+			return f
+		}
 		if v, err := strconv.Atoi(htmlutil.Attr(n, "data-toc-max")); err == nil && v > max {
 			max = v
 		}
 	}
-	if max < 1 {
-		return 3
+	if max >= 1 {
+		f.to = max
+		if f.to > 9 {
+			f.to = 9
+		}
 	}
-	if max > 9 {
-		return 9
-	}
-	return max
+	return f
 }
 
 // isTocPara reports a line of a table of contents (title or entry)
@@ -121,7 +161,7 @@ func (t *tocRun) before(c *html.Node, sb *strings.Builder, b *docxBuilder) {
 		return
 	}
 	if !t.field {
-		b.paraPre = tocFieldBegin(tocMaxLevel(c))
+		b.paraPre = tocFieldBegin(tocFieldOf(c))
 		t.field = true
 	}
 	if !isTocEntry(nextBlockSibling(c)) {

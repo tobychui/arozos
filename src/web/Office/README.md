@@ -1232,6 +1232,19 @@ paginator: a long table splits across pages like any paragraphs.
   hides it and `docs_pdf.js` skips it. A table is a run of `.doc-toc`
   paragraphs that follow each other (`tocGroups()`), so two tables are
   updated separately.
+- **Styles**: the tab's "..." opens a side panel (`buildTocPanel`,
+  modelled on Google Docs'): a format card (Plain text, Dotted, Links),
+  page numbers, the tab leader (dots, dashes, solid line), blue links,
+  bold top level, and per heading level 1-6 whether it is listed and its
+  indent in mm (toggling a level resets the indents to 6.35 mm steps from
+  the top level the document has). The table keeps its look as JSON in
+  `data-toc-cfg` on every entry (`TOC_DEFAULT` lists the keys), so updates
+  and saves keep it; a table without one gets one read from how its lines
+  look (`tocCfgOf` - an imported Google Docs table comes up as Plain text,
+  bold, Heading 1-6). Every entry links to its heading (an `_Toc...` id the
+  editor adds, Word's own bookmark naming), drawn as text unless the table
+  shows links. The writer turns the levels into `\o "from-to"` and no page
+  numbers into `\n`.
 - **Update** (the tab, or Update table on the ribbon, which does every
   table) undoes the page splits first, replaces the entry lines and lays
   the document out again until the page numbers stop changing (the new

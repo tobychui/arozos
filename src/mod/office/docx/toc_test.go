@@ -222,11 +222,28 @@ func TestDocxTocFieldLevelRange(t *testing.T) {
 	}{
 		{`<p class="doc-toc" data-toc-level="2">A</p>`, `TOC \o "1-3"`},
 		{`<p class="doc-toc" data-toc-level="2" data-toc-max="6">A</p><p class="doc-toc" data-toc-level="5" data-toc-max="6">B</p>`, `TOC \o "1-6"`},
+		// the editor's options: the levels listed, page numbers off
+		{`<p class="doc-toc" data-toc-level="2" data-toc-cfg='{"pn":true,"lv":[2,3,4]}'>A</p>`, `TOC \o "2-4" \h \z \u </w:instrText>`},
+		{`<p class="doc-toc" data-toc-level="1" data-toc-cfg='{"pn":false,"lk":true,"lv":[1,2]}'>A</p>`, `TOC \o "1-2" \h \z \u \n </w:instrText>`},
+		{`<p class="doc-toc" data-toc-level="1" data-toc-cfg='not json' data-toc-max="5">A</p>`, `TOC \o "1-5"`},
 	}
 	for _, tc := range tests {
 		body, _ := buildTocDocx(t, tc.html)
 		if !strings.Contains(body, tc.want) {
 			t.Errorf("%s: want %s in %s", tc.html, tc.want, body)
+		}
+	}
+}
+
+// entries link to their headings: a hyperlink to the bookmark the
+// heading's id becomes, which is what Word's own \h entries are
+func TestDocxTocEntryLinks(t *testing.T) {
+	body, _ := buildTocDocx(t, `<p class="doc-toc" data-toc-level="1" data-tabs="right:451:dot">`+
+		`<a href="#_Toc123" style="color:inherit;text-decoration:inherit;">Intro</a><span class="doc-tab"></span>2</p>`+
+		`<h1 id="_Toc123">Intro</h1>`)
+	for _, want := range []string{`<w:hyperlink w:anchor="_Toc123">`, `w:name="_Toc123"`, `w:leader="dot"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("document.xml lacks %s: %s", want, body)
 		}
 	}
 }

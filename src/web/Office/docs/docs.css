@@ -334,7 +334,8 @@ span.doc-tab[data-leader="underscore"]::after { top: 0.44em; border-top: 1px sol
     position: absolute;
     transform: translateY(-100%);
 }
-.doc-toc-update {
+.doc-toc-tab { display: flex; }
+.doc-toc-update, .doc-toc-more {
     display: inline-flex;
     align-items: center;
     gap: 2px;
@@ -349,9 +350,79 @@ span.doc-tab[data-leader="underscore"]::after { top: 0.44em; border-top: 1px sol
     cursor: pointer;
     white-space: nowrap;
 }
-.doc-toc-frame.active .doc-toc-update { border-color: var(--of-accent); }
-.doc-toc-update:hover { background: #dbe9f7; }
+.doc-toc-more { padding: 0 5px; margin-left: -1px; }
+.doc-toc-frame.active .doc-toc-update, .doc-toc-frame.active .doc-toc-more { border-color: var(--of-accent); }
+.doc-toc-update:hover, .doc-toc-more:hover { background: #dbe9f7; }
 .doc-toc-update i.icon { margin: 0 2px 0 0; height: auto; font-size: 11px; color: var(--of-accent); }
+.doc-toc-more i.icon { margin: 0; height: auto; font-size: 11px; color: #3c4043; }
+
+/* the table of contents options panel (docs.js buildTocPanel): placed
+   like the comments panel, which lends it its head */
+#docTocPanel {
+    position: fixed;
+    top: 92px;
+    right: 4px;
+    bottom: 40px;
+    width: 280px;
+    z-index: 851;
+    display: flex;
+    flex-direction: column;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    overflow: hidden;
+    color: var(--of-fg);
+    font-size: 13px;
+}
+.doc-toc-panel-body { flex: 1; overflow-y: auto; padding: 4px 10px 12px; }
+.doc-toc-sec { font-weight: 600; margin: 10px 2px 6px; }
+.doc-toc-card {
+    background: var(--of-chrome-bg2);
+    border: 1px solid var(--of-border);
+    border-radius: 8px;
+    padding: 10px;
+}
+.doc-toc-formats { display: flex; gap: 6px; margin-bottom: 8px; }
+.doc-toc-format {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px 4px;
+    font: inherit;
+    font-size: 11px;
+    color: var(--of-fg-soft);
+    background: #ffffff;
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    cursor: pointer;
+}
+.doc-toc-format:hover { border-color: var(--of-fg-soft); }
+.doc-toc-format.active { border-color: var(--of-accent); box-shadow: 0 0 0 1px var(--of-accent); color: var(--of-fg); }
+.doc-toc-opt { display: flex; align-items: center; gap: 6px; margin: 6px 0; cursor: pointer; }
+.doc-toc-opt input[type=checkbox], .doc-toc-level input[type=checkbox] { margin: 0; accent-color: var(--of-accent); }
+.doc-toc-leader { justify-content: space-between; cursor: default; }
+.doc-toc-leader label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.doc-toc-leader select { width: 104px; }
+.doc-toc-leader.disabled, .doc-toc-level input:disabled + * { opacity: 0.5; }
+.doc-toc-levhead {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--of-fg-soft);
+    margin-bottom: 4px;
+}
+.doc-toc-level { display: flex; align-items: center; justify-content: space-between; margin: 5px 0; }
+.doc-toc-level label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.doc-toc-level.absent label { color: var(--of-fg-soft); }
+.doc-toc-ind { display: flex; align-items: center; gap: 4px; color: var(--of-fg-soft); }
+.doc-toc-ind input { width: 70px; }
+.doc-toc-ind input:disabled { opacity: 0.5; }
+.doc-toc-note { margin-top: 8px; font-size: 11.5px; color: var(--of-fg-soft); }
+body.dark .doc-toc-format { background: var(--of-chrome-bg); }
+@media print { #docTocPanel { display: none !important; } }
 @media print { .doc-toc-frame { display: none !important; } }
 
 /* Picture Format: the crop dialog and size & properties */

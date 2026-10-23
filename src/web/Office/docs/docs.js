@@ -1413,12 +1413,110 @@
        deepest heading the table lists (3 when absent; an imported table
        keeps its own range, Google Docs lists 1-6); a run of them is one
        table, which the editor frames with an "Update table" tab on top
-       while the caret or the mouse is in it (tocOverlay, not saved). */
+       while the caret or the mouse is in it (tocOverlay, not saved).
+       How a table looks is its data-toc-cfg (JSON on every entry, see
+       TOC_DEFAULT), set from the options panel the tab's "..." opens; a
+       table without one (made before, or imported) gets one read from how
+       its lines look (tocCfgOf). */
     var ZWSP = String.fromCharCode(0x200B);
-    function tocSelector(max) {
-        var sel = ["h1:not(.doc-title)"];
-        for (var l = 2; l <= max; l++) sel.push("h" + l);
-        return sel.join(", ");
+    var TOC_STEP_MM = 6.35;   // a quarter inch per level, as Google Docs
+    var TOC_LINK_COLOR = "#1155cc";
+    var TOC_DEFAULT = {
+        pn: true,          // page numbers
+        ld: "dot",         // the leader before them: none | dot | hyphen | underscore
+        lk: false,         // entries drawn as links (blue, underlined)
+        bd: true,          // the top level present in bold
+        lv: [1, 2, 3],     // the heading levels listed
+        ind: null          // indent per heading level 1-6, mm (null = steps)
+    };
+    function tocSelector(levels) {
+        if (typeof levels === "number") {
+            var n = levels;
+            levels = [];
+            for (var i = 1; i <= n; i++) levels.push(i);
+        }
+        return levels.map(function (l) { return l === 1 ? "h1:not(.doc-title)" : "h" + l; }).join(", ") || "h1:not(.doc-title)";
+    }
+    // the heading levels of a list that the document has
+    function tocPresentLevels(levels) {
+        return levels.filter(function (l) {
+            var hs = editor.querySelectorAll(tocSelector([l]));
+            for (var i = 0; i < hs.length; i++) {
+                if (!hs[i].closest(".doc-fn-area, .doc-hf") && headingText(hs[i])) return true;
+            }
+            return false;
+        });
+    }
+    // indents in steps from the top level present: Heading 2 chapters start
+    // at the margin
+    function tocDefaultIndents(levels) {
+        var present = tocPresentLevels(levels);
+        if (!present.length) present = levels.slice();
+        var ind = [];
+        for (var l = 1; l <= 6; l++) {
+            // one step per listed level above it
+            var rank = present.filter(function (p) { return p < l; }).length;
+            ind.push(Math.round(rank * TOC_STEP_MM * 100) / 100);
+        }
+        return ind;
+    }
+    function normalizeTocCfg(c) {
+        var cfg = {};
+        Object.keys(TOC_DEFAULT).forEach(function (k) { cfg[k] = c && c[k] !== undefined ? c[k] : TOC_DEFAULT[k]; });
+        cfg.pn = !!cfg.pn;
+        cfg.lk = !!cfg.lk;
+        cfg.bd = !!cfg.bd;
+        if (["none", "dot", "hyphen", "underscore"].indexOf(cfg.ld) < 0) cfg.ld = "dot";
+        cfg.lv = (Array.isArray(cfg.lv) ? cfg.lv : [1, 2, 3]).map(Number)
+            .filter(function (l, i, a) { return l >= 1 && l <= 6 && a.indexOf(l) === i; })
+            .sort();
+        if (!cfg.lv.length) cfg.lv = [1];
+        if (!Array.isArray(cfg.ind) || cfg.ind.length !== 6) cfg.ind = tocDefaultIndents(cfg.lv);
+        cfg.ind = cfg.ind.map(function (v) {
+            v = parseFloat(v);
+            return isNaN(v) ? 0 : Math.max(0, Math.min(150, v));
+        });
+        return cfg;
+    }
+    /* the look of a table: its own data-toc-cfg, else what its lines show
+       (a table from before the options, one read from a .docx) */
+    function tocCfgOf(lines) {
+        lines = lines || [];
+        for (var i = 0; i < lines.length; i++) {
+            var raw = lines[i].getAttribute("data-toc-cfg");
+            if (!raw) continue;
+            try { return normalizeTocCfg(JSON.parse(raw)); } catch (e) { }
+        }
+        var max = tocMaxOf(lines);
+        var c = { lv: [] };
+        for (var l = 1; l <= max; l++) c.lv.push(l);
+        var entries = lines.filter(function (p) { return parseInt(p.getAttribute("data-toc-level"), 10) > 0; });
+        if (entries.length) {
+            var first = entries[0];
+            var m = /right:[^:;]*:(\w+)/.exec(first.getAttribute("data-tabs") || "");
+            c.pn = !!first.querySelector(".doc-tab");
+            c.ld = m ? m[1] : (c.pn ? "none" : "dot");
+            var a = first.querySelector("a");
+            c.lk = !!a && !/inherit/.test(a.getAttribute("style") || "");
+            var top = 9;
+            entries.forEach(function (p) { top = Math.min(top, parseInt(p.getAttribute("data-toc-level"), 10)); });
+            c.bd = entries.some(function (p) {
+                return parseInt(p.getAttribute("data-toc-level"), 10) === top &&
+                    parseInt(window.getComputedStyle(p).fontWeight, 10) >= 600;
+            });
+        }
+        return normalizeTocCfg(c);
+    }
+    // an id to link to; Word's bookmark names look the same
+    function headingAnchor(h) {
+        if (!h.id) {
+            var id;
+            do {
+                id = "_Toc" + Math.floor(100000000 + Math.random() * 899999999);
+            } while (document.getElementById(id));
+            h.id = id;
+        }
+        return h.id;
     }
     // the deepest heading level a table lists
     function tocMaxOf(lines) {
@@ -1444,8 +1542,8 @@
         }
         return parts.join("").split(ZWSP).join("").replace(/\s+/g, " ").trim();
     }
-    function tocEntries(max) {
-        var heads = editor.querySelectorAll(tocSelector(max || 3));
+    function tocEntries(levels) {
+        var heads = editor.querySelectorAll(tocSelector(levels || 3));
         var out = [];
         for (var i = 0; i < heads.length; i++) {
             var h = heads[i];
@@ -1453,6 +1551,7 @@
             var text = headingText(h);
             if (!text) continue;
             out.push({
+                el: h,
                 level: parseInt(h.tagName.substring(1), 10),
                 text: text,
                 page: pageIndexAt(offsetTopInPage(h)) + 1
@@ -1460,24 +1559,38 @@
         }
         return out;
     }
-    function tocLinesHtml(entries, max) {
-        max = max || 3;
+    function listLevels(levels) {
+        if (!levels.length) return "1";
+        var contiguous = levels[levels.length - 1] - levels[0] === levels.length - 1;
+        return contiguous ? levels[0] + (levels.length > 1 ? "-" + levels[levels.length - 1] : "") : levels.join(", ");
+    }
+    /* the lines of a table: each entry links to its heading (Word's \h; the
+       link is drawn as text unless the table shows links), then a right
+       tab at the margin with the leader and the page number */
+    function tocLinesHtml(entries, cfg) {
+        cfg = cfg || normalizeTocCfg(null);
         var geo = pageGeometry();
         var tabPt = Math.round(geo.contentW * 0.75 * 10) / 10;
-        var maxAttr = max !== 3 ? ' data-toc-max="' + max + '"' : "";
+        var cfgAttr = ' data-toc-cfg="' + esc(JSON.stringify(cfg)) + '"';
+        var maxLevel = cfg.lv[cfg.lv.length - 1];
+        // what an older reader of the file still understands
+        var maxAttr = maxLevel !== 3 ? ' data-toc-max="' + maxLevel + '"' : "";
         if (!entries.length) {
-            return '<p class="doc-toc" data-toc-level="0"' + maxAttr + ' style="margin-bottom:3pt;color:#80868b;">' +
-                esc("No headings found - use Heading 1-" + max + " for the lines this table should list") + "</p>";
+            return '<p class="doc-toc" data-toc-level="0"' + maxAttr + cfgAttr + ' style="margin-bottom:3pt;color:#80868b;">' +
+                esc("No headings found - use Heading " + listLevels(cfg.lv) + " for the lines this table should list") + "</p>";
         }
-        // the top level present starts at the margin (a document whose
-        // chapters are Heading 2 has no empty first step)
         var top = 9;
         entries.forEach(function (e) { top = Math.min(top, e.level); });
+        var linkCss = cfg.lk ? "color:" + TOC_LINK_COLOR + ";text-decoration:underline;" : "color:inherit;text-decoration:inherit;";
         var html = "";
         for (var i = 0; i < entries.length; i++) {
             var e = entries[i];
-            html += '<p class="doc-toc" data-toc-level="' + e.level + '"' + maxAttr + ' data-tabs="right:' + tabPt + ':dot" style="margin-left:' +
-                ((e.level - top) * 14) + 'pt;margin-bottom:3pt;">' + esc(e.text) + '<span class="doc-tab"></span>' + e.page + "</p>";
+            var indPt = Math.round(cfg.ind[e.level - 1] * 72 / 25.4 * 100) / 100;
+            var css = "margin-left:" + indPt + "pt;margin-bottom:3pt;" + (cfg.bd && e.level === top ? "font-weight:700;" : "");
+            html += '<p class="doc-toc" data-toc-level="' + e.level + '"' + maxAttr + cfgAttr +
+                (cfg.pn ? ' data-tabs="right:' + tabPt + ":" + cfg.ld + '"' : "") + ' style="' + css + '">' +
+                '<a href="#' + esc(headingAnchor(e.el)) + '" style="' + linkCss + '">' + esc(e.text) + "</a>" +
+                (cfg.pn ? '<span class="doc-tab"></span>' + e.page : "") + "</p>";
         }
         return html;
     }
@@ -1517,12 +1630,13 @@
     function insertToc() {
         if (inHeaderFooter()) return;
         if (hasToc()) { updateToc(); return; }
-        var entries = tocEntries();
+        var cfg = normalizeTocCfg(null);
+        var entries = tocEntries(cfg.lv);
         restoreSel();
         try {
             document.execCommand("insertHTML", false,
                 '<p class="doc-toc doc-toc-title" style="font-size:16pt;margin-bottom:6pt;">Contents</p>' +
-                tocLinesHtml(entries) + "<p><br></p>");
+                tocLinesHtml(entries, cfg) + "<p><br></p>");
         } catch (e) { return; }
         afterEdit(true);
         updatePageGuides();
@@ -1531,10 +1645,11 @@
         if (!entries.length) OfficeApp.setStatus("Table of contents added - give your headings a Heading 1-3 style, then click Update table", "info", 6000);
     }
     function updateTocQuiet() { updateToc(true); }
-    /* updateToc rebuilds every table (or only `only`, one group) from the
-       headings. The new lines can push the headings to other pages, so the
-       numbers are taken again until they stop changing. */
-    function updateToc(quiet, only) {
+    /* updateToc rebuilds every table (or only `only`, one group, then with
+       `cfg` as its new look when given) from the headings. The new lines
+       can push the headings to other pages, so the numbers are taken
+       again until they stop changing. */
+    function updateToc(quiet, only, cfg) {
         if (!hasToc()) return;
         var groups = tocGroups();
         if (only) {
@@ -1543,10 +1658,11 @@
         }
         if (!groups.length) return;
         // the headings each table lists, from the pages as laid out now
-        var maxes = groups.map(tocMaxOf);
+        var cfgs = groups.map(function (g) { return only && cfg ? normalizeTocCfg(cfg) : tocCfgOf(g); });
+        var keys = cfgs.map(function (c) { return c.lv.join(","); });
         function entriesByMax() {
             var out = {};
-            maxes.forEach(function (m) { if (!out[m]) out[m] = tocEntries(m); });
+            cfgs.forEach(function (c, i) { if (!out[keys[i]]) out[keys[i]] = tocEntries(c.lv); });
             return out;
         }
         var entries = entriesByMax();
@@ -1559,7 +1675,7 @@
         var anchors = groups.map(function (g, i) {
             var lines = g.filter(function (p) { return !p.classList.contains("doc-toc-title"); });
             var title = g.filter(function (p) { return p.classList.contains("doc-toc-title"); })[0] || null;
-            return { lines: lines, after: title, before: lines.length ? lines[0] : null, max: maxes[i] || 3 };
+            return { lines: lines, after: title, before: lines.length ? lines[0] : null, cfg: cfgs[i], key: keys[i] };
         });
         var caretInside = groups.some(function (g) {
             var sel = window.getSelection();
@@ -1573,7 +1689,7 @@
             sig = s;
             anchors.forEach(function (a) {
                 var holder = document.createElement("div");
-                holder.innerHTML = tocLinesHtml(entries[a.max], a.max);
+                holder.innerHTML = tocLinesHtml(entries[a.key], a.cfg);
                 var fresh = Array.prototype.slice.call(holder.children);
                 var ref = a.before || (a.after ? a.after.nextSibling : null);
                 var parent = (a.before || a.after).parentNode;
@@ -1599,6 +1715,7 @@
         }
         afterEdit(true);
         scheduleTocOverlay();
+        if (tocPanel && tocPanel.is(":visible")) syncTocPanel();
         if (quiet !== true) OfficeApp.setStatus("Table of contents updated");
     }
     // Ctrl+click on an entry: go to the heading it lists
@@ -1702,18 +1819,186 @@
             if (i === 0) {
                 html += '<div class="doc-toc-tab" style="left:' + left + "px;top:" + (b.top - 4) + 'px;">' +
                     '<button type="button" class="doc-toc-update" title="Update the table from the headings (Ctrl+click an entry to go to its heading)">' +
-                    '<i class="sync alternate icon"></i>Update table</button></div>';
+                    '<i class="sync alternate icon"></i>Update table</button>' +
+                    '<button type="button" class="doc-toc-more" title="Table of contents options">' +
+                    '<i class="ellipsis horizontal icon"></i></button></div>';
             }
         });
         tocOverlay.innerHTML = html;
-        var btn = tocOverlay.querySelector(".doc-toc-update");
-        // keep the caret where it is: the button never takes the focus
-        btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
-        btn.addEventListener("click", function (e) {
-            e.preventDefault();
-            var g = caretTocGroup() || (tocHover && tocHover[0] && tocHover[0].isConnected ? tocGroupOf(tocHover[0]) : null);
-            updateToc(false, g || undefined);
+        function framedGroup() {
+            return caretTocGroup() || (tocHover && tocHover[0] && tocHover[0].isConnected ? tocGroupOf(tocHover[0]) : null);
+        }
+        // keep the caret where it is: the buttons never take the focus
+        Array.prototype.forEach.call(tocOverlay.querySelectorAll("button"), function (b) {
+            b.addEventListener("mousedown", function (e) { e.preventDefault(); });
         });
+        tocOverlay.querySelector(".doc-toc-update").addEventListener("click", function (e) {
+            e.preventDefault();
+            updateToc(false, framedGroup() || undefined);
+        });
+        tocOverlay.querySelector(".doc-toc-more").addEventListener("click", function (e) {
+            e.preventDefault();
+            var g = framedGroup();
+            if (g) openTocPanel(g);
+        });
+    }
+
+    /* ---------- Table of contents options ----------
+       A side panel like Google Docs': a format (plain, dotted, links),
+       page numbers and their leader, bold top level, and which heading
+       levels are listed at which indent. Every change restyles the table
+       at once (one undo step each). The panel follows the table by its
+       place among the tables, as its lines are made again on every change. */
+    var tocPanel = null, tocPanelIdx = -1, tocIndentTimer = null;
+    var TOC_FORMATS = [
+        { id: "plain", label: "Plain text", cfg: { pn: true, ld: "none", lk: false } },
+        { id: "dotted", label: "Dotted", cfg: { pn: true, ld: "dot", lk: false } },
+        { id: "links", label: "Links", cfg: { pn: false, lk: true } }
+    ];
+    function tocFormatOf(cfg) {
+        if (cfg.lk && !cfg.pn) return "links";
+        if (!cfg.lk && cfg.pn) return cfg.ld === "none" ? "plain" : "dotted";
+        return "";
+    }
+    // the format cards' pictures: lines of a table in miniature
+    function tocFormatSvg(id) {
+        var lines = [[4, 22], [9, 20], [9, 18], [4, 22]];
+        var s = '<svg viewBox="0 0 48 34" width="56" height="40" aria-hidden="true">';
+        lines.forEach(function (l, i) {
+            var y = 6 + i * 7.5;
+            var col = id === "links" ? TOC_LINK_COLOR : "#3c4043";
+            s += '<rect x="' + l[0] + '" y="' + (y - 1.2) + '" width="' + l[1] + '" height="2.4" rx="1" fill="' + col + '"/>';
+            if (id !== "links") {
+                if (id === "dotted") {
+                    for (var x = l[0] + l[1] + 2; x < 39; x += 2.6) s += '<rect x="' + x + '" y="' + (y + 0.4) + '" width="1.2" height="1.2" fill="#80868b"/>';
+                }
+                s += '<rect x="41" y="' + (y - 1.2) + '" width="3" height="2.4" rx="0.6" fill="#3c4043"/>';
+            }
+        });
+        return s + "</svg>";
+    }
+    function tocPanelGroup() {
+        var groups = tocGroups();
+        return tocPanelIdx >= 0 && tocPanelIdx < groups.length ? groups[tocPanelIdx] : null;
+    }
+    function buildTocPanel() {
+        var h = '<div id="docTocPanel" class="of-noprint">' +
+            '<div class="doc-cmt-head"><i class="list ul icon"></i> Table of contents' +
+            '<button type="button" class="of-te-btn doc-cmt-close" title="Close panel"><i class="close icon"></i></button></div>' +
+            '<div class="doc-toc-panel-body">' +
+            '<div class="doc-toc-sec">Formatting</div><div class="doc-toc-card">' +
+            '<div class="doc-toc-formats">';
+        TOC_FORMATS.forEach(function (f) {
+            h += '<button type="button" class="doc-toc-format" data-fmt="' + f.id + '" title="' + f.label + '">' +
+                tocFormatSvg(f.id) + "<span>" + f.label + "</span></button>";
+        });
+        h += "</div>" +
+            '<label class="doc-toc-opt"><input type="checkbox" data-opt="pn"> Show page numbers</label>' +
+            '<div class="doc-toc-opt doc-toc-leader"><label><input type="checkbox" data-opt="leader"> Show tab leader</label>' +
+            '<select class="of-tselect" data-opt="ld">' +
+            '<option value="dot">. . . . . . . .</option><option value="hyphen">- - - - - - -</option>' +
+            '<option value="underscore">________</option></select></div>' +
+            '<label class="doc-toc-opt"><input type="checkbox" data-opt="lk"> Show as links</label>' +
+            '<label class="doc-toc-opt"><input type="checkbox" data-opt="bd"> Bold top level</label>' +
+            "</div>" +
+            '<div class="doc-toc-sec">Heading levels</div><div class="doc-toc-card">' +
+            '<div class="doc-toc-levhead"><span>Heading</span><span>Indent</span></div>';
+        for (var l = 1; l <= 6; l++) {
+            h += '<div class="doc-toc-level" data-level="' + l + '">' +
+                '<label><input type="checkbox" data-lv="' + l + '"> Heading ' + l + "</label>" +
+                '<span class="doc-toc-ind"><input type="number" class="of-tinput" min="0" max="150" step="0.05" data-ind="' + l + '"> mm</span></div>';
+        }
+        h += '<div class="doc-toc-note">Levels the document has no heading of are greyed.</div></div></div></div>';
+        tocPanel = $(h);
+        tocPanel.find(".doc-cmt-close").on("click", closeTocPanel);
+        tocPanel.on("click", ".doc-toc-format", function () {
+            var f = TOC_FORMATS.filter(function (x) { return x.id === this.getAttribute("data-fmt"); }, this)[0];
+            if (!f) return;
+            var cfg = currentPanelCfg();
+            Object.keys(f.cfg).forEach(function (k) { cfg[k] = f.cfg[k]; });
+            applyTocCfg(cfg);
+        });
+        tocPanel.on("change", "input[type=checkbox], select", function () {
+            var cfg = currentPanelCfg();
+            var opt = this.getAttribute("data-opt");
+            var lv = this.getAttribute("data-lv");
+            if (opt === "pn") cfg.pn = this.checked;
+            else if (opt === "leader") cfg.ld = this.checked ? (tocPanel.find("select[data-opt=ld]").val() || "dot") : "none";
+            else if (opt === "ld") cfg.ld = this.value;
+            else if (opt === "lk") cfg.lk = this.checked;
+            else if (opt === "bd") cfg.bd = this.checked;
+            else if (lv) {
+                var n = parseInt(lv, 10);
+                var set = cfg.lv.filter(function (x) { return x !== n; });
+                if (this.checked) set.push(n);
+                if (!set.length) { this.checked = true; return; }   // a table lists something
+                cfg.lv = set.sort();
+                // indents step again from the new top level
+                cfg.ind = tocDefaultIndents(cfg.lv);
+            }
+            applyTocCfg(cfg);
+        });
+        tocPanel.on("input", "input[data-ind]", function () {
+            var input = this;
+            clearTimeout(tocIndentTimer);
+            tocIndentTimer = setTimeout(function () {
+                var v = parseFloat(input.value);
+                if (isNaN(v)) return;
+                var cfg = currentPanelCfg();
+                cfg.ind[parseInt(input.getAttribute("data-ind"), 10) - 1] = v;
+                applyTocCfg(cfg, true);
+            }, 400);
+        });
+        $("body").append(tocPanel);
+    }
+    function currentPanelCfg() {
+        var g = tocPanelGroup();
+        return JSON.parse(JSON.stringify(tocCfgOf(g || [])));
+    }
+    function applyTocCfg(cfg, keepInputs) {
+        var g = tocPanelGroup();
+        if (!g) { closeTocPanel(); return; }
+        updateToc(true, g, cfg);
+        syncTocPanel(keepInputs);
+    }
+    function openTocPanel(group) {
+        if (!tocPanel) buildTocPanel();
+        tocPanelIdx = -1;
+        tocGroups().forEach(function (g, i) { if (g.indexOf(group[0]) >= 0) tocPanelIdx = i; });
+        var bar = document.getElementById("toolbar");
+        if (bar) tocPanel.css("top", Math.round(bar.getBoundingClientRect().bottom) + 4 + "px");
+        tocPanel.show();
+        syncTocPanel();
+    }
+    function closeTocPanel() {
+        if (tocPanel) tocPanel.hide();
+        tocPanelIdx = -1;
+    }
+    // the panel shows the table's look as it is now
+    function syncTocPanel(keepInputs) {
+        if (!tocPanel) return;
+        var g = tocPanelGroup();
+        if (!g) { closeTocPanel(); return; }
+        var cfg = tocCfgOf(g);
+        var fmt = tocFormatOf(cfg);
+        tocPanel.find(".doc-toc-format").each(function () {
+            this.classList.toggle("active", this.getAttribute("data-fmt") === fmt);
+        });
+        tocPanel.find("input[data-opt=pn]").prop("checked", cfg.pn);
+        tocPanel.find("input[data-opt=leader]").prop("checked", cfg.ld !== "none").prop("disabled", !cfg.pn);
+        tocPanel.find("select[data-opt=ld]").val(cfg.ld === "none" ? "dot" : cfg.ld).prop("disabled", !cfg.pn || cfg.ld === "none");
+        tocPanel.find(".doc-toc-leader").toggleClass("disabled", !cfg.pn);
+        tocPanel.find("input[data-opt=lk]").prop("checked", cfg.lk);
+        tocPanel.find("input[data-opt=bd]").prop("checked", cfg.bd);
+        var present = tocPresentLevels([1, 2, 3, 4, 5, 6]);
+        for (var l = 1; l <= 6; l++) {
+            var on = cfg.lv.indexOf(l) >= 0;
+            var $row = tocPanel.find('.doc-toc-level[data-level="' + l + '"]');
+            $row.toggleClass("absent", present.indexOf(l) < 0);
+            $row.find("input[data-lv]").prop("checked", on);
+            var $ind = $row.find("input[data-ind]").prop("disabled", !on);
+            if (!keepInputs || document.activeElement !== $ind[0]) $ind.val(cfg.ind[l - 1]);
+        }
     }
     function leaveTocHover() {
         clearTimeout(tocHoverTimer);
