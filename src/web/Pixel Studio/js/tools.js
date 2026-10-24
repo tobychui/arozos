@@ -724,7 +724,9 @@ PS.paintCursorOverlay = function (size, square) {
 
     function centreOf(b) { return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
 
-    // visible layers with a pixel under pt, topmost first
+    // visible layers under pt, topmost first: a layer is hit by a pixel of
+    // its own, a text layer anywhere inside its box (the gaps between the
+    // letters count, so clicking a word never falls through to the background)
     PS.layersAtPoint = function (pt) {
         var x = Math.floor(pt.x), y = Math.floor(pt.y);
         if (!PS.doc || x < 0 || y < 0 || x >= PS.doc.width || y >= PS.doc.height) { return []; }
@@ -732,12 +734,17 @@ PS.paintCursorOverlay = function (size, square) {
         PS.layerDisplayList(true).forEach(function (row) {
             var l = row.layer;
             if (!l.canvas || !PS.isEffectivelyVisible(l)) { return; }
+            if (l.kind === "text") {
+                var b = PS.layerContentBounds(l);
+                if (b && pt.x >= b.x && pt.x < b.x + b.w && pt.y >= b.y && pt.y < b.y + b.h) { out.push(l); }
+                return;
+            }
             if (l.canvas.getContext("2d").getImageData(x, y, 1, 1).data[3] > 16) { out.push(l); }
         });
         return out;
     };
 
-    // Auto-Select: the topmost visible layer with a pixel under the pointer
+    // Auto-Select: the topmost visible layer under the pointer
     PS.layerAtPoint = function (pt, wantGroup) {
         var l = PS.layersAtPoint(pt)[0];
         if (!l) { return null; }
@@ -947,7 +954,9 @@ PS.paintCursorOverlay = function (size, square) {
                     return !l.locks.position && !PS.ancestorsOf(l).some(function (a) { return a.locks.position; });
                 };
                 if (!PS.withLinkedLayers(PS.topLevelSelected()).filter(movable).length) {
-                    PS.toast("Layer position is locked", true);
+                    // a plain click (e.g. picking the Background) says nothing;
+                    // only an actual drag warns that the layer cannot move
+                    drag = { mode: "locked", start: pt, warned: false };
                     return;
                 }
                 // Alt-drag moves a copy
@@ -993,6 +1002,13 @@ PS.paintCursorOverlay = function (size, square) {
         },
         onMove: function (pt, e) {
             if (!drag) { PS.moveHoverUpdate(pt, e); return; }
+            if (drag.mode === "locked") {
+                if (!drag.warned && Math.hypot(pt.x - drag.start.x, pt.y - drag.start.y) * PS.zoom > 3) {
+                    drag.warned = true;
+                    PS.toast("Layer position is locked", true);
+                }
+                return;
+            }
             var mdx = pt.x - drag.start.x, mdy = pt.y - drag.start.y;
             if (e && e.shiftKey) {
                 // Shift constrains to horizontal / vertical
@@ -1015,6 +1031,7 @@ PS.paintCursorOverlay = function (size, square) {
         },
         onUp: function () {
             if (!drag) { return; }
+            if (drag.mode === "locked") { drag = null; return; }
             if (drag.mode === "layers") {
                 PS.movePreview = null;
                 if (drag.dx || drag.dy) { PS.translateLayers(drag.layers, drag.dx, drag.dy, "Move"); }
