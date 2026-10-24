@@ -419,10 +419,14 @@
                 in the header and in the rows and drifts them a pixel apart. When the
                 file area gets too narrow a whole column is dropped instead, which
                 keeps every width an exact integer in both containers.
+
+                The widths come from custom properties that the header's resize
+                grips set on #fileArea, so the header and every row pick up a
+                dragged width from the same place.
             */
-            .colDate{ flex: 0 0 210px; }
-            .colType{ flex: 0 0 150px; }
-            .colSize{ flex: 0 0 110px; }
+            .colDate{ flex: 0 0 var(--fs-col-date, 210px); }
+            .colType{ flex: 0 0 var(--fs-col-type, 150px); }
+            .colSize{ flex: 0 0 var(--fs-col-size, 110px); }
 
             /* Width driven by the file area itself, not the viewport, because the
                details pane takes its space away without changing the window size */
@@ -435,7 +439,9 @@
                 cursor: pointer;
                 display: flex;
                 align-items: center;
+                align-self: stretch;
                 padding: 0;
+                position: relative;
             }
             /* The hover pill lives on an inner span so it cannot alter the column box */
             .fsListHead .fsCol .fsColInner{
@@ -446,8 +452,50 @@
                 margin-left: -6px;
                 border-radius: 6px;
                 max-width: 100%;
+                min-width: 0;
             }
             .fsListHead .fsCol .fsColInner:hover{ background: var(--fs-fill); }
+            /* A column dragged narrower than its label clips the label, not the box */
+            .fsListHead .fsCol .fsColLabel{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /*
+                Resize grip on a header cell's right edge, half over each of the two
+                columns it separates. It outranks the next cell's hover pill, which
+                reaches back over the boundary. The last column ends at the edge of
+                the list, so it has nothing to trade width with and shows no grip.
+            */
+            .fsListHead .fsColGrip{
+                position: absolute;
+                top: 0;
+                right: -4px;
+                width: 8px;
+                height: 100%;
+                cursor: col-resize;
+                z-index: 2;
+                touch-action: none;
+            }
+            .fsListHead .fsCol:last-child .fsColGrip{ display: none; }
+            .fsListHead .fsColGrip::after{
+                content: "";
+                position: absolute;
+                top: 25%;
+                left: 3px;
+                width: 1px;
+                height: 50%;
+                background: var(--fs-line);
+            }
+            .fsListHead:hover .fsColGrip::after{ background: var(--fs-text-faint); }
+            .fsListHead .fsColGrip:hover::after,
+            .fsListHead .fsColGrip.dragging::after{
+                top: 0;
+                width: 2px;
+                height: 100%;
+                background: var(--fs-accent);
+            }
             .fsListHead .fsCol .fsSortMark{
                 width: 11px;
                 height: 11px;
@@ -851,6 +899,84 @@
                 padding: 20px;
             }
             #waitloader.show{ display: flex; }
+
+            /* ---------- Replace prompt (new file mode) ---------- */
+            /*
+                Asked before a new file is written over an existing one. An in-page
+                dialog rather than confirm(): it follows the theme, and answering
+                "no" leaves the user in the selector to type another name.
+            */
+            .fsModalScrim{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                z-index: 950;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+                background: rgba(15,20,30,0.28);
+            }
+            body.darkTheme .fsModalScrim{ background: rgba(0,0,0,0.5); }
+            .fsModalScrim.show{ display: flex; }
+            .fsModal{
+                width: 380px;
+                max-width: 100%;
+                background: var(--fs-surface);
+                border: 1px solid var(--fs-line);
+                border-radius: 12px;
+                box-shadow: 0 12px 36px var(--fs-shadow);
+                padding: 18px 18px 14px 18px;
+            }
+            .fsModalHead{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+            /* !important for the same reason as the context menu glyphs above:
+               ao.css repaints every div under a themed body in the text colour */
+            .fsModalIcon{
+                width: 22px;
+                height: 22px;
+                min-width: 22px;
+                color: #e37400 !important;
+            }
+            body.darkTheme .fsModalIcon{ color: #fdd663 !important; }
+            .fsModalTitle{
+                font-size: 15px;
+                font-weight: 600;
+                color: var(--fs-text);
+            }
+            .fsModalFile{
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                background: var(--fs-fill);
+                margin-bottom: 10px;
+            }
+            .fsModalFile .fsModalFileName{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: var(--fs-text);
+            }
+            .fsModalText{
+                font-size: 13px;
+                line-height: 1.5;
+                color: var(--fs-text-dim);
+            }
+            .fsModalFoot{
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                margin-top: 16px;
+            }
+            .fsModal .fsBtn:focus-visible{
+                outline: 2px solid var(--fs-accent);
+                outline-offset: 2px;
+            }
         </style>
     </head>
     <body>
@@ -973,6 +1099,22 @@
                 <div class="fsSpinner"></div>
                 <div id="waitloadertext" locale="message/waitingResp">Waiting Response</div>
             </div>
+
+            <!-- New file mode: asks before an existing file is replaced, see confirmOverwrite() -->
+            <div class="fsModalScrim" id="overwriteDialog" onclick="if (event.target == this){ answerOverwrite(false); }">
+                <div class="fsModal" role="alertdialog" aria-modal="true" aria-labelledby="overwriteTitle" aria-describedby="overwriteText">
+                    <div class="fsModalHead">
+                        <div class="fsModalIcon" data-icon="warning"></div>
+                        <div class="fsModalTitle" id="overwriteTitle" locale="overwrite/title">Replace existing file?</div>
+                    </div>
+                    <div class="fsModalFile" id="overwriteFile"></div>
+                    <div class="fsModalText" id="overwriteText" locale="overwrite/message">A file with this name already exists in this folder. Replacing it will overwrite its current contents.</div>
+                    <div class="fsModalFoot">
+                        <button class="fsBtn" id="overwriteCancelBtn" onclick="answerOverwrite(false);" locale="overwrite/cancel">Cancel</button>
+                        <button class="fsBtn primary" id="overwriteReplaceBtn" onclick="answerOverwrite(true);" locale="overwrite/replace">Replace</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script>
@@ -1030,6 +1172,13 @@
             var searchKeyword = "";
             var selectionConfirmed = false;
 
+            //List view column widths, see "List columns" below
+            var COLUMN_DEFAULT_WIDTHS = {date: 210, type: 150, size: 110};
+            var COLUMN_MIN_WIDTH = 60;          //Narrowest a fixed column can be dragged
+            var NAME_COLUMN_MIN_WIDTH = 140;    //Room the fluid name column always keeps
+            var columnWidths = {};              //key -> px, only the columns the user resized
+            var columnResizeEndedAt = 0;        //Lets the click a resize leaves behind skip the sort
+
             var rootNameMap = {};           //"user:/" -> "User"
             var thumbLoader = null;         //Handle from FileThumb.loadThumbnails, cancel on navigation
 
@@ -1065,6 +1214,7 @@
                 globe:      STROKE + '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>',
                 cube:       STROKE + '<path d="M12 2.8l8 4.4v9.6l-8 4.4-8-4.4V7.2z"/><path d="M4 7.2l8 4.4 8-4.4M12 21.2v-9.6"/></svg>',
                 code:       STROKE + '<path d="M9 18l-6-6 6-6M15 6l6 6-6 6"/></svg>',
+                warning:    STROKE + '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
                 trash:      STROKE + '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13"/></svg>',
                 drive:      STROKE + '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M6.5 15h6"/><circle cx="17.5" cy="15" r="1"/></svg>',
                 folderSide: STROKE + '<path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
@@ -1354,6 +1504,9 @@
                                 if (pref.showHidden != undefined){
                                     showHidden = pref.showHidden;
                                 }
+                                if (pref.columnWidths != undefined){
+                                    columnWidths = parseColumnWidths(pref.columnWidths);
+                                }
                             }
                         }catch(ex){
                             //Corrupted preference. Ignore and use the defaults
@@ -1374,7 +1527,8 @@
                     sortField: sortField,
                     sortAscending: sortAscending,
                     detailsOpen: detailsOpen,
-                    showHidden: showHidden
+                    showHidden: showHidden,
+                    columnWidths: columnWidths
                 };
                 $.ajax({
                     url: "../../system/file_system/preference",
@@ -1391,6 +1545,7 @@
                 $("#detailsPanel").toggleClass("open", detailsOpen);
                 $("#menuDetails").toggleClass("checked", detailsOpen);
                 $("#menuHidden").toggleClass("checked", showHidden);
+                applyColumnWidths();
             }
 
             function setViewMode(mode){
@@ -1651,8 +1806,13 @@
             */
             function updateFileAreaDensity(){
                 var width = $("#fileArea").width();
-                $("#fileArea").toggleClass("narrow", width < 580)
-                              .toggleClass("verynarrow", width < 440);
+                //The breakpoints suit the default widths. A resized column moves them
+                //by as much as it grew or shrank, so the name column keeps its room
+                var dateGrowth = columnWidth("date") - COLUMN_DEFAULT_WIDTHS.date;
+                var typeGrowth = columnWidth("type") - COLUMN_DEFAULT_WIDTHS.type;
+                var sizeGrowth = columnWidth("size") - COLUMN_DEFAULT_WIDTHS.size;
+                $("#fileArea").toggleClass("narrow", width < 580 + dateGrowth + typeGrowth + sizeGrowth)
+                              .toggleClass("verynarrow", width < 440 + dateGrowth + sizeGrowth);
             }
 
             function renderListView(){
@@ -1686,15 +1846,21 @@
 
             function sortableHeader(columnClass, field, label){
                 var isSorted = (sortField == field);
-                return '<div class="fsCol ' + columnClass + (isSorted ? " sorted" : "") + '" onclick="onHeaderClick(\'' + field + '\');">' +
+                return '<div class="fsCol ' + columnClass + (isSorted ? " sorted" : "") + '" data-col="' + field + '" onclick="onHeaderClick(\'' + field + '\');">' +
                     '<span class="fsColInner">' +
-                        '<span>' + escapeHTML(label) + '</span>' +
+                        '<span class="fsColLabel">' + escapeHTML(label) + '</span>' +
                         '<span class="fsSortMark">' + (sortAscending ? ICONS.arrowUp : ICONS.arrowDown) + '</span>' +
                     '</span>' +
+                    '<span class="fsColGrip" onpointerdown="startColumnResize(event, this);"' +
+                        ' onclick="event.stopPropagation();" ondblclick="resetColumnPair(event, this);"></span>' +
                     '</div>';
             }
 
             function onHeaderClick(field){
+                //A resize that ends over its own header cell leaves a click behind
+                if (Date.now() - columnResizeEndedAt < 300){
+                    return;
+                }
                 if (sortField == field){
                     sortAscending = !sortAscending;
                 }else{
@@ -1704,6 +1870,147 @@
                 applyViewPreferences();
                 saveViewPreferences();
                 renderFileList();
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  List columns                                                       */
+            /* ------------------------------------------------------------------ */
+            /*
+                The grip on a header cell's right edge is the boundary between that
+                column and the next visible one. Dragging it trades width between
+                those two only, so no other column moves, and double clicking it puts
+                both back to their defaults - the same model as the File Manager's
+                details view (js/explorer/columns.js).
+
+                Name is the one fluid column and is never given a width. When it is
+                one of the pair only the other column is sized, and name takes up the
+                difference, which comes to the same thing.
+            */
+            function columnWidth(key){
+                return columnWidths[key] != undefined ? columnWidths[key] : COLUMN_DEFAULT_WIDTHS[key];
+            }
+
+            function columnMinWidth(key){
+                return key == "name" ? NAME_COLUMN_MIN_WIDTH : COLUMN_MIN_WIDTH;
+            }
+
+            //Keeps only known columns with a usable number, so a corrupted
+            //preference cannot break the layout
+            function parseColumnWidths(saved){
+                var widths = {};
+                if (saved == null || typeof saved != "object"){
+                    return widths;
+                }
+                for (var key in COLUMN_DEFAULT_WIDTHS){
+                    var width = parseInt(saved[key]);
+                    if (!isNaN(width)){
+                        widths[key] = Math.max(COLUMN_MIN_WIDTH, width);
+                    }
+                }
+                return widths;
+            }
+
+            function applyColumnWidths(){
+                var area = document.getElementById("fileArea");
+                for (var key in COLUMN_DEFAULT_WIDTHS){
+                    if (columnWidths[key] != undefined){
+                        area.style.setProperty("--fs-col-" + key, Math.round(columnWidths[key]) + "px");
+                    }else{
+                        area.style.removeProperty("--fs-col-" + key);
+                    }
+                }
+            }
+
+            //The two header cells a grip sits between, skipping columns the
+            //density classes have hidden
+            function columnPairFor(grip){
+                var cell = $(grip).closest(".fsCol")[0];
+                var cells = $(cell).parent().children(".fsCol").filter(":visible").toArray();
+                var next = cells[cells.indexOf(cell) + 1];
+                if (next == undefined){
+                    return null;
+                }
+                return {
+                    left: cell,
+                    right: next,
+                    leftKey: $(cell).attr("data-col"),
+                    rightKey: $(next).attr("data-col")
+                };
+            }
+
+            function startColumnResize(event, grip){
+                if (event.button != 0){
+                    return;
+                }
+                //Keeps the press from selecting text or reaching the sort handler
+                event.preventDefault();
+                event.stopPropagation();
+                var pair = columnPairFor(grip);
+                if (pair == null){
+                    return;
+                }
+
+                var startX = event.clientX;
+                var startLeft = pair.left.offsetWidth;
+                var startRight = pair.right.offsetWidth;
+                var total = startLeft + startRight;
+                //A column a small window already squeezed under its minimum may stay
+                //there, it just cannot be dragged any narrower
+                var minLeft = Math.min(startLeft, columnMinWidth(pair.leftKey));
+                var maxLeft = total - Math.min(startRight, columnMinWidth(pair.rightKey));
+                var moved = false;
+
+                //Same capture pattern as the sidebar splitter, see initSidebarSplitter()
+                try { grip.setPointerCapture(event.pointerId); } catch(e) {}
+                grip.classList.add("dragging");
+                $("body").addClass("fsResizing");
+
+                function onMove(e){
+                    var left = Math.round(Math.min(maxLeft, Math.max(minLeft, startLeft + e.clientX - startX)));
+                    if (pair.leftKey != "name"){
+                        columnWidths[pair.leftKey] = left;
+                    }
+                    if (pair.rightKey != "name"){
+                        columnWidths[pair.rightKey] = total - left;
+                    }
+                    moved = moved || left != startLeft;
+                    applyColumnWidths();
+                }
+
+                function onEnd(){
+                    //Listeners go first: releasing the capture fires lostpointercapture
+                    grip.removeEventListener("pointermove", onMove);
+                    grip.removeEventListener("pointerup", onEnd);
+                    grip.removeEventListener("pointercancel", onEnd);
+                    grip.removeEventListener("lostpointercapture", onEnd);
+                    try { grip.releasePointerCapture(event.pointerId); } catch(e) {}
+                    grip.classList.remove("dragging");
+                    $("body").removeClass("fsResizing");
+                    columnResizeEndedAt = Date.now();
+                    if (moved){
+                        saveViewPreferences();
+                        updateFileAreaDensity();
+                    }
+                }
+
+                grip.addEventListener("pointermove", onMove);
+                grip.addEventListener("pointerup", onEnd);
+                grip.addEventListener("pointercancel", onEnd);
+                //Capture taken away without a pointerup ends the drag as well
+                grip.addEventListener("lostpointercapture", onEnd);
+            }
+
+            function resetColumnPair(event, grip){
+                event.stopPropagation();
+                var pair = columnPairFor(grip);
+                if (pair == null){
+                    return;
+                }
+                delete columnWidths[pair.leftKey];
+                delete columnWidths[pair.rightKey];
+                applyColumnWidths();
+                saveViewPreferences();
+                updateFileAreaDensity();
             }
 
             function renderGridView(){
@@ -2160,6 +2467,18 @@
                     });
                 }
 
+                if (type == "new" && files.length == 1){
+                    //Writing over an existing file needs the user's say so first
+                    confirmOverwrite(files[0], function(){
+                        deliverSelection(files);
+                    });
+                    return;
+                }
+                deliverSelection(files);
+            }
+
+            //Hands the chosen files to the calling app and closes the selector
+            function deliverSelection(files){
                 selectionConfirmed = true;
                 if (ao_module_virtualDesktop){
                     if (!ao_module_parentCallback(files)){
@@ -2180,6 +2499,121 @@
                     setTimeout(function(){
                         $("#waitloadertext").text("System is not responding. Please close this window and retry.");
                     }, 10000);
+                }
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Replace prompt (new file mode)                                     */
+            /* ------------------------------------------------------------------ */
+            /*
+                A new file name that is already taken asks before the caller is told
+                to write over it. The listing answers at once for what is on screen.
+                A name it does not hold is still checked with the server: the file
+                may be hidden from the listing, differ only in letter case on a case
+                insensitive disk, or have been created after the listing loaded.
+                A name taken by a folder is left to the caller, as before.
+            */
+            var overwriteCheckPending = false;
+            var overwriteProceed = null;        //Runs on "Replace", set while the prompt is open
+
+            function confirmOverwrite(target, proceed){
+                if (overwriteCheckPending || overwriteDialogIsOpen()){
+                    //A second Create press while the first is still being answered
+                    return;
+                }
+                if (target.filename == ""){
+                    proceed();
+                    return;
+                }
+                var listed = getFileObjectByName(target.filename);
+                if (listed != null){
+                    if (listed.IsDir){
+                        proceed();
+                    }else{
+                        showOverwriteDialog(target.filename, proceed);
+                    }
+                    return;
+                }
+
+                overwriteCheckPending = true;
+                $.ajax({
+                    url: "../../system/file_system/getProperties",
+                    method: "POST",
+                    data: {path: target.filepath},
+                    success: function(data){
+                        overwriteCheckPending = false;
+                        if (data != null && data.error === undefined && !data.IsDirectory){
+                            showOverwriteDialog(target.filename, proceed);
+                        }else{
+                            //Nothing there, the name is free
+                            proceed();
+                        }
+                    },
+                    error: function(){
+                        //Could not ask. Carry on the way the selector always has
+                        overwriteCheckPending = false;
+                        proceed();
+                    }
+                });
+            }
+
+            function overwriteDialogIsOpen(){
+                return $("#overwriteDialog").hasClass("show");
+            }
+
+            function showOverwriteDialog(filename, proceed){
+                overwriteProceed = proceed;
+                $("#overwriteFile").html(smallGlyph(filename, false) +
+                    '<span class="fsModalFileName">' + escapeHTML(filename) + '</span>');
+                $("#overwriteFile .fsModalFileName").attr("title", filename);
+                closeContextMenu();
+                closeMoreMenu();
+                $("#overwriteDialog").addClass("show");
+                //Cancel is the default, so a stray Enter never replaces a file
+                $("#overwriteCancelBtn").focus();
+            }
+
+            function answerOverwrite(replace){
+                var proceed = overwriteProceed;
+                overwriteProceed = null;
+                $("#overwriteDialog").removeClass("show");
+                if (replace){
+                    if (proceed != null){
+                        proceed();
+                    }
+                    return;
+                }
+
+                //A double clicked file stays highlighted, and a highlighted file
+                //would be returned again in place of the name typed next
+                $("#fileArea").find(".fileObject.selected").removeClass("selected");
+
+                //Back to the name field with the name part selected, ready for a new one
+                var input = $("#filename");
+                var name = input.val();
+                var dot = name.lastIndexOf(".");
+                input.focus();
+                input[0].setSelectionRange(0, dot > 0 ? dot : name.length);
+            }
+
+            //The prompt keeps the keyboard until it is answered
+            function handleOverwriteDialogKey(event){
+                if (event.which == 27){
+                    event.preventDefault();
+                    answerOverwrite(false);
+                }else if (event.which == 9){
+                    //Tab moves between the two buttons, never to the selector behind
+                    event.preventDefault();
+                    var cancelBtn = document.getElementById("overwriteCancelBtn");
+                    var replaceBtn = document.getElementById("overwriteReplaceBtn");
+                    (document.activeElement == cancelBtn ? replaceBtn : cancelBtn).focus();
+                }else if (event.which == 13){
+                    //A focused button answers through its own click. Anywhere else
+                    //Enter takes the default answer
+                    if ($(event.target).closest("#overwriteDialog button").length == 0){
+                        event.preventDefault();
+                        answerOverwrite(false);
+                    }
                 }
             }
 
@@ -3188,6 +3622,8 @@
                     ctrlDown = true;
                 }else if (event.which == 16){
                     shiftDown = true;
+                }else if (overwriteDialogIsOpen()){
+                    handleOverwriteDialogKey(event);
                 }else if (event.which == 27){
                     //Escape backs out of the transient UI first, and only closes the
                     //whole dialog when there is nothing left to dismiss
@@ -3211,6 +3647,11 @@
                         listDir(decodeURIComponent(selected.attr("filepath")));
                     }else{
                         confirmSelection();
+                        if (overwriteDialogIsOpen()){
+                            //The prompt took focus during this key press. Without this
+                            //its keypress would land on Cancel and answer it at once
+                            event.preventDefault();
+                        }
                     }
                 }
             });
