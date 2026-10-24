@@ -967,3 +967,4 @@ body.doc-exporting #editor span.doc-cmt { background: none; border-bottom: 0; }
 body.doc-exporting #editor ins.doc-ins { color: inherit; text-decoration: inherit; background: none; }
 body.doc-exporting #editor del.doc-del { display: none; }
 body.doc-exporting .doc-hf-lead:empty::before { content: none; }
+body.doc-exporting .doc-toc-frame { display: none !important; }

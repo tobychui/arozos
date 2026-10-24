@@ -41,8 +41,10 @@ var DocsPdf = (function () {
     var parseFill = C.parseFill, parseColor = C.parseColor;
     var PT = 96 / 72;
 
-    // subtrees that are editor chrome, not page content
-    var SKIP_SELECTOR = "#pageSheets, .doc-fn-measure, .of-img-handle, .doc-autobreak, .doc-toc-frame";
+    // subtrees that are editor chrome, not page content (.of-noprint is the
+    // suite's mark for chrome placed inside the page, such as the table of
+    // contents' "Update table" tab)
+    var SKIP_SELECTOR = "#pageSheets, .doc-fn-measure, .of-img-handle, .doc-autobreak, .doc-toc-frame, .of-noprint";
 
     function skipped(el) {
         return !!(el && el.closest && el.closest(SKIP_SELECTOR));
@@ -193,8 +195,10 @@ var DocsPdf = (function () {
 
         // text, as line fragments at their baselines
         var origin = { left: frame.left, top: frame.top, x: 0, y: 0 };
-        // spaces stay only for the highlight they carry
+        // spaces stay only for the highlight they carry; the text of editor
+        // chrome is left out like its boxes are
         var runs = C.collectRuns(o.pageEl, origin).filter(function (run) {
+            if (skipped(run.node.parentElement)) return false;
             return C.visibleText(run.text).trim() !== "" || !!C.parseFill(run.background);
         });
         runs.forEach(function (run) {
