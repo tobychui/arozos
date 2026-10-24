@@ -27,6 +27,10 @@ import (
 	User endpoints (login required):
 	  GET  /system/fonts/list        families, languages and the caller's choices
 	  POST /system/fonts/preference  the caller's font for a language
+	  GET  /system/fonts/faces       every family's faces and their files, for
+	                                 pages that set text in them (the Office
+	                                 apps): any user may use the fonts, only
+	                                 an administrator installs them
 
 	Admin endpoints:
 	  POST /system/fonts/default     the system default font for a language
@@ -75,6 +79,7 @@ func LocaleInit() {
 	})
 	userRouter.HandleFunc("/system/fonts/list", handleFontList)
 	userRouter.HandleFunc("/system/fonts/preference", handleFontPreference)
+	userRouter.HandleFunc("/system/fonts/faces", handleFontFaces)
 
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",
@@ -98,12 +103,27 @@ func serveLocaleRequest(w http.ResponseWriter, r *http.Request) {
 	serve := func(w http.ResponseWriter, r *http.Request) {
 		localeServer.Serve(w, r, username)
 	}
-	if *enable_gzip && !strings.Contains(r.URL.Path, "/fonts/slice/") {
-		//Font slices are WOFF2, compressed already
+	if *enable_gzip && !strings.Contains(r.URL.Path, "/fonts/slice/") && !strings.Contains(r.URL.Path, "/fonts/file/") {
+		//Font slices are WOFF2, compressed already; a whole font can be tens
+		//of megabytes and is fetched in ranges
 		gzipmiddleware.CompressFunc(serve)(w, r)
 		return
 	}
 	serve(w, r)
+}
+
+// handleFontFaces lists the installed families with the files of their
+// faces; the paths are relative to base
+func handleFontFaces(w http.ResponseWriter, r *http.Request) {
+	js, err := json.Marshal(map[string]interface{}{
+		"base":     locale.URLPrefix + "fonts/",
+		"families": fontLibrary.Sources(),
+	})
+	if err != nil {
+		utils.SendErrorResponse(w, "Unable to list the fonts")
+		return
+	}
+	utils.SendJSONResponse(w, string(js))
 }
 
 func handleFontList(w http.ResponseWriter, r *http.Request) {

@@ -776,6 +776,7 @@
         FONTS.forEach(function (f) {
             $fontSel.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
+        OfficeFonts.fillPicker($fontSel[0]);
         $fontSel.on("change", function () { applyFontFamily(this.value); });
 
         $sizeSel = $('<select class="of-tselect tb-size" title="Font size (pt)"></select>');
@@ -1295,7 +1296,7 @@
             if (f.highlight) document.execCommand("hiliteColor", false, f.highlight);
         } catch (e) { }
         savedRange = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : savedRange;
-        if (f.family && FONTS.indexOf(f.family) >= 0) applyFontFamily(f.family, true);
+        if (f.family && OfficeFonts.isOffered(f.family)) applyFontFamily(f.family, true);
         if (f.pt) applyFontSize(f.pt, true);
         afterEdit(true);
         if (!painter.sticky) stopPainter();
@@ -4785,17 +4786,6 @@
     function exportBaseName() {
         return OfficeApp.stripExt(OfficeApp.getFileName() || "document") || "document";
     }
-    function downloadFile(name, mime, content) {
-        var blob = new Blob([content], { type: mime + ";charset=utf-8" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-    }
     /* ================= PDF =================
        Drawn in the browser from the pages the editor shows (docs_pdf.js),
        so the export paginates exactly like the preview, carries real
@@ -4914,9 +4904,9 @@
         "ul.of-checklist li.checked::before{content:\"\\2611  \";}" +
         "ul.of-checklist li.checked{text-decoration:line-through;color:#888;}" +
         ".hf{color:#777;font-size:9pt;margin:10px 0;}";
-    /* The three text renderings, built once and used twice: File > Export
-       downloads them, and the matching saveFormats writer stores them - which
-       is what a document opened from .html / .txt / .md is saved back into. */
+    /* The three text renderings, written by their saveFormats entries: a
+       copy from File > Export, and the file a document opened from .html /
+       .txt / .md is saved back into. */
     function buildHTML() {
         var body = currentBody();
         var title = exportBaseName();
@@ -4941,9 +4931,6 @@
         div.innerHTML = resolvedHtml();
         return htmlToMarkdown(div).replace(/\n{3,}/g, "\n\n").trim() + "\n";
     }
-    function exportHTML() { downloadFile(exportBaseName() + ".html", "text/html", buildHTML()); }
-    function exportText() { downloadFile(exportBaseName() + ".txt", "text/plain", buildText()); }
-    function exportMarkdown() { downloadFile(exportBaseName() + ".md", "text/markdown", buildMarkdown()); }
 
     /* --- basic HTML -> Markdown conversion (hand-written, MVP scope) --- */
     function htmlToMarkdown(rootEl) {
@@ -5315,27 +5302,6 @@
             return b;
         });
     }
-    function exportOdt() {
-        if (!OfficePlatform.requireConvert("Exporting .odt")) return;
-        var defName = exportBaseName() + ".odt";
-        OfficePlatform.pickSave({ defaultName: defName, ext: ".odt", memoryKey: "export" }, function (file) {
-            var fp = file.filepath;
-            OfficeApp.showBusy("Exporting OpenDocument file...");
-            odfBody().then(function (b) {
-                // pictures stay links: the server reads them (office lib), and
-                // the web edition keeps them inline already
-                OfficePlatform.convertOut(CONVERT["export-odf"], fp, JSON.stringify(b), function () {
-                    OfficeApp.hideBusy();
-                    OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                    OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                }, function (errmsg) {
-                    OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: " + errmsg, "error");
-                });
-            });
-        });
-    }
-
     /* ================= saving back into a foreign format =================
        A document opened from .odt / .html / .md / .txt goes on living in
        that file: the framework keeps filepath/filename pointing at it and
@@ -5390,14 +5356,17 @@
         return out;
     }
     /*
-        The formats File > Save as offers besides .docx, and the ones a
-        document opened from one of them is saved back into. needsConvert
-        marks the writers that go through the Office format converters and
-        needsBackend the ones that need a server outright (the real-text PDF
-        renderer); OfficeApp drops whichever the running host cannot do,
-        leaving the three text renderings - built right here in the browser -
-        always available. PDF is oneWay: it is a rendering, so writing one
-        leaves the document on its own file.
+        The formats Docs writes besides .docx, and the ones a document opened
+        from one of them is saved back into. needsConvert marks the writers
+        that go through the Office format converters and needsBackend the
+        ones that need a server outright (the real-text PDF renderer);
+        OfficeApp drops whichever the running host cannot do, leaving the
+        three text renderings - built right here in the browser - always
+        available. PDF is oneWay: it is a rendering, so writing one leaves
+        the document on its own file. File > Save as offers only .odt: the
+        text renderings are exportOnly, written from File > Export
+        (OfficeApp.exportFormat), and still the format a document opened
+        from one of them is saved back into.
     */
     var SAVE_FORMATS = [
         {
@@ -5413,6 +5382,7 @@
         },
         {
             ext: ".html", label: "Web page (.html)", icon: "file code outline",
+            exportOnly: true,
             unsupported: reviewUnsupported,
             save: function (fp, fn, done, fail) { saveTextFile(buildHTML, fp, done, fail); }
         },
@@ -5426,11 +5396,13 @@
         },
         {
             ext: ".md", label: "Markdown (.md)", icon: "file alternate outline",
+            exportOnly: true,
             unsupported: reviewUnsupported,
             save: function (fp, fn, done, fail) { saveTextFile(buildMarkdown, fp, done, fail); }
         },
         {
             ext: ".txt", label: "Plain text (.txt)", icon: "file outline",
+            exportOnly: true,
             unsupported: textUnsupported,
             save: function (fp, fn, done, fail) { saveTextFile(buildText, fp, done, fail); }
         }
@@ -5958,26 +5930,22 @@
             onPaste: function () { pasteFromMenu(false); },
 
             /*
-                .odt needs the Office converters - the AGI backend in ArozOS,
-                the WebAssembly module in the web edition. .docx is the
-                document's own format (File > Save / Save as). .pdf, .html,
-                .md and .txt are rendered right here and are always
-                available.
+                File > Save as holds the formats Docs edits (.docx, .odt);
+                Export the ones it only writes: .pdf, .html, .md and .txt,
+                rendered right here and always available.
             */
             fileMenuExtras: [
                 { label: "Page setup...", icon: "file alternate outline", action: pageSetupDialog },
                 {
                     label: "Export", icon: "external alternate",
                     sub: function () {
-                        var items = [];
-                        if (OfficePlatform.canConvert()) {
-                            items.push({ label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt });
-                        }
-                        items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf });
-                        items.push({ label: "Web page (.html)", icon: "file code outline", action: exportHTML });
-                        items.push({ label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown });
-                        items.push({ label: "Plain text (.txt)", icon: "file outline", action: exportText });
-                        return items;
+                        var copy = function (ext) { return function () { OfficeApp.exportFormat(ext); }; };
+                        return [
+                            { label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf },
+                            { label: "Web page (.html)", icon: "file code outline", action: copy(".html") },
+                            { label: "Markdown (.md)", icon: "file alternate outline", action: copy(".md") },
+                            { label: "Plain text (.txt)", icon: "file outline", action: copy(".txt") }
+                        ];
                     }
                 }
             ],

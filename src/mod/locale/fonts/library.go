@@ -94,6 +94,8 @@ type Face struct {
 	codepoints []uint32
 	sliced     bool
 	cold       []coldSlice
+	plain      bool // no WOFF2-transformed tables: FileData can hand it over
+	aligned    bool // every glyph starts on an even offset (glyphsAligned)
 }
 
 type coldSlice struct {
@@ -291,6 +293,8 @@ func (l *Library) readFace(id string) (*Face, error) {
 		Info:       info,
 		path:       full,
 		codepoints: sortedCodepoints(cmap),
+		plain:      len(font.Transformed) == 0,
+		aligned:    glyphsAligned(font, info.Glyphs),
 	}
 	switch {
 	case container == "woff2":

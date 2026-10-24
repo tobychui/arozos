@@ -2908,6 +2908,7 @@ var SheetsApp = (function () {
         OfficeFonts.MENU.forEach(function (f) {
             $font.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
+        OfficeFonts.fillPicker($font[0]);
         $font.on("change", function () {
             var v = $font.val();
             applyStyle(function (st) { if (v) st.ff = v; else delete st.ff; });
@@ -3723,26 +3724,21 @@ var SheetsApp = (function () {
                 }
             ],
             /*
-                .ods needs the Office converters - the AGI backend in ArozOS,
-                the WebAssembly module in the web edition. .xlsx is the
-                workbook's own format (File > Save / Save as). The real-text
+                File > Save as holds the formats Sheets edits (.xlsx, .ods,
+                .csv, .tsv - a workbook a delimited file cannot hold is
+                refused there, and its dialog offers a copy of the current
+                sheet instead); Export the one it only writes. The real-text
                 .pdf renderer is still server-only, so the web edition points
-                at File > Print / PDF for that. The delimited exports are
-                written right here and always available.
+                at File > Print / PDF for that.
             */
             fileMenuExtras: [
                 {
                     label: "Export", icon: "external alternate", sub: function () {
-                        var items = [];
-                        if (OfficePlatform.canConvert()) {
-                            items.push({ label: "OpenDocument (.ods)", icon: "file alternate outline", action: function () { SheetsIO.exportOds(); } });
-                        }
-                        if (OfficePlatform.hasBackend()) {
-                            items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: function () { SheetsIO.exportPdf(); } });
-                        }
-                        items.push({ label: "CSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited(","); } });
-                        items.push({ label: "TSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited("\t"); } });
-                        return items;
+                        // without a server exportPdf says so and points at
+                        // File > Print / PDF
+                        return [
+                            { label: "PDF document (.pdf)", icon: "file pdf outline", action: function () { SheetsIO.exportPdf(); } }
+                        ];
                     }
                 }
             ],

@@ -644,7 +644,19 @@ Three answers, tried in that order, per character (`resolveChar`):
 2. one of the faces the suite ships with itself (`common/fonts`, see
    [the note there](common/fonts/README.md)) — fetched, parsed for glyph
    coverage, and embedded subset to the glyphs the deck actually used. This
-   is what carries CJK.
+   is what carries CJK. In ArozOS a family of the **system font library**
+   (System Settings > System Fonts) counts as shipped too: `OfficeFonts`
+   loads `/system/fonts/faces` (login only; only admins upload), declares
+   every face from its WOFF2 slices, lists the families under "System
+   fonts" in every font picker, and `faceFor` hands out the whole font
+   (`/SystemAO/locale/fonts/file/<key>.ttf`) when its licence allows
+   embedding. A variable face is named at the instance wanted
+   (`…ttf#wght=700`): the exporter's fontkit builds that instance
+   (`OfficePdfDraw.variationKit`), since the stored outlines are only the
+   default — Chiron GoRound TC's is ExtraLight. A shipped family name wins
+   over a library family of the same name (Noto Sans TC). The server pads a
+   font whose glyphs are stored at odd lengths: fontkit's subsetter misplaces
+   every glyph after the first one of those.
 3. nothing covers it — emoji, a script we do not ship — and only then do
    **those characters** come in as a picture of themselves, in their place
    in the line (`planRun` / `rasterText` in `pdfcore.js`), drawn by the

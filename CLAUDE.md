@@ -293,8 +293,13 @@ there; WebApps keep their own `<App>/locale/` folder in the web root.
   fonts are cut on demand into WOFF2 slices with disjoint `unicode-range`s (a
   "ui" slice holding the characters of the interface strings, then 2000
   codepoints each), cached in `system/cache/fonts/`. API:
-  `/system/fonts/{list,preference}` for users,
-  `/system/fonts/{default,upload,delete}` for admins.
+  `/system/fonts/{list,preference,faces}` for users,
+  `/system/fonts/{default,upload,delete}` for admins. The Office apps use
+  library families as document fonts: `faces` lists every face's slices and,
+  when its licence (OS/2 fsType) allows embedding, the whole font at
+  `/SystemAO/locale/fonts/file/<key>.ttf` that the PDF export embeds
+  (`OfficeFonts` in `web/Office/common/fonts.js`); a family Office ships
+  itself keeps its own file.
 
 ## What Container Apps are
 

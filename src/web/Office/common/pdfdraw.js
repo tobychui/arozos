@@ -67,6 +67,38 @@ var OfficePdfDraw = (function () {
         return PDFLib.rgb(c[0], c[1], c[2]);
     }
 
+    /* A variable font is embedded at one instance. A face's url names it
+       in its fragment ("...ttf#wght=700", OfficeFonts), which fetch() leaves
+       off the request; variationOf reads it back, the bytes fetched for it
+       carry it as __ofVariation, and the fontkit pdf-lib is given makes
+       those bytes into that instance. Subsetting an instance has fontkit
+       rebuild each glyph at it, so the PDF gets the weight the screen drew
+       rather than the font's default (often its lightest). */
+    function variationOf(url) {
+        var m = /#(.+)$/.exec(String(url || ""));
+        if (!m) return null;
+        var out = null;
+        m[1].split("&").forEach(function (kv) {
+            var p = /^([A-Za-z]{4})=(-?[0-9]+(\.[0-9]+)?)$/.exec(kv);
+            if (p) { out = out || {}; out[p[1]] = parseFloat(p[2]); }
+        });
+        return out;
+    }
+    function variationKit(kit) {
+        if (!kit || kit.__ofVariations) return kit;
+        return {
+            __ofVariations: true,
+            create: function (buf, postscriptName) {
+                var font = kit.create(buf, postscriptName);
+                var v = buf && buf.__ofVariation;
+                if (v && font && font.getVariation) {
+                    try { return font.getVariation(v); } catch (e) { /* not an axis it has */ }
+                }
+                return font;
+            }
+        };
+    }
+
     function base64Bytes(src) {
         var comma = src.indexOf(",");
         if (comma < 0 || src.substring(0, comma).indexOf(";base64") < 0) return null;
@@ -112,6 +144,7 @@ var OfficePdfDraw = (function () {
         var pdfDoc;
         var fontCache = {};    // font ref -> Promise<PDFFont|null>
         var fontReady = {};    // font ref -> PDFFont|null
+        var fontFiles = {};    // url without fragment -> Promise<ArrayBuffer>
         var imageCache = {};   // id -> Promise<PDFImage|null>
 
         function loadFont(ref) {
@@ -126,11 +159,19 @@ var OfficePdfDraw = (function () {
                 p = Promise.resolve(pdfDoc.embedStandardFont(PDFLib.StandardFonts[key]));
             } else {
                 var url = ref.substring(2);
-                p = fetch(url).then(function (r) {
-                    if (!r.ok) throw new Error("cannot read " + url);
-                    return r.arrayBuffer();
-                }).then(function (buf) {
-                    return pdfDoc.embedFont(new Uint8Array(buf), { subset: true, features: { liga: false } });
+                // one download per file: instances differ only in the fragment
+                var file = url.replace(/#.*$/, "");
+                if (!fontFiles[file]) {
+                    fontFiles[file] = fetch(file).then(function (r) {
+                        if (!r.ok) throw new Error("cannot read " + file);
+                        return r.arrayBuffer();
+                    });
+                }
+                p = fontFiles[file].then(function (buf) {
+                    var bytes = new Uint8Array(buf);
+                    var v = variationOf(url);
+                    if (v) bytes.__ofVariation = v;
+                    return pdfDoc.embedFont(bytes, { subset: true, features: { liga: false } });
                 });
             }
             fontCache[ref] = p.then(function (f) { fontReady[ref] = f; return f; }, function () {
@@ -380,7 +421,7 @@ var OfficePdfDraw = (function () {
         var total = job.pages.length;
         return PDFLib.PDFDocument.create().then(function (doc) {
             pdfDoc = doc;
-            if (opts.fontkit) doc.registerFontkit(opts.fontkit);
+            if (opts.fontkit) doc.registerFontkit(variationKit(opts.fontkit));
             if (job.title) doc.setTitle(job.title);
             doc.setProducer("ArozOS Office");
             var chain = Promise.resolve();
@@ -589,5 +630,8 @@ var OfficePdfDraw = (function () {
         });
     }
 
-    return { render: render, recorder: recorder, run: run };
+    return {
+        render: render, recorder: recorder, run: run,
+        variationOf: variationOf, variationKit: variationKit
+    };
 })();

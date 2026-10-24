@@ -39,6 +39,8 @@
                                           // metric-matched -> Promise
         OfficeFonts.familiesIn(html)      // families a document names
         OfficeFonts.ready()               // -> Promise, substitutions done
+        OfficeFonts.fillPicker(selectEl)  // + the system font library's
+                                          // families (ArozOS), once loaded
 */
 
 var OfficeFonts = (function () {
@@ -193,6 +195,165 @@ var OfficeFonts = (function () {
         else document.addEventListener("DOMContentLoaded", declareShipped);
     }
 
+    /* ================= the system font library =================
+
+       In ArozOS an administrator installs fonts in System Settings > System
+       Fonts (src/mod/locale/fonts), and every user may set document text in
+       them. /system/fonts/faces lists each family's faces with the files
+       the browser loads - WOFF2 slices cut by unicode-range, so a CJK font
+       only fetches what is on screen - and, where the licence allows it,
+       the whole font the PDF exporter embeds. A library family is then a
+       document family like the shipped ones: declared here under its own
+       name, offered in the pickers, and embedded in a PDF from its own
+       bytes (faceFor).
+
+       A family the suite ships itself keeps its own file: the exporter
+       embeds the shipped bytes, so those are what the screen must draw. A
+       family that may not be embedded is drawn on screen only, and the PDF
+       sets it in a stand-in (OfficePdfCore.standIn).
+
+       Only a host with a backend has a library, and substitution waits for
+       it to load (pending below): an installed family must never be given
+       a stand-in first. */
+    var LIBRARY = {};          // lower case name -> embeddable record, shaped like SHIPPED
+    var LIBRARY_NAMES = {};    // lower case name -> true, every family declared
+    var LIBRARY_MENU = [];     // family names for the pickers
+    var libraryWaiters = [];
+    var libraryDone = false;
+
+    function serverRoot() {
+        return typeof ao_root === "string" ? ao_root : "../../";
+    }
+    var RANGE_RE = /^[Uu]\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?(\s*,\s*[Uu]\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?)*$/;
+
+    /* librarySlots picks the files faceFor hands out: per slant, the face
+       nearest to regular weight, and the one nearest to bold - a separate
+       heavier face, or the same variable face at bold weight. A variable
+       face's file is named with the instance it is to be embedded at
+       ("file/<key>.ttf#wght=700", OfficePdfDraw.variationOf): its outlines
+       as stored are only the default instance, which is often the
+       lightest. A family with no bold at all has it synthesized in the PDF,
+       as for the CJK faces, measured to the screen's weight. */
+    function librarySlots(faces) {
+        var out = {};
+        function dist(f, w) {
+            return w < f.weightMin ? f.weightMin - w : (w > f.weightMax ? w - f.weightMax : 0);
+        }
+        function at(f, w) {
+            if (!f.variable || f.weightMin === f.weightMax) return f.file;
+            return f.file + "#wght=" + Math.max(f.weightMin, Math.min(f.weightMax, w));
+        }
+        [false, true].forEach(function (italic) {
+            var cands = faces.filter(function (f) { return f.embed && f.file && !!f.italic === italic; });
+            if (!cands.length) return;
+            cands.sort(function (a, b) { return dist(a, 400) - dist(b, 400); });
+            var reg = cands[0];
+            out[italic ? "400i" : "400"] = at(reg, 400);
+            var heavy = cands.filter(function (f) { return f.weightMax >= 600 && (f !== reg || f.variable); });
+            heavy.sort(function (a, b) { return dist(a, 700) - dist(b, 700); });
+            if (heavy.length) out[italic ? "700i" : "700"] = at(heavy[0], 700);
+        });
+        return out;
+    }
+
+    function installLibrary(data) {
+        var root = serverRoot();
+        var base = root + String(data.base || "/SystemAO/locale/fonts/").replace(/^\/+/, "");
+        var css = "";
+        (data.families || []).forEach(function (fam) {
+            var name = String((fam && fam.name) || "").replace(/["\\<>]/g, "").trim();
+            var key = norm(name);
+            if (!key || SHIPPED[key] || LIBRARY_NAMES[key] || GENERIC[key]) return;
+            var faces = (fam.faces || []).filter(function (f) {
+                return f && /^[0-9a-f]{4,64}$/.test(f.key);
+            }).map(function (f) {
+                var lo = Math.max(1, Math.min(1000, parseInt(f.weightMin, 10) || 400));
+                var hi = Math.max(lo, Math.min(1000, parseInt(f.weightMax, 10) || lo));
+                return {
+                    weightMin: lo, weightMax: hi, italic: !!f.italic, variable: !!f.variable,
+                    embed: !!f.embed && /^file\/[0-9a-f]{4,64}\.(ttf|otf)$/.test(f.file || ""),
+                    file: f.file, key: f.key, slices: f.slices || []
+                };
+            });
+            if (!faces.length) return;
+            faces.forEach(function (f) {
+                var weight = f.weightMin === f.weightMax ? f.weightMin : f.weightMin + " " + f.weightMax;
+                f.slices.forEach(function (s) {
+                    if (!s || !/^[a-z0-9_-]{1,140}$/.test(s.name)) return;
+                    var range = String(s.range || "");
+                    if (range && !RANGE_RE.test(range)) return;
+                    css += "@font-face{font-family:\"" + name + "\";src:url(\"" + base + "slice/" + f.key + "/" +
+                        s.name + ".woff2\") format(\"woff2\");font-weight:" + weight + ";font-style:" +
+                        (f.italic ? "italic" : "normal") + ";font-display:swap;" +
+                        (range ? "unicode-range:" + range + ";" : "") + "}\n";
+                });
+            });
+            LIBRARY_NAMES[key] = true;
+            LIBRARY_MENU.push(name);
+            var slots = librarySlots(faces);
+            if (slots["400"]) LIBRARY[key] = { family: name, doc: true, dir: base, faces: slots, library: true };
+        });
+        if (!css || !document.head) return;
+        var el = document.createElement("style");
+        el.id = "ofLibraryFaces";
+        el.textContent = css;
+        // after the shipped faces, before any stand-in
+        if (declaredEl && declaredEl.parentNode === document.head) document.head.insertBefore(el, declaredEl.nextSibling);
+        else document.head.appendChild(el);
+    }
+
+    function loadLibrary() {
+        if (typeof document === "undefined" || typeof fetch !== "function" ||
+            typeof OfficePlatform === "undefined" || !OfficePlatform.hasBackend()) {
+            return Promise.resolve();
+        }
+        return fetch(serverRoot() + "system/fonts/faces", { credentials: "same-origin" }).then(function (r) {
+            return r.ok ? r.json() : null;
+        }).then(function (data) {
+            // an error answer (no library, signed out) leaves the shipped faces
+            if (data && Array.isArray(data.families)) installLibrary(data);
+        }).catch(function () { });
+    }
+    var libraryReady = loadLibrary().then(function () {
+        libraryDone = true;
+        var list = libraryWaiters;
+        libraryWaiters = [];
+        list.forEach(function (fn) { try { fn(LIBRARY_MENU.slice()); } catch (e) { } });
+    });
+
+    /* onLibrary calls fn(names) once the library families are known - at
+       once when they already are; names is empty without a library */
+    function onLibrary(fn) {
+        if (libraryDone) { fn(LIBRARY_MENU.slice()); return; }
+        libraryWaiters.push(fn);
+    }
+
+    /* fillPicker adds the library families to a font <select>, as a group
+       of their own after the suite's list. css(name) is the font-family an
+       option previews itself in (stack by default). */
+    function fillPicker(select, css) {
+        if (!select) return;
+        onLibrary(function (names) {
+            if (!names.length) return;
+            var group = document.createElement("optgroup");
+            group.label = "System fonts";
+            names.forEach(function (n) {
+                if (MENU.indexOf(n) >= 0) return;
+                var o = document.createElement("option");
+                o.value = n;
+                o.textContent = n;
+                o.style.fontFamily = (css || stack)(n);
+                group.appendChild(o);
+            });
+            if (group.children.length) select.appendChild(group);
+        });
+    }
+
+    // isOffered: a family the pickers list
+    function isOffered(family) {
+        return MENU.indexOf(family) >= 0 || LIBRARY_MENU.indexOf(family) >= 0;
+    }
+
     function quote(name) {
         return /^[A-Za-z][A-Za-z0-9 ]*$/.test(name) ? name : '"' + name + '"';
     }
@@ -214,8 +375,15 @@ var OfficeFonts = (function () {
         return out.map(quote).join(", ") + ", " + (generic || "sans-serif");
     }
 
+    // the record of a family whose files the suite can hand out: shipped,
+    // or an embeddable family of the system font library
+    function recordOf(family) {
+        var key = String(family || "").trim().replace(/^["']|["']$/g, "").toLowerCase();
+        return SHIPPED[key] || LIBRARY[key] || null;
+    }
+
     function isShipped(family) {
-        return !!SHIPPED[String(family || "").trim().replace(/^["']|["']$/g, "").toLowerCase()];
+        return !!recordOf(family);
     }
 
     /* faceFor picks the file that backs one family at one weight/style. A
@@ -224,7 +392,7 @@ var OfficeFonts = (function () {
        caller has to synthesize itself - which is what the browser does on
        screen, so doing the same keeps the two in step. */
     function faceFor(family, bold, italic) {
-        var rec = SHIPPED[String(family || "").trim().replace(/^["']|["']$/g, "").toLowerCase()];
+        var rec = recordOf(family);
         if (!rec) return null;
         // exact face first, then drop italic, then drop bold, then plain
         var tries = [
@@ -238,7 +406,7 @@ var OfficeFonts = (function () {
             if (!file) continue;
             return {
                 family: rec.family,
-                url: DIR + file,
+                url: (rec.dir || DIR) + file,
                 synthBold: tries[i][1],
                 synthItalic: tries[i][2]
             };
@@ -506,7 +674,8 @@ var OfficeFonts = (function () {
     }
 
     var substituted = {};       // key -> { via, adjust: [4] } once a face is in
-    var pending = Promise.resolve();
+    // the library first: a family it declares is not missing
+    var pending = libraryReady;
     var styleEl = null;
     var seq = 0;
     var STYLE_DESC = [
@@ -547,8 +716,9 @@ var OfficeFonts = (function () {
             var name = String(fam || "").trim().replace(/^["']+|["']+$/g, "");
             var key = norm(name);
             if (!key || seen[key] || GENERIC[key] || skipKeys[key] || substituted[key]) return;
-            // a fallback face (Noto Sans and its CJK sisters) is fonts.css's
-            if (SHIPPED[key] && !SHIPPED[key].doc) return;
+            // a fallback face (Noto Sans and its CJK sisters) is fonts.css's,
+            // a library family is declared from the library itself
+            if ((SHIPPED[key] && !SHIPPED[key].doc) || LIBRARY_NAMES[key]) return;
             seen[key] = true;
             if (NO_SUBST.test(key)) return;
             // a family the suite ships is its own file, at its own size -
@@ -769,6 +939,11 @@ var OfficeFonts = (function () {
         kindOf: familyKind,
         twinOf: twinOf,
         widthOf: widthOf,
+        // the system font library (ArozOS): names once known, a picker's
+        // group of them, and whether a family is in any picker
+        onLibrary: onLibrary,
+        fillPicker: fillPicker,
+        isOffered: isOffered,
         familiesIn: familiesIn,
         // resolves once every substitution asked for so far is in place
         ready: function () { return pending; }

@@ -152,19 +152,24 @@ var OfficePdfCore = (function () {
 
     /* fontkit is what lets pdf-lib embed a font file of our own. It is the
        largest script the app has and only an export needs it, so it is
-       fetched on the first export and not before. */
+       fetched on the first export and not before. What comes back makes a
+       variable font's bytes into the instance they were fetched for
+       (OfficePdfDraw.variationKit). */
     var fontkitPromise = null;
+    function wrapKit(kit) {
+        return typeof OfficePdfDraw !== "undefined" ? OfficePdfDraw.variationKit(kit) : kit;
+    }
     function loadFontkit() {
         if (fontkitPromise) return fontkitPromise;
         if (window.fontkit) {
-            fontkitPromise = Promise.resolve(window.fontkit);
+            fontkitPromise = Promise.resolve(wrapKit(window.fontkit));
             return fontkitPromise;
         }
         fontkitPromise = new Promise(function (resolve, reject) {
             var el = document.createElement("script");
             el.src = FONTKIT_URL;
             el.onload = function () {
-                if (window.fontkit) resolve(window.fontkit);
+                if (window.fontkit) resolve(wrapKit(window.fontkit));
                 else reject(new Error("the font toolkit did not load"));
             };
             el.onerror = function () { reject(new Error("the font toolkit did not load")); };
@@ -205,14 +210,28 @@ var OfficePdfCore = (function () {
             return std[key];
         }
 
+        // one download per file: two instances of a variable face differ
+        // only in their url's fragment
+        var downloads = {};
+        function download(url) {
+            var file = String(url).replace(/#.*$/, "");
+            if (!downloads[file]) {
+                downloads[file] = fetch(file).then(function (r) {
+                    if (!r.ok) throw new Error("cannot read " + file);
+                    return r.arrayBuffer();
+                });
+            }
+            return downloads[file];
+        }
+
         function want(family, bold, italic) {
             var face = OfficeFonts.faceFor(family, bold, italic);
             if (!face || asked[face.url]) return;
-            asked[face.url] = fetch(face.url).then(function (r) {
-                if (!r.ok) throw new Error("cannot read " + face.url);
-                return r.arrayBuffer();
-            }).then(function (buf) {
+            asked[face.url] = download(face.url).then(function (buf) {
                 var bytes = new Uint8Array(buf);
+                // a variable library face: the instance its url names
+                var v = typeof OfficePdfDraw !== "undefined" ? OfficePdfDraw.variationOf(face.url) : null;
+                if (v) bytes.__ofVariation = v;
                 faces[face.url] = { bytes: bytes, kit: fontkit.create(bytes) };
             }, function () {
                 // a font that will not load is not a reason to fail the

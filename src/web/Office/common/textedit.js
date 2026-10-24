@@ -246,6 +246,7 @@ var OfficeTextEditBar = (function () {
         FONTS.forEach(function (f) {
             $font.append($('<option></option>').attr("value", f).text(f).css("font-family", fontStack(f)));
         });
+        if (typeof OfficeFonts !== "undefined" && OfficeFonts.fillPicker) OfficeFonts.fillPicker($font[0], fontStack);
         $font.on("mousedown", saveSelection);
         $font.on("change", function () { applyFontFamily($font.val()); });
         $row1.append($font);

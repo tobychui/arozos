@@ -32,6 +32,7 @@ type Info struct {
 	Italic     bool     `json:"italic"`
 	Variable   bool     `json:"variable"`
 	Outline    string   `json:"outline"` // "truetype" or "cff"
+	NoEmbed    bool     `json:"noEmbed"` // the licence forbids embedding it in a document (OS/2 fsType)
 	Glyphs     int      `json:"glyphs"`
 	Codepoints int      `json:"codepoints"`
 	Scripts    []string `json:"scripts"`
@@ -117,6 +118,9 @@ func Inspect(font *Font) (Info, map[uint32]uint16, error) {
 	if binary.BigEndian.Uint16(head[44:])&2 != 0 {
 		info.Italic = true
 	}
+	if os2 := font.Table("OS/2"); len(os2) >= 10 {
+		info.NoEmbed = noEmbed(binary.BigEndian.Uint16(os2[8:]))
+	}
 	if fvar := font.Table("fvar"); fvar != nil {
 		info.Variable = true
 		if lo, hi, ok := weightAxis(fvar); ok {
@@ -136,6 +140,14 @@ func Inspect(font *Font) (Info, map[uint32]uint16, error) {
 	info.Codepoints = len(cmap)
 	info.Scripts = scriptsOf(cmap)
 	return info, cmap, nil
+}
+
+// noEmbed reads the OS/2 fsType embedding permissions: a font with only the
+// Restricted License bit of the usage bits set, or one that allows bitmaps
+// alone, must not be embedded in a document. Old fonts may set several
+// usage bits; the least restrictive one applies.
+func noEmbed(fsType uint16) bool {
+	return fsType&0x000F == 0x0002 || fsType&0x0200 != 0
 }
 
 // glyphOffsets reads loca: glyph i occupies glyf[offsets[i]:offsets[i+1]]

@@ -131,7 +131,7 @@ OfficeApp.init({
     importFormats: [ { ext: ".pdf", label, icon, load(fp, fn, done, fail, progress) } ],
 
     // --- foreign-format saving (optional) — see "Save formats" below ---
-    saveFormats: [ { ext, label, icon, oneWay, unsupported, save }, … ],
+    saveFormats: [ { ext, label, icon, oneWay, exportOnly, unsupported, save }, … ],
 
     // --- undo/redo (recommended: use OfficeUndoStack) ---
     onUndo: function(){ undo.undo(); },
@@ -605,6 +605,8 @@ saveFormats: [{
     label: "CSV (.csv)",              // shown in the Save as submenu
     icon: "file alternate outline",   // semantic icon name
     oneWay: true,                     // optional; a rendering such as PDF
+    exportOnly: true,                 // optional; written, not edited (HTML,
+                                      // Markdown): File > Export, not Save as
     hidden: true,                     // optional; save-back only, kept out of
                                       // the Save as list (a second extension
                                       // for a format already listed, .htm)
@@ -619,8 +621,13 @@ saveFormats: [{
 What the framework then does:
 
 - **File > Save as** turns into a format picker — the app's own format first
-  (still `Ctrl+Shift+S`), then one entry per format. With no `saveFormats` it
-  stays the plain "Save as..." command it has always been.
+  (still `Ctrl+Shift+S`), then one entry per format **the app edits**. With
+  no `saveFormats` it stays the plain "Save as..." command it has always been.
+  A `oneWay` rendering (PDF) and an `exportOnly` format (Docs' HTML, Markdown,
+  plain text) are never in it: they belong in the app's File > Export menu
+  (`fileMenuExtras`), whose entries call `OfficeApp.exportFormat(ext)` — a
+  copy written through the entry's `save`, the document staying on its own
+  file. Export never repeats a Save as format.
 - **Opening one of these formats keeps the document attached to that file**:
   `filepath`/`filename` stay the original (`sales.csv`, not `sales.xlsx`), so
   `Ctrl+S` writes straight back in the same format. An imported format with
@@ -630,7 +637,9 @@ What the framework then does:
   than the app's own format does, so return a list of plain-string reasons ("2
   charts", "3 sheets — a delimited text file holds only one") when the
   document would lose content. The framework refuses the write and offers
-  "Save as `<native ext>`..." instead. Reasons are escaped, never treated as
+  "Save as `<native ext>`..." instead, or "Save a copy..." in that format
+  without them (`exportFormat`: a lossy copy the document does not move
+  onto). Reasons are escaped, never treated as
   markup. Return `null`/`[]` when the format fits. Keep purely cosmetic
   losses (fonts, colors, column widths) *out* of the list — vetoing on those
   nags on every save.

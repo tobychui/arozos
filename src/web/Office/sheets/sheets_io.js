@@ -396,20 +396,8 @@ var SheetsIO = (function () {
         }
         return "﻿" + lines.join("\r\n");
     }
-    function exportDelimited(delim) {
-        var ext = delim === "\t" ? ".tsv" : ".csv";
-        var name = OfficeApp.stripExt(OfficeApp.getFileName() || "spreadsheet") + ext;
-        var blob = new Blob([delimitedText(delim)], { type: "text/csv;charset=utf-8" });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
-        OfficeApp.setStatus("Exported " + name);
-    }
-    // Save As / save-back target: writes into the ArozOS file system rather
-    // than downloading, so the document can go on living in that file
+    // Save As / save-back target, and the copy of the current sheet a
+    // workbook it cannot hold gets (OfficeApp.exportFormat)
     function saveDelimited(delim, fp, fn, done, fail) {
         OfficeApp.vfsSave(fp, delimitedText(delim), done, fail);
     }
@@ -537,26 +525,6 @@ var SheetsIO = (function () {
             OfficeApp.toast("Import failed: " + msg, "error");
         });
     }
-    function exportSheetFile(ext, action, busyLabel) {
-        if (!OfficePlatform.requireConvert("Exporting " + ext)) return;
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsx") + ext;
-        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
-            var fp = file.filepath;
-            OfficeApp.showBusy(busyLabel);
-            // in ArozOS this goes through agirunLarge (compressed and
-            // uploaded when large); in the web edition it runs in the wasm
-            // module and downloads
-            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.exportBody()), function () {
-                OfficeApp.hideBusy();
-                OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-            }, function (errmsg) {
-                OfficeApp.hideBusy();
-                OfficeApp.toast("Export failed: " + errmsg, "error");
-            });
-        });
-    }
-    function exportOds() { exportSheetFile(".ods", "export-odf", "Exporting OpenDocument file..."); }
     // server-side real-text PDF: posts the client-computed print model
     // (formatted display strings + styles) instead of the raw workbook,
     // since formula evaluation lives in this client
@@ -822,10 +790,8 @@ var SheetsIO = (function () {
         filterDialog: filterDialog,
         parseDelimited: parseDelimited,
         importDelimited: importDelimited,
-        exportDelimited: exportDelimited,
         saveFormats: SAVE_FORMATS,
         importOds: importOds,
-        exportOds: exportOds,
         exportPdf: exportPdf,
         pivotDialog: pivotDialog,
         refreshPivot: refreshPivot,

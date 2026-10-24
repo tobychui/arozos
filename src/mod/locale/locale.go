@@ -16,8 +16,9 @@ package locale
 	so a font is changed in one place instead of in every locale file.
 
 	The fonts/ folder holds the font library: fonts/fonts.css is the user's
-	style sheet (fonts.css?preview=1&lang=xx the library preview one) and
-	fonts/slice/<key>/<name>.woff2 the font slices.
+	style sheet (fonts.css?preview=1&lang=xx the library preview one),
+	fonts/slice/<key>/<name>.woff2 the font slices and fonts/file/<key>.ttf
+	(or .otf) a whole font a document may embed (fonts.Library.Sources).
 */
 
 import (
@@ -250,6 +251,10 @@ func (s *Server) Serve(w http.ResponseWriter, r *http.Request, username string) 
 	if s.opts.Fonts != nil {
 		if rel == "fonts/fonts.css" {
 			s.serveStyleSheet(w, r, username)
+			return
+		}
+		if strings.HasPrefix(rel, "fonts/file/") {
+			s.opts.Fonts.ServeFile(w, r, strings.TrimPrefix(rel, "fonts/file/"))
 			return
 		}
 		if strings.HasPrefix(rel, "fonts/slice/") {

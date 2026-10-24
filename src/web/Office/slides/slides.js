@@ -3784,6 +3784,7 @@ var SlidesApp = (function () {
         OfficeFonts.MENU.forEach(function (f) {
             $font.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
+        OfficeFonts.fillPicker($font[0]);
         $font.on("change", function () { applyFontFamily($font.val()); });
         var $fs = $('<input type="number" class="of-tinput sl-num" id="slFontSize" min="6" max="400" step="1" title="Font size" value="24">');
         $fs.on("change", function () {
@@ -5051,30 +5052,6 @@ var SlidesApp = (function () {
         return prepareNative(b).then(function () { return b; });
     }
 
-    function exportOdp() {
-        if (!OfficePlatform.requireConvert("Exporting .odp")) return;
-        endEdit(true);
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.pptx") + ".odp";
-        OfficePlatform.pickSave({ defaultName: defName, ext: ".odp", memoryKey: "export" }, function (file) {
-            var fp = file.filepath;
-            OfficeApp.showBusy("Exporting OpenDocument file...");
-            preparedCopy().then(function (prepared) {
-                // pictures stay links: the server reads them (office lib), and
-                // the web edition keeps them inline already
-                OfficePlatform.convertOut(CONVERT["export-odf"], fp, JSON.stringify(prepared), function () {
-                    OfficeApp.hideBusy();
-                    OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                    OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                }, function (errmsg) {
-                    OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: " + errmsg, "error");
-                });
-            }).catch(function (err) {
-                OfficeApp.hideBusy();
-                OfficeApp.toast("Export failed: " + (err && err.message ? err.message : "prepare error"), "error");
-            });
-        });
-    }
     /* PDF is built in the browser (slides_pdf.js), not on the server: only
        the browser knows which font it actually resolved and where every
        line wrapped, and that is exactly what the export has to reproduce.
@@ -5474,23 +5451,16 @@ var SlidesApp = (function () {
             },
             saveFormats: SAVE_FORMATS,
             /*
-                .odp needs the Office converters - the AGI backend in ArozOS,
-                the WebAssembly module in the web edition; .pptx is the deck's
-                own format (File > Save / Save as). The .pdf
-                export is rendered here in the browser (slides_pdf.js), so it
-                needs no backend at all. The PNG exports are rendered by
-                html2canvas right here and are always available.
+                File > Save as holds the formats Slides edits (.pptx, .odp);
+                Export the ones it only writes. The .pdf export is rendered
+                here in the browser (slides_pdf.js), so it needs no backend
+                at all; the PNG exports are rendered by html2canvas right
+                here and are always available.
             */
             fileMenuExtras: [
                 {
                     label: "Export", icon: "external alternate", sub: function () {
                         var items = [];
-                        if (OfficePlatform.canConvert()) {
-                            items.push({
-                                label: "OpenDocument (.odp)", icon: "file alternate outline",
-                                action: exportOdp
-                            });
-                        }
                         if (canExportPdf()) {
                             items.push({
                                 label: "PDF document (.pdf)", icon: "file pdf outline",

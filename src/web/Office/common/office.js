@@ -900,14 +900,44 @@ var OfficeApp = (function () {
                 " uses features that " + escapeHtml(label) + " cannot store:</p>" +
                 "<ul>" + list + "</ul>" +
                 "<p>Save it as " + escapeHtml(cfg.extension) +
-                " to keep them, or use File &gt; Export for a lossy copy.</p>",
+                " to keep them, or save a copy in " + escapeHtml(label) + " without them.</p>",
             buttons: [
                 { label: "Cancel" },
+                {
+                    label: "Save a copy...",
+                    action: function (close) { close(); exportFormat(fmt.ext); }
+                },
                 {
                     label: "Save as " + cfg.extension + "...", primary: true,
                     action: function (close) { close(); saveAsFormat(null); }
                 }
             ]
+        });
+    }
+    /*
+        exportFormat writes a copy of the document in one of cfg.saveFormats
+        and leaves the document where it is: on its own file, as dirty as it
+        was. It is File > Export for the formats the app writes but does not
+        edit (exportOnly), and the lossy copy the dialog above offers - so it
+        asks nothing about what the format cannot hold.
+    */
+    function exportFormat(ext) {
+        var fmt = findSaveFormat(ext, false);
+        if (!fmt) return;
+        OfficePlatform.pickSave({
+            defaultName: stripExt(filename || cfg.defaultFileName) + fmt.ext,
+            ext: fmt.ext,
+            memoryKey: "export"
+        }, function (file) {
+            if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+            setStatus("Exporting...", "info", 0);
+            fmt.save(file.filepath, file.filename, function () {
+                setStatus("Exported " + file.filename);
+                toast("Exported " + file.filename);
+            }, function (err) {
+                setStatus("Export failed: " + err, "error");
+                toast("Export failed: " + err, "error");
+            });
         });
     }
     function doSaveForeign(fp, fn, fmt, cb, silent, obs) {
@@ -1364,8 +1394,11 @@ var OfficeApp = (function () {
         ];
         list.forEach(function (f) {
             // hidden: a writer that only exists to save a document back into
-            // the file it came from (a second extension for the same format)
-            if (f.hidden) return;
+            // the file it came from (a second extension for the same format).
+            // Save as lists the formats the app edits; a rendering (oneWay,
+            // PDF) and a format it only writes (exportOnly: HTML, Markdown)
+            // are File > Export's
+            if (f.hidden || f.oneWay || f.exportOnly) return;
             sub.push({
                 label: formatLabel(f), icon: f.icon || "file outline",
                 action: function () { saveAsFormat(f); }
@@ -2253,6 +2286,7 @@ var OfficeApp = (function () {
         openPath: openPath,
         save: save,
         saveAs: saveAs,
+        exportFormat: exportFormat,
         print: printDoc,
         // ask before the window closes: done() = it may, cancelled() = kept
         requestClose: requestClose,
