@@ -22,12 +22,12 @@ import (
 // hwEncoderProfile describes how to invoke a hardware-accelerated H.264
 // encoder as a drop-in replacement for the software libx264 path.
 type hwEncoderProfile struct {
-	Name        string                     // human-readable label for logging, e.g. "Intel/AMD VAAPI"
-	Codec       string                     // ffmpeg -vcodec value, e.g. "h264_vaapi"
-	PreInput    []string                   // extra global args inserted before -i (device init, etc.)
-	ScaleFilter func(height string) string // -vf value for the given target height ("" height = no scaling)
-	EncodeArgs  []string                   // encoder-specific args replacing "-preset superfast"
-	ProbeSize   string                     // WxH test frame size for the probe encode; "" uses defaultProbeSize
+	Name        string                    // human-readable label for logging, e.g. "Intel/AMD VAAPI"
+	Codec       string                    // ffmpeg -vcodec value, e.g. "h264_vaapi"
+	PreInput    []string                  // extra global args inserted before -i (device init, etc.)
+	ScaleFilter func(scale string) string // -vf value wrapping the given scale filter ("" = no scaling)
+	EncodeArgs  []string                  // encoder-specific args replacing "-preset superfast"
+	ProbeSize   string                    // WxH test frame size for the probe encode; "" uses defaultProbeSize
 }
 
 // defaultProbeSize is the test frame size used by testHWEncoder when a profile
@@ -41,16 +41,16 @@ var (
 	hwProfile     *hwEncoderProfile // nil if no usable hardware encoder was found
 )
 
-// nv12ScaleFilter returns a -vf filter chain that performs the requested
-// resize (if any) and converts to NV12. This is what the hardware encoders
+// nv12ScaleFilter returns a -vf filter chain that applies the given scale
+// filter (if any, see resolutionScaleFilter) and converts to NV12. This is what the hardware encoders
 // that accept plain system-memory frames (NVENC, QSV, AMF) expect as input -
 // unlike VAAPI, they upload to the GPU internally so no explicit hwupload
 // step is needed.
-func nv12ScaleFilter(height string) string {
-	if height == "" {
+func nv12ScaleFilter(scale string) string {
+	if scale == "" {
 		return "format=nv12"
 	}
-	return "scale=-1:" + height + ",format=nv12"
+	return scale + ",format=nv12"
 }
 
 // getHWEncoderProfile probes the host once for a working Intel/AMD hardware

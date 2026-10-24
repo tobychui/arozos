@@ -239,7 +239,7 @@ func hlsSessionKey(owner string, inputFile string, resolution TranscodeOutputRes
 // segments be fetched from an HTTP endpoint rather than sitting next to the
 // playlist on disk.
 func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolution, startTime float64, segmentBaseURL string, hw *hwEncoderProfile) ([]string, error) {
-	height, err := resolutionHeight(resolution)
+	scale, err := resolutionScaleFilter(resolution)
 	if err != nil {
 		return nil, err
 	}
@@ -249,15 +249,15 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 	var videoCodecArgs []string
 	if hw != nil {
 		args = append(args, hw.PreInput...)
-		vf = hw.ScaleFilter(height)
+		vf = hw.ScaleFilter(scale)
 		videoCodecArgs = append([]string{"-vcodec", hw.Codec}, hw.EncodeArgs...)
+		videoCodecArgs = append(videoCodecArgs, rateControlArgs(resolution, true)...)
 	} else {
-		if height != "" {
-			vf = "scale=-1:" + height
-		}
+		vf = scale
 		// See TranscodeAndStream: without this a 10-bit source yields a High 10
 		// stream that most browsers cannot decode.
 		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast", "-pix_fmt", "yuv420p"}
+		videoCodecArgs = append(videoCodecArgs, rateControlArgs(resolution, false)...)
 	}
 
 	if startTime > 0.001 {
@@ -315,22 +315,6 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 // accepts forward slashes, and on every other OS this changes nothing.
 func hlsOutputPath(dir string, name string) string {
 	return filepath.ToSlash(filepath.Join(dir, name))
-}
-
-// resolutionHeight maps a requested output resolution to an ffmpeg scale
-// height, returning an error for anything unrecognised.
-func resolutionHeight(resolution TranscodeOutputResolution) (string, error) {
-	switch resolution {
-	case "360p":
-		return "360", nil
-	case "720p":
-		return "720", nil
-	case "1080p":
-		return "1080", nil
-	case "":
-		return "", nil
-	}
-	return "", errors.New("invalid resolution parameter")
 }
 
 // HLSManager owns every live HLS session and the temp directory they live in.

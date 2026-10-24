@@ -1212,6 +1212,8 @@ body.always-show-volume #volume-slider { display: block; }
 }
 .speed-btn:hover  { color: var(--text); }
 .speed-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+.quality-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.set-head-note { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
 
 .set-link {
     display: flex; align-items: center; gap: 9px;
@@ -1865,6 +1867,17 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                         <button class="set-seg-btn active" data-stream="auto">Auto</button>
                         <button class="set-seg-btn"        data-stream="mp4">MP4</button>
                         <button class="set-seg-btn"        data-stream="hls">HLS</button>
+                    </div>
+                </div>
+                <div class="set-section">
+                    <div class="set-head"><img src="img/icons/quality_white.svg" alt="">Quality<span class="set-head-note" id="set-quality-note"></span></div>
+                    <div class="quality-grid" id="set-quality-grid">
+                        <button class="speed-btn" data-quality="auto">Auto</button>
+                        <button class="speed-btn active" data-quality="original">Original</button>
+                        <button class="speed-btn" data-quality="1080p">1080p</button>
+                        <button class="speed-btn" data-quality="720p">720p</button>
+                        <button class="speed-btn" data-quality="480p">480p</button>
+                        <button class="speed-btn" data-quality="360p">360p</button>
                     </div>
                 </div>
                 <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
@@ -3566,6 +3579,7 @@ function startPlayback(index) {
     // so it is routed through the same verdict.
     resolveDirectPlay(ep.filepath, ext, function (directPlay) {
         if (playingIndex !== index) { return; }   // episode changed while probing
+        renderStreamQuality();   // the probe now knows which steps this file allows
 
         if (castMode && _castConnected()) {
             // Don't load locally — avoids transcoding the same file twice.
@@ -3576,7 +3590,8 @@ function startPlayback(index) {
             _castSend('media.load', {
                 filepath: ep.filepath, name: ep.name, type: 'video',
                 src: directPlay ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
-                                : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath),
+                                : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath)
+                                  + streamQualityParam(ep.filepath),
                 startTime: 0
             });
             // Volume after load, before play — guarantees device volume overrides
@@ -4184,15 +4199,117 @@ function applyStreamMode(mode, reloadCurrent) {
     var resumeAt = effectivePlaybackTime();
     var startAt  = resumeAt > 1 ? resumeAt : 0;
     var vid = document.getElementById('main-video');
+    var resume = !vid.paused;
     transcodeSeekOffset = startAt;
     if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, startAt),
             function (reason) { showToast(reason); },
-            function () { playVideo(vid); })) {
+            function () { settlePlayState(vid, resume); })) {
         showToast('This browser cannot play the HLS stream.');
     }
 }
 
 function playerVideoElement() { return document.getElementById('main-video'); }
+
+function currentPlayingFilepath() {
+    var ep = playingIndex >= 0 ? currentEpisodes[playingIndex] : null;
+    return ep ? ep.filepath : null;
+}
+
+// Show the quality steps the current file allows, with the one it plays at
+// highlighted. That is the viewer's choice unless the file is smaller than it;
+// under Auto the header says which step Auto is on.
+function renderStreamQuality() {
+    var filepath = currentPlayingFilepath();
+    var info     = filepath ? cachedMediaInfo(filepath) : null;
+    var chosen   = getStreamQuality();
+    var active   = (chosen === 'auto' || !filepath) ? chosen : effectiveStreamQuality(filepath);
+    $('#set-quality-grid .speed-btn').each(function () {
+        var id = String($(this).data('quality'));
+        $(this).toggle(streamQualityAvailable(id, info))
+               .toggleClass('active', id === active);
+    });
+    var note = (chosen === 'auto' && filepath) ? streamQualityStep(effectiveStreamQuality(filepath)) : null;
+    $('#set-quality-note').text(note ? note.label : '');
+}
+
+// Apply a quality step. Changing it mid-playback re-opens the current file at
+// the new step, resuming where the viewer was.
+function applyStreamQuality(quality, reloadCurrent) {
+    var filepath = currentPlayingFilepath();
+    var previous = filepath ? effectiveStreamQuality(filepath) : getStreamQuality();
+    // Auto starts from whatever is playing now rather than reloading straight away
+    if (quality === 'auto' && filepath) { setAutoQualityStep(filepath, previous); }
+    setStreamQuality(quality);
+    renderStreamQuality();
+
+    if (!reloadCurrent || !filepath || previous === effectiveStreamQuality(filepath)) { return; }
+    // The receiver picks the new step up with the next file it is sent
+    if (castMode && _castConnected()) { return; }
+    reopenCurrentStream(!document.getElementById('main-video').paused);
+}
+
+// Finish re-opening a stream in the state the viewer left it. The pause()
+// matters even on a paused element: it stops a newly set source from starting
+// by itself, which an autoplay attribute would otherwise do.
+function settlePlayState(vid, resume) {
+    if (resume) { playVideo(vid); } else { vid.pause(); }
+}
+
+// Re-open the current file at the current position after a quality change,
+// playing again only when `resume` says it was playing. Unlike a
+// streaming-mode change this can cross between direct playback and a
+// transcode: dropping below the source size always transcodes, and returning
+// to Original plays the file as-is again when the browser can.
+function reopenCurrentStream(resume) {
+    var index = playingIndex;
+    var ep    = currentEpisodes[index];
+    var vid   = document.getElementById('main-video');
+    var ext   = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+    var resumeAt = effectivePlaybackTime();
+    var startAt  = resumeAt > 1 ? resumeAt : 0;
+    // A direct stream knows its own length; a transcode is told it separately
+    var knownDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+
+    showSeekFreeze();
+    setSubtitleSeekFloor(startAt);
+    resolveDirectPlay(ep.filepath, ext, function (directPlay) {
+        if (playingIndex !== index) { return; }   // episode changed meanwhile
+        clearDirectPlaybackWatch(vid);
+        detachTranscodeStream(vid);
+        $(vid).off('loadedmetadata.quality');   // from a switch made just before
+        isTranscodedVideo = !directPlay;
+
+        if (directPlay) {
+            transcodeSeekOffset = 0;
+            vid.src = MEDIA_API + '?file=' + encodeURIComponent(ep.filepath);
+            $(vid).one('loadedmetadata.quality', function () { vid.currentTime = startAt; });
+            onDirectPlaybackFailure(vid, function () {
+                if (playingIndex !== index) { return; }
+                showToast('This browser cannot decode that file — switching to a transcode');
+                beginEpisodeStream(ep, index, false);
+            });
+            settlePlayState(vid, resume);
+            return;
+        }
+
+        transcodeSeekOffset = startAt;
+        if (knownDuration > 0 && isFinite(knownDuration)) {
+            transcodeDuration = knownDuration;
+        } else {
+            fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(ep.filepath))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.duration > 0 && playingIndex === index) { transcodeDuration = data.duration; }
+                }).catch(function () {});
+        }
+        if (!attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, startAt),
+                function (reason) { hideSeekFreeze(); showToast(reason); },
+                function () { settlePlayState(vid, resume); })) {
+            hideSeekFreeze();
+            showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+        }
+    });
+}
 
 // Surface the two streaming modes that cannot work on a given browser. Anything
 // that is simply working says nothing at all.
@@ -4242,6 +4359,7 @@ function openSettingsPopup() {
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
     applyStreamMode(getStreamMode(), false);
+    renderStreamQuality();
     $('#player-ctx').hide();
     closeSubtitlePopup();
     $('#settings-popup').addClass('active');
@@ -4322,6 +4440,9 @@ function initSettingsPopup() {
     $('#set-stream-seg').on('click', '.set-seg-btn', function () {
         applyStreamMode(String($(this).data('stream')), true);
     });
+    $('#set-quality-grid').on('click', '.speed-btn', function () {
+        applyStreamQuality(String($(this).data('quality')), true);
+    });
 
     $('#set-video-props').on('click', function () { closeSettingsPopup(); openVideoInfo('props'); });
     $('#set-advanced').on('click',    function () { closeSettingsPopup(); openAdvancedSettings(); });
@@ -4337,6 +4458,16 @@ function initSettingsPopup() {
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
     applyStreamMode(getStreamMode(), false);
+    renderStreamQuality();
+
+    // Auto quality only ever moves while playing, so it always resumes
+    new AutoQualityController(document.getElementById('main-video'), {
+        filepath: function () {
+            return (castMode && _castConnected()) ? null : currentPlayingFilepath();
+        },
+        isTranscoded: function () { return isTranscodedVideo; },
+        onSwitch: function () { renderStreamQuality(); reopenCurrentStream(true); }
+    });
 
     // Changing episode — or a transcode seek — replaces the media source, which
     // resets playbackRate. Reapply the chosen speed every time media loads.

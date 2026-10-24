@@ -30,11 +30,11 @@ func candidateHWProfiles() []*hwEncoderProfile {
 			Name:     "Intel/AMD VAAPI",
 			Codec:    "h264_vaapi",
 			PreInput: []string{"-vaapi_device", "/dev/dri/renderD128"},
-			ScaleFilter: func(height string) string {
-				if height == "" {
+			ScaleFilter: func(scale string) string {
+				if scale == "" {
 					return "format=nv12,hwupload"
 				}
-				return "scale=-1:" + height + ",format=nv12,hwupload"
+				return scale + ",format=nv12,hwupload"
 			},
 		},
 	}

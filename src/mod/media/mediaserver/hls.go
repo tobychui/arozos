@@ -12,7 +12,7 @@ package mediaserver
 	(web/script/hlsmse.js) because the segments are fragmented MP4.
 
 	Two endpoints make up the format:
-	  /media/hls/          ?file=<vpath>[&res=][&start=]  -> the .m3u8 playlist
+	  /media/hls/          ?file=<vpath>[&res=360p|480p|720p|1080p][&start=]  -> the .m3u8 playlist
 	  /media/hls/segment   ?sid=<session>&name=<segment>  -> one fMP4 segment, or the init segment
 
 	The playlist request creates (or joins) a transcode session; every segment
@@ -45,15 +45,7 @@ func transcodeResolutionFromRequest(r *http.Request) transcoder.TranscodeOutputR
 	if err != nil {
 		return transcoder.TranscodeResolution_original
 	}
-	switch resolution {
-	case "1080p":
-		return transcoder.TranscodeResolution_1080p
-	case "720p":
-		return transcoder.TranscodeResolution_720p
-	case "360p":
-		return transcoder.TranscodeResolution_360p
-	}
-	return transcoder.TranscodeResolution_original
+	return transcoder.ParseTranscodeResolution(resolution)
 }
 
 // clientIDFromRequest reads the optional "client" parameter identifying the

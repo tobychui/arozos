@@ -10,20 +10,19 @@ import (
 // the hardware encoders that accept plain system-memory frames.
 func TestNV12ScaleFilter(t *testing.T) {
 	cases := []struct {
-		name   string
-		height string
-		want   string
+		name  string
+		scale string
+		want  string
 	}{
 		{"no resize", "", "format=nv12"},
-		{"resize to 360", "360", "scale=-1:360,format=nv12"},
-		{"resize to 720", "720", "scale=-1:720,format=nv12"},
+		{"resize", "scale=w=640:h=360", "scale=w=640:h=360,format=nv12"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := nv12ScaleFilter(tc.height)
+			got := nv12ScaleFilter(tc.scale)
 			if got != tc.want {
-				t.Errorf("nv12ScaleFilter(%q) = %q, want %q", tc.height, got, tc.want)
+				t.Errorf("nv12ScaleFilter(%q) = %q, want %q", tc.scale, got, tc.want)
 			}
 		})
 	}
@@ -43,9 +42,10 @@ func TestCandidateHWProfiles(t *testing.T) {
 		if profile.ScaleFilter == nil {
 			t.Fatalf("profile %q has nil ScaleFilter", profile.Name)
 		}
-		for _, height := range []string{"", "360", "720", "1080"} {
-			if vf := profile.ScaleFilter(height); vf == "" {
-				t.Errorf("profile %q ScaleFilter(%q) returned empty string", profile.Name, height)
+		for _, resolution := range []TranscodeOutputResolution{TranscodeResolution_original, TranscodeResolution_360p, TranscodeResolution_1080p} {
+			scale, _ := resolutionScaleFilter(resolution)
+			if vf := profile.ScaleFilter(scale); vf == "" {
+				t.Errorf("profile %q ScaleFilter(%q) returned empty string", profile.Name, scale)
 			}
 		}
 		if profile.ProbeSize != "" && !regexp.MustCompile(`^\d+x\d+$`).MatchString(profile.ProbeSize) {
