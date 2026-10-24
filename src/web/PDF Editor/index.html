@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PDF Editor</title>
+    <link rel="icon" type="image/svg+xml" href="img/module_icon.svg">
+    <link rel="stylesheet" href="css/editor.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+</head>
+<body>
+    <div class="pe-app" id="peApp">
+        <header class="pe-tabs" role="tablist">
+            <div id="peTabs" style="display:flex;gap:2px;align-items:stretch"></div>
+            <div class="pe-tabs-spacer"></div>
+            <span class="pe-docname" id="peDocName"></span>
+            <button class="pe-tbtn" id="peThemeBtn" type="button" title="Dark Mode"></button>
+            <button class="pe-tbtn" id="peRibbonToggle" type="button" title="Hide the ribbon"></button>
+        </header>
+
+        <div class="pe-ribbon-wrap" id="peRibbonWrap">
+            <button class="rb-scroll left" id="peRbLeft" type="button" aria-label="Scroll left"><svg class="ic sm"><use href="#pe-i-chevleft"/></svg></button>
+            <div class="pe-ribbon" id="peRibbon" role="toolbar"></div>
+            <button class="rb-scroll right" id="peRbRight" type="button" aria-label="Scroll right"><svg class="ic sm"><use href="#pe-i-chevright"/></svg></button>
+        </div>
+
+        <main class="pe-main">
+            <nav class="pe-rail" id="peRail">
+                <button type="button" data-panel="thumbs" title="Thumbnails"><svg class="ic"><use href="#pe-i-thumbs"/></svg></button>
+                <button type="button" data-panel="outline" title="Bookmarks"><svg class="ic"><use href="#pe-i-bookmark"/></svg></button>
+                <button type="button" data-panel="attach" title="Attachments"><svg class="ic"><use href="#pe-i-attach"/></svg></button>
+                <button type="button" data-panel="objects" title="Objects"><svg class="ic"><use href="#pe-i-objects"/></svg></button>
+            </nav>
+
+            <aside class="pe-side pe-left" id="peLeft">
+                <div class="pe-side-head">
+                    <span class="t" id="peLeftTitle">Thumbnails</span>
+                    <button type="button" id="peLeftClose" title="Close"><svg class="ic sm"><use href="#pe-i-close"/></svg></button>
+                </div>
+                <div class="pe-side-body" id="peLeftBody"></div>
+            </aside>
+
+            <section class="pe-center" id="peCenter">
+                <div class="pe-hint" id="peHint" hidden></div>
+                <div class="pe-findbar" id="peFind" hidden>
+                    <svg class="ic sm" style="color:var(--text-3)"><use href="#pe-i-search"/></svg>
+                    <input type="text" id="peFindInput" placeholder="Find in document" autocomplete="off" spellcheck="false">
+                    <span class="cnt" id="peFindCount"></span>
+                    <button type="button" id="peFindPrev" title="Previous"><svg class="ic sm"><use href="#pe-i-chevup"/></svg></button>
+                    <button type="button" id="peFindNext" title="Next"><svg class="ic sm"><use href="#pe-i-chevdown"/></svg></button>
+                    <button type="button" id="peFindClose" title="Close"><svg class="ic sm"><use href="#pe-i-close"/></svg></button>
+                </div>
+                <div class="pe-viewer" id="peViewer" tabindex="-1">
+                    <div class="pe-pages" id="pePages"></div>
+                </div>
+                <div class="pe-empty" id="peEmpty" hidden></div>
+                <div class="pe-drop" id="peDrop" hidden></div>
+                <footer class="pe-status">
+                    <button type="button" id="peFirst" title="First page"><svg class="ic sm"><use href="#pe-i-first"/></svg></button>
+                    <button type="button" id="pePrev" title="Previous page"><svg class="ic sm"><use href="#pe-i-chevleft"/></svg></button>
+                    <span class="pe-pageno"><input type="text" id="pePageInput" inputmode="numeric" aria-label="Page"><span id="pePageCount">/ 0</span></span>
+                    <button type="button" id="peNext" title="Next page"><svg class="ic sm"><use href="#pe-i-chevright"/></svg></button>
+                    <button type="button" id="peLast" title="Last page"><svg class="ic sm"><use href="#pe-i-last"/></svg></button>
+                    <span class="grow"></span>
+                    <button type="button" id="peFitBtn" class="opt" title="Fit width"><svg class="ic sm"><use href="#pe-i-fitwidth"/></svg></button>
+                    <button type="button" id="peZoomLbl" class="zoomlbl" title="Zoom">100%</button>
+                    <button type="button" id="peZoomOut" title="Zoom out"><svg class="ic sm"><use href="#pe-i-minus"/></svg></button>
+                    <input type="range" class="pe-zoom-slider" id="peZoomSlider" min="0" max="1000" value="500" aria-label="Zoom">
+                    <button type="button" id="peZoomIn" title="Zoom in"><svg class="ic sm"><use href="#pe-i-plus"/></svg></button>
+                    <span class="sep opt"></span>
+                    <button type="button" id="peModeBtn" title="Page layout"></button>
+                </footer>
+            </section>
+
+            <aside class="pe-side pe-right" id="peRight">
+                <div class="pe-side-head">
+                    <span class="t" locale="panel/props">Properties</span>
+                    <button type="button" id="peRightClose" title="Close"><svg class="ic sm"><use href="#pe-i-close"/></svg></button>
+                </div>
+                <div class="pe-side-body" id="peRightBody"></div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="js/util.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/fonts.js"></script>
+    <script src="js/doc.js"></script>
+    <script src="js/viewer.js"></script>
+    <script src="js/objects.js"></script>
+    <script src="js/textedit.js"></script>
+    <script src="js/deco.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/dialogs.js"></script>
+    <script src="js/convert.js"></script>
+    <script src="js/panels.js"></script>
+    <script src="js/ribbon.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

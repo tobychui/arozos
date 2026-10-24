@@ -1,0 +1,28 @@
+/*
+    PDF Editor
+
+    Edit PDF documents: change the text already on the pages, add text,
+    pictures, shapes, markup, stamps and signatures, redact, organize and
+    crop pages, add headers, footers, page numbers and watermarks, and
+    convert PDFs for Docs, Sheets and Slides.
+
+    Uses pdf.js (Apache-2.0), pdf-lib and fontkit (MIT), see lib/.
+*/
+
+var moduleLaunchInfo = {
+    Name: "PDF Editor",
+    Desc: "Edit, organize, sign and convert PDF documents",
+    Group: "Office",
+    IconPath: "PDF Editor/img/module_icon.svg",
+    Version: "1.0",
+    StartDir: "PDF Editor/index.html",
+    SupportFW: true,
+    LaunchFWDir: "PDF Editor/index.html",
+    InitFWSize: [1280, 800],
+    SupportEmb: true,
+    LaunchEmb: "PDF Editor/index.html",
+    InitEmbSize: [1280, 800],
+    SupportedExt: [".pdf"]
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));

@@ -1,0 +1,63 @@
+/*
+    PDF Editor - the user's kept signatures
+
+    Signatures are PNG files in user:/.appdata/PDF Editor/Signatures, put
+    there by the editor through the normal upload. This script lists and
+    deletes them; it never touches anything outside that folder.
+
+    POST opr:
+        list                  -> {files: [{name, path, mtime}]}
+        delete  path=vpath    -> {ok}
+*/
+
+var DIR = "user:/.appdata/PDF Editor/Signatures";
+
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function reply(obj) {
+    sendJSONResp(JSON.stringify(obj));
+}
+
+requirelib("filelib");
+
+var opr = String(param("opr", ""));
+
+if (opr === "list") {
+    var files = [];
+    if (filelib.fileExists(DIR) && filelib.isDir(DIR)) {
+        var entries = filelib.readdir(DIR, "default") || [];
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            if (e.IsDir || String(e.Ext).toLowerCase() !== ".png") {
+                continue;
+            }
+            files.push({ name: e.Filename, path: e.Filepath, mtime: e.Modtime });
+        }
+        files.sort(function (a, b) {
+            return b.mtime - a.mtime;
+        });
+    }
+    reply({ files: files });
+} else if (opr === "delete") {
+    var path = String(param("path", ""));
+    if (path.indexOf(DIR + "/") !== 0 || /(^|\/)\.\.(\/|$)/.test(path) || path.split("/").length !== DIR.split("/").length + 1) {
+        reply({ error: "Invalid signature path" });
+    } else if (!filelib.fileExists(path)) {
+        reply({ ok: true });
+    } else {
+        filelib.deleteFile(path);
+        reply({ ok: true });
+    }
+} else {
+    reply({ error: "Unknown operation" });
+}

@@ -1,0 +1,113 @@
+/*
+    PDF Editor - write ArozOS Office documents (PDF to Sheets / PDF to Slides)
+
+    The editor builds the document (an ArozOS Office envelope) in the
+    browser; this script hands it to office.saveDocument, which renders the
+    .xlsx / .pptx (or .docx) with the envelope embedded, so Sheets and
+    Slides reopen exactly what was made. Page pictures of a Slides deck are
+    uploaded first into a working folder and linked with media?file=;
+    office.saveDocument reads them into the file, and the folder is removed
+    afterwards.
+
+    POST opr:
+        ping                                        -> {ok}
+        save     filepath (.xlsx | .pptx | .docx),
+                 content (envelope JSON),
+                 cleanup (optional working folder)  -> {ok, path}
+        cleanup  cleanup (working folder)           -> {ok}
+
+    Working folders must be below tmp:/.appdata/PDF Editor/ (anything else
+    is refused), and the nightly tmp sweep removes whatever is left there.
+*/
+
+var WORKROOT = "tmp:/.appdata/PDF Editor/";
+var MAX_CONTENT = 64 * 1024 * 1024;
+
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function reply(obj) {
+    sendJSONResp(JSON.stringify(obj));
+}
+
+function extOf(p) {
+    var b = String(p).split("/").pop().toLowerCase();
+    var i = b.lastIndexOf(".");
+    return i < 0 ? "" : b.substring(i + 1);
+}
+
+function safeWorkdir(p) {
+    p = String(p || "");
+    return p.indexOf(WORKROOT) === 0 && !/(^|\/)\.\.(\/|$)/.test(p) && p.length > WORKROOT.length;
+}
+
+function removeWorkdir(p) {
+    if (!safeWorkdir(p) || !filelib.fileExists(p)) {
+        return;
+    }
+    try {
+        var entries = filelib.readdir(p, "default") || [];
+        for (var i = 0; i < entries.length; i++) {
+            if (!entries[i].IsDir) {
+                filelib.deleteFile(entries[i].Filepath);
+            }
+        }
+        filelib.deleteFile(p);
+    } catch (e) {
+        //the nightly tmp sweep takes what is left
+    }
+}
+
+requirelib("filelib");
+
+var opr = String(param("opr", ""));
+
+if (opr === "ping") {
+    reply({ ok: true });
+} else if (opr === "cleanup") {
+    removeWorkdir(param("cleanup", ""));
+    reply({ ok: true });
+} else if (opr === "save") {
+    var path = String(param("filepath", ""));
+    var content = String(param("content", ""));
+    var cleanup = String(param("cleanup", ""));
+    var ext = extOf(path);
+    if (path === "" || path.indexOf(":/") < 0 || /(^|\/)\.\.(\/|$)/.test(path)) {
+        reply({ error: "Invalid destination path" });
+    } else if (ext !== "xlsx" && ext !== "pptx" && ext !== "docx") {
+        reply({ error: "Only .xlsx, .pptx and .docx documents can be written" });
+    } else if (!pathCanWrite(path)) {
+        reply({ error: "You do not have permission to write to this location" });
+    } else if (content.length === 0 || content.length > MAX_CONTENT) {
+        reply({ error: "The document is empty or too large" });
+    } else if (!requirelib("office")) {
+        reply({ error: "The office library is not available on this server" });
+    } else {
+        var ok = false;
+        var msg = "";
+        try {
+            ok = office.saveDocument(content, path);
+        } catch (e) {
+            msg = String(e);
+        }
+        if (cleanup !== "") {
+            removeWorkdir(cleanup);
+        }
+        if (ok) {
+            reply({ ok: true, path: path });
+        } else {
+            reply({ error: msg || "The document could not be written" });
+        }
+    }
+} else {
+    reply({ error: "Unknown operation" });
+}

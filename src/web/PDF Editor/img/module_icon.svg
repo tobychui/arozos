@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f25a50"/>
+      <stop offset="1" stop-color="#c8272f"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b4b63"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="13" fill="url(#bg)"/>
+  <path d="M20.5 13h16.2L46 22.3V48a3 3 0 0 1-3 3H20.5a3 3 0 0 1-3-3V16a3 3 0 0 1 3-3z" fill="#fff"/>
+  <path d="M36.7 13v6.8a2.5 2.5 0 0 0 2.5 2.5H46z" fill="#f6b4b0"/>
+  <rect x="22.5" y="27" width="16" height="2.6" rx="1.3" fill="#f2a29d"/>
+  <rect x="22.5" y="32.5" width="18" height="2.6" rx="1.3" fill="#f2a29d"/>
+  <rect x="22.5" y="38" width="10" height="2.6" rx="1.3" fill="#f2a29d"/>
+  <path d="M51.6 31.2l3.2 3.2a2 2 0 0 1 0 2.8L40.4 51.6l-6.4 1.6 1.6-6.4 14.4-14.4a2 2 0 0 1 2.8 0z" fill="url(#pen)"/>
+  <path d="M35.6 46.8l-1.6 6.4 6.4-1.6z" fill="#f8d38b"/>
+  <path d="M49 33.8l4.2 4.2" stroke="#fff" stroke-opacity=".35" stroke-width="1.2"/>
+</svg>
