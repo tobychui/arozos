@@ -552,7 +552,15 @@ model allows) in its `.docx`, because there is only one layout:
   same `pdfdraw.js` runs in the page when a worker cannot be started.
   Progress shows in `OfficeApp.showProgress`, as in Slides, and the
   document can be edited meanwhile without changing the file that comes
-  out. Font resolution against the shipped Noto faces, text runs and the
+  out. The PDF always gets an **outline** (bookmarks) of the headings,
+  whether or not the document has a table of contents: the same headings
+  `tocEntries()` would list, at all six levels (the Title paragraph is no
+  heading), measured in the export state and written by `pdfdraw.js`
+  (`job.outline`, nested by level, each opening its page at the heading's
+  top). The other PDFs have one too: Slides lists every slide by its title
+  placeholder, else "Slide N" (`slideOutline` in `slides/slides_pdf.js`),
+  Sheets every sheet by name, and the server-side Docs exporter the same
+  headings (both in `mod/office/pdf`). Font resolution against the shipped Noto faces, text runs and the
   raster fallback live in [`common/pdfcore.js`](common/pdfcore.js), also
   used by Slides. `docs/backend/convert.agi`'s `export-pdf` and
   `mod/office/pdf/document.go` remain for AGI callers (`office.documentToPdf`),

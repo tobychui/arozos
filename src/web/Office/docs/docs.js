@@ -4812,6 +4812,14 @@
     function canExportPdf() {
         return typeof PDFLib !== "undefined" && !!window.DocsPdf;
     }
+    /* the PDF's outline (bookmarks): every heading the table of contents
+       would list at all six levels, whether or not the document has one,
+       and where it sits in #page */
+    function pdfOutline() {
+        return tocEntries([1, 2, 3, 4, 5, 6]).map(function (e) {
+            return { title: e.text, level: e.level, y: offsetTopInPage(e.el) };
+        });
+    }
     function renderPdf(onProgress) {
         var prevZoom = 100;
         var relaid = false;
@@ -4821,6 +4829,7 @@
             pages: function () { return lastPages; },
             sheetW: geo.sheetW, sheetH: geo.sheetH,
             title: exportBaseName(),
+            outline: pdfOutline,
             onProgress: onProgress,
             enter: function () {
                 clearFindHits();

@@ -20,7 +20,9 @@ package pdf
 	Supported: paragraphs and headings, inline bold/italic/underline/color/
 	size/font, links (clickable), lists, tables (colgroup widths, cell
 	shading, rich cell content), inline images, explicit page breaks, page
-	geometry and header/footer text with optional page numbers.
+	geometry and header/footer text with optional page numbers. The
+	headings are the PDF's outline (bookmarks), as in the editor's own
+	export (docs/docs_pdf.js).
 */
 
 import (
@@ -97,6 +99,9 @@ type docPdf struct {
 	topY   float64 // first usable y on a page
 	botY   float64 // last usable y on a page
 	pre    bool    // inside <pre>: preserve whitespace
+	// heading levels of the outline entries a new one may nest under,
+	// outermost first
+	outline []int
 }
 
 // BuildDoc renders a Document into PDF bytes
@@ -327,12 +332,17 @@ func (d *docPdf) blockBox(n *html.Node, x, w float64) ([]pdfItem, float64, float
 		base := pdfSeg{b: true, i: n.Data == "h4", sizePt: sizes[n.Data]}
 		mt, mb := 14*ptToMM, 6*ptToMM
 		factor := 1.25
-		if strings.Contains(class, " doc-title ") {
+		title := strings.Contains(class, " doc-title ")
+		if title {
 			// .doc-title: 26pt, regular weight, margin 0 0 12pt
 			base = pdfSeg{sizePt: 26}
 			mt, mb = 0, 12*ptToMM
 		}
-		return d.paraItems(n, x, w, base, factor), mt, mb
+		items := d.paraItems(n, x, w, base, factor)
+		if !title {
+			d.bookmark(items, n, int(n.Data[1]-'0'))
+		}
+		return items, mt, mb
 	case "ul", "ol":
 		return d.listItems(n, x, w, n.Data == "ol")
 	case "table":
@@ -373,6 +383,57 @@ func (d *docPdf) blockBox(n *html.Node, x, w float64) ([]pdfItem, float64, float
 		// a plain wrapper: its children's outer margins collapse through it
 		return d.containerBox(n, x, w, pdfSeg{sizePt: docBaseSizePt}, false)
 	}
+}
+
+// bookmark makes a heading an entry of the PDF outline, written with its
+// first line so it lands on the page the heading does. Entries nest by
+// level - a level 3 right after a level 1 goes under the 1 - which also
+// keeps fpdf's outline, whose depth may only grow one step at a time, well
+// formed. The Title paragraph is no heading, as in the table of contents.
+func (d *docPdf) bookmark(items []pdfItem, n *html.Node, level int) {
+	text := headingText(n)
+	if text == "" || len(items) == 0 {
+		return
+	}
+	for len(d.outline) > 0 && d.outline[len(d.outline)-1] >= level {
+		d.outline = d.outline[:len(d.outline)-1]
+	}
+	depth := len(d.outline)
+	d.outline = append(d.outline, level)
+	title := pdfTextString(text)
+	draw := items[0].draw
+	items[0].draw = func(y float64) {
+		d.pdf.Bookmark(title, depth, y)
+		if draw != nil {
+			draw(y)
+		}
+	}
+}
+
+// headingText is a heading's text on one line, without footnote markers
+func headingText(n *html.Node) string {
+	var sb strings.Builder
+	var walk func(*html.Node)
+	walk = func(x *html.Node) {
+		if x.Type == html.TextNode {
+			sb.WriteString(x.Data)
+			return
+		}
+		if x.Type == html.ElementNode {
+			if x.Data == "sup" && strings.Contains(" "+htmlutil.Attr(x, "class")+" ", " doc-fnref ") {
+				return
+			}
+			if x.Data == "br" {
+				sb.WriteString(" ")
+			}
+		}
+		for c := x.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(n)
+	text := strings.ReplaceAll(sb.String(), string(rune(0x200B)), "")
+	return strings.Join(strings.Fields(text), " ")
 }
 
 // containerBox renders a wrapper element: its block children when it has

@@ -1050,14 +1050,14 @@
         {
           "name": "office.documentToPdf",
           "sig": "office.documentToPdf(jsonStr, destVpath)",
-          "desc": "Build a PDF with real selectable text from a serialized Docs body JSON and write it to destVpath. Renders headings, inline styles, links, lists, tables, inline images, page breaks, page geometry and header/footer with page numbers. Latin-1 core fonts; other characters are transliterated.",
+          "desc": "Build a PDF with real selectable text from a serialized Docs body JSON and write it to destVpath. Renders headings, inline styles, links, lists, tables, inline images, page breaks, page geometry and header/footer with page numbers; the headings become the PDF outline (bookmarks). Latin-1 core fonts; other characters are transliterated.",
           "ret": "boolean",
           "example": "requirelib(\"office\");\nvar ok = office.documentToPdf(data, \"user:/Desktop/report.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
         },
         {
           "name": "office.workbookPrintToPdf",
           "sig": "office.workbookPrintToPdf(printJson, destVpath)",
-          "desc": "Build a real-text PDF from a Sheets print model ({sheets:[{name,colW,rowH,rows:[[{t,b,i,u,fc,bg,al}]]}]}) - formatted display strings plus styles computed by the web client. One A4-landscape section per sheet, columns scaled to fit the page.",
+          "desc": "Build a real-text PDF from a Sheets print model ({sheets:[{name,colW,rowH,rows:[[{t,b,i,u,fc,bg,al}]]}]}) - formatted display strings plus styles computed by the web client. One A4-landscape section per sheet, columns scaled to fit the page; each sheet is a PDF outline entry (bookmark).",
           "ret": "boolean",
           "example": "requirelib(\"office\");\nvar ok = office.workbookPrintToPdf(printModelJson, \"user:/Desktop/sheet.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
         },

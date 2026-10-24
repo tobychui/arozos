@@ -1550,8 +1550,10 @@ bold/italic/underline/color/size/highlight, clickable links, lists, tables with
 column widths, cell shading and cell content (block text, lists and
 images inside cells), inline data-URL images, explicit page
 breaks, page size/orientation/margins, and header/footer text with
-optional page numbers. Core PDF fonts are Latin-1; characters outside
-that range are transliterated. Returns `true` on success.
+optional page numbers. The headings (`h1`-`h6`, not the Title paragraph)
+become the PDF's outline (bookmarks), nested by level. Core PDF fonts are
+Latin-1; characters outside that range are transliterated in the text
+(outline titles keep them). Returns `true` on success.
 
 ### `office.workbookPrintToPdf(printJson, destVpath)`
 Build a real-text PDF from a Sheets **print model** (not the raw
@@ -1559,8 +1561,8 @@ workbook JSON): `{"sheets":[{"name","colW":[px],"rowH":[px],"rows":
 [[{"t","b","i","u","fc","bg","al"}]]}]}` — formatted display strings
 plus print-relevant styles, computed by the web client (which owns
 formula evaluation). One A4-landscape section per sheet, columns scaled
-down to fit when the sheet is wider than the page. Returns `true` on
-success.
+down to fit when the sheet is wider than the page; each sheet is an entry
+of the PDF's outline (bookmarks). Returns `true` on success.
 
 ```javascript
 requirelib("office");

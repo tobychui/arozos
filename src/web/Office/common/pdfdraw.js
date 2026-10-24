@@ -16,8 +16,10 @@
         {
           title, sheetW, sheetH,              // px (96/in)
           images: { id: { src } | { bytes } },  // data URL / URL, or JPEG/PNG bytes
-          pages: [ [op, ...], ... ]
-        }
+          pages: [ [op, ...], ... ],
+          outline: [ { title, level, page, y } ]   // optional bookmarks: level
+                                                   // 1-6, page index, y px
+        }                                          // from the page's top
     Coordinates are px from the page's top-left corner. Ops are arrays:
         ["rect", x, y, w, h, rgb, alpha]
         ["image", id, x, y, w, h, crop]       crop {t,r,b,l} fractions | null
@@ -405,9 +407,54 @@ var OfficePdfDraw = (function () {
             });
             return chain;
         }).then(function () {
+            if (job.outline && job.outline.length) writeOutline(pdfDoc, job.outline);
             if (opts.onProgress) opts.onProgress(total, total, "save");
             return pdfDoc.save({ objectsPerTick: 20 });
         });
+    }
+
+    /* The document outline (bookmarks). Entries nest by level - a level 3
+       right after a level 1 goes under the 1 - and all start open; each
+       opens its page with the entry's y at the top of the view. */
+    function writeOutline(doc, items) {
+        var ctx = doc.context;
+        var pages = doc.getPages();
+        var root = { ref: ctx.nextRef(), level: 0, kids: [] };
+        var stack = [root];
+        items.forEach(function (it) {
+            var page = pages[it.page];
+            if (!page || !it.title) return;
+            while (stack.length > 1 && stack[stack.length - 1].level >= it.level) stack.pop();
+            var node = { ref: ctx.nextRef(), level: it.level, kids: [], it: it, page: page };
+            stack[stack.length - 1].kids.push(node);
+            stack.push(node);
+        });
+        if (!root.kids.length) return;
+        function count(n) {
+            return n.kids.reduce(function (sum, k) { return sum + 1 + count(k); }, 0);
+        }
+        function linkKids(n, dict) {
+            if (!n.kids.length) return dict;
+            dict.First = n.kids[0].ref;
+            dict.Last = n.kids[n.kids.length - 1].ref;
+            dict.Count = count(n);
+            return dict;
+        }
+        (function write(n) {
+            n.kids.forEach(function (k, i) {
+                var dict = {
+                    Title: PDFLib.PDFHexString.fromText(k.it.title),
+                    Parent: n.ref,
+                    Dest: [k.page.ref, "XYZ", null, k.page.getHeight() - (k.it.y || 0) * PX, null]
+                };
+                if (i > 0) dict.Prev = n.kids[i - 1].ref;
+                if (i < n.kids.length - 1) dict.Next = n.kids[i + 1].ref;
+                ctx.assign(k.ref, ctx.obj(linkKids(k, dict)));
+                write(k);
+            });
+        })(root);
+        ctx.assign(root.ref, ctx.obj(linkKids(root, { Type: "Outlines" })));
+        doc.catalog.set(PDFLib.PDFName.of("Outlines"), root.ref);
     }
 
     /* ---------------- recording (in the page) ---------------- */

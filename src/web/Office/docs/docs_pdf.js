@@ -26,8 +26,11 @@
     written down as a display list, and common/pdfworker.js (pdfdraw.js)
     assembles the file in a Web Worker while the document stays editable.
 
+    The headings become the PDF's outline (bookmarks), each pointing at the
+    top of the heading on its sheet.
+
     Usage:
-        DocsPdf.build({ pageEl, pages, sheetW, sheetH, title,
+        DocsPdf.build({ pageEl, pages, sheetW, sheetH, title, outline,
                         enter, leave, onProgress }) -> Promise<Uint8Array>
 */
 
@@ -446,8 +449,18 @@ var DocsPdf = (function () {
     /* displayList turns what collect() measured into the job pdfdraw.js
        draws: every coordinate relative to its own sheet, every colour a
        triple, every font a reference, every picture an entry of its own. */
+    // headings as bookmarks: the sheet each one is on and how far down it
+    function outlineOf(o) {
+        return (o.outline || []).map(function (h) {
+            var i = pageIndexOf(o.pages, o.sheetH, h.y);
+            return { title: h.title, level: h.level, page: i, y: Math.max(0, h.y - o.pages[i].sheetTop) };
+        });
+    }
     function displayList(o, data, fonts, frame) {
-        var job = { title: o.title || "", sheetW: o.sheetW, sheetH: o.sheetH, images: {}, pages: [] };
+        var job = {
+            title: o.title || "", sheetW: o.sheetW, sheetH: o.sheetH, images: {}, pages: [],
+            outline: outlineOf(o)
+        };
         var imageIds = new Map();
         var pending = [];
         var nextId = 0;
@@ -559,6 +572,8 @@ var DocsPdf = (function () {
          3. render    a worker turns the list into the file
 
        o: { pageEl, pages() | pages, sheetW, sheetH, title,
+            outline() -> [{ title, level, y }]   (y in #page px, read in
+                         the export state, so it matches the sheets)
             enter(), leave(), onProgress(done, total, stage) }
        stage is "measure", "prepare", "page" or "save". */
     function build(o) {
@@ -575,7 +590,8 @@ var DocsPdf = (function () {
                 snap = {
                     pageEl: o.pageEl,
                     pages: (typeof o.pages === "function" ? o.pages() : o.pages).slice(),
-                    sheetW: o.sheetW, sheetH: o.sheetH, title: o.title
+                    sheetW: o.sheetW, sheetH: o.sheetH, title: o.title,
+                    outline: o.outline ? o.outline() : []
                 };
                 if (!snap.pages.length) throw new Error("nothing to export");
                 data = collect(snap, new Frame(o.pageEl));

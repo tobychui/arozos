@@ -32,6 +32,9 @@
     Rasterizing is the documented last resort, never the first move, and it
     is always scoped to the one element that needs it.
 
+    Every slide is an entry of the PDF's outline (bookmarks), named by its
+    title placeholder, else "Slide N" (slideOutline).
+
     The font rule. A PDF can only show text in a font it carries, and the
     browser will not hand over the bytes of a system font. Three answers,
     tried in that order, per character:
@@ -945,6 +948,25 @@ var SlidesPdf = (function () {
         })));
     }
 
+    /* the PDF's outline (bookmarks): one entry per slide, named by its
+       title placeholder - an imported deck's title and centre title are one
+       too - else "Slide N" */
+    function slideOutline(slides) {
+        var parser = new DOMParser();
+        return slides.map(function (slide, i) {
+            var title = "";
+            (slide.objects || []).some(function (o) {
+                if (!o || !o.props || o.props.ph !== "title" || !o.props.html) return false;
+                // a line break or a new paragraph reads as a space
+                var html = String(o.props.html).replace(/<(br|\/p|\/div|\/li)\b/gi, " $&");
+                title = (parser.parseFromString(html, "text/html").body.textContent || "")
+                    .split(String.fromCharCode(0x200B)).join("").replace(/\s+/g, " ").trim();
+                return !!title;
+            });
+            return { title: title || "Slide " + (i + 1), level: 1, page: i, y: 0 };
+        });
+    }
+
     function build(body, opts) {
         opts = opts || {};
         if (typeof PDFLib === "undefined") {
@@ -1002,7 +1024,9 @@ var SlidesPdf = (function () {
                 });
             });
             return chain.then(function () {
-                return OfficePdfDraw.run(rec.job(opts.title), {
+                var job = rec.job(opts.title);
+                job.outline = slideOutline(slides);
+                return OfficePdfDraw.run(job, {
                     onProgress: opts.onProgress, loadFontkit: loadFontkit
                 });
             });

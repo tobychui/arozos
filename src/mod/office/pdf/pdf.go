@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/go-pdf/fpdf"
 	"imuslab.com/arozos/mod/office/internal/htmlutil"
@@ -104,6 +105,20 @@ func pdfOutput(pdf *fpdf.Fpdf) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// pdfTextString encodes s as a PDF text string for metadata such as outline
+// titles: UTF-16BE behind a byte order mark, so any script survives. fpdf
+// writes the bytes of a Bookmark title as they are while a core font is
+// set, which is always the case here.
+func pdfTextString(s string) string {
+	u := utf16.Encode([]rune(s))
+	b := make([]byte, 2, 2+2*len(u))
+	b[0], b[1] = 0xFE, 0xFF
+	for _, c := range u {
+		b = append(b, byte(c>>8), byte(c))
+	}
+	return string(b)
 }
 
 // pdfNbsp normalizes non-breaking / typographic spaces to plain spaces:

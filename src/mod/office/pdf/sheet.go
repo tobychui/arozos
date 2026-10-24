@@ -9,12 +9,15 @@ package pdf
 	(bold/italic/underline, font and fill colors, alignment) and the
 	column widths in CSS pixels. The server lays that grid out on A4
 	landscape pages, scaling the columns down when the sheet is wider
-	than the printable area and splitting rows across pages.
+	than the printable area and splitting rows across pages. Every sheet
+	is an entry of the PDF's outline (bookmarks), at its name heading.
 */
 
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/go-pdf/fpdf"
 )
@@ -112,8 +115,14 @@ func BuildSheet(m *SheetPrintModel) ([]byte, error) {
 	pageW, pageH := pdf.GetPageSize()
 	usableW := pageW - 2*marginMM
 
-	for _, sheet := range m.Sheets {
+	for i, sheet := range m.Sheets {
 		pdf.AddPage()
+		// every sheet is an entry of the PDF outline, at its name heading
+		name := strings.Join(strings.Fields(sheet.Name), " ")
+		if name == "" {
+			name = "Sheet " + strconv.Itoa(i+1)
+		}
+		pdf.Bookmark(pdfTextString(name), 0, marginMM)
 		// sheet name heading
 		pdf.SetFont("Arial", "B", 12)
 		pdf.SetTextColor(31, 35, 40)
