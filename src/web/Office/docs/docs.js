@@ -4007,14 +4007,117 @@
     function insertPageBreak() {
         if (inHeaderFooter()) return;
         restoreSel();
-        // trailing paragraph so there is always somewhere to type on the new page
+        // the text after the caret moves to the new page; with nothing after
+        // it, a blank paragraph goes there instead, so there is always
+        // somewhere to type
+        var trailing = !textFollowsCaret();
         try {
-            document.execCommand("insertHTML", false, pageBreakHtml() + "<p><br></p>");
+            document.execCommand("insertHTML", false, pageBreakHtml() + (trailing ? "<p><br></p>" : ""));
         } catch (e) { return; }
         normalizePageBreaks();
+        caretIntoText();
         afterEdit(true);
         updatePageGuides();
+        var at = window.getSelection().anchorNode;
+        at = at && (at.nodeType === 1 ? at : at.parentNode);
+        if (at && editor.contains(at) && at !== editor) at.scrollIntoView({ block: "nearest" });
         OfficeApp.setStatus("Page break inserted");
+    }
+    function textFollowsCaret() {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return false;
+        var r = sel.getRangeAt(0);
+        if (!editor.contains(r.endContainer)) return false;
+        var el = (r.endContainer.nodeType === 1 ? r.endContainer : r.endContainer.parentNode).closest(BLOCK_SEL);
+        return !!el && el !== editor && editor.contains(el) && !caretAtEdge(el, r.endContainer, r.endOffset, false);
+    }
+    // a caret the browser left between two blocks goes into the text: the
+    // start of the block after it, else the end of the block before
+    function caretIntoText() {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        var r = sel.getRangeAt(0);
+        var node = r.startContainer;
+        if (node.nodeType !== 1 || !editor.contains(node)) return;
+        var holder = node.closest(BLOCK_SEL + ",td,th");
+        if (holder && holder !== editor) return;
+        var textBlock = function (n) { return !!n && n.nodeType === 1 && n.matches(BLOCK_SEL) && !isPageBreak(n); };
+        var after = siblingBlock(node.childNodes[r.startOffset], false);
+        var before = siblingBlock(node.childNodes[r.startOffset - 1], true);
+        r = document.createRange();
+        if (textBlock(after)) {
+            var walker = document.createTreeWalker(after, NodeFilter.SHOW_TEXT, null);
+            var t = walker.nextNode();
+            while (t && !t.nodeValue.length) t = walker.nextNode();
+            if (t) r.setStart(t, 0);
+            else r.setStart(after, 0);
+        } else if (textBlock(before)) {
+            r.selectNodeContents(before);
+            r.collapse(false);
+        } else {
+            return;
+        }
+        sel.removeAllRanges();
+        sel.addRange(r);
+    }
+    /* Backspace right after a page break, or Delete right before one,
+       removes the break. The browser's own handling of the non-editable
+       block is unreliable: it may only step the caret over the break, or
+       delete it and leave the caret between two blocks. */
+    function isPageBreak(n) {
+        return !!n && n.nodeType === 1 && n.classList.contains("doc-pagebreak");
+    }
+    function siblingBlock(n, backward) {
+        while (n && n.nodeType !== 1 && !/\S/.test(n.nodeValue || "")) n = backward ? n.previousSibling : n.nextSibling;
+        return n;
+    }
+    // nothing the reader sees lies between the caret and the start (end) of el
+    function caretAtEdge(el, node, offset, atStart) {
+        var r = document.createRange();
+        try {
+            if (atStart) {
+                r.setStart(el, 0);
+                r.setEnd(node, offset);
+            } else {
+                r.setStart(node, offset);
+                r.setEnd(el, el.childNodes.length);
+            }
+        } catch (e) { return false; }
+        if (r.toString().split(String.fromCharCode(0x200B)).join("") !== "") return false;
+        return !r.cloneContents().querySelector("img,table,hr,video,iframe");
+    }
+    function pageBreakAtCaret(backward) {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return null;
+        var r = sel.getRangeAt(0);
+        if (!r.collapsed || !editor.contains(r.startContainer)) return null;
+        var node = r.startContainer, off = r.startOffset;
+        // the caret between two blocks, next to the break
+        if (node.nodeType === 1) {
+            var kid = siblingBlock(node.childNodes[backward ? off - 1 : off], backward);
+            if (isPageBreak(kid)) return kid;
+        }
+        // the caret at the start (end) of the block after (before) it, which
+        // may open (close) a column section
+        var el = (node.nodeType === 1 ? node : node.parentNode).closest(BLOCK_SEL + ",.doc-colsec");
+        if (!el || el === editor || !editor.contains(el) || !caretAtEdge(el, node, off, backward)) return null;
+        while (el) {
+            var sib = siblingBlock(backward ? el.previousSibling : el.nextSibling, backward);
+            if (sib) return isPageBreak(sib) ? sib : null;
+            el = el.parentNode.classList.contains("doc-colsec") ? el.parentNode : null;
+        }
+        return null;
+    }
+    function deletePageBreakAtCaret(backward) {
+        var br = pageBreakAtCaret(backward);
+        if (!br) return false;
+        undo.flushDebounced(snapshot);
+        br.parentNode.removeChild(br);
+        caretIntoText();
+        noteEditAtCaret();
+        afterEdit(true);
+        updatePageGuides();
+        return true;
     }
     function toggleLayoutBoxes() {
         var on = !document.body.classList.contains("doc-show-boxes");
@@ -5027,6 +5130,64 @@
     }
     function importOdt(fp, fn) { importDocFile(fp, fn, "import-odf"); }
 
+    /* ================= PDF import =================
+       File > Import > PDF (cfg.importFormats): docs_pdfimport.js rebuilds
+       the PDF as an editable document - text, lists, tables, pictures -
+       entirely in the browser (common/pdfread.js over pdf.js), so it works
+       in both hosts. The framework makes the result a new document named
+       after the PDF: Save asks where to put the .docx and never touches the
+       PDF. Pictures go to this window's working copies like any dropped in
+       (OfficePlatform.blobToSrc). */
+    function importPdf(fp, fn, done, fail, progress) {
+        if (!window.DocsPdfImport || !window.OfficePdfRead) { fail("the PDF reader is not available"); return; }
+        OfficePlatform.readBytes(fp, function (bytes) {
+            DocsPdfImport.convert(bytes, {
+                name: fn,
+                storeImage: function (blob, name) {
+                    return new Promise(function (resolve) {
+                        OfficePlatform.blobToSrc(blob, name, resolve, function () { resolve(null); });
+                    });
+                },
+                progress: function (msg) { progress(msg + "..."); },
+                password: function (retry, cb) { askPdfPassword(fn, retry, cb, progress); }
+            }).then(function (body) { done(body); }, function (err) {
+                fail((err && err.message) || String(err));
+            });
+        }, function (msg) { fail("could not read the file (" + msg + ")"); });
+    }
+    function askPdfPassword(fn, retry, cb, progress) {
+        OfficeApp.hideBusy();
+        var $b = $('<div><p></p><input type="password" class="of-prompt-input" autocomplete="off"></div>');
+        $b.find("p").text(retry ? "That password did not open " + fn + ". Try again:" :
+            fn + " is protected with a password:");
+        var answered = false;
+        var answer = function (v) {
+            if (answered) return;
+            answered = true;
+            if (v !== null) progress("Opening " + fn + "...");
+            cb(v);
+        };
+        var d = OfficeApp.dialog({
+            title: "Password required", body: $b,
+            onDismiss: function () { answer(null); },
+            buttons: [
+                { label: "Cancel", action: function (close) { close(); answer(null); } },
+                {
+                    label: "Open", primary: true, action: function (close, $body) {
+                        var v = $body.find("input").val();
+                        close();
+                        answer(v);
+                    }
+                }
+            ]
+        });
+        var $in = d.body.find("input");
+        $in.trigger("focus");
+        $in.on("keydown", function (e) {
+            if (e.key === "Enter") { var v = $in.val(); d.close(); answer(v); }
+        });
+    }
+
     /* ================= pictures Word cannot hold =================
        Word and the OpenDocument writers embed PNG, JPEG and GIF. A picture
        in anything else (an SVG chart pasted from Sheets or Slides, WebP,
@@ -5513,6 +5674,12 @@
             if (!selectedImg && !e.isComposing && editsAcrossPages(e)) {
                 if (DocsLayout.unsplitAtCaret(editor, e.key !== "Delete")) noteEditAtCaret();
             }
+            if ((e.key === "Backspace" || e.key === "Delete") && !e.altKey && !e.metaKey &&
+                    !selectedImg && !suggesting && !e.isComposing &&
+                    deletePageBreakAtCaret(e.key === "Backspace")) {
+                e.preventDefault();
+                return;
+            }
             if ((e.key === "Delete" || e.key === "Backspace") && selectedImg) {
                 e.preventDefault();
                 var img = selectedImg;
@@ -5749,6 +5916,10 @@
             binaryImporters: {
                 ".odt": importOdt
             },
+            // File > Import: converted into a new document, never written back
+            importFormats: [
+                { ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline", load: importPdf }
+            ],
             saveFormats: SAVE_FORMATS,
 
             onUndo: doUndo,

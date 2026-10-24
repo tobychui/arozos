@@ -125,6 +125,11 @@ OfficeApp.init({
     // No handler: the framework does all of it
     legacyExtensions: [".doc", ".dot"],
 
+    // formats the app reads but never writes (Docs: PDF), listed under
+    // File > Import; the result is a NEW document named after the file,
+    // attached to nothing - see "Import formats" below
+    importFormats: [ { ext: ".pdf", label, icon, load(fp, fn, done, fail, progress) } ],
+
     // --- foreign-format saving (optional) — see "Save formats" below ---
     saveFormats: [ { ext, label, icon, oneWay, unsupported, save }, … ],
 
@@ -307,6 +312,9 @@ OfficePlatform.convertOut({agi, action, wasm}, destPath, bodyJson,
 // io - OfficeApp.vfsLoad / vfsSave / blobToSrc / mediaUrl / agirunLarge all
 // forward to these, so app code normally keeps using OfficeApp
 readText writeText writeBytes documentLoad documentSave
+readBytes        // (path, cb(Uint8Array), errcb): a file the client converts
+                 // itself (a PDF Docs imports) - media?file= in ArozOS, the
+                 // picked File in the web edition
 sessionSave sessionLoad sessionDelete
 agirun agirunLarge prepareWorkdir mediaUrl blobToSrc
 cacheBlob        // a render made for saving (a chart PNG, a poster frame):
@@ -645,6 +653,41 @@ What the framework then does:
 
 All three apps declare `saveFormats`; Sheets is the reference implementation
 (`sheets/sheets_io.js`, `SAVE_FORMATS`).
+
+## Import formats (`importFormats`) — reading what is never written
+
+Some formats can be read but not written back, and must not become the
+file the document lives in: a PDF opened in Docs is an *import*, not an
+open. Such a format is declared once and the framework does the rest:
+
+```js
+importFormats: [{
+    ext: ".pdf",
+    label: "PDF document (.pdf)",        // shown under File > Import
+    icon: "file pdf outline",            // semantic icon name
+    needsBackend: false,                 // optional, as for saveFormats
+    needsConvert: false,
+    load: function (filepath, filename, done, fail, progress) {
+        // read the file (OfficePlatform.readBytes), convert it, then:
+        done(body);                      // a body for cfg.deserialize
+        // fail("message") on error; fail("cancelled") gives up quietly
+        // progress("Reading page 3 of 9...") updates the busy panel
+    }
+}]
+```
+
+- **File > Import** (after Open recent) lists the formats; picking one asks
+  for a file of that type (discarding unsaved changes first, as Open does).
+- The result is a **new document named after the file**: `report.pdf`
+  becomes `report.docx`, `filepath` stays null and the status bar says
+  "Imported report.pdf - use Save to store it as .docx". Save therefore goes
+  to Save As with the app's own extension - it never writes the source.
+  The document starts clean, like a legacy import.
+- `openPath` routes the extension to the importer too, so Open recent, a
+  drop on the web edition and the open-with hash behave the same. Do not
+  register the extension as a file association in `init.agi`: the format
+  belongs to another app (a PDF double-click opens the PDF viewer).
+- The framework shows a busy panel for the whole load; `load` only reports.
 
 ## Media, session snapshots and the close guard
 
@@ -1018,7 +1061,41 @@ keep the editor's older, rounder default until a handle is dragged).
 rewrites them through `canonical()` as a document loads, so nothing
 downstream has to know about them.
 
-## Vendored libs (common/lib/, all MIT)
+## OfficePdfRead (common/pdfread.js) — reading a PDF's pages
+
+The front half of a PDF import: each page as plain data an app rebuilds a
+document from (Docs: `docs/docs_pdfimport.js`). It loads pdf.js on first use
+and walks the page's operator list with a reader's graphics and text state,
+so text keeps its font, size and colour. Coordinates are PDF points from the
+page's top-left.
+
+```js
+OfficePdfRead.open(bytes, { password: function (retry, cb) { cb(pw | null); } })
+    .then(function (doc) {
+        doc.numPages;
+        return doc.page(1);              // counts from 1
+    }).then(function (page) {
+        page.width; page.height;         // pt
+        page.runs;     // [{text, x0, x1, top, bottom, base, size, color, invisible,
+                       //   angle, spaceBefore, letterSpacing, vertical,
+                       //   font: {family, bold, italic, mono, serif, symbol, raw}}]
+        page.images;   // [{x0, y0, x1, y1, mask, canvas() -> Promise<canvas|null>}]
+        page.shapes;   // [{x0, y0, x1, y1, fill, stroke, lw, rect, curve, segs}]
+        page.links;    // [{x0, y0, x1, y1, url}]
+        page.render([x0, y0, x1, y1], scale);   // a region as a canvas
+        page.release();                  // when done with the page
+    });
+OfficePdfRead.familyOf("ABCDEF+TimesNewRomanPS-BoldMT")   // "Times New Roman"
+```
+
+A picture's canvas carries `_opaque` (no transparency in the source), which
+is how an importer chooses JPEG over PNG.
+
+## Vendored libs (common/lib/, MIT unless noted)
+
+- `pdfjs/` — pdf.js 2.7.570 (Apache-2.0, `pdfjs/LICENSE`) with its
+  `cmaps/` for CJK text, the same build Drive ships. **Loaded on demand** by
+  `common/pdfread.js` (the PDF import only); never from a page's `<script>`.
 
 - `marked.min.js` — Markdown → HTML (Docs import)
 - `pdf-lib.min.js` — PDF generation (global `PDFLib`). Used by the Slides

@@ -414,6 +414,20 @@ var OfficePlatform = (function () {
                 error: function (xhr) { if (errcb) errcb(xhr); }
             });
         },
+        // a file the client converts itself (a PDF Docs imports)
+        readBytes: function (path, cb, errcb) {
+            errcb = errcb || function () { };
+            if (!isVpath(path)) { readWebBytes(path, cb, errcb); return; }
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", ao_root + "media?file=" + encodeURIComponent(path) + "&nocache=" + now());
+            xhr.responseType = "arraybuffer";
+            xhr.onload = function () {
+                if (xhr.status >= 200 && xhr.status < 300 && xhr.response) cb(new Uint8Array(xhr.response));
+                else errcb("HTTP " + xhr.status);
+            };
+            xhr.onerror = function () { errcb("cannot reach the ArozOS backend"); };
+            xhr.send();
+        },
         writeText: function (path, content, cb, errcb) {
             arozos.agirunLarge("Office/common/backend/filesaver.agi", {
                 filepath: path,
@@ -1271,6 +1285,8 @@ var OfficePlatform = (function () {
         pickSave: function (o, cb) { host.pickSave(o || {}, cb); },
 
         readText: function (p, cb, errcb) { host.readText(p, cb, errcb); },
+        // a file's bytes, as a Uint8Array (a PDF the client converts itself)
+        readBytes: function (p, cb, errcb) { host.readBytes(p, cb, errcb || function () { }); },
         writeText: function (p, c, cb, errcb) { host.writeText(p, c, cb, errcb); },
         // a file the client rendered itself (the Slides PDF); bytes is a
         // Uint8Array, and the standalone host turns it into a download

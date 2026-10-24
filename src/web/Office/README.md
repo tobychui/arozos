@@ -10,7 +10,7 @@ when you continue development.
 
 | App | Folder | Own format | Other formats |
 |---|---|---|---|
-| Docs | [`docs/`](docs/) | `.docx` | .doc / .dot (import), .odt, .pdf (export), .html, .md, .txt |
+| Docs | [`docs/`](docs/) | `.docx` | .doc / .dot (import), .pdf (import and export), .odt, .html, .md, .txt |
 | Sheets | [`sheets/`](sheets/) | `.xlsx` | .xls / .xlt (import), .ods, .pdf (export), .csv, .tsv |
 | Slides | [`slides/`](slides/) | `.pptx` | .ppt / .pot / .pps (import), .odp, .pdf (export), .png |
 
@@ -382,6 +382,102 @@ Each app also opens the legacy binary format of its kind: Docs `.doc` /
   pictures and conditional formats of `.xls`, animations and media of
   `.ppt`, and drawn shapes without a picture in `.doc` are dropped. A
   `.ppt` table arrives as grouped cell shapes, as PowerPoint stores it.
+
+### Docs: importing a PDF (File > Import > PDF)
+
+A PDF comes into Docs as an **editable document**, never as pictures of
+its pages: real text in paragraphs that re-wrap, headings, lists, tables
+and pictures the user can move or delete. A PDF stores none of that
+structure - only glyphs at positions - so it is rebuilt from the geometry,
+the way Word's PDF Reflow does. It all runs in the browser, so it works the
+same in ArozOS, the web edition and the desktop shell.
+
+- **The framework** (`cfg.importFormats`, see `CONTRACT.md`): File >
+  Import lists the formats an app reads but never writes. What one
+  produces is a **new document named after the file** (`report.pdf` opens
+  as `report.docx`), attached to nothing: Save asks where to put the
+  `.docx` and never offers to write over the PDF, because an import is not
+  an open. A PDF reached any other way - Open recent, a drop on the web
+  edition, the open-with hash - takes the same path (`openPath` routes the
+  extension). `.pdf` is deliberately **not** a Docs file association: a
+  double-click on a PDF still opens the PDF viewer.
+- **Reading** ([`common/pdfread.js`](common/pdfread.js), `OfficePdfRead`):
+  pdf.js 2.7 (`common/lib/pdfjs/`, Apache-2.0, loaded on first use - it is
+  several MB) parses the file, and the page's **operator list** is walked
+  here with the graphics and text state a PDF reader keeps (CTM, text
+  matrix, Tc / Tw / Tz / Ts, fill and stroke colour, clip box), so every
+  run of text comes out with its font, size, colour and position, every
+  picture as a canvas drawn through its own matrix (rotation, flips and the
+  clip applied) and every path as a shape. getTextContent() would be
+  simpler but carries no colour. Two pdf.js traps are handled there: a
+  font is only resolved once the browser has loaded its face, after the
+  operator list arrives (`fontsReady` waits for every font the page sets),
+  and every font pdf.js draws with one system face shares that face's
+  `loadedName` (Helvetica and Helvetica-Bold alike), so fonts are keyed by
+  their own reference. Font names are turned into families
+  (`ABCDEF+TimesNewRomanPS-BoldMT` -> Times New Roman), and symbol-font
+  bullets into the characters they draw.
+- **Reflowing** ([`docs/docs_pdfimport.js`](docs/docs_pdfimport.js),
+  `DocsPdfImport`), per page then over the whole document:
+  - shapes are sorted into **table rules** (a connected grid of horizontal
+    and vertical rules is a table; a missing inner rule merges cells),
+    **underlines** and strike-throughs, **shading** behind text, borders
+    along a picture's edges, rules on a line of their own (`<hr>`) and
+    **drawings**; a cluster of drawings with little text in it is a
+    **figure**, rendered as one picture of that region; a small dot or
+    square just left of a line is a bullet;
+  - text drawn twice over itself (an overprinted fake bold, a shadow) is
+    one bold run - but only when the copies overlap, since "ll" is two
+    letters side by side; an OCR text layer over a scan becomes the text;
+  - **reading order**: a column gutter is a vertical strip no run crosses
+    that runs past at least three lines of real text on both sides (not a
+    column of labels or numbers); what is above and below the stretch it
+    runs is cut off first, so a title across both columns does not hide
+    it. Columns are read one after the other into a single flow;
+  - **lines** come back with their spaces (a PDF often draws none, only a
+    gap; Google Docs draws every glyph by itself), dotted leaders become
+    tab stops with a leader, wide gaps become tab stops (`data-tabs`),
+    and in a fixed-pitch font a gap is that many spaces
+    (`white-space:pre-wrap`), so code keeps its alignment;
+  - **paragraphs**: a line carries on the one above when style and pitch
+    match and the line above was full - the next line's first word would
+    not have fitted after it. In a box narrower than the column (a slide)
+    a line also carries on when it hangs under a list item's text, or when
+    the line above did not end a sentence and it starts in lower case.
+    Alignment, indents, spacing before (`padding-top`, from the baselines
+    and the editor's own line box) and line spacing (`data-ls`, against
+    the document's own, measured with `DocsLayout.fontRatios`) follow;
+  - **lists** from bullet characters and numbers (`1.` `a)` `(iv)` `1、`),
+    read across runs, nested by where markers or text line up, as
+    `ul/ol.doc-list` with the PDF's own marker and hanging indent;
+  - **headings** are the rare larger sizes (a size carrying more than 12%
+    of the text is body text of its own), the three largest as Heading
+    1-3; the largest on page 1, used once, is the Title;
+  - **running headers and footers** - lines or pictures in the top or
+    bottom band that repeat on most pages - leave the flow: their text
+    becomes the header / footer, a number in them turns on page numbers,
+    and letterhead art goes into the header when it fits the margin;
+  - **the page**: the nearest of A4 / Letter / Legal, margins from the
+    text block over all pages, a page break where a PDF page ended early,
+    and a paragraph cut by a page boundary joined again.
+- **Pictures** are stored through `OfficePlatform.blobToSrc` like a
+  dropped-in picture (the window's working copies in ArozOS, inline in the
+  web edition), one copy per distinct picture (a content hash), JPEG for
+  opaque pictures and PNG for transparent ones and for rendered figures.
+  They are encoded with `toDataURL`: `toBlob`'s callback can take a second
+  to come back, which over a document of pictures is minutes.
+- **What cannot come back**: a scanned page with no text layer comes in
+  as its picture (there is no OCR); a PDF that drew characters as pictures
+  (one made without a font for the script - the suite's own PDF export
+  does this for characters no shipped face covers) keeps them as inline
+  pictures in their place in the line, so the text reads right but those
+  characters are not editable text; rotated text and form fields are
+  dropped; multi-column pages become one column.
+- **Tests**: `node web/Office/docs/test_pdfimport.js` builds pages out of
+  runs and checks lines, paragraphs, lists, tables, columns and running
+  footers. For fidelity, import real PDFs and compare page by page with
+  the source (which text starts each page; the reference set in
+  `/reference` has Google Docs exports next to their `.docx`).
 
 ## Import / export — how each path works and why
 
@@ -1467,6 +1563,7 @@ node web/Office/sheets/test_formula.js    # formula engine
 node web/Office/sheets/test_formula_fns.js  # formula functions (vs. Excel examples)
 node web/Office/common/test_share.js      # share links and OOXML app detection
 node web/Office/slides/test_lines.js      # line styles, line ends, callout adjustments
+node web/Office/docs/test_pdfimport.js    # PDF import: lines, paragraphs, lists, tables
 sh ../scripts/check-conventions.sh --diff origin/master
 ```
 

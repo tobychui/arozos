@@ -480,6 +480,94 @@ var OfficeApp = (function () {
         return cfg.legacyExtensions || [];
     }
     function isLegacyExt(ext) { return legacyExtensions().indexOf(ext) >= 0; }
+    /*
+        Formats an app reads but never writes (cfg.importFormats - Docs
+        imports PDF). File > Import lists them, and what one produces is a
+        new document of the app's own kind, named after the file and
+        attached to nothing: Save asks where to put the .docx / .xlsx /
+        .pptx instead of writing over the file it came from, because an
+        import is not an open.
+
+            importFormats: [{
+                ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
+                needsBackend / needsConvert: as for saveFormats,
+                load: fn(filepath, filename, done(body), fail(msg), progress(msg))
+            }]
+
+        load converts the file into a body for cfg.deserialize; progress
+        updates the busy panel the framework shows meanwhile, and
+        fail("cancelled") gives up quietly (a password prompt dismissed).
+    */
+    function importFormats() {
+        return ((cfg && cfg.importFormats) || []).filter(function (f) {
+            if (f.needsBackend && !OfficePlatform.hasBackend()) return false;
+            if (f.needsConvert && !OfficePlatform.canConvert()) return false;
+            return true;
+        });
+    }
+    function importFormatFor(ext) {
+        var list = importFormats();
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].ext === ext) return list[i];
+        }
+        return null;
+    }
+    function importDialog(fmt) {
+        var go = function () {
+            OfficePlatform.pickOpen({ filter: [fmt.ext.substring(1)], memoryKey: "document" }, function (files) {
+                importPath(files[0].filepath, files[0].filename, fmt);
+            });
+        };
+        if (dirty) {
+            confirmDialog("Discard unsaved changes?",
+                "The current document has unsaved changes that will be lost.",
+                "Discard", "Cancel", function (yes) { if (yes) go(); });
+        } else { go(); }
+    }
+    function importPath(fp, fn, fmt) {
+        var name = stripExt(fn) + cfg.extension;
+        showOpening(name);
+        showBusy("Importing " + fn + "...");
+        var settled = false;
+        fmt.load(fp, fn, function (body) {
+            if (settled) return;
+            settled = true;
+            splashStep("Laying out the pages...", function () {
+                try {
+                    meta = { createdAt: now(), revision: 0 };
+                    loadedFromImport = true;
+                    openingName = null;
+                    sourceName = null;
+                    filepath = null;      // a new document: Save asks where
+                    filename = name;
+                    cfg.deserialize(body);
+                    markClean();
+                    // the source stays in "recent": opening it again imports it again
+                    addRecent(fp, fn);
+                    hideBusy();
+                    setStatus("Imported " + fn + " - use Save to store it as " + cfg.extension);
+                    documentLoaded();
+                } catch (err) {
+                    hideBusy();
+                    openFailed();
+                    setStatus("Cannot import " + fn + ": " + err.message, "error");
+                }
+            });
+        }, function (msg) {
+            if (settled) return;
+            settled = true;
+            hideBusy();
+            openFailed();
+            if (msg === "cancelled") {
+                setStatus("Import cancelled");
+                documentLoaded();
+            } else {
+                setStatus("Cannot import " + fn + ": " + (msg || "unknown error"), "error");
+            }
+        }, function (msg) {
+            if (!settled) showBusy(msg);
+        });
+    }
     function loadLegacyEnvelope(env, fp, fn) {
         if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType) {
             throw new Error("Not a valid " + cfg.fileTypeName + " file");
@@ -600,6 +688,12 @@ var OfficeApp = (function () {
                 openFailed();
                 setStatus("Failed to load " + fn, "error");
             });
+            return;
+        }
+        // a format the app only imports (a PDF in Docs): a new document
+        var imp = importFormatFor(ext);
+        if (imp) {
+            importPath(fp, fn, imp);
             return;
         }
         // binary foreign formats (e.g. .odt) are handled by the app itself,
@@ -1440,6 +1534,13 @@ var OfficeApp = (function () {
                         });
                     }
                 },
+                !importFormats().length ? null : {
+                    label: "Import", icon: "sign-in", sub: function () {
+                        return importFormats().map(function (f) {
+                            return { label: f.label, icon: f.icon, action: function () { importDialog(f); } };
+                        });
+                    }
+                },
                 { sep: true },
                 { label: "Save", icon: "save", key: "Ctrl+S", action: function () { save(); } },
                 saveAsMenuItem(),
@@ -1720,10 +1821,17 @@ var OfficeApp = (function () {
         return { close: function () { closeFloatMenus(0); } };
     }
     function showBusy(msg) {
-        hideBusy();
         // the splash already covers the app and says what is happening
         if (splashActive()) {
+            hideBusy();
             OfficeSplash.status(msg || "Working...");
+            return;
+        }
+        // a busy panel already up only changes what it says (a long import
+        // reporting its pages), so its spinner does not restart
+        var $cur = $(".of-busy-overlay");
+        if ($cur.length) {
+            $cur.find(".of-busy-msg").text(msg || "Working...");
             return;
         }
         var $o = $('<div class="of-busy-overlay"><div class="of-spinner"></div><div class="of-busy-msg"></div></div>');
@@ -1964,7 +2072,7 @@ var OfficeApp = (function () {
         var openable = function (name) {
             var e = extOf(name);
             return e === cfg.extension || !!(cfg.importers || {})[e] || !!binaryImporters()[e] ||
-                isLegacyExt(e);
+                isLegacyExt(e) || !!importFormatFor(e);
         };
         var claims = function (e) {
             var dt = e.dataTransfer;
