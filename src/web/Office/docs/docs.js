@@ -1025,11 +1025,24 @@
     }
 
     /* ---------- Home: font ---------- */
+    /* the element the selection's text is set in. A selection that starts
+       between nodes is about the node after it - which is how a size or a
+       style leaves it (wrapSelection selects from before its first new
+       span), so reading the container instead read the size from before
+       the change, and Grow font stepped from the old size again: it
+       worked once */
+    function selectionFontEl() {
+        var n = savedRange ? savedRange.startContainer : null;
+        if (n && n.nodeType === 1 && !savedRange.collapsed && savedRange.startOffset < n.childNodes.length) {
+            n = n.childNodes[savedRange.startOffset];
+        }
+        if (n && n.nodeType === 3) n = n.parentNode;
+        return n && n.nodeType === 1 && editor.contains(n) ? n : null;
+    }
     function currentFontPt() {
         var v = parseInt($sizeSel.val(), 10);
-        var n = savedRange ? savedRange.startContainer : null;
-        if (n && n.nodeType === 3) n = n.parentNode;
-        if (n && n.nodeType === 1 && editor.contains(n)) {
+        var n = selectionFontEl();
+        if (n) {
             var px = parseFloat(window.getComputedStyle(n).fontSize);
             if (px > 0) v = Math.round(px * 72 / 96);
         }
@@ -2111,13 +2124,8 @@
         fn = String(fn).replace(/['"]/g, "").split(",")[0].trim();
         if (fn && $fontSel.find('option[value="' + fn + '"]').length) $fontSel.val(fn);
         // font size + paragraph style from the caret position
-        var n = savedRange ? savedRange.startContainer : null;
-        // a selection that starts between nodes is about the node after it
-        if (n && n.nodeType === 1 && !savedRange.collapsed && savedRange.startOffset < n.childNodes.length) {
-            n = n.childNodes[savedRange.startOffset];
-        }
-        if (n && n.nodeType === 3) n = n.parentNode;
-        if (n && n.nodeType === 1 && editor.contains(n)) {
+        var n = selectionFontEl();
+        if (n) {
             try {
                 var px = parseFloat(window.getComputedStyle(n).fontSize);
                 var pt = String(Math.round(px * 72 / 96));
@@ -3838,6 +3846,51 @@
         if (document.fonts && document.fonts.ready) {
             document.fonts.ready.then(scheduleRelayout).catch(function () { });
         }
+        watchLineHeights();
+    }
+
+    /* ---------- line heights follow every edit ----------
+       A run has line-height 0 (docs.css) until the line-height pass gives a
+       bigger run its own px height, so text the pass has not reached yet
+       sits crammed on its block's line. The pass came with the layout, and
+       an edit that does not lay out by itself - the first word typed in a
+       new size or font, the selection bar's font and size - waited for the
+       debounced one (updateCounts, 300ms after the last keystroke), its
+       lines on top of each other until then. This observer runs the pass on
+       the blocks an edit touched before the browser paints: mutation
+       records arrive at the end of the task that made them, whatever made
+       them. Its own writes, and the full layout's, are dropped
+       (takeRecords) rather than seen again. */
+    var lineObserver = null;
+    function blockOfNode(n) {
+        if (n && n.nodeType !== 1) n = n.parentNode;
+        var b = n && n.closest ? n.closest(BLOCK_SEL) : null;
+        return b && b !== editor && editor.contains(b) ? b : null;
+    }
+    function watchLineHeights() {
+        if (lineObserver || !window.MutationObserver) return;
+        lineObserver = new MutationObserver(function (records) {
+            var blocks = [];
+            var add = function (b) { if (b && blocks.indexOf(b) < 0) blocks.push(b); };
+            records.forEach(function (rec) {
+                add(blockOfNode(rec.target));
+                // a block put in whole (Enter, paste) is its own block
+                for (var i = 0; i < rec.addedNodes.length; i++) {
+                    var a = rec.addedNodes[i];
+                    if (a.nodeType === 1 && a.matches && a.matches(BLOCK_SEL)) add(a);
+                }
+            });
+            if (!blocks.length) return;
+            var ls = docLineSpacing();
+            blocks.forEach(function (b) {
+                if (b.isConnected) DocsLayout.applyLineHeights(b, ls);
+            });
+            lineObserver.takeRecords();
+        });
+        lineObserver.observe(editor, {
+            subtree: true, childList: true, characterData: true,
+            attributes: true, attributeFilter: ["style", "class", "face", "size"]
+        });
     }
 
     function setHfMode(mode) {
@@ -3951,6 +4004,8 @@
         try {
             return layoutPages();
         } finally {
+            // the layout ran the line-height pass over everything already
+            if (lineObserver) lineObserver.takeRecords();
             relayoutH = editor.offsetHeight;
             relayouting = false;
             if (tocOverlay || tocHover) scheduleTocOverlay();
