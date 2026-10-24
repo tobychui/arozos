@@ -193,8 +193,9 @@ var DocsPdf = (function () {
 
         // text, as line fragments at their baselines
         var origin = { left: frame.left, top: frame.top, x: 0, y: 0 };
+        // spaces stay only for the highlight they carry
         var runs = C.collectRuns(o.pageEl, origin).filter(function (run) {
-            return C.visibleText(run.text).trim() !== "";
+            return C.visibleText(run.text).trim() !== "" || !!C.parseFill(run.background);
         });
         runs.forEach(function (run) {
             var top = run.rect.top - frame.top;
@@ -320,10 +321,11 @@ var DocsPdf = (function () {
     }
 
     /* the pieces a line fragment is spelled in, as display-list fonts:
-       [text, font, synthetic bold stroke px, synthetic italic shear]. null
-       when a character has no font, an empty list when nothing in it draws
-       anything. st is { weight, size }: how much the browser emboldens or
-       slants a face depends on both, and is measured (synthStyle). */
+       [text, font, synthetic bold stroke px, synthetic italic shear, size
+       multiple]. null when a character has no font, an empty list when
+       nothing in it draws anything. st is { weight, size }: how much the
+       browser emboldens or slants a face depends on both, and is measured
+       (synthStyle). The size multiple is a stand-in's (C.resolveChar). */
     function segsFor(text, names, fonts, bold, italic, st) {
         var segs = C.segmentText(text, names, fonts, bold, italic);
         if (!segs) return null;
@@ -331,14 +333,15 @@ var DocsPdf = (function () {
         for (var i = 0; i < segs.length; i++) {
             var res = segs[i].res;
             var b = bold || !!res.bold;
+            var k = res.scale || 1;
             if (res.std) {
-                out.push([segs[i].text, "s:" + res.std + ":" + (b ? 1 : 0) + ":" + (italic ? 1 : 0), 0, 0]);
+                out.push([segs[i].text, "s:" + res.std + ":" + (b ? 1 : 0) + ":" + (italic ? 1 : 0), 0, 0, k]);
             } else {
                 var face = OfficeFonts.faceFor(res.shipped, b, italic);
                 if (!face) return null;
                 var syn = (face.synthBold || face.synthItalic) ?
-                    C.synthStyle(face.family, st.weight, italic, st.size, segs[i].text, face.synthBold, face.synthItalic) : null;
-                out.push([segs[i].text, "f:" + absUrl(face.url), syn ? syn.bold : 0, syn ? syn.skew : 0]);
+                    C.synthStyle(face.family, st.weight, italic, st.size * k, segs[i].text, face.synthBold, face.synthItalic) : null;
+                out.push([segs[i].text, "f:" + absUrl(face.url), syn ? syn.bold : 0, syn ? syn.skew : 0, k]);
             }
         }
         return out;

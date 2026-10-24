@@ -24,10 +24,11 @@
         ["rect", x, y, w, h, rgb, alpha]
         ["image", id, x, y, w, h, crop]       crop {t,r,b,l} fractions | null
         ["text", x, baseline, size, rgb, fitW, segs, deco, letterSpacing]
-              segs [[text, font, bold, skew]]  font "s:Helvetica:bold:italic" | "f:<url>"
+              segs [[text, font, bold, skew, k]]  font "s:Helvetica:bold:italic" | "f:<url>"
                    bold: synthetic bold stroke width in px (0: none), skew:
                    synthetic italic shear (0: upright) - both as measured
-                   in the page (OfficePdfCore.synthStyle)
+                   in the page (OfficePdfCore.synthStyle); k: the size
+                   multiple a stand-in face is drawn at (default 1)
               deco [y, h, w] underline/strike bar, w used when nothing drew
               letterSpacing px after every character, optional
         ["leader", x, w, baseline, size, rgb, ch, font]
@@ -273,10 +274,12 @@ var OfficePdfDraw = (function () {
                 var s = op[6][i];
                 var font = fontReady[s[1]];
                 if (!font) return;
-                var w = font.widthOfTextAtSize(s[0], size) + (ls ? ls * Array.from(s[0]).length : 0);
+                // s[4]: a stand-in face is drawn at its own multiple of the size
+                var sz = size * (s[4] || 1);
+                var w = font.widthOfTextAtSize(s[0], sz) + (ls ? ls * Array.from(s[0]).length : 0);
                 // s[2]: the synthetic bold stroke in px (true: the old fixed one)
-                var bw = typeof s[2] === "number" ? s[2] : (s[2] ? size / 28 : 0);
-                segs.push({ text: s[0], font: font, bold: bw, skew: s[3] || 0, w: w });
+                var bw = typeof s[2] === "number" ? s[2] : (s[2] ? sz / 28 : 0);
+                segs.push({ text: s[0], font: font, bold: bw, skew: s[3] || 0, w: w, size: sz });
                 total += w;
             }
             var scale = 1;
@@ -297,7 +300,7 @@ var OfficePdfDraw = (function () {
                     ops.push(PDFLib.setStrokingColor(col));
                 }
                 push(ops);
-                var opt = { x: cursor * PX, y: y(baseline), size: size * PX, font: seg.font, color: col };
+                var opt = { x: cursor * PX, y: y(baseline), size: seg.size * PX, font: seg.font, color: col };
                 // a synthetic italic: the text matrix's shear by height
                 if (seg.skew > 0.001) opt.ySkew = PDFLib.radians(Math.atan(seg.skew));
                 page.drawText(seg.text, opt);

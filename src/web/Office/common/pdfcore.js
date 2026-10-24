@@ -96,9 +96,11 @@ var OfficePdfCore = (function () {
        be measured: document.fonts.check() answers "is it loaded", and for a
        local family Chrome says yes whatever name you give it. The reliable
        test is the old one - render a probe string backed by two different
-       generics; a family that exists overrides both and comes out a
-       different width from each, one that does not falls through to the
-       generic and matches it exactly.
+       generics; a family that does not exist falls through to the generic
+       and matches both exactly, one that exists overrides them and comes
+       out a different width from at least one. Only one: a family can be
+       a generic's own default (Consolas is Chrome's monospace on Windows,
+       Times New Roman its serif), and then it matches that generic.
 
        This matters because a deck may ask for a font the machine does not
        have: the browser laid the text out in the fallback, so the fallback
@@ -118,10 +120,10 @@ var OfficePdfCore = (function () {
                     probeBase[g] = probeCtx.measureText(PROBE).width;
                 });
             }
-            var found = true;
+            var found = false;
             ["monospace", "serif"].forEach(function (g) {
                 probeCtx.font = '72px "' + name.replace(/"/g, "") + '", ' + g;
-                if (probeCtx.measureText(PROBE).width === probeBase[g]) found = false;
+                if (probeCtx.measureText(PROBE).width !== probeBase[g]) found = true;
             });
             familyKnown[name] = found;
         } catch (e) {
@@ -283,9 +285,11 @@ var OfficePdfCore = (function () {
        asks for: a weighted family name ("Open Sans SemiBold") that the
        screen draws from its base family's bold file (OfficeFonts.substitute).
 
-       A family that is neither - a system font - is stepped over rather
-       than used: its bytes are unreadable, so the character goes to the
-       next entry, which is the shipped face for its script. */
+       scale, when it is there, is how much larger than the run's size the
+       face has to be drawn (standIn).
+
+       A family that is neither - a system font - cannot be embedded, its
+       bytes are unreadable; standIn says what is drawn in its place. */
     function resolveChar(cp, names, fonts, bold, italic) {
         for (var i = 0; i < names.length; i++) {
             var name = names[i];
@@ -303,29 +307,107 @@ var OfficePdfCore = (function () {
             if (STD_FAMILIES[key] && (GENERICS[key] || haveFamily(name)) && winAnsiCp(cp)) {
                 return { std: STD_FAMILIES[key] };
             }
-            // a family this machine lacks was drawn in a stand-in of the
-            // same kind (OfficeFonts.substitute): the standard font of that
-            // kind is far nearer to it than the shipped sans further down
-            // the stack, and the fragment is fitted to the browser's width
-            var sub = OfficeFonts.substituteOf ? OfficeFonts.substituteOf(name) : null;
-            // a metric twin the suite ships stood in on screen: the PDF
-            // embeds that same face
-            var sb = !!(sub && sub.heavy);
-            if (sub && sub.twin) {
-                var tw = fonts.shipped(sub.via, bold || sb, italic);
-                if (!tw) {
-                    if (!fonts.tried(sub.via, bold || sb, italic)) return { need: sub.via, bold: sb };
-                } else if (!(tw.kit && tw.kit.hasGlyphForCodePoint && !tw.kit.hasGlyphForCodePoint(cp))) {
-                    return { shipped: sub.via, bold: sb };
-                }
-            }
-            if (sub && winAnsiCp(cp)) {
-                var std = STD_FAMILIES[String(sub.via).toLowerCase()] ||
-                    { serif: "TimesRoman", mono: "Courier" }[sub.kind] || "Helvetica";
-                return { std: std, bold: sb };
-            }
+            var res = standIn(cp, name, fonts, bold, italic);
+            if (res) return res;
         }
         return null;
+    }
+
+    /* standIn answers for a system font, which the PDF cannot carry. What
+       the screen drew it in decides, tried in this order:
+
+         - a family this machine lacks was drawn in a stand-in of its own
+           (OfficeFonts.substitute): a shipped metric twin is embedded as
+           it is, a shipped face is that same face, an installed one is the
+           standard font or shipped twin that matches it
+         - an installed family is drawn in itself, and the nearest face of
+           its kind takes its place: its metric twin when the suite ships
+           one (Calibri -> Carlito), else Cousine for a monospace family and
+           the standard font of its kind for the rest
+
+       A monospace family needs a monospace face whatever the stack says
+       next. The browser set every character of it on one fixed advance, a
+       code listing lines its columns up on that, and a proportional face
+       fitted to a whole fragment cannot put a single character back where
+       it was - the gaps and drifting columns that used to come out of
+       every syntax-coloured listing. So an installed monospace family the
+       substitution never looked at (Docs only gives a face to a family
+       the machine lacks) stands in too, and so does one with a shipped
+       metric twin; any other is stepped over and the next family in the
+       stack (the shipped face for the script) gets the character, as the
+       browser would.
+
+       The face is drawn at the size that gives it the original's advance
+       (scale, from both families' measured widths): Cousine set at 0.917
+       of the size is Consolas's width and nearly its x-height, which a
+       squeeze to width alone (Tz) would leave 9% too tall. The fragment
+       is still fitted to the browser's width after that. */
+    var MONO_STAND_IN = "Cousine";
+    // the measured families the standard fonts are metric-identical to
+    var STD_METRIC = { Helvetica: "Arial", TimesRoman: "Times New Roman", Courier: "Courier New" };
+    function standIn(cp, name, fonts, bold, italic) {
+        var key = name.toLowerCase();
+        var sub = OfficeFonts.substituteOf ? OfficeFonts.substituteOf(name) : null;
+        if (!sub && (GENERICS[key] || (OfficeFonts.kindOf(name) !== "mono" && !OfficeFonts.twinOf(name)) ||
+            !haveFamily(name))) return null;
+        var sb = !!(sub && sub.heavy);
+        var b = bold || sb;
+        // the face the screen really drew the family in
+        var base = sub && !sub.self ? sub.via : name;
+        var kind = (sub && sub.kind) || OfficeFonts.kindOf(base);
+        var tries = [];
+        if (sub && sub.twin) {
+            tries.push({ shipped: sub.via });
+        } else {
+            if (OfficeFonts.isShipped(base)) tries.push({ shipped: base });
+            var std = STD_FAMILIES[String(base).toLowerCase()];
+            if (std) tries.push({ std: std });
+            var twin = OfficeFonts.twinOf(base);
+            if (twin) tries.push({ shipped: twin });
+            if (kind === "mono") tries.push({ shipped: MONO_STAND_IN });
+        }
+        tries.push({ std: { serif: "TimesRoman", mono: "Courier" }[kind] || "Helvetica" });
+        for (var i = 0; i < tries.length; i++) {
+            var t = tries[i];
+            if (t.shipped) {
+                var rec = fonts.shipped(t.shipped, b, italic);
+                if (!rec) {
+                    if (!fonts.tried(t.shipped, b, italic)) return { need: t.shipped, bold: sb };
+                    continue;
+                }
+                if (rec.kit && rec.kit.hasGlyphForCodePoint && !rec.kit.hasGlyphForCodePoint(cp)) continue;
+                return scaled({ shipped: t.shipped, bold: sb }, name, sub, t.shipped, b, italic);
+            }
+            if (winAnsiCp(cp)) return scaled({ std: t.std, bold: sb }, name, sub, STD_METRIC[t.std], b, italic);
+        }
+        return null;
+    }
+
+    // scaled adds the size a stand-in is drawn at to a resolved answer:
+    // the width the browser set the family at over the stand-in's own
+    var scaleCache = {};
+    function scaled(res, name, sub, face, bold, italic) {
+        var st = (bold ? 1 : 0) + (italic ? 2 : 0);
+        var ck = name + "|" + face + "|" + st;
+        if (scaleCache[ck] === undefined) {
+            var k = 1;
+            if (face) {
+                var ratio = function (s) {
+                    // the original's measurement; a family that was never
+                    // measured was set at its stand-in's width, size-adjusted
+                    var want = OfficeFonts.widthOf(name, s) || (sub && !sub.self ?
+                        OfficeFonts.widthOf(sub.via, s) * ((sub.adjust && sub.adjust[s]) || 1) : 0);
+                    var got = OfficeFonts.widthOf(face, s);
+                    return want > 0 && got > 0 ? want / got : 0;
+                };
+                // a style one side never measured: the regulars' ratio
+                k = clamp(ratio(st) || ratio(0) || 1, 0.6, 1.6);
+                if (Math.abs(k - 1) < 0.002) k = 1;
+            }
+            scaleCache[ck] = Math.round(k * 10000) / 10000;
+        }
+        if (scaleCache[ck] !== 1) res.scale = scaleCache[ck];
+        return res;
     }
 
     /* segmentText cuts a fragment into the pieces that share one font, the
@@ -341,24 +423,27 @@ var OfficePdfCore = (function () {
             if (ignorableCp(cp)) continue;
             var res = resolveChar(cp, names, fonts, bold, italic);
             if (!res || res.need) return null;
-            var key = (res.std ? "s:" + res.std : "f:" + res.shipped) + (res.bold ? ":b" : "");
+            var key = (res.std ? "s:" + res.std : "f:" + res.shipped) + (res.bold ? ":b" : "") +
+                (res.scale ? ":" + res.scale : "");
             if (cur && cur.key === key) cur.text += ch;
             else { cur = { key: key, res: res, text: ch }; segs.push(cur); }
         }
         return segs;
     }
 
-    // faceOf: the font a resolved piece is drawn in, and what of its style
-    // has to be synthesized (family is the name the page declared it under)
+    // faceOf: the font a resolved piece is drawn in, what of its style has
+    // to be synthesized (family is the name the page declared it under) and
+    // the multiple of the run's size it is drawn at
     function faceOf(res, fonts, bold, italic) {
         bold = bold || !!res.bold;
-        if (res.std) return { font: fonts.std(res.std, bold, italic), synthBold: false, synthItalic: false };
+        var scale = res.scale || 1;
+        if (res.std) return { font: fonts.std(res.std, bold, italic), synthBold: false, synthItalic: false, scale: scale };
         var rec = fonts.shipped(res.shipped, bold, italic);
         if (!rec) return null;
         var face = OfficeFonts.faceFor(res.shipped, bold, italic);
         return {
             font: rec.font, synthBold: rec.synthBold, synthItalic: rec.synthItalic,
-            family: face ? face.family : res.shipped
+            family: face ? face.family : res.shipped, scale: scale
         };
     }
 
@@ -555,16 +640,25 @@ var OfficePdfCore = (function () {
 
     /* eachTextNode is the walk both the font pre-pass and the run collector
        make, kept in one place so they cannot disagree about what counts as
-       text on the slide. */
-    function eachTextNode(rootEl, fn) {
+       text on the slide.
+
+       painted: also hand over text that is only spaces when it sits in an
+       inline element with a background - a highlight shows as a box over
+       the spaces too (the indent of a highlighted code listing). Only the
+       run collector asks for it: there is no character in it to find a
+       font for. */
+    function eachTextNode(rootEl, fn, painted) {
         var walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
         var node;
         while ((node = walker.nextNode())) {
             var text = node.nodeValue;
-            if (!text || !visibleText(text).trim()) continue;
+            if (!text) continue;
             var parent = node.parentElement;
             if (!parent) continue;
+            var blank = !visibleText(text).trim();
+            if (blank && !painted) continue;
             var cs = window.getComputedStyle(parent);
+            if (blank && (cs.display !== "inline" || !parseFill(cs.backgroundColor))) continue;
             if (cs.visibility === "hidden" || cs.display === "none") continue;
             // source newlines and tabs are whitespace the browser already
             // collapsed; they must not reach a font, but the string has to
@@ -697,6 +791,8 @@ var OfficePdfCore = (function () {
             var range = document.createRange();
             range.selectNodeContents(node);
             var rects = Array.prototype.slice.call(range.getClientRects());
+            // spaces the browser collapsed away paint no highlight either
+            if (!visibleText(text).trim()) rects = rects.filter(function (rc) { return rc.width > 0.01; });
             if (!rects.length) return;
             var ls = parseFloat(cs.letterSpacing);
             var shared = {
@@ -722,7 +818,7 @@ var OfficePdfCore = (function () {
                 r.start = ln.start;
                 runs.push(r);
             });
-        });
+        }, true);
         return runs;
     }
 
@@ -779,38 +875,54 @@ var OfficePdfCore = (function () {
        back with its place in the line, measured off the DOM, so a picture
        in the middle of a sentence lands between the words around it:
            [{ text, dx, w, fit, raster }]
-       dx is from the run's left edge; fit is the width to fit text to, 0
-       when the piece begins or ends on a space (the browser collapses
-       those, the measurement does not). */
+       dx is from the run's left edge; fit is the width to fit text to.
+
+       Spaces at either end of a piece are left out of it. They draw
+       nothing, and the width the browser gave them is not the one a
+       stand-in face gives them (Consolas sets a space at 0.55 em,
+       Helvetica at 0.28) - so a fragment fitted with them would put its
+       ink in the wrong place, and one left unfitted because of them
+       ("x := " in a code listing) drifted off its neighbours. The piece is
+       the ink alone, at the place and width the browser gave the ink. */
+    var EDGE_SPACE = /^\s|\s$/;
     function planRun(r, fonts) {
         var bold = r.weight >= 600;
         var whole = r.rect.right - r.rect.left;
+        // where the ink starts and ends in the run: nothing to draw without it
+        var inkStart = r.text.search(/\S/);
+        if (inkStart < 0) return [];
+        var inkEnd = r.text.replace(/\s+$/, "").length;
         var shown = transformText(r.text, r.transform);
+        var parts;
         if (segmentText(shown, r.names, fonts, bold, r.italic)) {
-            return [{ text: shown, dx: 0, w: whole, fit: /^\s|\s$/.test(r.text) ? 0 : whole, raster: false }];
-        }
-        // cut where drawability changes; a character that draws nothing
-        // (a joiner inside an emoji) stays with what is around it
-        var parts = [], cur = null;
-        for (var i = 0; i < r.text.length;) {
-            var cp = r.text.codePointAt(i), n = cp > 0xFFFF ? 2 : 1;
-            var ok;
-            if (ignorableCp(cp)) {
-                ok = cur ? cur.ok : true;
-            } else {
-                var shownCp = transformText(String.fromCodePoint(cp), r.transform).codePointAt(0);
-                var res = resolveChar(shownCp, r.names, fonts, bold, r.italic);
-                ok = !!(res && !res.need);
+            if (!EDGE_SPACE.test(r.text)) return [{ text: shown, dx: 0, w: whole, fit: whole, raster: false }];
+            parts = [{ ok: true, start: inkStart, end: inkEnd }];
+        } else {
+            // cut where drawability changes; a character that draws nothing
+            // (a joiner inside an emoji) stays with what is around it
+            var cur = null;
+            parts = [];
+            for (var i = 0; i < r.text.length;) {
+                var cp = r.text.codePointAt(i), n = cp > 0xFFFF ? 2 : 1;
+                var ok;
+                if (ignorableCp(cp)) {
+                    ok = cur ? cur.ok : true;
+                } else {
+                    var shownCp = transformText(String.fromCodePoint(cp), r.transform).codePointAt(0);
+                    var res = resolveChar(shownCp, r.names, fonts, bold, r.italic);
+                    ok = !!(res && !res.need);
+                }
+                if (cur && cur.ok === ok) cur.end = i + n;
+                else { cur = { ok: ok, start: i, end: i + n }; parts.push(cur); }
+                i += n;
             }
-            if (cur && cur.ok === ok) cur.end = i + n;
-            else { cur = { ok: ok, start: i, end: i + n }; parts.push(cur); }
-            i += n;
         }
         /* Each piece is measured against the whole line at the same moment,
            so the place comes out right even when the page is no longer at
            the zoom it was collected at (Docs hands the page back before it
            writes its display list). A line whose text node has changed
-           since cannot be measured: it goes in whole, as a picture. */
+           since cannot be measured: it goes in whole - as text, unfitted,
+           when a font can show all of it, else as a picture. */
         var range = document.createRange();
         var now = null;
         try {
@@ -818,22 +930,29 @@ var OfficePdfCore = (function () {
             range.setEnd(r.node, r.start + r.text.length);
             now = range.getBoundingClientRect();
         } catch (e) { now = null; }
-        if (!now || !(now.width > 0) || r.node.nodeValue.substr(r.start, r.text.length) !== r.text) {
-            return [{ text: shown, dx: 0, w: whole, fit: 0, raster: true }];
+        var nodeText = String(r.node.nodeValue || "").substr(r.start, r.text.length)
+            .replace(/[\u0000-\u001F\u007F]/g, " ");
+        if (!now || !(now.width > 0) || nodeText !== r.text) {
+            var drawable = parts.length === 1 && parts[0].ok;
+            return [{ text: shown, dx: 0, w: whole, fit: 0, raster: !drawable }];
         }
         var k = whole / now.width;
         var out = [];
         parts.forEach(function (p) {
-            var text = r.text.substring(p.start, p.end);
-            range.setStart(r.node, r.start + p.start);
-            range.setEnd(r.node, r.start + p.end);
+            var s = p.start, e = p.end;
+            if (p.ok) {
+                // a text piece is its ink alone (see above)
+                while (s < e && /\s/.test(r.text[s])) s++;
+                while (e > s && /\s/.test(r.text[e - 1])) e--;
+                if (s === e) return;
+            }
+            var text = r.text.substring(s, e);
+            range.setStart(r.node, r.start + s);
+            range.setEnd(r.node, r.start + e);
             var b = range.getBoundingClientRect();
             var dx = (b.left - now.left) * k, w = b.width * k;
             if (!(w > 0) && !visibleText(text).trim()) return;
-            out.push({
-                text: transformText(text, r.transform), dx: dx, w: w,
-                fit: /^\s|\s$/.test(text) ? 0 : w, raster: !p.ok
-            });
+            out.push({ text: transformText(text, r.transform), dx: dx, w: w, fit: w, raster: !p.ok });
         });
         return out;
     }
@@ -872,6 +991,8 @@ var OfficePdfCore = (function () {
        costs nothing when the PDF font is the one the browser used (the
        ratio is 1) and is what keeps a substituted face - a system font we
        could not embed - from pushing the rest of the line out of place.
+       Such a face is first drawn at its own multiple of the size (standIn),
+       so what is left for Tz is the difference between two designs.
 
        Bold that a shipped face does not have is stroked rather than filled,
        and italic it does not have is slanted, both by as much as the
@@ -891,11 +1012,12 @@ var OfficePdfCore = (function () {
             var face = faceOf(segs[i].res, fonts, spec.bold, spec.italic);
             if (!face) return 0;
             segs[i].face = face;
-            segs[i].w = face.font.widthOfTextAtSize(segs[i].text, spec.sizePx) +
+            segs[i].size = spec.sizePx * face.scale;
+            segs[i].w = face.font.widthOfTextAtSize(segs[i].text, segs[i].size) +
                 (ls ? ls * Array.from(segs[i].text).length : 0);
             if (face.synthBold || face.synthItalic) {
                 segs[i].synth = synthStyle(face.family, spec.weight || (spec.bold ? 700 : 400), spec.italic,
-                    spec.sizePx, segs[i].text, face.synthBold, face.synthItalic);
+                    segs[i].size, segs[i].text, face.synthBold, face.synthItalic);
             }
             total += segs[i].w;
         }
@@ -924,7 +1046,7 @@ var OfficePdfCore = (function () {
             if (ops.length) pg.ops(ops);
             var opt = {
                 x: px(cursor), y: pg.y(spec.baselinePx),
-                size: px(spec.sizePx), font: seg.face.font, color: col
+                size: px(seg.size), font: seg.face.font, color: col
             };
             // the text matrix's horizontal shear by height (pdf-lib calls
             // that angle ySkew)
@@ -952,24 +1074,23 @@ var OfficePdfCore = (function () {
             var col = parseColor(r.color) || PDFLib.rgb(0, 0, 0);
             var bg = parseFill(r.background);
             if (bg) pg.rect(x, top, domW, lineH, { fill: bg.c, fillOpacity: bg.a });
-            var drawn = 0;
             planRun(r, pg.fonts).forEach(function (pc) {
                 if (pc.raster) {
                     var pic = drawImage ? rasterText(r, pc.text, pc.w, lineH, baseline) : null;
                     if (pic) drawImage(pic.src, x + pc.dx + pic.x, top + pic.y, pic.w, pic.h);
-                    drawn += pc.w;
                     return;
                 }
-                drawn += drawFragment(pg, {
+                drawFragment(pg, {
                     text: pc.text, names: r.names,
                     bold: r.weight >= 600, weight: r.weight, italic: r.italic,
                     sizePx: r.size, xPx: x + pc.dx, baselinePx: top + baseline,
                     color: col, fitPx: pc.fit, letterSpacing: r.letterSpacing
                 });
             });
+            // the browser decorates the whole fragment, spaces included
             if (r.underline || r.strike) {
                 var yOff = r.underline ? baseline + r.size * 0.11 : baseline - r.size * 0.28;
-                pg.rect(x, top + yOff, drawn || domW, Math.max(0.7, r.size * 0.06), { fill: col });
+                pg.rect(x, top + yOff, domW, Math.max(0.7, r.size * 0.06), { fill: col });
             }
         });
     }

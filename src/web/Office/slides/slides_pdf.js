@@ -50,11 +50,16 @@
          do those characters come in as a picture of themselves, drawn by
          the page's own canvas in the page's own fonts.
 
-    A system font that is none of the above is substituted by the shipped
-    face the document's own font stack names next, which is the same thing
-    the browser does when it has no glyph. The fragment is then squeezed to
-    the width the browser gave it (Tz), so a substituted face cannot push a
-    line out of shape.
+    A system font that is none of the above stands in as the nearest face
+    of its kind (OfficePdfCore.resolveChar): its shipped metric twin, the
+    standard font of its kind, Cousine for any monospace family - drawn at
+    the size that gives it the original's advance. Any other installed
+    family the editor never measured is substituted by the shipped face the
+    document's own font stack names next, which is what the browser does
+    when it has no glyph.
+    The ink of each fragment is then fitted to the place and width the
+    browser gave it (Tz), so a substituted face cannot push a line out of
+    shape.
 
     Where it runs. Each slide is measured and drawn in the page, but onto a
     recording (OfficePdfDraw.recorder, common/pdfdraw.js): every pdf-lib
@@ -423,7 +428,7 @@ var SlidesPdf = (function () {
                         var twPx = 0;
                         segs.forEach(function (seg) {
                             var f = faceOf(seg.res, pg.fonts, bold, false);
-                            if (f) twPx += f.font.widthOfTextAtSize(seg.text, sizePx);
+                            if (f) twPx += f.font.widthOfTextAtSize(seg.text, sizePx * f.scale);
                         });
                         var anchor = c.getAttribute("text-anchor") || "start";
                         var tx = X(parseFloat(c.getAttribute("x") || 0));

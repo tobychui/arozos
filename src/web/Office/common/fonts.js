@@ -437,7 +437,7 @@ var OfficeFonts = (function () {
     }
     function kindOf(key) {
         if (METRICS[key]) return METRICS[key][0];
-        if (/mono|courier|consol|code|typewriter|terminal/.test(key)) return "mono";
+        if (/mono|courier|consol|code|typewriter|terminal|monaco/.test(key)) return "mono";
         if (/serif/.test(key) && !/sans/.test(key)) return "serif";
         if (/times|roman|garamond|georgia|antiqua|palatino|cambria|baskerville|bodoni|didot|caslon|schoolbook|bookman|constantia|rockwell|slab|playfair|merriweather|lora|minion|charter|cochin|perpetua|centaur|goudy|elephant|bell mt|calisto|californian|cooper|footlight|high tower|modern no|niagara|poor richard|book/.test(key)) return "serif";
         return "sans";
@@ -564,7 +564,8 @@ var OfficeFonts = (function () {
                 // gets a face of its own - itself, at its own size - so its
                 // ascent and descent can be restated (see below)
                 if (lines === "powerpoint" && METRICS[key]) {
-                    plans.push({ name: name, key: key, mk: key, heavy: false, via: name, self: true });
+                    plans.push({ name: name, key: key, mk: key, heavy: false, via: name, self: true,
+                        kind: kindOf(key) });
                 }
                 return;
             }
@@ -688,7 +689,7 @@ var OfficeFonts = (function () {
                     finalLoads.push(STYLE_DESC[s2].css + ' 16px "' + pl.name.replace(/["\\]/g, "") + '"');
                 }
                 substituted[pl.key] = { via: pl.via || "Noto Sans", adjust: adj, kind: pl.kind,
-                    twin: !!(pl.twin || pl.exact), heavy: !!pl.heavy };
+                    twin: !!(pl.twin || pl.exact), heavy: !!pl.heavy, self: !!pl.self };
             });
             probeEl.parentNode.removeChild(probeEl);
             if (!styleEl) {
@@ -724,12 +725,35 @@ var OfficeFonts = (function () {
 
     /* the stand-in a family was given, for exporters that draw text
        themselves: { via: "Arial", adjust: [r, b, i, bi], kind: "sans",
-       twin: false, heavy: false } or null. twin: via is a shipped metric
-       twin, which an exporter can embed in place of the original. heavy:
-       a weighted name ("Open Sans SemiBold") drawn from via's bold file in
-       every style, whatever weight the text asks for. */
+       twin: false, heavy: false, self: false } or null. twin: via is a
+       shipped metric twin, which an exporter can embed in place of the
+       original. heavy: a weighted name ("Open Sans SemiBold") drawn from
+       via's bold file in every style, whatever weight the text asks for.
+       self: the family is installed and via is the family itself - the face
+       only restates its line metrics, so the screen draws the real font. */
     function substituteOf(family) {
         return substituted[norm(family)] || null;
+    }
+
+    // kindOf for a family name: "sans", "serif" or "mono"
+    function familyKind(family) {
+        var key = norm(family);
+        return kindOf(metricKey(key) || key);
+    }
+    // the shipped family drawn to a family's metrics, "" when there is none
+    function twinOf(family) {
+        var key = norm(family);
+        var t = TWINS[key] || TWINS[metricKey(key)];
+        return t ? SHIPPED[t].family : "";
+    }
+    /* widthOf is a family's average advance per em on SAMPLE in one style
+       (st: 0 regular, 1 bold, 2 italic, 3 bold italic), 0 when it was never
+       measured. The ratio of two is how much larger one face has to be
+       drawn to set text as wide as the other. */
+    function widthOf(family, st) {
+        var mk = metricKey(norm(family));
+        var w = mk ? METRICS[mk][1] : null;
+        return (w && w[st]) || 0;
     }
 
     return {
@@ -742,6 +766,9 @@ var OfficeFonts = (function () {
         preload: preload,
         substitute: substitute,
         substituteOf: substituteOf,
+        kindOf: familyKind,
+        twinOf: twinOf,
+        widthOf: widthOf,
         familiesIn: familiesIn,
         // resolves once every substitution asked for so far is in place
         ready: function () { return pending; }

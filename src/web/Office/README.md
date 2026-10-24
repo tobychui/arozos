@@ -638,7 +638,9 @@ Three answers, tried in that order, per character (`resolveChar`):
    nothing and every reader already has them. Which family was resolved has
    to be measured, not asked: `document.fonts.check()` answers "is it
    loaded" and says yes to any name, so `haveFamily` probes widths against
-   two generics instead.
+   two generics instead — installed means different from *either* one,
+   because a family can be a generic's own default (Consolas is Chrome's
+   monospace on Windows, Times New Roman its serif).
 2. one of the faces the suite ships with itself (`common/fonts`, see
    [the note there](common/fonts/README.md)) — fetched, parsed for glyph
    coverage, and embedded subset to the glyphs the deck actually used. This
@@ -671,15 +673,28 @@ far the ink's centre moves per unit of its height. In Chrome that lands on
 Skia's own figure at every size; a browser that does not synthesize
 measures as nothing, and the PDF follows it.
 
-A system font that is none of the above is stepped over rather than used,
-and the character lands on the shipped face the document's own font stack
-names next. That is the same thing the browser does when a font has no
-glyph, which is why `OfficeFonts.stack()` is on the end of every
-font-family the editor writes. Because a substituted face is not the one
-the line was measured in, each fragment is then squeezed to the width the
-browser gave it (`Tz`), so it cannot push the rest of the line out of
-shape; when the face *is* the one the browser used, the ratio is 1 and
-nothing happens.
+A system font that is none of the above stands in as the nearest face of
+its kind (`standIn`): for a family this machine lacks, the face the screen
+drew it in (`OfficeFonts.substituteOf`); for an installed one, its shipped
+metric twin (Calibri → Carlito), else **Cousine for any monospace family**,
+else the standard font of its kind. The stand-in is drawn at the size that
+gives it the original's average advance (`OfficeFonts.widthOf`), so Cousine
+for Consolas is set at 0.917 of the size — Consolas's width and nearly its
+x-height — instead of being squeezed to width alone. A monospace family has
+to stay monospace: a code listing lines its columns up on one fixed
+advance, and a proportional face fitted to whole fragments put gaps after
+every syntax-coloured run. Any other installed family is stepped over, and
+the character lands on the shipped face the document's own font stack
+names next — what the browser does when a font has no glyph, which is why
+`OfficeFonts.stack()` is on the end of every font-family the editor writes.
+
+Because a stand-in is not the face the line was measured in, the *ink* of
+each fragment is then fitted to the place and width the browser gave it
+(`planRun` measures the fragment without the spaces at its ends, which a
+stand-in sets at another width; `Tz` does the squeeze), so it cannot push
+the rest of the line out of shape; when the face *is* the one the browser
+used, the ratio is 1 and nothing happens. Spaces in a highlighted span are
+still drawn as their highlight box.
 
 Two things about placing the text that are easy to get wrong, and were:
 
