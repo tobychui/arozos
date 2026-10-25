@@ -126,6 +126,8 @@ var OfficeIcons = (function () {
         sendBack: '<rect class="acc" x="3" y="3" width="11" height="11" rx="1" opacity=".55"/><rect x="8" y="8" width="11" height="11" rx="1"/>',
         crop: '<path d="M6 2.5V18h15.5M2.5 6H18v15.5"/>',
         resetPicture: '<rect x="3" y="5" width="18" height="14" rx="1"/><path class="accs" d="M15.5 12.5a3.5 3.5 0 1 1-1-2.5M15 8v2.5h-2.5"/>',
+        // a picture with a turn arrow over its corner
+        rotate: '<rect x="2.5" y="10" width="11" height="11" rx="1"/><path class="accs" d="M8 5.5a9 9 0 0 1 12.3 7.3"/><path class="accs" d="M17.9 11.2l2.4 2.2 2.2-2.4"/>',
         outline: '<path d="M4 20l1.4-5.2L16 4.2l3.8 3.8L9.2 18.6z"/>',
         lineWeight: '<path d="M3 5h18" stroke-width="1"/><path d="M3 11h18" stroke-width="2.2"/><path d="M3 18h18" stroke-width="3.6"/>',
         lineDash: '<path d="M3 7h4M10 7h4M17 7h4M3 13h2M8 13h2M13 13h2M18 13h2M3 19h9M15 19h6"/>',
@@ -134,6 +136,16 @@ var OfficeIcons = (function () {
         link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
         picture: '<rect x="2.5" y="4" width="19" height="16" rx="1.5"/><circle cx="8" cy="9.5" r="1.8"/><path class="accs" d="M3.5 17.5l5-5 4 4 3-3 5 4.5"/>',
         table: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.5h18M3 15h18M9 4v16M15 4v16"/>',
+        // Word's row / column commands: what an insert adds is filled with
+        // the accent, an arrow on it pointing where it goes; a delete
+        // shows what goes and a red cross
+        tableInsertLeft: '<path class="acc" d="M3 4h8v16H3z"/><path d="M3 4h18v16H3zM11 4v16M16 4v16M11 9.3h10M11 14.7h10"/><path class="onacc" d="M9.2 12H4.8M7 9.8 4.8 12 7 14.2"/>',
+        tableInsertRight: '<path class="acc" d="M13 4h8v16h-8z"/><path d="M3 4h18v16H3zM13 4v16M8 4v16M3 9.3h10M3 14.7h10"/><path class="onacc" d="M14.8 12h4.4M17 9.8l2.2 2.2-2.2 2.2"/>',
+        tableInsertAbove: '<path class="acc" d="M3 4h18v7H3z"/><path d="M3 4h18v16H3zM3 11h18M3 15.5h18M9 11v9M15 11v9"/><path class="onacc" d="M12 9.6V5.4M9.9 7.5 12 5.4l2.1 2.1"/>',
+        tableInsertBelow: '<path class="acc" d="M3 13h18v7H3z"/><path d="M3 4h18v16H3zM3 13h18M3 8.5h18M9 4v9M15 4v9"/><path class="onacc" d="M12 14.4v4.2M9.9 16.5l2.1 2.1 2.1-2.1"/>',
+        tableDeleteCols: '<path class="acc" d="M8.5 2.5h7v12h-7z" opacity=".3"/><path d="M8.5 2.5h7v12h-7zM8.5 6.5h7M8.5 10.5h7"/><path class="dels" d="M9 16.5l6 5M15 16.5l-6 5"/>',
+        tableDeleteRows: '<path class="acc" d="M2 8.5h12v7H2z" opacity=".3"/><path d="M2 8.5h12v7H2zM6 8.5v7M10 8.5v7"/><path class="dels" d="M16.5 9l5 6M21.5 9l-5 6"/>',
+        tableDelete: '<path d="M2.5 3h14v12.5h-14zM2.5 7.2h14M2.5 11.3h14M7.2 3v12.5M11.8 3v12.5"/><path class="dels" d="M15 15l6 6M21 15l-6 6"/>',
         chart: '<path d="M3.5 20.5h17"/><path d="M6 17V11h3v6zM10.5 17V6h3v11z"/><path class="acc" d="M15 17V9h3v8z"/>',
         comment: '<path d="M3.5 4.5h17v11h-9l-5 4v-4h-3z"/>',
         /* ---- clipboard (Home > Clipboard, the same in all three apps) ---- */

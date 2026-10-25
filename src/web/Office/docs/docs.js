@@ -263,6 +263,7 @@
         for (var i = 0; i < styled.length; i++) {
             var el = styled[i];
             el.style.lineHeight = "";
+            if (el.tagName === "IMG") el.style.aspectRatio = "";   // fitPicture's
             if (el.classList.contains("doc-tab")) {
                 el.style.width = "";
                 el.style.display = "";
@@ -360,6 +361,7 @@
         deselectImage();
         editor.innerHTML = sanitizeHtml(b.html || "<p><br></p>", { keepClasses: true }) || "<p><br></p>";
         upgradeCrops(editor);
+        fitPictures(editor);
         normalizePageBreaks();
         hfContent.header = b.headerHtml ? sanitizeHtml(b.headerHtml, { keepClasses: true }) : esc(b.header || "");
         hfContent.footer = b.footerHtml ? sanitizeHtml(b.footerHtml, { keepClasses: true }) : esc(b.footer || "");
@@ -422,6 +424,7 @@
     /* after any user edit: dirty flag, counters, undo bookkeeping */
     function afterEdit(immediate) {
         upgradeCrops(editor);
+        fitPictures(editor);
         OfficeApp.markDirty();
         scheduleCounts();
         scheduleToolbarState();
@@ -892,7 +895,7 @@
         ins.group({ id: "pages", label: "Pages", svg: "pageBreak" })
             .add(R.big({ svg: "pageBreak", label: "Page break", key: "Ctrl+Enter", onClick: insertPageBreak }));
         ins.group({ id: "tables", label: "Tables", svg: "table" })
-            .add(R.big({ svg: "table", label: "Table", onClick: insertTableDialog }));
+            .add(R.big({ svg: "table", label: "Table", onOpen: openTableGrid, menu: true }));
         ins.group({ id: "illustrations", label: "Illustrations", svg: "picture" })
             .add(R.big({ svg: "picture", label: "Pictures", menu: imageMenuItems }))
             .add(R.big({ svg: "drawing", label: "Drawing", onClick: function () { drawingDialog(); } }));
@@ -1019,7 +1022,8 @@
             .add(R.big({ svg: "lineWeight", label: "Weight", menu: pictureWeightItems }));
         pf.group({ id: "arrange", label: "Arrange", svg: "arrange" })
             .add(R.big({ svg: "wrapText", label: "Wrap text", menu: pictureWrapItems }))
-            .add(R.big({ svg: "alignObjects", label: "Align", menu: pictureAlignItems }));
+            .add(R.big({ svg: "alignObjects", label: "Align", menu: pictureAlignItems }))
+            .add(R.big({ svg: "rotate", label: "Rotate", menu: pictureRotateItems }));
         pf.group({ id: "size", label: "Size", svg: "formatPane" })
             .add(R.big({ svg: "formatPane", label: "Size & properties", onClick: function () { imageSizeDialog(selectedImg); } }));
     }
@@ -2163,6 +2167,24 @@
         a.parentNode.removeChild(a);
         afterEdit(true);
     }
+    function editLink(a) {
+        var r = document.createRange();
+        r.selectNodeContents(a);
+        savedRange = r;
+        linkDialog();
+    }
+    // a web or mail link opens in a new tab, one to a bookmark goes there
+    function openLink(a) {
+        var href = a.getAttribute("href") || "";
+        if (href.charAt(0) === "#") {
+            var target = null;
+            try { target = editor.querySelector("#" + CSS.escape(decodeURIComponent(href.substring(1)))); } catch (e) { }
+            if (target) target.scrollIntoView({ block: "center" });
+            return;
+        }
+        if (!/^(https?:|mailto:)/i.test(href)) return;
+        try { window.open(a.href, "_blank", "noopener"); } catch (e) { }
+    }
     function linkDialog() {
         if (inHeaderFooter()) return;
         var existing = null;
@@ -2261,6 +2283,12 @@
             if (v) insertImage(v.trim());
         });
     }
+    /* The selected picture's handles, as Google Docs draws them: eight
+       squares to size it - a corner keeps its shape (Shift frees it), a
+       side stretches it one way - and a knob above the top edge to turn
+       it. One fixed layer over the picture (imgHandle); the squares sit on
+       its edges by CSS (docs.css .of-img-handle). */
+    var IMG_DIRS = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
     function selectImage(img) {
         deselectImage();
         selectedImg = img;
@@ -2277,10 +2305,20 @@
         } catch (e) { }
         imgHandle = document.createElement("div");
         imgHandle.className = "of-img-handle of-noprint";
-        imgHandle.title = "Drag to resize";
+        imgHandle.innerHTML = '<span class="of-img-stem"></span>' +
+            '<span class="of-img-rot" title="Drag to rotate (Shift: 15&deg; steps)"></span>' +
+            IMG_DIRS.map(function (d) {
+                var tip = d.length === 2 ? "Drag to resize (Shift: stretch freely)" : "Drag to stretch";
+                return '<span class="of-img-h" data-dir="' + d + '" title="' + tip + '"></span>';
+            }).join("");
         document.body.appendChild(imgHandle);
         positionImgHandle();
-        imgHandle.addEventListener("pointerdown", startImgResize);
+        imgHandle.addEventListener("pointerdown", function (e) {
+            var h = e.target.closest(".of-img-h, .of-img-rot");
+            if (!h) return;
+            if (h.classList.contains("of-img-rot")) startImgRotate(e);
+            else startImgResize(e, h.getAttribute("data-dir"));
+        });
         if (window.OfficeTextEditBar && OfficeTextEditBar.isVisible()) OfficeTextEditBar.hide();
         // the Picture Format tab comes and goes with the selection
         if (window.OfficeRibbon) OfficeRibbon.refresh();
@@ -2302,36 +2340,251 @@
     function positionImgHandle() {
         if (!selectedImg || !imgHandle) return;
         var r = selectedImg.getBoundingClientRect();
-        imgHandle.style.left = (r.right - 7) + "px";
-        imgHandle.style.top = (r.bottom - 7) + "px";
+        imgHandle.style.left = r.left + "px";
+        imgHandle.style.top = r.top + "px";
+        imgHandle.style.width = r.width + "px";
+        imgHandle.style.height = r.height + "px";
     }
-    function startImgResize(e) {
-        if (!selectedImg) return;
+    // the picture's frame as laid out (layout px: the content box, after
+    // max-width), which is what its width and height style
+    function pictureFrame(img) {
+        var cs = window.getComputedStyle(img);
+        return { w: parseFloat(cs.width) || img.offsetWidth, h: parseFloat(cs.height) || img.offsetHeight };
+    }
+    function startImgResize(e, dir) {
+        var img = selectedImg;
+        if (!img) return;
         e.preventDefault();
         e.stopPropagation();
-        var startX = e.clientX;
-        var startW = selectedImg.getBoundingClientRect().width;   // visual px
-        var z = (OfficeApp.getZoom() || 100) / 100;
-        // keep the frame's own shape: a cropped (or stretched) picture is
-        // not the shape of its source, which height:auto would bring back
-        var cs = window.getComputedStyle(selectedImg);
-        var cw = parseFloat(cs.width), ch = parseFloat(cs.height);
-        var ratio = cw > 0 && ch > 0 ? ch / cw : 0;
+        var z = pictureZoom();
+        var x0 = e.clientX, y0 = e.clientY;
+        var f = pictureFrame(img), w0 = f.w, h0 = f.h;
+        var sx = dir.indexOf("e") >= 0 ? 1 : dir.indexOf("w") >= 0 ? -1 : 0;
+        var sy = dir.indexOf("s") >= 0 ? 1 : dir.indexOf("n") >= 0 ? -1 : 0;
+        var MIN = 12;
         function move(ev) {
-            var w = Math.max(24, (startW + (ev.clientX - startX)) / z);
-            selectedImg.style.width = Math.round(w) + "px";
-            selectedImg.style.height = ratio ? Math.round(w * ratio) + "px" : "auto";
+            var w = sx ? Math.max(MIN, w0 + sx * (ev.clientX - x0) / z) : w0;
+            var h = sy ? Math.max(MIN, h0 + sy * (ev.clientY - y0) / z) : h0;
+            if (sx && sy && !ev.shiftKey && w0 > 0 && h0 > 0) {
+                // a corner keeps the frame's shape (a cropped or stretched
+                // picture is not the shape of its source): the larger move wins
+                var k = Math.abs(w / w0 - 1) > Math.abs(h / h0 - 1) ? w / w0 : h / h0;
+                k = Math.max(k, MIN / Math.min(w0, h0));
+                w = w0 * k;
+                h = h0 * k;
+            }
+            img.style.width = Math.round(w) + "px";
+            img.style.height = Math.round(h) + "px";
+            fitPicture(img);
             positionImgHandle();
         }
-        var realign = keepPictureAlign(selectedImg);
+        var realign = keepPictureAlign(img);
         function up() {
             document.removeEventListener("pointermove", move);
             document.removeEventListener("pointerup", up);
             afterEdit(true);
             realign();
+            positionImgHandle();
         }
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);
+    }
+    // the knob: the picture turns about its middle as the pointer goes
+    // round it, snapping to the quarter turns (Shift: 15 degree steps)
+    function startImgRotate(e) {
+        var img = selectedImg;
+        if (!img) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var r = img.getBoundingClientRect();
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        var a0 = Math.atan2(e.clientY - cy, e.clientX - cx);
+        var deg = 0;
+        imgHandle.classList.add("of-img-turning");
+        function move(ev) {
+            var d = (Math.atan2(ev.clientY - cy, ev.clientX - cx) - a0) * 180 / Math.PI;
+            d = ((d % 360) + 540) % 360 - 180;
+            if (ev.shiftKey) {
+                d = Math.round(d / 15) * 15;
+            } else {
+                var q = Math.round(d / 90) * 90;
+                if (Math.abs(d - q) < 4) d = q;
+            }
+            deg = d;
+            var t = deg ? "rotate(" + deg + "deg)" : "";
+            img.style.transform = t;
+            if (imgHandle) imgHandle.style.transform = t;
+            OfficeApp.setStatus("Rotate " + Math.round(deg) + "\u00b0", "info", 0);
+        }
+        function up() {
+            document.removeEventListener("pointermove", move);
+            document.removeEventListener("pointerup", up);
+            img.style.removeProperty("transform");
+            if (!img.getAttribute("style")) img.removeAttribute("style");
+            if (imgHandle) {
+                imgHandle.style.transform = "";
+                imgHandle.classList.remove("of-img-turning");
+            }
+            OfficeApp.setStatus("");
+            if (Math.round(deg) % 360 !== 0) turnPicture(img, { rotate: deg });
+        }
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", up);
+    }
+
+    /* ---------- turning and mirroring ----------
+       The editor has no turned pictures - a CSS transform would not move
+       the text round it - so, as the .docx import does (docx/picture.go),
+       a turn or a flip is baked into the bitmap: the picture becomes the
+       turned frame, and lays out, prints and saves as it looks. turnSource
+       keeps the picture it came from for the session, so turning again
+       draws from the first bitmap rather than from a copy of a copy.
+       A state is output = rotate(deg) after mirror (f) of the frame w x h
+       cut from src by crop. */
+    var turnSource = window.WeakMap ? new WeakMap() : null;
+    function turnPicture(img, op) {
+        if (!img) return;
+        var f = pictureFrame(img);
+        var st = turnSource ? turnSource.get(img) : null;
+        if (st && st.out === img.getAttribute("src") &&
+                Math.abs(f.w / st.ow - f.h / st.oh) < 0.01) {
+            // resized evenly since the last turn: same source, scaled frame
+            var k = f.w / st.ow;
+            st = { src: st.src, crop: st.crop, w: st.w * k, h: st.h * k, deg: st.deg, f: st.f };
+        } else {
+            st = { src: img.getAttribute("src"), crop: pictureCrop(img), w: f.w, h: f.h, deg: 0, f: 0 };
+        }
+        if (op.rotate) st.deg += op.rotate;
+        if (op.flip) {
+            st.deg = op.flip === "h" ? -st.deg : 180 - st.deg;
+            st.f ^= 1;
+        }
+        st.deg = ((st.deg % 360) + 360) % 360;
+        var im = new Image();
+        try {
+            var u = new URL(st.src, location.href);
+            if (/^https?:$/.test(u.protocol) && u.origin !== location.origin) im.crossOrigin = "anonymous";
+        } catch (err) { }
+        im.onerror = function () {
+            OfficeApp.setStatus("This picture could not be rotated", "error", 4000);
+        };
+        im.onload = function () {
+            var out = drawTurned(im, st);
+            if (!out) {
+                OfficeApp.setStatus("This picture is on another site and cannot be rotated", "error", 4000);
+                return;
+            }
+            if (!img.isConnected) return;
+            var realign = keepPictureAlign(img);
+            img.setAttribute("src", out.src);
+            setPictureCrop(img, [0, 0, 0, 0]);
+            img.style.width = Math.round(out.w * 100) / 100 + "px";
+            img.style.height = Math.round(out.h * 100) / 100 + "px";
+            fitPicture(img);
+            st.out = out.src;
+            st.ow = out.w;
+            st.oh = out.h;
+            if (turnSource) turnSource.set(img, st);
+            afterEdit(true);
+            realign();
+            positionImgHandle();
+        };
+        im.src = st.src;
+    }
+    // {src, w, h} - the turned bitmap and its frame (layout px), or null
+    // when the canvas may not be read (a picture from another site)
+    function drawTurned(im, st) {
+        var nw = im.naturalWidth || st.w, nh = im.naturalHeight || st.h;
+        var c = st.crop;
+        var sx = nw * c[3] / 100, sy = nh * c[0] / 100;
+        var sw = nw * (100 - c[1] - c[3]) / 100, sh = nh * (100 - c[0] - c[2]) / 100;
+        var rad = st.deg * Math.PI / 180;
+        var cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+        var quarter = Math.abs(st.deg % 90) < 0.01;
+        if (quarter) {
+            // no rounding error in a quarter turn: the frame swaps exactly
+            cos = Math.round(cos);
+            sin = Math.round(sin);
+        }
+        var W = st.w * cos + st.h * sin, H = st.w * sin + st.h * cos;
+        // the source's own detail, up to 4096 a side; a turn that is not a
+        // quarter turn becomes a PNG (its corners are see-through), kept to
+        // twice the frame
+        var k = Math.max(1, sw / st.w, sh / st.h);
+        if (!quarter) k = Math.min(k, 2);
+        k = Math.min(k, 4096 / Math.max(W, H));
+        var cv = document.createElement("canvas");
+        cv.width = Math.max(1, Math.round(W * k));
+        cv.height = Math.max(1, Math.round(H * k));
+        var g = cv.getContext("2d");
+        g.imageSmoothingQuality = "high";
+        g.translate(cv.width / 2, cv.height / 2);
+        g.rotate(rad);
+        if (st.f) g.scale(-1, 1);
+        g.drawImage(im, sx, sy, sw, sh, -st.w * k / 2, -st.h * k / 2, st.w * k, st.h * k);
+        var jpeg = quarter && /^data:image\/jpe?g/i.test(st.src);
+        try {
+            return { src: cv.toDataURL(jpeg ? "image/jpeg" : "image/png", 0.92), w: W, h: H };
+        } catch (err) {
+            return null;   // a tainted canvas
+        }
+    }
+    function pictureRotateItems() {
+        var it = function (label, icon, op) {
+            return { label: label, icon: icon, action: function () { turnPicture(selectedImg, op); } };
+        };
+        return [
+            it("Rotate right 90\u00b0", "redo", { rotate: 90 }),
+            it("Rotate left 90\u00b0", "undo", { rotate: -90 }),
+            it("Flip vertical", "arrows alternate vertical", { flip: "v" }),
+            it("Flip horizontal", "arrows alternate horizontal", { flip: "h" })
+        ];
+    }
+
+    /* ---------- a picture keeps its shape in a narrow column ----------
+       A picture's stated width and height are its size; max-width: 100%
+       takes the width down in a column (or a table cell) narrower than
+       it, and the stated height would then squash it. fitPicture adds the
+       matching aspect-ratio, and docs.css lets the height follow it, so
+       the picture scales whole. For show only: stripLayoutArtifacts takes
+       it out of what is saved. */
+    var PIC_LEN = /^(\d*\.?\d+)(px|pt)$/;
+    function fitPicture(img) {
+        var w = PIC_LEN.exec(img.style.width || ""), h = PIC_LEN.exec(img.style.height || "");
+        var want = 0;
+        if (w && h) {
+            var pw = parseFloat(w[1]) * (w[2] === "pt" ? 4 / 3 : 1);
+            var ph = parseFloat(h[1]) * (h[2] === "pt" ? 4 / 3 : 1);
+            if (pw > 0 && ph > 0) want = Math.round(pw / ph * 10000) / 10000;
+        }
+        // compared as a number: Chrome reads "0.75" back as "0.75 / 1"
+        var m = /^([\d.]+)(?:\s*\/\s*([\d.]+))?$/.exec(img.style.aspectRatio || "");
+        var cur = m ? parseFloat(m[1]) / (m[2] ? parseFloat(m[2]) : 1) : 0;
+        if (Math.abs(cur - want) > 1e-4) img.style.aspectRatio = want ? String(want) : "";
+    }
+    function fitPictures(root) {
+        var list = root.querySelectorAll("img[style]");
+        for (var i = 0; i < list.length; i++) fitPicture(list[i]);
+    }
+    /* settlePictures makes what a narrower column shows of a table's
+       pictures their size, as Google Docs does when a column is narrowed:
+       the files and the PDF then get the picture as it is on the page */
+    function settlePictures(table) {
+        var list = table.querySelectorAll("img");
+        for (var i = 0; i < list.length; i++) {
+            var img = list[i];
+            if (img.classList.contains("doc-anchor")) continue;
+            var w = PIC_LEN.exec(img.style.width || "");
+            if (!w) continue;
+            var stated = parseFloat(w[1]) * (w[2] === "pt" ? 4 / 3 : 1);
+            fitPicture(img);   // measured whole, not squashed
+            var f = pictureFrame(img);
+            if (f.w > 0 && f.h > 0 && f.w < stated - 0.5) {
+                img.style.width = Math.round(f.w * 100) / 100 + "px";
+                img.style.height = Math.round(f.h * 100) / 100 + "px";
+                fitPicture(img);
+            }
+        }
     }
     /* ================= picture format =================
        What the Picture Format tab, the picture context menu and a double
@@ -2813,6 +3066,7 @@
             { label: "Crop...", icon: "crop", action: function () { cropPictureDialog(img); } },
             { label: "Size & properties...", icon: "expand", action: function () { imageSizeDialog(img); } },
             { label: "Text wrapping", icon: "align left", sub: pictureWrapItems() },
+            { label: "Rotate", icon: "redo", sub: pictureRotateItems() },
             { label: "Reset picture", icon: "undo", action: function () { resetPicture(img); } },
             { sep: true },
             { label: "Delete picture", icon: "trash alternate outline", action: deleteSelectedPicture }
@@ -2820,8 +3074,12 @@
     }
 
     /* ================= tables ================= */
-    /* Word-style drag-over grid table creator (Insert > Table) */
+    /* Insert > Table drops Word's grid under the button: move over it to
+       size the table, click to insert, or "Insert table..." under it for a
+       size past the grid's. While it is open the arrow keys move the size
+       and Enter inserts. */
     var TGRID_COLS = 10, TGRID_ROWS = 8;
+    var tgridPop = null, tgridKeys = null;
     function insertTable(rows, cols) {
         var html = '<table class="of-table"><tbody>';
         for (var r = 0; r < rows; r++) {
@@ -2834,54 +3092,101 @@
         try { document.execCommand("insertHTML", false, html); } catch (e) { }
         afterEdit(true);
     }
-    function insertTableDialog() {
+    function closeTableGrid() {
+        if (!tgridPop) return;
+        tgridPop.remove();
+        tgridPop = null;
+        document.removeEventListener("keydown", tgridKeys, true);
+        $(document).off(".doctgrid");
+        $(window).off(".doctgrid");
+    }
+    function openTableGrid(anchorEl, rect) {
+        // the button closes what it opened
+        if (tgridPop) { closeTableGrid(); return; }
+        OfficeApp.closeAllMenus();
         if (inHeaderFooter()) return;
-        var $b = $("<div></div>");
-        var $label = $('<div class="doc-tgrid-label">1 × 1</div>');
+        var hotR = 0, hotC = 0;
+        var $pop = $('<div class="doc-tgrid-pop of-noprint"></div>');
+        var $label = $('<div class="doc-tgrid-label"></div>');
         var $grid = $('<div class="doc-tgrid"></div>');
-        var dlg;
-        var hotR = 1, hotC = 1;
-        function paint() {
-            $grid.children().each(function () {
-                var r = parseInt($(this).attr("data-r"), 10);
-                var c = parseInt($(this).attr("data-c"), 10);
-                $(this).toggleClass("hot", r <= hotR && c <= hotC);
-            });
-            $label.text(hotC + " × " + hotR);
-        }
         for (var r = 1; r <= TGRID_ROWS; r++) {
             for (var c = 1; c <= TGRID_COLS; c++) {
-                var $cell = $('<button type="button" class="doc-tgrid-cell"></button>')
-                    .attr("data-r", r).attr("data-c", c);
-                $grid.append($cell);
+                $grid.append($('<button type="button" class="doc-tgrid-cell"></button>')
+                    .attr({ "data-r": r, "data-c": c, "aria-label": c + " × " + r + " table" }));
             }
         }
-        // hover / drag over the grid selects the size, click (or release)
-        // inserts - matching the Word ribbon gesture
-        $grid.on("pointerover pointermove", ".doc-tgrid-cell", function () {
-            hotR = parseInt($(this).attr("data-r"), 10);
-            hotC = parseInt($(this).attr("data-c"), 10);
-            paint();
+        var $more = $('<button type="button" class="doc-tgrid-more"><i class="table icon"></i><span>Insert table...</span></button>');
+        $pop.append($label, $grid, '<div class="doc-tgrid-sep"></div>', $more);
+        function paint() {
+            $grid.children().each(function () {
+                this.classList.toggle("hot", +this.getAttribute("data-r") <= hotR && +this.getAttribute("data-c") <= hotC);
+            });
+            $label.text(hotR ? hotC + " × " + hotR + " table" : "Insert table");
+        }
+        function pick(el) {
+            hotR = +el.getAttribute("data-r");
+            hotC = +el.getAttribute("data-c");
+        }
+        function insertHot() {
+            var rows = hotR, cols = hotC;
+            closeTableGrid();
+            if (rows && cols) insertTable(rows, cols);
+        }
+        // nothing in it takes the focus: the caret stays in the document
+        $pop.on("mousedown", function (e) { e.preventDefault(); });
+        $grid.on("pointerover pointermove", ".doc-tgrid-cell", function () { pick(this); paint(); });
+        $grid.on("pointerleave", function () { hotR = hotC = 0; paint(); });
+        $grid.on("click", ".doc-tgrid-cell", function () { pick(this); insertHot(); });
+        $more.on("click", function () { closeTableGrid(); insertTableSizeDialog(); });
+        $("body").append($pop);
+        var w = $pop.outerWidth(), h = $pop.outerHeight();
+        $pop.css({
+            left: Math.max(4, Math.min(rect.left, window.innerWidth - w - 4)) + "px",
+            top: Math.max(4, Math.min(rect.bottom + 2, window.innerHeight - h - 4)) + "px"
         });
-        $grid.on("click pointerup", ".doc-tgrid-cell", function () {
-            var rr = parseInt($(this).attr("data-r"), 10);
-            var cc = parseInt($(this).attr("data-c"), 10);
-            dlg.close();
-            insertTable(rr, cc);
-        });
-        var $custom = $('<div class="dlg-two-col" style="margin-top:10px;"></div>');
-        $custom.append("<div><label>Rows</label><input type='number' min='1' max='50' class='tbl-rows' value='3'></div>");
-        $custom.append("<div><label>Columns</label><input type='number' min='1' max='20' class='tbl-cols' value='3'></div>");
-        $b.append($label).append($grid)
-            .append('<label style="margin-top:12px;">Custom size</label>')
-            .append($custom);
-        dlg = OfficeApp.dialog({
+        paint();
+        tgridPop = $pop;
+        tgridKeys = function (e) {
+            var step = { ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
+            if (step) {
+                hotR = Math.min(TGRID_ROWS, Math.max(1, (hotR || 1) + (hotR ? step[0] : 0)));
+                hotC = Math.min(TGRID_COLS, Math.max(1, (hotC || 1) + (hotC ? step[1] : 0)));
+                paint();
+            } else if (e.key === "Enter") {
+                insertHot();
+            } else if (e.key === "Escape") {
+                closeTableGrid();
+            } else {
+                // typing goes on in the document
+                closeTableGrid();
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        };
+        document.addEventListener("keydown", tgridKeys, true);
+        setTimeout(function () {
+            if (!tgridPop) return;
+            $(document).on("mousedown.doctgrid", function (e) {
+                if (tgridPop && !tgridPop[0].contains(e.target) && !anchorEl.contains(e.target)) closeTableGrid();
+            });
+        }, 0);
+        $(window).on("resize.doctgrid blur.doctgrid", closeTableGrid);
+        workspaceEl.addEventListener("scroll", closeTableGrid, { once: true });
+    }
+    // Insert table... under the grid: any size up to 50 x 20
+    function insertTableSizeDialog() {
+        if (inHeaderFooter()) return;
+        var $b = $('<div class="dlg-two-col"></div>');
+        $b.append("<div><label>Number of columns</label><input type='number' min='1' max='20' class='tbl-cols' value='3'></div>");
+        $b.append("<div><label>Number of rows</label><input type='number' min='1' max='50' class='tbl-rows' value='3'></div>");
+        var d = OfficeApp.dialog({
             title: "Insert table",
             body: $b,
             buttons: [
                 { label: "Cancel" },
                 {
-                    label: "Insert custom size", action: function (close, $body) {
+                    label: "Insert", primary: true, action: function (close, $body) {
                         var rows = Math.min(50, Math.max(1, parseInt($body.find(".tbl-rows").val(), 10) || 3));
                         var cols = Math.min(20, Math.max(1, parseInt($body.find(".tbl-cols").val(), 10) || 3));
                         close();
@@ -2890,7 +3195,7 @@
                 }
             ]
         });
-        paint();
+        d.body.find(".tbl-cols").trigger("focus").trigger("select");
     }
 
     /* ---------- table styling (themes / borders / banding) ----------
@@ -2933,329 +3238,410 @@
         }
         afterEdit(true);
     }
-    function currentCell() {
-        if (!savedRange) return null;
-        var n = savedRange.startContainer;
-        if (n && n.nodeType === 3) n = n.parentNode;
-        if (!n || !n.closest || !editor.contains(n)) return null;
-        var cell = n.closest("td,th");
-        if (!cell) {
-            // multi-cell selections anchor at the row/tbody/table level -
-            // descend through the range start to the first selected cell
-            var host = n.closest("table, tbody, tr");
-            if (host) {
-                var child = savedRange.startContainer.childNodes ?
-                    savedRange.startContainer.childNodes[savedRange.startOffset] : null;
-                if (child && child.nodeType === 1) {
-                    if (child.matches && child.matches("td,th")) cell = child;
-                    else if (child.querySelector) cell = child.querySelector("td,th");
-                }
-                if (!cell) cell = host.querySelector("td,th");
+    /* ---------- the cells a table command acts on ----------
+       The cell right-clicked, or the block of cells the selection covers:
+       Chrome runs one range from text in one cell to text in another,
+       Firefox selects whole cells, a range each. The page layout may have
+       cut a row in two (docs_layout.js); a cell of the continuation stands
+       for the cell it continues, the one left when the cut is undone, and
+       rows and columns are counted only when a command runs, after
+       unsplitWithin has made the table whole again. */
+    function boundaryCell(node, offset, atEnd) {
+        var el = node && node.nodeType === 3 ? node.parentNode : node;
+        if (!el || el.nodeType !== 1 || !editor.contains(el)) return null;
+        if (!el.matches("table, thead, tbody, tfoot, tr")) return el.closest("td,th");
+        // a point between cells: the cell after it, or before it at an end
+        var kid = node.childNodes[atEnd ? offset - 1 : offset];
+        if (!kid || kid.nodeType !== 1) return null;
+        if (kid.matches("td,th")) return kid;
+        var list = kid.querySelectorAll("td,th");
+        return list.length ? list[atEnd ? list.length - 1 : 0] : null;
+    }
+    function splitHeadCell(cell) {
+        for (var guard = 0; guard < 64; guard++) {
+            var k = cell.getAttribute("data-split-of"), attr = "data-split";
+            if (!k) {
+                k = cell.getAttribute("data-rowspan-of");
+                attr = "data-rowspan-split";
             }
+            if (!k || !/^[\w-]+$/.test(k)) return cell;
+            var head = editor.querySelector("[" + attr + '="' + k + '"]');
+            if (!head) return cell;
+            cell = head;
         }
-        return cell && editor.contains(cell) ? cell : null;
+        return cell;
     }
-    function currentTable() {
-        var cell = currentCell();
-        return cell ? cell.closest("table") : null;
+    // a cell of an editor table, never a layout spacer's
+    function tableCell(cell) {
+        if (!cell || !editor.contains(cell) || !cell.closest("table.of-table") ||
+            cell.closest(".doc-autobreak")) return null;
+        return splitHeadCell(cell);
     }
-    function tableAddRow(table, index) {
-        var cols = (table.rows[0] ? table.rows[0].cells.length : 1);
-        var tr = table.insertRow(index);
-        for (var i = 0; i < cols; i++) tr.insertCell(-1).innerHTML = "<br>";
+    // the selection as one range (Firefox gives one per selected cell)
+    function liveRange() {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return null;
+        var r = sel.getRangeAt(0);
+        if (sel.rangeCount > 1) {
+            var last = sel.getRangeAt(sel.rangeCount - 1);
+            r = r.cloneRange();
+            try { r.setEnd(last.endContainer, last.endOffset); } catch (e) { }
+        }
+        return editor.contains(r.commonAncestorContainer) ? r : null;
+    }
+    function inBlock(cell, a, b) {
+        if (cell.closest("table") !== a.closest("table")) return false;
+        var r = cell.parentNode.rowIndex, c = cell.cellIndex;
+        var ra = a.parentNode.rowIndex, rb = b.parentNode.rowIndex;
+        return r >= Math.min(ra, rb) && r <= Math.max(ra, rb) &&
+            c >= Math.min(a.cellIndex, b.cellIndex) && c <= Math.max(a.cellIndex, b.cellIndex);
+    }
+    /* cellBlock: {a, b, rows, cols, multi} - the corner cells of the block
+       the selection covers, or the cell clicked when the click is outside
+       it; null outside a table */
+    function cellBlock(range, clicked) {
+        var a = null, b = null;
+        if (range) {
+            a = tableCell(boundaryCell(range.startContainer, range.startOffset, false));
+            b = range.collapsed ? a : tableCell(boundaryCell(range.endContainer, range.endOffset, true));
+        }
+        if (!a || !b || a.closest("table") !== b.closest("table")) a = b = null;
+        if (clicked && !(a && inBlock(clicked, a, b))) a = b = clicked;
+        if (!a) return null;
+        // the rows the user sees: no spacer rows, no continuations
+        var table = a.closest("table");
+        var ra = a.parentNode.rowIndex, rb = b.parentNode.rowIndex, rows = 0;
+        for (var i = Math.min(ra, rb); i <= Math.max(ra, rb); i++) {
+            var tr = table.rows[i];
+            if (tr && !tr.classList.contains("doc-autobreak") && !tr.hasAttribute("data-split-of")) rows++;
+        }
+        return {
+            a: a, b: b, multi: a !== b,
+            rows: Math.max(1, rows), cols: Math.abs(a.cellIndex - b.cellIndex) + 1
+        };
+    }
+    // run a table command on a block: the table is whole first, and laid
+    // out again after it
+    function onBlock(blk, fn) {
+        var a = blk.a, b = blk.b;
+        var table = a.isConnected && b.isConnected ? a.closest("table") : null;
+        if (!table || !editor.contains(table)) return;
+        DocsLayout.unsplitWithin(editor, table);
+        var ra = a.parentNode.rowIndex, rb = b.parentNode.rowIndex;
+        var ga = gridCol(a), gb = gridCol(b);
+        fn(table, {
+            r0: Math.min(ra, rb), r1: Math.max(ra, rb),
+            c0: Math.min(a.cellIndex, b.cellIndex), c1: Math.max(a.cellIndex, b.cellIndex),
+            // the same columns in the colgroup, merged cells counted
+            g0: Math.min(ga, gb), g1: Math.max(ga + a.colSpan, gb + b.colSpan) - 1
+        });
+        relayoutNow(table.isConnected ? [table] : null);
+    }
+    function gridCol(cell) {
+        var g = 0;
+        for (var c = cell.previousElementSibling; c; c = c.previousElementSibling) g += c.colSpan || 1;
+        return g;
+    }
+    function caretInto(el) {
+        if (!el || !el.isConnected || !editor.contains(el)) return;
+        editor.focus();
+        var r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(true);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+        savedRange = r.cloneRange();
+    }
+    function cellAt(table, r, c) {
+        var row = table.rows[Math.min(r, table.rows.length - 1)];
+        return row && row.cells.length ? row.cells[Math.min(c, row.cells.length - 1)] : null;
+    }
+
+    /* ---------- rows and columns ---------- */
+    // the columns a table spans: its widest row, merged cells counted
+    function tableWidth(table) {
+        var w = 1;
+        for (var r = 0; r < table.rows.length; r++) {
+            var n = 0;
+            for (var c = 0; c < table.rows[r].cells.length; c++) n += table.rows[r].cells[c].colSpan || 1;
+            w = Math.max(w, n);
+        }
+        return w;
+    }
+    function tableAddRows(table, index, count) {
+        var cols = tableWidth(table);
+        for (var k = 0; k < count; k++) {
+            var tr = table.insertRow(index);
+            for (var i = 0; i < cols; i++) tr.insertCell(-1).innerHTML = "<br>";
+        }
         applyTableStyle(table);
     }
-    function tableAddCol(table, index) {
+    /* ---------- column widths ----------
+       A table that was never resized has no colgroup: the stylesheet
+       shares its width out equally, however many columns it has. A
+       colgroup (an imported table, or one whose borders were dragged)
+       fixes every column, so inserting or deleting columns rewrites it and
+       the table stays as wide as it was. Columns that were equal stay
+       equal. Columns the user sized keep their proportions when one is
+       inserted (it starts as wide as the column it goes next to), and a
+       deleted column's width goes to its neighbour - the one after it, or
+       the one before at the right edge - so every other border stays put. */
+    var COL_W = /^(\d*\.?\d+)(px|pt|%)$/;
+    function colgroupOf(table) {
+        for (var k = table.firstElementChild; k; k = k.nextElementSibling) {
+            if (k.tagName === "COLGROUP" && !k.hasAttribute("data-split-copy")) return k;
+        }
+        return null;
+    }
+    function sumOf(list) { return list.reduce(function (s, v) { return s + v; }, 0); }
+    /* readCols: {cg, unit, w} - the widths in the colgroup's own unit when
+       its columns share one, else in px; null without a colgroup. One that
+       does not match the columns (written before columns were added) is
+       made again: equal columns, as wide as it was. */
+    function readCols(table) {
+        var cg = colgroupOf(table);
+        if (!cg) return null;
+        var n = tableWidth(table);
+        var m = Array.prototype.map.call(cg.children, function (c) {
+            return COL_W.exec((c.style.width || "").trim());
+        });
+        var unit = m.length && m[0] ? m[0][2] : "";
+        var w;
+        if (unit && m.every(function (x) { return x && x[2] === unit; })) {
+            w = m.map(function (x) { return parseFloat(x[1]); });
+        } else {
+            unit = "px";
+            w = m.map(function (x) {
+                if (!x) return NaN;
+                var v = parseFloat(x[1]);
+                return x[2] === "pt" ? v * 96 / 72 : x[2] === "%" ? v * table.offsetWidth / 100 : v;
+            });
+        }
+        var ok = w.every(function (v) { return v > 0; });
+        if (!ok || w.length !== n) {
+            var total = ok && w.length ? sumOf(w) : table.offsetWidth;
+            w = [];
+            for (var i = 0; i < n; i++) w.push(total / n);
+            while (cg.children.length < n) cg.appendChild(document.createElement("col"));
+            while (cg.children.length > n) cg.removeChild(cg.lastElementChild);
+        }
+        return { cg: cg, unit: unit, w: w };
+    }
+    function writeCols(info, w) {
+        for (var i = 0; i < w.length; i++) {
+            info.cg.children[i].style.width = Math.round(w[i] * 100) / 100 + info.unit;
+        }
+    }
+    // equal columns, give or take what rounding and a small drag leave
+    function evenCols(w) {
+        return Math.max.apply(null, w) - Math.min.apply(null, w) <= sumOf(w) / w.length * 0.02;
+    }
+    function colsInserted(table, g, count, ref) {
+        var info = readCols(table);
+        if (!info) return;
+        var w = info.w, total = sumOf(w), even = evenCols(w);
+        var width = w[Math.max(0, Math.min(ref, w.length - 1))];
+        for (var k = 0; k < count; k++) {
+            w.splice(g, 0, width);
+            info.cg.insertBefore(document.createElement("col"), info.cg.children[g] || null);
+        }
+        var scale = total / sumOf(w);
+        writeCols(info, w.map(function (v) { return even ? total / w.length : v * scale; }));
+    }
+    function colsDeleted(table, g0, g1) {
+        var info = readCols(table);
+        if (!info) return;
+        var w = info.w, total = sumOf(w), even = evenCols(w);
+        g1 = Math.min(g1, w.length - 1);
+        if (g0 > g1 || g1 - g0 + 1 >= w.length) return;
+        var freed = sumOf(w.slice(g0, g1 + 1));
+        w.splice(g0, g1 - g0 + 1);
+        for (var i = g1; i >= g0; i--) info.cg.removeChild(info.cg.children[i]);
+        if (even) w = w.map(function () { return total / w.length; });
+        else w[Math.min(g0, w.length - 1)] += freed;
+        writeCols(info, w);
+    }
+    // count new columns before cell `index` (colgroup column g), each as
+    // wide as column ref
+    function tableAddCols(table, index, count, g, ref) {
+        colsInserted(table, g, count, ref);
         for (var i = 0; i < table.rows.length; i++) {
             var row = table.rows[i];
             var at = Math.min(index, row.cells.length);
-            row.insertCell(at).innerHTML = "<br>";
+            for (var k = 0; k < count; k++) row.insertCell(at).innerHTML = "<br>";
         }
+        // the narrower columns: their pictures take the size they now show
+        settlePictures(table);
         applyTableStyle(table);
     }
-    function tableDelRow(table, ri) {
-        table.deleteRow(ri);
-        if (table.rows.length === 0 && table.parentNode) {
-            table.parentNode.removeChild(table);
-            afterEdit(true);
+    function tableDelRows(table, r0, r1, c) {
+        for (var r = Math.min(r1, table.rows.length - 1); r >= r0; r--) table.deleteRow(r);
+        if (!table.rows.length) {
+            removeTable(table);
             return;
         }
         applyTableStyle(table);
+        caretInto(cellAt(table, r0, c));
     }
-    function tableDelCol(table, ci) {
+    // the block's columns (s: onBlock's span)
+    function tableDelCols(table, s) {
+        colsDeleted(table, s.g0, s.g1);
         var empty = true;
         for (var i = 0; i < table.rows.length; i++) {
             var row = table.rows[i];
-            if (row.cells.length > ci) row.deleteCell(ci);
-            if (row.cells.length > 0) empty = false;
+            for (var c = Math.min(s.c1, row.cells.length - 1); c >= s.c0; c--) row.deleteCell(c);
+            if (row.cells.length) empty = false;
         }
-        if (empty && table.parentNode) {
-            table.parentNode.removeChild(table);
-            afterEdit(true);
+        if (empty) {
+            removeTable(table);
             return;
         }
         applyTableStyle(table);
+        caretInto(cellAt(table, s.r0, s.c0));
     }
-    /* ---------- table ops for the floating text-edit bar ----------
-       Rendered by OfficeTextEditBar as an extra divider-separated section
-       while the selection is inside a table (incl. multi-cell selections).
-       Empty array = section hidden. */
-    function withTable(fn) {
-        var cell = currentCell();
-        var table = cell ? cell.closest("table") : null;
-        if (!table) return;
-        // a row split across a page is one row again before rows or columns
-        // are counted
-        if (DocsLayout.unsplitWithin(editor, table)) {
-            noteEditAtCaret();
-            cell = currentCell() || cell;
-            table = cell.closest("table") || table;
-        }
-        fn(table, cell);
-    }
-    function docsTableOps() {
-        if (!currentCell()) return null;
-        return [
-            {
-                icon: "angle up", title: "Insert row above",
-                fn: function () { withTable(function (t, cell) { tableAddRow(t, cell.parentNode.rowIndex); }); }
-            },
-            {
-                icon: "angle down", title: "Insert row below",
-                fn: function () { withTable(function (t, cell) { tableAddRow(t, cell.parentNode.rowIndex + 1); }); }
-            },
-            {
-                icon: "angle left", title: "Insert column left",
-                fn: function () { withTable(function (t, cell) { tableAddCol(t, cell.cellIndex); }); }
-            },
-            {
-                icon: "angle right", title: "Insert column right",
-                fn: function () { withTable(function (t, cell) { tableAddCol(t, cell.cellIndex + 1); }); }
-            },
-            {
-                icon: "minus", title: "Delete row",
-                fn: function () { withTable(function (t, cell) { tableDelRow(t, cell.parentNode.rowIndex); }); }
-            },
-            {
-                icon: "eraser", title: "Delete column",
-                fn: function () { withTable(function (t, cell) { tableDelCol(t, cell.cellIndex); }); }
-            },
-            {
-                icon: "trash alternate outline", title: "Delete table",
-                fn: function () {
-                    withTable(function (t) {
-                        if (t.parentNode) t.parentNode.removeChild(t);
-                        afterEdit(true);
-                        OfficeTextEditBar.setTableOps(null);
-                    });
-                }
-            },
-            {
-                icon: "heading", title: "Header row",
-                active: function () {
-                    var c = currentCell();
-                    var t = c ? c.closest("table") : null;
-                    return !!(t && t.getAttribute("data-th-head") === "1");
-                },
-                fn: function () {
-                    withTable(function (t) {
-                        t.setAttribute("data-th-head", t.getAttribute("data-th-head") === "1" ? "" : "1");
-                        applyTableStyle(t);
-                    });
-                }
-            },
-            {
-                icon: "bars", title: "Banded rows",
-                active: function () {
-                    var c = currentCell();
-                    var t = c ? c.closest("table") : null;
-                    return !!(t && t.getAttribute("data-th-band") === "1");
-                },
-                fn: function () {
-                    withTable(function (t) {
-                        t.setAttribute("data-th-band", t.getAttribute("data-th-band") === "1" ? "" : "1");
-                        applyTableStyle(t);
-                    });
-                }
-            },
-            {
-                icon: "paint brush", title: "Table theme...",
-                fn: function (btnEl) {
-                    withTable(function (t) {
-                        var r = btnEl.getBoundingClientRect();
-                        OfficeApp.showContextMenu(r.left, r.bottom + 2, TABLE_THEMES.map(function (th) {
-                            return {
-                                label: th.name,
-                                action: function () {
-                                    t.setAttribute("data-th-bc", th.bc);
-                                    t.setAttribute("data-th-headbg", th.headbg);
-                                    t.setAttribute("data-th-headfc", th.headfc);
-                                    t.setAttribute("data-th-bandbg", th.bandbg);
-                                    t.setAttribute("data-th-head", "1");
-                                    t.setAttribute("data-th-band", "1");
-                                    applyTableStyle(t);
-                                }
-                            };
-                        }));
-                    });
-                }
-            },
-            {
-                icon: "window minimize outline", title: "Border weight...",
-                fn: function (btnEl) {
-                    withTable(function (t) {
-                        var r = btnEl.getBoundingClientRect();
-                        OfficeApp.showContextMenu(r.left, r.bottom + 2, [0.5, 1, 2, 3].map(function (w) {
-                            return {
-                                label: w + " px",
-                                checked: (parseFloat(t.getAttribute("data-th-bw")) || 1) === w,
-                                action: function () {
-                                    t.setAttribute("data-th-bw", String(w));
-                                    applyTableStyle(t);
-                                }
-                            };
-                        }));
-                    });
-                }
-            },
-            {
-                icon: "pencil alternate", title: "Border color...",
-                fn: function (btnEl) {
-                    withTable(function (t) {
-                        OfficeColorPicker.open({
-                            anchor: btnEl,
-                            value: t.getAttribute("data-th-bc") || "#b9bec7",
-                            onPick: function (hex) {
-                                if (!hex) return;
-                                t.setAttribute("data-th-bc", hex);
-                                applyTableStyle(t);
-                            }
-                        });
-                    });
-                }
-            },
-            {
-                icon: "square full", title: "Cell background...",
-                fn: function (btnEl) {
-                    withTable(function (t, cell) {
-                        OfficeColorPicker.open({
-                            anchor: btnEl,
-                            value: cell.getAttribute("data-cellbg") || "#ffffff",
-                            allowNone: true, noneLabel: "Clear (use theme)",
-                            onPick: function (hex) {
-                                if (hex) cell.setAttribute("data-cellbg", hex);
-                                else cell.removeAttribute("data-cellbg");
-                                applyTableStyle(t);
-                            }
-                        });
-                    });
-                }
-            }
-        ];
+    // the caret goes to what follows the table, or else what is before it
+    function removeTable(table) {
+        var skip = ".doc-autobreak, .doc-pagebreak";
+        var near = table.nextElementSibling, back = table.previousElementSibling;
+        while (near && near.matches(skip)) near = near.nextElementSibling;
+        while (back && back.matches(skip)) back = back.previousElementSibling;
+        if (table.parentNode) table.parentNode.removeChild(table);
+        caretInto(near || back);
+        afterEdit(true);
     }
 
-    /* table items reused as a submenu of the right-click context menu */
-    function tableMenuItems() { return tableMenuItemsFor(currentCell()); }
-    function tableMenuItemsFor(cell) {
-        var table = cell ? cell.closest("table") : null;
-        if (!table) {
-            return [{ label: "Click inside a table first", enabled: function () { return false; }, action: function () { } }];
+    /* ---------- the table part of the right-click menu ----------
+       Word's: Insert and Delete, sized to the rows or columns selected,
+       then the table's look. Text formatting stays on the floating bar. */
+    function tableMenuItems(blk) {
+        var table = blk.a.closest("table");
+        var R = blk.rows, C = blk.cols;
+        function count(n, word) { return n > 1 ? n + " " + word + "s" : word; }
+        function isOn(attr) { return table.getAttribute(attr) === "1"; }
+        function toggle(attr) {
+            onBlock(blk, function (t) {
+                t.setAttribute(attr, isOn(attr) ? "" : "1");
+                applyTableStyle(t);
+            });
         }
-        function toggleAttr(attr) {
-            table.setAttribute(attr, table.getAttribute(attr) === "1" ? "" : "1");
-            applyTableStyle(table);
-        }
-        var items = [
+        function cmd(fn) { return function () { onBlock(blk, fn); }; }
+        return [
             {
-                label: "Header row", icon: "heading",
-                checked: function () { return table.getAttribute("data-th-head") === "1"; },
-                action: function () { toggleAttr("data-th-head"); }
+                label: "Insert", sub: [
+                    {
+                        label: "Insert " + count(C, "column") + " to the left", svg: "tableInsertLeft",
+                        action: cmd(function (t, s) { tableAddCols(t, s.c0, C, s.g0, s.g0); })
+                    },
+                    {
+                        label: "Insert " + count(C, "column") + " to the right", svg: "tableInsertRight",
+                        action: cmd(function (t, s) { tableAddCols(t, s.c1 + 1, C, s.g1 + 1, s.g1); })
+                    },
+                    {
+                        label: "Insert " + count(R, "row") + " above", svg: "tableInsertAbove",
+                        action: cmd(function (t, s) { tableAddRows(t, s.r0, R); })
+                    },
+                    {
+                        label: "Insert " + count(R, "row") + " below", svg: "tableInsertBelow",
+                        action: cmd(function (t, s) { tableAddRows(t, s.r1 + 1, R); })
+                    }
+                ]
             },
             {
-                label: "Banded rows", icon: "bars",
-                checked: function () { return table.getAttribute("data-th-band") === "1"; },
-                action: function () { toggleAttr("data-th-band"); }
+                label: "Delete", sub: [
+                    {
+                        label: "Delete " + count(C, "column"), svg: "tableDeleteCols",
+                        action: cmd(function (t, s) { tableDelCols(t, s); })
+                    },
+                    {
+                        label: "Delete " + count(R, "row"), svg: "tableDeleteRows",
+                        action: cmd(function (t, s) { tableDelRows(t, s.r0, s.r1, s.c0); })
+                    },
+                    { label: "Delete table", svg: "tableDelete", action: cmd(removeTable) }
+                ]
+            },
+            { sep: true },
+            {
+                label: "Header row",
+                checked: function () { return isOn("data-th-head"); },
+                action: function () { toggle("data-th-head"); }
+            },
+            {
+                label: "Banded rows",
+                checked: function () { return isOn("data-th-band"); },
+                action: function () { toggle("data-th-band"); }
             },
             {
                 label: "Table theme", icon: "paint brush",
-                sub: TABLE_THEMES.map(function (t) {
+                sub: TABLE_THEMES.map(function (th) {
                     return {
-                        label: t.name,
-                        action: function () {
-                            table.setAttribute("data-th-bc", t.bc);
-                            table.setAttribute("data-th-headbg", t.headbg);
-                            table.setAttribute("data-th-headfc", t.headfc);
-                            table.setAttribute("data-th-bandbg", t.bandbg);
-                            table.setAttribute("data-th-head", "1");
-                            table.setAttribute("data-th-band", "1");
-                            applyTableStyle(table);
-                        }
+                        label: th.name,
+                        action: cmd(function (t) {
+                            t.setAttribute("data-th-bc", th.bc);
+                            t.setAttribute("data-th-headbg", th.headbg);
+                            t.setAttribute("data-th-headfc", th.headfc);
+                            t.setAttribute("data-th-bandbg", th.bandbg);
+                            t.setAttribute("data-th-head", "1");
+                            t.setAttribute("data-th-band", "1");
+                            applyTableStyle(t);
+                        })
                     };
                 })
             },
             {
-                label: "Border weight", icon: "window minimize outline",
+                label: "Borders", svg: "borderAll",
                 sub: [0.5, 1, 2, 3].map(function (w) {
                     return {
                         label: w + " px",
                         checked: function () { return (parseFloat(table.getAttribute("data-th-bw")) || 1) === w; },
-                        action: function () {
-                            table.setAttribute("data-th-bw", String(w));
-                            applyTableStyle(table);
-                        }
+                        action: cmd(function (t) {
+                            t.setAttribute("data-th-bw", String(w));
+                            applyTableStyle(t);
+                        })
                     };
-                })
-            },
-            {
-                label: "Border color...", icon: "pencil alternate",
-                action: function () {
-                    OfficeColorPicker.open({
-                        anchor: cell,
-                        value: table.getAttribute("data-th-bc") || "#b9bec7",
-                        onPick: function (hex) {
-                            if (!hex) return;
-                            table.setAttribute("data-th-bc", hex);
-                            applyTableStyle(table);
+                }).concat([
+                    { sep: true },
+                    {
+                        label: "Border color...", icon: "pencil alternate",
+                        action: function () {
+                            OfficeColorPicker.open({
+                                anchor: blk.a,
+                                value: table.getAttribute("data-th-bc") || "#b9bec7",
+                                onPick: function (hex) {
+                                    if (!hex) return;
+                                    onBlock(blk, function (t) {
+                                        t.setAttribute("data-th-bc", hex);
+                                        applyTableStyle(t);
+                                    });
+                                }
+                            });
                         }
-                    });
-                }
+                    }
+                ])
             },
             {
+                // every selected cell
                 label: "Cell background...", icon: "square full",
                 action: function () {
                     OfficeColorPicker.open({
-                        anchor: cell,
-                        value: cell.getAttribute("data-cellbg") || "#ffffff",
+                        anchor: blk.a,
+                        value: blk.a.getAttribute("data-cellbg") || "#ffffff",
                         allowNone: true, noneLabel: "Clear (use theme)",
                         onPick: function (hex) {
-                            if (hex) cell.setAttribute("data-cellbg", hex);
-                            else cell.removeAttribute("data-cellbg");
-                            applyTableStyle(table);
+                            onBlock(blk, function (t, s) {
+                                for (var r = s.r0; r <= s.r1; r++) {
+                                    var row = t.rows[r];
+                                    for (var c = s.c0; row && c <= Math.min(s.c1, row.cells.length - 1); c++) {
+                                        if (hex) row.cells[c].setAttribute("data-cellbg", hex);
+                                        else row.cells[c].removeAttribute("data-cellbg");
+                                    }
+                                }
+                                applyTableStyle(t);
+                            });
                         }
                     });
                 }
-            },
-            { sep: true }
-        ];
-        return items.concat(tableContextItems(cell));
-    }
-    function tableContextItems(cell) {
-        var table = cell.closest("table");
-        var row = cell.parentNode;
-        var ci = cell.cellIndex;
-        var ri = row.rowIndex;
-        return [
-            { label: "Insert row above", icon: "angle up", action: function () { tableAddRow(table, ri); } },
-            { label: "Insert row below", icon: "angle down", action: function () { tableAddRow(table, ri + 1); } },
-            { label: "Insert column left", icon: "angle left", action: function () { tableAddCol(table, ci); } },
-            { label: "Insert column right", icon: "angle right", action: function () { tableAddCol(table, ci + 1); } },
-            { sep: true },
-            { label: "Delete row", icon: "minus", action: function () { tableDelRow(table, ri); } },
-            { label: "Delete column", icon: "minus", action: function () { tableDelCol(table, ci); } },
-            { label: "Delete table", icon: "trash alternate outline", action: function () {
-                if (table.parentNode) table.parentNode.removeChild(table);
-                afterEdit(true);
-            } }
+            }
         ];
     }
 
@@ -5495,18 +5881,15 @@
                 if ($(".of-dialog-overlay").length) return;
                 var r = selRect();
                 if (r) {
+                    // text commands only: the table ones are on the
+                    // right-click menu, as in Word and Google Docs
                     if (!OfficeTextEditBar.isVisible()) {
                         OfficeTextEditBar.show({
                             anchor: editor,
                             getRect: selRect,
                             fontSize: currentSelFontPx(),
-                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); },
-                            tableOps: docsTableOps()
+                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); }
                         });
-                    } else {
-                        // the bar is reused across selection moves - keep the
-                        // table section in step with where the caret sits
-                        OfficeTextEditBar.setTableOps(docsTableOps());
                     }
                 } else if (OfficeTextEditBar.isVisible() &&
                     !OfficeTextEditBar.contains(document.activeElement)) {
@@ -5542,24 +5925,32 @@
         while (n.previousElementSibling) { n = n.previousElementSibling; i++; }
         return i;
     }
-    /* give the table an explicit colgroup so column widths stick */
+    /* give the table an explicit colgroup in px so column widths stick */
     function ensureColgroup(table) {
-        var cg = table.querySelector("colgroup");
         var firstRow = table.rows.length ? table.rows[0] : null;
         if (!firstRow) return null;
-        var cols = firstRow.cells.length;
-        if (!cg || cg.children.length !== cols) {
-            if (cg) cg.parentNode.removeChild(cg);
-            cg = document.createElement("colgroup");
-            for (var i = 0; i < cols; i++) {
-                var col = document.createElement("col");
-                col.style.width = firstRow.cells[i].offsetWidth + "px";
-                cg.appendChild(col);
+        var info = readCols(table);
+        if (info) {
+            // the drag works in px: an imported table's pt, or a share of
+            // the table, becomes px first, or the column jumps
+            var f = info.unit === "pt" ? 96 / 72 : info.unit === "%" ? table.offsetWidth / sumOf(info.w) : 1;
+            info.unit = "px";
+            writeCols(info, info.w.map(function (v) { return v * f; }));
+            if (f !== 1) {
+                table.style.tableLayout = "fixed";
+                table.style.width = Math.round(sumOf(info.w) * f) + "px";
             }
-            table.insertBefore(cg, table.firstChild);
-            table.style.tableLayout = "fixed";
-            table.style.width = table.offsetWidth + "px";
+            return info.cg;
         }
+        var cg = document.createElement("colgroup");
+        for (var i = 0; i < firstRow.cells.length; i++) {
+            var col = document.createElement("col");
+            col.style.width = firstRow.cells[i].offsetWidth + "px";
+            cg.appendChild(col);
+        }
+        table.insertBefore(cg, table.firstChild);
+        table.style.tableLayout = "fixed";
+        table.style.width = table.offsetWidth + "px";
         return cg;
     }
     function onTblPointerMove(e) {
@@ -5625,6 +6016,7 @@
         document.removeEventListener("pointerup", onTblPointerUp);
         document.body.style.userSelect = "";
         if (tblDrag) {
+            if (tblDrag.type === "col") settlePictures(tblDrag.table);
             tblDrag = null;
             afterEdit(true);
         }
@@ -5690,7 +6082,7 @@
             if (a && editor.contains(a)) {
                 e.preventDefault();
                 if (e.ctrlKey || e.metaKey) {
-                    try { window.open(a.href, "_blank", "noopener"); } catch (err) { }
+                    openLink(a);
                 } else {
                     OfficeApp.setStatus("Ctrl+Click to open link: " + (a.getAttribute("href") || ""), "info", 4000);
                 }
@@ -5730,108 +6122,135 @@
                 afterEdit(false);
             }
         });
-        // editor context menu: table ops + multi-column region control
+        /* editor context menu: only what fits what was clicked and what is
+           selected. A picture gets its commands and the clipboard; a table
+           its rows, columns and look (the floating bar has the text
+           formatting); a link Edit / Open / Remove; selected text a comment
+           and a link; a caret in running text the formatting, a page break
+           and Select all. */
         editor.addEventListener("contextmenu", function (e) {
-            var items = [];
-            if (e.target.tagName === "IMG" && editor.contains(e.target)) {
-                if (selectedImg !== e.target) selectImage(e.target);
-                items = items.concat(pictureMenuItems(e.target));
-                items.push({ sep: true });
-            }
+            var t = e.target.nodeType === 1 ? e.target : e.target.parentNode;
+            var img = t.tagName === "IMG" && editor.contains(t) ? t : null;
+            if (img && selectedImg !== img) selectImage(img);
+            var range = img ? null : liveRange();
+            var selected = !!range && !range.collapsed;
+            // text, not cells: a comment or a link cannot wrap part of a table
+            var textSel = selected && /\S/.test(range.toString()) &&
+                !range.cloneContents().querySelector("table, tr, td, th");
+            var blk = img ? null : cellBlock(range, tableCell(t.closest("td,th")));
+            // a table of contents is made again on every update: no links
+            // or comments of the user's own in it
+            var toc = img || blk ? null : tocGroupOf(t);
+            if (toc) textSel = false;
+            var sections = [];
+            var list;
+
             // review: accept/reject the suggestion under the pointer
-            var sug = e.target.closest ? e.target.closest("ins.doc-ins, del.doc-del") : null;
+            var sug = t.closest("ins.doc-ins, del.doc-del");
             if (sug && editor.contains(sug)) {
                 var what = sug.tagName === "INS" ? "insertion" : "deletion";
-                items.push({
-                    label: "Accept " + what, icon: "check",
-                    action: function () { resolveSuggestion(sug, true); }
-                });
-                items.push({
-                    label: "Reject " + what, icon: "times",
-                    action: function () { resolveSuggestion(sug, false); }
-                });
-                items.push({ sep: true });
+                sections.push([
+                    { label: "Accept " + what, icon: "check", action: function () { resolveSuggestion(sug, true); } },
+                    { label: "Reject " + what, icon: "times", action: function () { resolveSuggestion(sug, false); } }
+                ]);
             }
-            // review: comment actions
-            var cmtEl = e.target.closest ? e.target.closest("span.doc-cmt") : null;
+            // review: the comment under the pointer, or a new one on the text
+            var cmtEl = t.closest("span.doc-cmt");
             if (cmtEl && editor.contains(cmtEl)) {
                 var cm = commentById(cmtEl.getAttribute("data-cid"));
                 if (cm) {
-                    items.push({
-                        label: "View comment", icon: "comment outline",
-                        action: function () {
-                            showCommentsPanel(true);
-                            renderCommentsPanel(cm.id);
-                        }
-                    });
-                    items.push({
-                        label: "Resolve comment", icon: "check",
-                        action: function () { resolveComment(cm.id, false); }
-                    });
-                    items.push({ sep: true });
+                    sections.push([
+                        {
+                            label: "View comment", icon: "comment outline",
+                            action: function () {
+                                showCommentsPanel(true);
+                                renderCommentsPanel(cm.id);
+                            }
+                        },
+                        { label: "Resolve comment", icon: "check", action: function () { resolveComment(cm.id, false); } }
+                    ]);
                 }
-            } else {
-                var selNow = window.getSelection();
-                if (selNow && selNow.rangeCount && !selNow.getRangeAt(0).collapsed &&
-                    editor.contains(selNow.getRangeAt(0).commonAncestorContainer)) {
-                    items.push({
-                        label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M",
-                        action: function () { commentDialog(null); }
-                    });
-                    items.push({ sep: true });
-                }
+            } else if (textSel) {
+                sections.push([{
+                    label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M",
+                    action: function () { commentDialog(null); }
+                }]);
             }
-            var cell = e.target.closest ? e.target.closest("td,th") : null;
-            if (cell && cell.closest("table.of-table") && editor.contains(cell)) {
-                items.push({ label: "Table", icon: "table", sub: tableMenuItemsFor(cell) });
-                items.push({ sep: true });
+            // a table of contents: Word's Update field
+            if (toc) {
+                sections.push([
+                    { label: "Update table", svg: "tocUpdate", action: function () { updateToc(false, toc); } },
+                    { label: "Table of contents options...", icon: "sliders horizontal", action: function () { openTocPanel(toc); } }
+                ]);
             }
-            if (pageConf.columns > 1) {
-                // let the user pick which region spans the full page width
-                var block = e.target.closest ? e.target.closest(BLOCK_SEL) : null;
-                if (block && editor.contains(block)) {
-                    items.push({
-                        label: "Full width (span all columns)", icon: "columns",
-                        checked: function () { return block.classList.contains("col-span-all"); },
-                        action: function () {
-                            block.classList.toggle("col-span-all");
-                            afterEdit(true);
-                        }
-                    });
-                    items.push({
-                        label: "Show layout boxes",
-                        checked: function () { return document.body.classList.contains("doc-show-boxes"); },
-                        action: toggleLayoutBoxes
-                    });
-                    items.push({ sep: true });
-                }
+            if (img) sections.push(pictureMenuItems(img));
+
+            // the clipboard (like Google Docs / Word): Cut and Copy need
+            // something selected
+            list = [];
+            if (img || selected) {
+                list.push({ label: "Cut", icon: "cut", key: "Ctrl+X", action: function () { menuCutCopy(true); } });
+                list.push({ label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { menuCutCopy(false); } });
             }
-            // standard edit block (like Google Docs / Word)
-            var selNow2 = window.getSelection();
-            var canCopy = !!selectedImg || !!(selNow2 && selNow2.rangeCount &&
-                !selNow2.getRangeAt(0).collapsed &&
-                editor.contains(selNow2.getRangeAt(0).commonAncestorContainer));
-            var copyOk = function () { return canCopy; };
-            items.push({ label: "Cut", icon: "cut", key: "Ctrl+X", enabled: copyOk, action: function () { menuCutCopy(true); } });
-            items.push({ label: "Copy", icon: "copy", key: "Ctrl+C", enabled: copyOk, action: function () { menuCutCopy(false); } });
-            items.push({ label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { pasteFromMenu(false); } });
-            items.push({ label: "Paste without formatting", icon: "clipboard outline", action: function () { pasteFromMenu(true); } });
-            items.push({ sep: true });
-            items.push({ label: "Bold", icon: "bold", key: "Ctrl+B", action: function () { exec("bold"); } });
-            items.push({ label: "Italic", icon: "italic", key: "Ctrl+I", action: function () { exec("italic"); } });
-            items.push({ label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { exec("underline"); } });
-            items.push({ label: "Clear formatting", icon: "eraser", action: clearFormatting });
-            items.push({ sep: true });
-            // on a link the link entry takes it off instead of adding one
-            var linkHit = e.target.closest ? e.target.closest("a[href]") : null;
+            list.push({ label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { pasteFromMenu(false); } });
+            list.push({ label: "Paste without formatting", icon: "clipboard outline", action: function () { pasteFromMenu(true); } });
+            sections.push(list);
+
+            // on a link the link's own commands, over selected text a new one
+            var linkHit = img || toc ? null : t.closest("a[href]");
             if (linkHit && editor.contains(linkHit)) {
-                items.push({ label: "Remove link", icon: "unlinkify", action: function () { removeLink(linkHit); } });
-            } else {
-                items.push({ label: "Insert link...", icon: "linkify", key: "Ctrl+K", action: linkDialog });
+                sections.push([
+                    { label: "Edit link...", icon: "linkify", action: function () { editLink(linkHit); } },
+                    { label: "Open link", icon: "external alternate", action: function () { openLink(linkHit); } },
+                    { label: "Remove link", icon: "unlinkify", action: function () { removeLink(linkHit); } }
+                ]);
+            } else if (textSel) {
+                sections.push([{ label: "Insert link...", icon: "linkify", key: "Ctrl+K", action: linkDialog }]);
             }
-            items.push({ label: "Insert page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak });
-            items.push({ sep: true });
-            items.push({ label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll });
+
+            if (blk) {
+                sections.push(tableMenuItems(blk));
+            } else if (!img && !toc) {
+                // running text. Selected text has the floating bar for its
+                // formatting; a caret has these, and the page break
+                if (!selected) {
+                    sections.push([
+                        { label: "Bold", icon: "bold", key: "Ctrl+B", action: function () { exec("bold"); } },
+                        { label: "Italic", icon: "italic", key: "Ctrl+I", action: function () { exec("italic"); } },
+                        { label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { exec("underline"); } },
+                        { label: "Clear formatting", icon: "eraser", action: clearFormatting }
+                    ]);
+                }
+                // let the user pick which region spans the full page width
+                var block = pageConf.columns > 1 ? t.closest(BLOCK_SEL) : null;
+                if (block && editor.contains(block)) {
+                    sections.push([
+                        {
+                            label: "Full width (span all columns)", icon: "columns",
+                            checked: function () { return block.classList.contains("col-span-all"); },
+                            action: function () {
+                                block.classList.toggle("col-span-all");
+                                afterEdit(true);
+                            }
+                        },
+                        {
+                            label: "Show layout boxes",
+                            checked: function () { return document.body.classList.contains("doc-show-boxes"); },
+                            action: toggleLayoutBoxes
+                        }
+                    ]);
+                }
+                list = [];
+                if (!selected) list.push({ label: "Insert page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak });
+                list.push({ label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll });
+                sections.push(list);
+            }
+
+            var items = [];
+            sections.forEach(function (s, i) {
+                if (i) items.push({ sep: true });
+                items = items.concat(s);
+            });
             e.preventDefault();
             OfficeApp.showContextMenu(e.clientX, e.clientY, items);
         });
@@ -5839,7 +6258,7 @@
         // app chrome (ribbon, menus, dialogs, popups) keeps it selected, or
         // the Picture Format tab would vanish under the click that opens it
         document.addEventListener("mousedown", function (e) {
-            if (selectedImg && e.target !== selectedImg && e.target !== imgHandle &&
+            if (selectedImg && e.target !== selectedImg && !(imgHandle && imgHandle.contains(e.target)) &&
                     !$(e.target).closest(".of-ribbon, .of-rb-tab, .of-rb-popup, .of-rb-gpop, " +
                         ".of-menubar, .of-context-menu, .of-float-menu, .of-cp-panel, .of-dialog-overlay").length) {
                 deselectImage();

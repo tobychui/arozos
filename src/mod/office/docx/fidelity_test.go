@@ -53,8 +53,8 @@ func TestDocxImageCappedToTextWidth(t *testing.T) {
 	}{
 		// no stated height: the editor scales it with the width
 		{"automatic height", `<img src="` + src + `" width="1240">`, emu(textW), emu(textW / 2)},
-		// a stated height stays as the editor shows it (max-width only)
-		{"stated height", `<img src="` + src + `" style="width:600pt;height:200pt;">`, emu(textW), emu(200)},
+		// a stated height scales along too: the editor keeps the shape
+		{"stated height", `<img src="` + src + `" style="width:600pt;height:200pt;">`, emu(textW), emu(200 * textW / 600)},
 		{"narrow picture", `<img src="` + src + `" style="width:300pt;height:150pt;">`, emu(300), emu(150)},
 	}
 	for _, tc := range tests {

@@ -21,13 +21,11 @@
                                          // when there is no text selection
             tableOps: [                  // OPTIONAL: table tool section shown
                 { icon: "angle up",      // under a divider while the host is
-                  title: "Insert row",   // inside a table
-                  fn: function(btnEl){…},
-                  active: function(){…} }// optional toggle state
+                  title: "Insert row",   // inside a table (a Slides table;
+                  fn: function(btnEl){…},// Docs keeps its table commands on
+                  active: function(){…} }// the context menu)
             ]
         });
-        OfficeTextEditBar.setTableOps(ops)  // swap/clear the table section
-                                            // while the bar stays open
         OfficeTextEditBar.reposition();  // after the anchor moved/resized
         OfficeTextEditBar.hide();
         OfficeTextEditBar.contains(node) // host focusout checks: focus moved
@@ -463,21 +461,12 @@ var OfficeTextEditBar = (function () {
     }
     function isVisible() { return !!$bar; }
 
-    // swap or clear the table section while the bar stays open (the Docs
-    // selection bar is reused across selection changes)
-    function setTableOps(ops) {
-        if (!renderTableOpsFn) return;
-        renderTableOpsFn(ops || null);
-        reposition();
-    }
-
     return {
         show: show,
         hide: hide,
         reposition: reposition,
         contains: contains,
         isVisible: isVisible,
-        setTableOps: setTableOps,
         // for a host's own font controls (the Slides ribbon) while editing
         hasTextSelection: hasTextSelection,
         applyFontFamily: applyFontFamily,

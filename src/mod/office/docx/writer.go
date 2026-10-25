@@ -1747,7 +1747,6 @@ func (b *docxBuilder) image(n *html.Node, part *docxPart) string {
 		return 0
 	}
 	wPt, hPt := dim("width"), dim("height")
-	fixedH := hPt > 0
 	switch {
 	case wPt > 0 && hPt <= 0:
 		if natW > 0 && natH > 0 {
@@ -1770,12 +1769,11 @@ func (b *docxBuilder) image(n *html.Node, part *docxPart) string {
 	}
 	anchor := hasClass(n, "doc-anchor")
 	// an inline picture cannot be wider than the text column (the editor's
-	// max-width: 100%) - a stated height stays as the editor shows it, an
-	// automatic one scales along; an anchored picture may bleed past
+	// max-width: 100%), and the editor scales it whole there - a stated
+	// height too (its aspect-ratio, docs.js fitPicture); an anchored
+	// picture may bleed past
 	if !anchor && b.textWPt > 0 && wPt > b.textWPt+0.5 {
-		if !fixedH {
-			hPt = hPt * b.textWPt / wPt
-		}
+		hPt = hPt * b.textWPt / wPt
 		wPt = b.textWPt
 	}
 	cx, cy := int64(math.Round(wPt*12700)), int64(math.Round(hPt*12700))

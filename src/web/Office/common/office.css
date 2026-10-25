@@ -713,9 +713,15 @@ body.dark .of-ic .clipb { stroke: #e9a647; }
 .of-ic .accs { stroke: var(--of-accent); }
 .of-ic .acct { fill: var(--of-accent); }
 .of-ic .fillc { fill: currentColor; stroke: none; }
+/* a mark drawn on an accent fill (the arrow of a table insert) */
+.of-ic .onacc { stroke: #fff; stroke-width: 1.8; }
+/* a destructive command's cross */
+.of-ic .dels { stroke: var(--of-danger); stroke-width: 2.2; }
 .of-rb-bigicon .of-ic, .of-rb-gbtn > .of-ic { width: 26px; height: 26px; stroke-width: 1.4; }
 .of-qbtn .of-ic { width: 15px; height: 15px; }
 .of-menu-item .of-ic { width: 15px; height: 15px; color: var(--of-fg-soft); }
+/* an item's own drawn icon (it.svg) fills the column a font icon takes */
+.of-menu-item .of-ic.of-mi-ic { width: 16px; height: 16px; stroke-width: 1.5; }
 /* the "desktop only" / "phone only" switches on controls */
 [data-desktop="hide"] { display: none !important; }
 

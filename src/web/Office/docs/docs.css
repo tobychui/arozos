@@ -295,6 +295,10 @@ span.doc-tab[data-leader="underscore"]::after { top: 0.44em; border-top: 1px sol
     height: auto;
     cursor: default;
 }
+/* a picture with a stated width and height: when max-width takes its
+   width down (a narrow column or table cell), the height follows the
+   aspect-ratio fitPicture gives it rather than squashing it */
+#editor img[style*="aspect-ratio"] { height: auto !important; }
 /* a picture anchored above/below the text (a full-bleed cover, a banner):
    its own box on its own line, allowed past the text column */
 #editor img.doc-anchor {
@@ -469,17 +473,55 @@ body.dark .doc-toc-format { background: var(--of-chrome-bg); }
 .doc-picprops-row label { flex: 1; }
 .doc-picprops label.doc-picprops-check { flex-direction: row; align-items: center; gap: 6px; }
 .doc-picprops textarea { resize: vertical; }
+/* the selected picture's handles (docs.js selectImage), as Google Docs
+   draws them: a layer the size of the picture with eight squares on its
+   edges and a knob on a stem above the top edge to turn it */
 .of-img-handle {
     position: fixed;
-    width: 13px;
-    height: 13px;
-    background: var(--of-accent);
-    border: 2px solid #fff;
-    border-radius: 50%;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-    cursor: nwse-resize;
     z-index: 1200;
+    pointer-events: none;
+}
+.of-img-h, .of-img-rot {
+    position: absolute;
+    box-sizing: border-box;
+    background: var(--of-accent);
+    border: 1px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+    pointer-events: auto;
     touch-action: none;
+}
+.of-img-h { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; }
+.of-img-h[data-dir="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.of-img-h[data-dir="n"] { left: 50%; top: 0; cursor: ns-resize; }
+.of-img-h[data-dir="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.of-img-h[data-dir="e"] { left: 100%; top: 50%; cursor: ew-resize; }
+.of-img-h[data-dir="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.of-img-h[data-dir="s"] { left: 50%; top: 100%; cursor: ns-resize; }
+.of-img-h[data-dir="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.of-img-h[data-dir="w"] { left: 0; top: 50%; cursor: ew-resize; }
+.of-img-rot {
+    width: 12px;
+    height: 12px;
+    left: 50%;
+    top: -24px;
+    margin-left: -6px;
+    border-radius: 50%;
+    cursor: grab;
+}
+.of-img-stem {
+    position: absolute;
+    left: 50%;
+    top: -14px;
+    height: 14px;
+    border-left: 1px solid var(--of-accent);
+}
+/* while it turns the squares would point the wrong way */
+.of-img-turning .of-img-h { display: none; }
+.of-img-turning .of-img-rot { cursor: grabbing; }
+@media (pointer: coarse) {
+    .of-img-h { width: 16px; height: 16px; margin: -8px 0 0 -8px; }
+    .of-img-rot { width: 18px; height: 18px; margin-left: -9px; top: -30px; }
+    .of-img-stem { top: -14px; }
 }
 
 /* Tables */
@@ -570,33 +612,68 @@ body.dark .doc-toc-format { background: var(--of-chrome-bg); }
     .doc-autobreak { display: none !important; }
 }
 
-/* ============ Table grid creator (Insert > Table) ============ */
+/* ============ Table grid dropdown (Insert > Table) ============ */
+.doc-tgrid-pop {
+    position: fixed;
+    z-index: 1600;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px var(--of-shadow);
+    padding: 8px 8px 4px;
+    user-select: none;
+}
 .doc-tgrid-label {
-    text-align: center;
     font-size: 13px;
     font-weight: 600;
     color: var(--of-fg);
-    margin-bottom: 8px;
+    padding: 0 2px 8px;
 }
 .doc-tgrid {
     display: grid;
-    grid-template-columns: repeat(10, 20px);
+    grid-template-columns: repeat(10, 18px);
     gap: 3px;
-    justify-content: center;
-    touch-action: none;
 }
 .doc-tgrid-cell {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     padding: 0;
     border: 1px solid var(--of-border);
-    border-radius: 3px;
-    background: var(--of-chrome-bg2);
+    border-radius: 2px;
+    background: var(--of-chrome-bg);
     cursor: pointer;
 }
 .doc-tgrid-cell.hot {
     background: var(--of-accent-soft);
     border-color: var(--of-accent);
+}
+.doc-tgrid-sep {
+    height: 1px;
+    background: var(--of-border);
+    margin: 8px -4px 4px;
+}
+.doc-tgrid-more {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 6px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--of-fg);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.doc-tgrid-more:hover { background: var(--of-hover); }
+.doc-tgrid-more i.icon {
+    width: 16px;
+    margin: 0;
+    color: var(--of-fg-soft);
+    font-size: 13px;
+    line-height: 1;
 }
 
 /* Layout boxes: visualize which regions span all columns (orange) and

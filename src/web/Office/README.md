@@ -1344,6 +1344,72 @@ horizontal offset: `text-align` cannot move a block image, so the Home
 align buttons call `alignPicture` while a picture is selected, and a
 centred or right-set picture is placed again whenever its width changes.
 
+- **Handles** (`selectImage`): eight squares and a rotate knob, as in
+  Google Docs. A corner keeps the frame's shape (Shift stretches freely),
+  a side stretches one way; the size is the picture's `width` / `height`.
+- **Turning and flipping is baked into the bitmap** (`turnPicture`), the
+  way the .docx import already bakes a quarter turn (`docx/picture.go`):
+  the editor has no turned pictures, because a CSS transform would not
+  move the text around one. The knob previews with a transform and bakes
+  on release; Picture Format > Rotate and the picture menu turn by 90° and
+  flip. The result is the turned frame (a PNG with see-through corners
+  unless it is a quarter turn of a JPEG, which stays a JPEG), and the crop
+  goes into it. `turnSource` keeps the first bitmap for the session, so a
+  second turn draws from it instead of from a copy of a copy.
+- **A picture keeps its shape in a narrow column.** `max-width: 100%`
+  narrows a picture in a column or table cell narrower than it, and its
+  stated height used to squash it. `fitPicture` gives every picture with a
+  stated size the matching `aspect-ratio`, and docs.css lets the height
+  follow it (`height: auto !important`); it is for show only and
+  `stripLayoutArtifacts` leaves it out of what is saved. When a table
+  column is narrowed (a border drag, an inserted column) `settlePictures`
+  makes the size shown the picture's size, as Google Docs does, so the
+  files get it too. The .docx writer scales a stated height along when it
+  clamps a picture to the text column, to match.
+
+### Docs: tables and the right-click menu
+
+Insert > Table opens Word's grid as a dropdown under the button
+(`openTableGrid` in `docs.js`): move over it to size the table, click to
+insert, or "Insert table..." under the grid for a size past 10 x 8. The
+arrow keys move the size and Enter inserts while it is open.
+
+A table is edited from the **right-click menu only**, as in Word and
+Google Docs: the floating text bar over selected text carries text
+formatting and never table commands (Slides still passes `tableOps` to it
+for its own tables). The menu is built from what is under the pointer and
+what is selected, and leaves out what does not apply:
+
+| Right-click on | Shows |
+|---|---|
+| a table cell, or a block of selected cells | the clipboard, Insert (columns left / right, rows above / below) and Delete (columns, rows, table), then header row, banded rows, theme, borders and cell background. No text formatting, page break or Select all. Insert link and Comment only over text inside one cell |
+| a picture | the picture's commands and the clipboard |
+| a link | Edit link, Open link, Remove link |
+| a table of contents | Update table and its options |
+| selected text | Comment, the clipboard, Insert link (its formatting is on the floating bar) |
+| a caret in running text | Paste, Bold / Italic / Underline / Clear formatting, Insert page break, Select all |
+
+Insert and Delete act on every row or column the selection covers, and
+say how many ("Insert 2 rows above"). The cells are found by
+`cellBlock()`: a caret, Chrome's one range across cells, or Firefox's
+range per cell. A row the page layout cut in two stands for its first
+part (`splitHeadCell`), and `onBlock()` makes the table whole with
+`DocsLayout.unsplitWithin` before it counts rows, then lays the pages out
+again.
+
+**Column widths.** A table never resized has no `<colgroup>`: the
+stylesheet shares 100% out equally, however many columns it has. A table
+with one (every imported table, and one whose borders were dragged) keeps
+its width when columns come or go - `colsInserted` / `colsDeleted` rewrite
+the colgroup in its own unit (pt from .docx, % from .odt, px after a
+drag). Equal columns stay equal. Sized columns keep their proportions on
+an insert (the new one starts as wide as its neighbour), and a deleted
+column's width goes to the column after it (before it at the right edge),
+so the borders the user placed stay put. A border drag converts the
+colgroup to px first (`ensureColgroup`), or an imported table's pt widths
+were read as px and the column jumped. The menu icons are Word's (`tableInsertLeft` ... `tableDelete` in
+`common/icons.js`, a menu item's `svg`).
+
 ### Docs: table of contents
 
 References > Table of contents inserts a "Contents" title and one line

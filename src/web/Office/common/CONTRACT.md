@@ -166,7 +166,9 @@ OfficeApp.init({
 ```
 
 **Menu item shape** (also used by `showContextMenu`):
-`{ label, icon /*semantic icon name, e.g. "save"*/, key /*display, e.g. "Ctrl+B"*/,
+`{ label, icon /*semantic icon name, e.g. "save"*/,
+   svg /*or an OfficeIcons name, e.g. "tableInsertAbove", in the same column*/,
+   key /*display, e.g. "Ctrl+B"*/,
    action: fn, enabled: fn->bool, checked: bool|fn /*renders ✓, replaces icon*/,
    sub: array|fn->array, sep: true,
    html /*trusted markup shown instead of the label (a picture of the choice,

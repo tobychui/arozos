@@ -1416,6 +1416,8 @@ var OfficeApp = (function () {
             if (it.checked !== undefined) {
                 var on = (typeof it.checked === "function") ? it.checked() : it.checked;
                 $it.append('<span class="of-mi-check">' + (on ? "✓" : "") + "</span>");
+            } else if (it.svg && window.OfficeIcons && OfficeIcons.has(it.svg)) {
+                $it.append(OfficeIcons.get(it.svg, "of-mi-ic"));
             } else if (it.icon) {
                 $it.append('<i class="' + escapeHtml(it.icon) + ' icon"></i>');
             } else {
