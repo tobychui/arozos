@@ -185,3 +185,31 @@ func TestIsHighBitDepth(t *testing.T) {
 		})
 	}
 }
+
+// TestParseMediaCodecs_BitRate covers the container bitrate the player's Auto
+// quality reads, including the "N/A" ffprobe prints when it does not know.
+func TestParseMediaCodecs_BitRate(t *testing.T) {
+	cases := []struct {
+		name  string
+		probe string
+		want  int64
+	}{
+		{"reported", `{"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"}],
+			"format":{"bit_rate":"4512345"}}`, 4512345},
+		{"not available", `{"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"}],
+			"format":{"bit_rate":"N/A"}}`, 0},
+		{"no format section", `{"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"}]}`, 0},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			info, err := parseMediaCodecs([]byte(tc.probe))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if info.BitRate != tc.want {
+				t.Errorf("BitRate = %d, want %d", info.BitRate, tc.want)
+			}
+		})
+	}
+}

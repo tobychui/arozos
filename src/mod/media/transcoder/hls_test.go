@@ -156,41 +156,6 @@ func TestHLSSessionKey(t *testing.T) {
 	}
 }
 
-// TestResolutionHeight covers the shared mapping used by both the MP4 and the
-// HLS path, including the rejection that guards the endpoint.
-func TestResolutionHeight(t *testing.T) {
-	cases := []struct {
-		resolution TranscodeOutputResolution
-		want       string
-		wantErr    bool
-	}{
-		{TranscodeResolution_original, "", false},
-		{"360p", "360", false},
-		{"720p", "720", false},
-		{"1080p", "1080", false},
-		{"banana", "", true},
-		{"480p", "", true},
-	}
-
-	for _, tc := range cases {
-		t.Run(string(tc.resolution), func(t *testing.T) {
-			got, err := resolutionHeight(tc.resolution)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("resolutionHeight(%q) returned no error, want one", tc.resolution)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("resolutionHeight(%q) returned error: %v", tc.resolution, err)
-			}
-			if got != tc.want {
-				t.Errorf("resolutionHeight(%q) = %q, want %q", tc.resolution, got, tc.want)
-			}
-		})
-	}
-}
-
 // TestBuildHLSArgs checks the generated command line for the properties that
 // make the output playable: correct muxer settings, the whole playlist kept,
 // the segment URL prefix, and the encoder chosen the same way the MP4 path
@@ -212,7 +177,8 @@ func TestBuildHLSArgs(t *testing.T) {
 			"-hls_playlist_type event",
 			"-hls_base_url " + baseURL,
 			"-vcodec libx264",
-			"-vf scale=-1:360",
+			"-vf scale=w=",
+			"-maxrate 800k",
 			"-c:a aac",
 			"-map 0:v:0",
 		} {

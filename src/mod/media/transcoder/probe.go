@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -32,6 +33,10 @@ type MediaCodecInfo struct {
 	AudioCodec   string `json:"audioCodec"`   // aac, opus, ac3, …
 	Width        int    `json:"width"`
 	Height       int    `json:"height"`
+	// BitRate is the whole file's average bitrate in bits per second, 0 when
+	// the container does not say. The player's Auto quality uses it to judge
+	// whether the connection can carry the file as it is.
+	BitRate int64 `json:"bitRate"`
 
 	// DirectPlay is the server's verdict on whether a mainstream browser can
 	// decode this without transcoding. The client still has the final say via
@@ -76,6 +81,7 @@ func ProbeMediaCodecs(inputFile string) (*MediaCodecInfo, error) {
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_streams",
+		"-show_format",
 		inputFile,
 	)
 	output, err := cmd.Output()
@@ -103,12 +109,19 @@ func parseMediaCodecs(probeJSON []byte) (*MediaCodecInfo, error) {
 			// disposition is what tells it apart from the real picture.
 			Disposition map[string]int `json:"disposition"`
 		} `json:"streams"`
+		Format struct {
+			BitRate string `json:"bit_rate"`
+		} `json:"format"`
 	}
 	if err := json.Unmarshal(probeJSON, &parsed); err != nil {
 		return nil, fmt.Errorf("could not parse ffprobe output: %w", err)
 	}
 
 	info := &MediaCodecInfo{}
+	//ffprobe reports the bitrate as a decimal string, or "N/A"
+	if bitRate, err := strconv.ParseInt(parsed.Format.BitRate, 10, 64); err == nil && bitRate > 0 {
+		info.BitRate = bitRate
+	}
 	haveVideo := false
 	haveAudio := false
 

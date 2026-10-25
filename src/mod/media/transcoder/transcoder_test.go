@@ -32,12 +32,12 @@ func TestTranscodeOutputResolution_Constants(t *testing.T) {
 	}
 }
 
-// TestTranscodeResolution_1080pConstant verifies the 1080p constant value.
-// (The source defines it as "1280p" – we test the actual defined value.)
+// TestTranscodeResolution_1080pConstant verifies the 1080p constant value. It
+// once read "1280p", which resolutionScaleFilter rejected, so a 1080p request
+// failed with 400.
 func TestTranscodeResolution_1080pConstant(t *testing.T) {
-	// The constant is intentionally defined as "1280p" in the source file.
-	if string(TranscodeResolution_1080p) != "1280p" {
-		t.Errorf("expected '1280p', got '%s'", TranscodeResolution_1080p)
+	if string(TranscodeResolution_1080p) != "1080p" {
+		t.Errorf("expected '1080p', got '%s'", TranscodeResolution_1080p)
 	}
 }
 
@@ -83,8 +83,9 @@ func TestTranscodeAndStream_ResolutionSwitch(t *testing.T) {
 		res  TranscodeOutputResolution
 	}{
 		{"360p", TranscodeResolution_360p},
+		{"480p", TranscodeResolution_480p},
 		{"720p", TranscodeResolution_720p},
-		{"1080p", "1080p"}, // use literal since the constant has wrong value "1280p"
+		{"1080p", TranscodeResolution_1080p},
 		{"original", TranscodeResolution_original},
 	}
 
