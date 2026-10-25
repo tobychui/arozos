@@ -88,6 +88,7 @@ func TestThumbnailSupportedAndFeature(t *testing.T) {
 		{"print.gcode", true, ""},
 		{"art.psd", true, ""},
 		{"logo.svg", true, ""},
+		{"report.PDF", true, ""},
 		{"notes.txt", false, ""},
 		{"noextension", false, ""},
 	}

@@ -185,7 +185,7 @@ func ThumbnailSupported(filename string) bool {
 			return true
 		}
 	}
-	return IsRawImageFile(filename) || ext == ".psd" || ext == ".psb" || ext == ".ora" || ext == ".svg"
+	return IsRawImageFile(filename) || ext == ".psd" || ext == ".psb" || ext == ".ora" || ext == ".svg" || ext == ".pdf"
 }
 
 // ThumbnailFeature names the host tool a thumbnail of this file needs, or ""
@@ -233,6 +233,9 @@ func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpat
 		return generateThumbnailForORA(fsh, cacheFolder, rpath, generateOnly)
 	case ext == ".svg":
 		return generateThumbnailForSVG(fsh, cacheFolder, rpath, generateOnly)
+	case ext == ".pdf":
+		//First page, drawn by the built-in PDF renderer
+		return generateThumbnailForPDF(fsh, cacheFolder, rpath, generateOnly)
 	}
 
 	//Folder preview renderer
