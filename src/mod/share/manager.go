@@ -25,15 +25,29 @@ func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSys
 	if srcFsh == nil {
 		return nil, errors.New("Invalid vpath given")
 	}
+	if IsSharedDrive(srcFsh) {
+		return nil, errReshare
+	}
 	//Translate the vpath to realpath
-	return s.options.ShareEntryTable.CreateNewShare(srcFsh, vpath, userinfo.Username, userinfo.GetUserPermissionGroupNames())
+	so, err := s.options.ShareEntryTable.CreateNewShare(srcFsh, vpath, userinfo.Username, userinfo.GetUserPermissionGroupNames())
+	if err == nil {
+		s.driveCache.clear()
+	}
+	return so, err
 }
+
+// errReshare refuses sharing a file from the share:/ drive: the share would
+// be owned by the recipient and outlive the owner's own share of it
+var errReshare = errors.New("Files shared with you cannot be shared again")
 
 // CreateShare always adds a new share with the given settings to the path
 func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareEntry.ShareSettings) (*shareEntry.ShareOption, error) {
 	srcFsh := userinfo.GetRootFSHFromVpathInUserScope(vpath)
 	if srcFsh == nil {
 		return nil, errors.New("Invalid vpath given")
+	}
+	if IsSharedDrive(srcFsh) {
+		return nil, errReshare
 	}
 
 	settings, err := s.resolveRecipients(userinfo, settings)
@@ -45,6 +59,7 @@ func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareE
 	if err != nil {
 		return nil, err
 	}
+	s.driveCache.clear()
 
 	//Invited users have access right away; let them know
 	s.notifyInvitees(nil, so, userinfo.Username)
@@ -76,6 +91,7 @@ func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEn
 	if err != nil {
 		return nil, err
 	}
+	s.driveCache.clear()
 
 	//Only the users / groups added by this change are notified
 	s.notifyInvitees(so, updated, userinfo.Username)
@@ -211,6 +227,7 @@ Nightly share maintenance. Registered on the system nightly task ticker.
 2. Remove shares whose shared file no longer exists in the system
 */
 func (s *Manager) ValidateAndClearShares() {
+	defer s.driveCache.clear()
 	for _, expired := range s.options.ShareEntryTable.RemoveExpiredShares(time.Now()) {
 		logger.PrintAndLog("Share", "Removing expired share "+expired.UUID+" to file: "+expired.FileVirtualPath, nil)
 	}
@@ -277,6 +294,7 @@ func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) error {
 		}
 		return nil
 	}
+	defer s.driveCache.clear()
 	for _, so := range shares {
 		if err := s.options.ShareEntryTable.DeleteShareByUUID(so.UUID); err != nil {
 			return err
@@ -295,6 +313,7 @@ func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) error {
 		return errors.New("Permission denied")
 	}
 
+	defer s.driveCache.clear()
 	return s.options.ShareEntryTable.DeleteShareByUUID(uuid)
 }
 
@@ -337,6 +356,7 @@ func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) error {
 	if !s.CanModifyShare(userinfo, shareObject) {
 		return errors.New("Permission denied")
 	}
+	defer s.driveCache.clear()
 	return s.options.ShareEntryTable.RemoveShareByUUID(uuid)
 }
 

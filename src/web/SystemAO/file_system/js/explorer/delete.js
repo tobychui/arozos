@@ -10,6 +10,9 @@
 //Force delete. Use normal delete fucntion if you want to move things to recycle bin instead.
 let forceDeleteList = [];
 function forceDelete(confirmed=false){
+    if (driveViewBlocks("delete")){
+        return;
+    }
     if (!confirmed){
         //Show confirm box
         let deletePendingList = [];
@@ -58,6 +61,9 @@ function deleteFile(confirmed = false){
         trash bin purges the entries it has selected rather than recycling
         .fileObject elements that are not there.
     */
+    if (driveViewBlocks("delete")){
+        return;
+    }
     if (!confirmed && runSpecialViewOperation("delete")){
         return;
     }

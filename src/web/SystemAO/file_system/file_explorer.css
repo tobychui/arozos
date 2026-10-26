@@ -2321,10 +2321,22 @@ i.blue{
     font-size: 14px;
     margin: 0 !important;
     color: var(--fs-text);
+    /*
+        A row centred on the bar rather than a line of inline boxes on one
+        baseline: an icon chip (the root, or a drive view's icon and name)
+        and CJK text have different baselines, which left the root and the
+        folder names a few pixels apart vertically.
+    */
+    display: flex;
+    align-items: center;
+}
+.fmPathbar .pathDisplay > .section,
+.fmPathbar .pathDisplay > .divider {
+    flex-shrink: 0;
 }
 
 .fmPathbar .pathDisplay .section {
-    padding: 3px 7px;
+    padding: 2px 7px;
     border-radius: 6px;
     cursor: pointer;
 }
@@ -2922,6 +2934,73 @@ i.blue{
     color: var(--fs-icon);
 }
 .fmSpecialRootIcon svg{ width: 100%; height: 100%; display: block; }
+
+/*
+    Full page notes that stand in for a listing: a path that does not exist
+    (listing.js renderPathNotFound), an empty Shared with me drive and a
+    shared folder whose owner hid its content (shared.js).
+*/
+.fmPathError{
+    max-width: 440px;
+    margin: 56px auto 24px auto;
+    padding: 0 16px;
+    text-align: center;
+    color: var(--fs-text-dim);
+}
+.fmPathErrorIcon{
+    width: 46px;
+    height: 46px;
+    margin: 0 auto 16px auto;
+    color: var(--fs-text-faint);
+}
+.fmPathErrorIcon svg{ width: 100%; height: 100%; display: block; }
+.fmPathErrorTitle{
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--fs-text);
+}
+.fmPathErrorDesc{
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.fmPathErrorPath{
+    margin-top: 14px;
+}
+.fmPathErrorPath code{
+    display: inline-block;
+    max-width: 100%;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--fs-fill);
+    color: var(--fs-text);
+    font-size: 12.5px;
+    word-break: break-all;
+}
+.fmPathErrorActions{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+.fmPathErrorBtn{
+    padding: 8px 16px;
+    border: 1px solid var(--fs-line);
+    border-radius: 8px;
+    background: var(--fs-surface);
+    color: var(--fs-text);
+    font-size: 13px;
+    cursor: pointer;
+}
+.fmPathErrorBtn:hover{ background: var(--fs-fill-hover); }
+.fmPathErrorBtn.primary{
+    border-color: var(--fs-accent);
+    background: var(--fs-accent);
+    color: var(--fs-primary-fg);
+}
+.fmPathErrorBtn.primary:hover{ background: var(--fs-primary-hover); }
+
 .fmTrashRowIcon{
     flex: 0 0 auto;
     width: 20px;

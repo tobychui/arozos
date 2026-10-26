@@ -54,6 +54,10 @@ function clipboardHasContent(){
 }
 
 function copy(){
+    //A shared file whose owner does not allow downloads is not copied anywhere
+    if (driveViewBlocks("copy")){
+        return;
+    }
     cutMode = false;
     clipboard = [];
     if ($(".fileObject.selected").length == 0){
@@ -72,6 +76,9 @@ function copy(){
 }
 
 function cut(){
+    if (driveViewBlocks("cut")){
+        return;
+    }
     cutMode = true;
     clipboard = [];
     if ($(".fileObject.selected").length == 0){
@@ -95,6 +102,10 @@ function paste(redirectPasteTarget="", nocheck=false){
     if (redirectPasteTarget != ""){
         //Allow redirection of paste target if necessary
         targetDir = redirectPasteTarget;
+    }
+    //Nothing is pasted into a drive whose files belong to others (share:/)
+    if (getDriveView(targetDir) != null && driveViewBlocks("paste", [])){
+        return;
     }
     if (useLocalstorage){
         //There are localStorage. Always use localStorage if exists.

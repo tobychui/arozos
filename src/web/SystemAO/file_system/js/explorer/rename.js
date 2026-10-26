@@ -9,6 +9,9 @@
 
 let renameFileObjects = [];
 function rename(){
+    if (driveViewBlocks("rename")){
+        return;
+    }
     hideAllPopupWindows();
     renameFileObjects = [];
     var filenames = [];

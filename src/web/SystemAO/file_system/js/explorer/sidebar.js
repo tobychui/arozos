@@ -80,6 +80,11 @@ function highlightCurrentRoot(){
     }
     $(".vroot").each(function(){
         let rootname = $(this).attr("filepath");
+        //A drive view's entry holds its sentinel; what it lists is its root
+        let view = $(this).hasClass("fmSpecialSideItem") ? getSpecialView(rootname) : null;
+        if (view != null && typeof view.root === "string"){
+            rootname = view.root;
+        }
         if ((currentPath.toLowerCase()).startsWith((rootname.toLowerCase()))){
             //This is the root we are currently in
             $(this).addClass("active");

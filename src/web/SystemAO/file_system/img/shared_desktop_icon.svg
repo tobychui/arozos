@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Shared with me">
+    <!--
+        "Shared with me" desktop icon.
+
+        Drawn to sit next to the Trash Bin icon (trashbin_img/desktop_icon.svg):
+        same 128x128 box, same rounded tile with a soft top highlight. The tile
+        is a muted teal, the colour the File Manager uses for shared files, so
+        the two shortcuts read as a pair without competing with the wallpaper.
+
+        The glyph is a folder with a person in front of it - files that belong
+        to someone else, handed to you - rather than the share network glyph,
+        which already means "share this" in the toolbar.
+    -->
+    <defs>
+        <linearGradient id="swTile" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#4fb3a9"/>
+            <stop offset="1" stop-color="#2f8a82"/>
+        </linearGradient>
+        <linearGradient id="swPaper" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="1" stop-color="#e3eeec"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Tile -->
+    <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#swTile)"/>
+    <path d="M34 8h60a26 26 0 0 1 26 26v6a26 26 0 0 0-26-26H34A26 26 0 0 0 8 40v-6A26 26 0 0 1 34 8z"
+          fill="#ffffff" opacity="0.16"/>
+
+    <!-- Folder: back sheet with its tab, then the front -->
+    <path d="M28 40a6 6 0 0 1 6-6h17l7 7h36a6 6 0 0 1 6 6v8H28z" fill="#ffffff" opacity="0.62"/>
+    <path d="M28 52a6 6 0 0 1 6-6h60a6 6 0 0 1 6 6v34a6 6 0 0 1-6 6H34a6 6 0 0 1-6-6z" fill="url(#swPaper)"/>
+
+    <!-- Person, on a teal disc cut out of the folder corner -->
+    <circle cx="86" cy="84" r="23" fill="#2f8a82"/>
+    <circle cx="86" cy="84" r="19" fill="#ffffff"/>
+    <circle cx="86" cy="78" r="6.5" fill="#2f8a82"/>
+    <path d="M73.5 96a12.5 11 0 0 1 25 0z" fill="#2f8a82"/>
+</svg>

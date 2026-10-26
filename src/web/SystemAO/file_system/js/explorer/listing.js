@@ -74,7 +74,13 @@ function listDirectory(path, callback=undefined, recordUndo=true){
     if (ao_module_virtualDesktop){
         var tmp = path.split("/");
         tmp.pop();
-        ao_module_setWindowTitle(applocale.getString("title/title", "File Manager") + " - " + tmp.pop());
+        var titleName = tmp.pop();
+        var titleDrive = getDriveView(path);
+        if (titleDrive != null && tmp.length == 0){
+            //The root of a drive view ("share:") goes by the view's name
+            titleName = applocale.getString(titleDrive.labelKey, titleDrive.labelFallback);
+        }
+        ao_module_setWindowTitle(applocale.getString("title/title", "File Manager") + " - " + titleName);
     }
 
     //Check if there are parent path for curret path
@@ -138,6 +144,27 @@ function listDirectory(path, callback=undefined, recordUndo=true){
         return;
     }
 
+    /*
+        A drive view (share:/) is listed like any directory, but only offers
+        the file operations its files allow, and may have to look something up
+        before the listing goes out - see js/explorer/shared.js.
+    */
+    let driveView = getDriveView(currentPath);
+    applyDriveViewToolbar();
+    if (driveView != null && typeof driveView.prepare === "function"){
+        driveView.prepare(currentPath, function(){
+            requestDirectoryListing(path, callback, selectedFiles, currentScrollTop);
+        });
+        return;
+    }
+    requestDirectoryListing(path, callback, selectedFiles, currentScrollTop);
+}
+
+/*
+    The server half of listDirectory(): fetch the sort mode and the listing of
+    path, and render whichever comes back - the files, or why there are none.
+*/
+function requestDirectoryListing(path, callback, selectedFiles, currentScrollTop){
     //Get sort mode from server side
     let loadStartPath = currentPath;
     $.ajax({
@@ -153,7 +180,7 @@ function listDirectory(path, callback=undefined, recordUndo=true){
             $.ajax({
                 url: "../../system/file_system/listDir",
                 method: "POST",
-                data: {dir: decodeURIComponent(path), sort: sortMode,
+                data: {dir: safeDecodePath(path), sort: sortMode,
                        showHidden: showHiddenFiles ? "true" : "false"},
                 success: function(data){
                     //Parse the filelist into global variable
@@ -200,24 +227,20 @@ function listDirectory(path, callback=undefined, recordUndo=true){
                         if (currentPath == ""){
                             currentPath = "user:/";
                         }
-                        
-                        //Print folder not found exception
-                        $("#folderList").show();
-                        $("#folderList").html(`<div class="ui basic segment">
-                            <div class="ui header themed">
-                                <i class="remove icon"></i> <span>${applocale.getString("message/folderCannotOpen","This Folder Cannot Be Opened")}</span>
-                                <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc","The server return the following error message:")} <br><code>${data.error.toUpperCase()}</code><br>
-                                    ${new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'})}</div>
-                            </div>
-                        </div>`);
-                        $("#fileList").hide();
 
+                        renderListingError(path, data.error);
                         enableAutoRefresh = false;
                         return;
                     }else{
                         enableAutoRefresh = true;
                         //Filelist returned. Render it
                         renderDirectory(data,function(){
+                            //A drive view may say something about having nothing in it
+                            let emptyDrive = getDriveView(path);
+                            if (data.length == 0 && emptyDrive != null && typeof emptyDrive.empty === "function"){
+                                emptyDrive.empty(path);
+                            }
+
                             //Restore the selected file list
                             $(".fileObject.item").each(function(){
                                 for (var i = 0; i < selectedFiles.length; i++){
@@ -249,6 +272,61 @@ function listDirectory(path, callback=undefined, recordUndo=true){
             enableAutoRefresh = true;
         }
     });
+}
+
+/*
+    Why a path could not be listed.
+
+    A path the server cannot resolve - a typing mistake in the address bar, a
+    mistyped sentinel such as %shre%, a drive that is not mounted, a folder
+    that is gone - gets a "Path Not Found" page with a way back. Anything
+    else the server refuses keeps the generic page with its message.
+*/
+function isPathNotFoundError(message){
+    let msg = String(message);
+    return msg.indexOf("Unable to resolve requested path") == 0 ||
+        msg == "Folder not exists" || msg == "Invalid dir given.";
+}
+
+function renderListingError(path, message){
+    $("#fileList").hide();
+    //Nothing is listed, so the status bar should not count the last folder
+    $("#fileList").html("");
+    updateSelectedObjectsCount();
+    if (isPathNotFoundError(message)){
+        renderPathNotFound(path);
+        return;
+    }
+    $("#folderList").show();
+    $("#folderList").html(`<div class="ui basic segment">
+        <div class="ui header themed">
+            <i class="remove icon"></i> <span>${applocale.getString("message/folderCannotOpen","This Folder Cannot Be Opened")}</span>
+            <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc","The server return the following error message:")} <br><code>${escapeHTMLText(String(message).toUpperCase())}</code><br>
+                ${new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'})}</div>
+        </div>
+    </div>`);
+}
+
+function renderPathNotFound(path){
+    let shown = String(path);
+    if (shown.length > 1 && shown.endsWith("/") && !shown.endsWith(":/")){
+        shown = shown.substring(0, shown.length - 1);
+    }
+    let html = '<div class="fmPathError">' +
+        '<div class="fmPathErrorIcon">' + FSIcons.search + '</div>' +
+        '<div class="fmPathErrorTitle">' + escapeHTMLText(applocale.getString("message/pathNotFound", "Path Not Found")) + '</div>' +
+        '<div class="fmPathErrorDesc">' + escapeHTMLText(applocale.getString("message/pathNotFound/desc",
+            "Nothing exists at this location, or it is not available to you. Check the path for typing mistakes and try again.")) + '</div>' +
+        '<div class="fmPathErrorPath"><code>' + escapeHTMLText(shown) + '</code></div>' +
+        '<div class="fmPathErrorActions">';
+    if (viewHistory.length > 0){
+        html += '<button class="fmPathErrorBtn" onclick="previosPath();">' +
+            escapeHTMLText(applocale.getString("message/pathNotFound/back", "Go Back")) + '</button>';
+    }
+    html += '<button class="fmPathErrorBtn primary" onclick="openHomeDir();">' +
+        escapeHTMLText(applocale.getString("message/pathNotFound/home", "Go to Home")) + '</button>' +
+        '</div></div>';
+    $("#folderList").show().html(html);
 }
 
 function listDirectoryAndHighlight(path, filenameToHighlight = ""){

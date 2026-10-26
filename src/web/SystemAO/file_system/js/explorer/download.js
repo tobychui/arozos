@@ -26,6 +26,9 @@ const ZIP_PROGRESS_MAX_MISSES = 3;
 
 //Download the selected files.
 function downloadFile(){
+    if (driveViewBlocks("download")){
+        return;
+    }
     var fileList = [];
     if ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "file"){
         //One file. Download directly.

@@ -21,6 +21,10 @@ function handleShareFilebuttonClick(event, object){
 }
 
 function shareFile(){
+    //What others shared cannot be shared on (the server refuses it as well)
+    if (driveViewBlocks("share")){
+        return;
+    }
     var selectedFileObjects = [];
     $(".fileObject.selected").each(function(){
         selectedFileObjects.push({

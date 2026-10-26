@@ -84,7 +84,7 @@ func TestErrorVariables_Messages(t *testing.T) {
 // --- IsNetworkDrive ---
 
 func TestIsNetworkDrive_TrueTypes(t *testing.T) {
-	for _, fstype := range []string{"webdav", "ftp", "smb", "sftp"} {
+	for _, fstype := range []string{"webdav", "ftp", "smb", "sftp", "s3", "cluster", "share"} {
 		if !IsNetworkDrive(fstype) {
 			t.Errorf("expected IsNetworkDrive(%q) = true", fstype)
 		}

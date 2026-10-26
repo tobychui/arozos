@@ -55,6 +55,8 @@
         zip:        S + '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10.5 6h1M11.5 8.5h1M10.5 11h1M11.5 13.5h1"/></svg>',
         unzip:      S + '<path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><path d="M2 4h20v4H2z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>',
         share:      S + '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
+        //A folder with a person in front of it - the "Shared with me" drive
+        sharedWithMe: S + '<path d="M11 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2"/><circle cx="17.5" cy="14.5" r="2.5"/><path d="M13.5 21a4 4 0 0 1 8 0"/></svg>',
         info:       S + '<circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>',
         selectAll:  S + '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12l3 3 5-6"/></svg>',
         clearSel:   S + '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',

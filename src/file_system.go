@@ -375,6 +375,13 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		targetFshAbs := targetFSH.FileSystemAbstraction
 		wildcard := keyword[1:]
+		//The pattern is joined onto the real path, so it must not climb out of it
+		for _, segment := range strings.Split(filepath.ToSlash(wildcard), "/") {
+			if segment == ".." {
+				utils.SendErrorResponse(w, "Invalid wildcard given")
+				return
+			}
+		}
 		matchingFiles, err := targetFshAbs.Glob(filepath.Join(rpath, wildcard))
 		if err != nil {
 			utils.SendErrorResponse(w, err.Error())
@@ -1446,8 +1453,8 @@ func system_fs_scanTrashOf(fsh *filesystem.FileSystemHandler, username string, f
 func system_fs_trashRootsOf(userinfo *user.User) []*filesystem.FileSystemHandler {
 	roots := []*filesystem.FileSystemHandler{}
 	for _, storage := range userinfo.GetAllFileSystemHandler() {
-		if storage.Hierarchy == "backup" {
-			//Skip this fsh
+		if storage.Hierarchy == "backup" || share.IsSharedDrive(storage) {
+			//Skip this fsh. Shared files are in their owner's trash, not ours
 			continue
 		}
 		roots = append(roots, storage)
@@ -2191,6 +2198,14 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		return
 	}
 
+	//A copy of a file shared with the user needs its owner to allow downloads
+	if operation == "copy" || operation == "zip" {
+		if err := sharedDriveCopyDenied(userinfo, sourceFiles); err != nil {
+			failTask(filepath.Base(sourceFiles[0]), err.Error())
+			return
+		}
+	}
+
 	if operation == "zip" {
 		//Zip files
 		outputFilename := filepath.Join(rdestFile, strings.ReplaceAll(filepath.Base(filepath.Dir(sourceFiles[0])+".zip"), ":", ""))
@@ -2462,6 +2477,14 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal([]byte(vnfilenames), &newFilenames)
 		if err != nil {
 			utils.SendErrorResponse(w, "Unable to parse JSON for new filenames")
+			return
+		}
+	}
+
+	//A copy of a file shared with the user needs its owner to allow downloads
+	if operation == "copy" || operation == "zip" {
+		if err := sharedDriveCopyDenied(userinfo, sourceFiles); err != nil {
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 	}
@@ -3051,6 +3074,10 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 
 		roots := []*rootObject{}
 		for _, store := range userinfo.GetAllFileSystemHandler() {
+			if share.IsSharedDrive(store) {
+				//Not a storage device; the File Manager lists it as Shared with me
+				continue
+			}
 			var thisDevice = new(rootObject)
 			thisDevice.RootName = store.Name
 			thisDevice.RootPath = store.UUID + ":/"
@@ -3563,6 +3590,12 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	virtualSourcePaths := []string{}
 	err = json.Unmarshal([]byte(vsrc), &virtualSourcePaths)
 	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//A zip of a file shared with the user needs its owner to allow downloads
+	if err := sharedDriveCopyDenied(userinfo, virtualSourcePaths); err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

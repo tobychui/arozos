@@ -105,6 +105,25 @@
     listDirectory() then does the lookup and hands over, and updatePathDisplay()
     uses the icon and label instead of showing the raw sentinel.
 
+    Drive views
+
+    A view registered with a "root" is not drawn by a renderer at all: its
+    sentinel is only a name for a real directory tree the server lists like
+    any other ("%share%" is "share:/"). It keeps the sidebar entry, the
+    desktop shortcut and the label, and adds what a drive whose files belong
+    to somebody else needs - a say in which file operations are offered:
+
+        registerSpecialView("%share%", {
+            icon: "sharedWithMe", labelKey: "share/title", labelFallback: "Shared with me",
+            sidebar: true,
+            root: "share:/",                    //what the sentinel resolves to
+            allows: function(opr, paths){ ... } //see driveViewAllows()
+        });
+
+    The sentinel is added to pathShortcuts, so listDirectory() never sees it
+    and getSpecialView() never mistakes a path under the root for a view to
+    render. getDriveView() is the lookup for those.
+
     Part of the ArozOS File Manager. Loaded as a plain script from
     file_explorer.html - see the <script> block at the end of that file.
 */
@@ -126,7 +145,12 @@ let activeSpecialView = null;
 let propertiesPaneHiddenBySpecialView = false;
 
 function registerSpecialView(sentinelPath, config){
-    fmSpecialViews[String(sentinelPath).toLowerCase()] = config;
+    let sentinel = String(sentinelPath).toLowerCase();
+    fmSpecialViews[sentinel] = config;
+    if (typeof config.root === "string" && config.root != ""){
+        //A drive view: typing or opening the sentinel lists the real root
+        pathShortcuts[sentinel] = config.root;
+    }
 }
 
 /*
@@ -143,7 +167,149 @@ function getSpecialView(path){
 }
 
 function isSpecialViewPath(path){
-    return getSpecialView(path) != null;
+    let view = getSpecialView(path);
+    //A drive view's own sentinel is a directory, not a view to render
+    return view != null && view.root == undefined;
+}
+
+/*
+    The drive view a real path lies in, or null. Drive roots are virtual root
+    ids ("share:/"), which the server treats without regard to case.
+*/
+function getDriveView(path){
+    if (path == undefined || path == null){
+        return null;
+    }
+    let lowered = String(path).trim().toLowerCase();
+    let found = null;
+    Object.keys(fmSpecialViews).forEach(function(sentinel){
+        let view = fmSpecialViews[sentinel];
+        if (typeof view.root === "string" && lowered.indexOf(view.root.toLowerCase()) == 0){
+            found = view;
+        }
+    });
+    return found;
+}
+
+/*
+    Whether a file operation can work on the given paths. Paths default to
+    the selection, or the current directory when nothing is selected. The
+    keys are the data-opr names of the toolbar (see the table above) plus:
+
+        sharepage   open the share link page of a shared item
+        shortcut    put a folder on the desktop
+        dirinfo     properties of the current directory
+
+    Everything outside a drive view is allowed: ordinary directories are the
+    server's to refuse, as they always were.
+*/
+function driveViewAllows(opr, paths){
+    let view = getDriveView(currentPath);
+    if (view == null || typeof view.allows !== "function"){
+        //Not a drive view; a share page only exists for shared items
+        return opr != "sharepage";
+    }
+    if (paths == undefined){
+        paths = [];
+        $(".fileObject.selected").each(function(){
+            paths.push($(this).attr("filepath"));
+        });
+    }
+    return view.allows(opr, paths) === true;
+}
+
+/*
+    Guard for the host functions of the file operations, which the toolbar,
+    the context menus and the keyboard shortcuts all end up in. Returns true -
+    after saying why - when the operation must not run here. The menus do not
+    offer what this would refuse; it is here for the keyboard shortcuts and
+    anything else that calls the host functions directly.
+*/
+function driveViewBlocks(opr, paths){
+    if (driveViewAllows(opr, paths)){
+        return false;
+    }
+    let view = getDriveView(currentPath);
+    let message = (view != null && typeof view.refusal === "function") ? view.refusal(opr) :
+        applocale.getString("message/specialview/notAllowed", "This cannot be done here");
+    msgbox("red remove", message);
+    return true;
+}
+
+/*
+    Grey out the toolbar operations the drive view under the current path does
+    not allow for the current selection. Called on navigation and whenever
+    the selection changes; outside a drive view it does nothing, leaving
+    applySpecialViewToolbar()'s state alone.
+*/
+function applyDriveViewToolbar(){
+    if (getDriveView(currentPath) == null){
+        return;
+    }
+    let allowed = [];
+    $("#fileOprBar [data-opr], #fmMoreMenu [data-opr]").each(function(){
+        let opr = $(this).attr("data-opr");
+        if (allowed.indexOf(opr) < 0 && driveViewAllows(opr)){
+            allowed.push(opr);
+        }
+    });
+    applySpecialViewToolbar({toolbar: allowed});
+}
+
+/*
+    Hide the context menu entries the drive view does not allow. Runs after
+    the menu has picked its entries for what was clicked, so it only ever
+    takes entries away. paths as in driveViewAllows(): [] for a menu about
+    the directory itself.
+*/
+function applyDriveViewToMenu(menu, paths){
+    let inDrive = getDriveView(currentPath) != null;
+    $(menu).find(".item[data-opr]").each(function(){
+        if (!driveViewAllows($(this).attr("data-opr"), paths)){
+            $(this).hide();
+        }
+    });
+    //Entries that only mean something inside a drive view
+    if (!inDrive){
+        $(menu).find(".driveonly").hide();
+    }
+    tidyContextMenuDividers(menu);
+}
+
+/*
+    With entries hidden, separators can end up leading, trailing or stacked.
+    Keep only those with a visible entry on both sides, and one per run.
+*/
+function tidyContextMenuDividers(menu){
+    let lastWasItem = false;
+    let pending = null;
+    $(menu).children().each(function(){
+        let el = $(this);
+        if (el.hasClass("divider")){
+            if (el.css("display") == "none"){
+                return;
+            }
+            if (!lastWasItem || pending != null){
+                el.hide();
+            }else{
+                pending = el;
+            }
+            return;
+        }
+        if (el.css("display") != "none"){
+            lastWasItem = true;
+            pending = null;
+        }
+    });
+    if (pending != null){
+        pending.hide();
+    }
+}
+
+//Whether dropping files onto a view's sidebar entry means anything
+function specialViewAcceptsDrop(sentinelPath){
+    let view = getSpecialView(sentinelPath);
+    return view != null && typeof view.drop === "function";
 }
 
 /*
@@ -347,3 +513,9 @@ window.applySpecialViewToolbar = applySpecialViewToolbar;
 window.runSpecialViewOperation = runSpecialViewOperation;
 window.createSpecialViewShortcut = createSpecialViewShortcut;
 window.runSpecialViewDrop = runSpecialViewDrop;
+window.getDriveView = getDriveView;
+window.driveViewAllows = driveViewAllows;
+window.driveViewBlocks = driveViewBlocks;
+window.applyDriveViewToolbar = applyDriveViewToolbar;
+window.applyDriveViewToMenu = applyDriveViewToMenu;
+window.specialViewAcceptsDrop = specialViewAcceptsDrop;

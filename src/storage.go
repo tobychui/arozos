@@ -109,6 +109,9 @@ func LoadBaseStoragePool() error {
 		}
 	}
 
+	//Files other users shared with each user, see file_system.share.go
+	fsHandlers = sharedDriveAttach(fsHandlers)
+
 	//Create a base storage pool for all users
 	sp, err := storage.NewStoragePool(fsHandlers, "system")
 	if err != nil {

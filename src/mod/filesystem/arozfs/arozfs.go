@@ -89,9 +89,12 @@ func NewRedirectionError(targetVpath string) error {
 	return errors.New("Redirect:" + targetVpath)
 }
 
-// Check if a file system is network drive
+// Check if a file system is network drive, or more precisely, not a folder on
+// a local disk: "share" (files other users shared, see abstractions/sharefs)
+// lives on whatever drives those files are on, and has no path of its own on
+// this host for disk tools, Samba or the cluster to use.
 func IsNetworkDrive(fstype string) bool {
-	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" || fstype == "cluster" {
+	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" || fstype == "cluster" || fstype == "share" {
 		return true
 	}
 

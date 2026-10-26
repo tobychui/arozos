@@ -133,7 +133,14 @@
                 "storage/value/Read only": "唯讀",
                 "storage/value/Evacuating": "疏散中",
                 "storage/value/Yes": "是",
-                "storage/key/Volume ID": "儲存區 ID"
+                "storage/key/Volume ID": "儲存區 ID",
+                "storage/title/share": "與我分享",
+                "storage/key/Shared by": "分享者",
+                "storage/key/Shared item": "分享的項目",
+                "storage/key/Download allowed": "允許下載",
+                "storage/key/Folder listing allowed": "顯示資料夾內容",
+                "storage/key/Upload allowed": "允許上傳",
+                "storage/value/No": "否"
             },
             "titles": {
                 "Recursive permission change is not supported by this server": "此伺服器不支援遞迴變更存取權限"
@@ -270,7 +277,14 @@
                 "storage/value/Read only": "唯讀",
                 "storage/value/Evacuating": "疏散中",
                 "storage/value/Yes": "是",
-                "storage/key/Volume ID": "儲存區 ID"
+                "storage/key/Volume ID": "儲存區 ID",
+                "storage/title/share": "與我分享",
+                "storage/key/Shared by": "分享者",
+                "storage/key/Shared item": "分享的項目",
+                "storage/key/Download allowed": "容許下載",
+                "storage/key/Folder listing allowed": "顯示資料夾內容",
+                "storage/key/Upload allowed": "容許上載",
+                "storage/value/No": "否"
             },
             "titles": {
                 "Recursive permission change is not supported by this server": "此伺服器不支援遞迴變更存取權限"
@@ -407,7 +421,14 @@
                 "storage/value/Read only": "只读",
                 "storage/value/Evacuating": "疏散中",
                 "storage/value/Yes": "是",
-                "storage/key/Volume ID": "存储区 ID"
+                "storage/key/Volume ID": "存储区 ID",
+                "storage/title/share": "与我分享",
+                "storage/key/Shared by": "分享者",
+                "storage/key/Shared item": "分享的项目",
+                "storage/key/Download allowed": "允许下载",
+                "storage/key/Folder listing allowed": "显示文件夹内容",
+                "storage/key/Upload allowed": "允许上传",
+                "storage/value/No": "否"
             },
             "titles": {
                 "Recursive permission change is not supported by this server": "此服务器不支持递归更改存取权限"
@@ -544,7 +565,14 @@
                 "storage/value/Read only": "Read only",
                 "storage/value/Evacuating": "Evacuating",
                 "storage/value/Yes": "Yes",
-                "storage/key/Volume ID": "Volume ID"
+                "storage/key/Volume ID": "Volume ID",
+                "storage/title/share": "Shared with me",
+                "storage/key/Shared by": "Shared by",
+                "storage/key/Shared item": "Shared item",
+                "storage/key/Download allowed": "Download allowed",
+                "storage/key/Folder listing allowed": "Folder content visible",
+                "storage/key/Upload allowed": "Upload allowed",
+                "storage/value/No": "No"
             },
             "titles": {
                 "Recursive permission change is not supported by this server": "Recursive permission change is not supported by this server"
@@ -681,7 +709,14 @@
                 "storage/value/Read only": "読み取り専用",
                 "storage/value/Evacuating": "退避中",
                 "storage/value/Yes": "はい",
-                "storage/key/Volume ID": "ボリューム ID"
+                "storage/key/Volume ID": "ボリューム ID",
+                "storage/title/share": "共有アイテム",
+                "storage/key/Shared by": "共有者",
+                "storage/key/Shared item": "共有アイテム",
+                "storage/key/Download allowed": "ダウンロード可",
+                "storage/key/Folder listing allowed": "フォルダの内容を表示",
+                "storage/key/Upload allowed": "アップロード可",
+                "storage/value/No": "いいえ"
             },
             "titles": {
                 "Recursive permission change is not supported by this server": "このサーバーは権限の再帰的な変更に対応していません"
@@ -818,7 +853,14 @@
                 "storage/value/Read only": "읽기 전용",
                 "storage/value/Evacuating": "이전 중",
                 "storage/value/Yes": "예",
-                "storage/key/Volume ID": "볼륨 ID"
+                "storage/key/Volume ID": "볼륨 ID",
+                "storage/title/share": "나와 공유됨",
+                "storage/key/Shared by": "공유한 사람",
+                "storage/key/Shared item": "공유 항목",
+                "storage/key/Download allowed": "다운로드 허용",
+                "storage/key/Folder listing allowed": "폴더 내용 표시",
+                "storage/key/Upload allowed": "업로드 허용",
+                "storage/value/No": "아니요"
             },
             "titles": {
                 "Recursive permission change is not supported by this server": "이 서버는 권한의 재귀 변경을 지원하지 않습니다"

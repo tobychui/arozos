@@ -22,6 +22,16 @@
             $(object).addClass("selected");
         }
 
+        /*
+            Dragging a file somewhere takes a copy of it (or moves it). On a
+            drive whose files belong to others that is the owner's call, so a
+            file that may not be copied does not start a drag at all.
+        */
+        if (!driveViewAllows("copy")){
+            event.preventDefault();
+            return;
+        }
+
         var fileList = [];
         $(".selected.fileObject").each(function(){
             var filename = $(this).attr('filename');
@@ -97,6 +107,11 @@
                 msgbox("red remove", applocale.getString("message/specialview/noDrop",
                     "This view does not accept dropped files"));
             }
+            return;
+        }
+
+        //A drive whose files belong to others (share:/) takes neither uploads nor moves
+        if (driveViewBlocks(files.length > 0 ? "upload" : "paste", [])){
             return;
         }
 
@@ -241,6 +256,9 @@ function dropToFolder(event, folderObject=undefined){
     
     //Check if this is upload or file move drag
     var files = event.dataTransfer.files;
+    if (getDriveView(targetPath) != null && driveViewBlocks(files.length > 0 ? "upload" : "paste", [])){
+        return;
+    }
     if (files.length > 0){
         //Upload mode. Extract the target folder basename from path
         if (targetPath.substr(targetPath.length -1,1) == "/"){
@@ -469,6 +487,15 @@ function updateDropIndicator(event){
     let targetPath = row.length > 0 ? row.attr("filepath") : currentPath;
     let label;
     let valid = true;
+
+    //Nothing lands on a drive whose files belong to others (share:/)
+    let dropOpr = (isUpload && !isInternal) ? "upload" : "paste";
+    if (getDriveView(targetPath) != null && !driveViewAllows(dropOpr, [])){
+        let view = getDriveView(targetPath);
+        showDropIndicator($("#folderView"), typeof view.refusal === "function" ?
+            view.refusal(dropOpr) : applocale.getString("message/specialview/notAllowed", "This cannot be done here"), false);
+        return;
+    }
 
     if (isUpload && !isInternal){
         label = applocale.getString("drop/uploadTo", "Upload to “{name}”");

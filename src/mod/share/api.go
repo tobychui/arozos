@@ -43,6 +43,7 @@ func (s *Manager) RegisterAPIEndpoints(router EndpointRegistrar) {
 	router.HandleFunc(APIPrefix+"recipients", s.HandleListRecipients)
 	router.HandleFunc(APIPrefix+"checkShared", s.HandleShareCheck)
 	router.HandleFunc(APIPrefix+"list", s.HandleListAllShares)
+	router.HandleFunc(APIPrefix+"sharedWithMe", s.HandleListSharedWithMe)
 
 	//Legacy endpoints, kept for older web apps and float window callers
 	router.HandleFunc(APIPrefix+"new", s.HandleCreateNewShare)

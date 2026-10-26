@@ -85,6 +85,9 @@ function createDesktopShortcut(){
 
 //Create a new file
 function newfile(){
+    if (driveViewBlocks("newfile", [])){
+        return;
+    }
     $(".popup:visible ").transition('slide left out');
     showPopupWrapper();
     $("#newFile").transition('slide left in');
@@ -138,6 +141,9 @@ function newfile(){
 }
 
 function newFolder(confirmed = false){
+    if (driveViewBlocks("newfolder", [])){
+        return;
+    }
     if (confirmed == false){
         //Launch the dialog for newFolder
         hideAllPopupWindows();

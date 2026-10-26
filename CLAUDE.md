@@ -301,6 +301,33 @@ there; WebApps keep their own `<App>/locale/` folder in the web root.
   (`OfficeFonts` in `web/Office/common/fonts.js`); a family Office ships
   itself keeps its own file.
 
+## What the share:/ drive is
+
+Files and folders other users shared with someone appear as a read only
+virtual drive, `share:/`, shown in the File Manager sidebar as *Shared with me*
+(sentinel `%share%`, right above the trash bin) instead of among the devices.
+
+- **Backend:** the abstraction
+  [`src/mod/filesystem/abstractions/sharefs/`](src/mod/filesystem/abstractions/sharefs/)
+  resolves every path against the requesting user's shares on every call and
+  reads from the owner's drive; its real paths are `sharefs/<signed user>/...`
+  and never exist on the host. What a user sees (only shares addressed to them
+  by user or group - not link-only, signed-in or password shares), the unique
+  names at the root and the merged permissions come from
+  [`src/mod/share/drive.go`](src/mod/share/drive.go); wiring in
+  [`src/file_system.share.go`](src/file_system.share.go). The handler is mounted
+  in the base pool by `LoadBaseStoragePool`, is skipped by `listRoots` and the
+  trash scan, and counts as a network drive (`arozfs.IsNetworkDrive("share")`).
+  `share` is therefore a reserved storage id. Copy and zip of a shared item
+  whose owner disallows downloads are refused by `sharedDriveCopyDenied`;
+  files on the drive cannot be shared again.
+- **File Manager:** [`js/explorer/shared.js`](src/web/SystemAO/file_system/js/explorer/shared.js)
+  registers a *drive view* (`registerSpecialView` with a `root`, see
+  `specialview.js`): the drive is listed like any directory, but toolbar,
+  context menu (`data-opr` entries) and the file operation host functions ask
+  `driveViewAllows` / `driveViewBlocks` first, using
+  `/system/file_system/share/sharedWithMe`.
+
 ## What Container Apps are
 
 **Container Apps** publish a web server running on another port (usually a

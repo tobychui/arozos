@@ -2,7 +2,7 @@
     specialpaths.js
 
     The list of sentinel paths that stand in for a view rather than a real
-    directory - %trashbin% and anything that joins it later.
+    directory - %trashbin%, %share% and anything that joins them later.
 
     Two very different places need to agree on this list:
 
@@ -33,6 +33,18 @@ var AROZ_SPECIAL_PATHS = {
             the shortcut means, and it cannot see the File Manager's registry.
         */
         recycleOnDrop: true
+    },
+    /*
+        The share:/ drive - files and folders other users shared with this
+        one. Unlike the trash bin it is a real directory the server lists;
+        the File Manager resolves the sentinel to share:/ before listing it.
+        Nothing can be dropped onto it, so a drop on its desktop shortcut is
+        ignored like any other sentinel without recycleOnDrop.
+    */
+    "%share%": {
+        icon: "SystemAO/file_system/img/shared_desktop_icon.svg",
+        labelKey: "share/title",
+        labelFallback: "Shared with me"
     }
 };
 

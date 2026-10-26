@@ -109,7 +109,8 @@ $(document).ready(function(){
                 if (currentPath.substring(currentPath.length -1) != "/"){
                     currentPath = currentPath + "/";
                 }
-                currentPath = decodeURIComponent(currentPath);
+                //A hand-typed hash ("#%shre%") is not necessarily valid escaping
+                currentPath = safeDecodePath(currentPath);
                 loadListModeFromDB(function(){
                     listDirectory(currentPath);
                 });

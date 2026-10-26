@@ -15,12 +15,31 @@ var pathShortcuts = {
         the trash view instead of listing it - see js/explorer/trash.js.
     */
     "%trashbin%": "%trashbin%",
+    /*
+        Drive views (%share% -> share:/) add themselves when they register,
+        see registerSpecialView() in js/explorer/specialview.js.
+    */
 };
 
+/*
+    Resolve a shortcut, with or without a trailing slash - listDirectory pads
+    one onto everything, and a desktop shortcut or the window hash hands that
+    padded form back. A shortcut to a directory ("%share%" -> "share:/") also
+    resolves the paths below it, so "%share%/Photos" works when typed.
+*/
 function resolvePathShortcut(path){
-    var lower = path.trim().toLowerCase();
-    if (pathShortcuts[lower] !== undefined){
-        return pathShortcuts[lower];
+    var trimmed = String(path).trim();
+    var lower = trimmed.toLowerCase();
+    var keys = Object.keys(pathShortcuts);
+    for (var i = 0; i < keys.length; i++){
+        var key = keys[i];
+        var target = pathShortcuts[key];
+        if (lower == key || lower == key + "/"){
+            return target;
+        }
+        if (lower.indexOf(key + "/") == 0 && target.endsWith("/")){
+            return target + trimmed.substring(key.length + 1);
+        }
     }
     return path;
 }
@@ -168,7 +187,15 @@ function updatePathDisplay(path){
     var l = pathInfo.length;
     //Append the starting vdir
     $(".pathDisplay").html("");
-    $(".pathDisplay").append(`<div class="section selectable" onclick="event.stopImmediatePropagation(); rootDir();"><i class="folder icon"></i> ${vdID}</div>`);
+    let driveView = getDriveView(path);
+    if (driveView != null){
+        //A drive view's root ("share:") goes by the view's own icon and name
+        $(".pathDisplay").append('<div class="section selectable fmSpecialRoot" onclick="event.stopImmediatePropagation(); rootDir();">' +
+            '<span class="fmSpecialRootIcon">' + (FSIcons[driveView.icon] || "") + '</span><span>' +
+            applocale.getString(driveView.labelKey, driveView.labelFallback) + '</span></div>');
+    }else{
+        $(".pathDisplay").append(`<div class="section selectable" onclick="event.stopImmediatePropagation(); rootDir();"><i class="folder icon"></i> ${vdID}</div>`);
+    }
     $(".pathDisplay").append(`<div class="divider">/</div>`);
     let domPathChunks = [];
     let thisPath = vdID + "/";

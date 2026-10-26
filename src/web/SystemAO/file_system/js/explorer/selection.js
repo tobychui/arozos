@@ -147,8 +147,10 @@ function bindFileObjectEvents(){
             if ($(this).hasClass('selected') == false){
                 $(".fileObject.selected").removeClass("selected");
                 $(this).addClass("selected");
+                //The status bar count, and the toolbar for what is now selected
+                updateSelectedObjectsCount();
             }
-            
+
         }
     });
 
@@ -312,6 +314,9 @@ function bindFileObjectEvents(){
             }
         });
 
+        //On a drive whose files belong to others (share:/), only what they allow
+        applyDriveViewToMenu($("#contextmenu"));
+
         calculateContextMenuOffsets(evt);
 
         //Disable scroll on folderView
@@ -338,6 +343,9 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".allowNoSelection").show();
             $("#contextmenu").find(".vroothide").show();
             $("#contextmenu").find(".zipFileOnly").hide();
+
+            //These entries act on the directory, so the drive view judges that
+            applyDriveViewToMenu($("#contextmenu"), []);
 
             //Show context menu, then place it (it must be rendered to be measured)
             $("#contextmenu").addClass("visible");
@@ -429,6 +437,9 @@ function updateSelectedObjectsCount(){
     });
     $("#fmSelectionSize").text(bytes > 0 ? FileThumb.formatBytes(bytes) : "");
     updateMultiSelectDisplay();
+
+    //What a shared item allows depends on which items are selected
+    applyDriveViewToolbar();
 }
 
 /*
@@ -567,6 +578,10 @@ function bindFileListDelegates(){
         rather than bound to them.
     */
     $("#storageroot").off("dragover.specialview").on("dragover.specialview", ".fmSpecialSideItem", function(event){
+        //Only views that do something with a drop (the trash bin) take one
+        if (!specialViewAcceptsDrop($(this).attr("filepath"))){
+            return;
+        }
         allowDrop(event.originalEvent || event);
         updateSpecialViewDropIndicator(event.originalEvent || event, this);
     });

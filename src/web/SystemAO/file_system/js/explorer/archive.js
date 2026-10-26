@@ -8,6 +8,9 @@
 */
 
 function zipFile(){
+    if (driveViewBlocks("zip")){
+        return;
+    }
     $(".popup").fadeOut('fast');
     var zippingFiles = [];
     $(".fileObject.selected").each(function(){
@@ -28,6 +31,9 @@ function zipFile(){
 }
 
 function unzipHere(){
+    if (driveViewBlocks("unzip")){
+        return;
+    }
     $(".popup").fadeOut('fast');
 
     //Get a list of zip files selected

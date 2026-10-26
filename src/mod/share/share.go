@@ -69,9 +69,10 @@ type ZipJob struct {
 }
 
 type Manager struct {
-	options Options
-	zipJobs sync.Map // map[string]*ZipJob
-	guard   *accessGuard
+	options    Options
+	zipJobs    sync.Map // map[string]*ZipJob
+	guard      *accessGuard
+	driveCache sharedDriveCache //Roots of the share:/ drive, see drive.go
 }
 
 // Create a new Share Manager
