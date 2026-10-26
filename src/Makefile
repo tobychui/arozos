@@ -1,5 +1,5 @@
 # PLATFORMS := darwin/amd64 darwin/arm64 freebsd/amd64 linux/386 linux/amd64 linux/arm linux/arm64 linux/mipsle windows/386 windows/amd64 windows/arm windows/arm64
-PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/386 linux/arm linux/arm64 linux/mipsle  linux/riscv64 windows/amd64 windows/arm64
+PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/386 linux/arm linux/arm64 linux/mipsle  linux/riscv64 linux/loong64 windows/amd64 windows/arm64
 temp = $(subst /, ,$@)
 os = $(word 1, $(temp))
 arch = $(word 2, $(temp))
@@ -60,7 +60,7 @@ web.tar.gz:
 
 	@echo "Creating tarball for all required files"
 	-rm ./dist/web.tar.gz
-	-cd ./dist/ && tar -czf ./web.tar.gz system/ web/
+	-cd ./dist/ && tar --exclude='*.psd' -czf ./web.tar.gz system/ web/
 
 	@echo "Clearing up unzipped folder structures"
 	-rm -rf "./dist/web"

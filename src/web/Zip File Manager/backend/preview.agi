@@ -1,0 +1,23 @@
+/*
+	ZipFileManager - Extract a single file from zip to tmp:/ for preview
+
+	POST params:
+	  src  - virtual path to the zip file
+	  file - path of the file inside the zip to extract
+*/
+requirelib("ziplib");
+
+if (typeof src === "undefined" || src === "" || typeof file === "undefined" || file === "") {
+	sendJSONResp(JSON.stringify({error: "Missing src or file parameter"}));
+} else {
+	try {
+		var tmpPath = ziplib.getFileFromZip(src, file);
+		if (tmpPath === null || tmpPath === false) {
+			sendJSONResp(JSON.stringify({error: "Failed to extract file"}));
+		} else {
+			sendJSONResp(JSON.stringify({path: tmpPath}));
+		}
+	} catch(e) {
+		sendJSONResp(JSON.stringify({error: e.toString()}));
+	}
+}

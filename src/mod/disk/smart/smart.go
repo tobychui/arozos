@@ -12,16 +12,17 @@ package smart
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
-	//"os/exec"
 	"errors"
+	"os/exec"
 	"runtime"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 	//"time"
 )
@@ -35,7 +36,7 @@ type SMARTListener struct {
 func NewSmartListener() (*SMARTListener, error) {
 	smartExec := getBinary()
 
-	log.Println("Starting SMART mointoring")
+	logger.PrintAndLog("Smart", "Starting SMART mointoring", nil)
 
 	if smartExec == "" {
 		return &SMARTListener{}, errors.New("not supported platform")
@@ -46,8 +47,9 @@ func NewSmartListener() (*SMARTListener, error) {
 	}
 
 	//Updated 5 June 2023: Try to chmod it if it is on linux so that
-	//broken permissions still works in sudo mode
-	if runtime.GOOS == "linux" {
+	//broken permissions still works in sudo mode.
+	//Only chmod the bundled binary; leave system-installed smartctl alone.
+	if runtime.GOOS == "linux" && strings.Contains(smartExec, "system/disk/smart") {
 		os.Chmod(smartExec, 0777)
 	}
 
@@ -136,9 +138,18 @@ func (s *SMARTListener) GetSMART(w http.ResponseWriter, r *http.Request) {
 }
 
 func getBinary() string {
-	if runtime.GOOS == "windows" {
+	// Prefer system-installed smartctl (more up-to-date, supports newer drives).
+	if path, err := exec.LookPath("smartctl"); err == nil {
+		logger.PrintAndLog("Smart", fmt.Sprint("[SMART] Using system-installed smartctl:", path), nil)
+		return path
+	}
+
+	// Fall back to the pre-built binary bundled with arozos.
+	logger.PrintAndLog("Smart", "[SMART] System smartctl not found, falling back to bundled binary", nil)
+	switch runtime.GOOS {
+	case "windows":
 		return ".\\system\\disk\\smart\\win\\smartctl.exe"
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		if runtime.GOARCH == "arm" {
 			return "./system/disk/smart/linux/smartctl_armv6"
 		}

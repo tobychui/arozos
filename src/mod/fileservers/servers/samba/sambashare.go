@@ -27,7 +27,7 @@ func (s *ShareConfig) SaveToConfig() error {
 	return shareManager.CreateNewSambaShare(&newShareConfig)
 }
 
-//Remove this share
+// Remove this share
 func (s *ShareConfig) Remove() error {
 	return s.parent.RemoveSambaShareConfig(s.Name)
 }

@@ -1,0 +1,214 @@
+{
+    "author": "arozos-manga",
+    "version": "2.0",
+    "keys": {
+        "en-us": {
+            "name": "English",
+            "fwtitle": "Manga",
+            "strings": {
+                "app/title":                "Manga",
+                "loading/library":          "Loading...",
+                "loading/chapter":          "Loading chapter…",
+                "empty/title":              "No manga found",
+                "empty/sub":               "Add manga folders to",
+                "nosearch/title":           "No results",
+                "nosearch/sub":            "Nothing matched your search.",
+                "btn/back_library":         "Library",
+                "btn/back":                "Back",
+                "btn/prev":                "Prev",
+                "btn/next":                "Next",
+                "btn/close":               "Close",
+                "btn/go_back":             "Go Back",
+                "detail/no_chapters":       "No chapters found.",
+                "reader/end_chapter":       "End of chapter",
+                "reader/next_chapter":      "Next Chapter",
+                "reader/finished":          "You’ve finished the last chapter.",
+                "reader/up_next":           "Up next:",
+                "overlay/chapters":         "Chapters",
+                "settings/title":           "Settings",
+                "settings/save_progress":   "Save Progress",
+                "settings/save_progress_sub": "Return to last read page automatically",
+                "settings/pc_mode":         "PC Mode",
+                "settings/pc_mode_sub":     "Narrows images for wide screens",
+                "error/load_failed":        "Failed to load chapter."
+            },
+            "titles": {
+                "Toggle theme":             "Toggle theme",
+                "Open manga folder":        "Open manga folder",
+                "Chapter list":             "Chapter list",
+                "Settings":                 "Settings"
+            },
+            "placeholder": {
+                "Search titles, authors…": "Search titles, authors…"
+            }
+        },
+
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fwtitle": "漫畫櫃",
+            "fontFamily": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+            "strings": {
+                "app/title":                "漫畫",
+                "loading/library":          "載入中…",
+                "loading/chapter":          "載入章節中…",
+                "empty/title":              "找不到漫畫",
+                "empty/sub":               "請將漫畫資料夾加入",
+                "nosearch/title":           "無搜尋結果",
+                "nosearch/sub":            "找不到符合的漫畫。",
+                "btn/back_library":         "返回櫃檯",
+                "btn/back":                "返回",
+                "btn/prev":                "上一話",
+                "btn/next":                "下一話",
+                "btn/close":               "關閉",
+                "btn/go_back":             "返回",
+                "detail/no_chapters":       "找不到章節。",
+                "reader/end_chapter":       "本章結束",
+                "reader/next_chapter":      "下一章節",
+                "reader/finished":          "已讀完最後一話。",
+                "reader/up_next":           "下一話：",
+                "overlay/chapters":         "章節列表",
+                "settings/title":           "設定",
+                "settings/save_progress":   "儲存進度",
+                "settings/save_progress_sub": "自動返回上次閱讀頁面",
+                "settings/pc_mode":         "電腦模式",
+                "settings/pc_mode_sub":     "縮小圖片以適應大螢幕",
+                "error/load_failed":        "章節載入失敗。"
+            },
+            "titles": {
+                "Toggle theme":             "切換主題",
+                "Open manga folder":        "開啟漫畫資料夾",
+                "Chapter list":             "章節列表",
+                "Settings":                 "設定"
+            },
+            "placeholder": {
+                "Search titles, authors…": "搜尋標題、作者…"
+            }
+        },
+
+        "zh-cn": {
+            "name": "简体中文",
+            "fwtitle": "漫画柜",
+            "fontFamily": "\"Microsoft YaHei\", \"SimHei\", \"WenQuanYi Micro Hei\", sans-serif",
+            "strings": {
+                "app/title":                "漫画",
+                "loading/library":          "正在加载…",
+                "loading/chapter":          "正在加载章节…",
+                "empty/title":              "未找到漫画",
+                "empty/sub":               "请将漫画文件夹添加到",
+                "nosearch/title":           "无搜索结果",
+                "nosearch/sub":            "没有符合的漫画。",
+                "btn/back_library":         "返回柜台",
+                "btn/back":                "返回",
+                "btn/prev":                "上一话",
+                "btn/next":                "下一话",
+                "btn/close":               "关闭",
+                "btn/go_back":             "返回",
+                "detail/no_chapters":       "未找到章节。",
+                "reader/end_chapter":       "本章结束",
+                "reader/next_chapter":      "下一章节",
+                "reader/finished":          "已读完最后一话。",
+                "reader/up_next":           "下一话：",
+                "overlay/chapters":         "章节列表",
+                "settings/title":           "设置",
+                "settings/save_progress":   "保存进度",
+                "settings/save_progress_sub": "自动返回上次阅读页面",
+                "settings/pc_mode":         "电脑模式",
+                "settings/pc_mode_sub":     "缩小图片以适应大屏幕",
+                "error/load_failed":        "章节加载失败。"
+            },
+            "titles": {
+                "Toggle theme":             "切换主题",
+                "Open manga folder":        "打开漫画文件夹",
+                "Chapter list":             "章节列表",
+                "Settings":                 "设置"
+            },
+            "placeholder": {
+                "Search titles, authors…": "搜索标题、作者…"
+            }
+        },
+
+        "ja-jp": {
+            "name": "日本語",
+            "fwtitle": "マンガライブラリ",
+            "fontFamily": "\"Meiryo\", \"Yu Gothic\", \"Hiragino Kaku Gothic ProN\", sans-serif",
+            "strings": {
+                "app/title":                "マンガ",
+                "loading/library":          "読み込み中…",
+                "loading/chapter":          "話を読み込み中…",
+                "empty/title":              "マンガが見つかりません",
+                "empty/sub":               "マンガフォルダを追加：",
+                "nosearch/title":           "検索結果なし",
+                "nosearch/sub":            "一致するマンガが見つかりません。",
+                "btn/back_library":         "ライブラリ",
+                "btn/back":                "戻る",
+                "btn/prev":                "前の話",
+                "btn/next":                "次の話",
+                "btn/close":               "閉じる",
+                "btn/go_back":             "戻る",
+                "detail/no_chapters":       "話が見つかりません。",
+                "reader/end_chapter":       "この話の終わり",
+                "reader/next_chapter":      "次の話へ",
+                "reader/finished":          "最後の話まで読みました。",
+                "reader/up_next":           "次の話：",
+                "overlay/chapters":         "話一覧",
+                "settings/title":           "設定",
+                "settings/save_progress":   "進捗を保存",
+                "settings/save_progress_sub": "前回のページから自動で再開",
+                "settings/pc_mode":         "PCモード",
+                "settings/pc_mode_sub":     "大きな画面向けに画像を縮小",
+                "error/load_failed":        "話の読み込みに失敗しました。"
+            },
+            "titles": {
+                "Toggle theme":             "テーマ切替",
+                "Open manga folder":        "マンガフォルダを開く",
+                "Chapter list":             "話一覧",
+                "Settings":                 "設定"
+            },
+            "placeholder": {
+                "Search titles, authors…": "タイトル、著者を検索…"
+            }
+        },
+
+        "ko-kr": {
+            "name": "한국어",
+            "fwtitle": "만화 라이브러리",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
+            "strings": {
+                "app/title":                "만화",
+                "loading/library":          "만화 라이브러리 로딩 중…",
+                "loading/chapter":          "화 로딩 중…",
+                "empty/title":              "만화를 찾을 수 없습니다",
+                "empty/sub":               "만화 폴더를 추가해 주세요:",
+                "nosearch/title":           "검색 결과 없음",
+                "nosearch/sub":            "검색어와 일치하는 만화가 없습니다。",
+                "btn/back_library":         "라이브러리",
+                "btn/back":                "뒤로",
+                "btn/prev":                "이전 화",
+                "btn/next":                "다음 화",
+                "btn/close":               "닫기",
+                "btn/go_back":             "뒤로",
+                "detail/no_chapters":       "체터를 찾을 수 없습니다。",
+                "reader/end_chapter":       "이번 화 끝",
+                "reader/next_chapter":      "다음 체터",
+                "reader/finished":          "마지막 화를 모두 읽었습니다。",
+                "reader/up_next":           "다음 화:",
+                "overlay/chapters":         "체터 목록",
+                "settings/title":           "설정",
+                "settings/save_progress":   "진행 상황 저장",
+                "settings/save_progress_sub": "마지막으로 읽은 페이지로 자동 복귀",
+                "settings/pc_mode":         "PC 모드",
+                "settings/pc_mode_sub":     "큰 화면에 맞게 이미지 크기 축소",
+                "error/load_failed":        "체터를 불러오지 못했습니다。"
+            },
+            "titles": {
+                "Toggle theme":             "테마 전환",
+                "Open manga folder":        "만화 폴더 열기",
+                "Chapter list":             "체터 목록",
+                "Settings":                 "설정"
+            },
+            "placeholder": {
+                "Search titles, authors…": "제목, 작가 검색…"
+            }
+        }
+    }
+}

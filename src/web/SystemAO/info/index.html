@@ -1,144 +1,747 @@
 <!DOCTYPE html>
-<html ng-app="App">
+<html>
 <head>
-    <title>System Info</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+/* 
+   System Info 
+   Scoped entirely to #si-root to avoid conflicts
+   with the parent system-settings CSS.
+*/
+
+#si-root {
+    /* Light-theme variables (default) */
+    --si-text:       #1d1d1f;
+    --si-dim:        #6e6e73;
+    --si-muted:      #98989d;
+    --si-divider:    #d2d2d7;
+    --si-hover:      rgba(0, 0, 0, 0.045);
+    --si-active:     rgba(0, 0, 0, 0.09);
+    --si-accent:     #0071e3;
+    --si-nav-strip:  rgba(0, 0, 0, 0.025);
+    --si-shadow:     rgba(0, 0, 0, 0.13);
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--si-text);
+    padding: 20px;
+}
+
+/* Dark-mode overrides */
+#si-root.dark {
+    --si-text:       #f0f0f0;
+    --si-dim:        #a0a0a5;
+    --si-muted:      #636368;
+    --si-divider:    #3a3a3a;
+    --si-hover:      rgba(255, 255, 255, 0.06);
+    --si-active:     rgba(255, 255, 255, 0.12);
+    --si-accent:     #2997ff;
+    --si-nav-strip:  rgba(255, 255, 255, 0.03);
+    --si-shadow:     rgba(0, 0, 0, 0.45);
+}
+
+/* Hero section */
+
+#si-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 0 10px;
+}
+
+#si-avatar-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 18px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 4px 18px var(--si-shadow);
+    flex-shrink: 0;
+    background: #888;
+}
+
+#si-avatar-ring img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+#si-model-name {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--si-text) !important;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+#si-build-label {
+    font-size: 13px;
+    color: var(--si-dim) !important;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.si-hero-rule {
+    width: 260px;
+    height: 1px;
+    background: var(--si-divider);
+    margin-bottom: 18px;
+    flex-shrink: 0;
+}
+
+/* Quick-spec grid (CPU / RAM / SN) */
+
+.si-qs-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 14px;
+    row-gap: 0;
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 18px;
+}
+
+.si-qs-k {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--si-muted) !important;
+    text-align: right;
+    padding: 4px 0;
+    white-space: nowrap;
+    line-height: 1.55;
+}
+
+.si-qs-v {
+    font-size: 12px;
+    color: var(--si-text) !important;
+    padding: 4px 0;
+    line-height: 1.55;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* More Info button */
+
+#si-more-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    padding: 5px 12px;
+    min-height: 400px;
+    background: none;
+    border: none;
+    color: var(--si-accent) !important;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.1s;
+    outline: none;
+}
+
+#si-more-btn:hover   { background: rgba(0, 113, 227, 0.09); }
+#si-root.dark #si-more-btn:hover { background: rgba(41, 151, 255, 0.11); }
+
+#si-btn-chevron {
+    width: 11px;
+    height: 11px;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+#si-btn-chevron.flipped { transform: rotate(180deg); }
+
+/* More Info panel */
+
+#si-more {
+    display: none;
+    margin-top: 18px;
+    border-top: 1px solid var(--si-divider);
+    border-radius: 1em;
+    overflow: hidden;
+    min-height: 400px;
+}
+
+#si-more.open { display: flex; }
+
+/* Left nav strip */
+
+#si-nav {
+    width: 158px;
+    min-width: 158px;
+    padding: 14px 8px;
+    border-right: 1px solid var(--si-divider);
+    background: var(--si-nav-strip);
+    flex-shrink: 0;
+}
+
+.si-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--si-text) !important;
+    user-select: none;
+    transition: background 0.08s;
+    margin-bottom: 2px;
+}
+
+.si-nav-item:hover  { background: var(--si-hover); }
+.si-nav-item.active { background: var(--si-active); font-weight: 500; }
+
+.si-nav-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: var(--si-dim);
+}
+
+.si-nav-item > span { color: var(--si-text) !important; }
+
+/* Right content pane */
+
+#si-content {
+    flex: 1;
+    padding: 22px 28px;
+    min-width: 0;
+}
+
+.si-section         { display: none; }
+.si-section.active  { display: block; }
+
+.si-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.15px;
+    color: var(--si-text) !important;
+    margin: 0 0 16px;
+}
+
+/* Key-value spec table */
+
+.si-kv {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.si-kv tr            { border-bottom: 1px solid var(--si-divider); }
+.si-kv tr:last-child { border-bottom: none; }
+
+.si-kv td {
+    padding: 9px 0;
+    font-size: 13px;
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.si-kv td.k {
+    width: 160px;
+    padding-right: 24px;
+    white-space: nowrap;
+    color: var(--si-dim) !important;
+}
+
+.si-kv td.v {
+    color: var(--si-text) !important;
+    word-break: break-word;
+}
+
+/* List rows (drives, NICs) */
+
+.si-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--si-divider);
+    font-size: 13px;
+    gap: 12px;
+}
+
+.si-row:last-child { border-bottom: none; }
+
+.si-row-name {
+    color: var(--si-text) !important;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.si-row-meta {
+    color: var(--si-dim) !important;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.si-empty {
+    font-size: 13px;
+    color: var(--si-muted) !important;
+    padding: 12px 0;
+}
+
+/* ── Responsive ── */
+
+/* Medium: tighten content padding when space gets tight */
+@media (max-width: 600px) {
+    #si-content {
+        padding: 16px 16px;
+    }
+}
+
+/* Narrow: collapse nav into a horizontal scrollable tab strip */
+@media (max-width: 500px) {
+    #si-more {
+        flex-direction: column;
+    }
+
+    #si-nav {
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--si-divider);
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 2px;
+        /* hide scrollbar but keep scrollability */
+        scrollbar-width: none;
+    }
+    #si-nav::-webkit-scrollbar { display: none; }
+
+    .si-nav-item {
+        flex-shrink: 0;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        margin-bottom: 0;
+        font-size: 11px;
+    }
+
+    .si-nav-icon {
+        width: 17px;
+        height: 17px;
+    }
+
+    #si-content {
+        padding: 14px 14px;
+    }
+
+    /* Stack key-value table: key on top, value below */
+    .si-kv,
+    .si-kv tbody,
+    .si-kv tr,
+    .si-kv td { display: block; width: 100%; }
+
+    .si-kv tr {
+        border-bottom: 1px solid var(--si-divider);
+        padding: 8px 0;
+    }
+    .si-kv tr:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .si-kv td {
+        padding: 0;
+        border: none;
+    }
+    .si-kv td.k {
+        width: 100%;
+        font-size: 11px;
+        white-space: normal;
+        padding-right: 0;
+        margin-bottom: 2px;
+    }
+    .si-kv td.v {
+        font-size: 13px;
+    }
+
+    /* Row items (storage / network): stack name + meta vertically */
+    .si-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    .si-row-name { white-space: normal; }
+}
+    </style>
 </head>
-
 <body>
-    <div class="ui vertical masthead left aligned segment">
-        <div class="ui container">
-            <div>
-                <h1 id="modelname"></h1>
+
+<div id="si-root">
+
+    <!-- Hero section -->
+    <div id="si-hero">
+
+        <div id="si-avatar-ring">
+            <img src="../../system/info/wallpaper.jpg" alt=""
+                 onerror="this.parentElement.style.background='#555'">
+        </div>
+
+        <div id="si-model-name">ArozOS</div>
+        <div id="si-build-label"> </div>
+
+        <div class="si-hero-rule"></div>
+
+        <div class="si-qs-grid">
+            <span class="si-qs-k" locale="info/cpu">CPU</span>
+            <span class="si-qs-v" id="hero-cpu">—</span>
+
+            <span class="si-qs-k" locale="info/memory">Memory</span>
+            <span class="si-qs-v" id="hero-ram">—</span>
+
+            <span class="si-qs-k" locale="info/serial_number">Serial Number</span>
+            <span class="si-qs-v" id="hero-sn">—</span>
+        </div>
+
+        <div class="si-hero-rule"></div>
+
+        <!-- <button id="si-more-btn" onclick="siToggleMore()">
+            <span>More Info</span>
+            <svg id="si-btn-chevron" viewBox="0 0 12 12" fill="none">
+                <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button> -->
+
+    </div><!-- #si-hero -->
+
+    <!-- More Info panel -->
+    <div id="si-more" class="open">
+        <!-- Left navigation -->
+        <div id="si-nav">
+            <div class="si-nav-item active" data-sec="sec-overview" onclick="siNav(this)">
+                <svg class="si-nav-icon" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M8 7v4M8 4.5v.5" stroke="currentColor" stroke-width="1.4"
+                          stroke-linecap="round"/>
+                </svg>
+                <span locale="info/nav_overview">Overview</span>
             </div>
-            <div>
-                <div style="display:inline-block;" id="build"></div>
-                <div style="float:right !important;" id="manufacturer"></div>
+            <div class="si-nav-item" data-sec="sec-cpu" onclick="siNav(this)">
+                <svg class="si-nav-icon" viewBox="0 0 16 16" fill="none">
+                    <rect x="4.5" y="4.5" width="7" height="7" rx="1"
+                          stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M6 1.5v3M10 1.5v3M6 11.5v3M10 11.5v3
+                             M1.5 6h3M1.5 10h3M11.5 6h3M11.5 10h3"
+                          stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                <span locale="info/nav_processor">Processor</span>
             </div>
-            
-        </div>
-    </div>
-    <div class="ui container">
-        <br>
-        <h3 class="ui header" locale="hwinfo/specifications">Specifications</h3>
-        <div class="ui grid">
-            <div class="six wide column" locale="hwinfo/model">Model :</div>
-            <div class="ten wide column" id="model">Loading...</div>
-            <div class="six wide column" locale="hwinfo/frequency">Frequency :</div>
-            <div class="ten wide column" id="freq">Loading...</div>
-            <div class="six wide column" locale="hwinfo/instruction">Instruction :</div>
-            <div class="ten wide column" id="instruction">Loading...</div>
-            <div class="six wide column" locale="hwinfo/hardware">Hardware :</div>
-            <div class="ten wide column" id="hardware">Loading...</div>
-            <div class="six wide column" locale="hwinfo/revision">Revision :</div>
-            <div class="ten wide column" id="revision">Loading...</div>
-            <div class="six wide column" locale="hwinfo/memory">Memory :</div>
-            <div class="ten wide column" id="ram">Loading...</div>
-            <div class="six wide column" locale="hwinfo/nic">NIC :</div>
-            <div class="ten wide column" id="nic">Loading...</div>
-            <div class="six wide column" locale="hwinfo/drive">Drive :</div>
-            <div class="ten wide column" id="drive">Loading...</div>
-            <div class="six wide column" locale="hwinfo/usb">USB :</div>
-            <div class="ten wide column" id="usb">Loading...</div>
-        </div>
-        <br>
-        <h3 class="ui header" locale="hwinfo/operation_time">Operation Time</h3>
-        <div class="ui grid">
-            <div class="six wide column" locale="hwinfo/boot_time">Boot Time:</div>
-            <div class="ten wide column" id="startup">Loading...</div>
-            <div class="six wide column" locale="hwinfo/up_time">Up Time :</div>
-            <div class="ten wide column" id="operation">Loading...</div>
-        </div>
-    </div>
-    
-    <div class="ui divider"></div>
-    <img class="ui small image" id="icon"></img>
-    <br>
-</body>
+            <div class="si-nav-item" data-sec="sec-memory" onclick="siNav(this)">
+                <svg class="si-nav-icon" viewBox="0 0 16 16" fill="none">
+                    <rect x="1.5" y="5" width="13" height="7" rx="1.5"
+                          stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M4.5 5V3.5M7.5 5V3.5M10.5 5V3.5
+                             M4.5 12v1.5M7.5 12v1.5M10.5 12v1.5"
+                          stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                <span locale="info/nav_memory">Memory</span>
+            </div>
+            <div class="si-nav-item" data-sec="sec-storage" onclick="siNav(this)">
+                <svg class="si-nav-icon" viewBox="0 0 16 16" fill="none">
+                    <rect x="1.5" y="3.5" width="13" height="9" rx="2"
+                          stroke="currentColor" stroke-width="1.3"/>
+                    <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                    <path d="M3 8h6" stroke="currentColor" stroke-width="1.3"
+                          stroke-linecap="round"/>
+                </svg>
+                <span locale="info/nav_storage">Storage</span>
+            </div>
+            <div class="si-nav-item" data-sec="sec-network" onclick="siNav(this)">
+                <svg class="si-nav-icon" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M2.5 8h11M8 2.5c-2 1.5-3 3.5-3 5.5s1 4 3 5.5
+                             M8 2.5c2 1.5 3 3.5 3 5.5s-1 4-3 5.5"
+                          stroke="currentColor" stroke-width="1.3"/>
+                </svg>
+                <span locale="info/nav_network">Network</span>
+            </div>
+            <div class="si-nav-item" data-sec="sec-system" onclick="siNav(this)">
+                <svg class="si-nav-icon" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M8 5v3.25l2.2 2.2" stroke="currentColor" stroke-width="1.3"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span locale="info/nav_system">System</span>
+            </div>
+        </div><!-- #si-nav -->
+
+        <!-- Right content -->
+        <div id="si-content">
+
+            <!-- Overview -->
+            <div class="si-section active" id="sec-overview">
+                <div class="si-section-title" locale="info/overview_title">Overview</div>
+                <table class="si-kv">
+                    <tr><td class="k" locale="info/ov_model">Model</td>            <td class="v" id="ov-model">—</td></tr>
+                    <tr><td class="k" locale="info/ov_hostname">Hostname</td>       <td class="v" id="ov-host-name">—</td></tr>
+                    <tr><td class="k" locale="info/ov_vendor">Vendor</td>           <td class="v" id="ov-vendor">—</td></tr>
+                    <tr><td class="k" locale="info/ov_os">Operating System</td>     <td class="v" id="ov-os">—</td></tr>
+                    <tr><td class="k" locale="info/ov_arch">Architecture</td>       <td class="v" id="ov-arch">—</td></tr>
+                    <tr><td class="k" locale="info/ov_build">Build Version</td>     <td class="v" id="ov-build">—</td></tr>
+                    <tr><td class="k" locale="info/ov_sn">Serial Number</td>        <td class="v" id="ov-sn">—</td></tr>
+                </table>
+            </div>
+
+            <!-- Processor -->
+            <div class="si-section" id="sec-cpu">
+                <div class="si-section-title" locale="info/cpu_title">Processor</div>
+                <table class="si-kv">
+                    <tr><td class="k" locale="info/cpu_model">Model</td>           <td class="v" id="cpu-model">—</td></tr>
+                    <tr><td class="k" locale="info/cpu_frequency">Frequency</td>       <td class="v" id="cpu-freq">—</td></tr>
+                    <tr><td class="k" locale="info/cpu_instruction">Instruction Set</td> <td class="v" id="cpu-instr">—</td></tr>
+                    <tr><td class="k" locale="info/cpu_hardware">Hardware</td>        <td class="v" id="cpu-hw">—</td></tr>
+                    <tr><td class="k" locale="info/cpu_revision">Revision</td>        <td class="v" id="cpu-rev">—</td></tr>
+                </table>
+            </div>
+
+            <!-- Memory -->
+            <div class="si-section" id="sec-memory">
+                <div class="si-section-title" locale="info/memory_title">Memory</div>
+                <table class="si-kv">
+                    <tr><td class="k" locale="info/memory_total">Total RAM</td><td class="v" id="mem-total">—</td></tr>
+                </table>
+            </div>
+
+            <!-- Storage -->
+            <div class="si-section" id="sec-storage">
+                <div class="si-section-title" locale="info/storage_title">Storage</div>
+                <div id="storage-list"></div>
+            </div>
+
+            <!-- Network -->
+            <div class="si-section" id="sec-network">
+                <div class="si-section-title" locale="info/network_title">Network Interfaces</div>
+                <div id="nic-list"></div>
+            </div>
+
+            <!-- System / Uptime -->
+            <div class="si-section" id="sec-system">
+                <div class="si-section-title" locale="info/system_title">System</div>
+                <table class="si-kv">
+                    <tr><td class="k" locale="info/system_boot">Boot Time</td><td class="v" id="sys-boot">—</td></tr>
+                    <tr><td class="k" locale="info/system_uptime">Uptime</td>   <td class="v" id="sys-uptime">—</td></tr>
+                </table>
+            </div>
+
+        </div><!-- #si-content -->
+    </div><!-- #si-more -->
+
+</div><!-- #si-root -->
+
 <script>
-    var specLocale = NewAppLocale();
-    $(document).ready(function() {
-        specLocale.init("../locale/system_settings/spec.json", function(){
-            specLocale.translate();
-            initSystemInfo();
-        });
-        
+/* Theme */
+if (preferredTheme || parent.preferredTheme){
+    var theme = preferredTheme || parent.preferredTheme;
+    document.getElementById('si-root').classList.toggle('dark', theme === 'dark');
+}else{
+    // Fallback to AO module if no theme info from parent
+     ao_module_getSystemThemeColor(function (color) {
+        document.getElementById('si-root').classList.toggle('dark', color !== 'whiteTheme');
     });
+}
 
-    function initSystemInfo() {
-        $.getJSON("../../system/info/getArOZInfo?icon=true", function(data) {
-            $("#modelname").html(data["DeviceModel"]);
-            $("#icon").attr("src", "data:image/png;base64," + data["VendorIcon"]);
-            $("#build").html(data["BuildVersion"]);
-            $("#manufacturer").html(data["DeviceVendor"]);
-        });
-        $.getJSON("../../system/info/getCPUinfo", function(data) {
-            $("#model").html(data["Model"]);
-            $("#freq").html(data["Freq"] + "MHz");
-            $("#instruction").html(data["Instruction"]);
-            $("#hardware").html(data["Hardware"]);
-            $("#revision").html(data["Revision"]);
-        });
-        $.get("../../system/info/getRAMinfo", function(data) {
-            $("#ram").html(humanFileSize(data, false));
-        });
-        $.getJSON("../../system/info/ifconfig", function(data) {
-            $("#nic").html("");
-            $(data).each(function(index, item) {
-                $("#nic").append(item + "<br>");
-            });
-        });
-        $.getJSON("../../system/info/getDriveStat", function(data) {
-            $("#drive").html("");
-            $(data).each(function(index, item) {
-                $("#drive").append(item["DriveLetter"] + " (" + item["FileSystem"] + ") " + humanFileSize(item["FreeSpace"], true) + "<br>");
-            });
-        });
-        $.getJSON("../../system/info/usbPorts", function(data) {
-            $("#usb").html("");
-            $(data).each(function(index, item) {
-                $("#usb").append(item + "<br>");
-            });
-        });
+window.detailPageThemeCallback = function(isDark) {
+    document.getElementById('si-root').classList.toggle('dark', isDark);
+};
 
-        $.getJSON("../../system/info/getRuntimeInfo", function(data){
-            $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
-            $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
-            $("#operation").attr("startunix", data.StartupTime);
-            accumulateOperationTime();
-        });
+/* Navigation */
+function siNav(el) {
+    var sec = el.getAttribute('data-sec');
+    document.querySelectorAll('#si-nav .si-nav-item').forEach(function (n) {
+        n.classList.remove('active');
+    });
+    el.classList.add('active');
+    document.querySelectorAll('#si-content .si-section').forEach(function (s) {
+        s.classList.remove('active');
+    });
+    document.getElementById(sec).classList.add('active');
+}
+
+/* More-Info toggle */
+function siToggleMore() {
+    var panel   = document.getElementById('si-more');
+    var chevron = document.getElementById('si-btn-chevron');
+    var isOpen  = panel.classList.toggle('open');
+    chevron.classList.toggle('flipped', isOpen);
+    if (isOpen) {
+        setTimeout(function () {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 40);
     }
+}
 
-    function accumulateOperationTime(){
-        setTimeout(function(){
-            if ($("#operation").length > 0){
-                var startUnix = $("#operation").attr("startunix");
-                startUnix = parseInt(startUnix);
-                var newOprTime = parseInt(Date.now()/1000) - startUnix
-                $("#operation").text(ao_module_utils.durationConverter(newOprTime));
-                accumulateOperationTime();
-            }
-        }, 1000);
+/* Data loading */
+function initPage() {
+    loadArOZInfo();
+    loadCPUInfo();
+    loadRAMInfo();
+    loadRuntimeInfo();
+    loadStorageInfo();
+    loadNICInfo();
+}
+
+var sysInfoApplocale = null;
+
+$(document).ready(function () {
+    if (typeof applocale !== 'undefined') {
+        sysInfoApplocale = NewAppLocale();
+        sysInfoApplocale.init('../locale/system_settings/spec.json', function () {
+            sysInfoApplocale.translate();
+            initPage();
+        });
+    } else {
+        initPage();
     }
+});
 
-    //https://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable-string/10420404
-    function humanFileSize(bytes, si) {
-        var thresh = si ? 1000 : 1024;
-        if (Math.abs(bytes) < thresh) {
-            return bytes + ' B';
+function loadArOZInfo() {
+    $.getJSON('../../system/info/getArOZInfo', function (d) {
+        var model  = d.DeviceModel  || 'ArozOS';
+        var build  = d.BuildVersion || '';
+        $('#si-model-name').text(model);
+        $('#si-build-label').text('ArozOS  ' + build);
+        $('#hero-sn').text(d.SN || '??');
+
+        $('#ov-model').text(model);
+        $('#ov-host-name').text(d.HostName  || '??');
+        $('#ov-vendor').text(d.DeviceVendor || '??');
+        $('#ov-os').text(capitalise(d.HostOS) || '??');
+        $('#ov-arch').text(d.CPUArch   || '??');
+        $('#ov-build').text(build       || '??');
+        $('#ov-sn').text(d.SN          || '??');
+    });
+}
+
+function loadCPUInfo() {
+    $.getJSON('../../system/info/getCPUinfo', function (d) {
+        var model     = (d.Model || '??').replace(/\s+/g, ' ').trim();
+        // Hero: strip trailing "@ X.XXGHz" for a cleaner one-liner
+        var heroModel = model.replace(/\s*@\s*[\d.]+\s*[GM]Hz/i, '').trim() || model;
+        $('#hero-cpu').text(heroModel);
+        $('#cpu-model').text(model);
+
+        var mhz  = parseFloat(d.Freq);
+        var freq = d.Freq ? (mhz >= 1000 ? (mhz / 1000).toFixed(2) + ' GHz' : mhz + ' MHz') : '??';
+        $('#cpu-freq').text(freq);
+        $('#cpu-instr').text(d.Instruction || '??');
+        $('#cpu-hw').text(d.Hardware   || '??');
+        $('#cpu-rev').text(d.Revision  || '??');
+    });
+}
+
+function loadRAMInfo() {
+    $.get('../../system/info/getRAMinfo', function (bytes) {
+        var size = humanFileSize(parseInt(bytes, 10), false);
+        $('#hero-ram').text(size);
+        $('#mem-total').text(size);
+    });
+}
+
+function loadRuntimeInfo() {
+    $.getJSON('../../system/info/getRuntimeInfo', function (d) {
+        var bootStr = (typeof ao_module_utils !== 'undefined' && ao_module_utils.timeConverter)
+            ? ao_module_utils.timeConverter(d.StartupTime)
+            : new Date(d.StartupTime * 1000).toLocaleString();
+        $('#sys-boot').text(bootStr);
+
+        var startUnix = d.StartupTime;
+        (function tick() {
+            if (!document.getElementById('sys-uptime')) return;
+            var elapsed = Math.floor(Date.now() / 1000) - startUnix;
+            var str = (typeof ao_module_utils !== 'undefined' && ao_module_utils.durationConverter)
+                ? ao_module_utils.durationConverter(elapsed)
+                : formatDuration(elapsed);
+            $('#sys-uptime').text(str);
+            setTimeout(tick, 1000);
+        }());
+    });
+}
+
+function loadStorageInfo() {
+    $.getJSON('../../system/info/getDriveStat', function (data) {
+        var $list = $('#storage-list').empty();
+        var storageEmpty = (typeof sysInfoApplocale !== 'undefined') ? sysInfoApplocale.getString('info/storage_empty', 'No drives detected.') : 'No drives detected.';
+        var freeLabel    = (typeof sysInfoApplocale !== 'undefined') ? sysInfoApplocale.getString('info/storage_free',  'free')                 : 'free';
+        if (!data || !data.length) {
+            $list.html('<div class="si-empty">' + storageEmpty + '</div>');
+            return;
         }
-        var units = si ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
-        var u = -1;
-        do {
-            bytes /= thresh;
-            ++u;
-        } while (Math.abs(bytes) >= thresh && u < units.length - 1);
-        return bytes.toFixed(1) + ' ' + units[u];
-    }
-</script>
+        data.forEach(function (d) {
+            var free = humanFileSize(parseInt(d.FreeSpace, 10), true);
+            $list.append(
+                '<div class="si-row">' +
+                '<span class="si-row-name">' + esc(d.DriveLetter) + '</span>' +
+                '<span class="si-row-meta">' + esc(d.FileSystem) + ' &nbsp;·&nbsp; ' + free + ' ' + freeLabel + '</span>' +
+                '</div>'
+            );
+        });
+    });
+}
 
+function loadNICInfo() {
+    $.getJSON('../../system/info/ifconfig', function (data) {
+        var $list = $('#nic-list').empty();
+        var networkEmpty = (typeof sysInfoApplocale !== 'undefined') ? sysInfoApplocale.getString('info/network_empty', 'No network interfaces found.') : 'No network interfaces found.';
+        if (!data || !data.length) {
+            $list.html('<div class="si-empty">' + networkEmpty + '</div>');
+            return;
+        }
+        data.forEach(function (line) {
+            if (!line || !line.trim()) return;
+            $list.append(
+                '<div class="si-row">' +
+                '<span class="si-row-name">' + esc(line.trim()) + '</span>' +
+                '</div>'
+            );
+        });
+    });
+}
+
+/* Utilities */
+function humanFileSize(bytes, si) {
+    var thresh = si ? 1000 : 1024;
+    if (Math.abs(bytes) < thresh) return bytes + ' B';
+    var units = si ? ['kB','MB','GB','TB','PB'] : ['KiB','MiB','GiB','TiB','PiB'];
+    var u = -1;
+    do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+    return bytes.toFixed(1) + ' ' + units[u];
+}
+
+function formatDuration(secs) {
+    var d = Math.floor(secs / 86400);
+    var h = Math.floor((secs % 86400) / 3600);
+    var m = Math.floor((secs % 3600) / 60);
+    var s = secs % 60;
+    if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+    if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+    return m + 'm ' + s + 's';
+}
+
+function capitalise(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+}
+
+function esc(str) {
+    return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
 </html>

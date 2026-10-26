@@ -42,7 +42,7 @@ func SystemSettingInit() {
 		Version:     "1.0",
 		StartDir:    "SystemAO/system_setting/index.html",
 		SupportFW:   true,
-		InitFWSize:  []int{1080, 580},
+		InitFWSize:  []int{1200, 580},
 		LaunchFWDir: "SystemAO/system_setting/index.html",
 		SupportEmb:  false,
 	})
@@ -50,7 +50,7 @@ func SystemSettingInit() {
 
 // Setting group defination. Your setting module defination must match the group in-order to be shown
 func system_setting_getSettingGroups() []settingGroup {
-	return []settingGroup{
+	groups := []settingGroup{
 		{
 			Name:     "Host Information",
 			Group:    "Info",
@@ -68,6 +68,12 @@ func system_setting_getSettingGroups() []settingGroup {
 			Group:    "Module",
 			IconPath: "SystemAO/system_setting/img/module.svg",
 			Desc:     "List of modules loaded in the system",
+		},
+		{
+			Name:     "Desktop & Themes",
+			Group:    "Desktop",
+			IconPath: "SystemAO/desktop/img/personalization.png",
+			Desc:     "Personalize your desktop experience",
 		},
 		{
 			Name:     "Disk & Storage",
@@ -106,12 +112,45 @@ func system_setting_getSettingGroups() []settingGroup {
 			Desc:     "Advance configs for developers",
 		},
 		{
+			Name:     "AI Integration",
+			Group:    "AInteg",
+			IconPath: "SystemAO/system_setting/img/ai.svg",
+			Desc:     "Connect AI models, manage pricing, quota and usage",
+		},
+		{
 			Name:     "About ArOZ",
 			Group:    "About",
 			IconPath: "SystemAO/system_setting/img/info.svg",
 			Desc:     "Information of the current running ArOZ Online System",
 		},
 	}
+
+	//The "Containers" group only has content when Docker management is active
+	//(dockerManager is non-nil). Showing it otherwise would render an empty
+	//group whose listing returns no modules and breaks the settings UI.
+	if dockerManager != nil {
+		containerGroup := settingGroup{
+			Name:     "Containers",
+			Group:    "Container",
+			IconPath: "SystemAO/system_setting/img/docker.svg",
+			Desc:     "Manage Docker Engine and container runtime",
+		}
+		//Insert just before the "About" group so it sits after AI Integration
+		//rather than at the very bottom of the settings list.
+		inserted := false
+		for i, g := range groups {
+			if g.Group == "About" {
+				groups = append(groups[:i], append([]settingGroup{containerGroup}, groups[i:]...)...)
+				inserted = true
+				break
+			}
+		}
+		if !inserted {
+			groups = append(groups, containerGroup)
+		}
+	}
+
+	return groups
 }
 
 func registerSetting(thismodule settingModule) {
@@ -145,15 +184,15 @@ func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if len(results) > 0 {
-			jsonString, _ := json.Marshal(results)
-			utils.SendJSONResponse(w, string(jsonString))
-			return
-		} else {
-			//This group not found,
-			utils.SendErrorResponse(w, "Group not found")
-			return
+		//Always return a JSON array (possibly empty). The front-end iterates the
+		//response with forEach, so returning an error object here would throw a
+		//"forEach is not a function" in the settings UI for any empty group.
+		if results == nil {
+			results = []settingModule{}
 		}
+		jsonString, _ := json.Marshal(results)
+		utils.SendJSONResponse(w, string(jsonString))
+		return
 
 	} else {
 		//List all root groups

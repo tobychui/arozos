@@ -5,12 +5,12 @@ import (
 	"net/http"
 )
 
-//Common functions
+// Common functions
 func sendTextResponse(w http.ResponseWriter, msg string) {
 	w.Write([]byte(msg))
 }
 
-//Send JSON response, with an extra json header
+// Send JSON response, with an extra json header
 func sendJSONResponse(w http.ResponseWriter, json string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
@@ -26,7 +26,7 @@ func sendOK(w http.ResponseWriter) {
 	w.Write([]byte("\"OK\""))
 }
 
-//TODO: Deprecate this Mv
+// TODO: Deprecate this Mv
 func Mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 	if postMode == false {
 		//Access the paramter via GET

@@ -6,9 +6,10 @@ package main
 */
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
 	"os"
+	"path/filepath"
 
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
@@ -16,13 +17,56 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
+// vendorInfo holds optional vendor overrides loaded from vendor_info.json.
+type vendorInfo struct {
+	Vendor    string `json:"vendor"`
+	VendorURL string `json:"url"`
+	Model     string `json:"model"`
+	ModelDesc string `json:"desc"`
+}
+
+// loadVendorInfo reads vendor_info.json from vendorResRoot and overrides the
+// deviceVendor / deviceVendorURL / deviceModel / deviceModelDesc globals when
+// the file is present and valid.  Missing fields are left at their defaults.
+func loadVendorInfo() {
+	vendorInfoPath := filepath.Join(vendorResRoot, "vendor_info.json")
+	if !fs.FileExists(vendorInfoPath) {
+		return
+	}
+	content, err := os.ReadFile(vendorInfoPath)
+	if err != nil {
+		logger.PrintAndLog("Vendor", "Failed to read vendor_info.json", err)
+		return
+	}
+	var info vendorInfo
+	if err := json.Unmarshal(content, &info); err != nil {
+		logger.PrintAndLog("Vendor", "Failed to parse vendor_info.json", err)
+		return
+	}
+	if info.Vendor != "" {
+		deviceVendor = info.Vendor
+	}
+	if info.VendorURL != "" {
+		deviceVendorURL = info.VendorURL
+	}
+	if info.Model != "" {
+		deviceModel = info.Model
+	}
+	if info.ModelDesc != "" {
+		deviceModelDesc = info.ModelDesc
+	}
+	logger.PrintAndLog("Vendor", "Vendor info loaded from "+vendorInfoPath, nil)
+}
+
 func RunStartup() {
 	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
+	logger.SetDefaultLogger(systemWideLogger)
+	loadVendorInfo()
 	//1. Initiate the main system database
 
 	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user
 	if (!fs.FileExists("system/") || !fs.FileExists("web/")) && fs.FileExists("./web.tar.gz") {
-		log.Println("[Update] Unzipping system critical files from archive")
+		systemWideLogger.PrintAndLog("System", "[Update] Unzipping system critical files from archive", nil)
 		extErr := filesystem.ExtractTarGzipFile("./web.tar.gz", "./")
 		if extErr != nil {
 			//Extract failed
@@ -83,24 +127,34 @@ func RunStartup() {
 	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 
 	//8 Start AGI and Subservice modules (Must start after module)
-	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
-	SchedulerInit()  //Start System Scheudler
-	SubserviceInit() //Subservice Handler
+	SharedSpaceInit()  //Shared collaboration space manager, must start before MeetRoom and AGI
+	MeetRoomInit()     //MeetRoom video conferencing signaling backend, before AGI so the meetroom lib can bind
+	notificationInit() //Notification system core + agents, must start before AGI so the notification lib can bind
+	AGIInit()          //ArOZ Javascript Gateway Interface, must start after fs
+	SchedulerInit()    //Start System Scheudler
+	SubserviceInit()   //Subservice Handler
+	ArozcastInit()     //Arozcast remote projection pub/sub relay
 
 	//9. Initiate System Settings Handlers
 	SystemSettingInit()       //Start System Setting Core
 	DiskQuotaInit()           //Disk Quota Management
 	DiskServiceInit()         //Start Disk Services
 	DeviceServiceInit()       //Client Device Management
-	SystemInfoInit()          //System Information UI
 	SystemIDInit()            //System UUID Manager
+	SystemInfoInit()          //System Information UI
 	AuthSettingsInit()        //Authentication Settings Handler, must be start after user Handler
 	AdvanceSettingInit()      //System Advance Settings
+	AIModelSettingInit()      //AI Model (OpenAI / Anthropic) config, pricing, quota & usage metrics
+	CNNInferenceSettingInit() //CXNNAIO vision-inference server config & connectivity test
+	DockerServiceInit()       //Docker container/image/compose management, only if Docker detected on host
+	AGIRuntimeManagerInit()   //AGI VM lifecycle monitor (Developer Options tab)
+	NotificationSettingInit() //Notification agents config + per-user preferences + desktop delivery endpoints
 	StartupFlagsInit()        //System BootFlag settibg
 	HardwarePowerInit()       //Start host power manager
 	RegisterStorageSettings() //Storage Settings
 
 	//10. Startup network services and schedule services
+	CalDAVInit()         //CalDAV calendar sync server (iOS bidirectional sync)
 	NetworkServiceInit() //Initalize network serves (ssdp / mdns etc)
 	WiFiInit()           //Inialize WiFi management module
 
@@ -113,9 +167,8 @@ func RunStartup() {
 	mediaServer_init()
 	security_init()
 	storageHeartbeatTickerInit()
-	OAuthInit()        //Oauth system init
-	ldapInit()         //LDAP system init
-	notificationInit() //Notification system init
+	OAuthInit() //Oauth system init
+	ldapInit()  //LDAP system init
 
 	//Start High Level Services that requires full arozos architectures
 	FileServerInit()

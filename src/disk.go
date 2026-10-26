@@ -83,16 +83,6 @@ func DiskServiceInit() {
 	lfs := sortfile.NewLargeFileScanner(userHandler)
 	router.HandleFunc("/system/disk/space/largeFiles", lfs.HandleLargeFileList)
 
-	//Register settings
-	registerSetting(settingModule{
-		Name:         "Space Finder",
-		Desc:         "Reclaim Storage Space on Disks",
-		IconPath:     "SystemAO/disk/space/img/small_icon.png",
-		Group:        "Disk",
-		StartDir:     "SystemAO/disk/space/finder.html",
-		RequireAdmin: false,
-	})
-
 	if *allow_hardware_management {
 		//Displaying remaining space on disk, only enabled when allow hardware is true
 		registerSetting(settingModule{
@@ -190,15 +180,13 @@ func DiskServiceInit() {
 		}
 
 		/*
-			Disk Manager Initialization
-			See disk/diskmg.go for more details
-
-			For setting register, see setting.advance.go
+			Disk Manager Initialization — privileged operations (mount / format).
+			Read-only endpoints (platform, view, mpt) are registered below,
+			outside this sudo_mode block, so they work without sudo on macOS.
 		*/
 
 		if *allow_hardware_management {
-			authRouter.HandleFunc("/system/disk/diskmg/view", diskmg.HandleView)
-			adminRouter.HandleFunc("/system/disk/diskmg/platform", diskmg.HandlePlatform)
+			adminRouter.HandleFunc("/system/disk/diskmg/devices", diskmg.HandleListDevicesWithInfo)
 			adminRouter.HandleFunc("/system/disk/diskmg/mount", func(w http.ResponseWriter, r *http.Request) {
 				//Mount option require passing in all filesystem handlers
 				allFsh := GetAllLoadedFsh()
@@ -223,9 +211,24 @@ func DiskServiceInit() {
 				allFsh := GetAllLoadedFsh()
 				diskmg.HandleFormat(w, r, allFsh)
 			})
-			adminRouter.HandleFunc("/system/disk/diskmg/mpt", diskmg.HandleListMountPoints)
 		}
 
+	}
+
+	// Read-only Disk Manager endpoints — no sudo required (diskutil works unprivileged on macOS;
+	// these are informational only so they are safe to expose without elevated OS privileges).
+	if *allow_hardware_management {
+		diskMgAdminRouter := prout.NewModuleRouter(prout.RouterOption{
+			ModuleName:  "System Setting",
+			AdminOnly:   true,
+			UserHandler: userHandler,
+			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+				utils.SendErrorResponse(w, "Permission Denied")
+			},
+		})
+		diskMgAdminRouter.HandleFunc("/system/disk/diskmg/platform", diskmg.HandlePlatform)
+		diskMgAdminRouter.HandleFunc("/system/disk/diskmg/view", diskmg.HandleView)
+		diskMgAdminRouter.HandleFunc("/system/disk/diskmg/mpt", diskmg.HandleListMountPoints)
 	}
 
 }

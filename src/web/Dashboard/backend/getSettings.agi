@@ -1,0 +1,51 @@
+/*
+    Dashboard - Get Settings
+    Reads dashboard settings from user:/Dashboard/settings.json.
+    Creates the Dashboard folder and default settings on first run.
+    No POST parameters required.
+*/
+requirelib("filelib");
+
+var dashDir = "user:/Dashboard";
+var settingsPath = "user:/Dashboard/settings.json";
+
+var defaultSettings = {
+    latitude: 51.5074,
+    longitude: -0.1278,
+    cityName: "London",
+    theme: "dark",
+    pinnedApps: [],
+    showWeather: true,
+    showHiddenApps: false,
+    showSysInfo: true,
+    showCalendar: true,
+    showStorage: true,
+    temperatureUnit: "celsius"
+};
+
+// Ensure the Dashboard folder exists (first-run setup)
+filelib.mkdir(dashDir);
+
+if (filelib.fileExists(settingsPath)) {
+    try {
+        var raw = filelib.readFile(settingsPath);
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+            // Merge with defaults so new settings keys are always present
+            for (var key in defaultSettings) {
+                if (parsed[key] === undefined) {
+                    parsed[key] = defaultSettings[key];
+                }
+            }
+            sendJSONResp(parsed);
+        } else {
+            sendJSONResp(defaultSettings);
+        }
+    } catch (e) {
+        sendJSONResp(defaultSettings);
+    }
+} else {
+    // First run - write defaults and return them
+    filelib.writeFile(settingsPath, JSON.stringify(defaultSettings));
+    sendJSONResp(defaultSettings);
+}

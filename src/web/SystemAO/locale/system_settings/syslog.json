@@ -1,0 +1,107 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "syslog/title": "日誌檢視器",
+                "syslog/subtitle": "即時查看系統日誌",
+                "syslog/select_hint": "← 請從左側選擇日誌檔案",
+                "syslog/open_new_tab": "在新分頁開啟",
+                "syslog/size_warning": "日誌檔案可能很大，開啟前請確認檔案大小。",
+                "syslog/no_file_selected": "尚未選擇日誌檔案",
+                "syslog/loading": "載入中…",
+                "syslog/error_prefix": "錯誤：",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "syslog/title": "日誌檢視器",
+                "syslog/subtitle": "即時查看系統日誌",
+                "syslog/select_hint": "← 請從左側選擇日誌檔案",
+                "syslog/open_new_tab": "在新分頁開啟",
+                "syslog/size_warning": "日誌檔案可能很大，開啟前請確認檔案大小。",
+                "syslog/no_file_selected": "尚未選擇日誌檔案",
+                "syslog/loading": "載入中…",
+                "syslog/error_prefix": "錯誤：",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "syslog/title": "日志查看器",
+                "syslog/subtitle": "实时查看系统日志",
+                "syslog/select_hint": "← 请从左侧选择日志文件",
+                "syslog/open_new_tab": "在新标签页打开",
+                "syslog/size_warning": "日志文件可能很大，打开前请确认文件大小。",
+                "syslog/no_file_selected": "尚未选择日志文件",
+                "syslog/loading": "加载中…",
+                "syslog/error_prefix": "错误：",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "syslog/title": "Log View",
+                "syslog/subtitle": "Check system logs in real time",
+                "syslog/select_hint": "← Select a log file to begin",
+                "syslog/open_new_tab": "Open in New Tab",
+                "syslog/size_warning": "Log files may be large — check the size before opening.",
+                "syslog/no_file_selected": "No log file selected",
+                "syslog/loading": "Loading…",
+                "syslog/error_prefix": "Error: ",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "syslog/title": "ログビューア",
+                "syslog/subtitle": "システムログをリアルタイムで確認",
+                "syslog/select_hint": "← 左側からログファイルを選択してください",
+                "syslog/open_new_tab": "新しいタブで開く",
+                "syslog/size_warning": "ログファイルは大きい場合があります。開く前にファイルサイズを確認してください。",
+                "syslog/no_file_selected": "ログファイルが選択されていません",
+                "syslog/loading": "読み込み中…",
+                "syslog/error_prefix": "エラー：",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "syslog/title": "로그 뷰어",
+                "syslog/subtitle": "시스템 로그를 실시간으로 확인",
+                "syslog/select_hint": "← 왼쪽에서 로그 파일을 선택하세요",
+                "syslog/open_new_tab": "새 탭에서 열기",
+                "syslog/size_warning": "로그 파일이 클 수 있습니다. 열기 전에 파일 크기를 확인하세요.",
+                "syslog/no_file_selected": "로그 파일이 선택되지 않았습니다",
+                "syslog/loading": "로드 중…",
+                "syslog/error_prefix": "오류: ",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+    }
+}

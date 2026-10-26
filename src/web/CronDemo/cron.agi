@@ -1,0 +1,35 @@
+/*
+	CronDemo — Background Scheduler Script
+	=======================================
+	This script is executed by the ArozOS Task Scheduler at the interval
+	chosen by the user. It runs on behalf of the user who approved the task.
+
+	AGI globals available without requirelib:
+	  USERNAME      — the owning user's username
+	  EXECUTION_ID  — UUIDv4 unique to this invocation (use for log correlation)
+	  __FILE__      — real path of this script
+
+	Persistent per-user storage uses the system database:
+	  newDBTableIfNotExists(table)
+	  writeDBItem(table, key, value)   → true on success
+	  readDBItem(table, key)           → value string or false
+*/
+
+// Per-user table so each user's data is isolated
+var TABLE = "CronDemo/" + USERNAME;
+
+newDBTableIfNotExists(TABLE);
+
+// Record the time this script ran and increment a run counter
+var now = new Date().toISOString();
+writeDBItem(TABLE, "lastRun",  now);
+
+var countStr = readDBItem(TABLE, "runCount");
+var count = (countStr && countStr !== "false") ? parseInt(countStr, 10) : 0;
+if (isNaN(count)) count = 0;
+writeDBItem(TABLE, "runCount", String(count + 1));
+
+// Log with the execution ID so scheduler logs and this run can be correlated
+console.log("CronDemo tick — execID=" + EXECUTION_ID + " user=" + USERNAME + " run=" + (count + 1));
+
+sendOK();

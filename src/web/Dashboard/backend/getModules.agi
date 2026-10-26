@@ -1,0 +1,11 @@
+/*
+    Dashboard - Get Module List
+    Returns all modules accessible to the current user via the appdata library.
+    No POST parameters required.
+*/
+if (requirelib("appdata") == true) {
+    var modules = appdata.getModuleList();
+    sendJSONResp(JSON.stringify(modules));
+} else {
+    sendJSONResp("[]");
+}

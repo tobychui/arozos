@@ -3,7 +3,7 @@ package dynamicproxy
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/dynamicproxy/dpcore"
 	"imuslab.com/arozos/mod/network/reverseproxy"
 )
 
 /*
-	Allow users to setup manual proxying for specific path
-
+Allow users to setup manual proxying for specific path
 */
 type Router struct {
 	ListenPort        int
@@ -71,7 +71,7 @@ func NewDynamicProxy(port int) (*Router, error) {
 	return &thisRouter, nil
 }
 
-//Start the dynamic routing
+// Start the dynamic routing
 func (router *Router) StartProxyService() error {
 	//Create a new server object
 	if router.server != nil {
@@ -86,7 +86,7 @@ func (router *Router) StartProxyService() error {
 	router.Running = true
 	go func() {
 		err := router.server.ListenAndServe()
-		log.Println("[DynamicProxy] " + err.Error())
+		logger.PrintAndLog("Dynamicproxy", "[DynamicProxy] "+err.Error(), nil)
 	}()
 
 	return nil
@@ -110,7 +110,7 @@ func (router *Router) StopProxyService() error {
 }
 
 /*
-	Add an URL into a custom proxy services
+Add an URL into a custom proxy services
 */
 func (router *Router) AddProxyService(rootname string, domain string, requireTLS bool) error {
 	if domain[len(domain)-1:] == "/" {
@@ -138,12 +138,12 @@ func (router *Router) AddProxyService(rootname string, domain string, requireTLS
 		Proxy:      proxy,
 	})
 
-	log.Println("Adding Proxy Rule: ", rootname+" to "+domain)
+	logger.PrintAndLog("Dynamicproxy", fmt.Sprint("Adding Proxy Rule: ", rootname+" to "+domain), nil)
 	return nil
 }
 
 /*
-	Add an default router for the proxy server
+Add an default router for the proxy server
 */
 func (router *Router) SetRootProxy(proxyLocation string, requireTLS bool) error {
 	if proxyLocation[len(proxyLocation)-1:] == "/" {
@@ -175,7 +175,7 @@ func (router *Router) SetRootProxy(proxyLocation string, requireTLS bool) error 
 	return nil
 }
 
-//Do all the main routing in here
+// Do all the main routing in here
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(r.Host, ".") {
 		//This might be a subdomain. See if there are any subdomain proxy router for this

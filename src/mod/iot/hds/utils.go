@@ -3,13 +3,15 @@ package hds
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func isJSON(s string) bool {
@@ -46,7 +48,7 @@ func tryGetHDSUUID(ip string) (string, error) {
 		return "", err
 	}
 
-	log.Println(ip, uuid)
+	logger.PrintAndLog("Hds", fmt.Sprint(ip, uuid), nil)
 	return uuid, nil
 }
 

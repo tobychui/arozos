@@ -18,7 +18,7 @@ type token struct {
 	CreationTime int64
 }
 
-//Create a new token based on the given HTTP request
+// Create a new token based on the given HTTP request
 func (a *AuthAgent) NewTokenFromRequest(w http.ResponseWriter, r *http.Request) (string, error) {
 	if !a.CheckAuth(r) {
 		return "", errors.New("User not logged in")
@@ -32,7 +32,7 @@ func (a *AuthAgent) NewTokenFromRequest(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-//Generate and return a new token that will be valid for the given time
+// Generate and return a new token that will be valid for the given time
 func (a *AuthAgent) NewToken(owner string) string {
 	//Generate a new token
 	newToken := uuid.NewV4().String()
@@ -47,7 +47,7 @@ func (a *AuthAgent) NewToken(owner string) string {
 	return newToken
 }
 
-//Get the token owner from the given token
+// Get the token owner from the given token
 func (a *AuthAgent) GetTokenOwner(tokenString string) (string, error) {
 	if val, ok := a.tokenStore.Load(tokenString); ok {
 		return val.(token).Owner, nil
@@ -56,7 +56,7 @@ func (a *AuthAgent) GetTokenOwner(tokenString string) (string, error) {
 	}
 }
 
-//validate if the given token is valid
+// validate if the given token is valid
 func (a *AuthAgent) TokenValid(tokenString string) bool {
 	//Check if the token validation is disabled
 	if a.ExpireTime == 0 {
@@ -79,7 +79,7 @@ func (a *AuthAgent) TokenValid(tokenString string) bool {
 	return false
 }
 
-//Run a token store scan and remove all expired tokens
+// Run a token store scan and remove all expired tokens
 func (a *AuthAgent) ClearTokenStore() {
 	currentTime := time.Now().Unix()
 	a.tokenStore.Range(func(k interface{}, v interface{}) bool {

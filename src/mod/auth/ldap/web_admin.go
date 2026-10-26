@@ -16,8 +16,8 @@ func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 	//basic components
 	enabled, err := strconv.ParseBool(ldap.readSingleConfig("enabled"))
 	if err != nil {
-		utils.SendTextResponse(w, "Invalid config value [key=enabled].")
-		return
+		// Default to false when the key has never been persisted.
+		enabled = false
 	}
 	//get the LDAP config from db
 	BindUsername := ldap.readSingleConfig("BindUsername")

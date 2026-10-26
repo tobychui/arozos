@@ -15,7 +15,7 @@ import (
 	The function implement here should have no effect to the core operation of the iot hub nor the iot pipeline.
 */
 
-//Handle the set and get nickname of a particular IoT device
+// Handle the set and get nickname of a particular IoT device
 func (m *Manager) HandleNickName(w http.ResponseWriter, r *http.Request) {
 	opr, err := utils.PostPara(r, "opr")
 	if err != nil {

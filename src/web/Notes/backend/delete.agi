@@ -1,0 +1,56 @@
+/*
+    Notes - Delete a note and update metadata
+    POST: noteId (string)
+*/
+requirelib("filelib");
+
+var metaPath = "user:/Document/Notes/meta.json";
+var notesDir = "user:/Document/Notes";
+
+// Validate noteId
+var safeId = noteId.replace(/[^a-zA-Z0-9_-]/g, "");
+if (safeId.length === 0 || safeId !== noteId) {
+    sendJSONResp({ error: "Invalid note ID" });
+} else {
+    var notePath = notesDir + "/" + safeId + ".txt";
+
+    // Delete the note file if it exists
+    if (filelib.fileExists(notePath)) {
+        filelib.deleteFile(notePath);
+    }
+
+    // Update metadata
+    var meta = { lastOpened: "", theme: "dark", notes: [] };
+    if (filelib.fileExists(metaPath)) {
+        try {
+            var raw    = filelib.readFile(metaPath);
+            var parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object") {
+                meta = parsed;
+            }
+            if (!meta.notes) meta.notes = [];
+        } catch (e) {}
+    }
+
+    // Remove the deleted note from the metadata list
+    var remaining = [];
+    for (var i = 0; i < meta.notes.length; i++) {
+        if (meta.notes[i].id !== safeId) {
+            remaining.push(meta.notes[i]);
+        }
+    }
+    meta.notes = remaining;
+
+    // Pick next note to open (most recently updated)
+    if (meta.lastOpened === safeId) {
+        var nextId = "";
+        if (remaining.length > 0) {
+            remaining.sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+            nextId = remaining[0].id;
+        }
+        meta.lastOpened = nextId;
+    }
+
+    filelib.writeFile(metaPath, JSON.stringify(meta));
+    sendJSONResp({ ok: true, nextId: meta.lastOpened });
+}

@@ -1,0 +1,185 @@
+<!-- Mobile UX Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
+<style>
+#mux-root {
+    --mux-text:   #1a1a1a;
+    --mux-dim:    #5a5a5a;
+    --mux-muted:  #9a9a9a;
+    --mux-border: rgba(0,0,0,0.10);
+    --mux-green:  #107c10;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    color: var(--mux-text);
+    padding: 4px 0 32px;
+}
+body.dark #mux-root {
+    --mux-text:   #f0f0f0;
+    --mux-dim:    #b0b0b0;
+    --mux-muted:  #808080;
+    --mux-border: rgba(255,255,255,0.10);
+}
+#mux-root h3.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--mux-text);
+    margin: 0 0 4px;
+}
+#mux-root .section-desc {
+    font-size: 12px;
+    color: var(--mux-muted);
+    margin: 0 0 12px;
+}
+#mux-root .mux-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--mux-border);
+}
+#mux-root .mux-section:last-child { border-bottom: none; }
+#mux-root .shortcut-label {
+    font-size: 12px;
+    color: var(--mux-dim);
+    margin-bottom: 4px;
+}
+#mux-root .shortcut-row { margin-bottom: 10px; }
+#mux-root .btn {
+    padding: 5px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--mux-border);
+    background: var(--mux-green);
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+}
+#mux-root .btn:hover { opacity: 0.85; }
+#mux-root .confirm-msg {
+    display: none;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(16,124,16,0.1);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--mux-green);
+}
+body.dark #mux-root .confirm-msg { background: rgba(16,124,16,0.15); }
+body.dark #mux-root .ui.selection.dropdown {
+    background: #3a3a3a;
+    border-color: rgba(255,255,255,0.15);
+    color: #f0f0f0;
+}
+body.dark #mux-root .ui.dropdown .menu {
+    background: #3a3a3a;
+    border-color: rgba(255,255,255,0.15);
+}
+body.dark #mux-root .ui.dropdown .menu .item {
+    color: #f0f0f0;
+    border-top-color: rgba(255,255,255,0.08);
+}
+body.dark #mux-root .ui.dropdown .menu .item:hover {
+    background: rgba(255,255,255,0.08);
+}
+</style>
+
+<div id="mux-root">
+    <div class="mux-section">
+        <h3 class="section-title" locale="mux/title">Mobile Desktop Shortcuts</h3>
+        <p class="section-desc" locale="mux/desc">Choose the four quick-launch shortcuts shown on the mobile desktop interface, ordered from left to right.</p>
+
+        <div class="shortcut-row">
+            <div class="shortcut-label" locale="mux/sc1">Shortcut 1</div>
+            <div class="ui fluid search selection mux-dropbox dropdown">
+                <input type="hidden" id="mux-sc1">
+                <i class="dropdown icon"></i>
+                <div class="default text" locale="mux/sc1">Shortcut 1</div>
+                <div class="mux-applist menu"></div>
+            </div>
+        </div>
+        <div class="shortcut-row">
+            <div class="shortcut-label" locale="mux/sc2">Shortcut 2</div>
+            <div class="ui fluid search selection mux-dropbox dropdown">
+                <input type="hidden" id="mux-sc2">
+                <i class="dropdown icon"></i>
+                <div class="default text" locale="mux/sc2">Shortcut 2</div>
+                <div class="mux-applist menu"></div>
+            </div>
+        </div>
+        <div class="shortcut-row">
+            <div class="shortcut-label" locale="mux/sc3">Shortcut 3</div>
+            <div class="ui fluid search selection mux-dropbox dropdown">
+                <input type="hidden" id="mux-sc3">
+                <i class="dropdown icon"></i>
+                <div class="default text" locale="mux/sc3">Shortcut 3</div>
+                <div class="mux-applist menu"></div>
+            </div>
+        </div>
+        <div class="shortcut-row">
+            <div class="shortcut-label" locale="mux/sc4">Shortcut 4</div>
+            <div class="ui fluid search selection mux-dropbox dropdown">
+                <input type="hidden" id="mux-sc4">
+                <i class="dropdown icon"></i>
+                <div class="default text" locale="mux/sc4">Shortcut 4</div>
+                <div class="mux-applist menu"></div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="muxSaveShortcuts()">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 8.5L6 12.5L14 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span locale="mux/save">Save Shortcuts</span>
+        </button>
+        <div id="mux-save-confirm" class="confirm-msg"><span locale="mux/saved">Shortcuts saved. Open the mobile interface to see the changes.</span></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var muxLocale = NewAppLocale();
+
+    muxLocale.init("../locale/system_settings/desktop.json", function () {
+        muxLocale.translate();
+        muxLoadModules();
+    });
+
+    function muxReadPref(key, cb) {
+        $.ajax({ url: "../../system/desktop/preference", method: "POST",
+            data: { preference: key }, success: function (d) { if (cb) cb(d); } });
+    }
+
+    function muxWritePref(key, value) {
+        $.ajax({ url: "../../system/desktop/preference", method: "POST",
+            data: { preference: key, value: value } });
+    }
+
+    function muxLoadModules() {
+        $.get("../../system/modules/list", function (data) {
+            $(".mux-applist").html("");
+            data.forEach(function (app) {
+                if (app.Group !== "Interface Module" && app.Group !== "IME" && app.StartDir !== "") {
+                    $(".mux-applist").append('<div class="item" data-value="' + app.Name + '">' + app.Name + '</div>');
+                }
+            });
+
+            $(".mux-dropbox").dropdown();
+
+            muxReadPref("ao/mobile/shorcut/1", function (v) { if (v) { $("#mux-sc1").val(v); $("#mux-sc1").parent().dropdown("set selected", v); } });
+            muxReadPref("ao/mobile/shorcut/2", function (v) { if (v) { $("#mux-sc2").val(v); $("#mux-sc2").parent().dropdown("set selected", v); } });
+            muxReadPref("ao/mobile/shorcut/3", function (v) { if (v) { $("#mux-sc3").val(v); $("#mux-sc3").parent().dropdown("set selected", v); } });
+            muxReadPref("ao/mobile/shorcut/4", function (v) { if (v) { $("#mux-sc4").val(v); $("#mux-sc4").parent().dropdown("set selected", v); } });
+        });
+    }
+
+    window.muxSaveShortcuts = function () {
+        var sc1 = $("#mux-sc1").val();
+        var sc2 = $("#mux-sc2").val();
+        var sc3 = $("#mux-sc3").val();
+        var sc4 = $("#mux-sc4").val();
+        if (sc1) muxWritePref("ao/mobile/shorcut/1", sc1);
+        if (sc2) muxWritePref("ao/mobile/shorcut/2", sc2);
+        if (sc3) muxWritePref("ao/mobile/shorcut/3", sc3);
+        if (sc4) muxWritePref("ao/mobile/shorcut/4", sc4);
+        $("#mux-save-confirm").stop(true).finish().slideDown("fast").delay(3000).slideUp("fast", function () {
+            if (ao_module_virtualDesktop && parent.initShortcuts) parent.initShortcuts();
+        });
+    };
+}());
+</script>

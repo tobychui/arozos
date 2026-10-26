@@ -1,0 +1,210 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "addAndRemove/installTitle": "安裝新 WebApp",
+                "addAndRemove/installFromFS": "從檔案系統安裝",
+                "addAndRemove/browse": "瀏覽",
+                "addAndRemove/install": "安裝",
+                "addAndRemove/uploadAndInstall": "上傳並安裝",
+                "addAndRemove/dropPre": "將 <b>.zip</b> 檔案拖放至此進行安裝，或",
+                "addAndRemove/dropClickBrowse": "點擊選取檔案",
+                "addAndRemove/uploading": "上傳並安裝中…",
+                "addAndRemove/installedWebApps": "已安裝的 WebApp",
+                "addAndRemove/loading": "載入中…",
+                "addAndRemove/noWebApps": "尚未安裝任何 WebApp。",
+                "addAndRemove/systemApps": "系統應用程式",
+                "addAndRemove/installing": "安裝中…",
+                "addAndRemove/installOk": "WebApp 安裝成功。",
+                "addAndRemove/installFail": "安裝失敗，請查看伺服器記錄檔。",
+                "addAndRemove/zipOnly": "僅支援 .zip 格式的檔案。",
+                "addAndRemove/uploadFail": "上傳失敗。",
+                "addAndRemove/locationKey": "位置",
+                "addAndRemove/lastUpdateKey": "最後更新",
+                "addAndRemove/sizeKey": "大小",
+                "addAndRemove/closeBtn": "關閉",
+                "addAndRemove/deleteAppBtn": "刪除應用程式",
+                "addAndRemove/confirmRemove": "確定要永久移除「{name}」？\n此操作無法復原。",
+                "addAndRemove/removedOk": "「{name}」已成功移除。",
+                "addAndRemove/removeFail": "移除失敗。"
+            },
+            "placeholder": {
+                "addAndRemove/zipPlaceholder": "從儲存空間中選取 .zip 檔案…"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "addAndRemove/installTitle": "安裝新 WebApp",
+                "addAndRemove/installFromFS": "從檔案系統安裝",
+                "addAndRemove/browse": "瀏覽",
+                "addAndRemove/install": "安裝",
+                "addAndRemove/uploadAndInstall": "上傳並安裝",
+                "addAndRemove/dropPre": "將 <b>.zip</b> 檔案拖放至此安裝，或",
+                "addAndRemove/dropClickBrowse": "點擊選取檔案",
+                "addAndRemove/uploading": "上傳並安裝中…",
+                "addAndRemove/installedWebApps": "已安裝的 WebApp",
+                "addAndRemove/loading": "載入中…",
+                "addAndRemove/noWebApps": "未安裝任何 WebApp。",
+                "addAndRemove/systemApps": "系統應用程式",
+                "addAndRemove/installing": "安裝中…",
+                "addAndRemove/installOk": "WebApp 安裝成功。",
+                "addAndRemove/installFail": "安裝失敗，請查看伺服器記錄檔。",
+                "addAndRemove/zipOnly": "僅支援 .zip 格式的檔案。",
+                "addAndRemove/uploadFail": "上傳失敗。",
+                "addAndRemove/locationKey": "位置",
+                "addAndRemove/lastUpdateKey": "最後更新",
+                "addAndRemove/sizeKey": "大小",
+                "addAndRemove/closeBtn": "關閉",
+                "addAndRemove/deleteAppBtn": "刪除應用程式",
+                "addAndRemove/confirmRemove": "確定要永久移除「{name}」？\n此操作無法復原。",
+                "addAndRemove/removedOk": "「{name}」已成功移除。",
+                "addAndRemove/removeFail": "移除失敗。"
+            },
+            "placeholder": {
+                "addAndRemove/zipPlaceholder": "從儲存空間中選取 .zip 檔案…"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
+            "strings": {
+                "addAndRemove/installTitle": "安装新 WebApp",
+                "addAndRemove/installFromFS": "从文件系统安装",
+                "addAndRemove/browse": "浏览",
+                "addAndRemove/install": "安装",
+                "addAndRemove/uploadAndInstall": "上传并安装",
+                "addAndRemove/dropPre": "将 <b>.zip</b> 文件拖放至此进行安装，或",
+                "addAndRemove/dropClickBrowse": "点击选取文件",
+                "addAndRemove/uploading": "正在上传并安装…",
+                "addAndRemove/installedWebApps": "已安装的 WebApp",
+                "addAndRemove/loading": "加载中…",
+                "addAndRemove/noWebApps": "暂未安装任何 WebApp。",
+                "addAndRemove/systemApps": "系统应用",
+                "addAndRemove/installing": "安装中…",
+                "addAndRemove/installOk": "WebApp 安装成功。",
+                "addAndRemove/installFail": "安装失败，请查看服务器日志。",
+                "addAndRemove/zipOnly": "仅支持 .zip 格式的文件。",
+                "addAndRemove/uploadFail": "上传失败。",
+                "addAndRemove/locationKey": "位置",
+                "addAndRemove/lastUpdateKey": "最后更新",
+                "addAndRemove/sizeKey": "大小",
+                "addAndRemove/closeBtn": "关闭",
+                "addAndRemove/deleteAppBtn": "删除应用",
+                "addAndRemove/confirmRemove": "确定要永久删除\"{name}\"？\n此操作无法撤销。",
+                "addAndRemove/removedOk": "\"{name}\"已成功删除。",
+                "addAndRemove/removeFail": "删除失败。"
+            },
+            "placeholder": {
+                "addAndRemove/zipPlaceholder": "从存储空间中选取 .zip 文件…"
+            }
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "addAndRemove/installTitle": "Install New WebApp",
+                "addAndRemove/installFromFS": "Install from File System",
+                "addAndRemove/browse": "Browse",
+                "addAndRemove/install": "Install",
+                "addAndRemove/uploadAndInstall": "Upload &amp; Install",
+                "addAndRemove/dropPre": "Drop a <b>.zip</b> file here to install, or ",
+                "addAndRemove/dropClickBrowse": "click to browse",
+                "addAndRemove/uploading": "Uploading and installing…",
+                "addAndRemove/installedWebApps": "Installed WebApps",
+                "addAndRemove/loading": "Loading…",
+                "addAndRemove/noWebApps": "No WebApps installed.",
+                "addAndRemove/systemApps": "System Apps",
+                "addAndRemove/installing": "Installing…",
+                "addAndRemove/installOk": "WebApp installed successfully.",
+                "addAndRemove/installFail": "Installation failed. Check server logs.",
+                "addAndRemove/zipOnly": "Only .zip files are supported.",
+                "addAndRemove/uploadFail": "Upload failed.",
+                "addAndRemove/locationKey": "Location",
+                "addAndRemove/lastUpdateKey": "Last update",
+                "addAndRemove/sizeKey": "Size",
+                "addAndRemove/closeBtn": "Close",
+                "addAndRemove/deleteAppBtn": "Delete App",
+                "addAndRemove/confirmRemove": "Permanently remove \"{name}\"?\nThis cannot be undone.",
+                "addAndRemove/removedOk": "\"{name}\" removed successfully.",
+                "addAndRemove/removeFail": "Removal failed."
+            },
+            "placeholder": {
+                "addAndRemove/zipPlaceholder": "Select a .zip file from your storage…"
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "addAndRemove/installTitle": "新しい WebApp をインストール",
+                "addAndRemove/installFromFS": "ファイルシステムからインストール",
+                "addAndRemove/browse": "参照",
+                "addAndRemove/install": "インストール",
+                "addAndRemove/uploadAndInstall": "アップロードしてインストール",
+                "addAndRemove/dropPre": "<b>.zip</b> ファイルをここにドロップしてインストール、または",
+                "addAndRemove/dropClickBrowse": "クリックして選択",
+                "addAndRemove/uploading": "アップロードとインストール中…",
+                "addAndRemove/installedWebApps": "インストール済み WebApp",
+                "addAndRemove/loading": "読み込み中…",
+                "addAndRemove/noWebApps": "WebApp はインストールされていません。",
+                "addAndRemove/systemApps": "システムアプリ",
+                "addAndRemove/installing": "インストール中…",
+                "addAndRemove/installOk": "WebApp のインストールに成功しました。",
+                "addAndRemove/installFail": "インストールに失敗しました。サーバーログを確認してください。",
+                "addAndRemove/zipOnly": ".zip ファイルのみ対応しています。",
+                "addAndRemove/uploadFail": "アップロードに失敗しました。",
+                "addAndRemove/locationKey": "場所",
+                "addAndRemove/lastUpdateKey": "最終更新",
+                "addAndRemove/sizeKey": "サイズ",
+                "addAndRemove/closeBtn": "閉じる",
+                "addAndRemove/deleteAppBtn": "アプリを削除",
+                "addAndRemove/confirmRemove": "「{name}」を完全に削除しますか？\nこの操作は元に戻せません。",
+                "addAndRemove/removedOk": "「{name}」を正常に削除しました。",
+                "addAndRemove/removeFail": "削除に失敗しました。"
+            },
+            "placeholder": {
+                "addAndRemove/zipPlaceholder": "ストレージから .zip ファイルを選択…"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
+            "strings": {
+                "addAndRemove/installTitle": "새 WebApp 설치",
+                "addAndRemove/installFromFS": "파일 시스템에서 설치",
+                "addAndRemove/browse": "찾아보기",
+                "addAndRemove/install": "설치",
+                "addAndRemove/uploadAndInstall": "업로드 및 설치",
+                "addAndRemove/dropPre": "<b>.zip</b> 파일을 여기에 끌어다 놓거나",
+                "addAndRemove/dropClickBrowse": "클릭하여 선택",
+                "addAndRemove/uploading": "업로드 및 설치 중…",
+                "addAndRemove/installedWebApps": "설치된 WebApp",
+                "addAndRemove/loading": "로딩 중…",
+                "addAndRemove/noWebApps": "설치된 WebApp이 없습니다.",
+                "addAndRemove/systemApps": "시스템 앱",
+                "addAndRemove/installing": "설치 중…",
+                "addAndRemove/installOk": "WebApp이 성공적으로 설치되었습니다.",
+                "addAndRemove/installFail": "설치에 실패했습니다. 서버 로그를 확인하세요.",
+                "addAndRemove/zipOnly": ".zip 파일만 지원됩니다.",
+                "addAndRemove/uploadFail": "업로드에 실패했습니다.",
+                "addAndRemove/locationKey": "위치",
+                "addAndRemove/lastUpdateKey": "마지막 업데이트",
+                "addAndRemove/sizeKey": "크기",
+                "addAndRemove/closeBtn": "닫기",
+                "addAndRemove/deleteAppBtn": "앱 삭제",
+                "addAndRemove/confirmRemove": "\"{name}\"을(를) 영구적으로 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.",
+                "addAndRemove/removedOk": "\"{name}\"이(가) 성공적으로 삭제되었습니다.",
+                "addAndRemove/removeFail": "삭제에 실패했습니다."
+            },
+            "placeholder": {
+                "addAndRemove/zipPlaceholder": "저장소에서 .zip 파일을 선택…"
+            }
+        }
+    }
+}

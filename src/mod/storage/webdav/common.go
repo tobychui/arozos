@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -107,7 +109,8 @@ func isDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		log.Fatal(err)
+		logger.PrintAndLog("Webdav", fmt.Sprint(err), nil)
+		os.Exit(1)
 		return false
 	}
 	switch mode := fi.Mode(); {

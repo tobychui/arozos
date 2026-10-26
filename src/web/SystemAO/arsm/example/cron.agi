@@ -1,0 +1,69 @@
+/*
+    cron.agi — Background scheduler script template
+    ================================================
+    Place this file in your webapp's root folder (same level as init.agi).
+    The ArOZ Task Scheduler will call it at the interval chosen by the user.
+
+    This script runs with the permissions of the user who approved the scheduler,
+    so all file-system and database operations are scoped to that user.
+
+    Available libraries (load with requirelib):
+        filelib   — file system operations
+        http      — make outbound HTTP requests
+        share     — file sharing
+        sysinfo   — CPU / RAM / network usage
+
+    Standard globals available without requirelib:
+        USERNAME          — the owning user's username
+        EXECUTION_ID      — UUIDv4 unique to this invocation (useful for logging)
+        USERQUOTA_TOTAL   — total storage quota in bytes
+        BUILD_VERSION     — ArOZ build version string
+        __FILE__          — real path of this script
+
+    Persistent per-user storage:
+        Use the built-in system DB functions — NOT the appdata library
+        (appdata is read-only access to static web files).
+
+        newDBTableIfNotExists(table)
+        writeDBItem(table, key, value)
+        readDBItem(table, key)     → string or ""
+
+    Return a value with sendOK() / sendResp() / sendJSONResp().
+*/
+
+// ── Example: hourly housekeeping for "MyApp" ─────────────────────────────────
+
+requirelib("filelib");
+
+var APP_NAME = "MyApp";
+
+// ── 1. Persist run stats so the frontend can display them ────────────────────
+var TABLE = APP_NAME + "/" + USERNAME;
+newDBTableIfNotExists(TABLE);
+
+writeDBItem(TABLE, "lastRun", new Date().toISOString());
+
+var count = parseInt(readDBItem(TABLE, "runCount") || "0", 10);
+writeDBItem(TABLE, "runCount", String(count + 1));
+
+// EXECUTION_ID appears in the scheduler log, making it easy to correlate
+// this log line with the matching entry in system/aecron/<date>.log
+console.log("[" + EXECUTION_ID + "] " + APP_NAME + " tick — user=" + USERNAME + " run=" + (count + 1));
+
+// ── 2. Example: remove temp files older than 7 days ──────────────────────────
+var tmpDir = "user:/AppData/" + APP_NAME + "/tmp/";
+var cutoff = (Date.now() / 1000) - (7 * 86400);   // 7 days ago in unix seconds
+
+if (filelib.fileExists(tmpDir)) {
+    var files = filelib.aglob(tmpDir + "*");
+    if (files) {
+        for (var i = 0; i < files.length; i++) {
+            var mtime = filelib.mtime(files[i]);
+            if (mtime && mtime < cutoff) {
+                filelib.deleteFile(files[i]);
+            }
+        }
+    }
+}
+
+sendOK();

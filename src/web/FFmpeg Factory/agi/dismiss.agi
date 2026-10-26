@@ -1,0 +1,21 @@
+/*
+    FFmpeg Factory - Dismiss Task
+    Removes the task file and its associated progress file from the server.
+
+    Expected POST parameter:
+      id - the task ID to dismiss
+*/
+requirelib("filelib");
+
+if (typeof id === "undefined" || id === "" || id === "undefined") {
+    sendJSONResp(JSON.stringify({ error: "missing_id" }));
+} else {
+    var taskDir      = "tmp:/ffmpeg_factory";
+    var taskFile     = taskDir + "/" + id + ".task.json";
+    var progressFile = taskDir + "/" + id + ".progress.json";
+
+    if (filelib.fileExists(taskFile))     { filelib.deleteFile(taskFile); }
+    if (filelib.fileExists(progressFile)) { filelib.deleteFile(progressFile); }
+
+    sendJSONResp(JSON.stringify({ success: true }));
+}

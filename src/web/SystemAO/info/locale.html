@@ -1,80 +1,416 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title locale="locale/language-setting-title">Locale</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <script type="application/javascript" src="../../script/clipboard.min.js"></script>
-    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
+    <style>
+/* ─── Scoped to #lc-root ─── */
+#lc-root {
+    --lc-text:        #1d1d1f;
+    --lc-dim:         #6e6e73;
+    --lc-muted:       #98989d;
+    --lc-divider:     #d2d2d7;
+    --lc-hover:       rgba(0,0,0,0.045);
+    --lc-active:      rgba(0,0,0,0.09);
+    --lc-accent:      #0071e3;
+    --lc-soft:        #f5f5f7;
+    --lc-bg:          #f3f3f3;
+    --lc-card-bg:     #f5f5f7;
+    --lc-card-border: #e5e5ea;
+    --lc-shadow:      rgba(0,0,0,0.10);
+    --lc-success-bg:  rgba(52,199,89,0.11);
+    --lc-success-text:#248a3d;
+    --lc-progress-bg: #e5e5ea;
 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--lc-text);
+    background: var(--lc-bg);
+    border-radius: 0.6em;
+}
+
+#lc-root.dark {
+    --lc-text:        #f0f0f0;
+    --lc-dim:         #a0a0a5;
+    --lc-muted:       #636368;
+    --lc-divider:     #3a3a3c;
+    --lc-hover:       rgba(255,255,255,0.06);
+    --lc-active:      rgba(255,255,255,0.12);
+    --lc-accent:      #2997ff;
+    --lc-soft:        #1c1c1e;
+    --lc-bg:          #1f1f1f;
+    --lc-card-bg:     #3a3a3c;
+    --lc-card-border: #48484a;
+    --lc-shadow:      rgba(0,0,0,0.45);
+    --lc-success-bg:  rgba(52,199,89,0.14);
+    --lc-success-text:#30d158;
+    --lc-progress-bg: #48484a;
+}
+
+/* Page wrapper */
+#lc-page {
+    padding: 16px 0 24px;
+}
+
+/* Section labels */
+.lc-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--lc-muted);
+    padding: 0 16px;
+    margin: 18px 0 6px;
+}
+
+/* List card */
+.lc-list {
+    border: 1px solid var(--lc-divider);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 12px 6px;
+    background: var(--lc-bg);
+}
+.lc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--lc-divider);
+    gap: 12px;
+}
+.lc-row:last-child { border-bottom: none; }
+.lc-row-label {
+    font-size: 13px;
+    color: var(--lc-text);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.lc-row-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* Select */
+#lc-language-select {
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--lc-dim);
+    background: var(--lc-card-bg);
+    border: 1px solid var(--lc-card-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+    max-width: 200px;
+}
+#lc-language-select:focus { border-color: var(--lc-accent); }
+
+/* Update button */
+#lc-update-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+    background: var(--lc-accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.1s;
+    outline: none;
+    white-space: nowrap;
+}
+#lc-update-btn:hover  { opacity: 0.85; }
+#lc-update-btn:active { opacity: 0.70; }
+
+/* Toast */
+#lc-toast {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin: 0 12px 6px;
+    padding: 9px 14px;
+    background: var(--lc-success-bg);
+    color: var(--lc-success-text);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid currentColor;
+    opacity: 0.85;
+}
+
+/* Coverage table */
+.lc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.lc-table thead tr {
+    border-bottom: 1px solid var(--lc-divider);
+}
+.lc-table th {
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--lc-muted);
+    padding: 8px 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.lc-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--lc-divider);
+    vertical-align: middle;
+}
+.lc-table tbody tr:last-child td { border-bottom: none; }
+.lc-code-cell {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11px;
+    color: var(--lc-muted);
+    white-space: nowrap;
+    width: 56px;
+}
+.lc-name-cell {
+    font-size: 13px;
+    color: var(--lc-text);
+    white-space: nowrap;
+}
+.lc-bar-cell {
+    width: 120px;
+    min-width: 80px;
+}
+.lc-bar-wrap {
+    height: 5px;
+    border-radius: 3px;
+    background: var(--lc-progress-bg);
+    overflow: hidden;
+}
+.lc-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+.lc-bar-fill.low    { background: #ff3b30; }
+.lc-bar-fill.medium { background: #ff9f0a; }
+.lc-bar-fill.high   { background: #34c759; }
+#lc-root.dark .lc-bar-fill.low    { background: #ff453a; }
+#lc-root.dark .lc-bar-fill.medium { background: #ffd60a; }
+#lc-root.dark .lc-bar-fill.high   { background: #30d158; }
+.lc-pct-cell {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    width: 44px;
+}
+.lc-pct-low    { color: #ff3b30; }
+.lc-pct-medium { color: #ff9f0a; }
+.lc-pct-high   { color: #248a3d; }
+#lc-root.dark .lc-pct-high { color: #30d158; }
+.lc-files-cell {
+    color: var(--lc-muted);
+    font-size: 11.5px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Skeleton loading */
+.lc-skeleton-row td { padding: 10px; }
+.lc-skeleton-bar {
+    height: 11px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--lc-divider) 25%, var(--lc-hover) 50%, var(--lc-divider) 75%);
+    background-size: 200% 100%;
+    animation: lc-shimmer 1.4s infinite;
+}
+@keyframes lc-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Contribute row */
+#lc-contribute {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--lc-dim);
+}
+#lc-contribute a {
+    color: var(--lc-accent);
+    font-weight: 500;
+    text-decoration: none;
+}
+#lc-contribute a:hover { text-decoration: underline; }
+
+@media (max-width: 480px) {
+    .lc-bar-cell { display: none; }
+}
+    </style>
 </head>
 
-<body>
-    <div class="ui container">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <i class="translate icon"></i>
-                <div class="content">
-                    <span locale="locale/language-setting-title">Language setting</span>
-                    <div class="sub header" locale="locale/language-setting-description">You can change the display language here.<br> The language setting will only affect the current computer.</div>
-                </div>
+<body style="background:transparent; margin:0; padding:0;">
+<div id="lc-root">
+<div id="lc-page">
+
+    <!-- Toast -->
+    <div id="lc-toast">
+        <span>✓</span>
+        <span locale="locale/setting-updated-title">Setting Updated. Please sign out to apply these changes.</span>
+    </div>
+
+    <!-- Language selector -->
+    <div class="lc-section-label" locale="locale/display-language-label">Display Language</div>
+    <div class="lc-list">
+        <div class="lc-row">
+            <span class="lc-row-label" locale="locale/display-language-label">Display Language</span>
+            <div class="lc-row-right">
+                <select id="lc-language-select">
+                    <option value="default" locale="locale/browser-default">Browser Default</option>
+                </select>
+                <button id="lc-update-btn" onclick="lcUpdate()" locale="locale/update-button">Update</button>
             </div>
-        </div>
-        <div class="ui divider"></div>
-        <div class="ui green inverted segment" style="display:none;" id="updateSet">
-            <h5 class="ui header">
-                <i class="checkmark icon"></i>
-                <div class="content">
-                    <span locale="locale/setting-updated-title">Setting Updated. Please sign out to apply these changes.</span>
-                </div>
-            </h5>
-        </div>
-        <div class="ui form">
-            <div class="field">
-                <label locale="locale/display-language-label">Display language</label>
-                <div class="ui selection dropdown">
-                    <input id="language" type="hidden" name="language">
-                    <i class="dropdown icon"></i>
-                    <div class="default text" locale="locale/language-default-text">Language</div>
-                    <div class="menu" id="langlist">
-                        <div class="item" data-value="default" locale="locale/browser-default">Browser Default</div>
-                    </div>
-                </div>
-            </div>
-            <button id="ntb" onclick="update();" class="ui green button" type="submit" locale="locale/update-button">Update</button>
         </div>
     </div>
-    <script>
-        var languageLocale = NewAppLocale();
-        languageLocale.init("../locale/system_settings/locale.json", function(){
-            languageLocale.translate();
-        });
 
+    <!-- Language coverage -->
+    <div class="lc-section-label" locale="locale/language-coverage-title">Language Coverage</div>
+    <div class="lc-list" id="lc-coverage-card">
+        <table class="lc-table" id="lc-coverage-table">
+            <thead>
+                <tr>
+                    <th locale="locale/lang-col-code">Code</th>
+                    <th locale="locale/lang-col-name">Language</th>
+                    <th class="lc-bar-cell"></th>
+                    <th locale="locale/lang-col-coverage">Coverage</th>
+                    <th locale="locale/lang-col-files">Files</th>
+                </tr>
+            </thead>
+            <tbody id="lc-coverage-tbody">
+                <!-- skeleton rows -->
+                <tr class="lc-skeleton-row"><td><div class="lc-skeleton-bar" style="width:40px"></div></td><td><div class="lc-skeleton-bar" style="width:120px"></div></td><td class="lc-bar-cell"></td><td><div class="lc-skeleton-bar" style="width:36px"></div></td><td><div class="lc-skeleton-bar" style="width:28px"></div></td></tr>
+                <tr class="lc-skeleton-row"><td><div class="lc-skeleton-bar" style="width:40px"></div></td><td><div class="lc-skeleton-bar" style="width:90px"></div></td><td class="lc-bar-cell"></td><td><div class="lc-skeleton-bar" style="width:36px"></div></td><td><div class="lc-skeleton-bar" style="width:28px"></div></td></tr>
+                <tr class="lc-skeleton-row"><td><div class="lc-skeleton-bar" style="width:40px"></div></td><td><div class="lc-skeleton-bar" style="width:110px"></div></td><td class="lc-bar-cell"></td><td><div class="lc-skeleton-bar" style="width:36px"></div></td><td><div class="lc-skeleton-bar" style="width:28px"></div></td></tr>
+            </tbody>
+        </table>
+        <!-- Contributors row -->
+        <div class="lc-row" id="lc-contributors" style="display:none;">
+            <span class="lc-row-label" locale="locale/lang-contributors">Contributors</span>
+            <span style="font-size:12.5px;color:var(--lc-dim);text-align:right;" id="lc-contributors-list"></span>
+        </div>
+        <!-- Contribute link row -->
+        <div class="lc-row">
+            <div id="lc-contribute">
+                <span locale="locale/lang-contribute-text">Want to help translate ArozOS?</span>
+                <a href="https://github.com/tobychui/arozos/tree/master/src/web/SystemAO/locale" id="lc-contribute-link" locale="locale/lang-contribute-link" target="_blank">Contribute Translations →</a>
+            </div>
+        </div>
+    </div>
 
-        $("#language").val(localStorage.getItem('global_language'));
-        $('.selection.dropdown').dropdown();
+</div>
+</div>
 
-        function update() {
-            localStorage.setItem('global_language', $("#language").val());
-            $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
+<script>
+    /* ── Locale ── */
+    var lcLocale = NewAppLocale();
+    lcLocale.init("../locale/system_settings/locale.json", function() {
+        lcLocale.translate();
+    });
+
+    /* ── Theme detection ── */
+    (function() {
+        if (typeof(preferredTheme) != "undefined" && preferredTheme === "dark") {
+            document.getElementById('lc-root').classList.add('dark');
+            return;
+        }
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    document.getElementById('lc-root').classList.toggle('dark', c !== 'whiteTheme');
+                });
+            } else if (typeof preferredTheme !== 'undefined') {
+                document.getElementById('lc-root').classList.toggle('dark',
+                    preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+            }
+        } catch(e) {}
+    })();
+
+    window.detailPageThemeCallback = function(isDark) {
+        document.getElementById('lc-root').classList.toggle('dark', isDark);
+    };
+
+    /* ── Restore saved language ── */
+    var savedLang = localStorage.getItem('global_language');
+    if (savedLang) {
+        $('#lc-language-select').val(savedLang);
+    }
+
+    /* ── Populate language dropdown from file_explorer.json ── */
+    $.getJSON("../locale/file_explorer.json", function(data) {
+        for (var key in data.keys) {
+            if (!data.keys.hasOwnProperty(key)) continue;
+            var langName = data.keys[key].name || key;
+            var opt = $('<option></option>').val(key).text(langName);
+            if (key === savedLang) opt.prop('selected', true);
+            $('#lc-language-select').append(opt);
+        }
+    });
+
+    /* ── Update handler ── */
+    function lcUpdate() {
+        var val = $('#lc-language-select').val();
+        localStorage.setItem('global_language', val);
+        var toast = $('#lc-toast');
+        toast.css('display', 'flex').hide().fadeIn(200).delay(3500).fadeOut(400);
+    }
+
+    /* ── Coverage table ── */
+    function lcBarClass(pct) {
+        if (pct >= 75) return 'high';
+        if (pct >= 40) return 'medium';
+        return 'low';
+    }
+
+    $.getJSON("../../system/info/getLocaleInfo", function(data) {
+        var tbody = $('#lc-coverage-tbody');
+        tbody.empty();
+
+        if (!data.languages || data.languages.length === 0) {
+            tbody.append('<tr><td colspan="5" style="text-align:center;color:var(--lc-muted);padding:20px;">No data available</td></tr>');
+            return;
         }
 
-        //Updates 13 Nov: Remove hardcoded lang option and get lang option from file manager's localization file
-        $.getJSON("../locale/file_explorer.json", function(data){
-            for (let [key, value] of Object.entries(data.keys)) {
-                let langName = value.name;
-                if (langName == undefined || langName == null){
-                    langName = key;
-                }
-                console.log(langName, key);
-                $("#langlist").append(`<div class="item" data-value="${key}">${langName}</div>`);
-            }
+        data.languages.forEach(function(lang) {
+            var cls = lcBarClass(lang.coverage);
+            var row = '<tr>' +
+                '<td class="lc-code-cell">' + $('<span>').text(lang.code).html() + '</td>' +
+                '<td class="lc-name-cell">' + $('<span>').text(lang.name || lang.code).html() + '</td>' +
+                '<td class="lc-bar-cell"><div class="lc-bar-wrap"><div class="lc-bar-fill ' + cls + '" style="width:' + Math.min(lang.coverage, 100) + '%"></div></div></td>' +
+                '<td class="lc-pct-cell" style="color:' + (cls === 'high' ? 'var(--lc-success-text, #107c10)' : cls === 'medium' ? '#e6a817' : '#d83b01') + '">' + lang.coverage.toFixed(1) + '%</td>' +
+                '<td class="lc-files-cell">' + lang.fileCount + ' / ' + lang.totalFiles + '</td>' +
+                '</tr>';
+            tbody.append(row);
         });
-    </script>
-</body>
 
+        /* Contributors */
+        if (data.contributors && data.contributors.length > 0) {
+            $('#lc-contributors-list').text(data.contributors.join(', '));
+            $('#lc-contributors').show();
+        }
+    }).fail(function() {
+        $('#lc-coverage-tbody').html(
+            '<tr><td colspan="5" style="text-align:center;color:var(--lc-muted);padding:20px;">Failed to load coverage data</td></tr>'
+        );
+    });
+</script>
+</body>
 </html>

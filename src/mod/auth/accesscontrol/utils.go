@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//Break an ip range text into independent ip strings
+// Break an ip range text into independent ip strings
 func BreakdownIpRange(ipRange string) []string {
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	err := ValidateIpRange(ipRange)
@@ -46,7 +46,7 @@ func BreakdownIpRange(ipRange string) []string {
 	return results
 }
 
-//Check if an given ip in the given range
+// Check if an given ip in the given range
 func IpInRange(ip string, ipRange string) bool {
 	ip = strings.TrimSpace(ip)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
@@ -82,7 +82,7 @@ func IpInRange(ip string, ipRange string) bool {
 	return false
 }
 
-//Check if the given IP Range string is actually an IP range
+// Check if the given IP Range string is actually an IP range
 func ValidateIpRange(ipRange string) error {
 	ipRange = strings.TrimSpace(ipRange)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")

@@ -134,9 +134,9 @@ Go to "System Properties" > "Environment Variables" > "System Variables" > "Edit
 
 **Windows arm64 version are experimental and not tested**
 
-### OpenWRT (mipsle) / Linux (riscv64)
+### OpenWRT (mipsle) / Linux (riscv64, loong64)
 
-OpenWRT build and Linux RSICV64 is experimental and might contains weird bugs. If you are interested to test or maintain these builds, please contact me directly.
+OpenWRT build and Linux riscv64/loong64 is experimental and might contains weird bugs. If you are interested to test or maintain these builds, please contact me directly.
 
 ```
 wget -O arozos {binary_path_from_release}
@@ -354,7 +354,7 @@ If you are looking for tutorials or need help on debugging some minor issues, fe
 
 #### Chinese
 
-- [ArozOS+树莓派打造随身NAS（避坑专用）](https://blog.csdn.net/m0_37728676/article/details/113876815)
+- [ArozOS+树莓派打造随身NAS（避坑专用）](http://web.archive.org/web/20250104032024/https://blog.csdn.net/m0_37728676/article/details/113876815)
 - [ArozOS+树莓派小型NAS](http://www.huajia.online/2021/10/23/ArozOS-%E6%A0%91%E8%8E%93%E6%B4%BE%E5%B0%8F%E5%9E%8BNAS/)
 - [树莓派 Arozos 指北](https://xlog.pi-dal.com/ArozOS-RPI-Tutorial)
 - [Linux:ArozOS 安裝與建立開機自啟動服務](https://pvecli.xuan2host.com/linux-arozos-install-service/)

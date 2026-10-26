@@ -1,0 +1,31 @@
+/*
+    Notes - Initialize
+    Ensures the Notes directory exists and returns the metadata object.
+    No POST params required.
+*/
+requirelib("filelib");
+
+var notesDir = "user:/Document/Notes";
+var metaPath  = "user:/Document/Notes/meta.json";
+
+// Create the Notes directory (MkdirAll - safe to call even if it already exists)
+filelib.mkdir(notesDir);
+
+// Read or initialise metadata
+var meta = { lastOpened: "", theme: "dark", notes: [] };
+if (filelib.fileExists(metaPath)) {
+    try {
+        var raw    = filelib.readFile(metaPath);
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+            meta = parsed;
+        }
+        if (!meta.notes)      meta.notes      = [];
+        if (!meta.theme)      meta.theme      = "dark";
+        if (!meta.lastOpened) meta.lastOpened = "";
+    } catch (e) {
+        meta = { lastOpened: "", theme: "dark", notes: [] };
+    }
+}
+
+sendJSONResp(meta);

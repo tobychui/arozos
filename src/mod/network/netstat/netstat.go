@@ -35,7 +35,8 @@ func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 
 // Get network interface stats, return accumulated rx bits, tx bits and error if any
 func GetNetworkInterfaceStats() (int64, int64, error) {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		cmd := exec.Command("wmic", "path", "Win32_PerfRawData_Tcpip_NetworkInterface", "Get", "BytesReceivedPersec,BytesSentPersec,BytesTotalPersec")
 		out, err := cmd.Output()
 		if err != nil {
@@ -75,7 +76,7 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 			return 0, 0, errors.New("Invalid wmic results")
 		}
 
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		allIfaceRxByteFiles, err := filepath.Glob("/sys/class/net/*/statistics/rx_bytes")
 		if err != nil {
 			//Permission denied
@@ -112,7 +113,7 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 		//Return value as bits
 		return rxSum * 8, txSum * 8, nil
 
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		cmd := exec.Command("netstat", "-ib") //get data from netstat -ib
 		out, err := cmd.Output()
 		if err != nil {

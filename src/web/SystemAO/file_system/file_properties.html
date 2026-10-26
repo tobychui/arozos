@@ -9,6 +9,7 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <script type="text/javascript" src="shared/escape.js"></script>
         <link rel="stylesheet" href="../../script/ao.css">
         <style>
             body{
@@ -171,8 +172,8 @@
                 $("#properties").append(ui_getTable(
                         [],
                         [
-                            ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
-                            ["Storage Directory", fileProperties[0].StorageDirname + "/"],
+                            ["Virtual Directory", escapeHTML(fileProperties[0].VirtualDirname) + "/"],
+                            ["Storage Directory", escapeHTML(fileProperties[0].StorageDirname) + "/"],
                             ["Total Size", totalSizeText],
                         ]
                     ));
@@ -201,7 +202,7 @@
                         </div>
                     </h4>
                     <div class="ui divider"></div>
-                    <small>${data.error}</small>
+                    <small>${escapeHTML(data.error)}</small>
                     `);
                 }else{
                     //Append Filename
@@ -224,12 +225,12 @@
                             $("#properties").append(ui_getTable(
                                         [],
                                         [
-                                            ["Virtual Path", data.VirtualPath],
-                                            ["Storage Path", data.StoragePath],
-                                            ["Permission", data.Permission],
+                                            ["Virtual Path", escapeHTML(data.VirtualPath)],
+                                            ["Storage Path", escapeHTML(data.StoragePath)],
+                                            ["Permission", escapeHTML(data.Permission)],
                                             ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
                                             ["File Type", "System Shortcut"],
-                                            ["Owner",data.Owner],
+                                            ["Owner",escapeHTML(data.Owner)],
 
                                         ]
                                     ));
@@ -246,7 +247,7 @@
                                 },
                                 success: function(openerinfo) {
                                     //Check if the module is set.
-                                    var defaultWebAppField = ["Default WebApp",`<img class="ui mini spaced image" style="margin-left: 0px; padding-right: 8px;" src="../../${openerinfo.IconPath}">` + openerinfo.Name];
+                                    var defaultWebAppField = ["Default WebApp",`<img class="ui mini spaced image" style="margin-left: 0px; padding-right: 8px;" src="../../${escapeHTML(openerinfo.IconPath)}">` + escapeHTML(openerinfo.Name)];
                                     if ( openerinfo.Name == undefined){
                                         //Not set. 
                                         defaultWebAppField = ["Default WebApp", `<a href="#" onclick="changeDefaultWebApp();">Set Default WebApp</a>`];
@@ -256,13 +257,13 @@
                                         [],
                                         [
                                             defaultWebAppField,
-                                            ["Virtual Path", data.VirtualPath],
-                                            ["Storage Path", data.StoragePath],
+                                            ["Virtual Path", escapeHTML(data.VirtualPath)],
+                                            ["Storage Path", escapeHTML(data.StoragePath)],
                                             [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
-                                            ["Permission", data.Permission],
+                                            ["Permission", escapeHTML(data.Permission)],
                                             ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
                                             ["File Type", "File"],
-                                            ["Owner",data.Owner],
+                                            ["Owner",escapeHTML(data.Owner)],
 
                                         ]
                                     ));
@@ -283,13 +284,13 @@
                         $("#properties").append(ui_getTable(
                             [],
                             [
-                                ["Virtual Path", data.VirtualPath],
-                                ["Storage Path", data.StoragePath],
+                                ["Virtual Path", escapeHTML(data.VirtualPath)],
+                                ["Storage Path", escapeHTML(data.StoragePath)],
                                 [filesizeText, folderSizeText ],
-                                ["Permission", data.Permission],
+                                ["Permission", escapeHTML(data.Permission)],
                                 ["Last Modified", lastModTimeText],
                                 ["File Type", "Folder"],
-                                ["Owner",data.Owner],
+                                ["Owner",escapeHTML(data.Owner)],
 
                             ]
                         ));
@@ -308,12 +309,12 @@
             //Model rendering scripts
             function ui_getInput(value, placeholder="", type="text"){
                 return `<div class="ui fluid small input">
-                            <input type="${type}" placeholder="${placeholder}" value="${value}" readonly="true">
+                            <input type="${type}" placeholder="${escapeHTML(placeholder)}" value="${escapeHTML(value)}" readonly="true">
                         </div>`
             }
 
             function ui_getText(value, color="black"){
-                return `<p style="color:${color}; margin-bottom:0px;">${value}</p>`;
+                return `<p style="color:${escapeHTML(color)}; margin-bottom:0px;">${escapeHTML(value)}</p>`;
             }
 
             function ui_getDivider(){

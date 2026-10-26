@@ -2,11 +2,11 @@ package samba
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -391,14 +391,14 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 			//Try to create the share
 			fshShareAbsolutePath, err := filepath.Abs(fshSharePath)
 			if err != nil {
-				log.Println("[Samba] Unable to generate share config for path: " + fshSharePath)
+				logger.PrintAndLog("Samba", "[Samba] Unable to generate share config for path: "+fshSharePath, nil)
 				continue
 			}
 
 			//Check if that folder exists
 			if !utils.FileExists(fshShareAbsolutePath) {
 				//Folder not exists. Continue
-				log.Println("[Samba] Path not exists for file system handler: " + fshSharePath)
+				logger.PrintAndLog("Samba", "[Samba] Path not exists for file system handler: "+fshSharePath, nil)
 				continue
 			}
 
@@ -413,7 +413,7 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 			})
 
 			if err != nil {
-				log.Println("[Samba] Failed to create share: " + err.Error())
+				logger.PrintAndLog("Samba", "[Samba] Failed to create share: "+err.Error(), nil)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}
@@ -421,7 +421,7 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 			//Share exists. Add this user to such share
 			err = s.AddUserToSambaShare(fshID, userInfo.Username)
 			if err != nil {
-				log.Println("[Samba] Failed to add user " + userInfo.Username + " to share " + fshID + ": " + err.Error())
+				logger.PrintAndLog("Samba", "[Samba] Failed to add user "+userInfo.Username+" to share "+fshID+": "+err.Error(), nil)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}
@@ -492,7 +492,7 @@ func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Reques
 	for _, userAccessibleShare := range userAccessibleShares {
 		err = s.RemoveUserFromSambaShare(userAccessibleShare.Name, userInfo.Username)
 		if err != nil {
-			log.Println("[Samba] Unable to remove user " + userInfo.Username + " from share: " + err.Error())
+			logger.PrintAndLog("Samba", "[Samba] Unable to remove user "+userInfo.Username+" from share: "+err.Error(), nil)
 			continue
 		}
 	}
@@ -532,7 +532,7 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 	newUserList := []string{}
 	err = json.Unmarshal([]byte(newUserListJSON), &newUserList)
 	if err != nil {
-		log.Println("[Samba] Parse new user list failed: " + err.Error())
+		logger.PrintAndLog("Samba", "[Samba] Parse new user list failed: "+err.Error(), nil)
 		utils.SendErrorResponse(w, "failed to parse the new user list")
 		return
 	}

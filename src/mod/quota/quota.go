@@ -17,7 +17,7 @@ import (
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
-//QuotaHandler Object
+// QuotaHandler Object
 type QuotaHandler struct {
 	database          *db.Database //System database for storing data
 	username          string       //The current username for this handler
@@ -26,7 +26,7 @@ type QuotaHandler struct {
 	UsedStorageQuota  int64
 }
 
-//Create a storage quotation handler for this user
+// Create a storage quotation handler for this user
 func NewUserQuotaHandler(database *db.Database, username string, fsh []*fs.FileSystemHandler, defaultQuota int64) *QuotaHandler {
 	//Create the quota table if not exists
 	totalQuota := defaultQuota //Use defalt quota if init first time
@@ -61,7 +61,7 @@ func NewUserQuotaHandler(database *db.Database, username string, fsh []*fs.FileS
 	return &thisUserQuotaManager
 }
 
-//Set and Get the user storage quota
+// Set and Get the user storage quota
 func (q *QuotaHandler) SetUserStorageQuota(quota int64) {
 	q.database.Write("quota", q.username+"/quota", quota)
 	q.TotalStorageQuota = quota
@@ -76,7 +76,7 @@ func (q *QuotaHandler) GetUserStorageQuota() int64 {
 	return quota
 }
 
-//Check if the user's quota has been initialized
+// Check if the user's quota has been initialized
 func (q *QuotaHandler) IsQuotaInitialized() bool {
 	if q.GetUserStorageQuota() == int64(-2) {
 		return false
@@ -101,18 +101,18 @@ func (q *QuotaHandler) HaveSpace(size int64) bool {
 	}
 }
 
-//Update the user's storage pool to new one
+// Update the user's storage pool to new one
 func (q *QuotaHandler) UpdateUserStoragePool(fsh []*fs.FileSystemHandler) {
 	q.fspool = fsh
 }
 
-//Claim a space for the given file and set the file ownership to this user
+// Claim a space for the given file and set the file ownership to this user
 func (q *QuotaHandler) AllocateSpace(filesize int64) error {
 	q.UsedStorageQuota += filesize
 	return nil
 }
 
-//Reclaim file occupied space (Call this before removing it)
+// Reclaim file occupied space (Call this before removing it)
 func (q *QuotaHandler) ReclaimSpace(filesize int64) error {
 	q.UsedStorageQuota -= filesize
 	if q.UsedStorageQuota < 0 {
@@ -121,7 +121,7 @@ func (q *QuotaHandler) ReclaimSpace(filesize int64) error {
 	return nil
 }
 
-//Recalculate the user storage quota. This takes a lot of time and CPUs
+// Recalculate the user storage quota. This takes a lot of time and CPUs
 func (q *QuotaHandler) CalculateQuotaUsage() {
 	totalUsedVolume := int64(0)
 	for _, thisfs := range q.fspool {

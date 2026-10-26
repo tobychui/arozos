@@ -27,17 +27,14 @@ function getLatestPhotoFilename(){
         savetarget = savetarget + "/";
     }
 
-    //Save target exists. Glob it
-    var jpgFiles = filelib.aglob(savetarget + "*.jpg");
-    var pngFiles = filelib.aglob(savetarget + "*.png");
+    //Save target exists. Glob all supported photo and video files
+    var supportedExt = ["jpg", "png", "mp4", "webm"];
     var files = [];
-
-    for (var i = 0; i < jpgFiles.length; i++){
-        files.push(jpgFiles[i]);
-    }
-
-    for (var i = 0; i < pngFiles.length; i++){
-        files.push(pngFiles[i]);
+    for (var e = 0; e < supportedExt.length; e++){
+        var matched = filelib.aglob(savetarget + "*." + supportedExt[e]);
+        for (var i = 0; i < matched.length; i++){
+            files.push(matched[i]);
+        }
     }
 
     var latestFileMtime = 0;

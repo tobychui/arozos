@@ -1,0 +1,332 @@
+<div class="field">
+    <span class="field-label">Images</span>
+    <div class="img-list" id="i2pList">
+        <div class="img-list-empty">No images added yet.</div>
+    </div>
+    <button class="btn btn-outline" style="margin-top:8px" id="i2pAddBtn">+ Add Images...</button>
+</div>
+<div class="divider"></div>
+<div class="field">
+    <span class="field-label">Output Filename</span>
+    <input type="text" id="i2pName" placeholder="output.pdf">
+</div>
+<div class="field">
+    <span class="field-label">Save to Folder</span>
+    <div class="row">
+        <button class="btn btn-primary" id="i2pFolderBtn">Select Folder...</button>
+        <span class="selected-file" id="i2pFolderLbl">Auto-detect from first image</span>
+    </div>
+</div>
+<button class="btn-action" id="i2pBtn">Create PDF</button>
+<div id="i2pProg" style="display:none" class="progress-wrap">
+    <div class="progress-label" id="i2pProgLbl">Preparing...</div>
+    <div class="progress-track"><div class="progress-fill" id="i2pFill"></div></div>
+</div>
+<div id="i2pResult"></div>
+
+<script>
+(function() {
+    var registry = window.ProductivityToolModules = window.ProductivityToolModules || {};
+    var state = { images: [], overrideDir: null, root: null };
+
+    function getRoot() {
+        return state.root && document.body.contains(state.root) ? state.root : null;
+    }
+
+    function renderList() {
+        var root = getRoot();
+        if (!root) { return; }
+
+        var list = root.querySelector('#i2pList');
+        if (!state.images.length) {
+            list.innerHTML = '<div class="img-list-empty">No images added yet.</div>';
+            return;
+        }
+
+        var html = '';
+        state.images.forEach(function(img, idx) {
+            html += '<div class="img-row">' +
+                '<img class="img-thumb" src="' + mediaUrl(img.filepath) + '" alt="">' +
+                '<span class="img-row-name">' + escHtml(img.filename) + '</span>' +
+                '<div class="img-row-btns">';
+            if (idx > 0) {
+                html += '<button class="icon-btn" data-move="-1" data-idx="' + idx + '" title="Move up">' + svgUp() + '</button>';
+            }
+            if (idx < state.images.length - 1) {
+                html += '<button class="icon-btn" data-move="1" data-idx="' + idx + '" title="Move down">' + svgDown() + '</button>';
+            }
+            html += '<button class="icon-btn rm" data-remove="1" data-idx="' + idx + '" title="Remove">' + svgX() + '</button>';
+            html += '</div></div>';
+        });
+
+        list.innerHTML = html;
+
+        Array.prototype.forEach.call(list.querySelectorAll('[data-move]'), function(btn) {
+            btn.addEventListener('click', function() {
+                var idx = parseInt(this.getAttribute('data-idx'), 10);
+                var dir = parseInt(this.getAttribute('data-move'), 10);
+                var nextIdx = idx + dir;
+                if (nextIdx < 0 || nextIdx >= state.images.length) { return; }
+                var tmp = state.images[idx];
+                state.images[idx] = state.images[nextIdx];
+                state.images[nextIdx] = tmp;
+                renderList();
+            });
+        });
+
+        Array.prototype.forEach.call(list.querySelectorAll('[data-remove]'), function(btn) {
+            btn.addEventListener('click', function() {
+                var idx = parseInt(this.getAttribute('data-idx'), 10);
+                state.images.splice(idx, 1);
+                renderList();
+            });
+        });
+    }
+
+    function imgToJpeg(url, onDone, onError) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            var w = img.naturalWidth;
+            var h = img.naturalHeight;
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(function(blob) {
+                if (!blob) {
+                    onError(new Error('Canvas export failed'));
+                    return;
+                }
+
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    onDone({ jpeg: new Uint8Array(ev.target.result), width: w, height: h });
+                };
+                reader.onerror = onError;
+                reader.readAsArrayBuffer(blob);
+            }, 'image/jpeg', 0.92);
+        };
+        img.onerror = function() { onError(new Error('Could not load image')); };
+        img.src = url;
+    }
+
+    function buildPdfFromJpegs(pages) {
+        var parts = [];
+        var offsets = {};
+        var pos = 0;
+        var enc = new TextEncoder();
+
+        function wr(s) {
+            var b = typeof s === 'string' ? enc.encode(s) : s;
+            parts.push(b);
+            pos += b.length;
+        }
+
+        function objStart(id) {
+            offsets[id] = pos;
+            wr(id + ' 0 obj\n');
+        }
+
+        function objEnd() {
+            wr('\nendobj\n');
+        }
+
+        wr('%PDF-1.4\n');
+        wr(new Uint8Array([0x25, 0xC2, 0xB4, 0xC3, 0xA5, 0x0A]));
+
+        var n = pages.length;
+        objStart(1);
+        wr('<< /Type /Catalog /Pages 2 0 R >>');
+        objEnd();
+
+        var kids = '';
+        objStart(2);
+        for (var k = 0; k < n; k++) {
+            kids += (3 + k * 3) + ' 0 R ';
+        }
+        wr('<< /Type /Pages /Kids [' + kids.trim() + '] /Count ' + n + ' >>');
+        objEnd();
+
+        for (var i = 0; i < n; i++) {
+            var pg = pages[i];
+            var pId = 3 + i * 3;
+            var cId = pId + 1;
+            var xId = pId + 2;
+            var name = 'Im' + (i + 1);
+
+            objStart(pId);
+            wr('<< /Type /Page /Parent 2 0 R' +
+               ' /MediaBox [0 0 ' + pg.width + ' ' + pg.height + ']' +
+               ' /Contents ' + cId + ' 0 R' +
+               ' /Resources << /XObject << /' + name + ' ' + xId + ' 0 R >> >> >>');
+            objEnd();
+
+            var content = enc.encode('q ' + pg.width + ' 0 0 ' + pg.height + ' 0 0 cm /' + name + ' Do Q');
+            objStart(cId);
+            wr('<< /Length ' + content.length + ' >>\nstream\n');
+            wr(content);
+            wr('\nendstream');
+            objEnd();
+
+            objStart(xId);
+            wr('<< /Type /XObject /Subtype /Image' +
+               ' /Width ' + pg.width + ' /Height ' + pg.height +
+               ' /ColorSpace /DeviceRGB /BitsPerComponent 8' +
+               ' /Filter /DCTDecode /Length ' + pg.jpeg.length + ' >>\nstream\n');
+            wr(pg.jpeg);
+            wr('\nendstream');
+            objEnd();
+        }
+
+        var xrefPos = pos;
+        var totalObjs = 2 + n * 3;
+        wr('xref\n0 ' + (totalObjs + 1) + '\n');
+        wr('0000000000 65535 f \n');
+        for (var id = 1; id <= totalObjs; id++) {
+            var off = (offsets[id] || 0).toString();
+            while (off.length < 10) {
+                off = '0' + off;
+            }
+            wr(off + ' 00000 n \n');
+        }
+        wr('trailer\n<< /Size ' + (totalObjs + 1) + ' /Root 1 0 R >>\n');
+        wr('startxref\n' + xrefPos + '\n%%EOF\n');
+
+        var total = 0;
+        for (var j = 0; j < parts.length; j++) {
+            total += parts[j].length;
+        }
+
+        var out = new Uint8Array(total);
+        var offset = 0;
+        for (var k2 = 0; k2 < parts.length; k2++) {
+            out.set(parts[k2], offset);
+            offset += parts[k2].length;
+        }
+        return out;
+    }
+
+    registry.img2pdf = {
+        init: function(root) {
+            state = { images: [], overrideDir: null, root: root };
+
+            root.querySelector('#i2pAddBtn').addEventListener('click', function() {
+                ao_module_openFileSelector('_i2pAddCb', 'user:/', 'file', true);
+            });
+
+            root.querySelector('#i2pFolderBtn').addEventListener('click', function() {
+                ao_module_openFileSelector('_i2pFolderCb', 'user:/', 'folder', false);
+            });
+
+            root.querySelector('#i2pBtn').addEventListener('click', function() {
+                if (!state.images.length) {
+                    alert('Please add at least one image.');
+                    return;
+                }
+
+                var nameValue = root.querySelector('#i2pName').value.trim() || 'output';
+                if (!nameValue.toLowerCase().endsWith('.pdf')) {
+                    nameValue += '.pdf';
+                }
+
+                var outDir = state.overrideDir || dirOf(state.images[0].filepath);
+                var btn = root.querySelector('#i2pBtn');
+                var prog = root.querySelector('#i2pProg');
+                var lbl = root.querySelector('#i2pProgLbl');
+                var fill = root.querySelector('#i2pFill');
+                var result = root.querySelector('#i2pResult');
+                var pages = [];
+                var total = state.images.length;
+                var idx = 0;
+                var outName = nameValue;
+
+                btn.disabled = true;
+                prog.style.display = 'block';
+                result.innerHTML = '';
+
+                function loadNext() {
+                    if (idx >= total) {
+                        lbl.textContent = 'Building PDF...';
+                        fill.style.width = '88%';
+                        setTimeout(function() {
+                            try {
+                                var pdfBytes = buildPdfFromJpegs(pages);
+                                var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                                lbl.textContent = 'Uploading...';
+                                fill.style.width = '94%';
+                                uploadBlob(blob, outName, outDir).then(function() {
+                                    fill.style.width = '100%';
+                                    lbl.textContent = 'Done!';
+                                    result.innerHTML =
+                                        '<div class="result-box result-ok"><strong>' + escHtml(outName) +
+                                        '</strong> saved to<br>' + escHtml(outDir) + '</div>';
+                                    btn.disabled = false;
+                                }, function(err) {
+                                    result.innerHTML =
+                                        '<div class="result-box result-err"><strong>Upload failed:</strong> ' +
+                                        escHtml(String(err)) + '</div>';
+                                    btn.disabled = false;
+                                });
+                            } catch (err) {
+                                result.innerHTML =
+                                    '<div class="result-box result-err"><strong>Error:</strong> ' +
+                                    escHtml(err && err.message ? err.message : String(err)) + '</div>';
+                                btn.disabled = false;
+                            }
+                        }, 0);
+                        return;
+                    }
+
+                    lbl.textContent = 'Loading image ' + (idx + 1) + ' of ' + total + '...';
+                    fill.style.width = ((idx / total) * 80) + '%';
+
+                    imgToJpeg(mediaUrl(state.images[idx].filepath), function(pageData) {
+                        pages.push(pageData);
+                        idx += 1;
+                        loadNext();
+                    }, function(err) {
+                        result.innerHTML =
+                            '<div class="result-box result-err"><strong>Failed on image ' +
+                            (idx + 1) + ':</strong> ' + escHtml(String(err)) + '</div>';
+                        btn.disabled = false;
+                    });
+                }
+
+                loadNext();
+            });
+
+            renderList();
+        }
+    };
+
+    window._i2pAddCb = function(files) {
+        var root = getRoot();
+        if (!root || !files || !files.length) { return; }
+
+        files.forEach(function(file) {
+            var exists = state.images.find(function(img) {
+                return img.filepath === file.filepath;
+            });
+            if (!exists) {
+                state.images.push({ filepath: file.filepath, filename: file.filename });
+            }
+        });
+        renderList();
+    };
+
+    window._i2pFolderCb = function(files) {
+        var root = getRoot();
+        if (!root || !files || !files.length) { return; }
+
+        state.overrideDir = files[0].filepath;
+        var label = root.querySelector('#i2pFolderLbl');
+        label.textContent = files[0].filepath;
+        label.className = 'selected-file has-value';
+    };
+})();
+</script>

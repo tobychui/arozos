@@ -21,12 +21,12 @@ func (u *User) GetHomeDirectory() (string, error) {
 }
 */
 
-//Get the user home file system handler, aka user:/
+// Get the user home file system handler, aka user:/
 func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
 	return getHandlerFromID(u.HomeDirectories.Storages, "user")
 }
 
-//Get all user Acessible file system handlers (ignore special fsh like backups)
+// Get all user Acessible file system handlers (ignore special fsh like backups)
 func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
 	results := []*fs.FileSystemHandler{}
 	fshs := u.GetAllFileSystemHandler()
@@ -39,7 +39,7 @@ func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
 	return results
 }
 
-//Try to get the root file system handler from vpath where the root file system handler must be in user scope of permission
+// Try to get the root file system handler from vpath where the root file system handler must be in user scope of permission
 func (u *User) GetRootFSHFromVpathInUserScope(vpath string) *fs.FileSystemHandler {
 	allFsh := u.GetAllAccessibleFileSystemHandler()
 	var vpathSourceFsh *fs.FileSystemHandler
@@ -238,7 +238,7 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 }
 */
 
-//Get a file system handler from a virtual path, this file system handler might not be the highest prioity one
+// Get a file system handler from a virtual path, this file system handler might not be the highest prioity one
 func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, error) {
 	fsHandlers := u.GetAllFileSystemHandler()
 	handler, err := getHandlerFromVirtualPath(fsHandlers, vpath)

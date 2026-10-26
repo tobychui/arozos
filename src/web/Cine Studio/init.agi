@@ -1,0 +1,27 @@
+/*
+	Cine Studio - Premiere-like video editor for ArozOS
+	Module registration script
+
+	Do not call any user / filepath functions in this script.
+*/
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+	Name: "Cine Studio",
+	Desc: "Minimalistic timeline video editor",
+	Group: "Media",
+	IconPath: "Cine Studio/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "Cine Studio/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Cine Studio/index.html",
+	SupportEmb: false,
+	InitFWSize: [1280, 850],
+	SupportedExt: [".cine", ".pxs", ".asproj"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));
+
+//Register a custom icon for .cine project files
+registerExtensionIcon(".cine", "img/file_icon.png");

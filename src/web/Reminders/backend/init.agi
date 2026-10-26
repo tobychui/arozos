@@ -1,0 +1,32 @@
+/*
+    Reminders - Initialize
+    Ensures the Reminders data store exists, seeds a default list on first run,
+    and returns the full { lists, reminders } payload.
+*/
+requirelib("filelib");
+
+var dir      = "user:/Document/Reminders";
+var dataPath = "user:/Document/Reminders/data.json";
+
+filelib.mkdir(dir);
+
+var data = null;
+if (filelib.fileExists(dataPath)) {
+    try {
+        var parsed = JSON.parse(filelib.readFile(dataPath));
+        if (parsed && typeof parsed === "object") data = parsed;
+    } catch (e) {}
+}
+
+if (!data || !Array.isArray(data.lists) || !Array.isArray(data.reminders)) {
+    // First run — seed a default list (mirrors macOS' built-in "Reminders" list)
+    data = {
+        lists: [
+            { id: "ls_default", name: "Reminders", color: "blue", icon: "list", order: 0 }
+        ],
+        reminders: []
+    };
+    filelib.writeFile(dataPath, JSON.stringify(data));
+}
+
+sendJSONResp(data);

@@ -1,0 +1,21 @@
+/*
+    Dashboard - Get System Info
+    Returns CPU usage, RAM usage, and network I/O for the mini-tools widget.
+    No POST parameters required.
+*/
+if (requirelib("sysinfo") == true) {
+    var cpu = sysinfo.getCPUUsage();
+    var ram = sysinfo.getRAMUsage();
+    var net = sysinfo.getNetworkUsage();
+    sendJSONResp(JSON.stringify({
+        cpu: cpu,
+        ram: ram,
+        net: net
+    }));
+} else {
+    sendJSONResp(JSON.stringify({
+        cpu: 0,
+        ram: { used: -1, total: -1, percent: 0 },
+        net: { rxRate: 0, txRate: 0, rxTotal: 0, txTotal: 0 }
+    }));
+}

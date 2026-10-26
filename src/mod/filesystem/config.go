@@ -18,6 +18,7 @@ type FileSystemOption struct {
 	Filesystem string `json:"filesystem,omitempty"` //Support {"ext4","ext2", "ext3", "fat", "vfat", "ntfs"}
 	Mountdev   string `json:"mountdev,omitempty"`   //Device file (e.g. /dev/sda1)
 	Mountpt    string `json:"mountpt,omitempty"`    //Device mount point (e.g. /media/storage1)
+	DiskUUID   string `json:"diskuuid,omitempty"`   //Partition UUID for UUID-based mounting (preferred over device path, survives device renames across reboots)
 
 	Username string `json:"username,omitempty"` //Username if the storage require auth
 	Password string `json:"password,omitempty"` //Password if the storage require auth

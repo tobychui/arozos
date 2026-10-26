@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>New User</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <link rel="stylesheet" href="ueditor.css">
+    <style>
+    /* ── Required asterisk ── */
+    .nu-req { color: var(--ued-danger); margin-left: 2px; }
+
+    /* ── Required note ── */
+    #nu-note {
+        font-size: 11.5px;
+        color: var(--ued-muted);
+        padding: 4px 14px 10px;
+    }
+    </style>
+</head>
+<body>
+<div id="nu-root" class="ued-root">
+<div class="ued-topbar"></div>
+<div class="ued-page">
+
+    <!-- Feedback banner -->
+    <div id="nu-error" class="ued-banner error" style="display:none;"><span id="nu-err-msg"></span></div>
+
+    <!-- Account Details -->
+    <div class="ued-section-label" locale="newuser/section-account">Account Details</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label">
+                <span locale="newuser/field-username">Username</span><span class="nu-req">*</span>
+            </div>
+            <div class="ued-field-body">
+                <input id="nu-username" class="ued-input" type="text" autocomplete="username">
+            </div>
+        </div>
+        <div class="ued-field-row">
+            <div class="ued-field-label">
+                <span locale="newuser/field-password">Password</span><span class="nu-req">*</span>
+            </div>
+            <div class="ued-field-body">
+                <input id="nu-password" class="ued-input" type="password" autocomplete="new-password">
+            </div>
+        </div>
+        <div class="ued-field-row">
+            <div class="ued-field-label">
+                <span locale="newuser/field-confirm-pw">Confirm Password</span><span class="nu-req">*</span>
+            </div>
+            <div class="ued-field-body">
+                <input id="nu-confirm" class="ued-input" type="password" autocomplete="new-password">
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission Group -->
+    <div class="ued-section-label" locale="newuser/section-group">Permission Group</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="newuser/field-group">User Group</div>
+            <div class="ued-field-body">
+                <select id="nu-group" class="ued-select" style="width:100%;">
+                    <option locale="newuser/loading">Loading&#8230;</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="nu-note"><span class="nu-req">*</span> <span locale="newuser/required-note">This field is required</span></div>
+
+    <!-- Toolbar -->
+    <div class="ued-toolbar">
+        <div class="ued-btn-row">
+            <button id="nu-cancelbtn" class="ued-btn" onclick="nuCancel()" style="display:none;" locale="newuser/btn-cancel">Cancel</button>
+            <button class="ued-btn primary" onclick="nuCreate(this)" locale="newuser/btn-create">Create User</button>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+    /* ── Theme detection ── */
+    (function() {
+        var root = document.getElementById('nu-root');
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    var isDark = c !== 'whiteTheme';
+                    root.classList.toggle('dark', isDark);
+                    document.body.classList.toggle('dark', isDark);
+                });
+                return;
+            }
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined')                       t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) {
+                var isDark = t === 'dark' || t === 'darkTheme';
+                root.classList.toggle('dark', isDark);
+                document.body.classList.toggle('dark', isDark);
+            }
+        } catch(e) {}
+    })();
+
+    /* ── Locale ── */
+    var nuLocale = NewAppLocale();
+    var nuLocaleReady = false;
+    nuLocale.init('../locale/users/newuser.json', function() {
+        nuLocaleReady = true;
+        nuLocale.translate();
+        ao_module_setWindowTitle(nuLocale.getString("newuser/title", 'Create New User'));
+    });
+    setTimeout(function() {
+        if (!nuLocaleReady) { nuLocale.translate(); }
+    }, 2000);
+
+    /* ── Load user groups ── */
+    $.get("../../system/permission/listgroup", function(data) {
+        $("#nu-group").empty();
+        for (var i = 0; i < data.length; i++) {
+            $("#nu-group").append('<option value="' + escHtml(data[i]) + '">' + escHtml(data[i]) + '</option>');
+        }
+    });
+
+    /* ── Show cancel button if running inside desktop ── */
+    try {
+        if (!(!parent.isDesktopMode)) {
+            $("#nu-cancelbtn").show();
+        }
+    } catch(e) {}
+
+    /* ── Enter key submits ── */
+    $("input").on("keydown", function(event) {
+        if (event.keyCode === 13) {
+            event.preventDefault();
+            nuCreate(document.querySelector('.ued-btn.primary'));
+        }
+    });
+
+    /* ── Create user ── */
+    function nuCreate(btn) {
+        var username  = $("#nu-username").val().trim();
+        var password  = $("#nu-password").val();
+        var repeat    = $("#nu-confirm").val();
+        var usergroup = $("#nu-group").val();
+        var valid = true;
+
+        /* Clear previous errors */
+        $(".ued-input").removeClass("error");
+        $("#nu-error").hide();
+
+        if (username === "") {
+            $("#nu-username").addClass("error");
+            valid = false;
+        }
+        if (password === "") {
+            $("#nu-password").addClass("error");
+            $("#nu-confirm").addClass("error");
+            valid = false;
+        } else if (password !== repeat) {
+            $("#nu-confirm").addClass("error");
+            valid = false;
+        }
+
+        if (!valid) return;
+
+        $(btn).addClass("loading");
+        $.post("../../system/auth/register", { username: username, password: password, group: usergroup })
+            .done(function(data) {
+                $(btn).removeClass("loading");
+                if (!data.includes("Error")) {
+                    try {
+                        if (!(!parent.isDesktopMode)) {
+                            ao_module_parentCallback(true);
+                            parent.closeFwProcess($(window.frameElement).parent().parent().attr("windowId"));
+                            return;
+                        }
+                    } catch(e) {}
+                    window.location.href = "../../SystemAO/closeTabInsturction.html";
+                } else {
+                    $("#nu-err-msg").text(data);
+                    $("#nu-error").slideDown('fast');
+                }
+            })
+            .fail(function() {
+                $(btn).removeClass("loading");
+                $("#nu-err-msg").text(nuLocale.getString('newuser/err-request-failed', 'Request failed. Please try again.'));
+                $("#nu-error").slideDown('fast');
+            });
+    }
+
+    function nuCancel() {
+        try {
+            if (!(!parent.isDesktopMode)) {
+                parent.closeFwProcess($(window.frameElement).parent().parent().attr("windowId"));
+            }
+        } catch(e) {}
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+</script>
+</body>
+</html>

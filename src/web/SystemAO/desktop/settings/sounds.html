@@ -1,0 +1,128 @@
+<!-- Sounds Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
+<style>
+#snd-root {
+    --snd-text:   #1a1a1a;
+    --snd-dim:    #5a5a5a;
+    --snd-muted:  #9a9a9a;
+    --snd-border: rgba(0,0,0,0.10);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    color: var(--snd-text);
+    padding: 4px 0 32px;
+}
+body.dark #snd-root {
+    --snd-text:   #f0f0f0;
+    --snd-dim:    #b0b0b0;
+    --snd-muted:  #808080;
+    --snd-border: rgba(255,255,255,0.10);
+}
+#snd-root h3.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--snd-text);
+    margin: 0 0 4px;
+}
+#snd-root .section-desc {
+    font-size: 12px;
+    color: var(--snd-muted);
+    margin: 0 0 12px;
+}
+#snd-root .snd-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--snd-border);
+}
+#snd-root .snd-section:last-child { border-bottom: none; }
+#snd-root .snd-path {
+    font-size: 13px;
+    color: var(--snd-dim);
+    font-style: italic;
+    margin: 6px 0;
+    word-break: break-all;
+}
+#snd-root .btn-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+#snd-root .btn {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--snd-border);
+    background: transparent;
+    color: var(--snd-text);
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#snd-root .btn:hover { opacity: 0.75; }
+</style>
+
+<div id="snd-root">
+    <div class="snd-section">
+        <h3 class="section-title" locale="snd/title">Startup Sound</h3>
+        <p class="section-desc" locale="snd/desc">Choose a custom sound to play when you log in to the web desktop.</p>
+        <div id="snd-current-path" class="snd-path" locale="snd/disabled">Disabled</div>
+        <div class="btn-group">
+            <button class="btn" onclick="sndSelectFile()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M1 4a1 1 0 011-1h4l2 2h6a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                <span locale="snd/select">Select File</span>
+            </button>
+            <button class="btn" onclick="sndClear()" style="color:#c42b1c;">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                <span locale="snd/clear">Clear Selection</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var sndLocale = NewAppLocale();
+
+    sndLocale.init("../locale/system_settings/desktop.json", function () {
+        sndLocale.translate();
+
+        $.ajax({
+            url: "../../system/desktop/preference",
+            method: "POST",
+            data: { preference: "startup-audio" },
+            success: function (data) {
+                if (data) {
+                    $("#snd-current-path").text(data).css("font-style", "normal");
+                }
+            }
+        });
+    });
+
+    window.sndFileSelected = function (filedata) {
+        var filepath = filedata[0].filepath;
+        $("#snd-current-path").text(filepath).css("font-style", "normal");
+        $.ajax({
+            url: "../../system/desktop/preference",
+            method: "POST",
+            data: { preference: "startup-audio", value: filepath }
+        });
+    };
+
+    window.sndSelectFile = function () {
+        ao_module_openFileSelector(window.sndFileSelected, undefined, "file", false, {
+            fnameOverride: "sndFileSelected",
+            filter: ["mp3", "aac", "ogg", "wav"]
+        });
+    };
+
+    window.sndClear = function () {
+        $.ajax({
+            url: "../../system/desktop/preference",
+            method: "POST",
+            data: { preference: "startup-audio", remove: "true" },
+            success: function () {
+                $("#snd-current-path").text(sndLocale.getString("snd/disabled", "Disabled")).css("font-style", "italic");
+            }
+        });
+    };
+}());
+</script>

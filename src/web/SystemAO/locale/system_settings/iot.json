@@ -4,7 +4,7 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "locale/iot-control-panel-title": "IoT 控制面板",
                 "locale/iot-hub-title": "IoT 中心",
@@ -20,7 +20,7 @@
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "locale/iot-control-panel-title": "IoT 控制面板",
                 "locale/iot-hub-title": "IoT 中心",
@@ -46,6 +46,54 @@
                 "locale/version-protocol": "版本（协议）",
                 "locale/author": "作者",
                 "locale/release-date": "发布日期"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "locale/iot-control-panel-title": "IoT Control Panel",
+                "locale/iot-hub-title": "IoT Hub",
+                "locale/iot-hub-description": "List of supported IoT protocol scanners",
+                "locale/protocol-name": "Protocol Name",
+                "locale/description": "Description",
+                "locale/version-protocol": "Version (Protocol)",
+                "locale/author": "Author",
+                "locale/release-date": "Release Date"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "locale/iot-control-panel-title": "IoTコントロールパネル",
+                "locale/iot-hub-title": "IoTハブ",
+                "locale/iot-hub-description": "サポートされているIoTプロトコルスキャナーのリスト",
+                "locale/protocol-name": "プロトコル名",
+                "locale/description": "説明",
+                "locale/version-protocol": "バージョン（プロトコル）",
+                "locale/author": "作者",
+                "locale/release-date": "リリース日"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "locale/iot-control-panel-title": "IoT 제어판",
+                "locale/iot-hub-title": "IoT 허브",
+                "locale/iot-hub-description": "지원되는 IoT 프로토콜 스캐너 목록",
+                "locale/protocol-name": "프로토콜 이름",
+                "locale/description": "설명",
+                "locale/version-protocol": "버전 (프로토콜)",
+                "locale/author": "작성자",
+                "locale/release-date": "출시일"
             },
             "titles": {},
             "placeholder": {}

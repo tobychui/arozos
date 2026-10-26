@@ -3,78 +3,135 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fwtitle" : "分享管理員",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fwtitle": "分享管理員",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "title/title": "分享管理員",
-                "title/desc":"在此虛擬磁碟內的分享連結",
-                "message/noshare/title":"沒有分享連結",
-                "message/noshare/desc":"此虛擬磁碟內並沒有已分享之連結。試試從檔案管理員選擇一個檔案並點擊「分享」？",
+                "title/desc": "在此虛擬磁碟內的分享連結",
+                "message/noshare/title": "沒有分享連結",
+                "message/noshare/desc": "此虛擬磁碟內並沒有已分享之連結。試試從檔案管理員選擇一個檔案並點擊「分享」？",
                 "message/delwarning": "所有協作者將無法通過檔案共享界面訪問此文件。確認？",
                 "message/removed": "已移除分享",
-                "item/creator":"創建者：",
-                "item/perm":"存取權限：",
-
-                "":""
+                "item/creator": "創建者：",
+                "item/perm": "存取權限：",
+                "": ""
             },
-            "titles":{
+            "titles": {
                 "Copy Link": "複製連結",
-                "Open Share":"打開分享頁",
+                "Open Share": "打開分享頁",
                 "Open in File Manager": "在檔案管理員打開",
                 "Delete Share": "刪除此分享"
             },
-            "placeholder":{
-
-            }
+            "placeholder": {}
         },
         "zh-hk": {
-            "fwtitle" : "分享管理員",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fwtitle": "分享管理員",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "title/title": "分享管理員",
-                "title/desc":"在此虛擬磁碟內的分享連結",
-                "message/noshare/title":"沒有分享連結",
-                "message/noshare/desc":"此虛擬磁碟內並沒有已分享之連結。試試從檔案管理員選擇一個檔案並點擊「分享」？",
+                "title/desc": "在此虛擬磁碟內的分享連結",
+                "message/noshare/title": "沒有分享連結",
+                "message/noshare/desc": "此虛擬磁碟內並沒有已分享之連結。試試從檔案管理員選擇一個檔案並點擊「分享」？",
                 "message/delwarning": "所有協作者將無法通過檔案共享界面訪問此文件。確認？",
                 "message/removed": "已移除分享",
-                "item/creator":"創建者：",
-                "item/perm":"存取權限：",
-
-                "":""
+                "item/creator": "創建者：",
+                "item/perm": "存取權限：",
+                "": ""
             },
-            "titles":{
+            "titles": {
                 "Copy Link": "複製連結",
-                "Open Share":"打開分享頁",
+                "Open Share": "打開分享頁",
                 "Open in File Manager": "在檔案管理員打開",
                 "Delete Share": "刪除此分享"
             },
-            "placeholder":{
-
-            }
+            "placeholder": {}
         },
         "zh-cn": {
-            "fwtitle" : "分享管理器",
-            "strings":{
+            "fwtitle": "分享管理器",
+            "strings": {
                 "title/title": "分享管理器",
-                "title/desc":"在此虚拟磁盘内的分享链接",
-                "message/noshare/title":"没有分享链接",
-                "message/noshare/desc":"此虚拟磁盘内并没有已分享的链接。试试从文件管理器选择一个文件并点击「分享」？ ",
+                "title/desc": "在此虚拟磁盘内的分享链接",
+                "message/noshare/title": "没有分享链接",
+                "message/noshare/desc": "此虚拟磁盘内并没有已分享的链接。试试从文件管理器选择一个文件并点击「分享」？ ",
                 "message/delwarning": "所有协作者将无法通过文件共享界面访问此文件。确认？",
                 "message/removed": "已移除分享",
-                "item/creator":"创建者：",
-                "item/perm":"存取权限：",
-
-                "":""
+                "item/creator": "创建者：",
+                "item/perm": "存取权限：",
+                "": ""
             },
-            "titles":{
+            "titles": {
                 "Copy Link": "复制链接",
-                "Open Share":"打开分享页",
+                "Open Share": "打开分享页",
                 "Open in File Manager": "在文件管理器打开",
                 "Delete Share": "删除此分享"
             },
-            "placeholder":{
-
-            }
+            "placeholder": {}
+        },
+        "en-us": {
+            "fwtitle": "Share Manager",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "title/title": "Share Manager",
+                "title/desc": "Shared links within this virtual disk",
+                "message/noshare/title": "No Shared Links",
+                "message/noshare/desc": "There are no shared links in this virtual disk. Try selecting a file from the file manager and clicking \"Share\"?",
+                "message/delwarning": "All collaborators will no longer be able to access this file through the file sharing interface. Confirm?",
+                "message/removed": "Share removed",
+                "item/creator": "Creator: ",
+                "item/perm": "Access Permission: ",
+                "": ""
+            },
+            "titles": {
+                "Copy Link": "Copy Link",
+                "Open Share": "Open Share Page",
+                "Open in File Manager": "Open in File Manager",
+                "Delete Share": "Delete This Share"
+            },
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "fwtitle": "共有マネージャー",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "title/title": "共有マネージャー",
+                "title/desc": "この仮想ディスク内の共有リンク",
+                "message/noshare/title": "共有リンクなし",
+                "message/noshare/desc": "この仮想ディスクには共有リンクがありません。ファイルマネージャーからファイルを選択して「共有」をクリックしてみてください。",
+                "message/delwarning": "すべての共同作業者はファイル共有インターフェースを通じてこのファイルにアクセスできなくなります。確認しますか？",
+                "message/removed": "共有を削除しました",
+                "item/creator": "作成者：",
+                "item/perm": "アクセス権限：",
+                "": ""
+            },
+            "titles": {
+                "Copy Link": "リンクをコピー",
+                "Open Share": "共有ページを開く",
+                "Open in File Manager": "ファイルマネージャーで開く",
+                "Delete Share": "この共有を削除"
+            },
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "fwtitle": "공유 관리자",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "title/title": "공유 관리자",
+                "title/desc": "이 가상 디스크 내의 공유 링크",
+                "message/noshare/title": "공유 링크 없음",
+                "message/noshare/desc": "이 가상 디스크에는 공유 링크가 없습니다. 파일 관리자에서 파일을 선택하고 '공유'를 클릭해 보시겠습니까?",
+                "message/delwarning": "모든 협력자가 파일 공유 인터페이스를 통해 이 파일에 액세스할 수 없게 됩니다. 확인하시겠습니까?",
+                "message/removed": "공유가 삭제되었습니다",
+                "item/creator": "생성자: ",
+                "item/perm": "접근 권한: ",
+                "": ""
+            },
+            "titles": {
+                "Copy Link": "링크 복사",
+                "Open Share": "공유 페이지 열기",
+                "Open in File Manager": "파일 관리자에서 열기",
+                "Delete Share": "이 공유 삭제"
+            },
+            "placeholder": {}
         }
     }
 }

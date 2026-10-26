@@ -1,0 +1,267 @@
+<style>
+#cnn-root {
+    --cnn-bg: #ffffff;
+    --cnn-border: #e5e5e5;
+    --cnn-text: #1f1f1f;
+    --cnn-dim: #676767;
+    --cnn-soft: #f5f5f5;
+    --cnn-soft2: #efefef;
+    --cnn-accent: #4d6bff;
+    --cnn-accent-text: #ffffff;
+    --cnn-ok: #107c10;
+    --cnn-danger: #c42b1c;
+    --cnn-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    background: var(--cnn-bg);
+    border: 1px solid var(--cnn-border);
+    border-radius: 12px;
+    box-shadow: var(--cnn-shadow);
+    color: var(--cnn-text);
+    padding: 16px;
+    margin-bottom: 4px;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+}
+body.dark #cnn-root {
+    --cnn-bg: #2b2b2b;
+    --cnn-border: #3b3b3b;
+    --cnn-text: #ececec;
+    --cnn-dim: #aaaaaa;
+    --cnn-soft: #343434;
+    --cnn-soft2: #3c3c3c;
+    --cnn-accent: #5a78ff;
+    --cnn-ok: #2ecc71;
+    --cnn-danger: #ff6b5e;
+    --cnn-shadow: 0 8px 22px rgba(0,0,0,0.3);
+}
+
+#cnn-root * { box-sizing: border-box; }
+.cnn-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+.cnn-head .cnn-title { font-size: 17px; font-weight: 600; }
+.cnn-head .cnn-sub { font-size: 12px; color: var(--cnn-dim); margin-top: 2px; }
+.cnn-head .cnn-badge { margin-left:auto; font-size:11px; color:var(--cnn-dim); display:inline-flex; align-items:center; gap:6px; min-width: 100px; }
+.cnn-dot { width:8px; height:8px; border-radius:50%; background: var(--cnn-dim); }
+.cnn-dot.ok { background: var(--cnn-ok); }
+.cnn-dot.off { background: var(--cnn-danger); }
+
+.cnn-card {
+    border: 1px solid var(--cnn-border);
+    border-radius: 10px;
+    background: var(--cnn-soft);
+    padding: 14px;
+    margin-bottom: 12px;
+}
+.cnn-card-title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; display:flex; align-items:center; gap:8px; }
+.cnn-card-desc { font-size: 11.5px; color: var(--cnn-dim); margin-bottom: 12px; line-height: 1.5; }
+
+.cnn-field { margin-bottom: 12px; }
+.cnn-field:last-child { margin-bottom: 0; }
+.cnn-field > label { display:block; font-size:12px; font-weight:600; color: var(--cnn-dim); margin-bottom: 5px; }
+.cnn-field .hint { font-size: 11px; color: var(--cnn-dim); margin-top: 5px; line-height: 1.5; }
+.cnn-row { display:flex; gap:10px; }
+.cnn-row > .cnn-field { flex:1; }
+
+#cnn-root input[type=text], #cnn-root input[type=password], #cnn-root input[type=number] {
+    width: 100%;
+    background: var(--cnn-bg);
+    border: 1px solid var(--cnn-border);
+    color: var(--cnn-text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+}
+#cnn-root input:focus { border-color: var(--cnn-accent); }
+#cnn-root code { background: var(--cnn-soft2); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+
+.cnn-btn {
+    border: 1px solid var(--cnn-border);
+    background: var(--cnn-bg);
+    color: var(--cnn-text);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: .12s;
+}
+.cnn-btn:hover { background: var(--cnn-soft2); }
+.cnn-btn.primary { background: var(--cnn-accent); color: var(--cnn-accent-text); border-color: var(--cnn-accent); }
+.cnn-btn.primary:hover { filter: brightness(1.06); }
+.cnn-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top: 4px; }
+.cnn-result { font-size: 12px; color: var(--cnn-dim); }
+
+.cnn-checkbox { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; }
+.cnn-checkbox input { width:auto; }
+
+/* Server info tiles */
+.cnn-grid { display:grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap:8px; margin-bottom: 12px; }
+.cnn-metric { border:1px solid var(--cnn-border); border-radius:10px; background:var(--cnn-bg); padding:10px; }
+.cnn-metric .lab { font-size:11px; color:var(--cnn-dim); margin-bottom:4px; }
+.cnn-metric .val { font-size:16px; font-weight:600; line-height:1.3; word-break:break-word; }
+.cnn-metric.status .val { color: var(--cnn-ok); }
+@media (max-width: 760px){ .cnn-grid { grid-template-columns: repeat(2, minmax(110px,1fr)); } }
+
+/* Models table */
+.cnn-table { width:100%; border-collapse: collapse; font-size: 12.5px; }
+.cnn-table th { text-align:left; font-size:11px; color:var(--cnn-dim); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--cnn-border); }
+.cnn-table td { padding:6px 8px; border-bottom:1px solid var(--cnn-border); }
+
+#cnn-toast {
+    display:none; position:fixed; bottom:24px; right:24px; z-index:99999;
+    padding:11px 16px; border-radius:9px; font-size:12.5px; font-weight:600;
+    color:#fff; box-shadow:var(--cnn-shadow);
+}
+</style>
+
+<div id="cnn-root">
+    <div class="cnn-head">
+        <div>
+            <div class="cnn-title">CNN Inference</div>
+            <div class="cnn-sub">Connect AGI scripts to an external CXNNAIO vision-inference server for classification, detection, segmentation, pose, oriented detection and face analysis.</div>
+        </div>
+        <div class="cnn-badge"><span class="cnn-dot" id="cnn-conn-dot"></span><span id="cnn-conn-text">Checking…</span></div>
+    </div>
+
+    <!-- Connection -->
+    <div class="cnn-card">
+        <div class="cnn-card-title">Connection</div>
+        <div class="cnn-card-desc">The CXNNAIO server endpoint and (optional) API token used by every <code>requirelib("cnn")</code> call on this system.</div>
+        <div class="cnn-row">
+            <div class="cnn-field">
+                <label>Endpoint Base URL</label>
+                <input type="text" id="cnn-endpoint" placeholder="http://localhost:8080">
+                <div class="hint">No trailing slash needed; request paths (<code>/v1/...</code>) are appended automatically.</div>
+            </div>
+            <div class="cnn-field" style="max-width:160px;">
+                <label>Request Timeout (s)</label>
+                <input type="number" id="cnn-timeout" min="1" step="1" placeholder="60">
+            </div>
+        </div>
+        <div class="cnn-field">
+            <label>API Token</label>
+            <input type="password" id="cnn-token" placeholder="cxn-...">
+            <div class="hint"><span id="cnn-token-hint"></span> Leave blank to keep the saved token, or leave empty entirely for a server running with <code>no_auth</code>.</div>
+            <label class="cnn-checkbox" style="margin-top:7px;"><input type="checkbox" id="cnn-cleartoken"> Remove saved token</label>
+        </div>
+        <div class="cnn-actions">
+            <button class="cnn-btn primary" id="cnn-save-conn">Save Connection</button>
+            <button class="cnn-btn" id="cnn-test">Test Connection</button>
+            <span class="cnn-result" id="cnn-test-result"></span>
+        </div>
+    </div>
+
+    <!-- Server info -->
+    <div class="cnn-card">
+        <div class="cnn-card-title">Server Info</div>
+        <div class="cnn-card-desc">Populated by Test Connection. Shows the live status and model registry reported by the configured server.</div>
+        <div class="cnn-grid">
+            <div class="cnn-metric status"><div class="lab">Status</div><div class="val" id="cnn-i-status">—</div></div>
+            <div class="cnn-metric"><div class="lab">Version</div><div class="val" id="cnn-i-version">—</div></div>
+            <div class="cnn-metric"><div class="lab">Uptime</div><div class="val" id="cnn-i-uptime">—</div></div>
+            <div class="cnn-metric"><div class="lab">Sessions</div><div class="val" id="cnn-i-sessions">—</div></div>
+        </div>
+        <table class="cnn-table">
+            <thead><tr><th>Model</th><th>Task</th><th style="width:90px;">Classes</th><th style="width:80px;">Input</th></tr></thead>
+            <tbody id="cnn-models-body"><tr><td colspan="4" style="text-align:center; color:var(--cnn-dim);">Run Test Connection to list models.</td></tr></tbody>
+        </table>
+    </div>
+</div>
+<div id="cnn-toast"></div>
+
+<script>
+(function () {
+    var API = "../../system/cnn/";
+    var $root = $("#cnn-root");
+
+    /* ── theme (match overview.html) ── */
+    (function applyTheme() {
+        try {
+            if (typeof preferredTheme !== 'undefined') {
+                document.body.classList.toggle('dark', (preferredTheme === 'dark' || preferredTheme === 'darkTheme'));
+                return;
+            }
+        } catch (e) {}
+        if (typeof ao_module_getSystemThemeColor === 'function') {
+            ao_module_getSystemThemeColor(function (c) { document.body.classList.toggle('dark', c !== 'whiteTheme'); });
+        }
+    })();
+
+    function el(id){ return document.getElementById(id); }
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function toast(msg, ok){
+        var t = el("cnn-toast"); t.textContent = msg;
+        t.style.background = ok === false ? "#c42b1c" : (ok === true ? "#107c10" : "#4d6bff");
+        t.style.display = "block"; setTimeout(function(){ t.style.display = "none"; }, 3200);
+    }
+    function setConn(state, text){
+        var d = el("cnn-conn-dot"); d.className = "cnn-dot" + (state===true?" ok":state===false?" off":"");
+        el("cnn-conn-text").textContent = text;
+    }
+    function fmtUptime(s){
+        s = Number(s||0);
+        if (s <= 0) return "—";
+        var d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+        if (d > 0) return d + "d " + h + "h";
+        if (h > 0) return h + "h " + m + "m";
+        return m + "m";
+    }
+
+    /* ── Connection ── */
+    function loadConfig(){
+        $.get(API + "config", function(d){
+            el("cnn-endpoint").value = d.endpoint || "";
+            el("cnn-timeout").value = d.timeoutSeconds || 60;
+            el("cnn-token-hint").textContent = d.hasToken ? ("Saved token: " + (d.tokenHint||"")) : "No token saved.";
+            if (d.endpoint) {
+                testConnection();
+            } else {
+                setConn(null, "Not configured");
+            }
+        }).fail(function(){ setConn(false, "Admin only"); toast("Failed to load configuration (admin only).", false); });
+    }
+    function saveConfig(){
+        var data = {
+            endpoint: el("cnn-endpoint").value.trim(),
+            timeoutSeconds: el("cnn-timeout").value || "60",
+            cleartoken: el("cnn-cleartoken").checked ? "true" : "false"
+        };
+        var token = el("cnn-token").value;
+        if (token) data.token = token;
+        $.post(API + "config", data, function(r){
+            if (r && r.error){ toast("Error: " + r.error, false); return; }
+            toast("Connection saved.", true);
+            el("cnn-token").value = ""; el("cnn-cleartoken").checked = false;
+            loadConfig();
+        }).fail(function(){ toast("Failed to save connection.", false); });
+    }
+    function testConnection(){
+        el("cnn-test-result").textContent = "Testing…";
+        $.post(API + "test", { endpoint: el("cnn-endpoint").value.trim(), token: el("cnn-token").value }, function(r){
+            if (r && r.error){ el("cnn-test-result").textContent = "✗ " + r.error; setConn(false, "Error"); return; }
+            el("cnn-test-result").textContent = "✓ Connected — " + r.modelCount + " model(s)";
+            setConn(true, r.modelCount + " model(s)");
+            renderServerInfo(r);
+        }).fail(function(){ el("cnn-test-result").textContent = "✗ Request failed"; setConn(false, "Unreachable"); });
+    }
+    function renderServerInfo(r){
+        el("cnn-i-status").textContent = r.status || "—";
+        el("cnn-i-version").textContent = r.version || "—";
+        el("cnn-i-uptime").textContent = fmtUptime(r.uptimeS);
+        el("cnn-i-sessions").textContent = (r.sessions != null) ? r.sessions : "—";
+
+        var models = r.models || [];
+        if (models.length === 0){ el("cnn-models-body").innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--cnn-dim);">No models reported.</td></tr>'; return; }
+        models.sort(function(a,b){ return (a.id||"").localeCompare(b.id||""); });
+        el("cnn-models-body").innerHTML = models.map(function(m){
+            return '<tr><td>'+esc(m.id)+'</td><td>'+esc(m.task)+'</td><td>'+esc(m.classes||"")+'</td><td>'+esc(m.input||"")+'</td></tr>';
+        }).join("");
+    }
+
+    /* ── Bind ── */
+    el("cnn-save-conn").addEventListener("click", saveConfig);
+    el("cnn-test").addEventListener("click", testConnection);
+
+    loadConfig();
+})();
+</script>

@@ -1,565 +1,693 @@
 <!DOCTYPE html>
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-<html>
+<html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<script src="../script/jquery.min.js"></script>
-	<link rel="stylesheet" href="../script/semantic/semantic.min.css">
-	<script type='text/javascript' src="../script/semantic/semantic.min.js"></script>
-	<script type='text/javascript' src="../script/ao_module.js"></script>
-	<style>
-	body, html {
-		height: 100%;
-		margin: 0;
-		background-color:#2b2b2b;
-	}
+    <meta charset="UTF-8"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta name="theme-color" content="#0e0e10"/>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <title>Manga Reader</title>
+    <style>
+        :root {
+            --accent:   #ffd60a;
+            --accent-h: #e8c200;
+            --surface:  #1a1a1c;
+            --surface2: #242426;
+            --border:   #333336;
+            --text:     #f0f0f5;
+            --text2:    #9090a0;
+            --r:        10px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            background: #0e0e10;
+            color: var(--text);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 15px;
+            min-height: 100%;
+        }
 
-	#settingMenu .ui.toggle.checkbox input:checked ~ .box,#settingMenu  .ui.toggle.checkbox input:checked ~ label{
-		color: rgb(189, 189, 189) !important;
-	}
-	</style>
-	<script>
-		//Scrolling Controller
-		var keys = {37: 1, 38: 1, 39: 1, 40: 1};
+        /* ── Reader ── */
+        #reader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;     /* visual cue: tap to toggle HUD */
+            padding-bottom: 0;
+        }
+        .page-img {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        /* PC mode: narrows the reading column */
+        body.pc-mode #reader { max-width: 700px; margin: 0 auto; }
 
-		function preventDefault(e) {
-		e = e || window.event;
-		if (e.preventDefault)
-			e.preventDefault();
-		e.returnValue = false;  
-		}
+        /* ── HUD shared ── */
+        .hud {
+            position: fixed; left: 0; right: 0; z-index: 100;
+            display: flex; align-items: center; gap: 8px;
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .hud.hidden { opacity: 0; pointer-events: none; }
 
-		function preventDefaultForScrollKeys(e) {
-			if (keys[e.keyCode]) {
-				preventDefault(e);
-				return false;
-			}
-		}
+        /* ── Top HUD ── */
+        #hudTop {
+            top: 0;
+            padding: 10px 12px 32px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, transparent 100%);
+            transform: translateY(0);
+        }
+        #hudTop.hidden { transform: translateY(-100%); }
 
-		function disableScroll() {
-		if (window.addEventListener) // older FF
-			window.addEventListener('DOMMouseScroll', preventDefault, false);
-			window.onwheel = preventDefault; // modern standard
-			window.onmousewheel = document.onmousewheel = preventDefault; // older browsers, IE
-			window.ontouchmove  = preventDefault; // mobile
-			document.onkeydown  = preventDefaultForScrollKeys;
-		}
+        .hud-btn {
+            background: none; border: none;
+            color: rgba(255,255,255,0.9);
+            cursor: pointer; font-size: 1em;
+            padding: 5px 8px; border-radius: 6px;
+            transition: background 0.12s;
+            white-space: nowrap;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        .hud-btn:hover { background: rgba(255,255,255,0.14); }
 
-		function enableScroll() {
-			if (window.removeEventListener)
-				window.removeEventListener('DOMMouseScroll', preventDefault, false);
-				window.onmousewheel = document.onmousewheel = null; 
-				window.onwheel = null; 
-				window.ontouchmove = null;  
-				document.onkeydown = null;  
-			}
-		disableScroll();
-	</script>
+        #hudTitleWrap {
+            flex: 1;
+            text-align: center;
+            overflow: hidden;
+            min-width: 0;
+        }
+        #hudMangaTitle {
+            font-size: 1em;
+            color: rgba(255,255,255,0.6);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #hudChapterTitle {
+            font-size: 1em;
+            font-weight: 700;
+            color: var(--accent);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* ── Bottom HUD ── */
+        #hudBottom {
+            bottom: 0;
+            padding: 32px 12px 12px;
+            background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 100%);
+            transform: translateY(0);
+        }
+        #hudBottom.hidden { transform: translateY(100%); }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.85);
+            cursor: pointer; font-size: 1em;
+            padding: 6px 13px; border-radius: 6px;
+            transition: background 0.12s;
+            font-family: inherit; white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.20); }
+        .nav-btn:disabled { opacity: 0.28; cursor: not-allowed; }
+
+        #pageIndicator {
+            flex: 1; text-align: center;
+            font-size: 1em;
+            color: rgba(255,255,255,0.55);
+        }
+
+        /* ── Chapter end card ── */
+        #chapterEnd {
+            display: none;
+            padding: 44px 20px 60px;
+            text-align: center;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+        .end-label {
+            font-size: 1em;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+        .end-next-name {
+            font-size: 1em; font-weight: 700;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+        .end-btn {
+            padding: 10px 28px;
+            background: var(--accent); color: #1a1a1a;
+            border: none; border-radius: 8px;
+            font-size: 1em; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            transition: background 0.15s;
+        }
+        .end-btn:hover:not(:disabled) { background: var(--accent-h); }
+        .end-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .end-no-more {
+            font-size: 1em; color: var(--text2); margin-top: 8px;
+        }
+
+        /* ── Chapter selector overlay ── */
+        #chapterOverlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.82);
+            backdrop-filter: blur(4px);
+        }
+        #chapterPanel {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            max-height: 72vh;
+            overflow-y: auto;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 14px 20px;
+        }
+        .ch-overlay-hdr {
+            font-size: 1em; font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        .ch-list-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ch-list-btn {
+            padding: 5px 12px;
+            font-size: 1em; font-weight: 500;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text2);
+            cursor: pointer; font-family: inherit;
+            transition: background 0.12s, color 0.12s;
+        }
+        .ch-list-btn:hover   { background: var(--accent); color: #1a1a1a; border-color: var(--accent); }
+        .ch-list-btn.current { background: var(--accent); color: #1a1a1a; border-color: var(--accent); }
+
+        /* ── Settings panel ── */
+        #settingsOverlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.82);
+            backdrop-filter: blur(4px);
+        }
+        #settingsBox {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            width: min(300px, 88vw);
+        }
+        .settings-hdr {
+            font-size: 1em; font-weight: 700;
+            color: var(--text); margin-bottom: 16px;
+        }
+        .setting-row {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px; gap: 12px;
+        }
+        .setting-lbl { font-size: 1em; color: var(--text); }
+        .setting-sub { font-size: 1em; color: var(--text2); margin-top: 2px; }
+
+        /* Toggle switch */
+        .toggle-sw { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+        .toggle-sw input { display: none; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: var(--border); border-radius: 11px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .toggle-track::after {
+            content: ''; position: absolute;
+            top: 3px; left: 3px;
+            width: 16px; height: 16px;
+            background: #fff; border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .toggle-sw input:checked + .toggle-track { background: var(--accent); }
+        .toggle-sw input:checked + .toggle-track::after { transform: translateX(18px); }
+
+        .settings-close {
+            width: 100%; padding: 9px;
+            background: var(--surface2);
+            border: none; border-radius: 8px;
+            color: var(--text); font-size: 1em; font-weight: 600;
+            cursor: pointer; font-family: inherit; margin-top: 4px;
+            transition: background 0.12s;
+        }
+        .settings-close:hover { background: var(--border); }
+
+        /* ── Loading screen ── */
+        #loadingScreen {
+            position: fixed; inset: 0; z-index: 300;
+            background: #0e0e10;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 14px; color: var(--text2); font-size: 1em;
+        }
+        .spin {
+            width: 28px; height: 28px;
+            border: 3px solid #2a2a2c;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 3px; }
+
+        /* Icon images — all SVGs are white, suits the dark reader perfectly */
+        .btn-icon {
+            width: 22px; height: 22px;
+            display: block;
+            flex-shrink: 0;
+        }
+        /* Buttons that mix icon + text need flex alignment */
+        .btn-with-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
 </head>
 <body>
-<div id="loading" style="position: fixed;top: 0;left: 0;background:rgba(0,0,0,0.5);color:white;width:100%;height:100%;z-index:100">
-	<div class="ui active dimmer">
-        <div class="ui text loader">Loading</div>
+
+<!-- Loading screen -->
+<div id="loadingScreen">
+    <div class="spin"></div>
+    <div locale="loading/chapter">Loading chapter…</div>
+</div>
+
+<!-- Top HUD -->
+<div id="hudTop" class="hud hidden">
+    <button class="hud-btn btn-with-icon" id="backBtn">
+        <img src="img/icons/back.svg" class="btn-icon" alt=""><span locale="btn/back">Back</span>
+    </button>
+    <div id="hudTitleWrap">
+        <div id="hudMangaTitle"></div>
+        <div id="hudChapterTitle"></div>
+    </div>
+    <button class="hud-btn" id="chaptersBtn" title="Chapter list">
+        <img src="img/icons/menu.svg" class="btn-icon" alt="Chapters">
+    </button>
+    <button class="hud-btn" id="settingsBtn" title="Settings">
+        <img src="img/icons/setting.svg" class="btn-icon" alt="Settings">
+    </button>
+</div>
+
+<!-- Reader (tap to toggle HUD) -->
+<div id="reader"></div>
+
+<!-- End-of-chapter card -->
+<div id="chapterEnd">
+    <div class="end-label" locale="reader/end_chapter">End of chapter</div>
+    <div class="end-next-name" id="endNextName"></div>
+    <button class="end-btn btn-with-icon" id="nextChEndBtn">
+        <span locale="reader/next_chapter">Next Chapter</span>
+    </button>
+    <div class="end-no-more" id="endNoMore" style="display:none" locale="reader/finished">You've finished the last chapter.</div>
+</div>
+
+<!-- Bottom HUD -->
+<div id="hudBottom" class="hud hidden">
+    <button class="nav-btn btn-with-icon" id="prevChBtn">
+        <img src="img/icons/previous.svg" class="btn-icon" alt=""><span locale="btn/prev">Prev</span>
+    </button>
+    <div id="pageIndicator">— / —</div>
+    <button class="nav-btn btn-with-icon" id="nextChBtn">
+        <span locale="btn/next">Next</span> <img src="img/icons/next.svg" class="btn-icon" alt="">
+    </button>
+</div>
+
+<!-- Chapter selector overlay -->
+<div id="chapterOverlay">
+    <div id="chapterPanel">
+        <div class="ch-overlay-hdr btn-with-icon">
+            <img src="img/icons/menu.svg" class="btn-icon" alt=""><span locale="overlay/chapters">Chapters</span>
+        </div>
+        <div class="ch-list-btns" id="chListBtns"></div>
     </div>
 </div>
-<div class="ui attached inverted message" style="margin-top: 0em;" onClick="ToggleChapters();">
-    <div class="header"><i class="bookmark icon"></i>You are already reached the top of this manga.</div>
-    <p>Click here to select more chapters.</p>
+
+<!-- Settings overlay -->
+<div id="settingsOverlay">
+    <div id="settingsBox">
+        <div class="settings-hdr btn-with-icon">
+            <img src="img/icons/setting.svg" class="btn-icon" alt=""><span locale="settings/title">Settings</span>
+        </div>
+        <div class="setting-row">
+            <div>
+                <div class="setting-lbl" locale="settings/save_progress">Save Progress</div>
+                <div class="setting-sub" locale="settings/save_progress_sub">Return to last read page automatically</div>
+            </div>
+            <label class="toggle-sw">
+                <input type="checkbox" id="toggleProgress">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <div>
+                <div class="setting-lbl" locale="settings/pc_mode">PC Mode</div>
+                <div class="setting-sub" locale="settings/pc_mode_sub">Narrows images for wide screens</div>
+            </div>
+            <label class="toggle-sw">
+                <input type="checkbox" id="togglePcMode">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <button class="settings-close" id="settingsCloseBtn" locale="btn/close">Close</button>
+    </div>
 </div>
 
-<div id="MangaList" class="ui list">
-	<div class="item" style="width: 100%;display: flex;align-items: flex-start;"><img src="" style="width: 100%;height: auto;"></img></div>
-</div>
+<script>
+// ══════════════════════════════════════════════════════════════
+//  Manga Reader – viewComic.html
+// ══════════════════════════════════════════════════════════════
 
-<!-- Click Detect DIV -->
-<div id="clickInterface" style="opacity:0;
-    filter: alpha(opacity = 0);
-    position:fixed;
-    top:25%; bottom:25%; left:0; right:0;
-	width:100%;
-	height:50%;
-    display:block;
-    z-index:998;
-    background:transparent;" onClick="">
-</div>
+// ── Localisation ───────────────────────────────────────────
+function t(key, fallback) {
+    if (typeof applocale !== 'undefined' && applocale.localData && applocale.localData.keys) {
+        return applocale.getString(key, fallback);
+    }
+    return fallback;
+}
+if (typeof applocale !== 'undefined') {
+    applocale.init("locale/manga.json", function () {
+        applocale.translate();
+    });
+}
 
-<!-- Setting Config DIV -->
-<div id="SettingInterface" style="
-    position:fixed;
-    top:0; bottom:0; left:0; right:0;
-	width:100%;
-	height:100%;
-    display:block;
-    z-index:1501;
-	display:none;" onClick="">
-	<div id="settingMenu" class="ui very narrow container" style="top:15%;z-index:1502;">
-		<div class="ui container" style="color:white;">
-		<div class="ui inverted segment" style="background:rgba(61,61,61,0.8);">
-			<p style="font-size:120%;"><i class='setting icon'></i>Settings</p>
-			<div class="ui toggle checkbox">
-				<input type="checkbox" id="lefthand">
-				<label for="lefthand" style="color:white;"><i class="hand paper icon" style="transform: scaleX(-1);-moz-transform: scaleX(-1);-webkit-transform: scaleX(-1);-ms-transform: scaleX(-1);"></i>Left hand mode <br> Click the left section of the view for downward auto scrolling instead of right section.</label>
-			</div><br><br>
-			<div class="ui toggle checkbox">
-				<input type="checkbox" id="progress">
-				<label for="progress" style="color:white;"><i class="save icon"></i>Save progress <br> Save the current progress and return to that page automatically in the future.</label>
-			</div><br><br>
-			<div class="ui toggle checkbox">
-				<input type="checkbox" id="pcm">
-				<label for="pcm" style="color:white;"><i class="save icon"></i>PC Mode <br> Scale down the manga a bit to make you feel better on a big PC screen.</label>
-			</div>
-		</div>
-		</div>
-	</div>
-</div>
+var chapterPath  = decodeURIComponent(window.location.hash.substr(1));
+var allChapters  = [];   // [{name, path}] natural-sorted
+var currentChIdx = -1;
+var mangaRootPath = '';  // set once getMangaInfo returns; used for back-navigation
+var positions    = [];   // scrollY of top of each page
+var currentPage  = 1;
+var hudVisible   = false;
+var hudTimer     = null;
+var saveProgress = false;
+var pcMode       = false;
+var PROG_KEY     = "manga_prog_";
+var SAVE_KEY     = "manga_saveProgress";
+var PC_KEY       = "manga_pcMode";
 
-<!-- Page Info DIV-->
-<div align="right" style="position: fixed;bottom: 0;right: 0;background:rgba(0,0,0,0.5);color:white;z-index:1000;">
-<div id="PageInfo" class="ui fluid text container">
-Loading Page Data...
-</div>
-</div>
-<!-- Next Chapter Message-->
-<div class="ui inverted message" onclick="NextChapter();" style="cursor: pointer;">
-    <div class="header"><i class="bookmark icon"></i>You have finished this chapter.</div>
-    <p id="reminder">Click this box to proceed to next chapter.</p>
-</div>
+// ── Restore settings ───────────────────────────────────────
+saveProgress = (localStorage.getItem(SAVE_KEY) === "true");
+pcMode       = (localStorage.getItem(PC_KEY)   === "true");
+document.getElementById("toggleProgress").checked = saveProgress;
+document.getElementById("togglePcMode").checked   = pcMode;
+if (pcMode) document.body.classList.add("pc-mode");
 
-<!-- Start of Chapter Selector-->
-<div id="ChapterSelector" class="ui inverted message" style="color:white;display:none;">
-<div class="ui stackable grid" id="chapterlist">
-    
-</div>
-</div>
-<!-- END of Chapter Selector-->
-<div align="center" style="width:100%">
-<div class="ui buttons" >
-    <button class="ui inverted basic button" onClick="window.location.href='index.html'" style="color:white !important;"><i class="chevron left icon"></i>Back</button>
-    <button class="ui inverted basic button" onClick="ToggleChapters();" style="color:white !important;"><i class="book icon"></i>Chapters</button>
-</div>
-</div>
+// ── Strip leading "N " prefix from metadata-style chapter names ──
+function cleanChName(name) {
+    return String(name).replace(/^\d+\s+/, "") || name;
+}
 
-<br>
-<br>
-<script type="text/javascript">
-    var pages = [];
-	var titles = "";
-	var chapterPaths = [];
-	var nextChapterID = 0;
-	var maxChapterID = 0;
-	var pagesNum = pages.length; //This page number is the number of files in the directory, not the actual page number
-	var positions = [];
-	var currentPage = 0;
-	var chapterShown = false;
-	var lastpage = 0;
-	var floatWindow = !(!parent.isFunctionBar); //Updated support on floatWindow System
-	//Auto save and left hand mode
-	var autoSave = false;
-	var leftHandMode = false;
-	var isMobile = false; //initiate as false
-	// device detection
-	if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent) 
-		|| /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0,4))) { 
-		isMobile = true;
-	}
-	var preRenderComplete = false;
-	var pcm = false; //PC Mode
-	//Screen Width and height data
-	var screenWidth = $(window).width();
-	var screenHeight = $(window).height();
-	//Debug Interface
-	console.log("This Chapter ID: ",nextChapterID);
-	console.log("Max Chapter ID: ",maxChapterID);
-	console.log("Chapter Paths: ",chapterPaths);
+// ── Load chapter data ──────────────────────────────────────
+ao_module_agirun("Manga/backend/getMangaInfo.js", { folder: chapterPath }, function (data) {
+    var pages    = data.pages || [];
+    var titleArr = data.title || ["", ""];
+    var siblings = data.otherChapterDir || [];
+    mangaRootPath = data.mangaRoot || '';
 
-	if(floatWindow){
-		$("#PageInfo").parent().css("bottom","0px");
-		$("body").css("padding-bottom","20px");
-	}
+    // Update HUD title
+    document.getElementById("hudMangaTitle").textContent   = titleArr[0];
+    document.getElementById("hudChapterTitle").textContent = cleanChName(titleArr[1]);
+    document.title = titleArr[0] + " – " + cleanChName(titleArr[1]);
 
-	//Load the content of this manga chapter
-	var mangaFolder = window.location.hash.substr(1);
-	ao_module_agirun("Manga/backend/getMangaInfo.js", {folder: mangaFolder}, function(data){
-		console.log(data);
-		pages = data.pages;
-		titles = data.title,
-		chapterPaths = data.otherChapterDir;
-		nextChapterID = 0;
-		maxChapterID = chapterPaths.length;
+    // Build sibling chapter list and find current index
+    allChapters = siblings.map(function (p) {
+        return { name: p.split("/").pop(), path: p };
+    });
+    for (var i = 0; i < allChapters.length; i++) {
+        if (allChapters[i].path === chapterPath) { currentChIdx = i; break; }
+    }
+    // Fallback: match by chapter name
+    if (currentChIdx === -1) {
+        var curName = chapterPath.split("/").pop();
+        for (var i = 0; i < allChapters.length; i++) {
+            if (allChapters[i].name === curName) { currentChIdx = i; break; }
+        }
+    }
 
-		//Render manga to ui
-		$("#MangaList").html("");
-		data.pages.forEach(page => {
-			$("#MangaList").append(`<div class="item" style="width: 100%;display: flex;align-items: flex-start;"><img src="../media?file=${page}" style="width: 100%;height: auto;"></img></div>`)
-		});
+    // Render pages
+    var reader = document.getElementById("reader");
+    pages.forEach(function (p) {
+        var img = document.createElement("img");
+        img.className = "page-img";
+        img.alt       = "";
+        img.decoding  = "async";
+        img.src       = "/media?file=" + encodeURIComponent(p);
+        reader.appendChild(img);
+    });
 
-		//Render next chapter button
-		$("#chapterlist").html("");
-		var counter = 0;
-		var nextOneIsPreRender = false;
-		var prerender = "";
-		data.otherChapterDir.forEach(chapter => {
-			var chapterName = chapter.split("/").pop();
-			var chapterWide = "four";
-			if (isMobile){
-				chapterWide = "sixteen";
-			}
-			if (chapterName == data.title[1]){
-				$("#chapterlist").append(`<div class="${chapterWide} wide column compact" style="color:white; padding: 0.3em !important;"><a class="ui fluid inverted basic disabled button" style="color:white;">${chapterName}</a></div>`);
-				nextChapterID = counter;
-				nextOneIsPreRender = true;
-			}else{
-				if (nextOneIsPreRender){
-					nextOneIsPreRender = false;
-					prerender = chapter;
-				}
-				$("#chapterlist").append(`<div class="${chapterWide} wide column compact" style="color:white; padding: 0.3em !important;"><a class="ui fluid inverted basic button" style="color:white;" onClick="ChapterRedirect('${chapter}');">${chapterName}</a></div>`);
-			}
-			counter++;
-		});
+    // Render chapter selector
+    renderChapterOverlay();
 
-		//Start waiting for all images to load
-		var imagesLoaded = 0;
-		var totalImages = $('img').length;
-		$('img').on('load', function(event) {
-			imagesLoaded++;
-			if (imagesLoaded == totalImages) {
-				init();
+    // Wire up nav buttons
+    updateNavButtons();
 
-				if (nextOneIsPreRender == true){
-					//There is no next chapter
-					preRenderComplete = true;
-				}else{
-					//Start next chapter pre-render
-					ao_module_agirun("Manga/backend/getMangaInfo.js",{folder: prerender}, function(data){
-						//Pre-render complete
-						console.log("Next chapter pre-render completed")
-						preRenderComplete = true;
-					});
-				}
-			
-			}
-		});
-		
-	});
-	
-	//Window onload replace document.ready due to the measurement of each div have to be done after the page loaded
-	function init(){
-		$('#loading').hide(); 
-		enableScroll();
-		positions = [];
-		var count = 0;
-		$('.item').each(function(i, obj) {
-			var offsets = $(this).offset();
-			var top = offsets.top;
-			//console.log(top);
-			positions.push(top);
-			count += 1;
-		});
-		if (nextChapterID + 1 > maxChapterID - 1){
-				$('#reminder').html('There is no more chapters.');
-		}
-		//alert(count);
-		//Check if PCB Mode
-		if (localStorage.pcm !== null){
-			pcm = (localStorage.pcm == 'true');
-			console.log('PC Mode: ' + pcm);
-			$('#pcm').prop("checked",pcm);
-		}
-		if (pcm){
-			//If PC mode is enabled, re-allign all image
-			setTimeout(function(){ PCMode(0); }, 100);
-		}
-		//AutoSave Function
-		if (localStorage.autoSave !== null){
-			autoSave = (localStorage.autoSave == 'true');
-			console.log('AutoSave: ' + autoSave);
-			$('#progress').prop("checked",autoSave);
-			if (localStorage.getItem(titles[0] + "-" + titles[1]) !== null && autoSave){
-				var page = localStorage.getItem(titles[0] + "-" + titles[1]);
-				console.log('Loading progress: ' + page);
-				if (page != count){
-					//Not yet finished
-					console.log(count,page)
-					setTimeout(function(){ GoToPage(page); },100);
-				}
-			}
-		}
-		if(localStorage.getItem(titles[0] + "-" + titles[1]) !== null && (localStorage.autoSave === null || localStorage.autoSave == 'false')){
-				localStorage.removeItem(titles[0] + "-" + titles[1]);
-				console.log("Old autosave record removed.");
-			}
-			
-		//Left hand Mode function
-		if (localStorage.leftHandMode !== null){
-			leftHandMode = (localStorage.leftHandMode == 'true');
-			console.log('Left Hand Mode: ' + leftHandMode);
-			$('#lefthand').prop("checked",leftHandMode);
-		}
-		
-		UpdatePageInfo();
-	}
-	
-	//Check if settings changed
-	$('#lefthand').change(function(){
-	  if($(this).is(':checked')){
-		localStorage.leftHandMode = true;
-		leftHandMode = true;
-		console.log('Left Hand Mode Changed to ' + leftHandMode);
-	  } else {
-		localStorage.leftHandMode = false;
-		leftHandMode = false;
-		console.log('Left Hand Mode Changed to ' + leftHandMode);
-	  }
-	});
+    // Wait for all images to load, then init
+    waitForImages(function () {
+        document.getElementById("loadingScreen").style.display = "none";
+        calcPositions();
+        updatePageIndicator();
+        document.getElementById("chapterEnd").style.display = "block";
 
-	$('#progress').change(function(){
-	  if($(this).is(':checked')){
-		localStorage.autoSave = true;
-		autoSave = true;
-		console.log('Auto Save Changed to ' + autoSave);
-		localStorage.setItem(titles[0] + "-" + titles[1], currentPage);
-	  } else {
-		localStorage.autoSave = false;
-		autoSave = false;
-		console.log('Auto Save Changed to ' + autoSave);
-	  }
-	});
-	
-	$('#pcm').change(function(){
-	  if($(this).is(':checked')){
-		localStorage.pcm = true;
-		pcm = true;
-		console.log('PC Mode Changed to ' + pcm);
-		PCMode();
-	  } else {
-		localStorage.pcm = false;
-		pcm = false;
-		console.log('PC Mode Changed to ' + pcm);
-		MobileMode();
-	  }
-	});
-	//End of setting change section
-	
-	//Recalculate page number accodring to new image position
-	window.onresize = function() {
-		positions = [];
-		$('.item').each(function(i, obj) {
-			var offsets = $(this).offset();
-			var top = offsets.top;
-			//console.log(top);
-			positions.push(top);
-			if (nextChapterID + 1 > maxChapterID - 1){
-				$('#reminder').html('There is no more chapters.');
-			}
-			screenWidth = $(window).width();
-			screenHeight = $(window).height();
-		});
-	}
-	
-	//Click Page Scroll functions
-	var ControlPanel = document.getElementById('clickInterface');
-	ControlPanel.addEventListener("click", AutoPageScroll, false);
-	
-	function AutoPageScroll(e){
-		var clickX = e.clientX;
-		var clickY = e.clientY;
-		var split = screenWidth / 2;
-		if (leftHandMode == true){
-			//Left side is next page, right side is previous page
-			if (clickX < split){
-				//left
-				scrollDown();
-			}else{
-				//right
-				scrollUp();
-			}
-		}else{
-			if (clickX > split){
-				//right
-				scrollDown();
-			}else{
-				//left
-				scrollUp();
-			}
-		}
-	}
-	
-	function scrollDown(){
-		$("html, body").animate({ scrollTop: $(window).scrollTop() + screenHeight * 0.8 }, 1000);
-	}
-	function scrollUp(){
-		$("html, body").animate({ scrollTop: $(window).scrollTop() - screenHeight * 0.8 }, 1000);
-	}
-	//End of auto scrolling
-	
-	//Resize all image to PC mode
-	function PCMode(mode){
-		var tmpPage = currentPage;
-		$('.item').each(function(i, obj) {
-			$(this).css("width","50%");
-		});
-		$('#MangaList').css("width","100%");
-		$('#MangaList').prop("align","center");
-		setTimeout(function(){ CalculatePageOffsets(); }, 1000);
-		if (mode != 0){
-			setTimeout(function(){ GoToPage(tmpPage); }, 100);
-		}
-	}
-	function MobileMode(){
-		var tmpPage = currentPage;
-		$('.item').each(function(i, obj) {
-			$(this).css("width","100%");
-		});
-		$('#MangaList').css("width","");
-		$('#MangaList').prop("align","");
-		setTimeout(function(){ CalculatePageOffsets(); }, 1000);
-		setTimeout(function(){ GoToPage(tmpPage); }, 100);
-	}
-	function CalculatePageOffsets(){
-		console.log('Calculating Page Offsets');
-		positions = [];
-		$('.item').each(function(i, obj) {
-			var offsets = $(this).offset();
-			var top = offsets.top;
-			//console.log(top);
-			positions.push(top);
-			if (nextChapterID + 1 > maxChapterID - 1){
-				$('#reminder').html('There is no more chapters.');
-			}
-		});
-		UpdatePageInfo();
-		 
-	}
-	//Update page info on window scroll
-	$( window ).scroll(function() {
-	  //console.log($(window).scrollTop());
-	  currentPage = getPageNum($(window).scrollTop(),positions);
-	  
-	  if (autoSave == true && currentPage != 0 && lastpage != currentPage){
-		  //Save Page number as: "title-chapter:page"
-		  localStorage.setItem(titles[0] + "-" + titles[1], currentPage);
-		  lastpage = currentPage;
-		  console.log(localStorage.getItem(titles[0] + "-" + titles[1]));
-	  }
-	  var shortentitle = titles[1];
-	  //console.log(currentPage);
-	  if (shortentitle.length > 12){
-		  shortentitle = shortentitle.substring(0, 12) + "...";
-	  }
-	  	var prerenderFinishIcon = "<i class='loading spinner icon'></i>";
-		if (preRenderComplete){
-			prerenderFinishIcon = "<i class='checkmark icon' style='color: green;'></i>"
-		}
-
-	  $('#PageInfo').html("  <i class='chevron left icon' onClick='back();'></i>  <i class='setting icon' onClick='ShowSetting();'></i>" + shortentitle  + " " + prerenderFinishIcon + " " +  currentPage.toString() + "/" +  positions.length.toString() + "    " + titles[0]  +  "  ");
-	  
-	  //if the page reached the end, hide the auto scroll div
-	  if($(window).scrollTop() + $(window).height() == $(document).height()) {
-		  $('#clickInterface').hide();
-	  }else if ( $('#clickInterface').is(':visible') !== true  && chapterShown !== true){
-		  $('#clickInterface').show();
-	  }
-	});
-	
-	//Update Page Info (same as window.scroll function)
-	function UpdatePageInfo(){
-		currentPage = getPageNum($(window).scrollTop(),positions);
-		if (autoSave == true && currentPage != 0){
-			//Save Page number as: "title-chapter:page"
-			localStorage.setItem(titles[0] + "-" + titles[1], currentPage);
-		}
-		//console.log(currentPage);
-		var shortentitle = titles[1];
-		//console.log(currentPage);
-		if (shortentitle.length > 12){
-			shortentitle = shortentitle.substring(0, 12) + "...";
-		}
-
-		var prerenderFinishIcon = "";
-		if (preRenderComplete){
-			prerenderFinishIcon = "<i class='checkmark icon'></i>"
-		}
-
-		$('#PageInfo').html("  <i class='chevron left icon' onClick='back();'></i>  <i class='setting icon' onClick='ShowSetting();'></i>" + shortentitle + " " +  prerenderFinishIcon + " " +  currentPage.toString() + "/" +  positions.length.toString() + "    " + titles[0]  + "  ");
-		
-	}
-	
-	function back(){
-		window.location.href='index.html';
-	}
-	//Setting Interface controlling
-	function ShowSetting(){
-		$('#SettingInterface').fadeIn('slow');
-	}
-	var ExitPanel = document.getElementById('SettingInterface');
-	ExitPanel.addEventListener("click", HideSetting, false);
-	function HideSetting(e){
-		//console.log(e.clientX);
-		//console.log(e.clientY);
-		pleft = $('#settingMenu').offset().left;
-		pright = pleft + $('#settingMenu').width();
-		ptop = $('#settingMenu').offset().top;
-		pbottom = ptop + $('#settingMenu').height();
-		//console.log(e.clientX,e.clientY,pleft,pright,ptop,pbottom);
-		if (e.clientX < pleft || e.clientX > pright || e.clientY + $(window).scrollTop() < ptop || e.clientY + $(window).scrollTop()> pbottom){
-			$('#SettingInterface').fadeOut('slow');
-		}
-	}
-	
-	//Next chapter controlling algorithm
-	function NextChapter(){
-		var id = nextChapterID + 1;
-		if (id > maxChapterID - 1){
-			
-		}else{
-			ChapterRedirect(chapterPaths[id]);
-		}
-		
-		
-	}
-	
-	function ChapterRedirect(path){
-		window.location.href= "viewComic.html#" + path;
-		window.location.reload();
-	}
-	
-	
-	//Show all chapters of this manga
-	function ToggleChapters(){
-		if (chapterShown == true){
-			$('#ChapterSelector').fadeOut('slow');
-			//$("html, body").animate({ scrollTop: $("#ChapterSelector").offset().top }, 1000);
-			$("html, body").animate({ scrollTop: $(document).height() }, 1000);
-			chapterShown = false;
-			$('#clickInterface').show();
-		}else{
-			$('#ChapterSelector').fadeIn('slow');
-			$("html, body").animate({ scrollTop: $("#ChapterSelector").offset().top }, 1000);
-			//$("html, body").animate({ scrollTop: $(document).height() }, 1000);
-			chapterShown = true;
-			$('#clickInterface').hide();
-		}
-	}
-	
-	//Convert current view top to page number
-	function getPageNum (num, arr) {
-                for (var i = 0;i<arr.length;i++){
-					if (arr[i] > num){
-						return i;
-					}
-				}
-				return arr.length;
+        // Restore saved progress
+        if (saveProgress) {
+            var saved = parseInt(localStorage.getItem(PROG_KEY + chapterPath), 10);
+            if (saved > 1 && saved <= positions.length) {
+                setTimeout(function () {
+                    window.scrollTo(0, positions[saved - 1] - 4);
+                }, 150);
             }
-	
-	function GoToPage(num){
-		//console.log('Going to page: ' + num);
-		CalculatePageOffsets();
-		console.log("Going to page number:" + num);
-		var targetTop = positions[num - 1];
-		$('html, body').animate({scrollTop: targetTop + 5}, 1000);
-	}
+        }
+
+        showHUD(3500);
+    });
+
+}, function () {
+    document.getElementById("loadingScreen").innerHTML =
+        '<div style="color:#ff453a;">' + t('error/load_failed', 'Failed to load chapter.') + '</div>' +
+        '<button onclick="history.back()" style="margin-top:14px;padding:8px 18px;' +
+        'background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:6px;' +
+        'cursor:pointer;font-family:inherit;font-size:1em;display:inline-flex;align-items:center;gap:6px;">' +
+        '<img src="img/icons/back.svg" style="width:20px;height:20px;"> ' + t('btn/go_back', 'Go Back') + '</button>';
+});
+
+// ── Image-load waiter ──────────────────────────────────────
+function waitForImages(cb) {
+    var imgs  = document.querySelectorAll(".page-img");
+    var total = imgs.length;
+    if (total === 0) { cb(); return; }
+    var done  = 0;
+    function tick() { if (++done === total) cb(); }
+    imgs.forEach(function (img) {
+        if (img.complete) tick();
+        else { img.addEventListener("load", tick); img.addEventListener("error", tick); }
+    });
+}
+
+// ── Page position tracking ─────────────────────────────────
+function calcPositions() {
+    var imgs = document.querySelectorAll(".page-img");
+    positions = [];
+    imgs.forEach(function (img) {
+        positions.push(img.getBoundingClientRect().top + window.scrollY);
+    });
+}
+
+function updatePageIndicator() {
+    var y    = window.scrollY;
+    var page = 1;
+    for (var i = 0; i < positions.length; i++) {
+        if (positions[i] <= y + window.innerHeight * 0.45) page = i + 1;
+    }
+    currentPage = page;
+    document.getElementById("pageIndicator").textContent = page + " / " + positions.length;
+}
+
+window.addEventListener("resize", function () {
+    calcPositions();
+    updatePageIndicator();
+});
+
+// ── Scroll listener ────────────────────────────────────────
+var _raf = null;
+window.addEventListener("scroll", function () {
+    if (_raf) cancelAnimationFrame(_raf);
+    _raf = requestAnimationFrame(function () {
+        updatePageIndicator();
+        if (saveProgress && positions.length > 0) {
+            localStorage.setItem(PROG_KEY + chapterPath, currentPage);
+        }
+    });
+});
+
+// ── HUD toggle ─────────────────────────────────────────────
+function showHUD(autoHideMs) {
+    hudVisible = true;
+    document.getElementById("hudTop").classList.remove("hidden");
+    document.getElementById("hudBottom").classList.remove("hidden");
+    clearTimeout(hudTimer);
+    if (autoHideMs) hudTimer = setTimeout(hideHUD, autoHideMs);
+}
+function hideHUD() {
+    hudVisible = false;
+    document.getElementById("hudTop").classList.add("hidden");
+    document.getElementById("hudBottom").classList.add("hidden");
+    clearTimeout(hudTimer);
+}
+function toggleHUD() {
+    if (hudVisible) hideHUD(); else showHUD(4000);
+}
+
+// Reader tap → toggle HUD
+// Use touchend on mobile (avoids conflict with scroll) + click for desktop
+var _touchMoved = false;
+document.getElementById("reader").addEventListener("touchstart", function () { _touchMoved = false; }, { passive: true });
+document.getElementById("reader").addEventListener("touchmove",  function () { _touchMoved = true;  }, { passive: true });
+document.getElementById("reader").addEventListener("touchend",   function (e) {
+    if (!_touchMoved) { e.preventDefault(); toggleHUD(); }
+});
+document.getElementById("reader").addEventListener("click", function () { toggleHUD(); });
+
+// ── Chapter navigation ─────────────────────────────────────
+function updateNavButtons() {
+    var hasPrev = currentChIdx > 0;
+    var hasNext = currentChIdx >= 0 && currentChIdx < allChapters.length - 1;
+
+    document.getElementById("prevChBtn").disabled    = !hasPrev;
+    document.getElementById("nextChBtn").disabled    = !hasNext;
+    document.getElementById("nextChEndBtn").disabled = !hasNext;
+
+    var endNameEl  = document.getElementById("endNextName");
+    var endNoMore  = document.getElementById("endNoMore");
+    var endNextBtn = document.getElementById("nextChEndBtn");
+    if (hasNext) {
+        endNameEl.textContent = t('reader/up_next', 'Up next:') + ' ' + cleanChName(allChapters[currentChIdx + 1].name);
+        endNameEl.style.display = "block";
+        endNextBtn.style.display = "inline-block";
+        endNoMore.style.display  = "none";
+    } else {
+        endNameEl.style.display  = "none";
+        endNextBtn.style.display = "none";
+        endNoMore.style.display  = "block";
+    }
+}
+
+function gotoChapter(path) {
+    window.location.hash = encodeURIComponent(path);
+    window.location.reload();
+}
+
+document.getElementById("prevChBtn").addEventListener("click", function () {
+    if (currentChIdx > 0) gotoChapter(allChapters[currentChIdx - 1].path);
+});
+document.getElementById("nextChBtn").addEventListener("click", function () {
+    if (currentChIdx >= 0 && currentChIdx < allChapters.length - 1)
+        gotoChapter(allChapters[currentChIdx + 1].path);
+});
+document.getElementById("nextChEndBtn").addEventListener("click", function () {
+    if (currentChIdx >= 0 && currentChIdx < allChapters.length - 1)
+        gotoChapter(allChapters[currentChIdx + 1].path);
+});
+document.getElementById("backBtn").addEventListener("click", function () {
+    // Navigate back to the library; include the manga root in the hash so
+    // index.html can jump straight to the detail view without flashing the grid.
+    if (mangaRootPath) {
+        window.location.href = "index.html#manga=" + encodeURIComponent(mangaRootPath);
+    } else {
+        window.location.href = "index.html";
+    }
+});
+
+// ── Chapter selector overlay ───────────────────────────────
+function renderChapterOverlay() {
+    var $btns = document.getElementById("chListBtns");
+    $btns.innerHTML = "";
+    allChapters.forEach(function (ch, idx) {
+        var btn = document.createElement("button");
+        btn.className   = "ch-list-btn" + (idx === currentChIdx ? " current" : "");
+        btn.textContent = cleanChName(ch.name);
+        btn.onclick     = function () {
+            hideChapterOverlay();
+            if (idx !== currentChIdx) gotoChapter(ch.path);
+        };
+        $btns.appendChild(btn);
+    });
+}
+
+document.getElementById("chaptersBtn").addEventListener("click", function () {
+    document.getElementById("chapterOverlay").style.display = "block";
+    hideHUD();
+    setTimeout(function () {
+        var cur = document.querySelector(".ch-list-btn.current");
+        if (cur) cur.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 60);
+});
+
+function hideChapterOverlay() {
+    document.getElementById("chapterOverlay").style.display = "none";
+}
+document.getElementById("chapterOverlay").addEventListener("click", function (e) {
+    if (!document.getElementById("chapterPanel").contains(e.target)) hideChapterOverlay();
+});
+
+// ── Settings overlay ───────────────────────────────────────
+document.getElementById("settingsBtn").addEventListener("click", function () {
+    document.getElementById("settingsOverlay").style.display = "block";
+    hideHUD();
+});
+function hideSettingsOverlay() {
+    document.getElementById("settingsOverlay").style.display = "none";
+}
+document.getElementById("settingsOverlay").addEventListener("click", function (e) {
+    if (!document.getElementById("settingsBox").contains(e.target)) hideSettingsOverlay();
+});
+document.getElementById("settingsCloseBtn").addEventListener("click", hideSettingsOverlay);
+
+document.getElementById("toggleProgress").addEventListener("change", function () {
+    saveProgress = this.checked;
+    localStorage.setItem(SAVE_KEY, saveProgress);
+    if (!saveProgress) localStorage.removeItem(PROG_KEY + chapterPath);
+});
+document.getElementById("togglePcMode").addEventListener("change", function () {
+    pcMode = this.checked;
+    localStorage.setItem(PC_KEY, pcMode);
+    document.body.classList.toggle("pc-mode", pcMode);
+    setTimeout(calcPositions, 250);
+});
+
+// ── Keyboard shortcuts ─────────────────────────────────────
+document.addEventListener("keydown", function (e) {
+    var chOverlay  = document.getElementById("chapterOverlay");
+    var setOverlay = document.getElementById("settingsOverlay");
+    if (e.key === "Escape") {
+        if (chOverlay.style.display  !== "none") { hideChapterOverlay(); return; }
+        if (setOverlay.style.display !== "none") { hideSettingsOverlay(); return; }
+        window.location.href = "index.html";
+    }
+    if (e.key === "ArrowUp"   || e.key === "PageUp")   window.scrollBy({ top: -window.innerHeight * 0.85, behavior: "smooth" });
+    if (e.key === "ArrowDown" || e.key === "PageDown")  window.scrollBy({ top:  window.innerHeight * 0.85, behavior: "smooth" });
+    if (e.key === "h" || e.key === "H") toggleHUD();
+});
 </script>
 </body>
 </html>

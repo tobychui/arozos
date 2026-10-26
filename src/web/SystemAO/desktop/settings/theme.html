@@ -1,0 +1,205 @@
+<!-- Theme Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
+<style>
+#thm-root {
+    --thm-text:   #1a1a1a;
+    --thm-dim:    #5a5a5a;
+    --thm-muted:  #9a9a9a;
+    --thm-border: rgba(0,0,0,0.10);
+    --thm-green:  #107c10;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    color: var(--thm-text);
+    padding: 4px 0 32px;
+}
+body.dark #thm-root {
+    --thm-text:   #f0f0f0;
+    --thm-dim:    #b0b0b0;
+    --thm-muted:  #808080;
+    --thm-border: rgba(255,255,255,0.10);
+}
+#thm-root h3.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--thm-text);
+    margin: 0 0 4px;
+}
+#thm-root .section-desc {
+    font-size: 12px;
+    color: var(--thm-muted);
+    margin: 0 0 12px;
+}
+#thm-root .thm-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--thm-border);
+}
+#thm-root .thm-section:last-child { border-bottom: none; }
+#thm-root .color-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+#thm-root .color-row-label {
+    width: 80px;
+    font-size: 12px;
+    color: var(--thm-dim);
+    flex-shrink: 0;
+}
+#thm-root .color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color 0.1s;
+}
+#thm-root .color-swatch:hover {
+    border-color: rgba(255,255,255,0.7);
+    outline: 1px solid rgba(0,0,0,0.3);
+}
+#thm-root .color-swatch.selected::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+}
+#thm-root .btn {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--thm-border);
+    background: transparent;
+    color: var(--thm-text);
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+}
+#thm-root .btn:hover { opacity: 0.75; }
+</style>
+
+<div id="thm-root">
+    <div class="thm-section">
+        <h3 class="section-title" locale="thm/title">Theme Color</h3>
+        <p class="section-desc" locale="thm/desc">Choose an accent color for window chrome, taskbar, and navigation elements.</p>
+        <div id="thm-color-grid">Loading…</div>
+        <button class="btn" onclick="thmRestoreDefault()">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8a5 5 0 105-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 4v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span locale="thm/restore">Restore Default</span>
+        </button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var thmLocale = NewAppLocale();
+    var thmPrevColor = {};
+    var thmCancelRestore = false;
+
+    thmLocale.init("../locale/system_settings/desktop.json", function () {
+        thmLocale.translate();
+        thmBuildColorGrid();
+    });
+
+    function hexToRgbA(hex, alpha) {
+        var c;
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+            c = hex.substring(1).split('');
+            if (c.length === 3) c = [c[0],c[0],c[1],c[1],c[2],c[2]];
+            c = '0x' + c.join('');
+            return 'rgba(' + [(c>>16)&255,(c>>8)&255,c&255].join(',') + ',' + alpha + ')';
+        }
+        return hex;
+    }
+
+    function thmReadPreference(key, cb) {
+        $.ajax({ url: "../../system/desktop/preference", method: "POST",
+            data: { preference: key }, success: function (d) { if (cb) cb(d); } });
+    }
+
+    function thmWritePreference(key, value, cb) {
+        $.ajax({ url: "../../system/desktop/preference", method: "POST",
+            data: { preference: key, value: value }, success: function (d) { if (cb) cb(d); } });
+    }
+
+    function thmTickSelected() {
+        thmReadPreference("themecolor", function (data) {
+            if (data && !data.error) {
+                $("#thm-color-grid .color-swatch").each(function () {
+                    $(this).toggleClass("selected", $(this).attr("data-hex") === data);
+                });
+            }
+        });
+    }
+
+    function thmBuildColorGrid() {
+        $.getJSON("../desktop/colors.json", function (data) {
+            var html = '';
+            for (var key in data) {
+                var label = key.charAt(0).toUpperCase() + key.slice(1);
+                html += '<div class="color-row"><span class="color-row-label">' + label + '</span>';
+                var shades = data[key];
+                for (var idx in shades) {
+                    if (parseInt(idx) < 300) continue;
+                    var hex = shades[idx];
+                    html += '<div class="color-swatch" data-hex="' + hex + '" style="background:' + hex + '" title="' + key + ' ' + idx + '"></div>';
+                }
+                html += '</div>';
+            }
+            $("#thm-color-grid").html(html);
+
+            $("#thm-color-grid").on("mouseenter", ".color-swatch", function () {
+                var hex = $(this).attr("data-hex");
+                if (!ao_module_virtualDesktop) return;
+                var pd = parent.window.document;
+                thmPrevColor.fw  = $(pd).find(".floatWindow .controls").css("background-color");
+                thmPrevColor.sb  = $(pd).find("#statusbar").css("background-color");
+                thmPrevColor.nav = $(pd).find("#navimenu").css("background-color");
+                $(pd).find(".floatWindow .controls").css("background-color", hexToRgbA(hex, 0.25));
+                $(pd).find("#statusbar").css("background-color", hex);
+                $(pd).find("#navimenu").css("background-color", hexToRgbA(hex, 0.5));
+            });
+
+            $("#thm-color-grid").on("mouseleave", ".color-swatch", function () {
+                if (!ao_module_virtualDesktop) return;
+                if (thmCancelRestore) { thmCancelRestore = false; return; }
+                var pd = parent.window.document;
+                $(pd).find(".floatWindow .controls").css("background-color", thmPrevColor.fw || "");
+                $(pd).find("#statusbar").css("background-color", thmPrevColor.sb || "");
+                $(pd).find("#navimenu").css("background-color", thmPrevColor.nav || "");
+            });
+
+            $("#thm-color-grid").on("click", ".color-swatch", function () {
+                var hex = $(this).attr("data-hex");
+                thmWritePreference("themecolor", hex, function (resp) {
+                    if (resp && resp.error) { alert(resp.error); return; }
+                    thmCancelRestore = true;
+                    thmTickSelected();
+                    if (ao_module_virtualDesktop) parent.setThemeColor(hex);
+                });
+            });
+
+            thmTickSelected();
+        });
+    }
+
+    window.thmRestoreDefault = function () {
+        $.ajax({
+            url: "../../system/file_system/preference",
+            data: { key: "themecolor", remove: true },
+            success: function (data) {
+                if (data && data.error) return;
+                $("#thm-color-grid .color-swatch").removeClass("selected");
+                if (ao_module_virtualDesktop) parent.setThemeColor("#262626");
+            }
+        });
+    };
+}());
+</script>

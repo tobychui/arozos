@@ -1,0 +1,78 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\",\"Apple LiGothic Medium\",\"STHeiti\"",
+            "strings": {
+                "neighbour/title":              "叢集鄰居",
+                "neighbour/subtitle":           "自動叢集探索服務",
+                "neighbour/error/title":        "叢集掃描錯誤",
+                "neighbour/section/thishost":   "此主機",
+                "neighbour/section/nearby":     "附近的主機",
+                "neighbour/section/offline":    "離線主機",
+                "neighbour/footer/retention":   "離線超過 30 天的主機將自動從記錄中移除",
+                "neighbour/footer/lastupdated": "上次更新",
+                "neighbour/footer/secsago":     "秒前",
+                "neighbour/empty/nearby":       "未發現附近的主機",
+                "neighbour/empty/offline":      "無離線主機",
+                "neighbour/btn/wol":            "網路喚醒",
+                "neighbour/label/ip":           "IP",
+                "neighbour/label/version":      "版本",
+                "neighbour/label/uuid":         "UUID",
+                "neighbour/label/mac":          "MAC",
+                "neighbour/js/norecord":        "無記錄",
+                "neighbour/js/unsupported":     "不支援"
+            }
+        },
+        "zh-hk": {
+            "name": "廣東話",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\",\"Apple LiGothic Medium\",\"STHeiti\"",
+            "strings": {
+                "neighbour/title":              "叢集鄰居",
+                "neighbour/subtitle":           "自動叢集探索服務",
+                "neighbour/error/title":        "叢集掃描錯誤",
+                "neighbour/section/thishost":   "此主機",
+                "neighbour/section/nearby":     "附近主機",
+                "neighbour/section/offline":    "離線主機",
+                "neighbour/footer/retention":   "離線超過 30 日嘅主機將自動從記錄移除",
+                "neighbour/footer/lastupdated": "上次更新",
+                "neighbour/footer/secsago":     "秒前",
+                "neighbour/empty/nearby":       "未發現附近主機",
+                "neighbour/empty/offline":      "無離線主機",
+                "neighbour/btn/wol":            "網絡喚醒",
+                "neighbour/label/ip":           "IP",
+                "neighbour/label/version":      "版本",
+                "neighbour/label/uuid":         "UUID",
+                "neighbour/label/mac":          "MAC",
+                "neighbour/js/norecord":        "無記錄",
+                "neighbour/js/unsupported":     "不支援"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\",\"STXihei\"",
+            "strings": {
+                "neighbour/title":              "集群邻居",
+                "neighbour/subtitle":           "自动集群发现服务",
+                "neighbour/error/title":        "集群扫描错误",
+                "neighbour/section/thishost":   "本机",
+                "neighbour/section/nearby":     "附近主机",
+                "neighbour/section/offline":    "离线主机",
+                "neighbour/footer/retention":   "离线超过 30 天的主机将自动从记录中删除",
+                "neighbour/footer/lastupdated": "上次更新",
+                "neighbour/footer/secsago":     "秒前",
+                "neighbour/empty/nearby":       "未发现附近主机",
+                "neighbour/empty/offline":      "无离线主机",
+                "neighbour/btn/wol":            "网络唤醒",
+                "neighbour/label/ip":           "IP",
+                "neighbour/label/version":      "版本",
+                "neighbour/label/uuid":         "UUID",
+                "neighbour/label/mac":          "MAC",
+                "neighbour/js/norecord":        "无记录",
+                "neighbour/js/unsupported":     "不支持"
+            }
+        }
+    }
+}

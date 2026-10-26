@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Video Cast — Arozcast Example</title>
+    <script src="../arozcast.js"></script>
+    <style>
+        body { background:#111; color:#ddd; font-family:sans-serif; padding:24px; max-width:460px; }
+        h2   { margin:0 0 6px; }
+        p    { margin:0 0 16px; color:#888; }
+        code { color:#aaa; background:#222; padding:1px 5px; border-radius:3px; }
+        input, button { background:#222; color:#ddd; border:1px solid #444; border-radius:4px; padding:5px 10px; }
+        button { cursor:pointer; }
+        button:hover { background:#333; }
+        #controls { display:none; margin-top:16px; }
+        #controls button { margin:0 4px 8px 0; }
+        #time { color:#888; font-size:13px; }
+    </style>
+</head>
+<body>
+
+<h2>Video Cast</h2>
+<p>Place your video at <code>user:/example.mp4</code> before connecting.</p>
+
+<p>
+    Room code:
+    <input id="code" maxlength="4" size="5" placeholder="1234">
+    <button onclick="doConnect()">Connect</button>
+</p>
+
+<p id="status">Not connected</p>
+
+<div id="controls">
+    <button onclick="cast.play()">Play</button>
+    <button onclick="cast.pause()">Pause</button>
+    <button onclick="cast.seekRel(-10)">−10 s</button>
+    <button onclick="cast.seekRel(+10)">+10 s</button>
+    <button onclick="doDisconnect()">Disconnect</button>
+    <br>
+    Volume: <input type="range" min="0" max="100" value="80"
+                   oninput="cast.setVolume(+this.value, false)">
+    <br>
+    <span id="time">0:00 / 0:00</span>
+</div>
+
+<script>
+// Derive ao_root from the arozcast.js script URL
+// (arozcast.js lives at <ao_root>Arozcast/arozcast.js)
+var _s = document.querySelector('script[src*="arozcast.js"]').src;
+var ao_root = _s.slice(0, _s.indexOf('Arozcast/arozcast.js'));
+
+var FILE = 'user:/example.mp4';
+var cast = new ArozCast({ aoRoot: ao_root });
+
+// ── Events ─────────────────────────────────────────────────────────────────
+
+cast.on('connect', function(e) {
+    status('Connected to room ' + e.code);
+    document.getElementById('controls').style.display = '';
+    // Always: load → setVolume → play
+    cast.load({
+        name:     'example.mp4',
+        type:     'video',
+        src:      ao_root + 'media?file=' + encodeURIComponent(FILE),
+        filepath: FILE,
+    });
+    cast.setVolume(80, false);
+    cast.play();
+});
+
+cast.on('disconnect',   function()  { status('Connection lost — reconnecting…'); });
+cast.on('reconnecting', function(e) { status('Reconnecting, attempt ' + e.attempt + '…'); });
+cast.on('giveup',       function()  { status('Could not reconnect'); document.getElementById('controls').style.display = 'none'; });
+
+// Receiver sends its state every ~3 s — use it to show current time
+cast.on('status', function(s) {
+    document.getElementById('time').textContent = fmt(s.currentTime) + ' / ' + fmt(s.duration);
+});
+
+// ── Connect / disconnect ───────────────────────────────────────────────────
+
+function doConnect() {
+    var code = document.getElementById('code').value.trim();
+    if (!/^\d{4}$/.test(code)) { alert('Enter a 4-digit code'); return; }
+    status('Checking room…');
+    cast.ping(code).then(function(ok) {
+        if (!ok) { status('Room not found — is Arozcast open?'); return; }
+        return cast.connect(code);
+    }).catch(function(err) { status('Error: ' + err.message); });
+}
+
+function doDisconnect() {
+    cast.disconnect();   // sends media.stop to clear the receiver screen
+    status('Disconnected');
+    document.getElementById('controls').style.display = 'none';
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function status(msg) { document.getElementById('status').textContent = msg; }
+
+function fmt(s) {
+    s = Math.floor(s || 0);
+    return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+}
+</script>
+</body>
+</html>

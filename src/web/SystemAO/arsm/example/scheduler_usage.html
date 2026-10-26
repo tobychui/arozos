@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<!--
+    scheduler_usage.html — Developer reference
+    ==========================================
+    This file demonstrates how a webapp can ask the user to register a
+    background scheduler task on their behalf.
+
+    ── Where the cron script lives ──────────────────────────────────────────
+    The script must be inside the webapp's own folder, next to init.agi:
+
+        ./web/MyApp/
+            init.agi
+            cron.agi       ← scheduled script
+            index.html
+
+    It does NOT live in user virtual storage.
+
+    Flow:
+    1.  On first launch the app calls ao_module_requestSchedulerPermission().
+    2.  The system shows a permission popup (scheduler_permission.html) that
+        explains what will run and how often.
+    3.  If the user accepts, the task is registered via the REST API and will
+        be listed under System Settings → Tasks Scheduler.
+    4.  On subsequent launches the app can check whether the scheduler is
+        already registered and skip the popup.
+    5.  When the app is uninstalled the system automatically removes all
+        tasks whose AppName matches the module name.
+
+    ── REST API summary ─────────────────────────────────────────────────────
+    GET  /system/arsm/aecron/permission
+         → { CanCreate: bool }
+
+    GET  /system/arsm/aecron/app/check?appname=X&taskname=Y
+         → { Registered: bool }
+
+    POST /system/arsm/aecron/app/register
+         appname, taskname, scriptname (default "cron.agi"), interval, base, desc
+         → "ok"
+
+    POST /system/arsm/aecron/app/unregister
+         appname, taskname
+         → "ok"
+
+    ── AGI API summary (from backend .agi/.js scripts) ─────────────────────
+    requirelib("scheduler");
+
+    scheduler.hasPermission()                                → bool
+    scheduler.registered("TaskName", "AppName")              → bool
+    scheduler.register("TaskName", "AppName",
+                       intervalSecs, "description",
+                       "cron.agi")                           → bool
+    scheduler.unregister("TaskName")                         → bool
+-->
+<head>
+    <meta charset="UTF-8">
+    <title>Scheduler Usage Example</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+</head>
+<body>
+<h2>My App</h2>
+<p id="status">Checking scheduler…</p>
+<button id="btn-register" style="display:none;" onclick="requestScheduler()">
+    Enable Background Sync
+</button>
+
+<script>
+    var APP_NAME  = "MyApp";                // must match your module folder name in ./web/
+    var TASK_NAME = "MyApp_DailySync";      // unique, max 32 chars
+    var SCRIPT    = "cron.agi";             // filename inside ./web/MyApp/  (default)
+    var INTERVAL  = 86400;                  // 24 hours in seconds
+
+    // ── On load: check if scheduler is already registered ────────────────
+    $.ajax({
+        url: "../../system/arsm/aecron/app/check",
+        data: { appname: APP_NAME, taskname: TASK_NAME },
+        success: function(data) {
+            if (data.Registered) {
+                document.getElementById('status').textContent =
+                    "✅ Background sync is active.";
+            } else {
+                document.getElementById('status').textContent =
+                    "Background sync is not set up yet.";
+                document.getElementById('btn-register').style.display = 'inline-block';
+            }
+        }
+    });
+
+    // ── Request permission popup ──────────────────────────────────────────
+    function requestScheduler() {
+        ao_module_requestSchedulerPermission({
+            appName:     APP_NAME,
+            appIcon:     APP_NAME + "/img/icon.png",   // relative to web root
+            taskName:    TASK_NAME,
+            scriptName:  SCRIPT,      // filename inside the app folder, default "cron.agi"
+            interval:    INTERVAL,
+            description: "Runs daily maintenance tasks for My App."
+        }, function(result) {
+            if (result.allowed) {
+                document.getElementById('status').textContent =
+                    "✅ Background sync enabled!";
+                document.getElementById('btn-register').style.display = 'none';
+            } else {
+                document.getElementById('status').textContent =
+                    "Background sync was not enabled.";
+            }
+        });
+    }
+</script>
+</body>
+</html>

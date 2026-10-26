@@ -1,0 +1,82 @@
+/*
+    Audio Studio - settings backend
+
+    Persists editor preferences and keyboard shortcuts in the user's
+    appdata folder (user:/.appdata/Audio_Studio/<key>.json) so settings
+    follow the user across devices.
+
+    Required POST parameters:
+        action - "get" or "set"
+        key    - "prefs" or "keybinds"
+        value  - JSON string to store (only for action=set)
+*/
+
+var SETTING_DIR = "user:/.appdata/Audio_Studio/";
+var ALLOWED_KEYS = ["prefs", "keybinds"];
+
+function fail(msg){
+    sendJSONResp(JSON.stringify({ ok: false, error: msg }));
+}
+
+function main(){
+    if (!requirelib("filelib")){
+        fail("filelib unavailable");
+        return;
+    }
+
+    if (typeof action == "undefined" || typeof key == "undefined"){
+        fail("action and key are required");
+        return;
+    }
+
+    //Only allow known setting keys: the key becomes part of a file path
+    var valid = false;
+    for (var i = 0; i < ALLOWED_KEYS.length; i++){
+        if (ALLOWED_KEYS[i] == key){
+            valid = true;
+        }
+    }
+    if (!valid){
+        fail("invalid setting key");
+        return;
+    }
+
+    var settingFile = SETTING_DIR + key + ".json";
+
+    if (action == "get"){
+        if (!filelib.fileExists(settingFile)){
+            sendJSONResp(JSON.stringify({ ok: true, content: null }));
+            return;
+        }
+        var content = filelib.readFile(settingFile);
+        sendJSONResp(JSON.stringify({ ok: true, content: content }));
+        return;
+    }
+
+    if (action == "set"){
+        if (typeof value == "undefined"){
+            fail("value is required for action=set");
+            return;
+        }
+        //Refuse anything that is not valid JSON to keep the file sane
+        try {
+            JSON.parse(value);
+        } catch (e){
+            fail("value must be valid JSON");
+            return;
+        }
+        if (!filelib.fileExists(SETTING_DIR)){
+            filelib.mkdir(SETTING_DIR);
+        }
+        if (!filelib.writeFile(settingFile, value)){
+            fail("unable to write setting file");
+            return;
+        }
+        sendJSONResp(JSON.stringify({ ok: true }));
+        return;
+    }
+
+    fail("unknown action");
+}
+
+main();

@@ -1,143 +1,661 @@
-<!DOCTYPE html>
-<html ng-app="App">
-<head>
-    <title>System Logs</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <style>
-        .clickable{
-            cursor: pointer;
-        }
-        .clickable:hover{
-            opacity: 0.7;
-        }
-        .logfile{
-            padding-left: 1em !important;
-            position: relative;
-            padding-right: 1em !important;
-        }
+<!-- logview.html — loaded via $.load() into #detail-inner (padding zeroed by main.js) -->
+<style>
+#logview-root {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: var(--text, #202020);
+    background: var(--bg, #f3f3f3);
+}
 
-        .loglist{
-            background-color: rgb(250, 250, 250);
-        }
+/* ── File-list sidebar ── */
+#lv-sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--sidebar-bg, #ebebeb);
+    border-right: 1px solid var(--sidebar-border, #dcdcdc);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
 
-        .logfile .showing{
-            position: absolute;
-            top: 0.18em;
-            right: 0em;
-            margin-right: -0.4em;
-            opacity: 0;
-        }
+#lv-sidebar-head {
+    padding: 18px 16px 10px 18px;
+    flex-shrink: 0;
+}
 
-        .logfile.active .showing{
-            opacity: 1;
-        }
+#lv-sidebar-head h2 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--title-color, #1a1a1a);
+    margin: 0 0 2px;
+}
 
-        #logrender{
-            width: 100% !important;
-            height: calc(100% - 1.2em);
-            min-height: 50vh;
-            border: 1px solid rgb(231, 231, 231);
-            font-family: monospace;  
-        }
-    </style>
-</head>
+#lv-sidebar-head p {
+    font-size: 11.5px;
+    color: var(--text-muted, #888);
+    margin: 0;
+}
 
-<body>
-    <div class="ui container">
-        <div class="ui stackable grid">
-            <div class="four wide column loglist">
-                <h3 class="ui header" style="padding-top: 1em;">
-                    <div class="content">
-                        Log View
-                        <div class="sub header">Check System Log in Real Time</div>
-                    </div>
-                </h3>
-                <div class="ui divider"></div>
-                <div id="logList" class="ui accordion">
-                    
-                </div>
-                <div class="ui divider"></div>
-                <small>Notes: Some log file might be huge. Make sure you have checked the log file size before opening</small>
+#lv-sidebar-divider {
+    height: 1px;
+    background: var(--sidebar-border, #dcdcdc);
+    margin: 6px 0 2px;
+    flex-shrink: 0;
+}
+
+#lv-file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+}
+
+#lv-file-list::-webkit-scrollbar { width: 3px; }
+#lv-file-list::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb, #c8c8c8);
+    border-radius: 2px;
+}
+
+.lv-group { margin-bottom: 2px; }
+
+.lv-group-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted, #888);
+    cursor: pointer;
+    user-select: none;
+    border-radius: 5px;
+    transition: background 0.08s;
+}
+
+.lv-group-title:hover { background: var(--nav-hover, rgba(0,0,0,0.055)); }
+
+.lv-group-title svg {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+
+.lv-group.collapsed .lv-group-title svg { transform: rotate(-90deg); }
+.lv-group.collapsed .lv-group-items    { display: none; }
+
+.lv-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.08s;
+    font-size: 12.5px;
+    color: var(--text, #202020);
+    margin-bottom: 1px;
+}
+
+.lv-item:hover  { background: var(--nav-hover, rgba(0,0,0,0.055)); }
+.lv-item.active { background: var(--nav-active, rgba(0,0,0,0.09)); font-weight: 500; }
+
+.lv-item svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    opacity: 0.45;
+}
+
+.lv-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lv-item-size {
+    font-size: 10.5px;
+    color: var(--text-muted, #888);
+    flex-shrink: 0;
+}
+
+.lv-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #4caf8e;
+    flex-shrink: 0;
+    display: none;
+}
+
+.lv-item.active .lv-dot { display: block; }
+
+#lv-note {
+    padding: 8px 12px 12px;
+    font-size: 11px;
+    color: var(--text-muted, #888);
+    line-height: 1.5;
+    border-top: 1px solid var(--sidebar-border, #dcdcdc);
+    flex-shrink: 0;
+}
+
+/* ── Log viewer pane ── */
+#lv-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg, #f3f3f3);
+}
+
+#lv-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--sidebar-border, #dcdcdc);
+    flex-shrink: 0;
+    gap: 10px;
+}
+
+#lv-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+    flex: 1;
+}
+
+#lv-toolbar-title {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--title-color, #1a1a1a);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: none;
+}
+
+#lv-hint {
+    font-size: 12.5px;
+    color: var(--text-muted, #888);
+}
+
+/* Live indicator */
+#lv-live-badge {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #4caf8e;
+    flex-shrink: 0;
+}
+
+#lv-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4caf8e;
+    animation: lv-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes lv-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+}
+
+#lv-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+#lv-btn-newtab {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-family: inherit;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--card-border, #e5e5e5);
+    border-radius: 6px;
+    color: var(--text-dim, #555);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.08s, border-color 0.08s;
+}
+
+#lv-btn-newtab:hover {
+    background: var(--nav-hover, rgba(0,0,0,0.055));
+    border-color: var(--scrollbar-thumb, #c8c8c8);
+}
+
+#lv-btn-newtab svg { width: 12px; height: 12px; opacity: 0.65; }
+
+#lv-content {
+    flex: 1;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Empty state */
+#lv-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted, #888);
+    user-select: none;
+    pointer-events: none;
+}
+
+#lv-empty svg { width: 32px; height: 32px; opacity: 0.28; }
+#lv-empty p   { font-size: 12.5px; margin: 0; }
+
+/* ── Colored log renderer ── */
+#lv-log-box {
+    display: none;
+    flex: 1;
+    overflow: auto;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, #e5e5e5);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Menlo', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+body.dark #lv-log-box {
+    background: #1a1a1a !important;
+    border-color: var(--card-border, #3a3a3a) !important;
+}
+
+#lv-log-box::-webkit-scrollbar { width: 5px; height: 5px; }
+#lv-log-box::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb, #c8c8c8);
+    border-radius: 3px;
+}
+
+/* Log token colors — !important beats body.dark span { color: ... !important } in main.css */
+#lv-log-box .ll-line  { display: block; white-space: pre-wrap; word-break: break-all; }
+#lv-log-box .ll-date  { color: #6a8a9a !important; }
+#lv-log-box .ll-time  { color: #7898b0 !important; }
+#lv-log-box .ll-src   { color: #888 !important; font-style: italic; }
+#lv-log-box .ll-info  { color: #4caf8e !important; font-weight: 600; }
+#lv-log-box .ll-warn  { color: #d4a017 !important; font-weight: 600; }
+#lv-log-box .ll-error { color: #e05555 !important; font-weight: 600; }
+#lv-log-box .ll-debug { color: #8080c0 !important; font-weight: 600; }
+#lv-log-box .ll-msg   { color: #202020 !important; }
+
+body.dark #lv-log-box .ll-date  { color: #4a6878 !important; }
+body.dark #lv-log-box .ll-time  { color: #4a6890 !important; }
+body.dark #lv-log-box .ll-src   { color: #606060 !important; }
+body.dark #lv-log-box .ll-msg   { color: #c8c8c8 !important; }
+
+/* New-line highlight on auto-refresh */
+@keyframes lv-new-line {
+    from { background: rgba(76, 175, 142, 0.18); }
+    to   { background: transparent; }
+}
+
+#lv-log-box .ll-new { animation: lv-new-line 1.2s ease-out forwards; }
+</style>
+
+<div id="logview-root">
+
+    <!-- Left: file list -->
+    <div id="lv-sidebar">
+        <div id="lv-sidebar-head">
+            <h2 locale="syslog/title">Log View</h2>
+            <p locale="syslog/subtitle">Check system logs in real time</p>
+        </div>
+        <div id="lv-sidebar-divider"></div>
+        <div id="lv-file-list"></div>
+        <div id="lv-note" locale="syslog/size_warning">Log files may be large — check the size before opening.</div>
+    </div>
+
+    <!-- Right: viewer -->
+    <div id="lv-main">
+        <div id="lv-toolbar">
+            <div id="lv-toolbar-left">
+                <span id="lv-hint" locale="syslog/select_hint">← Select a log file to begin</span>
+                <span id="lv-toolbar-title"></span>
+                <span id="lv-live-badge">
+                    <span id="lv-live-dot"></span>
+                    <span locale="syslog/live">Live</span>
+                </span>
             </div>
-            <div class="twelve wide column">
-                <textarea id="logrender" spellcheck="false" readonly="true">
-← Pick a log file from the left menu to start debugging
-                </textarea>
-                <a href="#" onclick="openLogInNewTab();">Open In New Tab</a>
-                <br><br>
+            <div id="lv-toolbar-right">
+                <a id="lv-btn-newtab" href="#" onclick="lvOpenNewTab(); return false;">
+                    <svg viewBox="0 0 16 16" fill="none">
+                        <path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4m0 0v4m0-4L7 9"
+                              stroke="currentColor" stroke-width="1.4"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span locale="syslog/open_new_tab">Open in New Tab</span>
+                </a>
             </div>
         </div>
+        <div id="lv-content">
+            <div id="lv-empty">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M9 12h6M9 16h4M6 3H4a1 1 0 00-1 1v16a1 1 0 001 1h16a1 1 0 001-1V8l-5-5H6z"
+                          stroke="currentColor" stroke-width="1.5"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <p id="lv-empty-msg" locale="syslog/no_file_selected">No log file selected</p>
+            </div>
+            <div id="lv-log-box" aria-label="Log output"></div>
+        </div>
     </div>
-    <div class="ui divider"></div>
-    <br>
-</body>
+
+</div>
+
 <script>
-    var currentOpenedLogURL = "";
+(function () {
+    /* ── State ── */
+    var currentLogURL    = '';
+    var currentCategory  = '';
+    var currentFilename  = '';
+    var currentLineCount = 0;
+    var refreshTimer     = null;
+    var REFRESH_MS       = 3000;
 
-    function openLogInNewTab(){
-        if (currentOpenedLogURL != ""){
-            window.open(currentOpenedLogURL);
-        }
-    }
-
-    function openLog(object, catergory, filename){
-        $(".logfile.active").removeClass('active');
-        $(object).addClass("active");
-        currentOpenedLogURL = "../../system/log/read?file=" + filename + "&catergory=" + catergory;
-        $.get(currentOpenedLogURL, function(data){
-            if (data.error !== undefined){
-                alert(data.error);
-                return;
-            }
-            $("#logrender").val(data);
-        }); 
-    }
-
-    function initLogList(){
-        $("#logList").html("");
-        $.get("../../system/log/list", function(data){
-            //console.log(data);
-            for (let [key, value] of Object.entries(data)) {
-                console.log(key, value);
-                value.reverse(); //Default value was from oldest to newest
-                var fileItemList = "";
-                value.forEach(file => {
-                    fileItemList += `<div class="item clickable logfile" onclick="openLog(this, '${key}','${file.Filename}');">
-                            <i class="file outline icon"></i>
-                            <div class="content">
-                                ${file.Title} (${formatBytes(file.Filesize)})
-                                <div class="showing"><i class="green chevron right icon"></i></div>
-                            </div>
-                        </div>`;
-                })
-                $("#logList").append(`<div class="title">
-                    <i class="dropdown icon"></i>
-                        ${key}
-                    </div>
-                    <div class="content">
-                        <div class="ui list">
-                            ${fileItemList}
-                        </div>
-                    </div>`);
-            }
-
-            $(".ui.accordion").accordion();
+    /* ── Theme ── */
+    if (typeof ao_module_getSystemThemeColor === 'function') {
+        ao_module_getSystemThemeColor(function (c) {
+            document.body.classList.toggle('dark', c !== 'whiteTheme');
         });
     }
-    initLogList();
+    window.desktopThemeChanged = function (theme) {
+        document.body.classList.toggle('dark', theme === 'dark');
+    };
 
-    
-    function formatBytes(x){
-        var units = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-        let l = 0, n = parseInt(x, 10) || 0;
-        while(n >= 1024 && ++l){
-            n = n/1024;
+    /* ── Localization (inline — no async fetch, works in all contexts) ── */
+    var LV_I18N = {
+        'zh-tw': {
+            'syslog/title':            '日誌檢視器',
+            'syslog/subtitle':         '即時查看系統日誌',
+            'syslog/select_hint':      '← 請從左側選擇日誌檔案',
+            'syslog/open_new_tab':     '在新分頁開啟',
+            'syslog/size_warning':     '日誌檔案可能很大，開啟前請確認檔案大小。',
+            'syslog/no_file_selected': '尚未選擇日誌檔案',
+            'syslog/live':             '即時',
+            'syslog/loading':          '載入中…'
+        },
+        'zh-hk': {
+            'syslog/title':            '日誌檢視器',
+            'syslog/subtitle':         '即時查看系統日誌',
+            'syslog/select_hint':      '← 請從左側選擇日誌檔案',
+            'syslog/open_new_tab':     '在新分頁開啟',
+            'syslog/size_warning':     '日誌檔案可能很大，開啟前請確認檔案大小。',
+            'syslog/no_file_selected': '尚未選擇日誌檔案',
+            'syslog/live':             '即時',
+            'syslog/loading':          '載入中…'
+        },
+        'zh-cn': {
+            'syslog/title':            '日志查看器',
+            'syslog/subtitle':         '实时查看系统日志',
+            'syslog/select_hint':      '← 请从左侧选择日志文件',
+            'syslog/open_new_tab':     '在新标签页打开',
+            'syslog/size_warning':     '日志文件可能很大，打开前请确认文件大小。',
+            'syslog/no_file_selected': '尚未选择日志文件',
+            'syslog/live':             '实时',
+            'syslog/loading':          '加载中…'
+        },
+        'en-us': {
+            'syslog/title':            'Log View',
+            'syslog/subtitle':         'Check system logs in real time',
+            'syslog/select_hint':      '← Select a log file to begin',
+            'syslog/open_new_tab':     'Open in New Tab',
+            'syslog/size_warning':     'Log files may be large — check the size before opening.',
+            'syslog/no_file_selected': 'No log file selected',
+            'syslog/live':             'Live',
+            'syslog/loading':          'Loading…'
+        },
+        'ja-jp': {
+            'syslog/title':            'ログビューア',
+            'syslog/subtitle':         'システムログをリアルタイムで確認',
+            'syslog/select_hint':      '← 左側からログファイルを選択してください',
+            'syslog/open_new_tab':     '新しいタブで開く',
+            'syslog/size_warning':     'ログファイルは大きい場合があります。開く前にファイルサイズを確認してください。',
+            'syslog/no_file_selected': 'ログファイルが選択されていません',
+            'syslog/live':             'ライブ',
+            'syslog/loading':          '読み込み中…'
+        },
+        'ko-kr': {
+            'syslog/title':            '로그 뷰어',
+            'syslog/subtitle':         '시스템 로그를 실시간으로 확인',
+            'syslog/select_hint':      '← 왼쪽에서 로그 파일을 선택하세요',
+            'syslog/open_new_tab':     '새 탭에서 열기',
+            'syslog/size_warning':     '로그 파일이 클 수 있습니다. 열기 전에 파일 크기를 확인하세요.',
+            'syslog/no_file_selected': '로그 파일이 선택되지 않았습니다',
+            'syslog/live':             '라이브',
+            'syslog/loading':          '로드 중…'
         }
-        return(n.toFixed(n < 10 && l > 0 ? 1 : 0) + ' ' + units[l]);
+    };
+
+    (function applyLocale() {
+        var raw  = (localStorage.getItem('global_language') || navigator.language || 'en').toLowerCase();
+        var strings = LV_I18N[raw];
+        // Prefix fallback: 'ja' → 'ja-jp'
+        if (!strings) {
+            var prefix = raw.split('-')[0];
+            for (var k in LV_I18N) {
+                if (k.indexOf(prefix) === 0) { strings = LV_I18N[k]; break; }
+            }
+        }
+        if (!strings) return;
+        document.querySelectorAll('[locale]').forEach(function (el) {
+            var v = strings[el.getAttribute('locale')];
+            if (v != null) el.innerHTML = v;
+        });
+    }());
+
+    /* ── New-tab ── */
+    window.lvOpenNewTab = function () {
+        if (currentLogURL) window.open(currentLogURL);
+    };
+
+    /* ── Log colorizer ──
+       Format: "2006-01-02 15:04:05.000000" + "|" + fmt.Sprintf("%-16s", title) + " [LEVEL]" + message + "\n"
+    */
+    var LINE_RE = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d+)\|([^[]+)(\[(INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG)\])(.*)/i;
+    var LEVEL_CLASS = { INFO:'ll-info', WARN:'ll-warn', WARNING:'ll-warn', ERROR:'ll-error', FATAL:'ll-error', DEBUG:'ll-debug' };
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
+
+    function renderLines(lines, extraClass) {
+        var html = '';
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            if (line === '') { html += '<span class="ll-line' + extraClass + '"> </span>'; continue; }
+            var m = LINE_RE.exec(line);
+            if (m) {
+                var lvl = m[5].toUpperCase();
+                html +=
+                    '<span class="ll-line' + extraClass + '">' +
+                        '<span class="ll-date">'  + esc(m[1]) + '</span>' +
+                        ' <span class="ll-time">' + esc(m[2]) + '</span>' +
+                        '<span class="ll-src">|'  + esc(m[3]) + '</span>' +
+                        '<span class="' + (LEVEL_CLASS[lvl] || 'll-info') + '">' + esc(m[4]) + '</span>' +
+                        '<span class="ll-msg">'   + esc(m[6]) + '</span>' +
+                    '</span>';
+            } else {
+                html += '<span class="ll-line' + extraClass + ' ll-msg">' + esc(line) + '</span>';
+            }
+        }
+        return html;
+    }
+
+    function splitLines(text) {
+        return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    }
+
+    /* ── Auto-refresh ── */
+    function stopRefresh() {
+        if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+        document.getElementById('lv-live-badge').style.display = 'none';
+    }
+
+    function startRefresh() {
+        stopRefresh();
+        document.getElementById('lv-live-badge').style.display = 'flex';
+        refreshTimer = setInterval(function () {
+            if (!currentLogURL) { stopRefresh(); return; }
+            $.get(currentLogURL, function (data) {
+                if (typeof data !== 'string') return;
+                var lines = splitLines(data);
+                // Remove trailing empty line from split
+                while (lines.length && lines[lines.length - 1] === '') lines.pop();
+                if (lines.length <= currentLineCount) return;
+
+                var newLines = lines.slice(currentLineCount);
+                currentLineCount = lines.length;
+
+                var box = document.getElementById('lv-log-box');
+                var wasAtBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 40;
+                box.insertAdjacentHTML('beforeend', renderLines(newLines, ' ll-new'));
+                if (wasAtBottom) box.scrollTop = box.scrollHeight;
+            });
+        }, REFRESH_MS);
+    }
+
+    /* ── Open a log file ── */
+    function openLog(itemEl, category, filename) {
+        stopRefresh();
+        document.querySelectorAll('.lv-item.active').forEach(function (el) { el.classList.remove('active'); });
+        itemEl.classList.add('active');
+
+        currentCategory = category;
+        currentFilename = filename;
+        currentLogURL   = '../../system/log/read?file=' + encodeURIComponent(filename) +
+                          '&catergory=' + encodeURIComponent(category);
+
+        var box   = document.getElementById('lv-log-box');
+        var empty = document.getElementById('lv-empty');
+        var msg   = document.getElementById('lv-empty-msg');
+        var title = document.getElementById('lv-toolbar-title');
+        var hint  = document.getElementById('lv-hint');
+        var btn   = document.getElementById('lv-btn-newtab');
+
+        box.style.display = 'none';
+        empty.style.display = 'flex';
+        msg.textContent = 'Loading…';
+
+        $.get(currentLogURL, function (data) {
+            if (typeof data === 'object' && data.error) {
+                msg.textContent = data.error;
+                return;
+            }
+            var text  = typeof data === 'string' ? data : String(data);
+            var lines = splitLines(text);
+            while (lines.length && lines[lines.length - 1] === '') lines.pop();
+            currentLineCount = lines.length;
+
+            box.innerHTML = renderLines(lines, '');
+            box.style.display = 'block';
+            empty.style.display = 'none';
+            title.textContent  = filename;
+            title.style.display = '';
+            hint.style.display  = 'none';
+            btn.style.display   = 'flex';
+            box.scrollTop = box.scrollHeight;
+
+            startRefresh();
+        });
+    }
+
+    /* ── Group toggle ── */
+    function toggleGroup(g) { g.classList.toggle('collapsed'); }
+
+    function fmtBytes(x) {
+        var u = ['B','KB','MB','GB'], n = parseInt(x, 10) || 0, l = 0;
+        while (n >= 1024 && ++l) n /= 1024;
+        return (n.toFixed(n < 10 && l > 0 ? 1 : 0)) + ' ' + u[l];
+    }
+
+    /* ── Build file list ── */
+    function initLogList() {
+        var nav = document.getElementById('lv-file-list');
+        nav.innerHTML = '';
+        $.get('../../system/log/list', function (data) {
+            for (var key in data) {
+                if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
+                var files = data[key].slice().reverse();
+
+                var groupEl  = document.createElement('div');
+                groupEl.className = 'lv-group';
+
+                var titleEl = document.createElement('div');
+                titleEl.className = 'lv-group-title';
+                titleEl.innerHTML =
+                    '<svg viewBox="0 0 16 16" fill="none">' +
+                        '<path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                    '</svg>' + esc(key);
+                (function (g) { titleEl.addEventListener('click', function () { toggleGroup(g); }); }(groupEl));
+
+                var itemsEl = document.createElement('div');
+                itemsEl.className = 'lv-group-items';
+
+                files.forEach(function (file) {
+                    var item = document.createElement('div');
+                    item.className = 'lv-item';
+                    item.innerHTML =
+                        '<svg viewBox="0 0 16 16" fill="none">' +
+                            '<path d="M10 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V5l-3-3z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+                            '<path d="M10 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+                        '</svg>' +
+                        '<span class="lv-item-name">' + esc(file.Title) + '</span>' +
+                        '<span class="lv-item-size">' + fmtBytes(file.Filesize) + '</span>' +
+                        '<span class="lv-dot"></span>';
+                    (function (el, k, f) {
+                        el.addEventListener('click', function () { openLog(el, k, f.Filename); });
+                    }(item, key, file));
+                    itemsEl.appendChild(item);
+                });
+
+                groupEl.appendChild(titleEl);
+                groupEl.appendChild(itemsEl);
+                nav.appendChild(groupEl);
+            }
+        });
+    }
+
+    /* Stop refresh when navigating away (detail panel replaced) */
+    var observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+            m.removedNodes.forEach(function (node) {
+                if (node.id === 'logview-root' || (node.querySelector && node.querySelector('#logview-root'))) {
+                    stopRefresh();
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+    var detailInner = document.getElementById('detail-inner');
+    if (detailInner && detailInner.parentNode) {
+        observer.observe(detailInner.parentNode, { childList: true, subtree: true });
+    }
+
+    initLogList();
+}());
 </script>
-</html>

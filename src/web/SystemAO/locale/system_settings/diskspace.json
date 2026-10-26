@@ -1,0 +1,39 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\",\"Apple LiGothic Medium\",\"STHeiti\"",
+            "strings": {
+                "diskspace/title": "儲存空間",
+                "diskspace/toggle-tmpfs": "顯示/隱藏 tmpfs",
+                "diskspace/free": "可用：",
+                "diskspace/total": "總計：",
+                "diskspace/na": "不適用"
+            }
+        },
+        "zh-hk": {
+            "name": "廣東話",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\",\"Apple LiGothic Medium\",\"STHeiti\"",
+            "strings": {
+                "diskspace/title": "儲存空間",
+                "diskspace/toggle-tmpfs": "顯示/隱藏 tmpfs",
+                "diskspace/free": "可用：",
+                "diskspace/total": "總計：",
+                "diskspace/na": "不適用"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\",\"STXihei\"",
+            "strings": {
+                "diskspace/title": "存储空间",
+                "diskspace/toggle-tmpfs": "显示/隐藏 tmpfs",
+                "diskspace/free": "可用：",
+                "diskspace/total": "总计：",
+                "diskspace/na": "不适用"
+            }
+        }
+    }
+}

@@ -1,124 +1,424 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Module List</title>
+        <title>Default Openers</title>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <script type="text/javascript" src="../../script/applocale.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.min.js"></script>
+        <script src="../../script/applocale.js"></script>
+        <style>
+            *, *::before, *::after { box-sizing: border-box; }
+            body { margin: 0; padding: 0; }
+
+            /* ── CSS custom properties (light) ── */
+            #do-root {
+                --bg:          #f5f5f7;
+                --text:        #1d1d1f;
+                --dim:         #6e6e73;
+                --muted:       #8e8e93;
+                --card:        #ffffff;
+                --card-head:   #fafafa;
+                --border:      rgba(0,0,0,0.06);
+                --border-row:  #f2f2f2;
+                --row-hover:   #fafafa;
+                --soft:        #f2f2f7;
+                --accent:      #0071e3;
+                --pill-bg:     #e8f1fd;
+                --shadow:      0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+                --select-focus: rgba(0,113,227,0.28);
+                --sk-a:        #ececec;
+                --sk-b:        #dddddd;
+
+                background: var(--bg);
+                color: var(--text);
+                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+                font-size: 14px;
+                min-height: 100vh;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            /* ── Dark overrides ── */
+            #do-root.dark {
+                --bg:          #1c1c1e;
+                --text:        #ececec;
+                --dim:         #aeaeb2;
+                --muted:       #636366;
+                --card:        #2c2c2e;
+                --card-head:   #3a3a3c;
+                --border:      rgba(255,255,255,0.07);
+                --border-row:  #3a3a3c;
+                --row-hover:   #323234;
+                --soft:        #3a3a3c;
+                --accent:      #2997ff;
+                --pill-bg:     rgba(41,151,255,0.15);
+                --shadow:      0 1px 6px rgba(0,0,0,0.30), 0 0 0 0.5px rgba(255,255,255,0.04);
+                --select-focus: rgba(41,151,255,0.35);
+                --sk-a:        #3a3a3c;
+                --sk-b:        #2c2c2e;
+            }
+
+            .page-wrap {
+                max-width: 700px;
+                margin: 0 auto;
+                padding: 36px 20px 56px;
+            }
+
+            /* ── Page header ── */
+            .page-hd { margin-bottom: 28px; }
+            .page-hd h1 {
+                font-size: 26px;
+                font-weight: 700;
+                letter-spacing: -0.4px;
+                margin: 0 0 5px;
+                color: var(--text);
+            }
+            .page-hd p {
+                margin: 0;
+                font-size: 13px;
+                color: var(--dim);
+            }
+
+            /* ── Toast notification ── */
+            #toast {
+                display: none;
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(28, 28, 30, 0.90);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                color: #fff;
+                font-size: 13px;
+                font-weight: 500;
+                padding: 9px 18px;
+                border-radius: 20px;
+                z-index: 9999;
+                white-space: nowrap;
+                box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+                pointer-events: none;
+            }
+
+            /* ── Group card ── */
+            .group-card {
+                background: var(--card);
+                border-radius: 13px;
+                box-shadow: var(--shadow);
+                margin-bottom: 18px;
+                overflow: hidden;
+            }
+
+            .group-head {
+                display: flex;
+                align-items: center;
+                gap: 11px;
+                padding: 13px 16px;
+                background: var(--card-head);
+                border-bottom: 1px solid var(--border);
+            }
+
+            .app-icon {
+                width: 34px;
+                height: 34px;
+                border-radius: 8px;
+                overflow: hidden;
+                flex-shrink: 0;
+                background: var(--soft);
+            }
+            .app-icon img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .app-name {
+                flex: 1;
+                font-size: 14.5px;
+                font-weight: 600;
+                color: var(--text);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .ext-count {
+                font-size: 11.5px;
+                font-weight: 500;
+                color: var(--muted);
+                background: var(--soft);
+                padding: 2px 9px;
+                border-radius: 10px;
+                flex-shrink: 0;
+            }
+
+            /* ── Extension row ── */
+            .ext-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 16px;
+                border-bottom: 1px solid var(--border-row);
+                transition: background 0.12s;
+            }
+            .ext-row:last-child { border-bottom: none; }
+            .ext-row:hover { background: var(--row-hover); }
+
+            .ext-pill {
+                font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+                font-size: 11.5px;
+                font-weight: 600;
+                color: var(--accent);
+                background: var(--pill-bg);
+                padding: 3px 10px;
+                border-radius: 6px;
+                flex-shrink: 0;
+                min-width: 62px;
+                text-align: center;
+                text-transform: lowercase;
+            }
+
+            .ext-spacer { flex: 1; }
+
+            .ext-select {
+                font-family: inherit;
+                font-size: 12.5px;
+                color: var(--text);
+                background: var(--soft);
+                border: none;
+                border-radius: 7px;
+                padding: 5px 8px;
+                cursor: pointer;
+                outline: none;
+                max-width: 210px;
+                appearance: auto;
+                -webkit-appearance: auto;
+                transition: box-shadow 0.15s;
+            }
+            .ext-select:focus {
+                box-shadow: 0 0 0 3px var(--select-focus);
+            }
+
+            /* ── Empty state ── */
+            .empty-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 64px 24px;
+                text-align: center;
+                color: var(--dim);
+            }
+            .empty-state h2 {
+                font-size: 17px;
+                font-weight: 600;
+                color: var(--text);
+                margin: 0 0 6px;
+            }
+            .empty-state p {
+                font-size: 13px;
+                margin: 0;
+                max-width: 320px;
+                line-height: 1.5;
+            }
+
+            /* ── Skeleton loading ── */
+            .skeleton-card {
+                background: var(--card);
+                border-radius: 13px;
+                box-shadow: var(--shadow);
+                padding: 20px 18px;
+                margin-bottom: 18px;
+            }
+            .sk-line {
+                height: 13px;
+                background: linear-gradient(90deg, var(--sk-a) 25%, var(--sk-b) 50%, var(--sk-a) 75%);
+                background-size: 200% 100%;
+                border-radius: 6px;
+                margin-bottom: 11px;
+                animation: sk-shimmer 1.4s infinite;
+            }
+            .sk-line:last-child { margin-bottom: 0; }
+            @keyframes sk-shimmer {
+                0%   { background-position:  200% 0; }
+                100% { background-position: -200% 0; }
+            }
+        </style>
     </head>
     <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <div class="ui header">
-                    <i class="external icon"></i>
-                    <div class="content">
-                        <span locale="defaultOpener/Title">Default Opening Module</span>
-                        <div class="sub header"><span locale="defaultOpener/Subtitle">Manage your default modules to open files with given extensions</span></div>
-                    </div>
+        <div id="do-root">
+        <div class="page-wrap">
+            <div class="page-hd">
+                <h1 locale="defaultOpener/Title">Default Openers</h1>
+                <p locale="defaultOpener/Subtitle">Choose which app opens each file type by default. Changes are saved immediately.</p>
+            </div>
+
+            <div id="groupList">
+                <div class="skeleton-card">
+                    <div class="sk-line" style="width:38%"></div>
+                    <div class="sk-line" style="width:68%"></div>
+                    <div class="sk-line" style="width:52%"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="sk-line" style="width:30%"></div>
+                    <div class="sk-line" style="width:60%"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="sk-line" style="width:44%"></div>
+                    <div class="sk-line" style="width:72%"></div>
+                    <div class="sk-line" style="width:48%"></div>
+                    <div class="sk-line" style="width:55%"></div>
                 </div>
             </div>
-            <div id="msgbox" class="ui icon positive message" style="display:none;">
-                <i class="checkmark icon"></i>
-                <div class="content">
-                    <div class="header">
-                        <span locale="defaultOpener/Updated">Default Opening Module Updated</span>
-                    </div>
-                    <p><span locale="defaultOpener/TryAgain">Try to open your file again and see if it is working</span></p>
-                </div>
-            </div>
-            <table class="ui celled table">
-                <thead>
-                    <tr>
-                        <th locale="defaultOpener/FileExtension">File Extension</th>
-                        <th locale="defaultOpener/CurrentDefault">Current Default</th>
-                        <th locale="defaultOpener/ModifyDefault">Modify Default (Save on Change)</th>
-                    </tr>
-                </thead>
-                <tbody id="defaultOpenerList">
-              
-                </tbody>
-              </table>
         </div>
+
+        <div id="toast"></div>
+        </div><!-- #do-root -->
+
         <script>
+            /* Palette of icon gradients cycled per module */
+            var allModules = [];
+            /* moduleName → IconPath, built once moduleList is fetched */
+            var modIconMap = {};
+
             loadDefaultOpener();
-            
-            function loadDefaultOpener(){
-                $("#defaultOpenerList").html("");
+
+            function loadDefaultOpener() {
                 $.ajax({
                     url: "../../system/modules/getDefault?opr=list",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            console.log(data.error);
-                            return;
-                        }
-                        for (var i =0; i < data.length; i++){
-                            var ext = data[i][0];
-                            var module = encodeURIComponent(data[i][1]);
-                            var displayModuleName = data[i][1];
-                            $("#defaultOpenerList").append(`<tr>
-                                <td>${ext}</td>
-                                <td>${displayModuleName}</td>
-                                <td><select class="ui search selection dropdown" ext="${ext}" module="${module}" onchange="updateDefaultOpener(this);">
-                                    <option value="default">${displayModuleName}</option>
-                                </select>
-                                </td>
-                            </tr>`);
+                    success: function(data) {
+                        if (data.error !== undefined) { console.log(data.error); return; }
+
+                        /* Build group map: moduleName → [ext, …] */
+                        var groups = {}, extMod = {};
+                        for (var i = 0; i < data.length; i++) {
+                            var ext = data[i][0], mod = data[i][1];
+                            extMod[ext] = mod;
+                            if (!groups[mod]) groups[mod] = [];
+                            groups[mod].push(ext);
                         }
 
-                        //Load modules into search dropdowns
-                        $.get("../../system/modules/list",function(moudleList){
-                            for (var i=0; i < moudleList.length; i++){
-                                var thisModule = moudleList[i];
-                                $(".search.dropdown").each(function(){
-                                    var thisExt = $(this).attr("ext");
-                                    var thisDefaultModule = decodeURIComponent($(this).attr("module"));
-                                    if (thisModule.SupportedExt !== null && thisModule.SupportedExt.includes(thisExt)){
-                                        //Accept this file type
-                                    }
-                                    if (thisDefaultModule !== thisModule.Name){
-                                        $(this).append(`<option value="${thisModule.Name}">${thisModule.Name}</option>`);
-                                    }
-                                    
-                                });
+                        $.get("../../system/modules/list", function(moduleList) {
+                            allModules = moduleList || [];
+                            modIconMap = {};
+                            for (var j = 0; j < allModules.length; j++) {
+                                modIconMap[allModules[j].Name] = allModules[j].IconPath || "";
                             }
-
-                            $('.ui.dropdown').dropdown();
+                            renderGroups(groups, extMod);
                         });
                     }
                 });
             }
 
-            function updateDefaultOpener(object){
-                if ($(object).val() !== "default"){
-                    var ext = $(object).attr('ext');
-                    //Refresh the list
-                    $.ajax({
-                        url: "../../system/modules/getDefault?opr=set&ext=" + ext + "&module=" + $(object).val(),
-                        success: function(data){
-                            setTimeout(loadDefaultOpener,500);
-                        }
-                    });
-                    $("#msgbox").stop().finish().slideDown('fast').delay(5000).slideUp('fast');
+            function renderGroups(groups, extMod) {
+                var sortedMods = Object.keys(groups).sort(function(a,b){ return a.localeCompare(b); });
+                if (sortedMods.length === 0) {
+                    var emptyHtml =
+                        '<div class="empty-state">' +
+                            '<h2 locale="defaultOpener/EmptyTitle">No default openers defined</h2>' +
+                            '<p locale="defaultOpener/EmptyDesc">No file type associations have been configured yet. Install apps that support file types to set default openers.</p>' +
+                        '</div>';
+                    $("#groupList").html(emptyHtml);
+                    if (typeof applocale !== "undefined" && applocale) {
+                        var loc = NewAppLocale();
+                        loc.init("../locale/default_opener_settings.json", function() { loc.translate(); });
+                    }
+                    return;
                 }
+                var html = "";
+                for (var m = 0; m < sortedMods.length; m++) {
+                    var modName = sortedMods[m];
+                    var exts = groups[modName].slice().sort();
+                    var iconPath = modIconMap[modName] || "";
+                    html += buildGroupCard(modName, exts, extMod, iconPath);
+                }
+                $("#groupList").html(html);
             }
 
-            $(document).ready(function(){
-                if (applocale){
-                    //Applocale found. Do localization
-                    applocale.init("../locale/default_opener_settings.json", function(){
-                        applocale.translate();
-                    });
-                }else{
-                    //Applocale not found. Is this a trim down version of ArozOS?
-                    applocale = {
-                        getString: function(key, original){
-                            return original;
-                        }
+            function buildGroupCard(modName, exts, extMod, iconPath) {
+                var rows = "";
+                for (var i = 0; i < exts.length; i++) {
+                    var ext = exts[i];
+                    rows += `<div class="ext-row">
+                        <span class="ext-pill">${escHtml(ext)}</span>
+                        <span class="ext-spacer"></span>
+                        <select class="ext-select" data-ext="${escHtml(ext)}" onchange="changeOpener(this)">
+                            ${buildOptions(extMod[ext])}
+                        </select>
+                    </div>`;
+                }
+                var iconHtml = iconPath
+                    ? `<img src="../../${escHtml(iconPath)}" alt="" loading="lazy">`
+                    : `<img src="" alt="" style="display:none">`;
+                return `<div class="group-card">
+                    <div class="group-head">
+                        <div class="app-icon">${iconHtml}</div>
+                        <span class="app-name">${escHtml(modName)}</span>
+                        <span class="ext-count">${exts.length}</span>
+                    </div>
+                    ${rows}
+                </div>`;
+            }
+
+            function buildOptions(currentMod) {
+                var html = `<option value="${escHtml(currentMod)}">${escHtml(currentMod)}</option>`;
+                var others = allModules.slice().sort(function(a,b){ return a.Name.localeCompare(b.Name); });
+                for (var i = 0; i < others.length; i++) {
+                    if (others[i].Name !== currentMod) {
+                        html += `<option value="${escHtml(others[i].Name)}">${escHtml(others[i].Name)}</option>`;
                     }
+                }
+                return html;
+            }
+
+            function changeOpener(sel) {
+                var ext = $(sel).data("ext");
+                var newMod = encodeURIComponent($(sel).val());
+                $.ajax({
+                    url: "../../system/modules/getDefault?opr=set&ext=" + ext + "&module=" + newMod,
+                    success: function() {
+                        showToast("Default opener updated");
+                        setTimeout(loadDefaultOpener, 400);
+                    }
+                });
+            }
+
+            function showToast(msg) {
+                $("#toast").text("✓ " + msg).stop(true, true).fadeIn(180).delay(2600).fadeOut(380);
+            }
+
+            function escHtml(s) {
+                return String(s)
+                    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+            }
+
+            /* ── Theme ── */
+            function doTheme() {
+                var root = document.getElementById('do-root');
+                if (!root) return;
+                try {
+                    if (typeof preferredTheme !== 'undefined') {
+                        root.classList.toggle('dark', preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+                    } else {
+                        ao_module_getSystemThemeColor(function(c) {
+                            root.classList.toggle('dark', c !== 'whiteTheme');
+                        });
+                    }
+                } catch(e) {}
+            }
+            doTheme();
+            window.detailPageThemeCallback = function(isDark) {
+                var el = document.getElementById('do-root');
+                if (el) el.classList.toggle('dark', isDark);
+            };
+
+            $(document).ready(function() {
+                if (typeof applocale !== "undefined" && applocale) {
+                    var loc = NewAppLocale();
+                    loc.init("../locale/default_opener_settings.json", function() { loc.translate(); });
                 }
             });
         </script>

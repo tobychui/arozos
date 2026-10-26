@@ -15,6 +15,7 @@
     <script src="../script/ao_module.js"></script>
     <script src="constants.js"></script>
     <script src="histogram.js"></script>
+    <script src="search.js"></script>
     <script src="photo.js"></script>
     <style>
         #main {
@@ -27,14 +28,188 @@
             flex: 0 0 auto;
             width: 100%;
             height: auto;
+            margin-left: 0.4em;
+            margin-top: 0.4em;
         }
         
         #path-selector {
-            flex: 0 0 auto;
-            padding: 1em;
-            background: #2c2c2c;
-            border-bottom: 1px solid #444;
-            color: #ffffff;
+            display: none;
+        }
+
+        #content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            width: 210px;
+            min-width: 210px;
+            background: #1e1e1e;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            padding-top: 3em;
+        }
+
+        /* Hide the top menu bar on desktop — only needed for mobile toggle */
+        @media (min-width: 769px) {
+            #menu { 
+                display: none; 
+            }
+            #sidebar {
+                padding-top: 0.4em;
+            }
+        }
+
+        .sidebar-section {
+            padding: 0.75em 0.5em 0.4em 0.5em;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.68em;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #555;
+            padding: 0 0.4em;
+            margin-bottom: 0.4em;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 0.38em 0.6em;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 0.87em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            margin: 1px 0.3em;
+            user-select: none;
+        }
+
+        .sidebar-item:hover {
+            background: #2a2a2a;
+            color: #fff;
+        }
+
+        .sidebar-item.active {
+            color: #f76c5d;
+            background: rgba(247, 108, 93, 0.12);
+        }
+
+        .sidebar-item.disk-root {
+            color: #888;
+            cursor: default;
+        }
+
+        .sidebar-item i {
+            flex-shrink: 0;
+            margin-right: 0.6em;
+            margin-top: -8px;
+            width: 1em;
+            text-align: center;
+        }
+
+        .sidebar-banner {
+            margin-top: auto;
+            padding: 1em 0.8em;
+            border-top: 1px solid #2a2a2a;
+            flex-shrink: 0;
+        }
+
+        .sidebar-banner img {
+            max-width: 100%;
+            max-height: 42px;
+            opacity: 1;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: #2a2a2a;
+            margin: 0.3em 0.8em;
+        }
+
+        .sidebar-select {
+            width: 100%;
+            background: #252525;
+            color: #bbb;
+            border: 1px solid #3a3a3a;
+            border-radius: 5px;
+            padding: 0.45em 2em 0.45em 0.7em;
+            font-size: 0.87em;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23777' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7em center;
+            background-size: 0.65em;
+            box-sizing: border-box;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .sidebar-select:hover,
+        .sidebar-select:focus {
+            border-color: #f76c5d;
+            color: #fff;
+            outline: none;
+        }
+
+        .sidebar-select:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            border-color: #3a3a3a;
+            color: #777;
+        }
+
+        .sidebar-select option {
+            background: #252525;
+            color: #bbb;
+        }
+
+        #sidebar-overlay {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            /* Keep the top menu bar above the sidebar so the toggle button is always clickable */
+            #menu {
+                position: relative;
+                z-index: 201;
+            }
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                z-index: 200;
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                box-shadow: 3px 0 12px rgba(0,0,0,0.6);
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            #sidebar-toggle-btn {
+                display: flex !important;
+            }
+            #sidebar-overlay {
+                position: fixed;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 199;
+            }
         }
         
         #display {
@@ -42,6 +217,9 @@
             margin: 0;
             overflow: hidden;
             background: #1a1a1a;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
         }
         
         body {
@@ -70,10 +248,155 @@
         }
 
         #viewboxContainer{
-            height: 100%;
+            flex: 1;
+            min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
         }
+
+        /* ── Search bar ──────────────────────────────────────────────────── */
+        #search-header {
+            position: relative;
+            padding: 0.6em 0.8em 0.45em 0.8em;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            flex-shrink: 0;
+        }
+        .search-input-wrap { position: relative; }
+        #search-box {
+            display: flex;
+            align-items: center;
+            background: #252525;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 0.4em 0.7em;
+            transition: border-color 0.15s;
+            cursor: text;
+        }
+        #search-box.focused,
+        #search-box:focus-within {
+            border-color: #f76c5d;
+        }
+        #search-box > i.search.icon { color: #888; margin-right: 0.5em; flex-shrink: 0; align-self: center; }
+
+        /* Tags / chips */
+        .search-tags {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.3em;
+            min-width: 0;
+        }
+        .search-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3em;
+            background: rgba(247, 108, 93, 0.16);
+            border: 1px solid rgba(247, 108, 93, 0.4);
+            color: #f7b3aa;
+            border-radius: 5px;
+            padding: 0.1em 0.2em 0.1em 0.45em;
+            font-size: 0.82em;
+            line-height: 1.6;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+        .search-tag > span { overflow: hidden; text-overflow: ellipsis; }
+        .search-tag > i.icon { margin: 0; font-size: 0.85em; color: #f76c5d; flex-shrink: 0; }
+        .search-tag .tag-remove {
+            cursor: pointer;
+            color: #f7b3aa;
+            opacity: 0.7;
+            margin: 0 0.05em;
+            font-size: 0.8em;
+        }
+        .search-tag .tag-remove:hover { opacity: 1; color: #fff; }
+        /* Per-type chip accents */
+        .search-tag.tag-camera { background: rgba(86, 156, 214, 0.16); border-color: rgba(86, 156, 214, 0.4); color: #9ccbf0; }
+        .search-tag.tag-camera > i.icon, .search-tag.tag-camera .tag-remove { color: #569cd6; }
+        .search-tag.tag-date { background: rgba(201, 162, 39, 0.18); border-color: rgba(201, 162, 39, 0.45); color: #e0c068; }
+        .search-tag.tag-date > i.icon, .search-tag.tag-date .tag-remove { color: #c9a227; }
+        .search-tag.tag-lens { background: rgba(137, 200, 100, 0.16); border-color: rgba(137, 200, 100, 0.4); color: #b6dd9a; }
+        .search-tag.tag-lens > i.icon, .search-tag.tag-lens .tag-remove { color: #89c864; }
+
+        #search-box .search-tags input {
+            flex: 1 1 90px;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #eee;
+            font-size: 0.95em;
+            min-width: 90px;
+            padding: 0.18em 0;
+        }
+        #search-box .search-tags input::placeholder { color: #666; }
+        .search-clear {
+            color: #888;
+            cursor: pointer;
+            margin-left: 0.5em;
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .search-clear:hover { color: #f76c5d; }
+
+        #search-suggestions {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + 4px);
+            background: #222;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            z-index: 30;
+            max-height: 340px;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .suggest-item {
+            display: flex;
+            align-items: center;
+            padding: 0.55em 0.85em;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 0.9em;
+        }
+        .suggest-item:hover,
+        .suggest-item.active { background: #2d2d2d; color: #fff; }
+        .suggest-item > i.icon { width: 1.4em; color: #f76c5d; flex-shrink: 0; }
+        .suggest-label {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .suggest-hint {
+            color: #777;
+            font-size: 0.8em;
+            margin-left: 0.6em;
+            flex-shrink: 0;
+        }
+
+        #search-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.9em;
+            padding: 0.5em 0.3em 0.1em 0.3em;
+            color: #aaa;
+            font-size: 0.82em;
+        }
+        .search-clear-link { color: #f76c5d; cursor: pointer; }
+        .search-clear-link:hover { text-decoration: underline; }
+        #index-chip {
+            margin-left: auto;
+            color: #888;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 0.35em;
+        }
+        #index-chip .reindex-link { color: #888; cursor: pointer; }
+        #index-chip .reindex-link:hover { color: #f76c5d; }
 
         #fadeplate{
             position: absolute;
@@ -83,12 +406,6 @@
             height: 100%;
             background: rgba(20,20,20,0.8);
             backdrop-filter: blur(2px);
-        }
-
-        .subfolders-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5em;
         }
 
         #noimg {
@@ -242,6 +559,28 @@
             word-break: break-all;
         }
 
+        /* Top-right toolbar: keeps close / info / cast / download evenly spaced */
+        .viewer-toolbar {
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            z-index: 500;
+            display: flex;
+            flex-direction: row-reverse;
+            align-items: center;
+            gap: 0.6em;
+        }
+
+        /* Inside the toolbar, layout is handled by flex, not per-button offsets */
+        .viewer-toolbar .close-btn,
+        .viewer-toolbar .show-info-btn,
+        .viewer-toolbar .cast-photo-btn,
+        .viewer-toolbar .download-photo-btn {
+            position: static;
+            top: auto;
+            right: auto;
+        }
+
         .close-btn {
             position: absolute;
             top: 1em;
@@ -293,6 +632,81 @@
             z-index: 500;
             display:none;
         }
+
+        .cast-photo-btn {
+            position: absolute;
+            top: 1.3em;
+            right: 6.5em;
+            background: #222222;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cast-photo-btn svg { width: 18px; height: 18px; }
+        .cast-photo-btn.casting { background: #c0392b; }
+
+        /* Cast modal */
+        #cast-photo-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #cast-photo-modal.visible { display: flex; }
+
+        .cast-photo-dialog {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 1.5em 2em;
+            min-width: 260px;
+            color: #eee;
+            font-family: sans-serif;
+        }
+
+        .cast-photo-dialog h4 { margin: 0 0 1em; font-size: 1em; }
+
+        .cast-photo-dialog input {
+            width: 100%;
+            padding: 0.4em 0.6em;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: #eee;
+            font-size: 1.4em;
+            letter-spacing: 0.3em;
+            text-align: center;
+            box-sizing: border-box;
+            margin-bottom: 0.8em;
+        }
+
+        .cast-photo-dialog .cast-error { color: #e74c3c; font-size: 0.85em; margin-bottom: 0.6em; min-height: 1.2em; }
+
+        .cast-photo-dialog .cast-actions { display: flex; gap: 0.6em; justify-content: flex-end; }
+
+        .cast-photo-dialog button {
+            padding: 0.4em 1em;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .cast-photo-dialog .btn-connect { background: #e74c3c; color: #fff; }
+        .cast-photo-dialog .btn-cancel  { background: #333; color: #ccc; }
+        .cast-photo-dialog .btn-disconnect { background: #555; color: #fff; }
+        .cast-photo-dialog .cast-status { font-size: 0.85em; color: #aaa; margin-bottom: 0.8em; }
 
         @media (max-width: 768px) {
             .viewer-right {
@@ -439,101 +853,352 @@
             z-index: 10;
             display: none;
         }
+
+        /* ── Date-grouped grid sections (Google-Photos style) ─────────────── */
+        #viewbox {
+            display: block;
+        }
+        .photo-date-group {
+            margin-bottom: 0.3em;
+        }
+        .photo-date-header {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: #1a1a1a;
+            color: #e3e3e3;
+            font-size: 0.95em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            padding: 0.75em 0.6em 0.5em 0.6em;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .photo-date-cards {
+            margin: 0 !important;
+        }
+
+        /* ── Grid zoom hint snackbar (Ctrl/⌘ + wheel) ────────────────────── */
+        #grid-zoom-snackbar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(0, 0, 0, 0.78);
+            color: #fff;
+            padding: 7px 16px;
+            border-radius: 18px;
+            font-size: 13px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            z-index: 900;
+        }
+        #grid-zoom-snackbar.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ── Sidebar: view toggle + rating filter ────────────────────────── */
+        .sidebar-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            padding: 0.25em 0.5em;
+            color: #bbb;
+            font-size: 0.87em;
+            cursor: pointer;
+            user-select: none;
+        }
+        .sidebar-toggle:hover { color: #fff; }
+        .sidebar-toggle input { cursor: pointer; accent-color: #f76c5d; }
+        .sidebar-zoom-hint {
+            padding: 0.4em 0.5em 0;
+            color: #666;
+            font-size: 0.74em;
+            line-height: 1.4;
+        }
+        .sidebar-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.05em;
+            padding: 0.1em 0.4em 0;
+        }
+        .sidebar-rating .star.icon {
+            cursor: pointer;
+            margin: 0;
+            color: #f6c350;
+            transition: transform 0.08s;
+        }
+        .sidebar-rating .star.outline.icon { color: #666; }
+        .sidebar-rating .star.icon:hover { transform: scale(1.18); }
+        .sidebar-rating-clear {
+            margin-left: 0.5em;
+            color: #f76c5d;
+            font-size: 0.78em;
+            cursor: pointer;
+        }
+        .sidebar-rating-clear:hover { text-decoration: underline; }
+        .sidebar-rating-hint {
+            padding: 0.35em 0.5em 0;
+            color: #888;
+            font-size: 0.78em;
+        }
+
+        /* ── Viewer: download button + star rating ───────────────────────── */
+        .download-photo-btn {
+            position: absolute;
+            top: 1.3em;
+            right: 9.7em;
+            background: #222222;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .download-photo-btn svg { width: 18px; height: 18px; }
+        .download-photo-btn:hover { background: #f76c5d; }
+
+        .photo-rating-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            margin: 0.1em 0 1.1em 0;
+        }
+        .photo-rating-stars {
+            display: inline-flex;
+            gap: 2px;
+            cursor: pointer;
+            font-size: 1.45em;
+            line-height: 1;
+        }
+        .photo-rating-stars .photo-star {
+            color: #555;
+            font-style: normal;
+            transition: color 0.12s, transform 0.08s;
+        }
+        .photo-rating-stars .photo-star:hover { transform: scale(1.15); }
+        .photo-rating-stars .photo-star.filled { color: #f6c350; }
+        .photo-rating-stars .photo-star.hover { color: #f7d98a; }
+        .photo-rating-label {
+            color: #aaa;
+            font-size: 0.85em;
+        }
     </style>
 
 </head>
 <body>
     <div id="main" x-data='photoListObject()' x-init="init()">
         <div class="ui inverted secondary small menu" id="menu">
-            <div class="item">
-                <img class="ui fluid image" src="img/banner.png" style="max-height: 40px;">
-            </div>
-            <div class="ui inverted dropdown item">
-                Disk <i class="dropdown icon"></i>
-                <div class="menu">
-                    <template x-for="vroot in vroots">
-                        <a class="item" :rootpath="vroot[1]" x-on:click="updateRenderingPath(vroot[2]);"><i class="ui disk icon"></i> <span x-text="vroot[0] + ' (' + vroot[1] + ')'"></span></a>
-                    </template>
-                    
-                </div>
-            </div>
-            <div class="ui inverted dropdown item">
-                Sort By <i class="dropdown icon"></i>
-                <div class="menu">
-                    <a class="item" x-on:click="changeSort('default');" :class="{ 'active': sortOrder === 'default' }"><i class="ui sort alphabet up icon"></i> Filename Ascending</a>
-                    <a class="item" x-on:click="changeSort('reverse');" :class="{ 'active': sortOrder === 'reverse' }"><i class="ui sort alphabet down icon"></i> Filename Descending</a>
-                    <a class="item" x-on:click="changeSort('smallToLarge');" :class="{ 'active': sortOrder === 'smallToLarge' }"><i class="ui sort amount up icon"></i> Size Small to Large</a>
-                    <a class="item" x-on:click="changeSort('largeToSmall');" :class="{ 'active': sortOrder === 'largeToSmall' }"><i class="ui sort amount down icon"></i> Size Large to Small</a>
-                    <a class="item" x-on:click="changeSort('mostRecent');" :class="{ 'active': sortOrder === 'mostRecent' }"><i class="ui calendar icon"></i> Newest First</a>
-                    <a class="item" x-on:click="changeSort('leastRecent');" :class="{ 'active': sortOrder === 'leastRecent' }"><i class="ui calendar outline icon"></i> Oldest First</a>
-                    <a class="item" x-on:click="changeSort('fileTypeAsce');" :class="{ 'active': sortOrder === 'fileTypeAsce' }"><i class="ui file alternate icon"></i> Extension Ascending</a>
-                    <a class="item" x-on:click="changeSort('fileTypeDesc');" :class="{ 'active': sortOrder === 'fileTypeDesc' }"><i class="ui file alternate outline icon"></i> Extension Descending</a>
-                    <a class="item" x-on:click="changeSort('smart');" :class="{ 'active': sortOrder === 'smart' }"><i class="ui magic icon"></i> Natural Order</a>
-                </div>
-            </div>
-            
-            <!-- Right floated menu -->
-            <a class="right floated icon item" x-on:click="toggleViewMode();">
-                <i x-show="viewMode === 'grid'" class="ui bars large icon"></i>
-                <i x-show="viewMode === 'list'" class="ui th large icon"></i>
+            <!-- Mobile sidebar toggle (hidden on desktop via CSS) -->
+            <a class="icon item" id="sidebar-toggle-btn" x-on:click="sidebarOpen = !sidebarOpen;" style="display:none;">
+                <i class="ui bars large icon"></i>
             </a>
-
         </div>
 
-        <div id="path-selector">
-            <div class="ui inverted breadcrumb">
-                <span x-text="currentPath"></span>
-            </div>
-            <div class="ui divider"></div>
-            <div >
-                <a id="parentFolderButton" class="ui basic inverted button" x-on:click="parentFolder();" style="display:none; margin-top: 0.6em;">
-                    <i class="reply icon"></i> Parent Folder
-                </a>
-                <div id="subfolders-buttons" class="subfolders-container" style="margin-top: 0.6em;">
-                    <div class="item" id="nosubfolder" style="display:none;"><!-- <i class="ui green circle check icon"></i> No Sub Folders --></div>
-                    <template x-for="folder in folders">
-                        <a class="ui basic small inverted button" x-on:click="updateRenderingPath(folder);"><i class="ui folder open icon"></i> <span x-text="extractFolderName(folder);"></span></a>
-                    </template>
-                </div>
-            </div>
-        </div>
+        <!-- Mobile sidebar overlay -->
+        <div id="sidebar-overlay" x-show="sidebarOpen" x-on:click="sidebarOpen = false;"></div>
 
-        <div id="display">
-            <div id="noimg" class="ui basic inverted segment" style="display:none;">
-                <h4 class="ui header">
-                    <div class="content">
-                        Empty Folder
-                        <div class="sub header">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+        <div id="content-area">
+            <!-- Sidebar folder tree -->
+            <div id="sidebar" :class="{ 'open': sidebarOpen }">
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Sort By</div>
+                    <div style="padding: 0 0.4em;">
+                        <select class="sidebar-select" x-model="sortOrder" x-on:change="getFolderInfo();"
+                                :disabled="groupByDate" :title="groupByDate ? 'Turn off Group by date to sort manually' : ''">
+                            <option value="smart">Natural Order</option>
+                            <option value="mostRecent">Newest First</option>
+                            <option value="leastRecent">Oldest First</option>
+                            <option value="default">Filename A→Z</option>
+                            <option value="reverse">Filename Z→A</option>
+                            <option value="smallToLarge">Size Small→Large</option>
+                            <option value="largeToSmall">Size Large→Small</option>
+                            <option value="fileTypeAsce">Extension A→Z</option>
+                            <option value="fileTypeDesc">Extension Z→A</option>
+                        </select>
                     </div>
-                </h4>
-            </div>
-            <div id="viewboxContainer">
-                <div x-show="viewMode === 'grid'" id="viewbox" class="ui six cards viewbox">
-                    <template x-for="image in images">
-                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
-                            <a class="image" x-init="updateImageSizes();">
-                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
-                            </a>
-                        </div>
-                    </template>
                 </div>
-                <div x-show="viewMode === 'list'" class="ui relaxed divided inverted list">
-                    <template x-for="image in images">
-                        <div class="item" style="cursor: pointer; padding-left: 10px; " x-on:click="showImage($el); ShowModal();" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
-                            <img class="ui small image" :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath"
-                                 style="width: 60px; height: 60px;">
-                            <div class="content">
-                                <div class="header" x-text="image.filepath.split('/').pop()"></div>
-                                <div class="description" x-text="image.filepath"></div>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </div>
-        </div>
 
-        
-    </div>
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">View</div>
+                    <label class="sidebar-toggle" title="Split the grid into Year / Month sections">
+                        <input type="checkbox" x-model="groupByDate" x-on:change="onGroupByDateChange();">
+                        <span>Group by date</span>
+                    </label>
+                    <div class="sidebar-zoom-hint">Hold Ctrl / ⌘ and scroll to resize photos</div>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Filter by Rating</div>
+                    <div class="sidebar-rating">
+                        <template x-for="n in [1,2,3,4,5]" :key="n">
+                            <i class="star icon" :class="{ 'outline': n > ratingFilter }"
+                               x-on:click="setRatingFilter(n)"
+                               :title="'Rating ' + n + ' and up'"></i>
+                        </template>
+                        <span class="sidebar-rating-clear" x-show="ratingFilter > 0"
+                              x-on:click="setRatingFilter(0)">Clear</span>
+                    </div>
+                    <div class="sidebar-rating-hint" x-show="ratingFilter > 0"
+                         x-text="'Showing ' + ratingFilter + '★ & up'"></div>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Library</div>
+                    <template x-for="vroot in vroots">
+                        <a class="sidebar-item" x-on:click="updateRenderingPath(vroot[2]);">
+                            <i class="ui hdd outline icon"></i>
+                            <span x-text="vroot[0]"></span>
+                        </a>
+                    </template>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Current Path</div>
+                    <template x-for="(seg, idx) in getPathSegments()">
+                        <a class="sidebar-item"
+                           :class="{ 'active': seg.path === currentPath, 'disk-root': seg.isDiskRoot }"
+                           :style="{ paddingLeft: (0.6 + seg.depth * 0.75) + 'em' }"
+                           x-on:click="!seg.isDiskRoot && seg.path !== currentPath && updateRenderingPath(seg.path);">
+                            <i :class="seg.isDiskRoot ? 'ui hdd outline icon' : 'ui folder icon'"></i>
+                            <span x-text="seg.name"></span>
+                        </a>
+                    </template>
+                </div>
+
+                <div x-show="folders.length > 0">
+                    <div class="sidebar-divider"></div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Subfolders</div>
+                        <template x-for="folder in folders">
+                            <a class="sidebar-item" x-on:click="updateRenderingPath(folder);">
+                                <i class="ui folder open icon"></i>
+                                <span x-text="extractFolderName(folder)"></span>
+                            </a>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Banner pinned to bottom of sidebar -->
+                <div class="sidebar-banner">
+                    <img src="img/banner.png" alt="Photo">
+                </div>
+
+            </div><!-- /#sidebar -->
+
+            <div id="display">
+                <!-- Search bar (iOS-style tags input with autocomplete) -->
+                <div id="search-header">
+                    <div class="search-input-wrap" x-on:click.outside="showSuggestions = false">
+                        <div id="search-box" :class="{ 'focused': showSuggestions }"
+                            x-on:click="$refs.searchInput.focus()">
+                            <i class="search icon"></i>
+                            <div class="search-tags">
+                                <template x-for="(tag, ti) in searchTags" :key="ti">
+                                    <span class="search-tag" :class="'tag-' + tag.type">
+                                        <i class="icon" :class="suggestIcon(tag.type)"></i>
+                                        <span x-text="tag.label"></span>
+                                        <i class="times icon tag-remove" x-on:click.stop="removeTag(ti)"></i>
+                                    </span>
+                                </template>
+                                <input type="text" id="photo-search-input" x-ref="searchInput"
+                                    autocomplete="off" spellcheck="false"
+                                    :placeholder="searchTags.length ? '' : 'Search — name, camera, ISO, f/2.8, June, 2023, landscape…'"
+                                    x-model="searchInput"
+                                    x-on:input="onSearchInput()"
+                                    x-on:keydown="onSearchKeydown($event)"
+                                    x-on:focus="onSearchInput()">
+                            </div>
+                            <i class="times circle icon search-clear"
+                                x-show="searchTags.length > 0 || searchInput.length > 0"
+                                x-on:click.stop="clearSearch()"></i>
+                        </div>
+
+                        <!-- Autocomplete dropdown -->
+                        <div id="search-suggestions" x-show="showSuggestions">
+                            <template x-for="(s, i) in suggestions" :key="i">
+                                <div class="suggest-item" :class="{ 'active': i === suggestIndex }"
+                                    x-on:mousedown.prevent="applySuggestion(s)"
+                                    x-on:mouseenter="suggestIndex = i">
+                                    <i class="icon" :class="suggestIcon(s.type)"></i>
+                                    <span class="suggest-label" x-text="s.label"></span>
+                                    <span class="suggest-hint" x-text="s.hint"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Result count / indexing status -->
+                    <div id="search-meta" x-show="searchMode || indexStatusText.length > 0">
+                        <span x-show="searchMode"
+                            x-text="searchTotal + ' result' + (searchTotal === 1 ? '' : 's')"></span>
+                        <a class="search-clear-link" x-show="searchMode" x-on:click="clearSearch()">Clear search</a>
+                        <span id="index-chip" x-show="indexStatusText.length > 0">
+                            <i class="loading spinner icon" x-show="indexing"></i>
+                            <span x-text="indexStatusText"></span>
+                            <a class="reindex-link" x-show="!indexing" x-on:click="rebuildIndex()"
+                                title="Rebuild the search index">Rebuild</a>
+                        </span>
+                    </div>
+                </div>
+
+                <div id="noimg" class="ui basic inverted segment" style="display:none;">
+                    <h4 class="ui header">
+                        <div class="content">
+                            <span x-text="searchMode ? 'No matching photos' : 'Empty Folder'">Empty Folder</span>
+                            <div class="sub header" x-show="!searchMode">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+                            <div class="sub header" x-show="searchMode">Try a different name, camera, ISO, f-number, month, year or orientation.</div>
+                        </div>
+                    </h4>
+                </div>
+                <div id="viewboxContainer">
+                    <div id="viewbox">
+                        <!-- Photos are split into Year / Month sections (Google-Photos style).
+                             When "Group by date" is off, groupedImages() returns one
+                             unlabelled group, so this renders as a single flat grid. -->
+                        <template x-for="group in groupedImages()" :key="group.key">
+                            <div class="photo-date-group">
+                                <div class="photo-date-header" x-show="group.label !== ''" x-text="group.label"></div>
+                                <div class="ui six cards photo-date-cards">
+                                    <template x-for="image in group.images" :key="image.filepath">
+                                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
+                                            <a class="image" x-init="updateImageSizes();">
+                                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
+                                            </a>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- Infinite scroll sentinel -->
+                    <div id="load-more-indicator" style="text-align:center; padding: 1em; color: #aaa;" x-show="hasMoreImages">
+                        <i class="loading spinner icon"></i> Loading more photos...
+                    </div>
+                </div>
+                <!-- Grid zoom hint (shown briefly while Ctrl/⌘ + wheel resizes the grid) -->
+                <div id="grid-zoom-snackbar"></div>
+            </div>
+
+        </div><!-- /#content-area -->
+    </div><!-- /#main -->
     <!-- Photo Viewer -->
     <div id="photo-viewer" class="photo-viewer">
         
@@ -544,8 +1209,16 @@
             <div class="viewer-left">
                 <img id="compressedImage" src="" style="display: none;" />
                 <img id="fullImage" src="img/loading.png" />
-                <button class="close-btn" onclick="closeViewer()">×</button>
-                <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
+                <div class="viewer-toolbar">
+                    <button class="close-btn" onclick="closeViewer()">×</button>
+                    <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
+                    <button class="cast-photo-btn" id="cast-photo-btn" onclick="openPhotoCastDialog()" title="Cast to Arozcast">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-480Zm320 320H600q0-20-1.5-40t-4.5-40h206v-480H160v46q-20-3-40-4.5T80-680v-40q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160Zm-720 0v-120q50 0 85 35t35 85H80Zm200 0q0-83-58.5-141.5T80-360v-80q117 0 198.5 81.5T360-160h-80Zm160 0q0-75-28.5-140.5t-77-114q-48.5-48.5-114-77T80-520v-80q91 0 171 34.5T391-471q60 60 94.5 140T520-160h-80Z"/></svg>
+                    </button>
+                    <button class="download-photo-btn" id="download-photo-btn" onclick="downloadCurrentPhoto()" title="Download photo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+                    </button>
+                </div>
                 
                 <!-- Loading Progress -->
                 <div id="loading-progress" class="loading-progress"><i class="loading spinner icon"></i> Loading</div>
@@ -569,6 +1242,16 @@
                 </div>
                 <div class="info-panel">
                     <h3>Photo Information</h3>
+                    <div class="photo-rating-row">
+                        <div id="photo-rating-stars" class="photo-rating-stars">
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                        </div>
+                        <span id="photo-rating-label" class="photo-rating-label">Rate</span>
+                    </div>
                     <table class="ui very basic compact table inverted">
                         <tbody>
                             <tr>
@@ -709,6 +1392,23 @@
         </div>
     </div>
 
+    <!-- Arozcast Photo Cast Modal -->
+    <div id="cast-photo-modal">
+        <div class="cast-photo-dialog">
+            <h4>Cast to Arozcast</h4>
+            <div id="cast-photo-status" class="cast-status" style="display:none;"></div>
+            <input id="cast-photo-code" type="text" maxlength="4" placeholder="1234"
+                   oninput="this.value=this.value.replace(/\D/g,'')"
+                   onkeydown="if(event.key==='Enter') connectPhotoCast()">
+            <div id="cast-photo-error" class="cast-error"></div>
+            <div class="cast-actions">
+                <button class="btn-cancel" onclick="closePhotoCastDialog()">Cancel</button>
+                <button class="btn-disconnect" id="cast-photo-disc-btn" style="display:none;" onclick="disconnectPhotoCast()">Disconnect</button>
+                <button class="btn-connect" id="cast-photo-conn-btn" onclick="connectPhotoCast()">Connect</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 <script>
 
@@ -734,13 +1434,60 @@
     }
 
     // Navigation functionality
+
+    // Find a rendered .imagecard DOM element by its filepath
+    function findCardByFilepath(filepath) {
+        const cards = document.querySelectorAll('#viewbox .imagecard[filedata]');
+        for (const card of cards) {
+            try {
+                const fd = JSON.parse(decodeURIComponent(card.getAttribute('filedata')));
+                if (fd.filepath === filepath) return card;
+            } catch(e) {}
+        }
+        return null;
+    }
+
+    // Navigate to an image at a given index in allImages, loading more DOM cards if needed
+    function navigateToAllImagesIndex(app, idx) {
+        const imgData = app.allImages[idx];
+        const el = findCardByFilepath(imgData.filepath);
+        if (el) {
+            showImage(el);
+            return;
+        }
+        // The card is not yet in the DOM — extend the rendered slice to cover it
+        const newCount = Math.min(idx + 1 + PAGE_SIZE, app.allImages.length);
+        app.images = app.allImages.slice(0, newCount);
+        app.hasMoreImages = app.images.length < app.allImages.length;
+        app.isLoadingMore = false;
+        // Wait for Alpine to render the new cards, then show the target image
+        app.$nextTick(() => {
+            const el2 = findCardByFilepath(imgData.filepath);
+            if (el2) showImage(el2);
+        });
+    }
+
     function showPreviousImage() {
+        const appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (appEl && appEl._x_dataStack && currentPhotoAllIndex > 0) {
+            navigateToAllImagesIndex(appEl._x_dataStack[0], currentPhotoAllIndex - 1);
+            return;
+        }
+        // Fallback to DOM-based navigation
         if (typeof prePhoto !== 'undefined' && prePhoto != null) {
             showImage(prePhoto);
         }
     }
 
     function showNextImage() {
+        const appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (appEl && appEl._x_dataStack && currentPhotoAllIndex >= 0) {
+            const app = appEl._x_dataStack[0];
+            if (currentPhotoAllIndex + 1 >= app.allImages.length) return; // already at end
+            navigateToAllImagesIndex(app, currentPhotoAllIndex + 1);
+            return;
+        }
+        // Fallback to DOM-based navigation
         if (typeof nextPhoto !== 'undefined' && nextPhoto != null) {
             showImage(nextPhoto);
         }
@@ -749,7 +1496,15 @@
     function updateNavigationButtons() {
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
-        
+
+        const appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (appEl && appEl._x_dataStack && currentPhotoAllIndex >= 0) {
+            const app = appEl._x_dataStack[0];
+            if (prevBtn) prevBtn.disabled = (currentPhotoAllIndex <= 0);
+            if (nextBtn) nextBtn.disabled = (currentPhotoAllIndex >= app.allImages.length - 1);
+            return;
+        }
+        // Fallback
         if (prevBtn) {
             prevBtn.disabled = (typeof prePhoto === 'undefined' || prePhoto == null || !$(prePhoto).hasClass("imagecard"));
         }
@@ -850,60 +1605,66 @@
         panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
     }
 
-    // Initialize zoom and pan when photo viewer is shown
+    // Initialize zoom and pan when photo viewer is shown. The pointer listeners
+    // are attached once (they read live module-level state), so re-opening the
+    // viewer only resets the zoom rather than stacking duplicate handlers.
+    let viewerInteractionsInit = false;
     function initZoomPan() {
+        // Reset zoom state on every open
+        resetZoom();
+        if (viewerInteractionsInit) return;
+
         const img = document.getElementById('fullImage');
         const container = document.querySelector('.viewer-left');
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        // Reset zoom state
-        resetZoom();
 
         // Only enable custom zoom/pan on desktop
-        if (!isMobile) {
-            let handleMouseDown = function(e) {
-                if (zoomLevel > 1) {
-                    e.preventDefault();
-                    isDragging = true;
-                    lastMouseX = e.clientX;
-                    lastMouseY = e.clientY;
-                    img.classList.add('dragging');
-                }
-            };
+        if (isMobile) { viewerInteractionsInit = true; return; }
 
-            let handleMouseMove = function(e) {
-                if (isDragging && zoomLevel > 1) {
-                    const deltaX = e.clientX - lastMouseX;
-                    const deltaY = e.clientY - lastMouseY;
-                    
-                    panX += deltaX / zoomLevel;
-                    panY += deltaY / zoomLevel;
-                    
-                    constrainPan();
-                    updateImageTransform();
-                    
-                    lastMouseX = e.clientX;
-                    lastMouseY = e.clientY;
-                }
-            };
+        img.addEventListener('mousedown', function(e) {
+            if (zoomLevel > 1) {
+                e.preventDefault();
+                isDragging = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                img.classList.add('dragging');
+            }
+        });
 
-            let handleMouseUp = function() {
-                if (isDragging) {
-                    isDragging = false;
-                    img.classList.remove('dragging');
-                }
-            };
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging && zoomLevel > 1) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
 
-            // Remove existing listeners to prevent double triggering
-            img.removeEventListener('mousedown', handleMouseDown);
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+                panX += deltaX / zoomLevel;
+                panY += deltaY / zoomLevel;
 
-            // Add listeners back
-            img.addEventListener('mousedown', handleMouseDown);
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        }
+                constrainPan();
+                updateImageTransform();
+
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                img.classList.remove('dragging');
+            }
+        });
+
+        // Mouse-wheel zoom, anchored at the cursor (complements the +/- buttons).
+        container.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const step = e.deltaY < 0 ? 0.2 : -0.2;
+            const newZoom = Math.max(1, Math.min(5, zoomLevel + step));
+            if (newZoom !== zoomLevel) {
+                zoomAtPoint(newZoom, e.clientX, e.clientY);
+            }
+        }, { passive: false });
+
+        viewerInteractionsInit = true;
     }
 
     // Initialize zoom and pan when modal is shown

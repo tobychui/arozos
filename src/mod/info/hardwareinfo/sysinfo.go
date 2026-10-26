@@ -5,12 +5,15 @@ package hardwareinfo
 
 import (
 	"encoding/json"
-	"imuslab.com/arozos/mod/utils"
-	"log"
+	"fmt"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +35,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -76,7 +79,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 
@@ -100,13 +103,13 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
-	cmdin := `cat /proc/cpuinfo | grep -m1 "model name"`
+	cmdin := `cat /proc/cpuinfo | grep -m1 "[mM]odel [nN]ame"`
 	cmd := exec.Command("bash", "-c", cmdin)
 	hardware, err := cmd.CombinedOutput()
 	if err != nil {
@@ -124,7 +127,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	cmd = exec.Command("bash", "-c", cmdin)
 	speed, err := cmd.CombinedOutput()
 	if err != nil {
-		cmdin = `cat /proc/cpuinfo | grep -m1 "cpu MHz"`
+		cmdin = `cat /proc/cpuinfo | grep -m1 "[cC][pP][uU] MHz"`
 		cmd = exec.Command("bash", "-c", cmdin)
 		intelSpeed, err := cmd.CombinedOutput()
 		if err != nil {
@@ -133,13 +136,16 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 		speed = intelSpeed
 	}
 
-	cmdin = `cat /proc/cpuinfo | grep -m1 "Hardware"`
-	cmd = exec.Command("bash", "-c", cmdin)
-	cpuhardware, err := cmd.CombinedOutput()
-	if err != nil {
+	//On LoongArch, /proc/cpuinfo has a "Hardware Watchpoint" field, which is not the hardware model we need.
+	if runtime.GOARCH != "loong64" {
+		cmdin = `cat /proc/cpuinfo | grep -m1 "Hardware"`
+		cmd = exec.Command("bash", "-c", cmdin)
+		cpuhardware, err := cmd.CombinedOutput()
+		if err != nil {
 
-	} else {
-		hardware = cpuhardware
+		} else {
+			hardware = cpuhardware
+		}
 	}
 
 	//On ARM
@@ -177,7 +183,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(CPUInfo)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -196,7 +202,7 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(ramSizeInt)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }

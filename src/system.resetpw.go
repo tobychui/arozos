@@ -2,8 +2,9 @@ package main
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	auth "imuslab.com/arozos/mod/auth"
@@ -136,7 +137,8 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 		"rkey":        resetkey,
 	})
 	if err != nil {
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(template))
@@ -154,7 +156,8 @@ func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request
 		"host_name":   *host_name,
 	})
 	if err != nil {
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(template))

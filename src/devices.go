@@ -18,19 +18,11 @@ func DeviceServiceInit() {
 	})
 
 	registerSetting(settingModule{
-		Name:     "Audio Testing",
-		Desc:     "Speaker and volume testing",
+		Name:     "Device Testing",
+		Desc:     "Audio, display, keyboard, mouse and touch testing",
 		IconPath: "SystemAO/info/img/small_icon.png",
 		Group:    "Device",
-		StartDir: "SystemAO/info/audio.html",
-	})
-
-	registerSetting(settingModule{
-		Name:     "Display Testing",
-		Desc:     "Display testing tools",
-		IconPath: "SystemAO/info/img/small_icon.png",
-		Group:    "Device",
-		StartDir: "SystemAO/info/display.html",
+		StartDir: "SystemAO/info/deviceTesting.html",
 	})
 
 	/*
@@ -41,7 +33,7 @@ func DeviceServiceInit() {
 	registerSetting(settingModule{
 		Name:         "Language",
 		Desc:         "Set the display language of the system",
-		IconPath:     "SystemAO/info/img/small_icon.png",
+		IconPath:     "SystemAO/info/img/language.png",
 		Group:        "Device",
 		StartDir:     "SystemAO/info/locale.html",
 		RequireAdmin: false,

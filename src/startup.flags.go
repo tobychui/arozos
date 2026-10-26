@@ -22,7 +22,7 @@ func StartupFlagsInit() {
 	registerSetting(settingModule{
 		Name:         "Runtime",
 		Desc:         "Change startup paramter in runtime",
-		IconPath:     "SystemAO/info/img/small_icon.png",
+		IconPath:     "SystemAO/info/img/runtime.png",
 		Group:        "Info",
 		StartDir:     "SystemAO/boot/bootflags.html",
 		RequireAdmin: true,

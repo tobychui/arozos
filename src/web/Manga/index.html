@@ -1,321 +1,731 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-        <meta charset="UTF-8">
-        <meta name="theme-color" content="#fcfcfc">
-        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-        <script src="../script/jquery.min.js"></script>
-        <script src="../script/ao_module.js"></script>
-        <script src="../script/semantic/semantic.min.js"></script>
-        <link rel="shortcut icon" type="image/png" href="img/small_icon.png"/>
-        <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
-        <title>Manga</title>
-        <style>
-            body{
-                background-color:#f0f0f0;
-            }
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta name="theme-color" content="#0e0e10"/>
+    <link rel="shortcut icon" type="image/png" href="img/small_icon.png"/>
+    <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <title>Manga</title>
+    <style>
+        /* ═══════════════════════════════════════
+           Design tokens
+        ═══════════════════════════════════════ */
+        :root {
+            --bg:       #f5f5f0;
+            --surface:  #ffffff;
+            --surface2: #eeeeea;
+            --border:   #dcdcd8;
+            --text:     #1a1a1a;
+            --text2:    #666660;
+            --text3:    #aaaaaa;
+            --accent:   #b07800;
+            --accent-h: #8f6000;
+            --shadow:   0 2px 10px rgba(0,0,0,0.10);
+            --r:        12px;
+            --r-sm:     8px;
+        }
+        html.dark, body.dark {
+            --bg:       #0e0e10;
+            --surface:  #1a1a1c;
+            --surface2: #242426;
+            --border:   #333336;
+            --text:     #f0f0f5;
+            --text2:    #9090a0;
+            --text3:    #50505a;
+            --accent:   #ffd60a;
+            --accent-h: #e8c200;
+            --shadow:   0 2px 14px rgba(0,0,0,0.5);
+        }
+        html.dark { background: #0e0e10; }
 
-            .manga{
-                margin-left: 8px !important;
-            }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 15px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        body.dark  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 4px; }
+        body:not(.dark) ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
 
-            .mangaTitle{
-                width: 100%;
-            }
+        /* ═══════════════════════════════════════
+           Header
+        ═══════════════════════════════════════ */
+        #appHeader {
+            position: sticky; top: 0; z-index: 100;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 9px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: var(--shadow);
+        }
+        #headerLogo {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--accent);
+            white-space: nowrap;
+            flex-shrink: 0;
+            letter-spacing: -0.5px;
+        }
+        #searchWrap {
+            flex: 1;
+            min-width: 0;
+        }
+        #searchInput {
+            width: 100%;
+            padding: 7px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 1em;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        #searchInput:focus { border-color: var(--accent); background: var(--surface); }
+        #searchInput::placeholder { color: var(--text3); }
 
-            #no_manga_info{
-                margin-top: 20px;
-                display:none;
-            }
+        .hdr-btn {
+            width: 32px; height: 32px;
+            border: none; background: transparent;
+            color: var(--text2);
+            cursor: pointer;
+            border-radius: var(--r-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            transition: background 0.12s, color 0.12s;
+            flex-shrink: 0;
+        }
+        .hdr-btn:hover { background: var(--surface2); color: var(--text); }
 
-            .chapterBtn{
-                margin-bottom: 5px !important;
-            }
+        /* Icon images */
+        .btn-icon {
+            width: 20px; height: 20px;
+            display: block;
+            flex-shrink: 0;
+        }
+        /* In light mode the icons are white — invert to near-black */
+        body:not(.dark) .btn-icon-adaptive {
+            filter: brightness(0);
+        }
 
-            .chapterSelector{
+        /* ═══════════════════════════════════════
+           Main container
+        ═══════════════════════════════════════ */
+        #main { padding: 14px 14px 32px; height: calc(100vh - 55px)}
 
-            }
+        /* ═══════════════════════════════════════
+           Loading state
+        ═══════════════════════════════════════ */
+        #loadingState {
+            text-align: center;
+            padding: 70px 20px;
+            color: var(--text3);
+        }
+        .spin {
+            display: inline-block;
+            width: 28px; height: 28px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-            #banner{
-                pointer-events: none;
-                user-select: none;
-            }
+        /* ═══════════════════════════════════════
+           Library grid
+        ═══════════════════════════════════════ */
+        #libraryView { display: none; }
 
-            .manga-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 20px;
-                padding: 20px 0;
-            }
+        .manga-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+        }
+        @media (min-width: 480px)  { .manga-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; } }
+        @media (min-width: 768px)  { .manga-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; } }
+        @media (min-width: 1200px) { .manga-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; } }
 
-            .manga-thumbnail {
-                width: 150px;
-                height: 200px;
-                object-fit: cover;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: transform 0.2s;
-            }
+        .manga-card {
+            cursor: pointer;
+            border-radius: var(--r);
+            overflow: hidden;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            transition: transform 0.18s, box-shadow 0.18s;
+        }
+        .manga-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+        .manga-card:active { transform: scale(0.97); }
 
-            .manga-thumbnail:hover {
-                transform: scale(1.05);
-            }
+        .manga-cover-wrap {
+            position: relative;
+            width: 100%;
+            padding-top: 142%;   /* ~2:3 manga poster ratio */
+            overflow: hidden;
+            background: var(--surface2);
+        }
+        .manga-cover {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.3s;
+        }
+        .manga-card:hover .manga-cover { transform: scale(1.04); }
 
-            .manga-item {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
+        .manga-ch-badge {
+            position: absolute; bottom: 6px; right: 6px;
+            background: rgba(0,0,0,0.72);
+            color: #fff;
+            font-size: 1em;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            backdrop-filter: blur(4px);
+        }
+        .manga-card-title {
+            padding: 7px 9px 9px;
+            font-size: 1em;
+            font-weight: 600;
+            line-height: 1.3;
+            color: var(--text);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
 
-            .manga-title {
-                margin-top: 10px;
-                font-weight: bold;
-                word-break: break-word;
-                max-width: 150px;
-            }
+        /* ═══════════════════════════════════════
+           Empty / no-results states
+        ═══════════════════════════════════════ */
+        .empty-state {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .es-icon  { font-size: 2.8em; margin-bottom: 12px; }
+        .es-title { font-size: 1em; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+        .es-sub   { font-size: 1em; color: var(--text3); }
+        .es-sub a { color: var(--accent); text-decoration: none; }
+        .es-sub a:hover { text-decoration: underline; }
 
-            #mangaDetail {
-                display: none;
-                padding: 20px 0;
-            }
+        /* ═══════════════════════════════════════
+           Detail view
+        ═══════════════════════════════════════ */
+        #detailView { display: none; }
 
-            .detail-view {
-                margin-top: 0.5em;
-                display: flex;
-                gap: 20px;
-            }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--accent);
+            font-size: 1em;
+            font-weight: 600;
+            padding: 4px 0;
+            margin-bottom: 18px;
+            font-family: inherit;
+        }
+        .back-btn:hover { opacity: 0.75; }
 
-            .detail-thumbnail {
-                flex: 0 0 200px;
-            }
+        .detail-layout {
+            display: flex;
+            gap: 22px;
+            align-items: flex-start;
+        }
+        @media (max-width: 560px) { .detail-layout { flex-direction: column; } }
 
-            .detail-thumbnail img {
-                width: 200px;
-                height: 300px;
-                object-fit: cover;
-                border-radius: 5px;
-            }
+        /* Cover column */
+        .detail-cover-col { flex-shrink: 0; width: 160px; }
+        @media (max-width: 560px) { .detail-cover-col { width: 120px; } }
 
-            .detail-chapters {
-                flex: 1;
-            }
+        .detail-cover {
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            object-fit: cover;
+            border-radius: var(--r);
+            display: block;
+            box-shadow: var(--shadow);
+            background: var(--surface2);
+        }
 
-            .back-button {
-                margin-bottom: 20px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="ui pointing menu" style="align-items:center;">
-            <!-- Left: logo/icon -->
-            <div class="ui medium image" id="banenr">
-                <img src="img/banner.png" alt="Manga" >
-            </div>
+        /* Info column */
+        .detail-info-col { flex: 1; min-width: 0; }
 
-            <!-- Center: search (flexible and centered) -->
-            <div class="item" style="flex:1; display:flex; justify-content:center;">
-                <div class="ui icon input" style="width:60%; max-width:600px;">
-                    <input type="text" id="mangaSearch" placeholder="Search manga...">
-                    <i class="search link icon" aria-hidden="true"></i>
-                </div>
-            </div>
+        .detail-title {
+            font-size: 1.35em;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+        .detail-subtitle {
+            font-size: 1em;
+            color: var(--text2);
+            margin-bottom: 10px;
+        }
+        .detail-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .tag {
+            font-size: 1em;
+            font-weight: 600;
+            padding: 2px 9px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text2);
+        }
+        .tag-ongoing  { border-color: var(--accent); color: var(--accent); background: transparent; }
+        .tag-completed { border-color: #30b950;      color: #30b950;      background: transparent; }
 
-            <!-- Right: folder button -->
-            <div class="right menu">
-                <a class="item" onclick="openUploadFolder();" title="Open upload folder" role="button">
-                    <i class="folder open outline large icon" aria-hidden="true"></i>
-                </a>
+        .detail-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 1em;
+            color: var(--text2);
+            margin-bottom: 10px;
+        }
+        .detail-intro {
+            font-size: 1em;
+            color: var(--text2);
+            line-height: 1.65;
+            margin-bottom: 16px;
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .detail-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 14px 0 16px;
+        }
+
+        /* Chapter list inside detail */
+        .ch-group { margin-bottom: 16px; }
+        .ch-group-hdr {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        .ch-group-count {
+            font-size: 1em;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text3);
+            padding: 0 6px;
+            border-radius: 8px;
+        }
+        .ch-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ch-btn {
+            display: inline-block;
+            padding: 5px 12px;
+            font-size: 1em;
+            font-weight: 500;
+            border-radius: var(--r-sm);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text2);
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.12s, color 0.12s, border-color 0.12s;
+        }
+        .ch-btn:hover {
+            background: var(--accent);
+            color: #1a1a1a;
+            border-color: var(--accent);
+        }
+        .ch-btn-disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="dark">
+
+<div id="appHeader">
+    <div id="headerLogo">Manga</div>
+    <div id="searchWrap">
+        <input id="searchInput" type="text" placeholder="Search titles, authors…" autocomplete="off">
+    </div>
+    <button class="hdr-btn" id="themeBtn" title="Toggle theme">
+        <img id="themeIcon" class="btn-icon" src="img/icons/light_mode.svg" alt="Toggle theme">
+    </button>
+    <button class="hdr-btn" id="folderBtn" title="Open manga folder">
+        <img class="btn-icon" src="img/icons/folder.svg" alt="Open folder">
+    </button>
+</div>
+
+<div id="main">
+
+    <!-- Loading -->
+    <div id="loadingState">
+        <div class="spin"></div>
+        <div style="margin-top:8px;" locale="loading/library">Scanning library…</div>
+    </div>
+
+    <!-- Library -->
+    <div id="libraryView">
+        <div class="manga-grid" id="mangaGrid"></div>
+        <div id="emptyState" class="empty-state">
+            <div class="es-icon">📭</div>
+            <div class="es-title" locale="empty/title">No manga found</div>
+            <div class="es-sub"><span locale="empty/sub">Add manga folders to</span>
+                <a href="#" id="emptyLink">user:/Photo/Manga</a>
             </div>
         </div>
-        <div class="ui container">
-            <div id="mangaGrid" class="manga-grid">
-                
+        <div id="noResultState" class="empty-state">
+            <div class="es-icon">🔍</div>
+            <div class="es-title" locale="nosearch/title">No results</div>
+            <div class="es-sub" locale="nosearch/sub">Nothing matched your search.</div>
+        </div>
+    </div>
+
+    <!-- Detail -->
+    <div id="detailView">
+        <button class="back-btn" id="backBtn">
+            <img src="img/icons/back.svg" class="btn-icon btn-icon-adaptive" alt="">
+            <span locale="btn/back_library">Library</span>
+        </button>
+        <div class="detail-layout">
+            <div class="detail-cover-col">
+                <img id="detailCover" class="detail-cover" src="" alt="Cover">
             </div>
-            <div id="mangaDetail">
-                <div class="ui basic button back-button" onclick="showGrid();">
-                    <i class="arrow left icon"></i> Back
-                </div>
-                <div class="detail-view ui segment">
-                    <div class="detail-thumbnail">
-                        <img id="detailImg" src="" alt="Manga Cover">
-                        <div class="manga-title" id="detailTitle"></div>
-                    </div>
-                    <div class="detail-chapters">
-                        <h3>Chapters</h3>
-                        <div id="chapterList" class="chapterSelector"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="no_manga_info">
-                <div class="ui message">
-                    <h4 class="ui header">
-                        <i class="question icon"></i>
-                        <div class="content">
-                            No Manga Found
-                            <div class="sub header">Try upload something to the <a href="#" onclick="openUploadFolder();">user:/Photo/Manga</a> folder?<br>
-                                You got no manga? Have you heard of <a href="https://github.com/abc9070410/JComicDownloader" target="_blank">JComicDownloader</a>?</div>
-                        <br>
-                    </h4>
-                </div>
-            
-                <div class="ui divider"></div>
-                <p>Example Folder Structure</p>
-                <div class="ui list">
-                    <div class="item">
-                        <i class="folder icon"></i>
-                        <div class="content">
-                            <div class="header">[vRoot]:/Photo/Manga/</div>
-                            <div class="description">The root folder where the Manga will scan for mangas.</div>
-                            <div class="list">
-                                <div class="item">
-                                <i class="folder icon"></i>
-                                <div class="content">
-                                    <div class="header">Manga Titles/</div>
-                                    <div class="description">The title of this particular manga</div>
-                                    <div class="list">
-                                        <div class="item">
-                                        <i class="folder icon"></i>
-                                        <div class="content">
-                                            <div class="header">Chapter Name/</div>
-                                            <div class="description">The Chapter Name of this group of images</div>
-                                            <div class="list">
-                                                <div class="item">
-                                                <i class="image file icon"></i>
-                                                <div class="content">
-                                                    <div class="header">Pages</div>
-                                                    <div class="description">The manga pages in jpg format</div>
-                                                </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="detail-info-col">
+                <div class="detail-title"    id="detailTitle"></div>
+                <div class="detail-subtitle" id="detailSubtitle"></div>
+                <div class="detail-tags"     id="detailTags"></div>
+                <div class="detail-meta-row" id="detailMeta"></div>
+                <div class="detail-intro"    id="detailIntro" style="display:none"></div>
+                <div class="detail-divider"></div>
+                <div id="detailChapters"></div>
             </div>
         </div>
-        <div id="no_search_results" style="display:none;">
-            <div class="ui container">
-                <div class="ui message">
-                    <h4 class="ui header">
-                        <i class="search icon"></i>
-                        <div class="content">
-                            No Search Results
-                            <div class="sub header">No manga matches your search term.</div>
-                        </div>
-                    </h4>
-                    <br>
-                    <div class="ui basic button" onclick="clearSearch();">Clear Search</div>
-                </div>
-            </div>
-        </div>
-        <script>
-            var isMobile = false; //initiate as false
-            // device detection
-            if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent) 
-                || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0,4))) { 
-                isMobile = true;
-            }
+    </div>
 
-            var allMangaData = [];
+</div><!-- /#main -->
 
-            //List all the scanned titles
-            ao_module_agirun("Manga/backend/listTitles.js", {},function(data){
-                allMangaData = data;
-                renderMangaList(data);
+<script>
+// ══════════════════════════════════════════════════════════════
+//  Manga Library  –  index.html
+// ══════════════════════════════════════════════════════════════
+var allManga = [];
+
+// ── Localisation ───────────────────────────────────────────
+// t() is a safe wrapper around applocale.getString() that falls
+// back to the English string when applocale is not yet ready.
+function t(key, fallback) {
+    if (typeof applocale !== 'undefined' && applocale.localData && applocale.localData.keys) {
+        return applocale.getString(key, fallback);
+    }
+    return fallback;
+}
+if (typeof applocale !== 'undefined') {
+    applocale.init("locale/manga.json", function () {
+        applocale.translate();
+    });
+}
+
+// ── URL state (hash) – standalone mode only ────────────────
+// When running inside the arozos virtual desktop the page lives in an
+// iframe (window.self !== window.top), so hash changes would escape the
+// frame; skip state tracking entirely in that case.
+var isStandalone = (!!ao_module_virtualDesktop) || (window.self === window.top);
+
+function updateURLState(mangaPath) {
+    if (!isStandalone) return;
+    if (mangaPath) {
+        history.replaceState(null, '', '#manga=' + encodeURIComponent(mangaPath));
+    } else {
+        // Remove the hash without leaving a "#" in the address bar
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+}
+
+function readURLState() {
+    if (!isStandalone) return null;
+    var hash = window.location.hash.substr(1); // strip leading "#"
+    if (!hash) return null;
+    var match = hash.match(/^manga=(.+)$/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function esc(s) {
+    return String(s)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function coverUrl(vpath) {
+    return vpath ? "/media?file=" + encodeURIComponent(vpath) : "img/notitle.png";
+}
+
+// ── Theme ──────────────────────────────────────────────────
+var PREF_KEY = "manga/theme";
+function applyTheme(isDark) {
+    document.body.classList.toggle("dark", isDark);
+    document.documentElement.classList.toggle("dark", isDark); // also set on <html> to fill full page
+    // light_mode.svg = sun (white, for dark bg) — dark_mode.svg = moon (dark, for light bg)
+    document.getElementById("themeIcon").src = isDark ? "img/icons/light_mode.svg" : "img/icons/dark_mode.svg";
+}
+function initTheme() {
+    ao_module_getSystemThemeColor(function (sys) {
+        applyTheme(sys !== "whiteTheme");
+        $.get("../../system/file_system/preference?key=" + encodeURIComponent(PREF_KEY), function (p) {
+            if (p && p !== "undefined" && p !== "" && !p.error) applyTheme(p === "dark");
+        });
+    });
+}
+document.getElementById("themeBtn").addEventListener("click", function () {
+    var isDark = document.body.classList.contains("dark");
+    applyTheme(!isDark);
+    $.get("../../system/file_system/preference?key=" + encodeURIComponent(PREF_KEY) +
+          "&value=" + encodeURIComponent(!isDark ? "dark" : "light"));
+});
+document.getElementById("folderBtn").addEventListener("click", function () {
+    ao_module_openPath("user:/Photo/Manga");
+});
+document.getElementById("emptyLink").addEventListener("click", function (e) {
+    e.preventDefault(); ao_module_openPath("user:/Photo/Manga");
+});
+
+// ── Render library grid ────────────────────────────────────
+function renderGrid(list) {
+    var $grid = $("#mangaGrid").empty();
+    $("#emptyState, #noResultState").hide();
+
+    if (list.length === 0) {
+        if ($("#searchInput").val().trim()) $("#noResultState").show();
+        else                               $("#emptyState").show();
+        return;
+    }
+    list.forEach(function (manga) {
+        var card = $('<div class="manga-card">');
+        card.html(
+            '<div class="manga-cover-wrap">' +
+                '<img class="manga-cover" src="' + esc(coverUrl(manga.cover)) + '" ' +
+                     'alt="" loading="lazy" onerror="this.src=\'img/notitle.png\'">' +
+                '<span class="manga-ch-badge">' + manga.chapterCount + ' ch</span>' +
+            '</div>' +
+            '<div class="manga-card-title">' + esc(manga.title) + '</div>'
+        );
+        card.on("click", function () { showDetail(manga); });
+        $grid.append(card);
+    });
+}
+
+// ── Detail view ────────────────────────────────────────────
+function showDetail(manga) {
+    var meta = manga.meta || null;
+
+    // Cover
+    $("#detailCover")
+        .attr("src", coverUrl(manga.cover))
+        .off("error").on("error", function () { this.src = "img/notitle.png"; });
+
+    // Title + subtitle
+    $("#detailTitle").text(manga.title);
+    $("#detailSubtitle").text(meta ? (meta.aliases || []).join(" / ") : "");
+
+    // Tags
+    var tagsHtml = "";
+    if (meta) {
+        var status = meta.status || "";
+        if (status) {
+            var sc = (status.indexOf("连载") > -1 || status.toLowerCase().indexOf("ongoing") > -1)
+                     ? "tag tag-ongoing"
+                     : (status.indexOf("完结") > -1 || status.toLowerCase().indexOf("complet") > -1)
+                       ? "tag tag-completed" : "tag";
+            tagsHtml += '<span class="' + sc + '">' + esc(status) + '</span>';
+        }
+        (meta.genres || []).forEach(function (g) {
+            tagsHtml += '<span class="tag">' + esc(g) + '</span>';
+        });
+    }
+    $("#detailTags").html(tagsHtml);
+
+    // Meta row
+    var metaHtml = "";
+    if (meta) {
+        if (meta.year)                       metaHtml += '<span>📅 ' + esc(String(meta.year))   + '</span>';
+        if (meta.region)                     metaHtml += '<span>🌏 ' + esc(meta.region)          + '</span>';
+        if ((meta.authors || []).length > 0) metaHtml += '<span>✍️ ' + esc(meta.authors.join(", ")) + '</span>';
+    } else {
+        metaHtml = '<span><img src="img/icons/folder.svg" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">' + esc(manga.path) + '</span>' +
+                   '<span>' + manga.chapterCount + ' chapters</span>';
+    }
+    $("#detailMeta").html(metaHtml);
+
+    // Intro
+    if (meta && meta.intro) {
+        $("#detailIntro").text(meta.intro).show();
+    } else {
+        $("#detailIntro").hide();
+    }
+
+    // Chapters
+    renderChapters(manga);
+
+    $("#libraryView").hide();
+    $("#detailView").show();
+    window.scrollTo(0, 0);
+    updateURLState(manga.path);
+}
+
+function renderChapters(manga) {
+    var $c = $("#detailChapters").empty();
+    if (!manga.chapters || manga.chapters.length === 0) {
+        $c.html('<div style="color:var(--text3);">' + esc(t('detail/no_chapters', 'No chapters found.')) + '</div>');
+        return;
+    }
+
+    // Group chapters if metadata type
+    var useGroups = (manga.type === "metadata" && manga.chapters[0].group);
+    if (useGroups) {
+        var groupMap   = {};
+        var groupOrder = [];
+        manga.chapters.forEach(function (ch) {
+            var g = ch.group || "—";
+            if (!groupMap[g]) { groupMap[g] = []; groupOrder.push(g); }
+            groupMap[g].push(ch);
+        });
+        groupOrder.forEach(function (gname) {
+            var chs  = groupMap[gname];
+            var html = '<div class="ch-group">';
+            html += '<div class="ch-group-hdr">' + esc(gname) +
+                    '<span class="ch-group-count">' + chs.length + '</span></div>';
+            html += '<div class="ch-btns">';
+            chs.forEach(function (ch) {
+                if (ch.path) {
+                    html += '<a class="ch-btn" href="viewComic.html#' +
+                            encodeURIComponent(ch.path) + '">' + esc(ch.name) + '</a>';
+                } else {
+                    html += '<span class="ch-btn ch-btn-disabled">' + esc(ch.name) + '</span>';
+                }
             });
+            html += '</div></div>';
+            $c.append(html);
+        });
+    } else {
+        var html = '<div class="ch-btns">';
+        manga.chapters.forEach(function (ch) {
+            if (ch.path) {
+                html += '<a class="ch-btn" href="viewComic.html#' +
+                        encodeURIComponent(ch.path) + '">' + esc(ch.displayName) + '</a>';
+            } else {
+                html += '<span class="ch-btn ch-btn-disabled">' + esc(ch.displayName) + '</span>';
+            }
+        });
+        html += '</div>';
+        $c.append(html);
+    }
+}
 
-            function renderMangaList(mangaList){
-                $("#mangaGrid").html("");
-                mangaList.forEach(manga => {
-                    var mangaFolderFullPath = manga[0];
-                    var chapterCount = manga[1];
-                    var titleImagePath = manga[2];
-                    var chapterNames = manga[3];
-                    var title = manga[0].split("/").pop();
-                    var preview = `/media?file=${manga[2]}`;
-                    if (manga[2] == null || manga[2] == ""){
-                        preview = "./img/notitle.png";
-                    }
+function showLibrary() {
+    $("#detailView").hide();
+    $("#libraryView").show();
+    updateURLState(null);
+}
 
-                    $("#mangaGrid").append(`
-                        <div class="manga-item" onclick="showDetail('${mangaFolderFullPath}', '${title.replace(/'/g, "\\'")}', '${preview}', ${JSON.stringify(chapterNames).replace(/"/g, '&quot;')})">
-                            <img class="manga-thumbnail" src="${preview}" alt="${title}">
-                            <div class="manga-title">${title}</div>
-                        </div>
-                    `);
-                });
+// ── Search ─────────────────────────────────────────────────
+function filterManga() {
+    var q = $("#searchInput").val().toLowerCase().trim();
+    if (!q) { renderGrid(allManga); return; }
+    var filtered = allManga.filter(function (m) {
+        if (m.title.toLowerCase().indexOf(q) > -1) return true;
+        if (m.meta) {
+            var a = m.meta.aliases || [];
+            for (var i = 0; i < a.length; i++) if (a[i].toLowerCase().indexOf(q) > -1) return true;
+            var au = m.meta.authors || [];
+            for (var i = 0; i < au.length; i++) if (au[i].toLowerCase().indexOf(q) > -1) return true;
+        }
+        return false;
+    });
+    renderGrid(filtered);
+}
+$("#searchInput").on("input", filterManga);
+$("#backBtn").on("click", showLibrary);
 
-                if (mangaList.length == 0){
-                    if($("#mangaSearch").val().trim() !== ""){
-                        //No search results
-                        $("#no_search_results").show();
-                        $("#no_manga_info").hide();
-                    }else{
-                        //No Manga
-                        $("#no_manga_info").show();
-                        $("#no_search_results").hide();
-                    }
-                }else{
-                     $("#no_manga_info").hide();
-                     $("#no_search_results").hide();
+// ── Boot ───────────────────────────────────────────────────
+initTheme();
+ao_module_agirun("Manga/backend/listTitles.js", {}, function (data) {
+    allManga = Array.isArray(data) ? data : [];
+    $("#loadingState").hide();
+
+    var restored = false;
+
+    // Priority 1: file-manager argument (opens a specific manga folder)
+    var inputFiles = ao_module_loadInputFiles();
+    if (inputFiles && inputFiles.length > 0) {
+        var argPath = typeof inputFiles[0] === "string"
+                      ? inputFiles[0]
+                      : (inputFiles[0].filepath || inputFiles[0].Filepath || "");
+        if (argPath) {
+            for (var i = 0; i < allManga.length; i++) {
+                if (argPath.indexOf(allManga[i].path) === 0 ||
+                    allManga[i].path.indexOf(argPath) === 0) {
+                    renderGrid(allManga);          // populate grid silently
+                    showDetail(allManga[i]);       // go straight to detail
+                    restored = true;
+                    break;
                 }
             }
+        }
+    }
 
-            function showDetail(mangaFolderFullPath, title, preview, chapterNames){
-                $("#detailTitle").text(title);
-                $("#detailImg").attr("src", preview);
-                $("#chapterList").html("");
-                chapterNames.forEach(chapterName => {
-                    $("#chapterList").append(`<a href="viewComic.html#${mangaFolderFullPath}/${chapterName}" class="ui mini basic button chapterBtn manga">${chapterName}</a>`);
-                });
-                $("#mangaGrid").hide();
-                $("#mangaDetail").show();
-            }
-
-            function showGrid(){
-                $("#mangaDetail").hide();
-                $("#mangaGrid").show();
-            }
-
-            function filterManga(){
-                var term = $("#mangaSearch").val().toLowerCase().trim();
-                if(term === ""){
-                    renderMangaList(allMangaData);
-                }else{
-                    var filtered = allMangaData.filter(function(manga){
-                        var title = manga[0].split("/").pop().toLowerCase();
-                        if(title.includes(term)) return true;
-                        var chapters = manga[3];
-                        for(var i=0; i<chapters.length; i++){
-                            if(chapters[i].toLowerCase().includes(term)) return true;
-                        }
-                        return false;
-                    });
-                    renderMangaList(filtered);
+    // Priority 2: hash state — coming back from the reader or after a refresh
+    // Render the grid first (so "← Library" works) but never make it visible;
+    // jump straight to the detail view so there is no library flash.
+    if (!restored) {
+        var savedPath = readURLState();
+        if (savedPath) {
+            for (var i = 0; i < allManga.length; i++) {
+                if (allManga[i].path === savedPath) {
+                    renderGrid(allManga);          // populate grid silently
+                    showDetail(allManga[i]);       // go straight to detail
+                    restored = true;
+                    break;
                 }
             }
+        }
+    }
 
-            function clearSearch(){
-                $("#mangaSearch").val('');
-                filterManga();
-            }
-
-            //Add event listener to search input
-            $("#mangaSearch").on('input', function(){
-                filterManga();
-            });
-
-            function openUploadFolder(){
-                ao_module_openPath("user:/Photo/Manga");
-            }
-        </script>
-    </body>
+    // Default: nothing to restore — show the library grid normally
+    if (!restored) {
+        $("#libraryView").show();
+        renderGrid(allManga);
+    }
+}, function () {
+    $("#loadingState").hide();
+    $("#libraryView").show();
+    renderGrid([]);
+});
+</script>
+</body>
 </html>

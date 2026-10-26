@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
-	"log"
 	"os"
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/webdav"
 )
 
@@ -145,7 +146,7 @@ func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, 
 	//Merge it into a proper vpath and perform abstraction path translation
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Webdav", fmt.Sprint(err), nil)
 		return nil, err
 	}
 

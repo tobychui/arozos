@@ -1,0 +1,27 @@
+/*
+	GitApp — branch and repository creation backend
+
+	POST opr    = checkout | create | init
+	     repo   = virtual path of the repository
+	     branch = branch name, required for checkout and create
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else if (opr == "init") {
+    sendJSONResp(git.init(repo));
+
+} else if (opr == "checkout" || opr == "create") {
+    if (typeof branch == "undefined" || branch == "") {
+        sendJSONResp({ success: false, error: "branch name is required" });
+    } else {
+        sendJSONResp(git.checkout(repo, branch, opr == "create"));
+    }
+
+} else {
+    sendJSONResp({ success: false, error: "unknown operation: " + opr });
+}

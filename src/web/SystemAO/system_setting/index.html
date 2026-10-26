@@ -1,312 +1,73 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
     <head>
-        <title>System Setting</title>
+        <title>System Settings</title>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="main.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
-        <style>
-            html{
-                overflow:hidden;
-                height:100%;
-            }
-            body{
-                background-color:#fcfcfc;
-                overflow:hidden !important;
-                height:100%;
-            }
-            #mainSideMenuDimmer{
-                width:100%;
-                height:100%;
-                position:fixed;
-                top:0px;
-                left:0px;
-                background-color: rgba(26,26,26,0.3);
-                z-index:99;
-            }
-            #mainSideMenu{
-                z-index:100;
-            }
-            #settingContentLoader{
-                overflow-x: hidden;
-                overflow-y:auto;
-                height: calc(100% - 60px);
-            }
-            #mainFunctionTabMenu{
-                background-color: #f8f8f8;
-                margin-top: 0;
-                padding-top: 1em;
-                border-radius: 0 0 0 0 !important;
-            }
-
-            #msgbox{
-                position: fixed;
-                bottom: 0.2em;
-                right: 2em;
-                display:none;
-            }
-        </style>
     </head>
     <body>
-        <div id="mainSideMenu" class="ui left fixed vertical menu">
-            <div class="item">
-                <img class="ui image" src="img/banner.png">
+        <div id="app">
+
+            <!-- Mobile sidebar overlay -->
+            <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+            <!-- Mobile menu toggle button (top-right, shown only on narrow screens) -->
+            <button id="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" stroke-width="1.6"
+                          stroke-linecap="round"/>
+                </svg>
+            </button>
+
+            <!-- Left sidebar -->
+            <div id="sidebar">
+                
+                <div id="sidebar-title">
+                    <img src="img/small_icon.png" onerror="this.style.display='none'">
+                    Settings
+                </div>
+                <!-- Back button — shown when in sub-category (detail) view -->
+                <div id="back-row" onclick="goBack()">
+                    <svg class="back-chevron" viewBox="0 0 16 16" fill="none">
+                        <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="back-label">Settings</span>
+                </div>
+                <!-- Group name shown above sub-category nav items -->
+                <div id="group-label"></div>
+                <div id="sidebar-nav"></div>
             </div>
-            
-        </div>
-        <div id="mainSideMenuDimmer" onclick="hideToolBar();"></div>
-        <div id="mainFunctionTabMenu" class="ui top attached tabular menu" style="overflow-x:auto;overflow-y:hidden;">
-            <a id="toolbarBtn" class="item" onclick="showToolBar();">
-                <i class="content icon"></i>
-            </a>
-        
-            <div class="right menu">
-                <!--
-                <div class="item">
-                    <div class="ui transparent icon input">
-                    <input id="searchInput" type="text" placeholder="Search Settings..." onkeydown="if (event.which == 13){ search(); }">
-                        <i class="search link icon" onclick="search();"></i>
+
+            <!-- Right content -->
+            <div id="main">
+
+                <!-- Level 1: card grid of sub-categories for the selected group -->
+                <div id="overview">
+                    <div id="overview-inner">
+                        <div id="overview-title">Settings</div>
+                        <div id="info-banner"></div>
+                        <div id="card-grid"></div>
                     </div>
                 </div>
-                -->
+
+                <!-- Level 2: loaded setting page with padded inner wrapper -->
+                <div id="detail">
+                    <div id="detail-inner"></div>
+                </div>
+
             </div>
-          </div>
-          <div id="settingContentLoader" class="ui bottom attached segment">
+        </div>
 
-          </div>
-          <div id="msgbox" class="ui compact small message">
-            Hello World
-          </div>
-          </div>
-         
-          <script>
-              var currentSettingModuleList = [];
-              var loadViaSystemSetting = true; //Check for this parameter to see if launching in Setting Interface
-              var loadToPage = undefined; //Load setting page directly to the given tab, passed in via window hash
-              var pageStateRestored = false; //Flag to track if page state has been restored from hash
+        <!-- Toast notification -->
+        <div id="msgbox"></div>
 
-            function restorePageFromHash(){
-                if (pageStateRestored){
-                    return;
-                }
-                if (window.location.hash.length > 0){
-                    var hashObject = window.location.hash.substr(1);
-                    hashObject = JSON.parse(decodeURIComponent(hashObject));
-                    if (typeof(hashObject.group) != 'undefined' && typeof(hashObject.name) != 'undefined'){
-                        loadToPage = hashObject;
-                    }
-
-                    if (!loadToPage || loadToPage.group == "" || loadToPage.name == ""){
-                        //Invalid hash object
-                        initSettingGroup("Info");
-                        return;
-                    }
-
-                    initSettingGroup(loadToPage.group, function(settingList){
-                        let reversedList = JSON.parse(JSON.stringify(settingList)).reverse();
-                        for (var i = 0; i < settingList.length; i++){
-                            var settingTab = settingList[i];
-                            console.log(settingTab.Name, loadToPage.name, settingTab.Name == loadToPage.name, i);
-                            if (settingTab.Name == loadToPage.name){
-                                //This is the tab we are looking for
-                                initSettingModules(settingList.length - i-1);
-                            }
-                        }
-                            
-                    });
-
-                }else{
-                    //No hash, load default Info page
-                    initSettingGroup("Info");
-                }
-                 pageStateRestored = true;
-            }
-
-            applocale.init("../locale/system_settings.json", function(){
-                applocale.translate();
-                //Initiation Functions
-                initMainSideMenu(function(){
-                    //Menu is now loaded
-                    hideToolBar();
-                    if (!pageStateRestored){
-                        restorePageFromHash();
-                        return;
-                    }
-
-                    initSettingGroup("Info");
-                });
-            });
- 
-            
-            function initMainSideMenu(callback){
-                $.get("../../system/setting/list",function(data){
-                    for (var i =0; i < data.length; i++){
-                        var settingGroupName = data[i].Name;
-                        var groupUUID = data[i].Group;
-                        var iconPath = "../../" + data[i].IconPath;
-                        var toolTip = data[i].Desc;
-                        settingGroupName = applocale.getString("menu/group/" + settingGroupName, settingGroupName);
-                        $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}" style="padding: 2px;"></img> ${settingGroupName}</a>`);
-                    }
-                    applocale.translate();
-                    
-                    //Notify that menu is loaded
-                    if (callback){
-                        callback();
-                    }
-                });
-            }
-
-            function initSettingGroup(group, callback=undefined){
-                $.get("../../system/setting/list?listGroup=" + group,function(data){
-                    if (data.error !== undefined){
-                        console.log(data.error);
-                    }else{
-                        currentSettingModuleList = data;
-                        initSettingModuleTabs(group);
-                        initSettingModules(0);
-                        if (callback != undefined){
-                            callback(data);
-                        }
-                    }
-                });
-            }
-
-              function menuClicked(object){
-                var group=$(object).attr("group");
-                initSettingGroup(group, function(settingList){
-                    //After loading group, update hash with first tab
-                    if (settingList.length > 0){
-                        updateWindowHash(settingList[0].Group, settingList[0].Name);
-                    }
-                });
-                hideToolBar();
-              }
-
-              //Initiate the setting modules tabs
-              function initSettingModuleTabs(groupName){
-                $(".settingTab").remove();
-                var moduleListInReverse = currentSettingModuleList.reverse();
-                for (var i =0; i < moduleListInReverse.length; i ++){
-                    var thisModuleInfo = moduleListInReverse[i];
-                    var stringifyModuleInfo = encodeURIComponent(JSON.stringify(thisModuleInfo));
-                    let localeGroupKey = "tab/" + groupName.toLowerCase() + "/" + thisModuleInfo.Name;
-                    let displayTabName = applocale.getString(localeGroupKey, thisModuleInfo.Name)
-                    console.log(thisModuleInfo.Desc);
-                    $("#toolbarBtn").after(`<a class="item settingTab" moduleInfo="${stringifyModuleInfo}" title="${thisModuleInfo.Desc}" onclick="loadSettingModuleFromTab(this);">${displayTabName}</a>`);
-                }
-
-                applocale.translate();
-            
-              }
-
-              function initSettingModules(index){
-                if (index < 0){
-                    index = 0;
-                }
-                var targetObject = $(".settingTab")[index];
-                $(".settingTab.active").removeClass("active");
-                if (targetObject !== undefined){
-                    //Select this object
-                    $(targetObject).addClass("active");
-
-                    //Load this object into the tab
-                    var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
-                    var settingStartDir = settingModuleInfo.StartDir;
-                    $("#settingContentLoader").html("");
-                    $("#settingContentLoader").load("../../" + settingStartDir, function(){
-                        injectIMEToLoadedConetentFrame();
-                    });
-                }
-              }
-
-              function loadSettingModuleFromTab(object){
-                targetObject = $(object);
-                $(".settingTab.active").removeClass("active");
-                if (targetObject !== undefined){
-                    //Select this object
-                    $(targetObject).addClass("active");
-
-                    //Load this object into the tab
-                    var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
-                    var settingStartDir = settingModuleInfo.StartDir;
-                    
-                    //Update window hash with current tab
-                    updateWindowHash(settingModuleInfo.Group, settingModuleInfo.Name);
-                    
-                    $("#settingContentLoader").html("");
-                    $("#settingContentLoader").load("../../" + settingStartDir, function(){
-                        injectIMEToLoadedConetentFrame();
-                    });
-                }
-              }
-
-              function updateWindowHash(groupName, moduleName){
-                  //Update window hash to preserve tab state on refresh
-                  //Skip if in ao_window mode
-                  if (ao_module_windowID !== false){
-                      //Running in floatWindow mode, do not update hash
-                      return;
-                  }
-                  
-                  var hashObject = {
-                      group: groupName,
-                      name: moduleName
-                  };
-                  window.location.hash = encodeURIComponent(JSON.stringify(hashObject));
-              }
-
-              function injectIMEToLoadedConetentFrame(){
-                    //Inject IME listener into the loaded content window
-                    var inputFields = document.getElementById("settingContentLoader").querySelectorAll("input,textarea");
-                    for (var i = 0; i < inputFields.length; i++){
-                        if ($(inputFields[i]).attr("type") != undefined){
-                            var thisType = $(inputFields[i]).attr("type");
-                            if (thisType == "text" || thisType =="search" || thisType =="url"){
-                                //Supported types of input
-                                if (ao_module_virtualDesktop){
-                                    ao_module_bindCustomIMEEvents(inputFields[i]);
-                                }
-                                
-                                console.log(inputFields[i]);
-                            }else{
-                                //Not supported type of inputs
-                                
-                            }
-                        }else{
-                            //text area
-                            if (ao_module_virtualDesktop){
-                                ao_module_bindCustomIMEEvents(inputFields[i]);
-                            }
-                        }
-                    }
-              }
-
-
-              function hideToolBar(){
-                  $("#mainSideMenuDimmer").fadeOut('fast');
-                  $("#mainSideMenu").animate({left: -1 * $("#mainSideMenu").width()},300);
-              }
-
-              function showToolBar(){
-                $("#mainSideMenuDimmer").fadeIn('fast');
-                $("#mainSideMenu").animate({left: "0px"},300);
-              }
-
-              function search(){
-                var keyword = $("#searchInput").val();
-                alert(keyword);
-              }
-
-              function msgbox(message, succ=true, delay=3000){
-                $("#msgbox").html(`<i class="ui ${succ?"green circle check":"red circle times"} icon"></i> ${message}`);
-                $("#msgbox").stop().finish().fadeIn("fast").delay(delay).fadeOut("fast");
-              }
-
-          </script>
+        <script type="text/javascript" src="main.js"></script>
     </body>
 </html>

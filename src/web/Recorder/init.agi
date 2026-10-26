@@ -9,7 +9,7 @@
 var moduleLaunchInfo = {
     Name: "Recorder",
 	Desc: "A basic audio recorder",
-	Group: "Media",
+	Group: "Utilities",
 	IconPath: "Recorder/img/small_icon.png",
 	Version: "1.0",
 	StartDir: "Recorder/index.html",

@@ -11,7 +11,7 @@ var moduleLaunchInfo = {
 	Version: "0.1",
 	StartDir: "Serverless/index.html",
 	SupportFW: true,
-	InitFWSize: [410, 540],
+	InitFWSize: [980, 560],
 }
 
 //Register the module

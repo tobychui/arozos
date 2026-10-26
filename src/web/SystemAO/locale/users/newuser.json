@@ -1,0 +1,23 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "newuser/title":               "建立新用戶",
+                "newuser/section-account":    "帳號資訊",
+                "newuser/field-username":     "用戶名稱",
+                "newuser/field-password":     "密碼",
+                "newuser/field-confirm-pw":   "確認密碼",
+                "newuser/section-group":      "權限群組",
+                "newuser/field-group":        "用戶群組",
+                "newuser/loading":            "載入中…",
+                "newuser/required-note":      "此欄位為必填",
+                "newuser/btn-cancel":         "取消",
+                "newuser/btn-create":         "建立用戶",
+                "newuser/err-request-failed": "請求失敗，請再試一次。"
+            }
+        }
+    }
+}

@@ -1,0 +1,122 @@
+/*
+	AI Chat — streaming chat backend (WebSocket)
+	Relays a conversation to the configured AI endpoint via llm.streamRequest()
+	and forwards each token to the browser as it is generated, so both the
+	answer and the model's "thinking" appear in real time.
+
+	Connect a WebSocket to:
+	    /system/ajgi/interface?script=AIChat/backend/chat_stream.agi
+
+	The first frame the client sends is the request (JSON):
+	    { messages:[{role,content}...], options:{model,system,temperature,max_tokens}, files:[vpath...] }
+
+	Frames sent back to the client (JSON, one "type" each):
+	    { type:"start" }                                    generation began
+	    { type:"reasoning", content:"..." }                 incremental thinking
+	    { type:"delta",     content:"..." }                 incremental answer
+	    { type:"done", content, reasoning, usage, model }   final assembled reply
+	    { type:"error", error:"..." }                       failure (terminal)
+
+	Falls back is unnecessary: if the socket cannot be opened the frontend uses
+	the non-streaming backend/chat.agi instead.
+*/
+
+requirelib("llm");
+requirelib("websocket");
+
+if (!websocket.upgrade(1800)) {
+	sendResp("WebSocket upgrade failed");
+	exit();
+}
+
+//The first frame carries the request payload.
+var raw = websocket.read(30000);
+if (raw === false || raw === null) {
+	websocket.close();
+	exit();
+}
+
+var req;
+try {
+	req = JSON.parse(raw);
+} catch (e) {
+	websocket.send(JSON.stringify({ type: "error", error: "invalid request" }));
+	websocket.close();
+	exit();
+}
+
+var msgs = req.messages || [];
+var opts = req.options || {};
+var fileList = req.files || [];
+
+//Build the final message list (system prompt + turns), same shape as chat.agi.
+var finalMessages = [];
+if (opts.system && ("" + opts.system).trim() != "") {
+	finalMessages.push({ role: "system", content: "" + opts.system });
+}
+for (var i = 0; i < msgs.length; i++) {
+	if (msgs[i] && msgs[i].role && typeof msgs[i].content != "undefined") {
+		finalMessages.push({ role: msgs[i].role, content: msgs[i].content });
+	}
+}
+
+//Merge any attached files into the latest user message (multimodal content).
+if (fileList.length > 0 && finalMessages.length > 0) {
+	try {
+		var parts = llm.fileParts(fileList);
+		var lastUserIdx = -1;
+		for (var j = finalMessages.length - 1; j >= 0; j--) {
+			if (finalMessages[j].role == "user") { lastUserIdx = j; break; }
+		}
+		if (lastUserIdx >= 0) {
+			var content = [];
+			var existing = finalMessages[lastUserIdx].content;
+			if (existing && ("" + existing).trim() != "") {
+				content.push({ type: "text", text: "" + existing });
+			}
+			for (var k = 0; k < parts.length; k++) { content.push(parts[k]); }
+			finalMessages[lastUserIdx].content = content;
+		}
+	} catch (e) {
+		websocket.send(JSON.stringify({ type: "error", error: "" + e }));
+		websocket.close();
+		exit();
+	}
+}
+
+if (finalMessages.length == 0) {
+	websocket.send(JSON.stringify({ type: "error", error: "No messages to send" }));
+	websocket.close();
+	exit();
+}
+
+//Stream the completion, relaying each delta to the browser as it arrives.
+websocket.send(JSON.stringify({ type: "start" }));
+try {
+	var res = llm.streamRequest(finalMessages, opts, function (evt) {
+		if (evt.reasoning && evt.reasoning !== "") {
+			websocket.send(JSON.stringify({ type: "reasoning", content: evt.reasoning }));
+		}
+		if (evt.content && evt.content !== "") {
+			websocket.send(JSON.stringify({ type: "delta", content: evt.content }));
+		}
+	});
+
+	var replyText = "";
+	var reasoning = "";
+	if (res && res.choices && res.choices.length > 0 && res.choices[0].message) {
+		replyText = res.choices[0].message.content;
+		reasoning = res.choices[0].message.reasoning_content || "";
+	}
+	websocket.send(JSON.stringify({
+		type: "done",
+		content: replyText,
+		reasoning: reasoning,
+		usage: (res && res.usage) ? res.usage : null,
+		model: (res && res.model) ? res.model : (opts.model || "")
+	}));
+} catch (e) {
+	websocket.send(JSON.stringify({ type: "error", error: "" + e }));
+}
+
+websocket.close();

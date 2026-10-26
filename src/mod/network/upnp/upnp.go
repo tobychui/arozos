@@ -2,11 +2,12 @@ package upnp
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"sync"
 	"time"
 
 	"gitlab.com/NebulousLabs/go-upnp"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -25,7 +26,7 @@ type UPnPClient struct {
 
 func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 	//Create uPNP forwarding in the NAT router
-	log.Println("Discovering UPnP router in Local Area Network...")
+	logger.PrintAndLog("Upnp", "Discovering UPnP router in Local Area Network...", nil)
 	d, err := upnp.Discover()
 	if err != nil {
 		return &UPnPClient{}, err
@@ -54,7 +55,7 @@ func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 }
 
 func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
-	log.Println("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service")
+	logger.PrintAndLog("Upnp", fmt.Sprint("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service"), nil)
 
 	//Check if port already forwarded
 	_, ok := u.PolicyNames.Load(portNumber)
@@ -91,21 +92,21 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 		u.RequiredPorts = newRequiredPort
 
 		// Close the port
-		log.Println("Closing UPnP Port Forward: ", portNumber)
+		logger.PrintAndLog("Upnp", fmt.Sprint("Closing UPnP Port Forward: ", portNumber), nil)
 		err := u.Connection.Clear(uint16(portNumber))
 
 		//Delete the name registry
 		u.PolicyNames.Delete(portNumber)
 
 		if err != nil {
-			log.Println(err)
+			logger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
 			return err
 		}
 	}
 	return nil
 }
 
-//Renew forward rules, prevent router lease time from flushing the Upnp config
+// Renew forward rules, prevent router lease time from flushing the Upnp config
 func (u *UPnPClient) RenewForwardRules() {
 	portsToRenew := u.RequiredPorts
 	for _, thisPort := range portsToRenew {
@@ -117,7 +118,7 @@ func (u *UPnPClient) RenewForwardRules() {
 		time.Sleep(100 * time.Millisecond)
 		u.ForwardPort(thisPort, ruleName.(string))
 	}
-	log.Println("UPnP Port Forward rule renew completed")
+	logger.PrintAndLog("Upnp", "UPnP Port Forward rule renew completed", nil)
 }
 
 func (u *UPnPClient) Close() {
@@ -126,7 +127,7 @@ func (u *UPnPClient) Close() {
 		for _, portNumber := range u.RequiredPorts {
 			err := u.Connection.Clear(uint16(portNumber))
 			if err != nil {
-				log.Println(err)
+				logger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
 			}
 		}
 	}

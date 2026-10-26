@@ -1,0 +1,144 @@
+/*
+    AGI Forge — script execution backend
+    ====================================
+    Executes a generated AGI script inside this request's VM with full output
+    capture and output-file detection, then returns a structured result.
+
+    The evaluated script runs with all standard AGI globals and requirelib()
+    libraries available (same model as the Terminal REPL). Two extras are
+    injected for it:
+        OUTPUT_DIR              a pre-created folder ("user:/Desktop/AGI Forge/")
+        provideOutputFile(path) registers a virtual path as a download for the user
+
+    POST parameters:
+        script : the AGI script source to execute (string)
+
+    Response (JSON):
+        {
+            ok       : bool,             // false if the script threw
+            output   : "...",            // captured sendResp/echo/sendJSONResp/return
+            logs     : ["..."],          // captured console.log lines
+            error    : bool,
+            errorMsg : "...",
+            files    : [ { path, name, size, exists } ]
+        }
+*/
+
+var src = (typeof script !== "undefined") ? "" + script : "";
+if (src.replace(/^\s+/, "").replace(/\s+$/, "") == "") {
+	sendJSONResp(JSON.stringify({
+		ok: false, error: true, errorMsg: "No script to run",
+		output: "", logs: [], files: []
+	}));
+	exit();
+}
+
+/* ── capture console.log ─────────────────────────────────────────────────── */
+var _logs = [];
+var _origLog = console.log;
+console.log = function () {
+	var parts = [];
+	for (var i = 0; i < arguments.length; i++) {
+		var a = arguments[i];
+		parts.push(typeof a === "object" ? JSON.stringify(a) : String(a));
+	}
+	var ln = parts.join(" ");
+	_logs.push(ln);
+	try { _origLog("[AGIForge:" + USERNAME + "] " + ln); } catch (e) { }
+};
+
+/* ── capture the textual response channel ────────────────────────────────── */
+var _captured = "";
+var _origSendResp = sendResp;
+var _origEcho = echo;
+var _origSendJSONResp = sendJSONResp;
+sendResp = function (v) { _captured = String(v); };
+echo = function (v) { _captured = _captured + String(v); };
+sendJSONResp = function (v) { _captured = (typeof v === "string") ? v : JSON.stringify(v); };
+
+/* ── output-file registry (exposed to the evaluated script) ──────────────── */
+var _outFiles = [];
+function provideOutputFile(vpath) {
+	if (vpath === undefined || vpath === null) return;
+	_outFiles.push("" + vpath);
+}
+
+/* ── pre-create a destination folder for generated files ─────────────────── */
+var OUTPUT_DIR = "user:/Desktop/AGI Forge/";
+var _filelibReady = false;
+try {
+	requirelib("filelib");
+	_filelibReady = true;
+	if (!filelib.fileExists(OUTPUT_DIR) && !filelib.isDir(OUTPUT_DIR)) {
+		filelib.mkdir(OUTPUT_DIR);
+	}
+} catch (e) { /* filelib unavailable — script may still run without file output */ }
+
+/* ── make exit() a clean stop rather than a hard panic ───────────────────── */
+//A generated script may call exit() to finish early. Throwing unwinds eval();
+//the _exited flag lets us tell that apart from a genuine error regardless of
+//how Otto surfaces the thrown value in the catch clause.
+var _origExit = exit;
+var _exited = false;
+exit = function () { _exited = true; throw "__AGIFORGE_EXIT__"; };
+
+/* ── run the script ──────────────────────────────────────────────────────── */
+HTTP_RESP = "";
+var _error = false;
+var _errorMsg = "";
+var _result;
+try {
+	_result = eval(src);
+} catch (e) {
+	if (_exited || e === "__AGIFORGE_EXIT__") {
+		// script called exit() — treat as a normal finish
+	} else {
+		_error = true;
+		_errorMsg = (e && e.toString) ? e.toString() : String(e);
+	}
+}
+
+/* ── resolve the textual output (priority: explicit > HTTP_RESP > return) ── */
+var _output = "";
+if (_captured !== "") {
+	_output = _captured;
+} else if (typeof HTTP_RESP !== "undefined" && HTTP_RESP !== "") {
+	_output = String(HTTP_RESP);
+} else if (_result !== undefined && _result !== null) {
+	try {
+		_output = (typeof _result === "object") ? JSON.stringify(_result, null, 2) : String(_result);
+	} catch (e) { _output = String(_result); }
+}
+
+/* ── restore the overridden globals (hygiene; VM is per-request anyway) ──── */
+console.log = _origLog;
+sendResp = _origSendResp;
+echo = _origEcho;
+sendJSONResp = _origSendJSONResp;
+exit = _origExit;
+
+/* ── collect metadata for any registered output files ────────────────────── */
+var files = [];
+var seen = {};
+for (var i = 0; i < _outFiles.length; i++) {
+	var p = _outFiles[i];
+	if (!p || seen[p]) continue;
+	seen[p] = true;
+	var entry = { path: p, name: p.split("/").pop(), size: -1, exists: false };
+	try {
+		if (_filelibReady && filelib.fileExists(p)) {
+			entry.exists = true;
+			try { entry.size = filelib.filesize(p); } catch (e) { }
+		}
+	} catch (e) { }
+	files.push(entry);
+}
+
+_origSendJSONResp(JSON.stringify({
+	ok: !_error,
+	output: _output,
+	logs: _logs,
+	error: _error,
+	errorMsg: _errorMsg,
+	files: files
+}));

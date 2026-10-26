@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="asbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b3242"/>
+      <stop offset="1" stop-color="#171b24"/>
+    </linearGradient>
+    <linearGradient id="aswave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3ecfdf"/>
+      <stop offset="0.5" stop-color="#6db1f7"/>
+      <stop offset="1" stop-color="#b99cf0"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#asbg)"/>
+  <g fill="url(#aswave)">
+    <rect x="18" y="56" width="7" height="16" rx="3.5"/>
+    <rect x="30" y="44" width="7" height="40" rx="3.5"/>
+    <rect x="42" y="30" width="7" height="68" rx="3.5"/>
+    <rect x="54" y="48" width="7" height="32" rx="3.5"/>
+    <rect x="66" y="22" width="7" height="84" rx="3.5"/>
+    <rect x="78" y="40" width="7" height="48" rx="3.5"/>
+    <rect x="90" y="52" width="7" height="24" rx="3.5"/>
+    <rect x="102" y="58" width="7" height="12" rx="3.5"/>
+  </g>
+  <circle cx="98" cy="98" r="20" fill="#e5484d"/>
+  <circle cx="98" cy="98" r="9" fill="#ffffff" opacity="0.92"/>
+</svg>

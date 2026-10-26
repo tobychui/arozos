@@ -1,0 +1,24 @@
+/*
+    Reminders - Overwrite the whole { lists, reminders } store.
+    Used for structural changes such as re-ordering or clearing completed items.
+    POST: dataJson (JSON string of the full data object)
+*/
+requirelib("filelib");
+
+var dir      = "user:/Document/Reminders";
+var dataPath = "user:/Document/Reminders/data.json";
+
+var data;
+try {
+    data = JSON.parse(dataJson);
+} catch (e) {
+    sendJSONResp({ error: "Invalid data" });
+}
+
+if (data && Array.isArray(data.lists) && Array.isArray(data.reminders)) {
+    filelib.mkdir(dir);
+    filelib.writeFile(dataPath, JSON.stringify(data));
+    sendJSONResp({ ok: true });
+} else {
+    sendJSONResp({ error: "Malformed data" });
+}

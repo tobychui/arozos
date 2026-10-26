@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px"
+	 width="48px" height="48px" viewBox="0 0 48 48" xml:space="preserve">
+<!-- Abstract stacked-container glyph (not the Docker whale brand mark) -->
+<g>
+	<rect x="11" y="22" width="7" height="7" rx="1.2" fill="#4a90d9"/>
+	<rect x="20" y="22" width="7" height="7" rx="1.2" fill="#4a90d9"/>
+	<rect x="29" y="22" width="7" height="7" rx="1.2" fill="#4a90d9"/>
+	<rect x="20" y="13" width="7" height="7" rx="1.2" fill="#6fb0ec"/>
+	<rect x="29" y="13" width="7" height="7" rx="1.2" fill="#6fb0ec"/>
+</g>
+<path fill="#2b6cb0" d="M6,32h36c0,4.4-3.6,8-8,8H14C9.6,40,6,36.4,6,32z"/>
+</svg>

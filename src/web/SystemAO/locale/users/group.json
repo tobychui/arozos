@@ -1,0 +1,53 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "group/section-groups":   "權限群組",
+                "group/col-name":         "群組",
+                "group/col-access":       "模組存取",
+                "group/col-admin":        "管理員",
+                "group/col-quota":        "配額",
+                "group/loading":          "載入中…",
+                "group/empty":            "找不到任何群組",
+                "group/access-all":       "所有模組",
+                "group/access-none":      "無存取權限",
+                "group/admin-yes":        "是",
+                "group/admin-no":         "否",
+                "group/quota-readonly":   "唯讀",
+                "group/quota-unlimited":  "無限制",
+                "group/new":              "新增群組",
+                "group/edit":             "編輯",
+                "group/remove":           "移除",
+                "group/new-title":        "建立用戶群組",
+                "group/edit-title":       "編輯用戶群組",
+                "group/confirm-remove":   "確定要移除群組：",
+                "group/no-remove-admin":  "無法移除管理員群組",
+                "group/del-title":              "刪除群組",
+                "group/del-action-label":       "此群組的使用者應如何處理？",
+                "group/del-action-reassign":    "將使用者移至另一個群組",
+                "group/del-action-reassign-hint": "此群組的所有使用者將被指派到選擇的群組。",
+                "group/del-action-removeonly":  "僅從使用者移除此群組，保留帳號",
+                "group/del-action-removeonly-hint": "使用者帳號將保留，但不再屬於此群組。僅屬於此群組的使用者將失去介面模組。",
+                "group/del-action-deleteusers": "刪除此群組的所有使用者",
+                "group/del-action-deleteusers-hint": "屬於此群組的所有使用者帳號將被永久刪除。",
+                "group/del-affected-label":     "受影響的使用者",
+                "group/del-loading":            "載入中…",
+                "group/del-no-affected":        "此群組中沒有使用者。",
+                "group/del-only-group":         "唯一群組",
+                "group/del-warn-single":        "警告：部分使用者僅屬於此群組，移除後將失去介面模組。",
+                "group/del-confirm-hint":       "此操作無法復原。",
+                "group/del-confirm-msg":        "確定要刪除群組「{group}」嗎？此操作無法復原。",
+                "group/del-confirm-btn":        "確認刪除",
+                "group/del-success":            "群組已成功刪除。",
+                "group/del-error":              "刪除群組失敗。",
+                "group/del-forbidden":          "存取被拒。",
+                "group/del-load-error":         "無法載入使用者資料。",
+                "group/del-self-warn-general":  "您是此群組的成員。",
+                "group/del-self-warn-deleteusers": "您屬於此群組。您的帳號不會被刪除——僅會移除您的群組成員資格。"
+            }
+        }
+    }
+}

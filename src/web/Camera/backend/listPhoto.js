@@ -31,14 +31,20 @@ function generatePhotoList(){
 
     var files = filelib.aglob(savetarget + "*.*", "mostRecent");
     var results = [];
-   
-    //Filter out only the png and jpg files
+
+    //Filter out only the supported photo and video files.
+    //Each entry carries its path and modification time (Unix seconds) so the
+    //viewer can display the creation date like the iPhone Photos app.
+    var supportedExt = ["jpg", "png", "mp4", "webm"];
     for (var i = 0; i < files.length; i++){
         var thisFile = files[i];
         if (!filelib.isDir(thisFile)){
-            var ext = thisFile.split(".").pop();
-            if (ext == "jpg" || ext == "png"){
-                results.push(thisFile);
+            var ext = thisFile.split(".").pop().toLowerCase();
+            if (supportedExt.indexOf(ext) >= 0){
+                results.push({
+                    path: thisFile,
+                    mtime: filelib.mtime(thisFile, true)
+                });
             }
         }
     }

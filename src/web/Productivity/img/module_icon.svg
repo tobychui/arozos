@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5B9CF6"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="doc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F0F4FF"/>
+    </linearGradient>
+  </defs>
+  <!-- App background -->
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+  <!-- Document shadow -->
+  <rect x="20" y="16" width="64" height="82" rx="6" fill="rgba(0,0,0,0.15)" transform="translate(2,2)"/>
+  <!-- Document body -->
+  <rect x="20" y="16" width="64" height="82" rx="6" fill="url(#doc)"/>
+  <!-- Page fold triangle -->
+  <path d="M64 16 L84 16 L84 36 Z" fill="#DBEAFE"/>
+  <path d="M64 16 L64 36 L84 36" fill="none" stroke="#93C5FD" stroke-width="1"/>
+  <!-- Document lines -->
+  <rect x="28" y="46" width="46" height="4" rx="2" fill="#94A3B8"/>
+  <rect x="28" y="55" width="38" height="4" rx="2" fill="#94A3B8" opacity="0.7"/>
+  <rect x="28" y="64" width="42" height="4" rx="2" fill="#94A3B8" opacity="0.6"/>
+  <rect x="28" y="73" width="28" height="4" rx="2" fill="#94A3B8" opacity="0.5"/>
+  <!-- Magnifying glass handle -->
+  <line x1="88" y1="90" x2="110" y2="112" stroke="#F97316" stroke-width="9" stroke-linecap="round"/>
+  <!-- Magnifying glass circle - shadow -->
+  <circle cx="77" cy="79" r="24" fill="rgba(0,0,0,0.18)" transform="translate(1,1)"/>
+  <!-- Magnifying glass circle -->
+  <circle cx="77" cy="79" r="24" fill="white" opacity="0.95"/>
+  <circle cx="77" cy="79" r="18" fill="#EFF6FF"/>
+  <!-- Magnifying glass inner icon - lines representing content -->
+  <rect x="68" y="72" width="18" height="2.5" rx="1.25" fill="#60A5FA" opacity="0.9"/>
+  <rect x="68" y="77" width="14" height="2.5" rx="1.25" fill="#60A5FA" opacity="0.7"/>
+  <rect x="68" y="82" width="16" height="2.5" rx="1.25" fill="#60A5FA" opacity="0.6"/>
+  <!-- Magnifying glass rim -->
+  <circle cx="77" cy="79" r="24" fill="none" stroke="#F97316" stroke-width="4.5"/>
+</svg>

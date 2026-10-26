@@ -1,0 +1,205 @@
+/*
+    fs-components.css
+
+    Reusable UI pieces shared by the ArozOS File Manager and File Selector.
+    Colours come from fs-theme.css - load that first.
+
+    Only genuinely app-agnostic components belong here. Anything that positions a
+    component inside a particular app's layout (widths, grid placement, which
+    pane it sits in) stays in that app's own stylesheet.
+*/
+
+/* ---------- Glyph containers emitted by shared/filethumb.js ---------- */
+/*
+    FileThumb.smallGlyph() emits .fsSmallIcon and largeGlyph() emits .fsBigIcon,
+    each wrapping a single inline <svg>. The base sizes below are what a list row
+    and a tile want; apps override per context (a preview pane wants it larger).
+*/
+.fsSmallIcon {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+}
+
+.fsBigIcon {
+    width: 56px;
+    height: 56px;
+}
+
+.fsSmallIcon svg,
+.fsBigIcon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Lift the drawn white document sheet off a dark background */
+body.darkTheme .fsBigIcon svg path[fill="#ffffff"] { fill: #e4e6ea; }
+
+/* ---------- Icon buttons ---------- */
+.fsIconBtn {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border: none;
+    border-radius: 50%;
+    background: var(--fs-fill);
+    color: var(--fs-text);
+    padding: 7px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+}
+.fsIconBtn:hover:not(:disabled) { background: var(--fs-fill-hover); }
+.fsIconBtn:active:not(:disabled) { background: var(--fs-fill-active); }
+.fsIconBtn:disabled { opacity: 0.35; cursor: default; }
+
+/*
+    Close button. Must be sized on its own class, not scoped to a title bar -
+    without an explicit box the inner SVG stretches to fill its container.
+*/
+.fsCloseBtn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    padding: 6px;
+    color: var(--fs-text-dim);
+    cursor: pointer;
+}
+.fsCloseBtn:hover { background: var(--fs-fill); color: var(--fs-text); }
+
+/* ---------- Pill container (path bar, search box, sort control) ---------- */
+.fsPill {
+    height: 34px;
+    border: 1px solid var(--fs-line);
+    border-radius: 9px;
+    background: var(--fs-pill-bg);
+    display: flex;
+    align-items: center;
+    padding: 0 5px 0 10px;
+    gap: 7px;
+    min-width: 0;
+}
+
+/* ---------- Popup / context menu ---------- */
+.fsMenu {
+    position: absolute;
+    z-index: 500;
+    min-width: 210px;
+    background: var(--fs-surface);
+    border: 1px solid var(--fs-line);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px var(--fs-shadow);
+    padding: 6px;
+    display: none;
+}
+.fsMenu.open { display: block; }
+
+.fsMenuItem {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13.5px;
+    white-space: nowrap;
+}
+.fsMenuItem:hover { background: var(--fs-fill); }
+.fsMenuItem.disabled { opacity: 0.4; cursor: default; }
+.fsMenuItem.disabled:hover { background: transparent; }
+
+.fsMenuItem .fsMenuIcon {
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
+    color: var(--fs-icon);
+}
+.fsMenuItem .fsMenuIcon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.fsMenuItem .fsMenuCheck {
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+    margin-left: auto;
+    color: var(--fs-accent);
+    visibility: hidden;
+}
+.fsMenuItem.checked .fsMenuCheck { visibility: visible; }
+
+/* Right-aligned keyboard shortcut hint */
+.fsMenuShortcut {
+    margin-left: auto;
+    padding-left: 18px;
+    color: var(--fs-text-faint);
+    font-size: 12px;
+}
+
+.fsMenuSep {
+    height: 1px;
+    background: var(--fs-line-soft);
+    margin: 5px 4px;
+}
+
+/* A menu positioned against the viewport rather than an offset parent */
+.fsMenu.fsContextMenu {
+    position: fixed;
+    min-width: 200px;
+}
+
+/* ---------- Inline rename editor ---------- */
+.fsInlineEdit {
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--fs-text);
+    background: var(--fs-surface);
+    border: 1px solid var(--fs-accent);
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+    width: 100%;
+    min-width: 60px;
+    user-select: text;
+}
+
+/* ---------- Buttons ---------- */
+.fsBtn {
+    height: 34px;
+    min-width: 84px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0 16px;
+    border: 1px solid var(--fs-line);
+    background: var(--fs-surface);
+    color: var(--fs-text);
+}
+.fsBtn:hover { background: var(--fs-fill); }
+.fsBtn.primary {
+    background: var(--fs-accent);
+    border-color: var(--fs-accent);
+    color: var(--fs-primary-fg);
+    font-weight: 500;
+}
+.fsBtn.primary:hover {
+    background: var(--fs-primary-hover);
+    border-color: var(--fs-primary-hover);
+}
+
+/* ---------- Spinner ---------- */
+.fsSpinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid var(--fs-line);
+    border-top-color: var(--fs-accent);
+    border-radius: 50%;
+    animation: fsSpin 0.8s linear infinite;
+}
+@keyframes fsSpin { to { transform: rotate(360deg); } }

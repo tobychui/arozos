@@ -1,16 +1,17 @@
-//go:build mipsle || riscv64
-// +build mipsle riscv64
+//go:build mipsle || riscv64 || loong64
+// +build mipsle riscv64 loong64
 
 package database
 
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
@@ -34,7 +35,7 @@ func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
 		}
 	}
 
-	log.Println("Filesystem Emulated Key-value Database Service Started: " + dbRootPath)
+	logger.PrintAndLog("Database", "Filesystem Emulated Key-value Database Service Started: "+dbRootPath, nil)
 	return &Database{
 		Db:       dbRootPath,
 		Tables:   tableMap,

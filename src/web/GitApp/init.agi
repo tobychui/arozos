@@ -1,0 +1,26 @@
+/*
+	GitApp Module Register Script
+
+	A GitHub Desktop style version control client for repositories stored in
+	the user's ArozOS file system.
+	Do not call any user scope functions in this script.
+*/
+
+var _MODULE_ROOT_DIR = "GitApp";
+
+//Setup the module information
+var moduleLaunchInfo = {
+	Name: "GitApp",
+	Desc: "Manage git repositories stored on this system",
+	Group: "Development",
+	IconPath: _MODULE_ROOT_DIR + "/img/icon.svg",
+	Version: "1.0.0",
+	StartDir: _MODULE_ROOT_DIR + "/index.html",
+	SupportFW: true,
+	LaunchFWDir: _MODULE_ROOT_DIR + "/index.html",
+	SupportEmb: false,
+	InitFWSize: [1180, 720]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

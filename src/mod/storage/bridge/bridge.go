@@ -106,7 +106,7 @@ func (r *Record) IsBridgedFSH(FSHUUID string, groupOwner string) (bool, error) {
 	return false, nil
 }
 
-//Get a list of group owners that have this fsh uuid as "bridged" fs
+// Get a list of group owners that have this fsh uuid as "bridged" fs
 func (r *Record) GetBridgedGroups(FSHUUID string) []string {
 	results := []string{}
 	currentConfigs, err := r.ReadConfig()

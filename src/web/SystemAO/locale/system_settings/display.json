@@ -4,7 +4,7 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "displaytest/display-test-title": "ArozOS 顯示測試",
                 "displaytest/display-testing-title": "顯示測試",
@@ -18,7 +18,7 @@
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "displaytest/display-test-title": "ArozOS 顯示測試",
                 "displaytest/display-testing-title": "顯示測試",
@@ -46,7 +46,7 @@
         },
         "en-US": {
             "name": "English (US)",
-            "fontFamily" : "Arial, Helvetica, sans-serif",
+            "fontFamily": "Arial, Helvetica, sans-serif",
             "fwtitle": "",
             "strings": {
                 "displaytest/display-test-title": "ArozOS Display Testing",
@@ -55,6 +55,49 @@
                 "displaytest/dead-pixel-test-title": "Dead Pixel Test",
                 "displaytest/dead-pixel-test-description": "This test will popup a new window with full-screen functionality. <br>To exit the test, press ESC on the keyboard or swipe down & press the \"close\" button on touch screen devices.",
                 "displaytest/start-test-button": "Start Test"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "fwtitle": "",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS Display Testing",
+                "displaytest/display-testing-title": "Display Testing",
+                "displaytest/display-testing-subheader": "Simple display testing tools",
+                "displaytest/dead-pixel-test-title": "Dead Pixel Test",
+                "displaytest/dead-pixel-test-description": "This test will popup a new window with full-screen functionality. <br>To exit the test, press ESC on the keyboard or swipe down & press the \"close\" button on touch screen devices.",
+                "displaytest/start-test-button": "Start Test"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS ディスプレイテスト",
+                "displaytest/display-testing-title": "ディスプレイテスト",
+                "displaytest/display-testing-subheader": "シンプルなディスプレイテストツール",
+                "displaytest/dead-pixel-test-title": "デッドピクセルテスト",
+                "displaytest/dead-pixel-test-description": "このテストは全画面機能を持つ新しいウィンドウをポップアップします。テストを終了するには、キーボードのESCキーを押すか、タッチスクリーンデバイスでは下にスワイプして「閉じる」ボタンを押してください。",
+                "displaytest/start-test-button": "テストを開始"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS 디스플레이 테스트",
+                "displaytest/display-testing-title": "디스플레이 테스트",
+                "displaytest/display-testing-subheader": "간단한 디스플레이 테스트 도구",
+                "displaytest/dead-pixel-test-title": "불량 픽셀 테스트",
+                "displaytest/dead-pixel-test-description": "이 테스트는 전체화면 기능을 갖춘 새 창을 팝업합니다. 테스트를 종료하려면 키보드의 ESC 키를 누르거나 터치스크린 장치에서 아래로 스와이프하여 '닫기' 버튼을 누르세요.",
+                "displaytest/start-test-button": "테스트 시작"
             },
             "titles": {},
             "placeholder": {}

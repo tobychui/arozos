@@ -1,0 +1,66 @@
+/*
+    Notes - Write / create a note and update metadata
+    POST: noteId (string), noteContent (string), noteUpdatedAt (number ms)
+*/
+requirelib("filelib");
+
+var metaPath = "user:/Document/Notes/meta.json";
+var notesDir = "user:/Document/Notes";
+
+// Validate noteId
+var safeId = noteId.replace(/[^a-zA-Z0-9_-]/g, "");
+if (safeId.length === 0 || safeId !== noteId) {
+    sendJSONResp({ error: "Invalid note ID" });
+} else {
+    var notePath = notesDir + "/" + safeId + ".txt";
+
+    // Write note content to file
+    if (!filelib.writeFile(notePath, noteContent)) {
+        sendJSONResp({ error: "Failed to write note" });
+    } else {
+        // Extract title: first non-empty line of content
+        var noteTitle = "New Note";
+        var lines = noteContent.split("\n");
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.length > 0) {
+                noteTitle = line.length > 60 ? line.substring(0, 60) : line;
+                break;
+            }
+        }
+
+        var ts = parseInt(noteUpdatedAt);
+        if (isNaN(ts) || ts <= 0) ts = new Date().getTime();
+
+        // Read existing metadata (or start fresh)
+        var meta = { lastOpened: safeId, theme: "dark", notes: [] };
+        if (filelib.fileExists(metaPath)) {
+            try {
+                var raw    = filelib.readFile(metaPath);
+                var parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === "object") {
+                    meta = parsed;
+                }
+                if (!meta.notes) meta.notes = [];
+            } catch (e) {}
+        }
+
+        // Update or insert note entry in metadata
+        var found = false;
+        for (var j = 0; j < meta.notes.length; j++) {
+            if (meta.notes[j].id === safeId) {
+                meta.notes[j].title     = noteTitle;
+                meta.notes[j].updatedAt = ts;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            meta.notes.push({ id: safeId, title: noteTitle, updatedAt: ts });
+        }
+        meta.lastOpened = safeId;
+
+        filelib.writeFile(metaPath, JSON.stringify(meta));
+        sendJSONResp({ ok: true });
+    }
+}

@@ -1,0 +1,766 @@
+/*
+    Audio Studio - audiostudio.css
+    Dark DAW-style theme.
+*/
+
+:root {
+    --as-bg: #16191f;
+    --as-bg-deep: #101318;
+    --as-panel: #1e232c;
+    --as-panel-2: #262c37;
+    --as-border: #313847;
+    --as-text: #e8eaf0;
+    --as-text-dim: #9aa2b1;
+    --as-accent: #7c5cff;
+    --as-accent-soft: #9d86ff;
+    --as-record: #e5484d;
+    --as-play: #35c25e;
+    --as-lane-bg: #22262e;
+    --as-lane-alt: #1d2129;
+    --as-grid: #2c313b;
+    --as-selection: rgba(255, 255, 255, 0.22);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--as-bg);
+    color: var(--as-text);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+button {
+    font-family: inherit;
+}
+
+#appRoot {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+/* ============ Toolbar ============ */
+
+#toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--as-bg-deep);
+    border-bottom: 1px solid var(--as-border);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+}
+
+.tbGroup {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+    border-right: 1px solid var(--as-border);
+    height: 34px;
+    flex-shrink: 0;
+}
+
+.tbGroup:last-child {
+    border-right: none;
+}
+
+.tbBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--as-text);
+    cursor: pointer;
+    padding: 0;
+}
+
+.tbBtn:hover {
+    background: var(--as-panel-2);
+}
+
+.tbBtn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.tbBtn:disabled:hover {
+    background: transparent;
+}
+
+.tbBtn.active {
+    background: var(--as-accent);
+    color: #ffffff;
+}
+
+.tbBtn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    fill: currentColor;
+}
+
+.tbBtn.playBtn svg { fill: var(--as-play); }
+.tbBtn.recBtn svg { fill: var(--as-record); }
+.tbBtn.recBtn.recording {
+    background: rgba(229, 72, 77, 0.25);
+    animation: as-pulse 1s infinite;
+}
+
+@keyframes as-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5); }
+    70% { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+}
+
+#timeDisplay {
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 17px;
+    letter-spacing: 1px;
+    background: var(--as-panel);
+    border: 1px solid var(--as-border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    min-width: 150px;
+    text-align: center;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.tbLabel {
+    color: var(--as-text-dim);
+    margin: 0 4px;
+    white-space: nowrap;
+}
+
+.tbCheckbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    color: var(--as-text-dim);
+    white-space: nowrap;
+}
+
+.tbCheckbox input {
+    accent-color: var(--as-accent);
+    cursor: pointer;
+}
+
+#meterWrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#meterCanvas {
+    background: var(--as-panel);
+    border: 1px solid var(--as-border);
+    border-radius: 4px;
+}
+
+#toolbarSpacer {
+    flex: 1;
+    min-width: 4px;
+}
+
+/* ============ Main layout ============ */
+
+#main {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+#leftCol {
+    width: 270px;
+    min-width: 270px;
+    display: flex;
+    flex-direction: column;
+    background: var(--as-bg);
+    border-right: 1px solid var(--as-border);
+}
+
+#tracksBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 30px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--as-border);
+    color: var(--as-text-dim);
+    flex-shrink: 0;
+}
+
+#addTrackBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--as-panel-2);
+    color: var(--as-text);
+    border: 1px solid var(--as-border);
+    border-radius: 5px;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+
+#addTrackBtn:hover {
+    background: var(--as-border);
+}
+
+#addTrackBtn svg {
+    width: 11px;
+    height: 11px;
+    fill: currentColor;
+}
+
+#headerScroll {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ============ Track headers ============ */
+
+.trackHeader {
+    height: 110px;
+    background: var(--as-panel);
+    border-bottom: 1px solid var(--as-bg-deep);
+    padding: 8px 10px 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+}
+
+.trackHeader.selected {
+    background: var(--as-panel-2);
+    border-left: 3px solid var(--as-accent);
+}
+
+.thRow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.thName {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.thNameInput {
+    flex: 1;
+    background: var(--as-bg-deep);
+    color: var(--as-text);
+    border: 1px solid var(--as-accent);
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 13px;
+    outline: none;
+    min-width: 0;
+}
+
+.thIcon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+    fill: var(--as-text-dim);
+}
+
+.thMenuBtn {
+    background: transparent;
+    border: none;
+    color: var(--as-text-dim);
+    cursor: pointer;
+    border-radius: 4px;
+    width: 24px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thMenuBtn:hover {
+    background: var(--as-border);
+    color: var(--as-text);
+}
+
+.thMenuBtn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+.thKnob {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--as-bg-deep);
+    border: 2px solid var(--as-border);
+    position: relative;
+    cursor: ns-resize;
+    flex-shrink: 0;
+}
+
+.thKnob::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 2px;
+    width: 2px;
+    height: 9px;
+    margin-left: -1px;
+    background: var(--as-accent-soft);
+    border-radius: 1px;
+    transform-origin: 1px 11px;
+    transform: rotate(var(--knob-angle, 0deg));
+}
+
+.thVolume {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--as-accent) 0%, var(--as-accent) var(--vol-pct, 66%), var(--as-border) var(--vol-pct, 66%));
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.thVolume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #e8eaf0;
+    border: none;
+    cursor: pointer;
+}
+
+.thVolume::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #e8eaf0;
+    border: none;
+    cursor: pointer;
+}
+
+.thToggle {
+    width: 24px;
+    height: 22px;
+    border: 1px solid var(--as-border);
+    border-radius: 4px;
+    background: var(--as-bg-deep);
+    color: var(--as-text-dim);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.thToggle:hover {
+    border-color: var(--as-text-dim);
+}
+
+.thToggle.muteOn {
+    background: #a13d42;
+    border-color: #a13d42;
+    color: #ffffff;
+}
+
+.thToggle.soloOn {
+    background: #2e7d46;
+    border-color: #2e7d46;
+    color: #ffffff;
+}
+
+.thEffects {
+    width: 100%;
+    background: var(--as-panel-2);
+    border: 1px solid var(--as-border);
+    border-radius: 5px;
+    color: var(--as-text);
+    padding: 4px 0;
+    cursor: pointer;
+}
+
+.thEffects:hover {
+    background: var(--as-border);
+}
+
+/* ============ Timeline ============ */
+
+#rightCol {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+    background: var(--as-bg-deep);
+}
+
+#rulerWrap {
+    height: 30px;
+    border-bottom: 1px solid var(--as-border);
+    flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+}
+
+#rulerCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#laneView {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    min-height: 0;
+}
+
+#laneList {
+    position: relative;
+}
+
+.lane {
+    height: 110px;
+    border-bottom: 1px solid var(--as-bg-deep);
+    position: relative;
+}
+
+.laneCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#playhead {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    background: #e8eaf0;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 0 4px rgba(232, 234, 240, 0.6);
+}
+
+#emptyHint {
+    position: absolute;
+    top: 40%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: var(--as-text-dim);
+    pointer-events: none;
+    z-index: 2;
+    line-height: 1.9;
+}
+
+#emptyHint kbd {
+    background: var(--as-panel-2);
+    border: 1px solid var(--as-border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+}
+
+#hscroll {
+    height: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    background: var(--as-bg-deep);
+}
+
+#hscrollInner {
+    height: 1px;
+}
+
+/* ============ Modals / popups ============ */
+
+.asModalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.asModal {
+    background: var(--as-panel);
+    border: 1px solid var(--as-border);
+    border-radius: 10px;
+    width: 560px;
+    max-width: 92vw;
+    max-height: 84vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.asModalTitle {
+    padding: 13px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--as-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.asModalBody {
+    padding: 12px 18px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.asModalFooter {
+    padding: 11px 18px;
+    border-top: 1px solid var(--as-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.asBtn {
+    background: var(--as-panel-2);
+    border: 1px solid var(--as-border);
+    color: var(--as-text);
+    border-radius: 6px;
+    padding: 6px 16px;
+    cursor: pointer;
+}
+
+.asBtn:hover {
+    background: var(--as-border);
+}
+
+.asBtn.primary {
+    background: var(--as-accent);
+    border-color: var(--as-accent);
+    color: #ffffff;
+}
+
+.asBtn.primary:hover {
+    background: var(--as-accent-soft);
+}
+
+/* Shortcuts table */
+
+.scGroupTitle {
+    color: var(--as-text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin: 12px 0 4px 0;
+}
+
+.scRow {
+    display: flex;
+    align-items: center;
+    padding: 5px 4px;
+    border-radius: 5px;
+    gap: 8px;
+}
+
+.scRow:hover {
+    background: var(--as-panel-2);
+}
+
+.scLabel {
+    flex: 1;
+}
+
+.scBinding {
+    font-family: "Consolas", "Menlo", monospace;
+    background: var(--as-bg-deep);
+    border: 1px solid var(--as-border);
+    border-radius: 5px;
+    padding: 3px 10px;
+    min-width: 90px;
+    text-align: center;
+    cursor: pointer;
+    color: white;
+}
+
+.scBinding:hover {
+    border-color: var(--as-accent);
+}
+
+.scBinding.capturing {
+    border-color: var(--as-accent);
+    color: var(--as-accent-soft);
+    animation: as-pulse 1.2s infinite;
+}
+
+.scReset {
+    background: transparent;
+    border: none;
+    color: var(--as-text-dim);
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 3px 6px;
+}
+
+.scReset:hover {
+    color: var(--as-text);
+    background: var(--as-border);
+}
+
+/* Settings / preference rows */
+
+.prefRow {
+    margin: 10px 0;
+    line-height: 1.8;
+}
+
+.prefRow label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.prefRow input {
+    accent-color: var(--as-accent);
+}
+
+.prefHint {
+    color: var(--as-text-dim);
+    font-size: 12px;
+    margin-left: 24px;
+}
+
+/* Context menu / effects popup */
+
+.asPopup {
+    position: fixed;
+    background: var(--as-panel);
+    border: 1px solid var(--as-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    z-index: 120;
+    min-width: 160px;
+    padding: 5px;
+}
+
+.asPopupItem {
+    padding: 7px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.asPopupItem:hover {
+    background: var(--as-panel-2);
+}
+
+.asPopupItem.danger:hover {
+    background: #5c2326;
+}
+
+.asPopupSep {
+    height: 1px;
+    background: var(--as-border);
+    margin: 5px 3px;
+}
+
+.fxPanel {
+    padding: 10px 14px;
+    width: 250px;
+}
+
+.fxPanel h4 {
+    margin: 2px 0 10px 0;
+    font-size: 13px;
+}
+
+.fxRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 9px 0;
+}
+
+.fxRow label {
+    width: 45px;
+    color: var(--as-text-dim);
+}
+
+.fxRow input[type="range"] {
+    flex: 1;
+    accent-color: var(--as-accent);
+}
+
+.fxRow .fxVal {
+    width: 58px;
+    text-align: right;
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 12px;
+}
+
+/* Toast messages */
+
+#toastArea {
+    position: fixed;
+    bottom: 26px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    pointer-events: none;
+}
+
+.asToast {
+    background: var(--as-panel-2);
+    border: 1px solid var(--as-border);
+    color: var(--as-text);
+    border-radius: 8px;
+    padding: 9px 18px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    animation: as-toast-in 0.18s ease-out;
+    max-width: 70vw;
+}
+
+.asToast.error {
+    border-color: var(--as-record);
+}
+
+@keyframes as-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}

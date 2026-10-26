@@ -1,330 +1,472 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Edit Group</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
-        <link rel="stylesheet" href="../../script/ao.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.js"></script>
-        <script type="text/javascript" src="../../script/ao_module.js"></script>
-        <style>
-            body{
-                background-color:white;
-            }
-            .themebackground{
-                background-color:#588ce0 !important;
-                color:white !important;
-                background-image: url("/img/public/slate.png") !important;
-                background-repeat: no-repeat !important;
-                background-attachment: fixed !important;
-            }
-            .ui.padded.slate{
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                padding: 4em;
-            }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Edit Group</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <link rel="stylesheet" href="ueditor.css">
+    <style>
+    /* ── Module checkbox list (editgroup-specific) ── */
+    .eg-mod-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--ued-divider);
+        cursor: pointer;
+        transition: background 0.08s;
+        user-select: none;
+    }
+    .eg-mod-item:last-child { border-bottom: none; }
+    .eg-mod-item:hover { background: var(--ued-hover); }
+    .eg-mod-cb {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--ued-accent);
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+    .eg-mod-icon {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        flex-shrink: 0;
+        border-radius: 3px;
+    }
+    .eg-mod-name { font-size: 13px; font-weight: 500; color: var(--ued-text); }
 
-            .ui.heading.slate{
-                align-items: flex-start;
-            }
+    /* ── Module preview table ── */
+    .eg-preview-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .eg-preview-table th {
+        text-align: left;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ued-muted);
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--ued-divider);
+        background: var(--ued-card-bg);
+    }
+    .eg-preview-table td {
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--ued-divider);
+        color: var(--ued-text);
+        vertical-align: middle;
+    }
+    .eg-preview-table tbody tr:last-child td { border-bottom: none; }
+    .eg-preview-table .eg-mod-icon { width: 18px; height: 18px; }
+    </style>
+</head>
+<body>
+<div id="eg-root" class="ued-root">
+<div class="ued-topbar"></div>
+<div class="ued-page">
 
-            .ui.slate .header:not(.ui):not(.sub):not(.item){
-                font-size: 1.6em;
-                line-height: 1.42857em;
-                font-weight: 500;
-                display: block;
-            }
+    <!-- Feedback banners -->
+    <div id="eg-success" class="ued-banner success" locale="editgroup/msg-updated">Group permissions updated</div>
+    <div id="eg-error"   class="ued-banner error"><span id="eg-err-msg"></span></div>
 
-            .required{
-                color:red;
-            }
-            .actionbtns{
-                text-align:right;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="ui heading fluid padded slate themebackground" >
-            <span class="header">
-            <i class="users icon"></i> Edit Users Group</span>
-            <span class="description">Fill in the following group information to proceed.</span>
-        </div>
-        <br>
-        <div class="ui container">
-            <div id="confirmUpdate" class="ui green inverted segment" style="display:none; margin-top:12px;">
-                <i class="checkmark icon"></i> Group Permissions Updated
+    <!-- Group Info -->
+    <div class="ued-section-label" locale="editgroup/section-info">Group Information</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-groupname">Group Name</div>
+            <div class="ued-field-body">
+                <input id="eg-groupname" class="ued-input" type="text" readonly>
             </div>
-            <div class="ui horizontal form">
-                <div class="field">
-                    <label>Group Name <span class="required">(READ ONLY)</span></label>
-                    <input id="groupname" class="disabled" type="text" readonly="true">
-                </div>
-                <div class="two fields">
-                    <div class="field">
-                        <label>Default Storage Quota <span class="required">*</span></label>
-                        <input id="quota" type="text" value="15">
-                    </div>
-                    <div class="field">
-                        <label>Unit <span class="required">*</span></label>
-                        <select class="ui fluid search dropdown" id="unit">
-                            <option value="1">Bytes</option>
-                            <option value="1024">KB</option>
-                            <option value="1048576">MB</option>
-                            <option value="1073741824">GB</option>
-                            <option value="1099511627776">TB</option>
-                            <option value="1125899906842624">PB</option>
-                          </select>
-                    </div>
-                  </div>
-                <div class="field">
-                    <label>Default Interface Module <span class="required">*</span></label>
-                    <div class="ui fluid selection dropdown">
-                        <input type="hidden" name="dim">
-                        <i class="dropdown icon"></i>
-                        <div class="default text">Select Interface Module</div>
-                        <div class="menu" id="interfaceModuleList">
-                            
-                        </div>
-                      </div>
-                    <small>The module that the user land once they logged in. Default Desktop</small>
-                </div>
-                <div class="field">
-                    <label>Allow Access <span class="required">*</span></label>
-                    <select id="allowAccessList" multiple="" class="ui fluid dropdown">
-                        
+        </div>
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-admin">Privileges</div>
+            <div class="ued-field-body">
+                <label class="ued-toggle-row">
+                    <input type="checkbox" id="eg-isadmin" class="ued-cb">
+                    <span class="ued-toggle-label" locale="editgroup/hint-admin">Grant administrator privileges to this group</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Quota -->
+    <div class="ued-section-label" locale="editgroup/section-quota">Default Storage Quota</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-quota">Quota</div>
+            <div class="ued-field-body">
+                <div class="ued-quota-row">
+                    <input id="eg-quota" class="ued-input" type="number" value="15">
+                    <select id="eg-unit" class="ued-select">
+                        <option value="1">Bytes</option>
+                        <option value="1024">KB</option>
+                        <option value="1048576">MB</option>
+                        <option value="1073741824" selected>GB</option>
+                        <option value="1099511627776">TB</option>
+                        <option value="1125899906842624">PB</option>
                     </select>
-                    <small>Allow this user group to access the selected modules and their APIs.</small>
                 </div>
-                <div class="field">
-                    <div class="ui checkbox">
-                        <input id="setAsAdmin" type="checkbox" tabindex="0" class="">
-                        <label>Assign Administrator Privileges to Group</label>
-                    </div>
-                </div>
-                <div class="ui divider"></div>
-                <table class="ui celled striped unstackable table">
-                    <thead>
-                        <tr>
-                            <th >#</th>
-                            <th>Module Name</th>
-                        </tr>
-                    </thead>
-                    <tbody id="selectedModuleList">
-                       
-                    </tbody>
-                </table>
-                <div class="ui divider"></div>
-                <div align="right">
-                    <button class="ui primary button" onclick="updateGroup();">Update</button>
-                    <button id="cancelbtn" class="ui button" onclick="cancel();">Close</button>
-                </div>
-                <div id="errorbox" class="ui inverted red segment" style="display:none;">
-                    <p><i class="remove icon"></i><span class="errormessage"></span></p>
-                </div>
+                <div class="ued-input-hint" locale="editgroup/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
             </div>
-            <br><br>
         </div>
-        <script>
-            var selectedModules = [];
-            var moduleList = [];
-            if (window.location.hash.length == 0){
-                //Invalid use of editor
-                window.location.href = "../closeTabInsturction.html";
+    </div>
+
+    <!-- Interface Module -->
+    <div class="ued-section-label" locale="editgroup/section-interface">Default Interface Module</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-interface">Module</div>
+            <div class="ued-field-body">
+                <select id="eg-interface" class="ued-select" style="width:100%;"></select>
+                <div class="ued-input-hint" locale="editgroup/hint-interface">The module loaded when users in this group log in.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accessible Modules -->
+    <div class="ued-section-label" locale="editgroup/section-access">Accessible Modules</div>
+    <div class="ued-card">
+        <div id="eg-access-all-notice" style="display:none;">
+            <div class="ued-field-row">
+                <span style="font-size:12.5px;color:var(--ued-dim);" locale="editgroup/access-all">This group has access to all modules.</span>
+            </div>
+        </div>
+        <div id="eg-module-list">
+            <div class="ued-empty" locale="editgroup/loading">Loading&hellip;</div>
+        </div>
+    </div>
+
+    <!-- Selected modules preview -->
+    <div class="ued-section-label" locale="editgroup/section-preview">Selected Modules</div>
+    <div class="ued-card" style="overflow-x:auto;">
+        <table class="eg-preview-table">
+            <thead><tr>
+                <th style="width:34px;"></th>
+                <th locale="editgroup/col-module">Module Name</th>
+            </tr></thead>
+            <tbody id="eg-mod-tbody">
+                <tr><td colspan="2" class="ued-empty" locale="editgroup/no-modules-selected">No modules selected</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="ued-toolbar">
+        <div class="ued-btn-row">
+            <button class="ued-btn" onclick="egClose()">
+                <span locale="editgroup/btn-close">Close</span>
+            </button>
+            <button class="ued-btn primary" onclick="updateGroup(this)">
+                <span locale="editgroup/btn-update">Update</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+    /* ── Locale ── */
+    var egLocale = NewAppLocale();
+    if (egLocale){
+        egLocale.init('../locale/system_settings/editgroup.json', function() {
+            egLocale.translate();
+        });
+    }
+
+    /* ── Theme detection (public-safe) ── */
+    (function() {
+        var root = document.getElementById('eg-root');
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    var isDark = c !== 'whiteTheme';
+                    root.classList.toggle('dark', isDark);
+                    document.body.classList.toggle('dark', isDark);
+                });
+                return;
             }
-            var targetUserGroup = window.location.hash.substr(1);
-            targetUserGroup = JSON.parse(decodeURIComponent(targetUserGroup));
-            var originalGroupData;
-
-            function bytesToSize(bytes) {
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
-                if (bytes == 0) return '0 Byte';
-                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return [bytes / Math.pow(1024, i), sizes[i]];
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined')                         t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined')   t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) {
+                var isDark = t === 'dark' || t === 'darkTheme';
+                root.classList.toggle('dark', isDark);
+                document.body.classList.toggle('dark', isDark);
             }
+        } catch(e) {}
+    })();
 
-            //Init functions
-            initModuleList(function(){
-                //Set the contents of the selector to the current group one
-                $('.ui.checkbox').checkbox();
-                $.ajax({
-                    url: "../../system/permission/editgroup?list=true",
-                    data: {groupname: targetUserGroup},
-                    success: function(data){
-                        console.log(data);
-                        originalGroupData = data;
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            $("#groupname").val(data.Name);
-                            $("#interfaceModuleList").parent().dropdown("set selected",data.DefaultInterfaceModule);
-                            
-                            //Set accessable module list
-                            if (data.AccessibleModules.length > 0 && data.AccessibleModules[0] == "*"){
-                                $("#allowAccessList").parent().hide();
-                                $("#allowAccessList").parent().after("<p>This account has been set to have all permissions to all modules</p>");
-                                selectedModules = moduleList;
-                                renderSelectedModuleList();
-                            }else{
-                                $("#allowAccessList").dropdown("set selected",data.AccessibleModules);
-                            }
+    /* ── State ── */
+    var selectedModules   = [];
+    var moduleList        = [];
+    var originalGroupData = null;
+    var accessAll         = false;
 
-                            //Set storage quota
-                            var defaultStorage = bytesToSize(data.DefaultStorageQuota);
-                            if (data.DefaultStorageQuota == -1){
-                                defaultStorage[0] = -1;
-                            }
-                            if (data.Quota == -1){
-                                $("#quota").val(-1);
-                            }else{
-                                $("#quota").val(defaultStorage[0]);
-                                $("#unit").dropdown("set selected",defaultStorage[1])
-                            }
+    /* ── Parse target group from hash ── */
+    var targetUserGroup = '';
+    (function() {
+        try {
+            var hash = window.location.hash;
+            if (!hash || hash.length <= 1) {
+                window.location.href = '../closeTabInsturction.html';
+                return;
+            }
+            targetUserGroup = JSON.parse(decodeURIComponent(hash.substr(1)));
+        } catch(e) {
+            window.location.href = '../closeTabInsturction.html';
+        }
+    })();
 
-                            //Check admin checkbox
-                            if (data.IsAdmin == true){
-                                $("#setAsAdmin").parent().checkbox("check");
-                            }else{
-                                $("#setAsAdmin").parent().checkbox("uncheck");
-                            }
-                        }
-                    }
-                })
+    /* ── Feedback helpers ── */
+    function egShowSuccess() {
+        var el = document.getElementById('eg-success');
+        el.classList.add('visible');
+        clearTimeout(el._t);
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 3000);
+    }
+
+    function egShowError(msg) {
+        document.getElementById('eg-err-msg').textContent = msg || '';
+        var el = document.getElementById('eg-error');
+        el.classList.add('visible');
+        clearTimeout(el._t);
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 5000);
+    }
+
+    /* ── Close (public-safe) ── */
+    function egClose() {
+        try { ao_module_parentCallback(true); } catch(e) {}
+        try { ao_module_close(); } catch(e) { try { window.close(); } catch(e2) {} }
+    }
+
+    /* ── Bytes display ── */
+    var egUnits = [
+        { label: 'PB', value: '1125899906842624', bytes: 1125899906842624 },
+        { label: 'TB', value: '1099511627776',    bytes: 1099511627776    },
+        { label: 'GB', value: '1073741824',        bytes: 1073741824       },
+        { label: 'MB', value: '1048576',           bytes: 1048576          },
+        { label: 'KB', value: '1024',              bytes: 1024             },
+        { label: 'Bytes', value: '1',              bytes: 1               }
+    ];
+
+    function bytesToDisplay(bytes) {
+        for (var i = 0; i < egUnits.length; i++) {
+            if (bytes >= egUnits[i].bytes && bytes % egUnits[i].bytes === 0) {
+                return { amount: bytes / egUnits[i].bytes, unitValue: egUnits[i].value };
+            }
+        }
+        return { amount: bytes, unitValue: '1' };
+    }
+
+    /* ── Render accessible module checkbox list ── */
+    function renderModuleList() {
+        var container = document.getElementById('eg-module-list');
+        var accessibles = moduleList.filter(function(m) {
+            return m.StartDir !== '' && m.Group !== 'Interface Module';
+        });
+        if (accessibles.length === 0) {
+            container.innerHTML = '<div class="ued-empty">' + egLocale.getString('editgroup/no-modules', 'No modules available') + '</div>';
+            return;
+        }
+        container.innerHTML = '';
+        accessibles.forEach(function(mod) {
+            var safeName = $('<span>').text(mod.Name).html();
+            var isChecked = selectedModules.some(function(m) { return m.Name === mod.Name; });
+            var item = document.createElement('div');
+            item.className = 'eg-mod-item';
+            item.innerHTML =
+                '<input type="checkbox" class="eg-mod-cb" value="' + safeName + '"' + (isChecked ? ' checked' : '') +
+                ' onchange="onModuleCheckChange();" onclick="event.stopPropagation();">' +
+                '<img class="eg-mod-icon" src="../../' + mod.IconPath + '" onerror="this.style.visibility=\'hidden\'">' +
+                '<span class="eg-mod-name">' + safeName + '</span>';
+            item.addEventListener('click', function(e) {
+                if (e.target.type === 'checkbox') return;
+                var cb = item.querySelector('.eg-mod-cb');
+                cb.checked = !cb.checked;
+                onModuleCheckChange();
             });
-            $(".ui.dropdown").dropdown();
-            $("#unit").dropdown("set selected","GB");
+            container.appendChild(item);
+        });
+    }
 
-            function updateGroup(){
-                var groupname = originalGroupData.Name;
+    /* ── Sync selectedModules from checkboxes ── */
+    function onModuleCheckChange() {
+        var checked = [];
+        document.querySelectorAll('.eg-mod-cb:checked').forEach(function(cb) { checked.push(cb.value); });
+        selectedModules = moduleList.filter(function(m) { return checked.indexOf(m.Name) !== -1; });
+        renderModulePreview();
+    }
 
-                //Continue to create usergroup
-                targetModuleList = [];
-                if (originalGroupData.AccessibleModules[0] == "*"){
-                    //Continue to use * as the accessable modules
-                    targetModuleList = originalGroupData.AccessibleModules;
-                }else{
-                    for (var i =0; i < selectedModules.length; i++){
-                        targetModuleList.push(selectedModules[i].Name);
-                    }
-                }
+    /* ── Render selected modules preview table ── */
+    function renderModulePreview() {
+        var tbody = document.getElementById('eg-mod-tbody');
+        if (selectedModules.length === 0) {
+            var msg = egLocale.getString('editgroup/no-modules-selected', 'No modules selected');
+            tbody.innerHTML = '<tr><td colspan="2" class="ued-empty">' + msg + '</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        selectedModules.forEach(function(mod) {
+            var safeName = $('<span>').text(mod.Name).html();
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><img class="eg-mod-icon" src="../../' + mod.IconPath + '" onerror="this.style.visibility=\'hidden\'"></td>' +
+                '<td>' + safeName + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
 
-                var defaultStorageSize = parseFloat($("#quota").val()) * $("#unit").val();
-                if (isNaN(defaultStorageSize)){
-                    $("#quota").parent().addClass("error");
-                    return
-                }else{
-                    $("#quota").parent().removeClass("error");
-                }
-
-                if ($("#quota").val() == -1){
-                    defaultStorageSize = -1;
-                }
-
-                var interfaceModule = $("#interfaceModuleList").parent().dropdown("get value");
-                if (interfaceModule == ""){
-                    interfaceModule = "Desktop";
-                }
-                
-                //Send Request to server side
-                $.ajax({
-                    url: "../../system/permission/editgroup",
-                    data: {
-                        "groupname": groupname, 
-                        "permission": JSON.stringify(targetModuleList),
-                        "isAdmin": $("#setAsAdmin").is(":checked"),
-                        "defaultQuota": defaultStorageSize,
-                        "interfaceModule": interfaceModule,
-                    },
-                    traditional: true,
-                    method: "POST",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            $("#errorbox").slideDown("fast");
-                            $("#errorbox").find(".errormessage").text(data.error);
-                        }else{
-                            $("#confirmUpdate").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-                            ao_module_parentCallback(true);
-                            window.scrollTo(0,0);
-                            //ao_module_close();
-                        }
-                    }
-                })
+    /* ── Load module list ── */
+    function initModuleList(callback) {
+        $.get('../../system/modules/list', function(data) {
+            if (!data || data.error !== undefined) {
+                egShowError(egLocale.getString('editgroup/load-error', 'Failed to load modules.'));
+                return;
             }
-
-            function initModuleList(callback=undefined){
-                $("#interfaceModuleList").html("");
-                var firstInterfaceModule = null;
-                $.get("../../system/modules/list",function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        for (var i =0; i < data.length; i++){
-                            if (data[i].StartDir !== "" && data[i].Group != "Interface Module"){
-                                $("#allowAccessList").append(`<option value="${data[i].Name}" icon="${data[i].IconPath}">${data[i].Name}</option>`);
-                            }else if (data[i].Group == "Interface Module"){
-                                //Add to interface module list
-                                $("#interfaceModuleList").append(`
-                                <div class="item" data-value="${data[i].Name}">
-                                    <img class="ui mini avatar image" style="border-radius: 0px !important;" src="../../${data[i].IconPath}">
-                                    ${data[i].Name}
-                                </div>
-                                `);
-
-                                if (firstInterfaceModule == null){
-                                    firstInterfaceModule = data[i].Name;
-                                }
-                            }else{
-                                //Utlities modules. Always allow access
-
-                            }
-                        }
-                        //Select the first interface modules
-                        $("#interfaceModuleList").parent().dropdown();
-                        $("#interfaceModuleList").parent().dropdown("set selected",firstInterfaceModule);
-                        moduleList = data;
-
-                        if (callback !== undefined){
-                            //Handle callback events
-                            callback();
-                        }
-                    }
-                });
-
-                $("#allowAccessList").on("change", function(e){
-                    var currentSelected = $(this).val();
-                    selectedModules = [];
-                    moduleList.forEach(mod => {
-                        if (currentSelected.includes(mod.Name)){
-                            selectedModules.push(mod);
-                        }
-                    });
-                    renderSelectedModuleList();
-                });
-            }
-
-            renderSelectedModuleList();
-            function renderSelectedModuleList(){
-                $("#selectedModuleList").html("");
-                for (var i = 0; i < selectedModules.length; i++){
-                    $("#selectedModuleList").append(`<tr>
-                            <td class="collapsing"><img class="ui mini image" src="../../${selectedModules[i].IconPath}"/></td>
-                            <td>${selectedModules[i].Name}</td>
-                        </tr>`);
+            moduleList = data;
+            var interfaceSel = document.getElementById('eg-interface');
+            interfaceSel.innerHTML = '';
+            data.forEach(function(mod) {
+                if (mod.Group === 'Interface Module') {
+                    var opt = document.createElement('option');
+                    opt.value = mod.Name;
+                    opt.textContent = mod.Name;
+                    interfaceSel.appendChild(opt);
                 }
-                if (selectedModules.length == 0){
-                    $("#selectedModuleList").append(`<tr>
-                        <td class="collapsing"><img class="ui mini image" src="img/nomodule.png"></img></td>
-                        <td>No Module Selected</td>
-                       </tr>`);
-                }
-            }
+            });
+            if (typeof callback === 'function') callback();
+        }).fail(function(xhr) {
+            var msg = xhr.status === 403
+                ? egLocale.getString('editgroup/err-forbidden', 'Access denied.')
+                : egLocale.getString('editgroup/load-error',    'Failed to load modules.');
+            egShowError(msg);
+        });
+    }
 
-            function cancel(){
-                ao_module_close();
+    /* ── Load group data ── */
+    function initGroupData() {
+        $.ajax({
+            url:  '../../system/permission/editgroup?list=true',
+            data: { groupname: targetUserGroup },
+            success: function(data) {
+                if (!data || data.error !== undefined) {
+                    egShowError(data && data.error ? data.error : egLocale.getString('editgroup/load-error', 'Failed to load group data.'));
+                    return;
+                }
+                originalGroupData = data;
+                document.getElementById('eg-groupname').value = data.Name;
+                document.getElementById('eg-isadmin').checked = (data.IsAdmin === true);
+
+                /* Quota */
+                if (data.DefaultStorageQuota === -1) {
+                    document.getElementById('eg-quota').value = -1;
+                } else if (data.DefaultStorageQuota <= 0) {
+                    document.getElementById('eg-quota').value = 0;
+                } else {
+                    var d = bytesToDisplay(data.DefaultStorageQuota);
+                    document.getElementById('eg-quota').value = d.amount;
+                    document.getElementById('eg-unit').value  = d.unitValue;
+                }
+
+                /* Interface module */
+                if (data.DefaultInterfaceModule) {
+                    document.getElementById('eg-interface').value = data.DefaultInterfaceModule;
+                }
+
+                /* Accessible modules */
+                if (data.AccessibleModules && data.AccessibleModules.length > 0 && data.AccessibleModules[0] === '*') {
+                    accessAll = true;
+                    document.getElementById('eg-access-all-notice').style.display = 'block';
+                    document.getElementById('eg-module-list').style.display = 'none';
+                    selectedModules = moduleList.filter(function(m) { return m.StartDir !== '' && m.Group !== 'Interface Module'; });
+                } else {
+                    accessAll = false;
+                    var accessible = Array.isArray(data.AccessibleModules) ? data.AccessibleModules : [];
+                    selectedModules = moduleList.filter(function(m) { return accessible.indexOf(m.Name) !== -1; });
+                    renderModuleList();
+                }
+                renderModulePreview();
+            },
+            error: function(xhr) {
+                var msg;
+                if      (xhr.status === 403) msg = egLocale.getString('editgroup/err-forbidden', 'Access denied.');
+                else if (xhr.status === 404) msg = egLocale.getString('editgroup/err-not-found',  'Group not found.');
+                else                         msg = egLocale.getString('editgroup/load-error',     'Failed to load group data.');
+                egShowError(msg);
             }
-            
-        </script>
-    </body>
+        });
+    }
+
+    /* ── Save group ── */
+    function updateGroup(btn) {
+        var quotaRaw = parseFloat(document.getElementById('eg-quota').value);
+        var unitVal  = parseInt(document.getElementById('eg-unit').value, 10);
+        var quotaEl  = document.getElementById('eg-quota');
+        if (isNaN(quotaRaw)) {
+            quotaEl.classList.add('error');
+            quotaEl.focus();
+            return;
+        }
+        quotaEl.classList.remove('error');
+        var quota = (quotaRaw === -1) ? -1 : quotaRaw * unitVal;
+
+        var targetModuleList;
+        if (accessAll && originalGroupData && originalGroupData.AccessibleModules[0] === '*') {
+            targetModuleList = originalGroupData.AccessibleModules;
+        } else {
+            targetModuleList = selectedModules.map(function(m) { return m.Name; });
+        }
+
+        var interfaceModule = document.getElementById('eg-interface').value || 'Desktop';
+
+        $(btn).addClass('loading');
+        $.ajax({
+            url: '../../system/permission/editgroup',
+            data: {
+                groupname:       originalGroupData.Name,
+                permission:      JSON.stringify(targetModuleList),
+                isAdmin:         document.getElementById('eg-isadmin').checked,
+                defaultQuota:    quota,
+                interfaceModule: interfaceModule
+            },
+            traditional: true,
+            method: 'POST',
+            success: function(data) {
+                $(btn).removeClass('loading');
+                if (data && data.error !== undefined) {
+                    egShowError(data.error);
+                } else {
+                    egShowSuccess();
+                    try { ao_module_parentCallback(true); } catch(e) {}
+                }
+            },
+            error: function(xhr) {
+                $(btn).removeClass('loading');
+                var msg = xhr.status === 403
+                    ? egLocale.getString('editgroup/err-forbidden', 'Access denied.')
+                    : egLocale.getString('editgroup/save-error',    'Failed to save changes.');
+                egShowError(msg);
+            }
+        });
+    }
+
+    /* ── Bootstrap ── */
+    var egLocaleReady = false;
+    egLocale.init('../locale/system_settings/editgroup.json', function() {
+        egLocaleReady = true;
+        egLocale.translate();
+        initModuleList(function() { initGroupData(); });
+    });
+    setTimeout(function() {
+        if (!egLocaleReady) {
+            initModuleList(function() { initGroupData(); });
+        }
+    }, 2000);
+</script>
+</body>
 </html>

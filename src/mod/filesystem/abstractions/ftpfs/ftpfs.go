@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/jlaffaye/ftp"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -50,7 +50,7 @@ func NewFTPFSAbstraction(uuid string, hierarchy string, hostname string, usernam
 			}
 		}()
 	*/
-	log.Println("[FTP FS] " + hostname + " mounted via FTP-FS")
+	logger.PrintAndLog("Ftpfs", "[FTP FS] "+hostname+" mounted via FTP-FS", nil)
 	return FTPFSAbstraction{
 		uuid:      uuid,
 		hierarchy: hierarchy,
@@ -84,7 +84,7 @@ func (l FTPFSAbstraction) makeConn() (*ftp.ServerConn, error) {
 	}
 
 	if !succ && lastError != nil {
-		log.Println("[FTPFS] Unable to dial TCP: " + lastError.Error())
+		logger.PrintAndLog("Ftpfs", "[FTPFS] Unable to dial TCP: "+lastError.Error(), nil)
 		return nil, lastError
 	}
 
@@ -341,7 +341,7 @@ func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 
 func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 	root = filterFilepath(root)
-	log.Println("[FTP FS] Walking a root on FTP is extremely slow. Please consider rewritting this function. Scanning: " + root)
+	logger.PrintAndLog("Ftpfs", "[FTP FS] Walking a root on FTP is extremely slow. Please consider rewritting this function. Scanning: "+root, nil)
 	c, err := l.makeConn()
 	if err != nil {
 		return err

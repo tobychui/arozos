@@ -1,0 +1,116 @@
+name: CI
+
+# Enforces the contribution rules documented in CLAUDE.md.
+# Formatting and the convention checker are scoped to the change's diff so that
+# grandfathered legacy code is not punished; build/test run module-wide, and
+# go vet runs module-wide but advisory-only (it never fails CI on legacy code).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - name: Checkout (full history for diffing)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: src/go.sum
+
+      - name: Resolve diff base
+        id: base
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          # Use the base only if it is a real commit present in this checkout.
+          # Push events can report a github.event.before that was force-pushed
+          # away or never fetched (git then errors "fatal: bad object"); fall
+          # back to HEAD's parent, and finally to empty so the diff-scoped steps
+          # below skip gracefully instead of crashing the job under `bash -e`.
+          if ! git rev-parse --verify --quiet "${base}^{commit}" >/dev/null 2>&1; then
+            base="$(git rev-parse --verify --quiet 'HEAD~1^{commit}' 2>/dev/null || true)"
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          echo "Diff base: ${base:-<none; diff-scoped checks skipped>}"
+
+      - name: Convention checker (rules 1-6, diff only)
+        if: steps.base.outputs.sha != ''
+        working-directory: ${{ github.workspace }}
+        run: sh scripts/check-conventions.sh --diff "${{ steps.base.outputs.sha }}"
+
+      - name: gofmt (changed Go files)
+        if: steps.base.outputs.sha != ''
+        working-directory: ${{ github.workspace }}
+        run: |
+          files=$(git diff --name-only --diff-filter=ACM "${{ steps.base.outputs.sha }}" -- '*.go' || true)
+          [ -z "$files" ] && { echo "No Go files changed."; exit 0; }
+          unformatted=$(gofmt -l $files)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"; echo "$unformatted"
+            echo "Run: gofmt -w <file>"; exit 1
+          fi
+
+      - name: go vet (advisory — never blocks CI)
+        # Module-wide vet surfaces pre-existing issues in grandfathered legacy
+        # code that this project intentionally does not modify, so it is run for
+        # visibility only and never fails the build. Enforcement of the
+        # contribution rules on NEW code is handled by the diff-scoped
+        # convention checker above.
+        continue-on-error: true
+        run: go vet ./...
+
+      - name: go build (all packages, native)
+        run: go build ./...
+
+      - name: Cross-compile smoke test (portability, rule 5)
+        # Mirrors every release target built by the Jenkins pipeline / Makefile:
+        # the shipped binary must build for all supported OS/arch pairs from a
+        # single, dependency-free codebase. Kept in lock-step with those targets
+        # so a platform-specific break (e.g. a missing build-tagged file for
+        # freebsd) fails here in CI instead of only in the release build.
+        run: |
+          set -e
+          # GOOS GOARCH [extra env...]
+          targets="
+          darwin/amd64
+          darwin/arm64
+          freebsd/amd64
+          freebsd/386
+          linux/amd64
+          linux/386
+          linux/arm/GOARM=6
+          linux/arm/GOARM=7
+          linux/arm64
+          linux/riscv64
+          linux/mipsle/GOMIPS=softfloat
+          linux/loong64
+          windows/amd64
+          windows/386
+          "
+          for t in $targets; do
+            os="${t%%/*}"; rest="${t#*/}"; arch="${rest%%/*}"; extra=""
+            case "$rest" in */*) extra="${rest#*/}";; esac
+            echo "==> building $os/$arch $extra"
+            env GOOS="$os" GOARCH="$arch" $extra go build -o /dev/null .
+          done
+
+      - name: go test
+        run: go test -count=1 ./...

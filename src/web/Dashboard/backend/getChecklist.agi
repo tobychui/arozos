@@ -1,0 +1,28 @@
+/*
+    Dashboard - Get Checklist
+    Reads the checklist from user:/Dashboard/checklist.json.
+    No POST parameters required.
+*/
+requirelib("filelib");
+
+var dashDir     = "user:/Dashboard";
+var checklistPath = "user:/Dashboard/checklist.json";
+
+// Ensure folder exists
+filelib.mkdir(dashDir);
+
+if (filelib.fileExists(checklistPath)) {
+    try {
+        var raw = filelib.readFile(checklistPath);
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            sendJSONResp(parsed);
+        } else {
+            sendJSONResp([]);
+        }
+    } catch (e) {
+        sendJSONResp([]);
+    }
+} else {
+    sendJSONResp([]);
+}

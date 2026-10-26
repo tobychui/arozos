@@ -2,251 +2,1108 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>Clock</title>
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        body.light-mode {
-            background-color: #f5f5f5;
-            color: #333;
-        }
-
-        body.dark-mode {
-            background-color: #1a1a1a;
-            color: #ffffff;
-        }
-
-        .cat-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: url('./img/cat.jpg');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: -1;
-            display: none;
-        }
-
-        .cat-background.active {
-            display: block;
-        }
-
-        .clock-container {
-            text-align: center;
-            padding: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        body.dark-mode .clock-container {
-            background: rgba(0, 0, 0, 0.3);
-        }
-
-        .cat-background.active ~ * .clock-container,
-        .cat-background.active ~ .clock-container {
-            background: rgba(255, 255, 255, 0.5);
-        }
-
-        body.dark-mode .cat-background.active ~ * .clock-container,
-        body.dark-mode .cat-background.active ~ .clock-container {
-            background: rgba(0, 0, 0, 0.4);
-        }
-
-        .time {
-            font-size: 72px;
-            font-weight: 300;
-            letter-spacing: 2px;
-            margin: 0;
-            line-height: 1.2;
-        }
-
-        .date {
-            font-size: 24px;
-            font-weight: 400;
-            margin-top: 20px;
-            opacity: 0.8;
-        }
-
-        .toggle-container {
-            position: fixed;
-            padding: 20px;
-        }
-
-        .dark-mode-toggle {
-            top: 0;
-            left: 0;
-        }
-
-        .cat-mode-toggle {
-            bottom: 0;
-            left: 0;
-        }
-
-        .toggle-label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        body.dark-mode .toggle-label {
-            color: #ffffff;
-        }
-
-        .cat-background.active ~ * .toggle-label,
-        .cat-background.active ~ .toggle-label {
-            text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
-        }
-
-        .mode-icon {
-            width: 24px;
-            height: 24px;
-            display: inline-block;
-        }
-    </style>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Variables ──────────────────────────────────────────────────── */
+        :root {
+            --bg:       #f2f2f7;
+            --card:     #ffffff;
+            --bar:      #ffffff;
+            --text:     #1c1c1e;
+            --text2:    #6c6c70;
+            --accent:   #007aff;
+            --green:    #34c759;
+            --orange:   #ff9500;
+            --red:      #ff3b30;
+            --border:   rgba(0,0,0,.10);
+            --hover:    rgba(0,122,255,.10);
+            --sheet-bg: #f2f2f7;
+            --font:     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        body.dark {
+            --bg:       #1c1c1e;
+            --card:     #2c2c2e;
+            --bar:      #1c1c1e;
+            --text:     #f2f2f7;
+            --text2:    #8e8e93;
+            --border:   rgba(255,255,255,.10);
+            --hover:    rgba(0,122,255,.22);
+            --sheet-bg: #2c2c2e;
+        }
+
+        /* ── Base ───────────────────────────────────────────────────────── */
+        html, body {
+            height: 100%;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 13px;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        body {
+            background-color: rgba(242,242,247,.93);
+            transition: background-color .25s, color .25s;
+        }
+        body.dark {
+            background-color: rgba(28,28,30,.96);
+        }
+
+        /* smooth theme transitions on key surfaces */
+        .tab-bar, .tab-btn, .wc-card, .local-clock-card,
+        .cd-digits, .sw-display, #panel-world, .tz-sheet,
+        .ctrl-btn.btn-reset, .cd-arrow {
+            transition: background-color .22s, color .22s, border-color .22s;
+        }
+
+        #app { display: flex; flex-direction: column; height: 100vh; }
+
+        /* ── Tab bar ────────────────────────────────────────────────────── */
+        .tab-bar {
+            display: flex;
+            flex-shrink: 0;
+            background: var(--bar);
+            border-bottom: 1px solid var(--border);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 9px 0 7px;
+            border: none;
+            background: none;
+            font-family: var(--font);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text2);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            position: relative;
+            transition: color .15s;
+            user-select: none;
+        }
+        .tab-btn.active { color: var(--accent); }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 20%; right: 20%;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 1px 1px 0 0;
+        }
+        /* Tab icons — src is swapped between _black/_white by JS on theme change */
+        .tab-btn img { opacity: .50; width: 18px; height: 18px; }
+        .tab-btn.active img { opacity: 1; }
+
+        /* ── Tab panels ─────────────────────────────────────────────────── */
+        .tab-panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+        .tab-panel.active { display: flex; }
+
+        /* ═══════════════════ DIGITAL CLOCK ════════════════════════════════ */
+        #panel-clock {
+            align-items: center;
+            justify-content: center;
+        }
+        .dc-wrap {
+            width: 80%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        .dc-time {
+            font-size: 76px;
+            font-weight: 100;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -3px;
+            color: var(--text);
+            line-height: 1;
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+        }
+        .dc-colon {
+            color: var(--text2);
+            animation: dc-blink 1s step-end infinite;
+        }
+        @keyframes dc-blink { 50% { opacity: 0; } }
+        .dc-info { display: flex; flex-direction: column; gap: 3px; }
+        .dc-day {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .10em;
+            color: var(--text2);
+        }
+        .dc-date {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text2);
+        }
+
+        /* ═══════════════════ WORLD CLOCK ═══════════════════════════════════ */
+        #panel-world { overflow-y: auto; padding: 10px 12px 10px; }
+        #panel-world::-webkit-scrollbar { width: 4px; }
+        #panel-world::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
+        body.dark #panel-world::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); }
+
+        /* Local digital clock hero card */
+        .local-clock-card {
+            background: var(--accent);
+            border-radius: 14px;
+            padding: 14px 16px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .lc-left { display: flex; flex-direction: column; gap: 3px; }
+        .lc-icon-wrap { display: flex; align-items: center; gap: 6px; }
+        .lc-label { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.9); }
+        .lc-tz    { font-size: 11px; color: rgba(255,255,255,.65); }
+        .lc-date  { font-size: 10px; color: rgba(255,255,255,.65); margin-top: 1px; }
+        .lc-time-wrap { text-align: right; }
+        .lc-time  {
+            font-size: 40px;
+            font-weight: 200;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1.5px;
+            line-height: 1;
+        }
+        .lc-sec   { font-size: 22px; font-weight: 200; color: rgba(255,255,255,.65); }
+
+        /* World clock toolbar */
+        .wc-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2px 8px;
+            flex-shrink: 0;
+        }
+        .wc-section-lbl {
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .06em;
+            color: var(--text2);
+        }
+        .wc-add-btn {
+            display: flex; align-items: center; gap: 4px;
+            padding: 5px 11px; border-radius: 14px;
+            background: var(--accent); color: #fff;
+            border: none; cursor: pointer;
+            font-size: 11px; font-weight: 600; font-family: var(--font);
+            transition: opacity .12s;
+        }
+        .wc-add-btn:hover { opacity: .85; }
+
+        /* Empty state */
+        #wc-empty {
+            text-align: center;
+            padding: 28px 24px;
+            color: var(--text2);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        #wc-empty img { opacity: .35; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; }
+
+        /* Clock cards */
+        .wc-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 11px 14px;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.07);
+            margin-bottom: 8px;
+        }
+        body.dark .wc-card { box-shadow: none; }
+        .wc-card-left { flex: 1; min-width: 0; }
+        .wc-city { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wc-meta { font-size: 10px; color: var(--text2); margin-top: 2px; }
+        .wc-time-block { text-align: right; flex-shrink: 0; }
+        .wc-time { font-size: 28px; font-weight: 200; letter-spacing: -.5px; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1; }
+        .wc-secs { font-size: 16px; font-weight: 300; color: var(--text2); }
+        .wc-remove {
+            width: 20px; height: 20px; border-radius: 50%;
+            background: rgba(255,59,48,.15); border: none; cursor: pointer;
+            color: var(--red); font-size: 15px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background .12s; line-height: 1;
+        }
+        .wc-remove:hover { background: rgba(255,59,48,.3); }
+
+        /* ── Timezone picker (bottom sheet) ─────────────────────────────── */
+        #tz-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.38);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            align-items: flex-end;
+        }
+        #tz-overlay.show { display: flex; }
+        .tz-sheet {
+            background: var(--sheet-bg);
+            border-radius: 16px 16px 0 0;
+            width: 100%; max-height: 78%;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        .tz-sheet-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px 4px; flex-shrink: 0;
+        }
+        .tz-sheet-title { font-size: 15px; font-weight: 700; color: var(--text); }
+        .tz-sheet-close {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: rgba(128,128,128,.2); border: none; cursor: pointer;
+            color: var(--text2); font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tz-search {
+            margin: 8px 14px; padding: 7px 12px;
+            border-radius: 10px; border: none;
+            background: rgba(120,120,128,.12);
+            font-size: 13px; font-family: var(--font);
+            outline: none; color: var(--text); flex-shrink: 0;
+        }
+        .tz-search::placeholder { color: var(--text2); }
+        .tz-list { overflow-y: auto; padding: 0 8px 16px; }
+        .tz-list::-webkit-scrollbar { width: 3px; }
+        .tz-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
+        body.dark .tz-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); }
+        .tz-region-lbl {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .08em; color: var(--text2); padding: 10px 8px 3px;
+        }
+        .tz-item {
+            display: flex; align-items: center;
+            padding: 9px 10px; border-radius: 8px;
+            cursor: pointer; transition: background .1s;
+        }
+        .tz-item:hover { background: var(--hover); }
+        .tz-item-name  { flex: 1; font-size: 13px; color: var(--text); }
+        .tz-item-offset{ font-size: 11px; color: var(--text2); }
+        .tz-noresults  { text-align: center; padding: 20px; color: var(--text2); font-size: 13px; }
+
+        /* ═══════════════════ COUNTDOWN ══════════════════════════════════════ */
+        #panel-countdown {
+            align-items: center;
+            justify-content: space-evenly;
+            padding: 12px 16px 16px;
+        }
+        .cd-grid {
+            display: grid;
+            grid-template-columns: 88px 22px 88px 22px 88px;
+            grid-template-rows: 30px 54px 30px 18px;
+            row-gap: 3px;
+            justify-content: center;
+            align-items: center;
+        }
+        .cd-sep {
+            text-align: center; font-size: 42px; font-weight: 100;
+            color: var(--text2); line-height: 54px; user-select: none;
+        }
+        .cd-digits {
+            text-align: center; font-size: 46px; font-weight: 200;
+            color: var(--text); font-variant-numeric: tabular-nums;
+            letter-spacing: -1px; line-height: 1;
+        }
+        .cd-digits.alarm { color: var(--red); }
+        .cd-lbl {
+            text-align: center; font-size: 10px; font-weight: 500;
+            text-transform: uppercase; letter-spacing: .05em; color: var(--text2);
+        }
+        .cd-arrow {
+            width: 100%; height: 100%;
+            border: none; border-radius: 6px;
+            background: rgba(120,120,128,.12);
+            color: var(--text); cursor: pointer; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .1s;
+        }
+        .cd-arrow:hover  { background: var(--hover); color: var(--accent); }
+        .cd-arrow:active { background: var(--accent); color: #fff; }
+        .cd-arrow:disabled { opacity: .28; cursor: default; }
+        .cd-progress-wrap {
+            width: 100%; height: 4px;
+            background: rgba(120,120,128,.15);
+            border-radius: 2px; overflow: hidden;
+        }
+        .cd-progress {
+            height: 100%; width: 0%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width .4s linear, background .3s;
+        }
+
+        /* ═══════════════════ SHARED CONTROLS ═══════════════════════════════ */
+        .ctrl-row {
+            display: flex; align-items: center;
+            justify-content: center; gap: 20px;
+        }
+        .ctrl-btn {
+            width: 56px; height: 56px; border-radius: 50%;
+            border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform .1s, opacity .12s;
+        }
+        .ctrl-btn:hover   { opacity: .86; transform: scale(1.05); }
+        .ctrl-btn:active  { transform: scale(.96); }
+        .ctrl-btn:disabled { opacity: .28; cursor: default; transform: none; }
+        .btn-play   { background: var(--green);  }
+        .btn-pause  { background: var(--orange); }
+        .btn-reset  { background: rgba(120,120,128,.14); }
+        .btn-stop   { background: var(--red);    }
+
+        /* ═══════════════════ STOPWATCH ══════════════════════════════════════ */
+        #panel-stopwatch {
+            align-items: center;
+            justify-content: space-evenly;
+            padding: 12px 16px 16px;
+        }
+        .sw-display {
+            font-size: 60px; font-weight: 100; letter-spacing: -2px;
+            color: var(--text); font-variant-numeric: tabular-nums;
+            text-align: center; line-height: 1; white-space: nowrap;
+        }
+        .sw-display .sw-dim { color: var(--text2); }
+        .sw-display .sw-cs  { font-size: 34px; }
+        .sw-status {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: .06em; text-transform: uppercase; color: var(--text2);
+        }
+
+        /* ── Theme dot (bottom-right corner toggle) ─────────────────────── */
+        #theme-dot {
+            position: fixed;
+            bottom: 8px; left: 9px;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--text2);
+            border: none;
+            cursor: pointer;
+            z-index: 90;
+            opacity: .40;
+            transition: opacity .15s, background .22s;
+            padding: 0;
+        }
+        #theme-dot:hover { opacity: .85; }
+        body.dark #theme-dot { background: var(--text2); }
+    </style>
 </head>
-<body class="light-mode">
-    <!-- Cat Background -->
-    <div class="cat-background" id="catBackground"></div>
+<body>
+<div id="app">
 
-    <!-- Dark Mode Toggle -->
-    <div class="toggle-container dark-mode-toggle">
-        <div class="toggle-label">
-            <div class="ui toggle checkbox" id="darkModeToggle">
-                <input type="checkbox" name="darkMode">
-                <label><img src="./img/light-mode.svg" class="mode-icon" id="modeIcon" alt="Mode" style="margin-top: -0.3em;"></label>
+    <!-- ── Tab bar ────────────────────────────────────────────────────── -->
+    <div class="tab-bar">
+        <button class="tab-btn active" id="tab-clock-btn" onclick="switchTab('clock')">
+            <img class="theme-icon" data-icon="clock" src="img/icons/clock_black.svg">
+            <span locale="clock/tab-clock">Clock</span>
+        </button>
+        <button class="tab-btn" id="tab-world-btn" onclick="switchTab('world')">
+            <img class="theme-icon" data-icon="globe" src="img/icons/globe_black.svg">
+            <span locale="clock/tab-world">World</span>
+        </button>
+        <button class="tab-btn" id="tab-countdown-btn" onclick="switchTab('countdown')">
+            <img class="theme-icon" data-icon="countdown" src="img/icons/countdown_black.svg">
+            <span locale="clock/tab-countdown">Countdown</span>
+        </button>
+        <button class="tab-btn" id="tab-stopwatch-btn" onclick="switchTab('stopwatch')">
+            <img class="theme-icon" data-icon="timer" src="img/icons/timer_black.svg">
+            <span locale="clock/tab-stopwatch">Stopwatch</span>
+        </button>
+    </div>
+
+    <!-- ═══ DIGITAL CLOCK ═══════════════════════════════════════════════ -->
+    <div id="panel-clock" class="tab-panel active">
+        <div class="dc-wrap">
+            <div class="dc-time">
+                <span id="dc-h">00</span><span class="dc-colon">:</span><span id="dc-m">00</span><span class="dc-colon">:</span><span id="dc-s">00</span>
+            </div>
+            <div class="dc-info">
+                <div class="dc-day"  id="dc-day"></div>
+                <div class="dc-date" id="dc-date"></div>
             </div>
         </div>
     </div>
 
-    <!-- Cat Mode Toggle -->
-    <div class="toggle-container cat-mode-toggle">
-        <div class="toggle-label">
-            <div class="ui toggle checkbox" id="catModeToggle">
-                <input type="checkbox" name="catMode">
-                <label>Cat Mode</label>
+    <!-- ═══ WORLD CLOCK ══════════════════════════════════════════════════ -->
+    <div id="panel-world" class="tab-panel">
+
+        <!-- Local time hero card -->
+        <div class="local-clock-card">
+            <div class="lc-left">
+                <div class="lc-icon-wrap">
+                    <img src="img/icons/clock_white.svg" width="14" height="14" style="opacity:.85;">
+                    <span class="lc-label" id="lc-label">Local</span>
+                </div>
+                <div class="lc-tz"   id="lc-tz"></div>
+                <div class="lc-date" id="lc-date"></div>
+            </div>
+            <div class="lc-time-wrap">
+                <span class="lc-time" id="lc-time">--:--</span><span class="lc-sec" id="lc-sec">:--</span>
             </div>
         </div>
+
+        <!-- Toolbar -->
+        <div class="wc-toolbar">
+            <span class="wc-section-lbl" locale="clock/other-clocks">Other Clocks</span>
+            <button class="wc-add-btn" onclick="tzPickerShow()">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round">
+                    <line x1="12" y1="4" x2="12" y2="20"/><line x1="4" y1="12" x2="20" y2="12"/>
+                </svg>
+                <span locale="clock/add-city">Add City</span>
+            </button>
+        </div>
+
+        <!-- Empty state -->
+        <div id="wc-empty" style="display:none;">
+            <img class="theme-icon" data-icon="globe" src="img/icons/globe_black.svg" width="44" height="44">
+            <span locale="clock/no-clocks-empty">No clocks yet.<br>Tap <b>+ Add City</b> to get started.</span>
+        </div>
+
+        <!-- Clock list -->
+        <div id="wc-list"></div>
     </div>
 
-    <!-- Clock Display -->
-    <div class="clock-container">
-        <div class="time" id="time">00:00:00 AM</div>
-        <div class="date" id="date">Loading...</div>
+    <!-- ═══ COUNTDOWN ════════════════════════════════════════════════════ -->
+    <div id="panel-countdown" class="tab-panel">
+
+        <div class="cd-grid">
+            <button class="cd-arrow" id="cd-up-h" onclick="cdAdjust('h',1)">▲</button>
+            <span></span>
+            <button class="cd-arrow" id="cd-up-m" onclick="cdAdjust('m',1)">▲</button>
+            <span></span>
+            <button class="cd-arrow" id="cd-up-s" onclick="cdAdjust('s',1)">▲</button>
+
+            <div class="cd-digits" id="cd-h">00</div>
+            <div class="cd-sep">:</div>
+            <div class="cd-digits" id="cd-m">00</div>
+            <div class="cd-sep">:</div>
+            <div class="cd-digits" id="cd-s">00</div>
+
+            <button class="cd-arrow" id="cd-dn-h" onclick="cdAdjust('h',-1)">▼</button>
+            <span></span>
+            <button class="cd-arrow" id="cd-dn-m" onclick="cdAdjust('m',-1)">▼</button>
+            <span></span>
+            <button class="cd-arrow" id="cd-dn-s" onclick="cdAdjust('s',-1)">▼</button>
+
+            <div class="cd-lbl" locale="clock/cd-hours">Hours</div>
+            <span></span>
+            <div class="cd-lbl" locale="clock/cd-minutes">Minutes</div>
+            <span></span>
+            <div class="cd-lbl" locale="clock/cd-seconds">Seconds</div>
+        </div>
+
+        <div class="cd-progress-wrap">
+            <div class="cd-progress" id="cd-progress"></div>
+        </div>
+
+        <div class="ctrl-row">
+            <button id="cd-btn-play"  class="ctrl-btn btn-play"  onclick="cdStart()" title="Start">
+                <img src="img/icons/play_white.svg" width="22" height="22">
+            </button>
+            <button id="cd-btn-pause" class="ctrl-btn btn-pause" onclick="cdPause()" title="Pause" disabled>
+                <img src="img/icons/pause_white.svg" width="22" height="22">
+            </button>
+            <button id="cd-btn-reset" class="ctrl-btn btn-reset" onclick="cdReset()" title="Reset">
+                <img class="theme-icon" data-icon="reset" src="img/icons/reset_black.svg" width="20" height="20">
+            </button>
+        </div>
+
     </div>
 
-    <script src="../../script/jquery.min.js"></script>
-    <script src="../../script/semantic/semantic.min.js"></script>
-    <script>
-        // Initialize Semantic UI checkboxes
-        $('.ui.checkbox').checkbox();
+    <!-- ═══ STOPWATCH ════════════════════════════════════════════════════ -->
+    <div id="panel-stopwatch" class="tab-panel">
 
-        // Fix the window size
-        //ao_module_setFixedWindowSize();
+        <div class="sw-display">
+            <span id="sw-hm">00:00</span><span class="sw-dim">:</span><span id="sw-s">00</span><span class="sw-dim sw-cs">.<span id="sw-cs-val">00</span></span>
+        </div>
 
-        // Update cat background based on dark mode
-        function updateCatBackground() {
-            const isDarkMode = document.body.classList.contains('dark-mode');
-            const catBg = $('#catBackground');
-            if (isDarkMode) {
-                catBg.css('background-image', 'url("./img/cat-dark.jpg")');
-            } else {
-                catBg.css('background-image', 'url("./img/cat.jpg")');
-            }
+        <div class="sw-status" id="sw-status" locale="clock/status-ready">Ready</div>
+
+        <div class="ctrl-row">
+            <button id="sw-btn-toggle" class="ctrl-btn btn-play" onclick="swToggle()" title="Start / Pause">
+                <img id="sw-ico-play"  src="img/icons/play_white.svg"  width="22" height="22">
+                <img id="sw-ico-pause" src="img/icons/pause_white.svg" width="22" height="22" style="display:none;">
+            </button>
+            <button class="ctrl-btn btn-reset" onclick="swReset()" title="Reset">
+                <img class="theme-icon" data-icon="reset" src="img/icons/reset_black.svg" width="20" height="20">
+            </button>
+        </div>
+
+    </div>
+
+</div><!-- /#app -->
+
+<!-- Theme toggle dot -->
+<button id="theme-dot" onclick="toggleTheme()" title="Toggle dark / light theme"></button>
+
+<!-- ═══ TIMEZONE PICKER ═══════════════════════════════════════════════════ -->
+<div id="tz-overlay" onclick="if(event.target===this)tzPickerHide()">
+    <div class="tz-sheet">
+        <div class="tz-sheet-header">
+            <span class="tz-sheet-title" locale="clock/tz-sheet-title">Choose a City</span>
+            <button class="tz-sheet-close" onclick="tzPickerHide()">✕</button>
+        </div>
+        <input class="tz-search" id="tz-search" type="search" placeholder="Search city or region…" oninput="tzFilter(this.value)">
+        <div class="tz-list" id="tz-list"></div>
+    </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+//  SETUP
+// ════════════════════════════════════════════════════════════════════════
+ao_module_setFixedWindowSize();
+ao_module_setWindowSize(420, 450);
+
+function getStr(key, fallback) {
+    return (typeof applocale !== 'undefined' && applocale) ? applocale.getString(key, fallback) : fallback;
+}
+
+function getCityDisplayName(englishName) {
+    var key = 'clock/city-' + englishName.toLowerCase().replace(/ /g, '-');
+    return getStr(key, englishName);
+}
+
+// Returns BCP-47 locale string for date/time formatting based on the user's
+// arozos language preference, falling back to the browser's locale.
+function getDateLocale() {
+    var lang = (localStorage.getItem('global_language') || 'default').toLowerCase();
+    if (lang === 'default' || lang === '') return navigator.language;
+    var map = {
+        'en-us': 'en-US',
+        'zh-cn': 'zh-CN',
+        'zh-tw': 'zh-TW',
+        'zh-hk': 'zh-HK',
+        'ja-jp': 'ja-JP',
+        'ko-kr': 'ko-KR'
+    };
+    return map[lang] || lang;
+}
+
+function pad(n){ return n < 10 ? '0'+n : String(n); }
+function htmlEsc(s){
+    return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════════════════════════════════════
+var isDark = false;
+
+function loadTheme(){
+    var saved = localStorage.getItem('clock_theme');
+    isDark = (saved === 'dark');
+    applyTheme(false); // no animation on initial load
+}
+
+function toggleTheme(){
+    isDark = !isDark;
+    localStorage.setItem('clock_theme', isDark ? 'dark' : 'light');
+    applyTheme(true);
+}
+
+function applyTheme(animate){
+    document.body.classList.toggle('dark', isDark);
+    // JS src-swap is the single source of truth for icon colour —
+    // no CSS filter involved (that would double-invert the already-correct image).
+    updateDynamicIcons();
+}
+
+// Swap every .theme-icon[data-icon] to its _black or _white variant.
+function updateDynamicIcons(){
+    document.querySelectorAll('.theme-icon[data-icon]').forEach(function(img){
+        var name   = img.dataset.icon;
+        var suffix = isDark ? 'white' : 'black';
+        img.src = 'img/icons/' + name + '_' + suffix + '.svg';
+    });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ════════════════════════════════════════════════════════════════════════
+var activeTab = 'clock';
+function switchTab(id){
+    activeTab = id;
+    ['clock','world','countdown','stopwatch'].forEach(function(t){
+        document.getElementById('tab-'+t+'-btn').classList.toggle('active', t === id);
+        document.getElementById('panel-'+t).classList.toggle('active', t === id);
+    });
+    var labels = {
+        clock:     getStr('clock/wintitle-main',      'Clock'),
+        world:     getStr('clock/wintitle-world',     'World Clock'),
+        countdown: getStr('clock/wintitle-countdown', 'Countdown'),
+        stopwatch: getStr('clock/wintitle-stopwatch', 'Stopwatch')
+    };
+    ao_module_setWindowTitle(getStr('clock/wintitle-main', 'Clock') + ' — ' + labels[id]);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  DIGITAL CLOCK TAB
+// ════════════════════════════════════════════════════════════════════════
+function updateDigitalClock(){
+    var now = new Date();
+    document.getElementById('dc-h').textContent    = pad(now.getHours());
+    document.getElementById('dc-m').textContent    = pad(now.getMinutes());
+    document.getElementById('dc-s').textContent    = pad(now.getSeconds());
+    document.getElementById('dc-day').textContent  =
+        now.toLocaleDateString(getDateLocale(), { weekday: 'long' });
+    document.getElementById('dc-date').textContent =
+        now.toLocaleDateString(getDateLocale(), { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  LOCAL DIGITAL CLOCK (World Clock hero card)
+// ════════════════════════════════════════════════════════════════════════
+function getLocalTzCity(){
+    try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        for (var i = 0; i < ALL_CITIES.length; i++){
+            if (ALL_CITIES[i][1] === tz) return ALL_CITIES[i][0];
         }
+        return tz.split('/').pop().replace(/_/g, ' ');
+    } catch(e){ return 'Local'; }
+}
 
-        // Update clock function
-        function updateClock() {
-            const now = new Date();
-            
-            // Format time
-            let hours = now.getHours();
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12;
-            hours = hours ? hours : 12; // 0 should be 12
-            const hoursStr = String(hours).padStart(2, '0');
-            
-            document.getElementById('time').textContent = `${hoursStr}:${minutes}:${seconds} ${ampm}`;
-            
-            // Format date
-            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const dayOfWeek = days[now.getDay()];
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = now.getFullYear();
-            
-            document.getElementById('date').textContent = `${dayOfWeek}, ${day}/${month}/${year}`;
-        }
+function updateLocalClock(){
+    var now = new Date();
+    // Time parts
+    var h  = now.getHours(),
+        m  = now.getMinutes(),
+        s  = now.getSeconds();
+    document.getElementById('lc-time').textContent = pad(h) + ':' + pad(m);
+    document.getElementById('lc-sec').textContent  = ':' + pad(s);
+    // Date
+    document.getElementById('lc-date').textContent =
+        now.toLocaleDateString(getDateLocale(), { weekday:'short', month:'short', day:'numeric' });
+}
 
-        // Dark mode toggle
-        $('#darkModeToggle').checkbox({
-            onChecked: function() {
-                document.body.classList.remove('light-mode');
-                document.body.classList.add('dark-mode');
-                $('#modeIcon').attr('src', './img/light-mode.svg');
-                updateCatBackground();
-                localStorage.setItem('darkMode', 'true');
-            },
-            onUnchecked: function() {
-                document.body.classList.remove('dark-mode');
-                document.body.classList.add('light-mode');
-                $('#modeIcon').attr('src', './img/dark-mode.svg');
-                updateCatBackground();
-                localStorage.setItem('darkMode', 'false');
-            }
+function initLocalClock(){
+    var city = getLocalTzCity();
+    document.getElementById('lc-label').textContent = getCityDisplayName(city);
+    try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        var offFmt = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' });
+        var offset = '';
+        offFmt.formatToParts(new Date()).forEach(function(x){ if (x.type==='timeZoneName') offset = x.value; });
+        var tzRegion = tz.split('/')[0];
+        var tzRegionLabel = getStr('clock/region-' + tzRegion.toLowerCase(), tzRegion);
+        document.getElementById('lc-tz').textContent = offset + '  ·  ' + tzRegionLabel;
+    } catch(e){}
+    updateLocalClock();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  WORLD CLOCK
+// ════════════════════════════════════════════════════════════════════════
+var ALL_CITIES = [
+    ['Abu Dhabi',      'Asia/Dubai',                    'Asia'],
+    ['Adelaide',       'Australia/Adelaide',            'Australia'],
+    ['Almaty',         'Asia/Almaty',                   'Asia'],
+    ['Amsterdam',      'Europe/Amsterdam',              'Europe'],
+    ['Anchorage',      'America/Anchorage',             'Americas'],
+    ['Athens',         'Europe/Athens',                 'Europe'],
+    ['Auckland',       'Pacific/Auckland',              'Pacific'],
+    ['Bangkok',        'Asia/Bangkok',                  'Asia'],
+    ['Beijing',        'Asia/Shanghai',                 'Asia'],
+    ['Berlin',         'Europe/Berlin',                 'Europe'],
+    ['Brisbane',       'Australia/Brisbane',            'Australia'],
+    ['Brussels',       'Europe/Brussels',               'Europe'],
+    ['Buenos Aires',   'America/Argentina/Buenos_Aires','Americas'],
+    ['Cairo',          'Africa/Cairo',                  'Africa'],
+    ['Casablanca',     'Africa/Casablanca',             'Africa'],
+    ['Chicago',        'America/Chicago',               'Americas'],
+    ['Copenhagen',     'Europe/Copenhagen',             'Europe'],
+    ['Denver',         'America/Denver',                'Americas'],
+    ['Dubai',          'Asia/Dubai',                    'Asia'],
+    ['Dublin',         'Europe/Dublin',                 'Europe'],
+    ['Frankfurt',      'Europe/Berlin',                 'Europe'],
+    ['Helsinki',       'Europe/Helsinki',               'Europe'],
+    ['Ho Chi Minh City','Asia/Ho_Chi_Minh',             'Asia'],
+    ['Hong Kong',      'Asia/Hong_Kong',                'Asia'],
+    ['Honolulu',       'Pacific/Honolulu',              'Pacific'],
+    ['Istanbul',       'Europe/Istanbul',               'Europe'],
+    ['Jakarta',        'Asia/Jakarta',                  'Asia'],
+    ['Johannesburg',   'Africa/Johannesburg',           'Africa'],
+    ['Karachi',        'Asia/Karachi',                  'Asia'],
+    ['Kathmandu',      'Asia/Kathmandu',                'Asia'],
+    ['Kolkata',        'Asia/Kolkata',                  'Asia'],
+    ['Kuala Lumpur',   'Asia/Kuala_Lumpur',             'Asia'],
+    ['Lagos',          'Africa/Lagos',                  'Africa'],
+    ['Lima',           'America/Lima',                  'Americas'],
+    ['Lisbon',         'Europe/Lisbon',                 'Europe'],
+    ['London',         'Europe/London',                 'Europe'],
+    ['Los Angeles',    'America/Los_Angeles',           'Americas'],
+    ['Madrid',         'Europe/Madrid',                 'Europe'],
+    ['Manila',         'Asia/Manila',                   'Asia'],
+    ['Melbourne',      'Australia/Melbourne',           'Australia'],
+    ['Mexico City',    'America/Mexico_City',           'Americas'],
+    ['Moscow',         'Europe/Moscow',                 'Europe'],
+    ['Mumbai',         'Asia/Kolkata',                  'Asia'],
+    ['Nairobi',        'Africa/Nairobi',                'Africa'],
+    ['New Delhi',      'Asia/Kolkata',                  'Asia'],
+    ['New York',       'America/New_York',              'Americas'],
+    ['Oslo',           'Europe/Oslo',                   'Europe'],
+    ['Paris',          'Europe/Paris',                  'Europe'],
+    ['Perth',          'Australia/Perth',               'Australia'],
+    ['Phoenix',        'America/Phoenix',               'Americas'],
+    ['Prague',         'Europe/Prague',                 'Europe'],
+    ['Riyadh',         'Asia/Riyadh',                   'Asia'],
+    ['Rome',           'Europe/Rome',                   'Europe'],
+    ['San Francisco',  'America/Los_Angeles',           'Americas'],
+    ['Santiago',       'America/Santiago',              'Americas'],
+    ['Sao Paulo',      'America/Sao_Paulo',             'Americas'],
+    ['Seoul',          'Asia/Seoul',                    'Asia'],
+    ['Shanghai',       'Asia/Shanghai',                 'Asia'],
+    ['Singapore',      'Asia/Singapore',                'Asia'],
+    ['Stockholm',      'Europe/Stockholm',              'Europe'],
+    ['Sydney',         'Australia/Sydney',              'Australia'],
+    ['Taipei',         'Asia/Taipei',                   'Asia'],
+    ['Tehran',         'Asia/Tehran',                   'Asia'],
+    ['Tel Aviv',       'Asia/Jerusalem',                'Asia'],
+    ['Tokyo',          'Asia/Tokyo',                    'Asia'],
+    ['Toronto',        'America/Toronto',               'Americas'],
+    ['UTC',            'UTC',                           'UTC'],
+    ['Vancouver',      'America/Vancouver',             'Americas'],
+    ['Vienna',         'Europe/Vienna',                 'Europe'],
+    ['Warsaw',         'Europe/Warsaw',                 'Europe'],
+    ['Wellington',     'Pacific/Auckland',              'Pacific'],
+    ['Zurich',         'Europe/Zurich',                 'Europe'],
+];
+
+var wcClocks = [];
+
+function wcLoad(){
+    try { var s = localStorage.getItem('clock_wc'); if (s) wcClocks = JSON.parse(s); } catch(e){ wcClocks = []; }
+    wcRender();
+}
+function wcSave(){
+    try { localStorage.setItem('clock_wc', JSON.stringify(wcClocks)); } catch(e){}
+}
+
+function wcRender(){
+    var emptyEl = document.getElementById('wc-empty');
+    var listEl  = document.getElementById('wc-list');
+    if (!wcClocks.length){
+        emptyEl.style.display = 'block';
+        listEl.innerHTML = '';
+        updateDynamicIcons(); // ensure empty-state icon reflects current theme
+        return;
+    }
+    emptyEl.style.display = 'none';
+    listEl.innerHTML = wcClocks.map(function(c, i){
+        return '<div class="wc-card">' +
+            '<div class="wc-card-left">' +
+                '<div class="wc-city">'+htmlEsc(getCityDisplayName(c.city))+'</div>' +
+                '<div class="wc-meta" id="wc-meta-'+i+'"></div>' +
+            '</div>' +
+            '<div class="wc-time-block">' +
+                '<span class="wc-time" id="wc-hm-'+i+'">--:--</span>' +
+                '<span class="wc-secs" id="wc-sec-'+i+'"></span>' +
+            '</div>' +
+            '<button class="wc-remove" onclick="wcRemove('+i+')" title="'+getStr('clock/btn-remove','Remove')+'">×</button>' +
+        '</div>';
+    }).join('');
+    wcRefresh();
+}
+
+function wcRefresh(){
+    var now = new Date();
+    wcClocks.forEach(function(c, i){
+        try {
+            var fmt = new Intl.DateTimeFormat('en-GB', {
+                timeZone: c.tz,
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            });
+            var p = {};
+            fmt.formatToParts(now).forEach(function(x){ p[x.type] = x.value; });
+
+            var offFmt = new Intl.DateTimeFormat('en', { timeZone: c.tz, timeZoneName: 'shortOffset' });
+            var offset = '';
+            offFmt.formatToParts(now).forEach(function(x){ if (x.type==='timeZoneName') offset = x.value; });
+
+            var localMidnight = new Date(); localMidnight.setHours(0,0,0,0);
+            var tzMidnight = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
+            tzMidnight.setHours(0,0,0,0);
+            var dd = Math.round((tzMidnight - localMidnight) / 86400000);
+            var dSuffix = getStr('clock/day-suffix', 'd');
+            var dayLabel = dd > 0 ? ' · +'+dd+dSuffix : (dd < 0 ? ' · '+dd+dSuffix : '');
+
+            var hmEl   = document.getElementById('wc-hm-'+i);
+            var secEl  = document.getElementById('wc-sec-'+i);
+            var metaEl = document.getElementById('wc-meta-'+i);
+            if (hmEl)   hmEl.textContent   = p.hour + ':' + p.minute;
+            if (secEl)  secEl.textContent  = ':' + p.second;
+            if (metaEl) metaEl.textContent = offset + dayLabel;
+        } catch(e){}
+    });
+}
+
+function wcRemove(i){
+    wcClocks.splice(i, 1);
+    wcSave();
+    wcRender();
+}
+
+function wcAddCity(city, tz){
+    for (var i = 0; i < wcClocks.length; i++){
+        if (wcClocks[i].city === city){ tzPickerHide(); return; }
+    }
+    wcClocks.push({ city: city, tz: tz });
+    wcSave();
+    wcRender();
+    tzPickerHide();
+}
+
+// ── Timezone picker ──────────────────────────────────────────────────────
+var tzFiltered = ALL_CITIES.slice();
+
+function tzPickerShow(){
+    document.getElementById('tz-search').value = '';
+    tzFiltered = ALL_CITIES.slice();
+    tzRenderList();
+    document.getElementById('tz-overlay').classList.add('show');
+    setTimeout(function(){ document.getElementById('tz-search').focus(); }, 150);
+}
+function tzPickerHide(){ document.getElementById('tz-overlay').classList.remove('show'); }
+
+function tzFilter(q){
+    q = q.toLowerCase().trim();
+    tzFiltered = q
+        ? ALL_CITIES.filter(function(c){
+            return c[0].toLowerCase().includes(q) ||
+                   c[2].toLowerCase().includes(q) ||
+                   getCityDisplayName(c[0]).toLowerCase().includes(q);
+          })
+        : ALL_CITIES.slice();
+    tzRenderList();
+}
+
+function tzGetOffset(tz){
+    try {
+        var fmt = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' });
+        var p = fmt.formatToParts(new Date());
+        for (var i = 0; i < p.length; i++){ if (p[i].type === 'timeZoneName') return p[i].value; }
+    } catch(e){}
+    return '';
+}
+
+function tzRenderList(){
+    var listEl = document.getElementById('tz-list');
+    if (!tzFiltered.length){
+        listEl.innerHTML = '<div class="tz-noresults">'+getStr('clock/no-results','No results')+'</div>';
+        return;
+    }
+    var ORDER = ['Americas','Europe','Asia','Africa','Australia','Pacific','UTC'];
+    var groups = {};
+    tzFiltered.forEach(function(c){ if (!groups[c[2]]) groups[c[2]] = []; groups[c[2]].push(c); });
+    var html = '';
+    ORDER.forEach(function(r){
+        if (!groups[r] || !groups[r].length) return;
+        html += '<div class="tz-region-lbl">'+getStr('clock/region-'+r.toLowerCase().replace(/ /g,'-'), r)+'</div>';
+        groups[r].forEach(function(c){
+            html += '<div class="tz-item" data-city="'+htmlEsc(c[0])+'" data-tz="'+htmlEsc(c[1])+'">' +
+                '<span class="tz-item-name">'+htmlEsc(getCityDisplayName(c[0]))+'</span>' +
+                '<span class="tz-item-offset">'+tzGetOffset(c[1])+'</span>' +
+            '</div>';
         });
+    });
+    listEl.innerHTML = html;
+}
 
-        // Cat mode toggle
-        $('#catModeToggle').checkbox({
-            onChecked: function() {
-                updateCatBackground();
-                $('#catBackground').addClass('active');
-                localStorage.setItem('catMode', 'true');
-            },
-            onUnchecked: function() {
-                $('#catBackground').removeClass('active');
-                localStorage.setItem('catMode', 'false');
-            }
-        });
+document.getElementById('tz-list').addEventListener('click', function(e){
+    var item = e.target.closest('.tz-item');
+    if (!item) return;
+    wcAddCity(item.dataset.city, item.dataset.tz);
+});
 
-        // Load saved preferences
-        if (localStorage.getItem('darkMode') === 'true') {
-            $('#darkModeToggle').checkbox('check');
-            $('#modeIcon').attr('src', './img/light-mode.svg');
-        } else {
-            $('#modeIcon').attr('src', './img/dark-mode.svg');
-        }
-        
-        if (localStorage.getItem('catMode') === 'true') {
-            $('#catModeToggle').checkbox('check');
-            updateCatBackground();
-            $('#catBackground').addClass('active');
-        }
+// ════════════════════════════════════════════════════════════════════════
+//  COUNTDOWN TIMER
+// ════════════════════════════════════════════════════════════════════════
+var cdH=0, cdM=0, cdS=0;
+var cdRunning=false, cdTotalMs=0, cdTargetTs=0, cdRemMs=0;
+var cdTimer=null, cdAlarm=null;
 
-        // Update clock immediately and then every second
-        updateClock();
-        setInterval(updateClock, 1000);
-    </script>
+function cdAdjust(unit, d){
+    if (cdRunning) return;
+    if (unit==='h'){ cdH=(cdH+d+24)%24; document.getElementById('cd-h').textContent=pad(cdH); }
+    else if (unit==='m'){ cdM=(cdM+d+60)%60; document.getElementById('cd-m').textContent=pad(cdM); }
+    else { cdS=(cdS+d+60)%60; document.getElementById('cd-s').textContent=pad(cdS); }
+}
+
+function cdArrows(disabled){
+    ['cd-up-h','cd-up-m','cd-up-s','cd-dn-h','cd-dn-m','cd-dn-s'].forEach(function(id){
+        document.getElementById(id).disabled = disabled;
+    });
+}
+
+function cdStart(){
+    if (cdRunning) return;
+    if (!cdRemMs){
+        var total = (cdH*3600 + cdM*60 + cdS)*1000;
+        if (total <= 0) return;
+        cdTotalMs = total; cdRemMs = total;
+    }
+    cdTargetTs = Date.now() + cdRemMs;
+    cdRunning  = true;
+    cdArrows(true);
+    document.getElementById('cd-btn-play').disabled  = true;
+    document.getElementById('cd-btn-pause').disabled = false;
+    document.getElementById('cd-progress').style.background = 'var(--accent)';
+    cdTimer = setInterval(cdTick, 200);
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown','Countdown'));
+}
+
+function cdTick(){
+    var rem = cdTargetTs - Date.now();
+    if (rem <= 0){
+        clearInterval(cdTimer); cdTimer = null;
+        cdRunning = false; cdRemMs = 0;
+        cdArrows(false);
+        document.getElementById('cd-btn-play').disabled  = false;
+        document.getElementById('cd-btn-pause').disabled = true;
+        cdSetDisplay(0,0,0);
+        document.getElementById('cd-progress').style.width      = '100%';
+        document.getElementById('cd-progress').style.background = 'var(--red)';
+        ['cd-h','cd-m','cd-s'].forEach(function(id){ document.getElementById(id).classList.add('alarm'); });
+        cdFireAlarm(); return;
+    }
+    cdRemMs = rem;
+    var st = Math.ceil(rem/1000), h=Math.floor(st/3600); st-=h*3600;
+    var m=Math.floor(st/60); st-=m*60;
+    cdSetDisplay(h, m, st);
+    document.getElementById('cd-progress').style.width = ((rem/cdTotalMs)*100)+'%';
+}
+
+function cdSetDisplay(h,m,s){
+    document.getElementById('cd-h').textContent=pad(h);
+    document.getElementById('cd-m').textContent=pad(m);
+    document.getElementById('cd-s').textContent=pad(s);
+}
+
+function cdPause(){
+    if (!cdRunning) return;
+    clearInterval(cdTimer); cdTimer=null;
+    cdRunning=false; cdRemMs=Math.max(0, cdTargetTs-Date.now());
+    cdArrows(false);
+    document.getElementById('cd-btn-play').disabled  = false;
+    document.getElementById('cd-btn-pause').disabled = true;
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown-paused','Countdown (Paused)'));
+}
+
+function cdReset(){
+    clearInterval(cdTimer); cdTimer=null;
+    cdRunning=false; cdRemMs=0; cdH=0; cdM=0; cdS=0;
+    cdSetDisplay(0,0,0); cdArrows(false);
+    document.getElementById('cd-btn-play').disabled  = false;
+    document.getElementById('cd-btn-pause').disabled = true;
+    document.getElementById('cd-progress').style.width      = '0%';
+    document.getElementById('cd-progress').style.background = 'var(--accent)';
+    ['cd-h','cd-m','cd-s'].forEach(function(id){ document.getElementById(id).classList.remove('alarm'); });
+    if (cdAlarm){ cdAlarm.pause(); cdAlarm=null; }
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown','Countdown'));
+}
+
+function cdFireAlarm(){
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-times-up',"⏰ Time's up!"));
+    try {
+        cdAlarm = new Audio('sound/imuslab_theme.mp3');
+        cdAlarm.volume = 0.3;
+        cdAlarm.play();
+        var volTick = setInterval(function(){
+            if (!cdAlarm){ clearInterval(volTick); return; }
+            cdAlarm.volume = Math.min(1, cdAlarm.volume + 0.07);
+            if (cdAlarm.volume >= 1) clearInterval(volTick);
+        }, 4000);
+        setTimeout(function(){ clearInterval(volTick); if (cdAlarm){ cdAlarm.pause(); cdAlarm=null; } }, 30000);
+    } catch(e){}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  STOPWATCH
+// ════════════════════════════════════════════════════════════════════════
+var swRunning=false, swElapsed=0, swStartTs=0, swTimer=null;
+
+function swToggle(){
+    if (swRunning){
+        swElapsed += Date.now() - swStartTs;
+        swRunning=false; clearInterval(swTimer); swTimer=null;
+        document.getElementById('sw-ico-play').style.display  = '';
+        document.getElementById('sw-ico-pause').style.display = 'none';
+        document.getElementById('sw-btn-toggle').className    = 'ctrl-btn btn-play';
+        document.getElementById('sw-status').textContent      = getStr('clock/status-paused','Paused');
+        ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-stopwatch-paused','Stopwatch (Paused)'));
+    } else {
+        swStartTs=Date.now(); swRunning=true;
+        swTimer=setInterval(swTick, 47);
+        document.getElementById('sw-ico-play').style.display  = 'none';
+        document.getElementById('sw-ico-pause').style.display = '';
+        document.getElementById('sw-btn-toggle').className    = 'ctrl-btn btn-pause';
+        document.getElementById('sw-status').textContent      = getStr('clock/status-running','Running');
+        ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-stopwatch','Stopwatch'));
+    }
+}
+
+function swReset(){
+    clearInterval(swTimer); swTimer=null; swRunning=false; swElapsed=0;
+    document.getElementById('sw-ico-play').style.display  = '';
+    document.getElementById('sw-ico-pause').style.display = 'none';
+    document.getElementById('sw-btn-toggle').className    = 'ctrl-btn btn-play';
+    document.getElementById('sw-status').textContent      = getStr('clock/status-ready','Ready');
+    swDraw(0);
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-stopwatch','Stopwatch'));
+}
+
+function swTick(){ swDraw(swElapsed + (swRunning ? Date.now()-swStartTs : 0)); }
+
+function swDraw(ms){
+    var cs=Math.floor(ms/10)%100, s=Math.floor(ms/1000)%60,
+        m=Math.floor(ms/60000)%60, h=Math.floor(ms/3600000);
+    document.getElementById('sw-hm').textContent    = (h>0 ? pad(h)+':' : '') + pad(m);
+    document.getElementById('sw-s').textContent     = pad(s);
+    document.getElementById('sw-cs-val').textContent= pad(cs);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  MAIN 1-SECOND TICK
+// ════════════════════════════════════════════════════════════════════════
+setInterval(function(){
+    updateDigitalClock();
+    updateLocalClock();
+    if (activeTab === 'world' && wcClocks.length) wcRefresh();
+}, 1000);
+
+// ════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════════════════════════
+loadTheme();
+swDraw(0);
+
+if (typeof applocale !== 'undefined' && applocale) {
+    applocale.init("locale/clock.json", function(){
+        applocale.translate();
+        ao_module_setWindowTitle(getStr('clock/wintitle-main', 'Clock'));
+        updateDigitalClock();
+        initLocalClock();
+        wcLoad();
+    });
+} else {
+    ao_module_setWindowTitle('Clock');
+    updateDigitalClock();
+    initLocalClock();
+    wcLoad();
+}
+</script>
 </body>
 </html>

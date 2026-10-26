@@ -1,0 +1,29 @@
+/*
+	AI Chat — LM Studio style conversation demo
+	===========================================
+	A demo WebApp that talks to any OpenAI-compatible endpoint through the
+	AGI "llm" library. Configure the endpoint, API key, default model and
+	per-model pricing in:
+
+	    System Settings > AI Integration > AI Model
+
+	Backend scripts (next to this init.agi):
+	    backend/chat.agi    relays a conversation to llm.request()
+	    backend/models.agi  returns the configured models + default model
+*/
+
+var moduleLaunchInfo = {
+	Name: "AI Chat",
+	Desc: "Chat with any OpenAI-compatible model, LM Studio style",
+	Group: "Office",
+	IconPath: "AIChat/img/icon.svg",
+	Version: "1.0",
+	StartDir: "AIChat/index.html",
+	SupportFW: true,
+	LaunchFWDir: "AIChat/index.html",
+	SupportEmb: false,
+	InitFWSize: [1080, 720],
+	SupportedExt: []
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

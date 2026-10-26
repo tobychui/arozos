@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Photo Cast — Arozcast Example</title>
+    <script src="../arozcast.js"></script>
+    <style>
+        body { background:#111; color:#ddd; font-family:sans-serif; padding:24px; max-width:460px; }
+        h2   { margin:0 0 6px; }
+        p    { margin:0 0 16px; color:#888; }
+        code { color:#aaa; background:#222; padding:1px 5px; border-radius:3px; }
+        input, button { background:#222; color:#ddd; border:1px solid #444; border-radius:4px; padding:5px 10px; }
+        button { cursor:pointer; }
+        button:hover { background:#333; }
+        #controls { display:none; margin-top:16px; }
+        #controls button { margin:0 4px 8px 0; }
+    </style>
+</head>
+<body>
+
+<h2>Photo Cast</h2>
+<p>Place your photo at <code>user:/example.jpg</code> before connecting.</p>
+
+<p>
+    Room code:
+    <input id="code" maxlength="4" size="5" placeholder="1234">
+    <button onclick="doConnect()">Connect</button>
+</p>
+
+<p id="status">Not connected</p>
+
+<div id="controls">
+    <button onclick="sendPhoto()">Send photo to screen</button>
+    <button onclick="doDisconnect()">Disconnect</button>
+</div>
+
+<script>
+// Derive ao_root from the arozcast.js script URL
+// (arozcast.js lives at <ao_root>Arozcast/arozcast.js)
+var _s = document.querySelector('script[src*="arozcast.js"]').src;
+var ao_root = _s.slice(0, _s.indexOf('Arozcast/arozcast.js'));
+
+var FILE = 'user:/example.jpg';
+var cast = new ArozCast({ aoRoot: ao_root });
+
+// ── Events ─────────────────────────────────────────────────────────────────
+
+cast.on('connect', function(e) {
+    status('Connected to room ' + e.code);
+    document.getElementById('controls').style.display = 'block';
+    // Send the photo immediately on connect / reconnect
+    sendPhoto();
+});
+
+cast.on('disconnect',   function()  { status('Connection lost — reconnecting…'); });
+cast.on('reconnecting', function(e) { status('Reconnecting, attempt ' + e.attempt + '…'); });
+cast.on('giveup',       function()  { status('Could not reconnect'); document.getElementById('controls').style.display = 'none'; });
+
+// ── Send photo ─────────────────────────────────────────────────────────────
+
+function sendPhoto() {
+    // For photos, only load() is needed — no play/pause/volume
+    cast.load({
+        name:     'example.jpg',
+        type:     'photo',
+        src:      ao_root + 'media?file=' + encodeURIComponent(FILE),
+        filepath: FILE,
+    });
+}
+
+// ── Connect / disconnect ───────────────────────────────────────────────────
+
+function doConnect() {
+    var code = document.getElementById('code').value.trim();
+    if (!/^\d{4}$/.test(code)) { alert('Enter a 4-digit code'); return; }
+    status('Checking room…');
+    cast.ping(code).then(function(ok) {
+        if (!ok) { status('Room not found — is Arozcast open?'); return; }
+        return cast.connect(code);
+    }).catch(function(err) { status('Error: ' + err.message); });
+}
+
+function doDisconnect() {
+    cast.disconnect();   // sends media.stop to clear the receiver screen
+    status('Disconnected');
+    document.getElementById('controls').style.display = 'none';
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function status(msg) { document.getElementById('status').textContent = msg; }
+</script>
+</body>
+</html>

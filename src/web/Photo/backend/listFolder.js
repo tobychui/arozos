@@ -1,4 +1,5 @@
 requirelib("filelib")
+includes("imagedb.js")
 
 
 function getExt(filename){
@@ -112,7 +113,9 @@ function main(){
             }
 
         }else{
-            if (isImage(thisFile)){
+            // Hidden dot-files (e.g. AppleDouble "._IMG.jpg" sidecars) are
+            // cache/system artifacts, not photos — same rule as for folders.
+            if (isImage(thisFile) && !isHiddenFile(thisFile)){
                 files.push(thisFile);
             }
         }
@@ -121,14 +124,40 @@ function main(){
     // Filter out JPG duplicates when RAW files exist
     files = filterDuplicates(files);
 
-    // Add filesize information to each file
+    // Year / Month grouping must follow the EXIF shoot time, not the file's
+    // last-modified time. The per-user photo index (imagedb.js) already stores
+    // taken_date = EXIF DateTimeOriginal for every indexed photo, so resolve it
+    // with one folder-scoped query instead of decoding EXIF per file per request.
+    var takenMap = {};
+    var db = openIndexDB();
+    if (db != null) {
+        // `folder` is the request wildcard ("user:/Photo/*"); its dirname is the
+        // folder being listed, which is exactly how the index keys its rows.
+        var rows = db.query("SELECT filepath, taken_date FROM photos WHERE folder = ?", [dirname(folder)]);
+        for (var ri = 0; ri < rows.length; ri++) {
+            if (rows[ri].taken_date) {
+                takenMap[rows[ri].filepath] = rows[ri].taken_date;
+            }
+        }
+        db.close();
+    }
+
+    // Add filesize + dates to each file. taken_date (unix seconds, from EXIF)
+    // drives the Year / Month grid sections; mtime is the fallback for photos
+    // the background indexer has not reached yet.
     var filesWithSize = [];
     for (var i = 0; i < files.length; i++){
         var filepath = files[i];
         var filesize = filelib.filesize(filepath);
+        var mtime = filelib.mtime(filepath, true);
+        if (mtime === false){
+            mtime = 0;
+        }
         filesWithSize.push({
             filepath: filepath,
-            filesize: filesize
+            filesize: filesize,
+            mtime: mtime,
+            taken_date: takenMap[filepath] || null
         });
     }
 

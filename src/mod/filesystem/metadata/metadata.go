@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +17,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/fssort"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -219,7 +220,7 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 
 func (rh *RenderHandler) fileIsBusy(path string) bool {
 	if rh == nil {
-		log.Println("RenderHandler is null!")
+		logger.PrintAndLog("Metadata", "RenderHandler is null!", nil)
 		return true
 	}
 	_, ok := rh.renderingFiles.Load(path)
@@ -266,7 +267,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		logger.PrintAndLog("Metadata", fmt.Sprint("upgrade:", err), nil)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Internal Server Error"))
 		return

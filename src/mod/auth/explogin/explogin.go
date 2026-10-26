@@ -32,7 +32,7 @@ type ExpLoginHandler struct {
 	DelayCeiling int       //Max delay time
 }
 
-//Create a new exponential login handler object
+// Create a new exponential login handler object
 func NewExponentialLoginHandler(baseDelay int, ceiling int) *ExpLoginHandler {
 	recordMap := sync.Map{}
 
@@ -43,7 +43,7 @@ func NewExponentialLoginHandler(baseDelay int, ceiling int) *ExpLoginHandler {
 	}
 }
 
-//Check allow access now, if false return how many seconds till next retry
+// Check allow access now, if false return how many seconds till next retry
 func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request) (bool, int64) {
 	userip, err := getIpFromRequest(r)
 	if err != nil {
@@ -70,7 +70,7 @@ func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request)
 	return true, 0
 }
 
-//Add a user retry count after failed login
+// Add a user retry count after failed login
 func (e *ExpLoginHandler) AddUserRetrycount(username string, r *http.Request) {
 	userip, err := getIpFromRequest(r)
 	if err != nil {
@@ -103,7 +103,7 @@ func (e *ExpLoginHandler) AddUserRetrycount(username string, r *http.Request) {
 	}
 }
 
-//Reset a user retry count after successful login
+// Reset a user retry count after successful login
 func (e *ExpLoginHandler) ResetUserRetryCount(username string, r *http.Request) {
 	userip, err := getIpFromRequest(r)
 	if err != nil {
@@ -115,7 +115,7 @@ func (e *ExpLoginHandler) ResetUserRetryCount(username string, r *http.Request) 
 	e.LoginRecord.Delete(key)
 }
 
-//Reset all Login exponential record
+// Reset all Login exponential record
 func (e *ExpLoginHandler) ResetAllUserRetryCounter() {
 	e.LoginRecord.Range(func(key interface{}, value interface{}) bool {
 		e.LoginRecord.Delete(key)
@@ -123,7 +123,7 @@ func (e *ExpLoginHandler) ResetAllUserRetryCounter() {
 	})
 }
 
-//Get the next delay time
+// Get the next delay time
 func (e *ExpLoginHandler) getDelayTimeFromRetryCount(retryCount int) int64 {
 	delaySecs := int64(math.Floor((math.Pow(2, float64(retryCount)) - 1) * 0.5))
 	if delaySecs > int64(e.DelayCeiling)-int64(e.BaseDelay) {

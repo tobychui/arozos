@@ -1,0 +1,45 @@
+name: E2E (Cine Studio)
+
+# Browser-driven end-to-end tests for the Cine Studio WebApp. These are
+# front-end only (Node + Playwright + a static file server) and do not
+# touch the Go build, so they run as an independent job. Scoped to changes
+# under the app or the test harness to avoid running on unrelated commits.
+
+on:
+  push:
+    paths:
+      - "src/web/Cine Studio/**"
+      - "test/e2e/playwright/**"
+      - ".github/workflows/e2e-playwright.yml"
+  pull_request:
+    paths:
+      - "src/web/Cine Studio/**"
+      - "test/e2e/playwright/**"
+      - ".github/workflows/e2e-playwright.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: test/e2e/playwright
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium (with OS deps)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm test

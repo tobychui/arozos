@@ -1,0 +1,39 @@
+/*
+	GitApp — diff backend
+
+	Produces the hunk list rendered in the right hand pane, either for a working
+	tree change (Changes tab) or for a file inside a commit (History tab).
+
+	POST opr  = worktree | commit
+	     repo = virtual path of the repository
+	     file = repository relative path
+	     hash = commit hash, required when opr = commit
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else if (typeof file == "undefined" || file == "") {
+    sendJSONResp({ success: false, error: "file path is required" });
+} else if (opr == "commit") {
+    if (typeof hash == "undefined" || hash == "") {
+        sendJSONResp({ success: false, error: "commit hash is required" });
+    } else {
+        var commitDiff = git.diffCommit(repo, hash, file);
+        if (commitDiff.error) {
+            sendJSONResp({ success: false, error: commitDiff.error });
+        } else {
+            sendJSONResp({ success: true, diff: commitDiff });
+        }
+    }
+} else {
+    var diff = git.diff(repo, file);
+    if (diff.error) {
+        sendJSONResp({ success: false, error: diff.error });
+    } else {
+        sendJSONResp({ success: true, diff: diff });
+    }
+}

@@ -7,11 +7,11 @@ var moduleLaunchInfo = {
     Name: "Web Builder",
 	Desc: "The basic Web builder for writing HTML code",
 	Group: "Office",
-	IconPath: "Web%20Builder/img/module_icon.png",
+	IconPath: "Web Builder/img/module_icon.png",
 	Version: "0.1.0",
-	StartDir: "Web%20Builder/index.html",
+	StartDir: "Web Builder/index.html",
 	SupportFW: true,
-	LaunchFWDir: "Web%20Builder/index.html",
+	LaunchFWDir: "Web Builder/index.html",
 	InitFWSize: [1080, 580],
 	SupportedExt: [".html",".htm"]
 }

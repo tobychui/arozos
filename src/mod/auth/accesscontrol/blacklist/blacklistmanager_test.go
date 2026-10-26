@@ -1,51 +1,37 @@
 package blacklist
 
 import (
-	"os"
+	"path/filepath"
 	"testing"
 
 	"imuslab.com/arozos/mod/database"
 )
 
-var dbFilePath = "../../../../test/"
-var dbFileName = "testdb.db"
-var sysDb *database.Database
+// setupTest creates an isolated database in a temp dir and returns
+// the BlackList and a teardown function.
+func setupTest(t *testing.T) (*BlackList, func()) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "testdb.db")
 
-func setupSuite(t *testing.T) func(t *testing.T) {
-	//t.Log("Setting up database env")
-
-	os.Mkdir(dbFilePath, 0777)
-	file, err := os.Create(dbFilePath + dbFileName)
-	if err != nil {
-		t.Fatalf("Failed to create file: %v", err)
-	}
-	file.Close()
-
-	// Return a function to teardown the test
-	return func(t *testing.T) {
-		//t.Log("Cleaning up")
-		sysDb.Close()
-		//time.Sleep(5 * time.Second)
-		err := os.RemoveAll(dbFilePath)
-		if err != nil {
-			t.Fatalf("Failed to clean up: %v", err)
-		}
-	}
-}
-
-func TestBlackList_IsBanned(t *testing.T) {
-	teardownSuite := setupSuite(t)
-	defer teardownSuite(t)
-
-	// Create a new database
-	var err error
-	sysDb, err = database.NewDatabase(dbFilePath+dbFileName, false)
+	db, err := database.NewDatabase(dbPath, false)
 	if err != nil {
 		t.Fatalf("Failed to create a new database: %v", err)
 	}
 
-	bl := NewBlacklistManager(sysDb)
+	bl := NewBlacklistManager(db)
 	bl.SetBlacklistEnabled(true)
+
+	teardown := func() {
+		db.Close()
+		// t.TempDir() is cleaned up automatically by the testing framework
+	}
+	return bl, teardown
+}
+
+func TestBlackList_IsBanned(t *testing.T) {
+	bl, teardown := setupTest(t)
+	defer teardown()
 
 	// Test case 1: IP is not banned
 	if bl.IsBanned("192.168.1.1") {
@@ -60,9 +46,7 @@ func TestBlackList_IsBanned(t *testing.T) {
 
 	// Test case 3: IP range is banned
 	bl.Ban("192.168.2.1-192.168.2.254")
-	//t.Log(err)
 	if !bl.IsBanned("192.168.2.5") {
-		//t.Log(bl.ListBannedIpRanges())
 		t.Error("Expected IP range to be banned")
 	}
 
@@ -73,18 +57,8 @@ func TestBlackList_IsBanned(t *testing.T) {
 }
 
 func TestBlackList_ListBannedIpRanges(t *testing.T) {
-	teardownSuite := setupSuite(t)
-	defer teardownSuite(t)
-
-	// Create a new database
-	var err error
-	sysDb, err = database.NewDatabase(dbFilePath+dbFileName, false)
-	if err != nil {
-		t.Fatalf("Failed to create a new database: %v", err)
-	}
-
-	bl := NewBlacklistManager(sysDb)
-	bl.SetBlacklistEnabled(true)
+	bl, teardown := setupTest(t)
+	defer teardown()
 
 	// Test case 1: No banned IP ranges
 	if len(bl.ListBannedIpRanges()) != 0 {
@@ -97,23 +71,13 @@ func TestBlackList_ListBannedIpRanges(t *testing.T) {
 
 	bannedRanges := bl.ListBannedIpRanges()
 	if len(bannedRanges) != 2 {
-		t.Error("Expected 2 banned IP ranges")
+		t.Errorf("Expected 2 banned IP ranges, got %d", len(bannedRanges))
 	}
 }
 
 func TestBlackList_Ban_UnBan(t *testing.T) {
-	teardownSuite := setupSuite(t)
-	defer teardownSuite(t)
-
-	// Create a new database
-	var err error
-	sysDb, err = database.NewDatabase(dbFilePath+dbFileName, false)
-	if err != nil {
-		t.Fatalf("Failed to create a new database: %v", err)
-	}
-
-	bl := NewBlacklistManager(sysDb)
-	bl.SetBlacklistEnabled(true)
+	bl, teardown := setupTest(t)
+	defer teardown()
 
 	// Test case 1: Ban an IP
 	bl.Ban("192.168.1.1")
@@ -141,21 +105,11 @@ func TestBlackList_Ban_UnBan(t *testing.T) {
 }
 
 func TestBlackList_InvalidIpRange(t *testing.T) {
-	teardownSuite := setupSuite(t)
-	defer teardownSuite(t)
-
-	// Create a new database
-	var err error
-	sysDb, err = database.NewDatabase(dbFilePath+dbFileName, false)
-	if err != nil {
-		t.Fatalf("Failed to create a new database: %v", err)
-	}
-
-	bl := NewBlacklistManager(sysDb)
-	bl.SetBlacklistEnabled(true)
+	bl, teardown := setupTest(t)
+	defer teardown()
 
 	// Test case 1: Ban with invalid IP range
-	err = bl.Ban("invalid-ip-range")
+	err := bl.Ban("invalid-ip-range")
 	if err == nil {
 		t.Error("Expected error for invalid IP range")
 	}

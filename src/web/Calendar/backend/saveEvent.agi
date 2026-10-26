@@ -1,0 +1,46 @@
+/*
+    Calendar - Save (create or update) a single event.
+    POST: eventData (JSON string of event object)
+*/
+requirelib("filelib");
+
+var evPath = "user:/Document/Calendar/events.json";
+
+var ev;
+try {
+    ev = JSON.parse(eventData);
+} catch (e) {
+    sendJSONResp({ error: "Invalid event data" });
+}
+
+if (ev) {
+    // Ensure the event has an id
+    if (!ev.id || ev.id === "") {
+        var ts    = new Date().getTime();
+        ev.id = "ev_" + ts.toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    // Read existing events
+    var events = [];
+    if (filelib.fileExists(evPath)) {
+        try {
+            var raw    = filelib.readFile(evPath);
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) events = parsed;
+        } catch (e) {}
+    }
+
+    // Upsert
+    var found = false;
+    for (var i = 0; i < events.length; i++) {
+        if (events[i].id === ev.id) {
+            events[i] = ev;
+            found = true;
+            break;
+        }
+    }
+    if (!found) events.push(ev);
+
+    filelib.writeFile(evPath, JSON.stringify(events));
+    sendJSONResp({ ok: true, id: ev.id });
+}

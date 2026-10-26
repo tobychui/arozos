@@ -3,12 +3,13 @@ package agi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -19,8 +20,13 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/git"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
+	"imuslab.com/arozos/mod/meetroom"
+	notification "imuslab.com/arozos/mod/notification"
 	"imuslab.com/arozos/mod/share"
+	"imuslab.com/arozos/mod/sharedspace"
 	"imuslab.com/arozos/mod/time/nightly"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -35,11 +41,15 @@ import (
 */
 
 var (
-	AgiVersion string = "3.0" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "3.7" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
 	errTimeout  = errors.New("errTimeout")
+
+	// agiLogger is a stdout-only fallback used when no system-wide logger is
+	// available. Scripts should use g.Option.Logger when present.
+	agiLogger, _ = logger.NewTmpLogger()
 )
 
 type AgiPackage struct {
@@ -53,14 +63,24 @@ type AgiSysInfo struct {
 	LoadedModule    []string
 
 	//System Handlers
-	UserHandler          *user.UserHandler
-	ReservedTables       []string
-	PackageManager       *apt.AptPackageManager
-	ModuleRegisterParser func(string) error
-	FileSystemRender     *metadata.RenderHandler
-	IotManager           *iot.Manager
-	ShareManager         *share.Manager
-	NightlyManager       *nightly.TaskManager
+	Logger                *logger.Logger
+	UserHandler           *user.UserHandler
+	ReservedTables        []string
+	PackageManager        *apt.AptPackageManager
+	ModuleRegisterParser  func(string) error
+	ModuleListProvider    func(username string) string //Returns JSON of accessible modules for a user
+	ExtIconRegisterParser func(ext, iconPath string)   //Called when registerExtensionIcon() fires in an init.agi
+	FileSystemRender      *metadata.RenderHandler
+	IotManager            *iot.Manager
+	ShareManager          *share.Manager
+	NightlyManager        *nightly.TaskManager
+	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)
+	SharedSpaceManager    *sharedspace.Manager //Shared collaboration spaces for the sharedspace lib (nil disables the lib)
+	GitManager            *git.Manager         //Version control backend for the git lib (nil disables the lib)
+
+	//NotificationSender routes a notification raised by an AGI script into the
+	//ArozOS core notification system (nil disables the notification lib).
+	NotificationSender func(*notification.NotificationPayload) error
 
 	//Scanning Roots
 	StartupRoot    string
@@ -74,16 +94,20 @@ type Gateway struct {
 	//AllowAccessPkgs  map[string][]AgiPackage
 	LoadedAGILibrary map[string]AgiLibInjectionIntergface
 	Option           *AgiSysInfo
+	endpointStats    map[string]*EndpointStats // per-UUID execution statistics (in-memory)
+	statsMux         sync.RWMutex              // guards endpointStats
+	vmReg            *vmRegistry               // live VM lifecycle registry
 }
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
 	gatewayObject := Gateway{
-		ReservedTables: option.ReservedTables,
-		NightlyScripts: []string{},
-		//AllowAccessPkgs:  map[string][]AgiPackage{},
+		ReservedTables:   option.ReservedTables,
+		NightlyScripts:   []string{},
 		LoadedAGILibrary: map[string]AgiLibInjectionIntergface{},
 		Option:           &option,
+		endpointStats:    make(map[string]*EndpointStats),
+		vmReg:            newVMRegistry(),
 	}
 
 	//Start all WebApps Registration
@@ -111,12 +135,12 @@ func (g *Gateway) RegisterNightlyOperations() {
 					if static.CheckUserAccessToScript(userinfo, scriptFile, "") {
 						//This user can access the module that provide this script.
 						//Execute this script on his account.
-						log.Println("[AGI_Nightly] WIP (" + scriptFile + ")")
+						logger.PrintAndLog("Agi", "[AGI_Nightly] WIP ("+scriptFile+")", nil)
 					}
 				}
 			} else {
 				//Invalid script. Skipping
-				log.Println("[AGI_Nightly] Invalid script file: " + scriptFile)
+				logger.PrintAndLog("Agi", "[AGI_Nightly] Invalid script file: "+scriptFile, nil)
 			}
 		}
 	})
@@ -127,7 +151,7 @@ func (g *Gateway) InitiateAllWebAppModules() {
 	for _, script := range startupScripts {
 		scriptContentByte, _ := os.ReadFile(script)
 		scriptContent := string(scriptContentByte)
-		log.Println("[AGI] Gateway script loaded (" + script + ")")
+		logger.PrintAndLog("Agi", "[AGI] Gateway script loaded ("+script+")", nil)
 		//Create a new vm for this request
 		vm := otto.New()
 
@@ -138,8 +162,8 @@ func (g *Gateway) InitiateAllWebAppModules() {
 		})
 		_, err := vm.Run(scriptContent)
 		if err != nil {
-			log.Println("[AGI] Load Failed: " + script + ". Skipping.")
-			log.Println(err)
+			logger.PrintAndLog("Agi", "[AGI] Load Failed: "+script+". Skipping.", nil)
+			logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 			continue
 		}
 	}
@@ -154,7 +178,7 @@ func (g *Gateway) RunScript(script string) error {
 
 	_, err := vm.Run(script)
 	if err != nil {
-		log.Println("[AGI] Script Execution Failed: ", err.Error())
+		logger.PrintAndLog("Agi", fmt.Sprint("[AGI] Script Execution Failed: ", err.Error()), nil)
 		return err
 	}
 
@@ -162,7 +186,10 @@ func (g *Gateway) RunScript(script string) error {
 }
 
 func (g *Gateway) RaiseError(err error) {
-	log.Println("[AGI] Runtime Error " + err.Error())
+	if err == nil {
+		return
+	}
+	logger.PrintAndLog("Agi", "[AGI] Runtime Error "+err.Error(), nil)
 
 	//To be implemented
 }
@@ -276,11 +303,54 @@ w / r : Web request and response writer
 thisuser: userObject
 */
 func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSystemHandler, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+	// Check if developer debug mode is requested via URL query param (set AGI_DEV=true in ao_module)
+	devMode := r.URL.Query().Get("agi_devmode") == "true"
+
 	//Create a new vm for this request
 	vm := otto.New()
-	//Inject standard libs into the vm
-	g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
+	vm.Interrupt = make(chan func(), 1) // required for force-stop support
+	//Inject standard libs into the vm; capture execID for registry correlation
+	execID := g.injectStandardLibs(vm, scriptFile, scriptScope)
+	releaseLibResources := g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
+
+	username := ""
+	if thisuser != nil {
+		username = thisuser.Username
+	}
+
+	// Register in the VM lifecycle registry so it can be listed and force-stopped
+	g.vmReg.register(&VMRecord{
+		ExecID:      execID,
+		ScriptFile:  scriptFile,
+		Username:    username,
+		StartTime:   time.Now(),
+		interruptCh: vm.Interrupt,
+	})
+	defer func() {
+		g.vmReg.unregister(execID)
+		//Release library resources (open SQLite handles, etc.) on every exit path
+		releaseLibResources()
+		if caught := recover(); caught != nil {
+			switch caught {
+			case errForceStop:
+				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM %s force-stopped (script: %s, user: %s)", execID, scriptFile, username), nil)
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("503 - Script execution was force-terminated"))
+			case errExitcall:
+				// exit() in AGI script — clean early termination, not an error.
+				// check anything else in the buffered response and send it before returning, if needed.
+				value, err := vm.Get("HTTP_RESP")
+				if err == nil {
+					valueString, err := value.ToString()
+					if err == nil && valueString != "" {
+						w.Write([]byte(valueString))
+					}
+				}
+			default:
+				panic(caught) // re-panic anything we don't own
+			}
+		}
+	}()
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -308,8 +378,33 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 
 	_, err := vm.Run(scriptContent)
 	if err != nil {
-		scriptpath, _ := filepath.Abs(scriptFile)
-		g.RenderErrorTemplate(w, err.Error(), scriptpath)
+		username := ""
+		if thisuser != nil {
+			username = thisuser.Username
+		}
+		logger.PrintAndLog("Agi", fmt.Sprintf("[AGI][%s] Script error in %s (user: %s): %s", execID, scriptFile, username, err.Error()), nil)
+
+		if devMode {
+			// Return a detailed JSON error payload for developer inspection
+			errMsg := err.Error()
+			stackTrace := errMsg
+			if ottoErr, ok := err.(*otto.Error); ok {
+				stackTrace = ottoErr.String()
+			}
+			errPayload, _ := json.Marshal(map[string]interface{}{
+				"error":      true,
+				"message":    errMsg,
+				"stacktrace": stackTrace,
+				"script":     scriptFile,
+				"user":       username,
+			})
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(errPayload)
+		} else {
+			scriptpath, _ := filepath.Abs(scriptFile)
+			g.RenderErrorTemplate(w, err.Error(), scriptpath)
+		}
 		return
 	}
 
@@ -336,12 +431,15 @@ Execute AGI script with given user information
 scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
 Pass in http.Request pointer to enable serverless GET / POST request
 */
-func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, error) {
+// ExecuteAGIScriptAsUser runs an AGI script on behalf of targetUser.
+// Returns (execID, output, error) where execID matches the EXECUTION_ID
+// constant injected into the script's VM environment.
+func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, string, error) {
 	//Create a new vm for this request
 	vm := otto.New()
-	//Inject standard libs into the vm
-	g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
+	//Inject standard libs into the vm; capture the execution ID for log correlation.
+	execID := g.injectStandardLibs(vm, scriptFile, "")
+	releaseLibResources := g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
 
 	if r != nil {
 		//Inject serverless script to enable access to GET / POST paramters
@@ -350,21 +448,54 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	//Inject interrupt Channel
 	vm.Interrupt = make(chan func(), 1)
 
+	// Register in the VM lifecycle registry
+	g.vmReg.register(&VMRecord{
+		ExecID:      execID,
+		ScriptFile:  scriptFile,
+		Username:    targetUser.Username,
+		StartTime:   time.Now(),
+		interruptCh: vm.Interrupt,
+	})
+
 	//Create a panic recovery logic
 	defer func() {
+		g.vmReg.unregister(execID)
+		//Release library resources (open SQLite handles, etc.) on every exit path
+		releaseLibResources()
 		if caught := recover(); caught != nil {
 			if caught == errTimeout {
-				log.Println("[AGI] Execution timeout: " + scriptFile)
+				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] Execution timeout: %s (user: %s)", scriptFile, targetUser.Username), nil)
 				return
 			} else if caught == errExitcall {
 				//Exit gracefully
-
 				return
+			} else if caught == errForceStop {
+				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM %s force-stopped (script: %s, user: %s)", execID, scriptFile, targetUser.Username), nil)
+				if w != nil {
+					w.WriteHeader(http.StatusServiceUnavailable)
+					w.Write([]byte("503 - Script execution was force-terminated"))
+				}
 			} else {
 				//Something screwed. Return Internal Server Error
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("500 - ECMA VM crashed due to unknown reason"))
-				//panic(caught)
+				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM crash in %s (user: %s): %v", scriptFile, targetUser.Username, caught), nil)
+				if w != nil {
+					devMode := r != nil && r.URL.Query().Get("agi_devmode") == "true"
+					if devMode {
+						errPayload, _ := json.Marshal(map[string]interface{}{
+							"error":      true,
+							"message":    fmt.Sprintf("VM crash: %v", caught),
+							"stacktrace": fmt.Sprintf("VM crash: %v", caught),
+							"script":     scriptFile,
+							"user":       targetUser.Username,
+						})
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write(errPayload)
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("500 - ECMA VM crashed due to unknown reason"))
+					}
+				}
 			}
 		}
 	}()
@@ -377,21 +508,29 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 		}
 	}()
 
-	//Try to read the script content
-	scriptContent, err := fsh.FileSystemAbstraction.ReadFile(scriptFile)
+	//Try to read the script content.
+	// When fsh is nil (e.g. app-root scripts), fall back to reading from the OS filesystem.
+	var scriptContent []byte
+	var err error
+	if fsh != nil {
+		scriptContent, err = fsh.FileSystemAbstraction.ReadFile(scriptFile)
+	} else {
+		scriptContent, err = os.ReadFile(scriptFile)
+	}
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
 
 	_, err = vm.Run(scriptContent)
 	if err != nil {
-		return "", err
+		logger.PrintAndLog("Agi", fmt.Sprintf("[AGI][%s] Script error in %s (user: %s): %s", execID, scriptFile, targetUser.Username, err.Error()), nil)
+		return execID, "", err
 	}
 
 	//Get the return value from the script
 	value, err := vm.Get("HTTP_RESP")
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
 
 	if w != nil {
@@ -405,9 +544,9 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 
 	valueString, err := value.ToString()
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
-	return valueString, nil
+	return execID, valueString, nil
 }
 
 /*

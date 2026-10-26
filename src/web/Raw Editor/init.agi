@@ -1,0 +1,28 @@
+/*
+	Raw Editor Module Register Script
+
+	Registers the "Raw Editor" WebApp on the ArozOS desktop. The app decodes
+	camera RAW files (ARW, DNG, NEF, CR2, ORF, RAF ...), demosaics them into a
+	viewable image and provides Camera-Raw style develop controls plus 3D LUT
+	(.cube) colour grading, entirely inside the browser sandbox.
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+	Name: "Raw Editor",
+	Desc: "Develop camera RAW files with Camera-Raw style controls and LUT grading",
+	Group: "Media",
+	IconPath: "img/module_icon.svg",
+	Version: "1.0.0",
+	StartDir: "index.html",
+	SupportFW: true,
+	LaunchFWDir: "index.html",
+	SupportEmb: true,
+	LaunchEmb: "index.html",
+	InitFWSize: [1200, 760],
+	InitEmbSize: [1200, 760],
+	SupportedExt: [".arw", ".dng", ".nef", ".cr2", ".cr3", ".orf", ".raf", ".rw2", ".pef", ".srw", ".tiff", ".tif", ".jpg", ".jpeg", ".png", ".webp"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

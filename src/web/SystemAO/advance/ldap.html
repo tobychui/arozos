@@ -1,232 +1,588 @@
+<!DOCTYPE html>
 <html>
-
 <head>
-    <title>LDAP Login</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.css">
-    <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <script type="application/javascript" src="../../script/clipboard.min.js"></script>
-    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LDAP Login</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
     <style>
-        /* Tooltip container */
-        
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            border-bottom: 1px dotted black;
-            /* If you want dots under the hoverable text */
-        }
-        /* Tooltip text */
-        
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 120px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            padding: 5px 0;
-            border-radius: 6px;
-            /* Position the tooltip text */
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -60px;
-            /* Fade in tooltip */
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        /* Tooltip arrow */
-        
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent; overflow-x: hidden; }
+
+    #la-root {
+        --la-bg:      #f3f3f3;
+        --la-card:    #ffffff;
+        --la-border:  #e0e0e0;
+        --la-text:    #1b1b1b;
+        --la-dim:     #5a5a5a;
+        --la-muted:   #8a8a8a;
+        --la-accent:  #0067c0;
+        --la-accentH: #1475c8;
+        --la-danger:  #c42b1c;
+        --la-ok:      #107c10;
+        --la-shadow:  0 1px 4px rgba(0,0,0,0.08);
+        --la-radius:  6px;
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--la-text);
+        background: var(--la-bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    #la-root.dark {
+        --la-bg:      #202020;
+        --la-card:    #2d2d2d;
+        --la-border:  #404040;
+        --la-text:    #e8e8e8;
+        --la-dim:     #aaaaaa;
+        --la-muted:   #666666;
+        --la-accent:  #60cdff;
+        --la-accentH: #8cd9ff;
+        --la-danger:  #ff7070;
+        --la-ok:      #6ccb5f;
+        --la-shadow:  0 1px 6px rgba(0,0,0,0.4);
+    }
+
+    /* ── Hero bar ── */
+    #la-hero {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 20px 20px 16px;
+    }
+
+    #la-hero-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: var(--la-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        opacity: 0.9;
+    }
+
+    #la-hero-icon svg { color: #fff; }
+
+    #la-hero-title {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--la-text);
+        margin-bottom: 3px;
+    }
+
+    #la-hero-sub {
+        font-size: 12.5px;
+        color: var(--la-dim);
+    }
+
+    /* ── Section cards ── */
+    .la-section {
+        background: var(--la-card);
+        border: 1px solid var(--la-border);
+        border-radius: var(--la-radius);
+        margin: 0 12px 10px;
+        box-shadow: var(--la-shadow);
+        overflow: hidden;
+    }
+
+    .la-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.1s;
+    }
+
+    .la-section-header:hover { background: rgba(0,0,0,0.035); }
+    #la-root.dark .la-section-header:hover { background: rgba(255,255,255,0.05); }
+
+    .la-section-icon { color: var(--la-dim); flex-shrink: 0; }
+    .la-section-title { flex: 1; font-size: 14px; font-weight: 600; color: var(--la-text); }
+
+    .la-chevron {
+        width: 14px; height: 14px;
+        color: var(--la-muted);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+    }
+    .la-chevron.open { transform: rotate(180deg); }
+
+    .la-section-body {
+        display: none;
+        padding: 4px 18px 18px;
+        border-top: 1px solid var(--la-border);
+    }
+    .la-section-body.open { display: block; }
+
+    /* ── Form elements ── */
+    .la-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--la-dim);
+        margin-bottom: 5px;
+        margin-top: 14px;
+    }
+
+    .la-input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--la-border);
+        border-radius: 4px;
+        background: var(--la-card);
+        color: var(--la-text);
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .la-input:focus { border-color: var(--la-accent); }
+    .la-input::placeholder { color: var(--la-muted); }
+
+    /* Toggle switch */
+    .la-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .la-toggle-label { font-size: 13px; color: var(--la-text); cursor: pointer; user-select: none; }
+
+    .la-toggle {
+        position: relative;
+        display: inline-block;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+    .la-toggle input { opacity: 0; width: 0; height: 0; }
+    .la-slider {
+        position: absolute;
+        inset: 0;
+        background: var(--la-border);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .la-slider::before {
+        content: '';
+        position: absolute;
+        width: 14px; height: 14px;
+        left: 3px; top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.2s;
+    }
+    .la-toggle input:checked + .la-slider { background: var(--la-accent); }
+    .la-toggle input:checked + .la-slider::before { transform: translateX(16px); }
+
+    /* Buttons */
+    .la-actions { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .la-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.1s;
+        outline: none;
+    }
+
+    .la-btn-primary {
+        background: var(--la-accent);
+        color: #fff;
+        border-color: var(--la-accent);
+    }
+    .la-btn-primary:hover { background: var(--la-accentH); border-color: var(--la-accentH); }
+    .la-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .la-btn-secondary {
+        background: transparent;
+        color: var(--la-text);
+        border-color: var(--la-border);
+    }
+    .la-btn-secondary:hover { background: rgba(0,0,0,0.05); }
+    #la-root.dark .la-btn-secondary:hover { background: rgba(255,255,255,0.07); }
+
+    /* Info callout */
+    .la-callout {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 4px;
+        font-size: 12.5px;
+        margin-top: 14px;
+        line-height: 1.5;
+    }
+    .la-callout-warn {
+        background: rgba(234, 179, 8, 0.1);
+        border: 1px solid rgba(234, 179, 8, 0.3);
+        color: var(--la-dim);
+    }
+    #la-root.dark .la-callout-warn {
+        background: rgba(250, 204, 21, 0.08);
+        border-color: rgba(250, 204, 21, 0.2);
+    }
+    .la-callout svg { flex-shrink: 0; margin-top: 1px; }
+    .la-callout-warn svg { color: #ca8a04; }
+    #la-root.dark .la-callout-warn svg { color: #facc15; }
+
+    /* Connection test results table */
+    #la-test-results {
+        display: none;
+        margin-top: 16px;
+    }
+
+    .la-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+        margin-bottom: 12px;
+    }
+
+    .la-table th, .la-table td {
+        padding: 7px 10px;
+        text-align: left;
+        border: 1px solid var(--la-border);
+    }
+
+    .la-table th {
+        background: var(--la-bg);
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: var(--la-dim);
+    }
+
+    .la-table td { color: var(--la-text); }
+
+    .la-table tr:hover td { background: rgba(0,0,0,0.02); }
+    #la-root.dark .la-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+    #la-test-summary {
+        font-size: 12px;
+        color: var(--la-muted);
+        margin-top: 4px;
+    }
+
+    /* Status badge */
+    .la-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11.5px;
+        font-weight: 500;
+    }
+    .la-status-ok  { background: rgba(16,124,16,0.1);  color: var(--la-ok); }
+    .la-status-err { background: rgba(196,43,28,0.1); color: var(--la-danger); }
+    #la-root.dark .la-status-ok  { background: rgba(108, 203, 95, 0.12); }
+    #la-root.dark .la-status-err { background: rgba(255,112,112,0.12); }
     </style>
 </head>
-
 <body>
-    <div class="ui container">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <i class="key icon"></i>
-                <div class="content">
-                    LDAP Access
-                    <div class="sub header">Allow external account to access ArozOS with LDAP
-                        <br>
-                        <i class="info circle icon"></i> Your current account MUST exist inside the LDAP server; otherwise synchronize function will not work properly.
-                    </div>
-                </div>
+
+<div id="la-root">
+
+    <!-- Hero -->
+    <div id="la-hero">
+        <div id="la-hero-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <div>
+            <div id="la-hero-title">LDAP / Active Directory</div>
+            <div id="la-hero-sub">Allow external accounts to access ArozOS via LDAP</div>
+        </div>
+    </div>
+
+    <!-- General Settings -->
+    <div class="la-section">
+        <div class="la-section-header" onclick="laToggle(this)">
+            <svg class="la-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M8 5v3.5l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="la-section-title">General</span>
+            <svg class="la-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="la-section-body open">
+            <div class="la-callout la-callout-warn">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1L15 14H1L8 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                    <path d="M8 6v4M8 11.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span>Your current ArozOS account must exist in the LDAP server; otherwise the synchronise function will not work properly.</span>
+            </div>
+
+            <div class="la-toggle-row">
+                <label class="la-toggle" for="la-enable">
+                    <input type="checkbox" id="la-enable">
+                    <span class="la-slider"></span>
+                </label>
+                <label class="la-toggle-label" for="la-enable">Enable LDAP</label>
             </div>
         </div>
-        <div class="ui divider"></div>
-        <div class="ui green inverted segment" style="display:none;" id="updateSet">
-            <h5 class="ui header">
-                <i class="checkmark icon"></i>
-                <div class="content">
-                    Settings Updated
-                </div>
-            </h5>
+    </div>
+
+    <!-- Connection Settings -->
+    <div class="la-section">
+        <div class="la-section-header" onclick="laToggle(this)">
+            <svg class="la-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="4" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/>
+                <circle cx="12" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M6 8h4" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="la-section-title">Connection</span>
+            <svg class="la-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
         </div>
-        <div class="ui form">
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input type="checkbox" id="enable" name="public">
-                    <label>Enable LDAP</label>
-                </div>
+        <div class="la-section-body open">
+            <label class="la-label">LDAP Server (FQDN or IP)</label>
+            <input class="la-input" type="text" id="la-fqdn" placeholder="ldap.example.com or 10.0.0.1">
+
+            <label class="la-label">Base DN</label>
+            <input class="la-input" type="text" id="la-base-dn" placeholder="cn=users,dc=example,dc=com">
+
+            <label class="la-label">Bind Username</label>
+            <input class="la-input" type="text" id="la-bind-username" placeholder="cn=admin,dc=example,dc=com" autocomplete="off">
+
+            <label class="la-label">Bind Password</label>
+            <input class="la-input" type="password" id="la-bind-password" placeholder="Bind password" autocomplete="new-password">
+
+            <div class="la-actions">
+                <button class="la-btn la-btn-primary" id="la-save-btn" onclick="laSave()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 8.5L6 12.5L14 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Save Changes
+                </button>
+                <button class="la-btn la-btn-secondary" id="la-test-btn" onclick="laTest()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
+                        <path d="M8 5v3.5l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    </svg>
+                    Test Connection
+                </button>
             </div>
-            <div class="field">
-                <label>Bind Username</label>
-                <div class="ui fluid input">
-                    <input type="text" id="bind_username" placeholder="root">
-                </div>
-            </div>
-            <div class="field">
-                <label>Bind Password</label>
-                <div class="ui fluid input">
-                    <input type="password" id="bind_password" placeholder="p@ssw0rd">
-                </div>
-            </div>
-            <div class="field">
-                <label>FQDN</label>
-                <div class="ui fluid input">
-                    <input type="text" id="fqdn" placeholder="10.0.0.1">
-                </div>
-            </div>
-            <div class="field">
-                <label>Base DN</label>
-                <div class="ui fluid input">
-                    <input type="text" id="base_dn" placeholder="cn=users,dc=ldap">
-                </div>
-            </div>
-            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
-            <button id="test_btn" onclick="test();" class="ui button" type="submit">Test Connection</button>
         </div>
-        <div class="ui divider"></div>
-        <div id="testConnection" style="display: none">
-            <table class="ui celled table">
+    </div>
+
+    <!-- Test Results -->
+    <div class="la-section" id="la-results-section" style="display:none;">
+        <div class="la-section-header" onclick="laToggle(this)">
+            <svg class="la-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 3h12v2.5L9 10v4l-2-1V10L2 5.5V3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+            </svg>
+            <span class="la-section-title">Connection Results</span>
+            <svg class="la-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="la-section-body open" id="la-test-results">
+            <table class="la-table" id="la-user-table">
                 <thead>
                     <tr>
                         <th>Username</th>
-                        <th>Group belongs to</th>
-                        <th>Equivalence user group in arozos</th>
+                        <th>LDAP Group(s)</th>
+                        <th>Equivalent ArozOS Group(s)</th>
                     </tr>
                 </thead>
-                <tbody id="information">
-                </tbody>
+                <tbody id="la-user-tbody"></tbody>
             </table>
-            <button id="sync_btn" onclick="syncorize();" class="ui button" type="submit">Syncorize User</button>
+            <div id="la-test-summary"></div>
+            <div class="la-actions">
+                <button class="la-btn la-btn-secondary" id="la-sync-btn" onclick="laSync()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <path d="M13 8A5 5 0 112 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M13 5v3h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Synchronise Users
+                </button>
+            </div>
         </div>
-        <br><br>
     </div>
 
+</div>
 
-    <script>
-        $(document).ready(function() {
-            read();
+<script>
+/* ── Theme ── */
+var _laDark = false;
+
+function laApplyTheme(dark) {
+    _laDark = dark;
+    document.getElementById('la-root').classList.toggle('dark', dark);
+}
+
+try {
+    var _pt = (typeof preferredTheme !== 'undefined' ? preferredTheme : null)
+           || (typeof parent !== 'undefined' && parent.preferredTheme ? parent.preferredTheme : null);
+    if (_pt) {
+        laApplyTheme(_pt === 'dark' || _pt === 'darkTheme');
+    } else {
+        ao_module_getSystemThemeColor(function(c) { laApplyTheme(c !== 'whiteTheme'); });
+    }
+} catch(e) {
+    ao_module_getSystemThemeColor(function(c) { laApplyTheme(c !== 'whiteTheme'); });
+}
+
+/* ── Section accordion ── */
+function laToggle(header) {
+    var body    = header.nextElementSibling;
+    var chevron = header.querySelector('.la-chevron');
+    var isOpen  = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+}
+
+/* ── Init ── */
+$(document).ready(function() {
+    laRead();
+});
+
+function laRead() {
+    $.getJSON('../../system/auth/ldap/config/read', function(data) {
+        document.getElementById('la-enable').checked       = !!data.enabled;
+        document.getElementById('la-bind-username').value  = data.bind_username || '';
+        document.getElementById('la-bind-password').value  = data.bind_password || '';
+        document.getElementById('la-fqdn').value           = data.fqdn || '';
+        document.getElementById('la-base-dn').value        = data.base_dn || '';
+    });
+}
+
+function laSave() {
+    var btn = document.getElementById('la-save-btn');
+    btn.disabled = true;
+
+    $.post('../../system/auth/ldap/config/write', {
+        enabled:       document.getElementById('la-enable').checked ? 'true' : 'false',
+        bind_username: document.getElementById('la-bind-username').value,
+        bind_password: document.getElementById('la-bind-password').value,
+        fqdn:          document.getElementById('la-fqdn').value,
+        base_dn:       document.getElementById('la-base-dn').value
+    }).done(function(data) {
+        btn.disabled = false;
+        if (data.error !== undefined) {
+            laToast(data.error, false);
+        } else {
+            laToast('Settings saved successfully', true);
+        }
+    }).fail(function() {
+        btn.disabled = false;
+        laToast('Request failed. Please try again.', false);
+    });
+}
+
+function laTest() {
+    var btn = document.getElementById('la-test-btn');
+    btn.disabled = true;
+    var origHTML = btn.innerHTML;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="3 2"/></svg> Testing…';
+
+    $.get('../../system/auth/ldap/config/testConnection')
+        .done(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+            var tbody = document.getElementById('la-user-tbody');
+            tbody.innerHTML = '';
+
+            if (data.error && data.error !== '') {
+                tbody.innerHTML = '<tr><td colspan="3"><span class="la-status la-status-err">' +
+                    escHtml(data.error) + '</span></td></tr>';
+                document.getElementById('la-results-section').style.display = '';
+                document.getElementById('la-test-results').classList.add('open');
+                return;
+            }
+
+            if (!data.userinfo || data.userinfo.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No entries found.</td></tr>';
+            } else {
+                data.userinfo.forEach(function(u) {
+                    var groups  = Array.isArray(u.group)      ? u.group.join(', ')      : (u.group || '—');
+                    var egroups = Array.isArray(u.equiv_group) ? u.equiv_group.join(', ') : (u.equiv_group || '—');
+                    var row = document.createElement('tr');
+                    row.innerHTML = '<td>' + escHtml(u.username) + '</td><td>' + escHtml(groups) + '</td><td>' + escHtml(egroups) + '</td>';
+                    tbody.appendChild(row);
+                });
+            }
+
+            var summary = document.getElementById('la-test-summary');
+            if (data.total_length !== undefined) {
+                summary.textContent = 'Showing ' + (data.length || 0) + ' of ' + data.total_length + ' entries.';
+            }
+
+            document.getElementById('la-results-section').style.display = '';
+            document.getElementById('la-test-results').classList.add('open');
+        })
+        .fail(function() {
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+            laToast('Connection test failed. Check server settings.', false);
         });
+}
 
-        function read() {
-            $.getJSON("../../system/auth/ldap/config/read", function(data) {
-                if (data.enabled) {
-                    $("#enable").parent().checkbox("check")
-                }
-                if (data.autoredirect) {
-                    $("#autoredirect").parent().checkbox("check")
-                }
-                $("#bind_username").val(data.bind_username);
-                $("#bind_password").val(data.bind_password);
-                $("#fqdn").val(data.fqdn);
-                $("#base_dn").val(data.base_dn);
-            });
-        }
+function laSync() {
+    var btn = document.getElementById('la-sync-btn');
+    btn.disabled = true;
 
-        function update() {
-            $.post("../../system/auth/ldap/config/write", {
-                    enabled: $("#enable").parent().checkbox("is checked"),
-                    bind_username: $("#bind_username").val(),
-                    bind_password: $("#bind_password").val(),
-                    fqdn: $("#fqdn").val(),
-                    base_dn: $("#base_dn").val(),
-                })
-                .done(function(data) {
-                    if (data.error != undefined) {
-                        alert(data.error);
-                    } else {
-                        //OK!
-                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
-                    }
-                });
-        }
+    $.get('../../system/auth/ldap/config/syncorizeUser')
+        .done(function(data) {
+            btn.disabled = false;
+            if (data.error !== undefined) {
+                laToast(data.error, false);
+            } else {
+                laToast('Users synchronised successfully', true);
+            }
+        })
+        .fail(function() {
+            btn.disabled = false;
+            laToast('Synchronisation failed. Please try again.', false);
+        });
+}
 
-        function test() {
-            $("#test_btn").text("Testing...");
-            $.get("../../system/auth/ldap/config/testConnection")
-                .done(function(data) {
-                    $("#information").html("");
-                    if (data.error != undefined) {
-                        if (data.error != "") {
-                            $("#information").append(`
-                            <tr>
-                                <td data-label="information" colspan="3">` + data.error + `</td>
-                            </tr>
-                        `);
-                            $("#testConnection").show("fast");
-                            $("#test_btn").text("Test connection");
-                            return;
-                        }
-                    }
-                    if (data.userinfo == null) {
-                        $("#information").append(`
-                            <tr>
-                                <td data-label="information" colspan="3">No entries was found.</td>
-                            </tr>
-                        `);
-                        $("#testConnection").show("fast");
-                        $("#test_btn").text("Test connection");
-                        return;
-                    }
-                    //OK!
-                    $(data.userinfo).each(function(index, element) {
-                        $("#information").append(`
-                            <tr>
-                                <td data-label="username">` + element.username + `</td>
-                                <td data-label="ldap_group">` + element.group + `</td>
-                                <td data-label="equiv_group">` + element.equiv_group + `</td>
-                            </tr>
-                        `);
-                    });
-                    $("#information").append(`
-                            <tr>
-                                <td data-label="length" colspan="3">Showing ` + data.length + ` of ` + data.total_length + ` entries</td>
-                            </tr>
-                    `);
-                    $("#testConnection").show("fast");
-                    $("#test_btn").text("Test connection");
-                });
-        }
+/* ── Helpers ── */
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 
-        function syncorize() {
-            $("#sync_btn").text("Syncorizing...");
-            $.get("../../system/auth/ldap/config/syncorizeUser")
-                .done(function(data) {
-                    if (data.error != undefined) {
-                        alert(data.error);
-                    } else {
-                        //OK!
-                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
-                    }
-                    $("#sync_btn").text("Syncorize User");
-                });
+function laToast(msg, ok) {
+    try {
+        if (typeof parent !== 'undefined' && typeof parent.msgbox === 'function') {
+            parent.msgbox(msg, ok);
+            return;
         }
-    </script>
+        if (typeof msgbox === 'function') {
+            msgbox(msg, ok);
+            return;
+        }
+    } catch(e) {}
+    alert(msg);
+}
+</script>
 </body>
-
 </html>

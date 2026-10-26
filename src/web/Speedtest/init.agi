@@ -3,13 +3,13 @@
 var moduleLaunchInfo = {
     Name: "Speedtest",
 	Group: "Internet",
-	IconPath: "Speedtest/img/small_icon.png",
+	IconPath: "Speedtest/img/module_icon.png",
 	Version: "1.0",
 	StartDir: "Speedtest/index.html"
 	SupportFW: true,
 	LaunchFWDir: "Speedtest/index.html",
 	SupportEmb: false,
-	InitFWSize: [600, 220]
+	InitFWSize: [440, 400]
 }
 
 //Register the module

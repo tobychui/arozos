@@ -12,14 +12,15 @@ package permission
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
-//Handle group editing operations
+// Handle group editing operations
 func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Request) {
 	listPermission, _ := utils.GetPara(r, "showper")
 	if listPermission == "" {
@@ -45,7 +46,7 @@ func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-//Listing a group's detail for editing or updating the group content
+// Listing a group's detail for editing or updating the group content
 func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
@@ -182,22 +183,10 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	//Migrated the creation process to a seperated function
 	h.NewPermissionGroup(groupname, isAdmin == "true", int64(quotaInt), permissionSlice, interfaceModule)
 
-	/*
-		//OK. Write the results into database
-		h.database.Write("permission", "group/" + groupname, permission)
-		h.database.Write("permission", "isadmin/" + groupname, isAdmin)
-		h.database.Write("permission", "quota/" + groupname, int64(quotaInt))
-		h.database.Write("permission", "interfaceModule/" + groupname, interfaceModule)
-
-		//Update the current cached permission group table
-		h.LoadPermissionGroupsFromDatabase()
-	*/
-
 	utils.SendOK(w)
-	log.Println("Creating New Permission Group:", groupname, permission, isAdmin, quota)
+	logger.PrintAndLog("Permission", fmt.Sprint("Creating New Permission Group:", groupname, permission, isAdmin, quota), nil)
 }
 
 func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Request) {

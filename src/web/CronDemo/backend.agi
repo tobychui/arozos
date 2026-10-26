@@ -1,0 +1,19 @@
+/*
+	CronDemo — Backend AGI
+	Returns cron execution stats for the current user from the system database.
+*/
+
+var TABLE = "CronDemo/" + USERNAME;
+
+newDBTableIfNotExists(TABLE);
+
+var lastRun  = readDBItem(TABLE, "lastRun");
+var countStr = readDBItem(TABLE, "runCount");
+
+if (!lastRun  || lastRun  === "false") lastRun  = null;
+if (!countStr || countStr === "false") countStr = "0";
+
+sendJSONResp(JSON.stringify({
+	lastRun:  lastRun,
+	runCount: parseInt(countStr, 10) || 0
+}));

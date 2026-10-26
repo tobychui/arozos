@@ -1,0 +1,16 @@
+/*
+    Terminal — Serve API Documentation
+
+    Reads Terminal/docs/api.json from the web root and returns it as JSON.
+    This keeps the docs file editable without touching Go code.
+*/
+
+requirelib("appdata");
+
+var content = appdata.readFile("Terminal/docs/api.json");
+if (content === false || content === null || content === undefined) {
+    sendJSONResp(JSON.stringify({error: "Documentation file not found"}));
+} else {
+    HTTP_HEADER = "application/json";
+    sendResp(content);
+}

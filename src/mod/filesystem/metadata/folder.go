@@ -3,17 +3,18 @@ package metadata
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/nfnt/resize"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -108,7 +109,7 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 		//Fail to decode the image. Try to remove the damaged iamge file
 		image3.Close()
 		fshAbs.Remove(contentCache[0])
-		log.Println("Failed to decode cahce image for: " + contentCache[0] + ". Removing thumbnail cache")
+		logger.PrintAndLog("Metadata", "Failed to decode cahce image for: "+contentCache[0]+". Removing thumbnail cache", nil)
 		return "", errors.New("failed to decode: " + err.Error())
 	}
 	defer image3.Close()
@@ -119,7 +120,8 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 
 	outfile, err := fshAbs.Create(filepath.Join(cacheFolder, filepath.Base(file)+".png"))
 	if err != nil {
-		log.Fatalf("failed to create: %s", err)
+		logger.PrintAndLog("Metadata", fmt.Sprintf("failed to create: %s", err), nil)
+		os.Exit(1)
 	}
 	png.Encode(outfile, resultThumbnail)
 	outfile.Close()

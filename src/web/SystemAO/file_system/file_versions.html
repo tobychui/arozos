@@ -9,6 +9,7 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <script type="text/javascript" src="shared/escape.js"></script>
         <link rel="stylesheet" href="../../script/ao.css">
         <style>
             body{
@@ -135,13 +136,13 @@
                                     <td>
                                     <h4 class="ui header">
                                         <div class="content">
-                                        <span>${fileVersionEntry.Filename}</span>
+                                        <span>${escapeHTML(fileVersionEntry.Filename)}</span>
                                         <div class="sub header">${fileVersionEntry.OverwriteTime} / ${filesize}</div>
                                     </div>
                                     </h4></td>
                                     <td>
                                         <div class="ui icon mini buttons">
-                                            <button relpath="${fileVersionEntry.Relpath}" onclick="downloadVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/download", "Download Version")}"><i class="ui blue download icon"></i></button>
+                                            <button relpath="${escapeHTML(fileVersionEntry.Relpath)}" onclick="downloadVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/download", "Download Version")}"><i class="ui blue download icon"></i></button>
                                             <button verid="${fileVersionEntry.HistoryID}" onclick="restoreVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/restore", "Restore This Version")}"><i class="ui green history icon"></i></button>
                                             <button verid="${fileVersionEntry.HistoryID}" onclick="deleteVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/delete", "Delete")}"><i class="ui red trash icon"></i></button>
                                         </div>

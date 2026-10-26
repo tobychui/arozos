@@ -4,91 +4,311 @@
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
         <meta charset="UTF-8">
-        <meta name="theme-color" content="#4b75ff">
-        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <meta name="theme-color" content="#0078d4">
         <script src="../script/jquery.min.js"></script>
         <script src="../script/ao_module.js"></script>
-        <script src="../script/semantic/semantic.min.js"></script>
         <title>WebSocket Test</title>
+        <style>
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+            body {
+                font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+                font-size: 14px;
+                background: #f3f3f3;
+                color: #201f1e;
+                min-height: 100vh;
+            }
+
+            /* ── Nav ───────────────────────────────────────────────── */
+            .nav-bar { position: sticky; top: 0; z-index: 100; height: 48px; background: rgba(243,243,243,0.9); backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid rgba(0,0,0,0.08); display: flex; align-items: center; padding: 0 20px; gap: 4px; }
+            .nav-brand { font-size: 13px; font-weight: 600; color: #201f1e; margin-right: 12px; white-space: nowrap; }
+            .nav-tab { display: inline-flex; align-items: center; height: 48px; padding: 0 12px; font-size: 13px; color: #605e5c; text-decoration: none; border-bottom: 2px solid transparent; transition: color 0.1s, border-color 0.1s; white-space: nowrap; }
+            .nav-tab:hover { color: #201f1e; }
+            .nav-tab.active { color: #0078d4; border-bottom-color: #0078d4; font-weight: 600; }
+
+            /* ── Layout ────────────────────────────────────────────── */
+            .content { max-width: 880px; margin: 24px auto; padding: 0 20px; }
+
+            /* ── Buttons ───────────────────────────────────────────── */
+            .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 4px; font-family: inherit; font-size: 13px; cursor: pointer; border: 1px solid transparent; transition: background 0.1s; line-height: 1; }
+            .btn-primary   { background: #0078d4; color: #fff; border-color: #0078d4; }
+            .btn-primary:hover   { background: #106ebe; }
+            .btn-primary:disabled  { opacity: 0.55; cursor: default; }
+            .btn-secondary { background: #fff; color: #201f1e; border-color: #d1d1d1; }
+            .btn-secondary:hover { background: #f5f5f5; }
+            .btn-danger    { background: #fff; color: #c50f1f; border-color: #f1b8bb; }
+            .btn-danger:hover    { background: #fde7e9; }
+            .btn-danger:disabled { opacity: 0.55; cursor: default; }
+
+            /* ── Connection card ───────────────────────────────────── */
+            .card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                margin-bottom: 16px;
+            }
+
+            .card-header {
+                padding: 12px 16px;
+                border-bottom: 1px solid #f0f0f0;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .card-title {
+                font-size: 13px;
+                font-weight: 600;
+                flex: 1;
+            }
+
+            .conn-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                background: #f3f3f3;
+                color: #797775;
+                transition: background 0.2s, color 0.2s;
+            }
+            .conn-pill.connected   { background: #dff6dd; color: #107c10; }
+            .conn-pill.error-state { background: #fde7e9; color: #c50f1f; }
+
+            .conn-dot {
+                width: 6px; height: 6px;
+                border-radius: 50%;
+                background: #c0c0c0;
+                flex-shrink: 0;
+                transition: background 0.2s;
+            }
+            .conn-pill.connected   .conn-dot { background: #107c10; }
+            .conn-pill.error-state .conn-dot { background: #c50f1f; }
+
+            /* ── Message log ───────────────────────────────────────── */
+            .msg-log {
+                min-height: 320px;
+                max-height: 480px;
+                overflow-y: auto;
+                padding: 8px 0;
+                background: #fafafa;
+            }
+
+            .msg-log-empty {
+                padding: 60px 20px;
+                text-align: center;
+                color: #bbb;
+                font-size: 13px;
+            }
+
+            .msg-row {
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+                padding: 4px 16px;
+                border-left: 3px solid transparent;
+                font-family: 'Cascadia Code', 'Consolas', monospace;
+                font-size: 12px;
+                line-height: 1.5;
+            }
+            .msg-row:hover { background: rgba(0,0,0,0.02); }
+
+            .msg-time {
+                font-size: 10px;
+                color: #bbb;
+                white-space: nowrap;
+                flex-shrink: 0;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .msg-icon { flex-shrink: 0; font-size: 11px; }
+
+            .msg-text { flex: 1; word-break: break-all; color: #323130; }
+
+            /* type variants */
+            .msg-system  { border-left-color: #d1d1d1; }
+            .msg-system  .msg-text { color: #797775; font-style: italic; }
+            .msg-sent    { border-left-color: #0078d4; }
+            .msg-sent    .msg-text { color: #004e8c; }
+            .msg-recv    { border-left-color: #107c10; }
+            .msg-recv    .msg-text { color: #0b5a0b; }
+            .msg-error   { border-left-color: #c50f1f; }
+            .msg-error   .msg-text { color: #c50f1f; }
+
+            /* ── Send row ──────────────────────────────────────────── */
+            .send-row {
+                display: flex;
+                gap: 8px;
+                padding: 12px 16px;
+                border-top: 1px solid #f0f0f0;
+                background: #fff;
+            }
+
+            .send-input {
+                flex: 1;
+                padding: 6px 10px;
+                border: 1px solid #d1d1d1;
+                border-radius: 4px;
+                font-family: 'Cascadia Code', 'Consolas', monospace;
+                font-size: 13px;
+                color: #201f1e;
+                background: #fff;
+                outline: none;
+            }
+            .send-input:focus { border-color: #0078d4; box-shadow: 0 0 0 1px #0078d4; }
+            .send-input:disabled { background: #f3f3f3; color: #a0a0a0; }
+
+            /* ── Toolbar ───────────────────────────────────────────── */
+            .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        </style>
     </head>
     <body>
-        <br><br>
-        <div class="ui container">
-            <h3>WebSocket Testing Interface</h3>
-            <div class="ui form">
-                <div class="field">
-                    <label>Recv</label>
-                    <textarea id="incoming"></textarea>
+
+        <nav class="nav-bar">
+            <span class="nav-brand">Unit Tester</span>
+            <a class="nav-tab" href="index.html">AGI Scripts</a>
+            <a class="nav-tab" href="backend.html">ao_backend</a>
+            <a class="nav-tab active" href="wstest.html">WebSocket</a>
+            <a class="nav-tab" href="devmode.html">Dev Mode</a>
+        </nav>
+
+        <div class="content">
+
+            <div class="toolbar">
+                <button class="btn btn-primary"   id="btnConnect"    onclick="openws()">Connect</button>
+                <button class="btn btn-danger"     id="btnDisconnect" onclick="closews()" disabled>Disconnect</button>
+                <button class="btn btn-secondary"  onclick="clearLog()">Clear Log</button>
+            </div>
+
+            <!-- Connection + log card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">WebSocket Log</span>
+                    <span class="conn-pill" id="connPill">
+                        <span class="conn-dot"></span>
+                        <span id="connLabel">Not connected</span>
+                    </span>
                 </div>
-                <div class="field">
-                    <label>Send</label>
-                    <input type="text" id="sendMsg">
+
+                <div class="msg-log" id="msgLog">
+                    <div class="msg-log-empty" id="logEmpty">Connect to start the session&hellip;</div>
                 </div>
-                <div class="field">
-                   <button class="ui blue button" onclick="sendws();">Send</button>
+
+                <div class="send-row">
+                    <input class="send-input" id="sendMsg" type="text"
+                           placeholder="Type a message and press Enter or Send"
+                           disabled
+                           onkeydown="if(event.key==='Enter' && !this.disabled) sendws()">
+                    <button class="btn btn-primary" id="btnSend" onclick="sendws()" disabled>Send</button>
                 </div>
             </div>
-            <br>
-            <button class="ui button" onclick="openws();">Open Connection</button>
+
         </div>
 
         <script>
-            var ws;
+            var ws = null;
 
-            $(window).ready(function(){
-                $("#incoming").val("");
-            });
+            /* ── Connection ──────────────────────────────────────── */
+            function openws() {
+                if (ws) ws.close();
+                logMsg("system", "Opening WebSocket…");
+                let endpoint = getWSEndpoint() + "/system/ajgi/interface?script=UnitTest/special/websocket.js";
+                ws = new WebSocket(endpoint);
 
-            //Send WebSocket
-            function sendws(){
-                var value = $("#sendMsg").val();
-                ws.send(value);
-                log("✉️ " + value)
-                $("#sendMsg").val("");
-            }
-
-            //Open WebSocket connection to test script
-            function openws(){
-                log("⏱️ Opening WebSocket...");
-                let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=UnitTest/special/websocket.js");
-                ws = socket;
-
-                socket.onopen = function(e) {
-                    log("✔️ Socket Opened");
+                ws.onopen = function() {
+                    setConnState("connected", "Connected");
+                    logMsg("system", "Socket opened");
+                    setSendEnabled(true);
                 };
 
-                socket.onmessage = function(event) {
-                    log(`✔️ Received: ${event.data}`);
+                ws.onmessage = function(e) {
+                    logMsg("recv", e.data);
                 };
 
-                socket.onclose = function(event) {
-                    if (event.wasClean) {
-                        log(`📪 Connection Closed Cleanly code=${event.code} reason=${event.reason}`);
-                    } else {
-                        // e.g. server process killed or network down
-                        // event.code is usually 1006 in this case
-                        log(`❌ Connection Closed Unexpectedly`);
-                    }
+                ws.onclose = function(e) {
+                    setConnState("", "Disconnected");
+                    setSendEnabled(false);
+                    logMsg("system", e.wasClean
+                        ? "Connection closed cleanly (code " + e.code + ")"
+                        : "Connection closed unexpectedly");
+                    ws = null;
                 };
 
-                socket.onerror = function(error) {
-                    log(`❌ ERROR! ${error.message}`);
+                ws.onerror = function() {
+                    setConnState("error-state", "Error");
+                    logMsg("error", "WebSocket error — check the console for details");
                 };
             }
 
-            function log(content){
-                $("#incoming").val($("#incoming").val() + content + "\n");
-                $("#incoming").scrollTop($("#incoming")[0].scrollHeight);
-            }
-
-            function getWSEndpoint(){
-                //Open opeartion in websocket
-                let protocol = "wss://";
-                if (location.protocol !== 'https:') {
-                    protocol = "ws://";
+            function closews() {
+                if (ws) {
+                    ws.close();
+                    logMsg("system", "Closing connection…");
                 }
-                wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
-                return wsControlEndpoint;
+            }
+
+            function sendws() {
+                let input = document.getElementById("sendMsg");
+                let msg = input.value.trim();
+                if (!msg || !ws || ws.readyState !== WebSocket.OPEN) return;
+                ws.send(msg);
+                logMsg("sent", msg);
+                input.value = "";
+            }
+
+            function clearLog() {
+                document.getElementById("msgLog").innerHTML =
+                    '<div class="msg-log-empty" id="logEmpty">Log cleared.</div>';
+            }
+
+            /* ── UI helpers ──────────────────────────────────────── */
+            function setConnState(cls, label) {
+                let pill = document.getElementById("connPill");
+                pill.className = "conn-pill" + (cls ? " " + cls : "");
+                document.getElementById("connLabel").textContent = label;
+                let connectBtn    = document.getElementById("btnConnect");
+                let disconnectBtn = document.getElementById("btnDisconnect");
+                let connected = (cls === "connected");
+                connectBtn.disabled    = connected;
+                disconnectBtn.disabled = !connected;
+            }
+
+            function setSendEnabled(on) {
+                document.getElementById("sendMsg").disabled  = !on;
+                document.getElementById("btnSend").disabled  = !on;
+                if (on) document.getElementById("sendMsg").focus();
+            }
+
+            function logMsg(type, text) {
+                let log = document.getElementById("msgLog");
+                let empty = document.getElementById("logEmpty");
+                if (empty) empty.remove();
+
+                let icons = { system: "·", sent: "↑", recv: "↓", error: "✕" };
+                let now = new Date();
+                let ts  = now.toTimeString().slice(0,8);
+
+                let row = document.createElement("div");
+                row.className = "msg-row msg-" + type;
+                row.innerHTML =
+                    '<span class="msg-time">' + ts + '</span>' +
+                    '<span class="msg-icon">' + (icons[type] || "·") + '</span>' +
+                    '<span class="msg-text">' + escHtml(text) + '</span>';
+                log.appendChild(row);
+                log.scrollTop = log.scrollHeight;
+            }
+
+            function getWSEndpoint() {
+                let proto = location.protocol === "https:" ? "wss://" : "ws://";
+                return proto + location.hostname + ":" + location.port;
+            }
+
+            function escHtml(s) {
+                return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
             }
         </script>
     </body>

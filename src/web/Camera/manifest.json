@@ -1,26 +1,51 @@
 {
+  "id": "arozos-camera",
   "name": "Camera",
   "short_name": "Camera",
-  "icons": [{
-    "src": "img/pwa/128.png",
+  "description": "A modern camera with filters, ISO, video recording and aspect ratio control that never runs out of storage.",
+  "icons": [
+    {
+      "src": "img/pwa/128.png",
       "sizes": "128x128",
-      "type": "image/png"
-    },{
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "img/pwa/192.png",
       "sizes": "192x192",
-      "type": "image/png"
-    }, {
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "img/pwa/256.png",
       "sizes": "256x256",
-      "type": "image/png"
-    }, {
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/pwa/384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "img/pwa/512.png",
       "sizes": "512x512",
-      "type": "image/png"
-    }],
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/pwa/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
   "start_url": "index.html",
   "display": "fullscreen",
+  "orientation": "portrait",
   "scope": "./",
-  "background_color": "#2a2d2d",
-  "theme_color": "#3b3632"
+  "categories": ["photo", "utilities"],
+  "background_color": "#000000",
+  "theme_color": "#000000"
 }

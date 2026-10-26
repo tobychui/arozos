@@ -1,0 +1,18 @@
+/*
+    FFmpeg Factory - Ensure Directories
+    Creates the required tmp folders for the factory to operate.
+    Call this before any file upload operation.
+*/
+requirelib("filelib");
+
+var taskDir = "tmp:/ffmpeg_factory";
+var uploadDir = "tmp:/ffmpeg_factory/uploads";
+
+if (!filelib.fileExists(taskDir)) {
+    filelib.mkdir(taskDir);
+}
+if (!filelib.fileExists(uploadDir)) {
+    filelib.mkdir(uploadDir);
+}
+
+sendJSONResp(JSON.stringify({ success: true }));

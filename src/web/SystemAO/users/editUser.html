@@ -1,289 +1,476 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Edit User</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
-        <link rel="stylesheet" href="../../script/ao.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.js"></script>
-        <script type="text/javascript" src="../../script/ao_module.js"></script>
-        <style>
-            body{
-                background-color:white;
-            }
-            .themebackground{
-                background-color:#588ce0 !important;
-                color:white !important;
-                background-image: url("/img/public/slate.png") !important;
-                background-repeat: no-repeat !important;
-                background-attachment: fixed !important;
-                height:100px;
-                border: 0px solid transparent !important;
-                padding:24px !important;
-            }
-            .required{
-                color:red;
-            }
-            .actionbtns{
-                text-align:right;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="ui fluid attached segment themebackground" >
-            <h24 class="ui inverted header">
-                <i class="edit icon"></i>
-                <div class="content">
-                    Edit User
-                <div class="sub header">Edit user profile and permissions</div>
-                </div>
-            </h4>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Edit User</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+     <script src="../../script/ao_module.js"></script>
+    <link rel="stylesheet" href="ueditor.css">
+    <style>
+    /* ── Danger button variant (editUser-specific) ── */
+    .ued-btn.danger  { color: var(--ued-danger); border-color: var(--ued-danger); background: transparent; }
+    .ued-btn.danger:hover  { background: rgba(255,59,48,0.08); }
+    #eu-root.dark .ued-btn.danger:hover { background: rgba(255,69,58,0.13); }
+
+    /* ── Group checkbox list ── */
+    #eu-groups-list {
+        border: 1px solid var(--ued-divider);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .eu-group-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--ued-divider);
+        cursor: pointer;
+        transition: background 0.08s;
+        user-select: none;
+    }
+    .eu-group-item:last-child { border-bottom: none; }
+    .eu-group-item:hover { background: var(--ued-hover); }
+    .eu-group-cb {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--ued-accent);
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+    .eu-group-name { font-size: 13px; font-weight: 500; color: var(--ued-text); }
+
+    /* ── Permission preview table ── */
+    .eu-perm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .eu-perm-table th {
+        text-align: left;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ued-muted);
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--ued-divider);
+        background: var(--ued-card-bg);
+    }
+    .eu-perm-table td {
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--ued-divider);
+        color: var(--ued-text);
+        vertical-align: top;
+    }
+    .eu-perm-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Password reset result ── */
+    #eu-pw-result {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--ued-divider);
+        border-radius: 8px;
+        background: var(--ued-card-bg);
+    }
+    .eu-pw-label { font-size: 11.5px; color: var(--ued-muted); margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+<div id="eu-root" class="ued-root">
+<div class="ued-topbar"></div>
+<div class="ued-page">
+
+    <!-- Feedback banners -->
+    <div id="eu-success" class="ued-banner success" locale="edituser/msg-updated">Profile updated</div>
+    <div id="eu-error"   class="ued-banner error"><span id="eu-err-msg"></span></div>
+
+    <!-- Profile & Permissions -->
+    <div class="ued-section-label" locale="edituser/section-profile">Profile &amp; Permissions</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="edituser/field-username">Username</div>
+            <div class="ued-field-body">
+                <input id="eu-username" class="ued-input" type="text" readonly>
+            </div>
         </div>
-        <div class="ui container">
-            <div id="confirmUpdate" class="ui green inverted segment" style="display:none; margin-top:12px;">
-                <i class="checkmark icon"></i> Profile Updated
-            </div>
-            <div id="updateError" class="ui red inverted segment" style="display:none; margin-top:12px;">
-                <i class="remove icon"></i> <span id="errmsg"></span>
-            </div>
-            <h4>User Profile & Permission</h4>
-            <form class="ui form" onsubmit="handleUserProfileUpdate(event);">
-                <div class="field">
-                  <label>Username</label>
-                  <input id="username" type="text" name="username" placeholder="Username" readonly=true>
+        <div class="ued-field-row" style="align-items:flex-start;">
+            <div class="ued-field-label" style="padding-top:8px;" locale="edituser/field-groups">Permission Groups</div>
+            <div class="ued-field-body">
+                <div id="eu-groups-list">
+                    <div class="ued-empty" locale="edituser/loading">Loading&hellip;</div>
                 </div>
-                <div class="field">
-                    <div class="ui divder"></div>
-                    <label>Permission Groups</label>
-                    <select id="pgroups" multiple="" class="ui fluid dropdown">
-                        
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions Preview -->
+    <div class="ued-section-label" locale="edituser/section-perms">Permissions Preview</div>
+    <div class="ued-card" style="overflow-x:auto;">
+        <table class="eu-perm-table">
+            <thead><tr>
+                <th locale="edituser/col-group">Group</th>
+                <th locale="edituser/col-admin">Administrator</th>
+                <th locale="edituser/col-modules">Accessible Modules</th>
+            </tr></thead>
+            <tbody id="eu-perm-table-body">
+                <tr><td colspan="3" class="ued-empty" locale="edituser/no-groups-selected">No groups selected</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Storage Quota -->
+    <div class="ued-section-label" locale="edituser/section-quota">Storage Quota</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="edituser/field-quota">Quota</div>
+            <div class="ued-field-body">
+                <div class="ued-quota-row">
+                    <input id="eu-quota" class="ued-input" type="number" value="15">
+                    <select id="eu-unit" class="ued-select">
+                        <option value="1">Bytes</option>
+                        <option value="1024">KB</option>
+                        <option value="1048576">MB</option>
+                        <option value="1073741824" selected>GB</option>
+                        <option value="1099511627776">TB</option>
+                        <option value="1125899906842624">PB</option>
                     </select>
                 </div>
-
-                <table class="ui celled table">
-                    <thead>
-                        <tr><th>Group Name</th>
-                        <th>Is Admin</th>
-                        <th>Accessible Modules</th>
-                    </tr></thead>
-                    <tbody id="permissionTable">
-                        
-                    </tbody>
-                </table>
-
-                <div class="two fields">
-                    <div class="field">
-                        <label>Storage Quota <span class="required">*</span></label>
-                        <input id="quota" type="text" value="15">
-                        <small>Set to 0 for READONLY and -1 for Unlimited Storage</small>
-                    </div>
-                    <div class="field">
-                        <label>Unit <span class="required">*</span></label>
-                        <select class="ui fluid search dropdown" id="unit">
-                            <option value="1">Bytes</option>
-                            <option value="1024">KB</option>
-                            <option value="1048576">MB</option>
-                            <option value="1073741824">GB</option>
-                            <option value="1099511627776">TB</option>
-                            <option value="1125899906842624">PB</option>
-                            </select>
-                    </div>
-                </div>
-                
-                <button class="ui right floated button" onclick="event.preventDefault(); handleEditorExit();">Close</button>
-                <button class="ui primary right floated button" type="submit">Update</button>
-                <br><br>
-                <div class="ui divider"></div>
-                <h4>Password & Security</h4>
-                <p>Reset Password</p>
-                <button class="ui red button" onclick="restartPassword();">RESET PASSWORD</button>
-                <p>A temporary password will be generated once reset is requested. Administrator should provide the user with the password reset link generated below for the user to reset their password.</p>
-                <div id="tmppwui" class="ui green segment" style="margin-top:12px; display:none;">
-                    <p><i class="checkmark icon"></i> Password Reset Link Generated</p>
-                    <div class="ui labeled fluid input">
-                        <label for="tmpw" class="ui label"><i class="key icon"></i></label>
-                        <input id="tmppw" type="text" placeholder="Temporary Password" id="tmpw">
-                      </div>
-                      <small>Please provide the password reset link listed above to the user and request user to update their password through the password reset tool.</small>
-                </div>
-       
+                <div class="ued-input-hint" locale="edituser/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
             </div>
-        <script>
-            var currentEditingUsername = "";
-            var userdata;
-            var groupList = {};
-            //Get username from window hash
-            if (window.location.hash.length > 0){
-                var username = window.location.hash.substring(1);
-                username = decodeURIComponent(username);
-                $("#username").val(username);
-                currentEditingUsername = username;
+        </div>
+    </div>
+
+    <!-- Password & Security -->
+    <div class="ued-section-label" locale="edituser/section-security">Password &amp; Security</div>
+    <div class="ued-card">
+        <div class="ued-field-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+            <div style="font-size:12.5px;color:var(--ued-dim);line-height:1.5;" locale="edituser/reset-pw-desc">
+                A temporary password will be generated. Provide the reset link to the user to complete the password change.
+            </div>
+            <button class="ued-btn danger" onclick="resetPassword(this)">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                    <path d="M10 6a4 4 0 1 1-1.17-2.83" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <polyline points="10,1 10,4 7,4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span locale="edituser/btn-reset-pw">Reset Password</span>
+            </button>
+            <div id="eu-pw-result" style="display:none;width:100%;">
+                <div class="eu-pw-label" locale="edituser/reset-link-hint">Provide this reset link to the user:</div>
+                <input id="eu-pw-link" class="ued-input" type="text" readonly onclick="this.select();">
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="ued-toolbar">
+        <div class="ued-btn-row">
+            <button class="ued-btn" onclick="euClose()">
+                <span locale="edituser/btn-close">Close</span>
+            </button>
+            <button class="ued-btn primary" onclick="handleUserProfileUpdate(this)">
+                <span locale="edituser/btn-update">Update</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+    /* ── Locale ── */
+    var euLocale = NewAppLocale();
+
+    /* ── Theme detection (public-safe, try-catch at every step) ── */
+    (function() {
+        var root = document.getElementById('eu-root');
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    var isDark = c !== 'whiteTheme';
+                    root.classList.toggle('dark', isDark);
+                    document.body.classList.toggle('dark', isDark);
+                });
+                return;
             }
-            
-            $("#pgroups").on("change", function(e){
-                updatePGTable();
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined')                         t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined')   t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) {
+                var isDark = t === 'dark' || t === 'darkTheme';
+                root.classList.toggle('dark', isDark);
+                document.body.classList.toggle('dark', isDark);
+            }
+        } catch(e) {}
+    })();
+
+    /* ── State ── */
+    var currentEditingUsername = '';
+    var userdata = null;
+    var groupList = {};
+
+    /* ── Read username from URL hash ── */
+    (function() {
+        try {
+            var hash = window.location.hash;
+            if (hash && hash.length > 1) {
+                currentEditingUsername = decodeURIComponent(hash.substring(1));
+                document.getElementById('eu-username').value = currentEditingUsername;
+            }
+        } catch(e) {}
+    })();
+
+    /* ── Feedback helpers ── */
+    function euShowSuccess() {
+        var el = document.getElementById('eu-success');
+        el.classList.add('visible');
+        clearTimeout(el._t);
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 3000);
+    }
+
+    function euShowError(msg) {
+        document.getElementById('eu-err-msg').textContent = msg || '';
+        var el = document.getElementById('eu-error');
+        el.classList.add('visible');
+        clearTimeout(el._t);
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 5000);
+    }
+
+    /* ── Close window (public-safe) ── */
+    function euClose() {
+        try { ao_module_parentCallback(true); } catch(e) {}
+        try { ao_module_close(); } catch(e) { try { window.close(); } catch(e2) {} }
+    }
+
+    /* ── Bytes → { amount, unitValue } ── */
+    var euUnits = [
+        { label: 'PB', value: '1125899906842624', bytes: 1125899906842624 },
+        { label: 'TB', value: '1099511627776',    bytes: 1099511627776    },
+        { label: 'GB', value: '1073741824',        bytes: 1073741824       },
+        { label: 'MB', value: '1048576',           bytes: 1048576          },
+        { label: 'KB', value: '1024',              bytes: 1024             },
+        { label: 'Bytes', value: '1',              bytes: 1               }
+    ];
+
+    function bytesToDisplay(bytes) {
+        for (var i = 0; i < euUnits.length; i++) {
+            if (bytes >= euUnits[i].bytes && bytes % euUnits[i].bytes === 0) {
+                return { amount: bytes / euUnits[i].bytes, unitValue: euUnits[i].value };
+            }
+        }
+        return { amount: bytes, unitValue: '1' };
+    }
+
+    /* ── Render group checkbox list ── */
+    function renderGroupList() {
+        var container = document.getElementById('eu-groups-list');
+        var keys = Object.keys(groupList);
+        if (keys.length === 0) {
+            container.innerHTML = '<div class="ued-empty">' + euLocale.getString('edituser/no-groups', 'No groups available') + '</div>';
+            return;
+        }
+        container.innerHTML = '';
+        var selectedGroups = (userdata && Array.isArray(userdata.Usergroup)) ? userdata.Usergroup : [];
+        keys.forEach(function(gname) {
+            var safeGname = $('<span>').text(gname).html();
+            var item = document.createElement('div');
+            item.className = 'eu-group-item';
+            item.innerHTML =
+                '<input type="checkbox" class="eu-group-cb" value="' + safeGname + '"' +
+                (selectedGroups.indexOf(gname) !== -1 ? ' checked' : '') +
+                ' onchange="updatePermTable();" onclick="event.stopPropagation();">' +
+                '<span class="eu-group-name">' + safeGname + '</span>';
+            item.addEventListener('click', function(e) {
+                if (e.target.type === 'checkbox') return;
+                var cb = item.querySelector('.eu-group-cb');
+                cb.checked = !cb.checked;
+                updatePermTable();
             });
+            container.appendChild(item);
+        });
+        updatePermTable();
+    }
 
-            $("#unit").dropdown("set selected","GB");
-            function bytesToSize(bytes) {
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
-                if (bytes == 0) return '0 Byte';
-                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return [bytes / Math.pow(1024, i), sizes[i]];
-            }
+    /* ── Permission preview table ── */
+    function updatePermTable() {
+        var tbody = document.getElementById('eu-perm-table-body');
+        var selected = [];
+        document.querySelectorAll('.eu-group-cb:checked').forEach(function(cb) { selected.push(cb.value); });
+        if (selected.length === 0) {
+            var msg = euLocale.getString('edituser/no-groups-selected', 'No groups selected');
+            tbody.innerHTML = '<tr><td colspan="3" class="ued-empty">' + msg + '</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        selected.forEach(function(gname) {
+            var info = groupList[gname];
+            if (!info) return;
+            var isAdmin  = info[1];
+            var modules  = Array.isArray(info[0]) ? info[0] : [];
+            var adminHtml = isAdmin
+                ? '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;"><path d="M2 6l3 3 5-5" stroke="var(--ued-accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                : '<span style="color:var(--ued-muted);">&#8212;</span>';
+            var modulesHtml = modules.length
+                ? modules.map(function(m) { return $('<span>').text(m).html(); }).join('<span style="color:var(--ued-muted);margin:0 2px;">/</span>')
+                : '<span style="color:var(--ued-muted);">&#8212;</span>';
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + $('<span>').text(gname).html() + '</td>' +
+                '<td>' + adminHtml + '</td>' +
+                '<td style="font-size:11.5px;color:var(--ued-dim);">' + modulesHtml + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
 
-            initContents(function(){
-                initGroupList(function(){
-                    $('.ui.dropdown').dropdown();
-                });
-            });
-
-            function handleEditorExit(){
-                ao_module_parentCallback(true);
-                ao_module_close();
-            }
-
-            function initContents(callback=undefined){
-                //Update the table contents
-                $.ajax({
-                    url: "../../system/users/editUser",
-                    data: {username: currentEditingUsername},
-                    method:"POST",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            userdata = data;
-                            var displaysize = bytesToSize(data.Quota)
-                            
-                            if (data.Quota == -1){
-                                //Unlimited
-                                $("#quota").val(-1);
-                            }else if (data.Quota == -2){
-                                //Not initialized. Set it to 0
-                                $("#quota").val(0);
-                            }else{
-                                $("#quota").val(displaysize[0]);
-                            }
-                            
-                            $("#unit").dropdown("set selected",displaysize[1])
-                            if (callback !== undefined){
-                                callback();
-                            }
-                        }
-                    }
-                });
-            }
-
-            function initGroupList(callback=undefined){
-                //Initialize group list
-                $.ajax({
-                    url: "../../system/permission/listgroup?showper=true",
-                    success: function(data){
-                        $("#pgroups").html("");
-                        if (data.error !== undefined){
-                            alert(data.error)
-                        }else{
-                            groupList = data;
-                            for (const [key, value] of Object.entries(data)) {
-                                $("#pgroups").append(`<option value="${key}">${key}</option>`);
-                            }
-                            $('#pgroups').dropdown('set selected', userdata.Usergroup);
-                            updatePGTable();
-
-                            if (callback !== undefined){
-                                callback();
-                            }
-                            
-                        }
-                        
-                    }
-                });
-            }
-
-            function updatePGTable(){
-                $("#permissionTable").html("");
-                var pgList = $("#pgroups").val();
-                pgList.forEach(pgid => {
-                    var groupInfo = groupList[pgid];
-                    var isAdmin = '<i class="green checkmark icon"></i>';
-                    if (groupInfo[1] == false){
-                        isAdmin = '<i class="red remove icon"></i>';
-                    }
-                    $("#permissionTable").append(`
-                        <tr>
-                            <td data-label="groupname">${pgid}</td>
-                            <td data-label="isdamin">${isAdmin}</td>
-                            <td data-label="modules">${groupInfo[0].join("/")}</td>
-                        </tr>`);
-                });
-
-            }
-
-            function restartPassword(){
-                var username = $("#username").val();
-                $.ajax({
-                    url: "../../system/users/editUser",
-                    data: {opr: "resetPassword", username: username},
-                    method: "POST",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            //Update suceed
-                            initContents();
-                            $("#confirmUpdate").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
-                            console.log(data);
-                            $("#tmppw").val(location.protocol + '//' + location.host + "/reset.html?acc=" + username +  "&rkey=" + data);
-                            $("#tmppwui").slideDown('fast');
-                        }
-                    }
-                });
-            }
-
-            function handleUserProfileUpdate(e){
-                e.preventDefault();
-                //Get all the value from the form
-                var username = $("#username").val();
-                var pgs = JSON.stringify($("#pgroups").val());
-                
-                //Parse Quota
-                var userStorageQuota = parseFloat($("#quota").val()) * $("#unit").val();
-                if (isNaN(userStorageQuota)){
-                    $("#quota").parent().addClass("error");
-                    return
-                }else{
-                    $("#quota").parent().removeClass("error");
+    /* ── Load user data ── */
+    function initContents(callback) {
+        if (!currentEditingUsername) {
+            euShowError(euLocale.getString('edituser/load-error', 'Failed to load user data.'));
+            return;
+        }
+        $.ajax({
+            url: '../../system/users/editUser',
+            data: { username: currentEditingUsername },
+            method: 'POST',
+            success: function(data) {
+                if (!data || data.error !== undefined) {
+                    euShowError(data && data.error ? data.error : euLocale.getString('edituser/load-error', 'Failed to load user data.'));
+                    return;
                 }
-
-                if (parseInt($("#quota").val()) == -1){
-                    userStorageQuota = -1;
+                userdata = data;
+                if (data.Quota === -1) {
+                    document.getElementById('eu-quota').value = -1;
+                } else if (data.Quota === -2 || data.Quota <= 0) {
+                    document.getElementById('eu-quota').value = 0;
+                } else {
+                    var d = bytesToDisplay(data.Quota);
+                    document.getElementById('eu-quota').value = d.amount;
+                    document.getElementById('eu-unit').value  = d.unitValue;
                 }
-                
-                $.ajax({
-                    url: "../../system/users/editUser",
-                    data: {opr: "updateUserGroup", newgroup: pgs, username: username, quota: userStorageQuota},
-                    method: "POST",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            $("#errmsg").text(data.error);
-                            $("#updateError").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
-                        }else{
-                            //Update suceed
-                            initContents();
-                            updatePGTable();
-                            $("#confirmUpdate").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
-                            ao_module_parentCallback(true);
-
-                        }
-                        window.scrollTo(0,0);
-                    }
-                });
+                if (typeof callback === 'function') callback();
+            },
+            error: function(xhr) {
+                var msg;
+                if      (xhr.status === 403) msg = euLocale.getString('edituser/err-forbidden', 'Access denied.');
+                else if (xhr.status === 404) msg = euLocale.getString('edituser/err-not-found',  'User not found.');
+                else                         msg = euLocale.getString('edituser/load-error',     'Failed to load user data.');
+                euShowError(msg);
             }
+        });
+    }
 
-           
-        </script>
-    </body>
+    /* ── Load group list ── */
+    function initGroupList(callback) {
+        $.ajax({
+            url: '../../system/permission/listgroup?showper=true',
+            success: function(data) {
+                if (!data || data.error !== undefined) {
+                    euShowError(data && data.error ? data.error : euLocale.getString('edituser/load-error', 'Failed to load groups.'));
+                    return;
+                }
+                groupList = data;
+                renderGroupList();
+                if (typeof callback === 'function') callback();
+            },
+            error: function(xhr) {
+                var msg = xhr.status === 403
+                    ? euLocale.getString('edituser/err-forbidden', 'Access denied.')
+                    : euLocale.getString('edituser/load-error',    'Failed to load groups.');
+                euShowError(msg);
+            }
+        });
+    }
+
+    /* ── Save profile ── */
+    function handleUserProfileUpdate(btn) {
+        var quotaRaw = parseFloat(document.getElementById('eu-quota').value);
+        var unitVal  = parseInt(document.getElementById('eu-unit').value, 10);
+        var quotaEl  = document.getElementById('eu-quota');
+        if (isNaN(quotaRaw)) {
+            quotaEl.classList.add('error');
+            quotaEl.focus();
+            return;
+        }
+        quotaEl.classList.remove('error');
+        var quota = (quotaRaw === -1) ? -1 : quotaRaw * unitVal;
+
+        var selected = [];
+        document.querySelectorAll('.eu-group-cb:checked').forEach(function(cb) { selected.push(cb.value); });
+
+        $(btn).addClass('loading');
+        $.ajax({
+            url: '../../system/users/editUser',
+            data: {
+                opr:      'updateUserGroup',
+                username: currentEditingUsername,
+                newgroup: JSON.stringify(selected),
+                quota:    quota
+            },
+            method: 'POST',
+            success: function(data) {
+                $(btn).removeClass('loading');
+                if (data && data.error !== undefined) {
+                    euShowError(data.error);
+                } else {
+                    euShowSuccess();
+                    try { ao_module_parentCallback(true); } catch(e) {}
+                }
+            },
+            error: function(xhr) {
+                $(btn).removeClass('loading');
+                var msg = xhr.status === 403
+                    ? euLocale.getString('edituser/err-forbidden', 'Access denied.')
+                    : euLocale.getString('edituser/save-error',    'Failed to save changes.');
+                euShowError(msg);
+            }
+        });
+    }
+
+    /* ── Reset password ── */
+    function resetPassword(btn) {
+        $(btn).addClass('loading');
+        $.ajax({
+            url: '../../system/users/editUser',
+            data: { opr: 'resetPassword', username: currentEditingUsername },
+            method: 'POST',
+            success: function(data) {
+                $(btn).removeClass('loading');
+                if (data && data.error !== undefined) {
+                    euShowError(data.error);
+                } else {
+                    var resetLink = location.protocol + '//' + location.host +
+                        '/reset.html?acc='  + encodeURIComponent(currentEditingUsername) +
+                        '&rkey=' + encodeURIComponent(String(data));
+                    document.getElementById('eu-pw-link').value = resetLink;
+                    document.getElementById('eu-pw-result').style.display = 'block';
+                    euShowSuccess();
+                }
+            },
+            error: function(xhr) {
+                $(btn).removeClass('loading');
+                var msg = xhr.status === 403
+                    ? euLocale.getString('edituser/err-forbidden', 'Access denied.')
+                    : euLocale.getString('edituser/reset-error',   'Failed to reset password.');
+                euShowError(msg);
+            }
+        });
+    }
+
+    /* ── Bootstrap ── */
+    var euLocaleReady = false;
+    euLocale.init('../locale/system_settings/edituser.json', function() {
+        euLocaleReady = true;
+        euLocale.translate();
+        ao_module_setWindowTitle(euLocale.getString('edituser/title', 'Edit User'));
+        initContents(function() { initGroupList(); });
+    });
+    /* Safety fallback: init without locale if JSON fails to load within 2 s */
+    setTimeout(function() {
+        if (!euLocaleReady) {
+            ao_module_setWindowTitle('Edit User');
+            initContents(function() { initGroupList(); });
+        }
+    }, 2000);
+</script>
+</body>
 </html>

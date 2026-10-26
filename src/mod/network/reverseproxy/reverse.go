@@ -2,6 +2,7 @@ package reverseproxy
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var onExitFlushLoop func()
@@ -188,7 +191,7 @@ func (p *ReverseProxy) logf(format string, args ...interface{}) {
 	if p.ErrorLog != nil {
 		p.ErrorLog.Printf(format, args...)
 	} else {
-		log.Printf(format, args...)
+		logger.PrintAndLog("Reverseproxy", fmt.Sprintf(format, args...), nil)
 	}
 }
 

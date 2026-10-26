@@ -1,0 +1,22 @@
+/*
+    Terminal — Read File Backend
+
+    Reads an AGI/JS script from the user's virtual filesystem and
+    returns its raw text content so the frontend can preview and
+    optionally execute it.
+
+    POST param: path  (virtual path, e.g. user:/Desktop/script.agi)
+*/
+
+requirelib("filelib");
+
+if (!filelib.fileExists(path)) {
+    sendResp("__ERROR__File not found: " + path);
+} else {
+    var content = filelib.readFile(path);
+    if (content === false || content === null || content === undefined) {
+        sendResp("__ERROR__Cannot read file: " + path);
+    } else {
+        sendResp(content);
+    }
+}

@@ -9,6 +9,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/gif"
 	"image/jpeg"
@@ -100,20 +101,29 @@ func UserSystemInit() {
 
 // Remove a user from the system
 func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
-	username, err := utils.PostPara(r, "username")
-	if err != nil {
-		utils.SendErrorResponse(w, "Username not defined")
-		return
+	// Check if multiple usernames are provided (new format)
+	usernamesJSON, err := utils.PostPara(r, "usernames")
+	var usernames []string
+
+	if err == nil && usernamesJSON != "" {
+		// New format: multiple usernames as JSON array
+		err = json.Unmarshal([]byte(usernamesJSON), &usernames)
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid usernames format")
+			return
+		}
+	} else {
+		// Old format: single username (for backward compatibility)
+		username, err := utils.PostPara(r, "username")
+		if err != nil {
+			utils.SendErrorResponse(w, "Username not defined")
+			return
+		}
+		usernames = []string{username}
 	}
 
-	if !authAgent.UserExists(username) {
-		utils.SendErrorResponse(w, "User not exists")
-		return
-	}
-
-	userinfo, err := userHandler.GetUserInfoFromUsername(username)
-	if err != nil {
-		utils.SendErrorResponse(w, err.Error())
+	if len(usernames) == 0 {
+		utils.SendErrorResponse(w, "No usernames provided")
 		return
 	}
 
@@ -124,18 +134,58 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if currentUserinfo.Username == userinfo.Username {
-		//This user has not logged in
-		utils.SendErrorResponse(w, "You can't remove yourself")
-		return
+	// Process each user for removal
+	var errors []string
+	var successCount int
+
+	for _, username := range usernames {
+		// Check if user exists
+		if !authAgent.UserExists(username) {
+			errors = append(errors, username+": User not exists")
+			continue
+		}
+
+		// Get user info
+		userinfo, err := userHandler.GetUserInfoFromUsername(username)
+		if err != nil {
+			errors = append(errors, username+": "+err.Error())
+			continue
+		}
+
+		// Check if user is trying to remove themselves
+		if currentUserinfo.Username == userinfo.Username {
+			errors = append(errors, username+": You can't remove yourself")
+			continue
+		}
+
+		// Remove the user
+		userinfo.RemoveUser()
+
+		// Clean up FileSystem preferences
+		system_fs_removeUserPreferences(username)
+
+		successCount++
 	}
 
-	//Clear Core User Data
-	userinfo.RemoveUser()
-
-	//Clearn Up FileSystem preferences
-	system_fs_removeUserPreferences(username)
-	utils.SendOK(w)
+	// Send response
+	if len(errors) > 0 {
+		if successCount == 0 {
+			// All removals failed
+			utils.SendErrorResponse(w, strings.Join(errors, "; "))
+		} else {
+			// Partial success
+			response := map[string]interface{}{
+				"success": successCount,
+				"errors":  errors,
+				"message": fmt.Sprintf("%d user(s) removed successfully, %d failed", successCount, len(errors)),
+			}
+			js, _ := json.Marshal(response)
+			utils.SendJSONResponse(w, string(js))
+		}
+	} else {
+		// All successful
+		utils.SendOK(w)
+	}
 }
 
 func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {

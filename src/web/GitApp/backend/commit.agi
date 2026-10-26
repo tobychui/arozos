@@ -1,0 +1,88 @@
+/*
+	GitApp — working tree backend
+
+	Stages, unstages, discards and commits. The commit path takes the list of
+	files the user ticked in the sidebar and stages exactly those, which is the
+	GitHub Desktop model: the checkbox list *is* the next commit.
+
+	POST opr     = commit | discard | stage | unstage
+	     repo    = virtual path of the repository
+	     files   = JSON array of repository relative paths
+	     message = commit summary
+	     body    = optional commit description
+	     name    = author name
+	     email   = author email
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+//parseFiles turns the JSON array posted by the front-end into a real array.
+function parseFiles() {
+    if (typeof files == "undefined" || files == "") {
+        return [];
+    }
+    try {
+        var parsed = JSON.parse(files);
+        return Object.prototype.toString.call(parsed) === "[object Array]" ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else {
+    var selected = parseFiles();
+    var operation = opr;
+
+    if (operation == "commit") {
+        if (typeof message == "undefined" || message.trim() == "") {
+            sendJSONResp({ success: false, error: "a commit summary is required" });
+        } else if (selected.length == 0) {
+            sendJSONResp({ success: false, error: "select at least one file to commit" });
+        } else {
+            //Git convention: summary, blank line, then the description
+            var fullMessage = message.trim();
+            if (typeof body != "undefined" && body.trim() != "") {
+                fullMessage = fullMessage + "\n\n" + body.trim();
+            }
+
+            var options = {};
+            if (typeof name != "undefined" && name != "") {
+                options.name = name;
+            }
+            if (typeof email != "undefined" && email != "") {
+                options.email = email;
+            }
+
+            var result = git.commit(repo, fullMessage, selected, options);
+            sendJSONResp(result);
+        }
+
+    } else if (operation == "discard") {
+        if (selected.length == 0) {
+            sendJSONResp({ success: false, error: "no files selected" });
+        } else {
+            sendJSONResp(git.discard(repo, selected));
+        }
+
+    } else if (operation == "stage") {
+        if (selected.length == 0) {
+            sendJSONResp(git.addAll(repo));
+        } else {
+            sendJSONResp(git.add(repo, selected));
+        }
+
+    } else if (operation == "unstage") {
+        if (selected.length == 0) {
+            sendJSONResp({ success: false, error: "no files selected" });
+        } else {
+            sendJSONResp(git.unstage(repo, selected));
+        }
+
+    } else {
+        sendJSONResp({ success: false, error: "unknown operation: " + operation });
+    }
+}

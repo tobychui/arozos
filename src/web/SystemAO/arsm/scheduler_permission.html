@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Scheduler Permission Request</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            background: #ffffff;
+            color: #1d1d1f;
+        }
+        body.dark {
+            background: #2b2b2b;
+            color: #f0f0f0;
+        }
+
+        #sp-root {
+            --sp-accent:      #0071e3;
+            --sp-danger:      #ff3b30;
+            --sp-success:     #34c759;
+            --sp-divider:     #d2d2d7;
+            --sp-card-bg:     #f5f5f7;
+            --sp-card-border: #e5e5ea;
+            --sp-muted:       #6e6e73;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 0;
+        }
+        #sp-root.dark {
+            --sp-accent:      #2997ff;
+            --sp-danger:      #ff453a;
+            --sp-success:     #30d158;
+            --sp-divider:     #3a3a3c;
+            --sp-card-bg:     #3a3a3c;
+            --sp-card-border: #48484a;
+            --sp-muted:       #a0a0a5;
+        }
+
+
+
+        /* Content area */
+        #sp-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 20px 0;
+        }
+
+        /* App identity section */
+        #sp-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--sp-divider);
+            margin-bottom: 16px;
+        }
+        #sp-appicon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            object-fit: contain;
+            background: var(--sp-card-bg);
+            flex-shrink: 0;
+        }
+        #sp-appicon-placeholder {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: var(--sp-card-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 24px;
+        }
+        #sp-header-text { flex: 1; min-width: 0; }
+        #sp-appname {
+            font-size: 16px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #sp-subtitle {
+            font-size: 12.5px;
+            color: var(--sp-muted);
+            margin-top: 2px;
+        }
+
+        /* Permission detail card */
+        .sp-card {
+            border: 1px solid var(--sp-card-border);
+            border-radius: 10px;
+            background: var(--sp-card-bg);
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        .sp-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--sp-divider);
+        }
+        .sp-row:last-child { border-bottom: none; }
+        .sp-row-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            margin-top: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sp-muted);
+        }
+        .sp-row-icon svg { width: 16px; height: 16px; }
+        .sp-row-body { flex: 1; min-width: 0; }
+        .sp-row-label {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .sp-row-detail {
+            font-size: 12px;
+            color: var(--sp-muted);
+            margin-top: 2px;
+            word-break: break-word;
+        }
+
+        /* Warning note */
+        #sp-note {
+            font-size: 12px;
+            color: var(--sp-muted);
+            text-align: center;
+            padding: 8px 0 16px;
+            line-height: 1.5;
+        }
+
+        /* Toolbar */
+        #sp-toolbar {
+            flex-shrink: 0;
+            padding: 10px 16px 14px;
+            border-top: 1px solid var(--sp-divider);
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .sp-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 7px 18px;
+            border-radius: 7px;
+            border: 1px solid var(--sp-card-border);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: background 0.12s, opacity 0.12s;
+            background: var(--sp-card-bg);
+            color: inherit;
+            white-space: nowrap;
+        }
+        .sp-btn:hover  { opacity: 0.8; }
+        .sp-btn.primary { background: var(--sp-accent); color: #fff; border-color: var(--sp-accent); }
+        .sp-btn.primary:hover { opacity: 0.85; }
+        .sp-btn.deny { color: var(--sp-danger); border-color: var(--sp-danger); background: transparent; }
+        .sp-btn.deny:hover { background: rgba(255,59,48,0.07); }
+        #sp-root.dark .sp-btn.deny:hover { background: rgba(255,69,58,0.12); }
+
+        /* Error banner */
+        #sp-error {
+            margin: 0 0 10px;
+            padding: 9px 14px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            background: rgba(255,59,48,0.10);
+            color: var(--sp-danger);
+            border: 1px solid rgba(255,59,48,0.22);
+            display: none;
+        }
+
+        /* No-permission state */
+        #sp-noperm {
+            display: none;
+            text-align: center;
+            padding: 20px 10px;
+        }
+        #sp-noperm .sp-icon-large { margin-bottom: 10px; color: var(--sp-muted); }
+        #sp-noperm .sp-noperm-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        #sp-noperm .sp-noperm-desc { font-size: 12.5px; color: var(--sp-muted); line-height: 1.5; }
+    </style>
+</head>
+<body>
+<div id="sp-root">
+    <div id="sp-content">
+        <!-- No-permission state (shown when user lacks cron creation right) -->
+        <div id="sp-noperm">
+            <div class="sp-icon-large"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="9" y="19" width="22" height="17" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M13 19v-6a7 7 0 0114 0v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="sp-noperm-title">Permission Not Available</div>
+            <div class="sp-noperm-desc">
+                Your account does not have permission to create scheduled tasks.<br>
+                Please ask your system administrator to grant you cron job access.
+            </div>
+        </div>
+
+        <!-- Normal permission request (shown when user has the right) -->
+        <div id="sp-main">
+            <div id="sp-header">
+                <img id="sp-appicon" style="display:none;" src="" onerror="this.style.display='none';document.getElementById('sp-appicon-placeholder').style.display='flex';">
+                <div id="sp-appicon-placeholder"><svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect x="3" y="5" width="26" height="24" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 13h26" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10 3v5M22 3v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 20h4M14 20h4M19 20h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+                <div id="sp-header-text">
+                    <div id="sp-appname">Application</div>
+                    <div id="sp-subtitle">wants to schedule background tasks on your behalf</div>
+                </div>
+            </div>
+
+            <div id="sp-error"></div>
+
+            <div class="sp-card">
+                <div class="sp-row">
+                    <div class="sp-row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.2l2 1.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    <div class="sp-row-body">
+                        <div class="sp-row-label">Task Name</div>
+                        <div class="sp-row-detail" id="sp-taskname">—</div>
+                    </div>
+                </div>
+                <div class="sp-row">
+                    <div class="sp-row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h6l3 3v9H4V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 2v3h3" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
+                    <div class="sp-row-body">
+                        <div class="sp-row-label">App Script</div>
+                        <div class="sp-row-detail" id="sp-scriptpath">—</div>
+                    </div>
+                </div>
+                <div class="sp-row">
+                    <div class="sp-row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="9" r="5" stroke="currentColor" stroke-width="1.4"/><path d="M8 7v2.5l1.5 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 2h5M8 2v1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+                    <div class="sp-row-body">
+                        <div class="sp-row-label">Run Every</div>
+                        <div class="sp-row-detail" id="sp-interval">—</div>
+                    </div>
+                </div>
+                <div class="sp-row" id="sp-desc-row" style="display:none;">
+                    <div class="sp-row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 7v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="5.5" r="0.75" fill="currentColor"/></svg></div>
+                    <div class="sp-row-body">
+                        <div class="sp-row-label">Description</div>
+                        <div class="sp-row-detail" id="sp-desc">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <p id="sp-note">
+                This task will run automatically at the specified interval using your account's permissions.<br>
+                You can manage or remove it later in <strong>System Settings → Tasks Scheduler</strong>.
+            </p>
+        </div>
+    </div>
+
+    <div id="sp-toolbar">
+        <button class="sp-btn deny" onclick="denyPermission()">Don't Allow</button>
+        <button class="sp-btn primary" id="sp-allow-btn" onclick="allowPermission()">Allow</button>
+    </div>
+</div>
+
+<script>
+    /* ── Theme ── */
+    (function() {
+        var root = document.getElementById('sp-root');
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    var isDark = c !== 'whiteTheme';
+                    root.classList.toggle('dark', isDark);
+                    document.body.classList.toggle('dark', isDark);
+                });
+                return;
+            }
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined') t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) {
+                var isDark = t === 'dark' || t === 'darkTheme';
+                root.classList.toggle('dark', isDark);
+                document.body.classList.toggle('dark', isDark);
+            }
+        } catch(e) {}
+    })();
+
+    /* ── Parse request options from URL hash ── */
+    var spOptions = null;
+    try {
+        var hash = window.location.hash;
+        if (hash && hash.length > 1) {
+            spOptions = JSON.parse(decodeURIComponent(hash.substr(1)));
+        }
+    } catch(e) {
+        console.error("Failed to parse scheduler permission options:", e);
+    }
+
+    function formatSeconds(s) {
+        s = Number(s);
+        var d = Math.floor(s / 86400);
+        var h = Math.floor((s % 86400) / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var parts = [];
+        if (d) parts.push(d + (d === 1 ? " day" : " days"));
+        if (h) parts.push(h + (h === 1 ? " hour" : " hours"));
+        if (m) parts.push(m + (m === 1 ? " minute" : " minutes"));
+        return parts.length ? parts.join(", ") : s + " seconds";
+    }
+
+    function showError(msg) {
+        var el = document.getElementById('sp-error');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    function init() {
+        if (!spOptions) {
+            showError("Invalid permission request.");
+            document.getElementById('sp-allow-btn').disabled = true;
+            return;
+        }
+
+        // Check if user has cron creation permission
+        $.ajax({
+            url: "../../system/arsm/aecron/permission",
+            success: function(data) {
+                if (!data.CanCreate) {
+                    document.getElementById('sp-main').style.display = 'none';
+                    document.getElementById('sp-noperm').style.display = 'block';
+                    document.getElementById('sp-allow-btn').disabled = true;
+                    return;
+                }
+                renderRequest();
+            },
+            error: function() {
+                showError("Unable to check permissions. Please try again.");
+            }
+        });
+    }
+
+    function renderRequest() {
+        // App icon
+        if (spOptions.appIcon) {
+            var img = document.getElementById('sp-appicon');
+            img.src = "../../" + spOptions.appIcon;
+            img.style.display = 'block';
+            document.getElementById('sp-appicon-placeholder').style.display = 'none';
+        }
+        // App name
+        if (spOptions.appName) {
+            document.getElementById('sp-appname').textContent = spOptions.appName;
+        }
+        // Task name
+        document.getElementById('sp-taskname').textContent = spOptions.taskName || "—";
+        // App script filename (lives next to init.agi in the app folder)
+        var scriptDisplay = spOptions.scriptName || "cron.agi";
+        if (spOptions.appName) {
+            scriptDisplay = spOptions.appName + "/" + scriptDisplay;
+        }
+        document.getElementById('sp-scriptpath').textContent = scriptDisplay;
+        // Interval
+        document.getElementById('sp-interval').textContent = spOptions.interval
+            ? formatSeconds(spOptions.interval)
+            : "—";
+        // Description
+        if (spOptions.description) {
+            document.getElementById('sp-desc').textContent = spOptions.description;
+            document.getElementById('sp-desc-row').style.display = 'flex';
+        }
+    }
+
+    function allowPermission() {
+        if (!spOptions) return;
+        document.getElementById('sp-allow-btn').textContent = "Registering…";
+        document.getElementById('sp-allow-btn').disabled = true;
+
+        $.ajax({
+            url: "../../system/arsm/aecron/app/register",
+            method: "POST",
+            data: {
+                appname:    spOptions.appName    || "",
+                taskname:   spOptions.taskName   || "",
+                scriptname: spOptions.scriptName || "cron.agi",
+                interval:   spOptions.interval   || 86400,
+                base:       spOptions.base       || Math.floor(Date.now() / 1000),
+                desc:       spOptions.description || ""
+            },
+            success: function(data) {
+                if (data && data.error) {
+                    showError(data.error);
+                    document.getElementById('sp-allow-btn').textContent = "Allow";
+                    document.getElementById('sp-allow-btn').disabled = false;
+                } else {
+                    // Success – notify parent and close
+                    try { ao_module_parentCallback({allowed: true, taskName: spOptions.taskName}); } catch(e) {}
+                    try { ao_module_close(); } catch(e) {}
+                }
+            },
+            error: function() {
+                showError("Failed to register scheduler. Please try again.");
+                document.getElementById('sp-allow-btn').textContent = "Allow";
+                document.getElementById('sp-allow-btn').disabled = false;
+            }
+        });
+    }
+
+    function denyPermission() {
+        try { ao_module_parentCallback({allowed: false}); } catch(e) {}
+        try { ao_module_close(); } catch(e) {}
+    }
+
+    init();
+</script>
+</body>
+</html>

@@ -33,7 +33,7 @@ type Manager struct {
 	option  *Option
 }
 
-//Create a new web directory server
+// Create a new web directory server
 func NewDirectoryServer(option *Option) *Manager {
 	//Create a table to store which user enabled dirlisting on their own root
 	option.Sysdb.NewTable("dirserv")

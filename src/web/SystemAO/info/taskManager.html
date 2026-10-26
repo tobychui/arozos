@@ -1,521 +1,537 @@
 <!DOCTYPE html>
 <head>
-    <title>Task Manager</title>
+    <title>Performance</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
     <script type="text/javascript" src="../info/js/chart/Chart.min.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* ── Light theme (matches system_setting/main.css palette) ── */
+        :root {
+            --bg:          #f3f3f3;
+            --card-bg:     #ffffff;
+            --card-border: #e5e5e5;
+            --divider:     #eeeeee;
+            --text:        #202020;
+            --text-dim:    #555;
+            --text-muted:  #888;
+            --text-desc:   #666;
+            --scrollbar:   #c8c8c8;
+
+            --cpu-line: #4c9dcb;
+            --cpu-fill: rgba(76, 157, 203, 0.12);
+            --cpu-grid: rgba(76, 157, 203, 0.18);
+
+            --ram-line: #9528b4;
+            --ram-fill: rgba(149, 40, 180, 0.12);
+            --ram-grid: rgba(149, 40, 180, 0.18);
+
+            --net-line: #a74f01;
+            --net-fill: rgba(167, 79, 1, 0.10);
+            --net-grid: rgba(167, 79, 1, 0.18);
+        }
+
+        /* ── Dark theme overrides ── */
+        body.dark {
+            --bg:          #1f1f1f;
+            --card-bg:     #2d2d2d;
+            --card-border: #3a3a3a;
+            --divider:     #363636;
+            --text:        #e3e3e3;
+            --text-dim:    #999;
+            --text-muted:  #666;
+            --text-desc:   #aaa;
+            --scrollbar:   #555555;
+
+            --cpu-line: #5db3e8;
+            --cpu-fill: rgba(93, 179, 232, 0.10);
+            --cpu-grid: rgba(255, 255, 255, 0.07);
+
+            --ram-line: #b94dd4;
+            --ram-fill: rgba(185, 77, 212, 0.10);
+            --ram-grid: rgba(255, 255, 255, 0.07);
+
+            --net-line: #d4722a;
+            --net-fill: rgba(212, 114, 42, 0.10);
+            --net-grid: rgba(255, 255, 255, 0.07);
+        }
+
+        html, body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        body::-webkit-scrollbar { width: 6px; }
+        body::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+
+        .perf-page {
+            padding: 18px 22px 32px;
+        }
+
+        /* ── Card ── */
+        .perf-section {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 18px 20px 16px;
+            margin-bottom: 12px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        /* ── Section header: title + hardware label ── */
+        .section-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0 0 3px;
+            line-height: 1.3;
+        }
+
+        .section-sub {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .hw-label {
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            flex-shrink: 0;
+            padding-top: 2px;
+            max-width: 55%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: right;
+        }
+
+        /* ── Chart container: fixed height, canvas fills it ── */
+        .chart-wrap {
+            position: relative;
+            height: 160px;
+        }
+
+        .chart-wrap canvas {
+            display: block;
+            border-radius: 4px;
+        }
+
+        /* ── Stats row below the chart ── */
+        .stats-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 28px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--divider);
+        }
+
+        .stat { min-width: 60px; }
+
+        .stat-val {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.25;
+        }
+
+        .stat-key {
+            font-size: 11px;
+            color: var(--text-desc);
+            margin-top: 2px;
+        }
+
+        /* Network RX / TX accent bars inherit the CSS variable so they
+           automatically match the chart line colour in both themes. */
+        .net-rx { border-left: 2px solid var(--net-line); padding-left: 10px; }
+        .net-tx { border-left: 2px dashed var(--net-line); padding-left: 10px; }
+    </style>
 </head>
-
 <body>
-    <br>
-    <div class="ui container">
-        <div id="cpuChartContainer" style="position: relative;">
-            <h2 class="ui header">
-                <span locale="taskManager/cpu">CPU</span>
-                <div class="sub header" locale="taskManager/cpu_description">CPU Usage (%) in the previous 60 seconds</div>
-            </h2>
-            <p id="CPUname" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/cpu_info">Generic Processor</p>
-            <canvas id="cpuChart" width="1200" height="300"></canvas>
-            <div class="ui stackable grid">
-                <div class="four wide column">
-                    <div class="ui header">
-                        <span id="cpuUsage">0%</span>
-                        <div class="sub header" locale="taskManager/cpu_usage_description">Usage</div>
-                    </div>
-                </div>
-                <div class="four wide column">
-                    <div class="ui header">
-                        <span id="cpufreq">Loading</span>
-                        <div class="sub header" locale="taskManager/cpu_frequency_description">Frequency</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <br>
-        <div id="ramChartContainer" style="position: relative;">
-            <h2 class="ui header">
-                <span locale="taskManager/memory">Memory</span>
-                <div class="sub header" locale="taskManager/memory_description">RAM Usage</div>
-            </h2>
-            <p id="RAMInfo" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/memory_info"></p>
-            <canvas id="ramChart" width="1200" height="300"></canvas>
-            <br>
-            <div class="ui stackable grid">
-                <div class="four wide column">
-                    <div class="ui header">
-                        <span id="ramUsed">Loading</span>
-                        <div class="sub header" locale="taskManager/ram_used_description">Used</div>
-                    </div>
-                </div>
-                <div class="four wide column">
-                    <div class="ui header">
-                        <span id="ramUsedPercentage">Loading</span>
-                        <div class="sub header" locale="taskManager/ram_used_percentage_description">Used (%)</div>
-                    </div>
-                </div>
-                <div class="four wide column">
-                    <div class="ui header">
-                        <span id="ramTotal">Loading</span>
-                        <div class="sub header" locale="taskManager/ram_total_description">Total</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="netChartContainer" style="position: relative; margin-top: 1.2em;">
-            <h2 class="ui header">
-                <span locale="taskManager/network">Network</span>
-                <div class="sub header" locale="taskManager/network_description">Network usage in the previous 60 seconds</div>
-            </h2>
-            <p id="netGraphScale" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/network_scale">100 kbps</p>
-            <canvas id="netChart" width="1200" height="300"></canvas>
-            <div class="ui stackable grid">
-                <div class="four wide column">
-                    <div class="ui header" style="border-left: 2px solid #bc793f; padding-left: 1em;">
-                        <span id="rx">Loading</span>
-                        <div class="sub header" locale="taskManager/network_received_description">Received</div>
-                    </div>
-                </div>
-                <div class="four wide column">
-                    <div class="ui header" style="border-left: 2px dotted #bc793f; padding-left: 1em;">
-                        <span id="tx">Loading</span>
-                        <div class="sub header" locale="taskManager/network_transmitted_description">Transmitted</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
+    <div class="perf-page">
 
-        <br><br>
+        <!-- ── CPU ── -->
+        <section class="perf-section">
+            <div class="section-header">
+                <div>
+                    <p class="section-title" locale="taskManager/cpu">CPU</p>
+                    <p class="section-sub" locale="taskManager/cpu_description">CPU Usage (%) in the previous 60 seconds</p>
+                </div>
+                <span id="CPUname" class="hw-label">—</span>
+            </div>
+            <div class="chart-wrap"><canvas id="cpuChart"></canvas></div>
+            <div class="stats-row">
+                <div class="stat">
+                    <div class="stat-val" id="cpuUsage">0%</div>
+                    <div class="stat-key" locale="taskManager/cpu_usage_description">Usage</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-val" id="cpufreq">—</div>
+                    <div class="stat-key" locale="taskManager/cpu_frequency_description">Frequency</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Memory ── -->
+        <section class="perf-section">
+            <div class="section-header">
+                <div>
+                    <p class="section-title" locale="taskManager/memory">Memory</p>
+                    <p class="section-sub" locale="taskManager/memory_description">RAM Usage</p>
+                </div>
+                <span id="RAMInfo" class="hw-label">—</span>
+            </div>
+            <div class="chart-wrap"><canvas id="ramChart"></canvas></div>
+            <div class="stats-row">
+                <div class="stat">
+                    <div class="stat-val" id="ramUsed">—</div>
+                    <div class="stat-key" locale="taskManager/ram_used_description">Used</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-val" id="ramUsedPercentage">—</div>
+                    <div class="stat-key" locale="taskManager/ram_used_percentage_description">Used (%)</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-val" id="ramTotal">—</div>
+                    <div class="stat-key" locale="taskManager/ram_total_description">Total</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Network ── -->
+        <section class="perf-section">
+            <div class="section-header">
+                <div>
+                    <p class="section-title" locale="taskManager/network">Network</p>
+                    <p class="section-sub" locale="taskManager/network_description">Network usage in the previous 60 seconds</p>
+                </div>
+                <span id="netGraphScale" class="hw-label">—</span>
+            </div>
+            <div class="chart-wrap"><canvas id="netChart"></canvas></div>
+            <div class="stats-row">
+                <div class="stat net-rx">
+                    <div class="stat-val" id="rx">—</div>
+                    <div class="stat-key" locale="taskManager/network_received_description">Received</div>
+                </div>
+                <div class="stat net-tx">
+                    <div class="stat-val" id="tx">—</div>
+                    <div class="stat-key" locale="taskManager/network_transmitted_description">Transmitted</div>
+                </div>
+            </div>
+        </section>
+
     </div>
     <script>
-        var cpuChart;
-        var ramChart;
-        var netChart;
-        var previousNetData = [0, 0];
+        var cpuChart, ramChart, netChart;
+        var prevNetData = [0, 0];
+        var isDarkMode = false;
 
-        var performanceLocale = NewAppLocale();
-        performanceLocale.init("../locale/system_settings/spec.json", function(){
-            performanceLocale.translate();
-            initInfo();
-        });
+        // Color sets for light / dark themes
+        var COLORS = {
+            light: {
+                cpu:  { line: '#4c9dcb', fill: 'rgba(76,157,203,0.12)',  grid: 'rgba(76,157,203,0.18)'  },
+                ram:  { line: '#9528b4', fill: 'rgba(149,40,180,0.12)', grid: 'rgba(149,40,180,0.18)' },
+                net:  { line: '#a74f01', fill: 'rgba(167,79,1,0.10)',   grid: 'rgba(167,79,1,0.18)'   },
+                net2: { line: '#a74f01', fill: 'rgba(167,79,1,0.05)' }
+            },
+            dark: {
+                cpu:  { line: '#5db3e8', fill: 'rgba(93,179,232,0.10)',  grid: 'rgba(255,255,255,0.07)' },
+                ram:  { line: '#b94dd4', fill: 'rgba(185,77,212,0.10)', grid: 'rgba(255,255,255,0.07)' },
+                net:  { line: '#d4722a', fill: 'rgba(212,114,42,0.10)', grid: 'rgba(255,255,255,0.07)' },
+                net2: { line: '#d4722a', fill: 'rgba(212,114,42,0.05)' }
+            }
+        };
 
-
-        //Override Chart.js v3 poor API designs
+        // Suppress built-in tooltip and legend for all charts
         Chart.defaults.plugins.tooltip.enabled = false;
         Chart.defaults.plugins.legend.display = false;
 
-        var options = {
-            maintainAspectRatio: true,
-            responsive: true,
-			spanGaps: false,
-			elements: {
-				line: {
-					tension: 0.000001
-				}
-			},
-			plugins: {
-				filler: {
-					propagate: false
-				},
-			},
-			scales: {
-				x: {
-                    grid: {
-                        color:  "rgba(83, 160, 205, 0.2)"
-                    }
+        // Build options shared by CPU and RAM charts
+        function makeOptions(gridColor) {
+            return {
+                animation: false,
+                maintainAspectRatio: false,
+                responsive: true,
+                spanGaps: false,
+                elements: { line: { tension: 0.35 } },
+                plugins: { filler: { propagate: false } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { display: false } },
+                    y: { min: 0, max: 100, grid: { color: gridColor }, ticks: { display: false } }
+                }
+            };
+        }
+
+        // Network chart options (dynamic y-axis range)
+        function makeNetOptions(gridColor) {
+            return {
+                animation: false,
+                maintainAspectRatio: false,
+                responsive: true,
+                spanGaps: false,
+                elements: { line: { tension: 0.35 } },
+                plugins: { filler: { propagate: false } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { display: false } },
+                    y: { min: 0, max: 100, grid: { color: gridColor }, ticks: { display: false } }
+                }
+            };
+        }
+
+        // ── Locale (can run in parallel with theme detection) ──
+        var performanceLocale = NewAppLocale();
+        performanceLocale.init("../locale/system_settings/spec.json", function() {
+            performanceLocale.translate();
+        });
+
+        // ── Theme detection → initialise everything with the right colours ──
+        ao_module_getSystemThemeColor(function(color) {
+            isDarkMode = (color !== 'whiteTheme');
+            document.body.classList.toggle('dark', isDarkMode);
+            chartInit();
+            initInfo();
+            updateData();
+        });
+
+        // ── Chart initialisation ──
+        function chartInit() {
+            var empty = new Array(60).fill('');
+            var zeros = new Array(60).fill(0);
+            var c = isDarkMode ? COLORS.dark : COLORS.light;
+
+            cpuChart = new Chart('cpuChart', {
+                type: 'line',
+                data: {
+                    labels: empty.slice(),
+                    datasets: [{
+                        data: zeros.slice(),
+                        borderColor: c.cpu.line,
+                        backgroundColor: c.cpu.fill,
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: 'start'
+                    }]
                 },
-                y: {
-                    min: 0,
-                    max: 100,
-                    grid: {
-                        color:  "rgba(83, 160, 205, 0.2)"
-                    },
-                    ticks: {
-                        display: false,
-                    }
+                options: makeOptions(c.cpu.grid)
+            });
+
+            ramChart = new Chart('ramChart', {
+                type: 'line',
+                data: {
+                    labels: empty.slice(),
+                    datasets: [{
+                        data: zeros.slice(),
+                        borderColor: c.ram.line,
+                        backgroundColor: c.ram.fill,
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: 'start'
+                    }]
+                },
+                options: makeOptions(c.ram.grid)
+            });
+
+            netChart = new Chart('netChart', {
+                type: 'line',
+                data: {
+                    labels: empty.slice(),
+                    datasets: [
+                        {
+                            data: zeros.slice(),
+                            borderColor: c.net.line,
+                            backgroundColor: c.net.fill,
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            fill: 'start'
+                        },
+                        {
+                            data: zeros.slice(),
+                            borderColor: c.net2.line,
+                            backgroundColor: c.net2.fill,
+                            borderDash: [4, 3],
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            fill: 'start'
+                        }
+                    ]
+                },
+                options: makeNetOptions(c.net.grid)
+            });
+        }
+
+        // ── Static info (CPU model, total RAM) ──
+        function initInfo() {
+            $.get("../../system/info/getCPUinfo", function(data) {
+                var d = JSON.parse(data);
+                $("#CPUname").text(d.Model || '—');
+                if (parseFloat(d.Freq) > 1000) {
+                    $("#cpufreq").text((d.Freq / 1000).toFixed(2) + " GHz");
+                } else {
+                    $("#cpufreq").text(d.Freq + " MHz");
                 }
-            },
-            legend: {
-                display: false,
-            },
-            tooltips: {
-                callbacks: {
-                    label: function(tooltipItem) {
-                            return tooltipItem.yLabel;
-                    }
-                }
+            });
+
+            $.get("../../system/info/getRAMinfo", function(data) {
+                $("#RAMInfo").text(bytesToSize(data));
+            });
+        }
+
+        // ── Polling loop: both requests fire in parallel, next tick after both finish ──
+        function updateData() {
+            var completed = 0;
+            function scheduleNext() {
+                completed++;
+                if (completed >= 2) setTimeout(updateData, 1000);
             }
+
+            // Network stats (non-blocking read from /sys/class/net on Linux)
+            $.get("../../system/network/getNICUsage")
+                .done(function(data) {
+                    if (data.error !== undefined) {
+                        $("#netGraphScale").text(data.error);
+                    } else if (prevNetData[0] === 0 && prevNetData[1] === 0) {
+                        // First reading: seed baseline, skip delta
+                        prevNetData = [data.RX, data.TX];
+                    } else {
+                        var rxd = data.RX - prevNetData[0];
+                        var txd = data.TX - prevNetData[1];
+                        prevNetData = [data.RX, data.TX];
+                        shiftNetChart(rxd, txd);
+                        $("#rx").text(bitToSize(rxd) + "/s");
+                        $("#tx").text(bitToSize(txd) + "/s");
+                    }
+                })
+                .always(scheduleNext);
+
+            // CPU + RAM usage (now served from in-memory cache — responds in < 1 ms)
+            $.ajax({
+                url: "../../system/info/getUsageInfo",
+                method: "GET",
+                timeout: 2000,
+                success: function(data) {
+                    shiftChart(cpuChart, data.CPU || 0);
+                    shiftChart(ramChart, data.RamUsage || 0);
+                    $("#cpuUsage").text((data.CPU || 0).toFixed(1) + "%");
+                    $("#ramUsedPercentage").text((data.RamUsage || 0).toFixed(1) + "%");
+                    $("#ramUsed").text(data.UsedRAM || '—');
+                    $("#ramTotal").text(data.TotalRam || '—');
+                }
+            }).always(scheduleNext);
+        }
+
+        // Shift one data point into a single-dataset chart (one update, no flicker)
+        function shiftChart(chart, newVal) {
+            chart.data.labels.shift();
+            chart.data.labels.push('');
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[0].data.push(newVal);
+            chart.update('none');
+        }
+
+        // Shift one data point into the dual-dataset network chart
+        function shiftNetChart(rxd, txd) {
+            netChart.data.labels.shift();
+            netChart.data.labels.push('');
+            netChart.data.datasets[0].data.shift();
+            netChart.data.datasets[0].data.push(rxd);
+            netChart.data.datasets[1].data.shift();
+            netChart.data.datasets[1].data.push(txd);
+
+            var allVals = netChart.data.datasets[0].data.concat(netChart.data.datasets[1].data);
+            var maxVal = Math.max.apply(null, allVals);
+            netChart.options.scales.y.min = 0;
+            netChart.options.scales.y.max = maxVal > 0 ? maxVal * 1.2 : 100;
+
+            updateNetScaleLabel(maxVal);
+            netChart.update('none');
+        }
+
+        function updateNetScaleLabel(maxBits) {
+            maxBits = maxBits || 0;
+            var baseValue = parseInt(maxBits * 1.2);
+            var sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb'];
+            var scale = "0 bps";
+            if (baseValue > 0) {
+                var i = Math.min(Math.floor(Math.log(baseValue) / Math.log(1000)), sizes.length - 1);
+                var val = Math.ceil((baseValue / Math.pow(1024, i)) / 10) * 10;
+                scale = val + ' ' + sizes[i] + "ps";
+            }
+            $("#netGraphScale").text(scale);
+        }
+
+        // ── Theme switching ──
+        function applyThemeColors(dark) {
+            var c = dark ? COLORS.dark : COLORS.light;
+            if (cpuChart) {
+                cpuChart.data.datasets[0].borderColor = c.cpu.line;
+                cpuChart.data.datasets[0].backgroundColor = c.cpu.fill;
+                cpuChart.options.scales.x.grid.color = c.cpu.grid;
+                cpuChart.options.scales.y.grid.color = c.cpu.grid;
+                cpuChart.update('none');
+            }
+            if (ramChart) {
+                ramChart.data.datasets[0].borderColor = c.ram.line;
+                ramChart.data.datasets[0].backgroundColor = c.ram.fill;
+                ramChart.options.scales.x.grid.color = c.ram.grid;
+                ramChart.options.scales.y.grid.color = c.ram.grid;
+                ramChart.update('none');
+            }
+            if (netChart) {
+                netChart.data.datasets[0].borderColor = c.net.line;
+                netChart.data.datasets[0].backgroundColor = c.net.fill;
+                netChart.data.datasets[1].borderColor = c.net2.line;
+                netChart.data.datasets[1].backgroundColor = c.net2.fill;
+                netChart.options.scales.x.grid.color = c.net.grid;
+                netChart.options.scales.y.grid.color = c.net.grid;
+                netChart.update('none');
+            }
+        }
+
+        // Called by the parent frame when the desktop theme changes
+        window.desktopThemeChanged = function(theme) {
+            isDarkMode = (theme === 'dark');
+            document.body.classList.toggle('dark', isDarkMode);
+            applyThemeColors(isDarkMode);
         };
 
-        var ramOptions = {
-            maintainAspectRatio: true,
-            responsive: true,
-			spanGaps: false,
-			elements: {
-				line: {
-					tension: 0.000001
-				}
-			},
-			plugins: {
-				filler: {
-					propagate: false
-				},
-			},
-			scales: {
-				x: {
-                    grid: {
-                        color:  "rgba(156, 55, 185, 0.2)"
-                    }
-                },
-                y: {
-                    min: 0,
-                    max: 100,
-                    grid: {
-                        color:  "rgba(156, 55, 185, 0.2)"
-                    },
-                    ticks: {
-                        display: false,
-                    }
-                }
-            },
-            legend: {
-                display: false,
-            },
-            tooltips: {
-                callbacks: {
-                    label: function(tooltipItem) {
-                            return tooltipItem.yLabel;
-                    }
-                }
-            }
-        };
-
-        var netOptions = {
-            maintainAspectRatio: true,
-            responsive: true,
-			spanGaps: false,
-			elements: {
-				line: {
-					tension: 0.000001
-				}
-			},
-			plugins: {
-				filler: {
-					propagate: false
-				},
-			},
-			scales: {
-				x: {
-                    grid: {
-                        color:  "rgba(167, 79, 1, 0.2)"
-                    }
-                },
-                y: {
-                    min: Math.min.apply(this, getMergedRxTxDataset()),
-                    max: Math.max.apply(this, getMergedRxTxDataset()) + 5,
-                    grid: {
-                        color:  "rgba(167, 79, 1, 0.2)"
-                    },
-                    ticks: {
-                        display: false,
-                    }
-                }
-            },
-            legend: {
-                display: false,
-            },
-            tooltips: {
-                callbacks: {
-                    label: function(tooltipItem) {
-                            return tooltipItem.yLabel;
-                    }
-                }
-            }
-        };
-        
-        chartInit();
-
-        //Special code to handle embedding into the System Setting embedded windows
-        var insideIframe = false;
-        if (parent.managerInIframe !== undefined && parent.managerInIframe == true){
-            $(window).on("click", function(e){
+        // Forward clicks to the parent window when embedded in an iframe
+        if (parent.managerInIframe !== undefined && parent.managerInIframe == true) {
+            $(window).on("click", function() {
                 parent.ao_module_focus();
             });
         }
 
-        function initInfo(){
-            $.get("../../system/info/getCPUinfo", function(data){
-                var data = JSON.parse(data);
-                console.log(data);
-                $("#CPUname").text(data.Model);
-                if (parseFloat(data.Freq) > 1000){
-                    $("#cpufreq").text((data.Freq/1000).toFixed(2) + " Ghz");
-                }else{
-                    $("#cpufreq").text(data.Freq + " Mhz");
-                }
-                
-            });
-
-            $.get("../../system/info/getRAMinfo", function(data){
-                //Return ram in byte
-                var ramsize = bytesToSize(data);
-                $("#RAMInfo").text(ramsize);
-            })
-        }
-
+        // ── Utilities ──
         function bytesToSize(bytes) {
             var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
             if (bytes == 0) return '0 Byte';
-            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            var i = Math.floor(Math.log(bytes) / Math.log(1024));
             return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
         }
 
-        function bitToSize(bytes) {
+        function bitToSize(bits) {
             var sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb'];
-            if (bytes == 0) return '0 b';
-            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1000)));
-            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+            if (bits == 0) return '0 b';
+            var i = Math.min(Math.floor(Math.log(bits) / Math.log(1000)), sizes.length - 1);
+            return (bits / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
         }
-
-
-        function chartInit(){
-            cpuChart = new Chart('cpuChart', {
-				type: 'line',
-				data: {
-					labels: [],
-					datasets: [{
-						backgroundColor: "rgba(241,246,250,0.4)",
-						borderColor: "#4c9dcb",
-						data: [],
-                        radius: 0,
-                        borderWidth: 2,
-						fill: 'start'
-                    }]
-				},
-				options: options
-            });
-            
-            //Push 60 empty data into the chart
-            for (var i =0; i < 60; i++){
-                addData(cpuChart, "",0)
-            }
-
-            //Create RAM Chart
-            ramChart = new Chart('ramChart', {
-				type: 'line',
-				data: {
-					labels: [],
-					datasets: [{
-						backgroundColor: "rgba(244,242,244,0.4)",
-						borderColor: "#9528b4",
-						data: [],
-                        radius: 0,
-                        borderWidth: 2,
-						fill: 'start'
-                    }]
-				},
-				options: ramOptions
-            });
-
-            for (var i =0; i < 60; i++){
-                addData(ramChart, "",0)
-            }
-
-            //Create Network Chart
-            netChart = new Chart('netChart', {
-				type: 'line',
-				data: {
-					labels: [],
-					datasets: [{
-						backgroundColor: "rgba(252,243,235,0.4)",
-						borderColor: "#a74f01",
-						data: [],
-                        radius: 0,
-                        borderWidth: 2,
-						fill: 'start'
-                    },
-                    {
-						backgroundColor: "rgba(252,243,235,0.2)",
-						borderColor: "#a74f01",
-                        borderDash: [3, 3],
-						data: [],
-                        radius: 0,
-                        borderWidth: 2,
-						fill: 'start'
-                        
-                    }]
-				},
-				options: netOptions
-            });
-
-            for (var i =0; i < 60; i++){
-                addNetData(netChart, "", 0, 0)
-            }
-            
-        }
-
-        resizeCharts();
-        $(window).on("resize", function(){
-            resizeCharts();
-        })
-
-        function resizeCharts(){
-            $("#cpuChart").width($("#cpuChartContainer").width());
-            $("#ramChart").width($("#ramChartContainer").width());
-        }
-
-        updateData();
-        function updateData(){
-            //Testing use 
-            /*
-            setInterval(function(){
-                addAndShiftChartDate(cpuChart, "", Math.floor(Math.random() * 50) + 20)
-                addAndShiftChartDate(ramChart, "", Math.floor(Math.random() * 10) + 30)
-            }, 1000)
-            */
-
-             //Calculate the bandwidth diff
-            $.get("../../system/network/getNICUsage", function(data){
-                if (data.error !== undefined){
-                    //Error
-                    console.log(data.error);
-                    $("#netGraphScale").text(data.error);
-                    return;
-                }
-                if (previousNetData[0] == 0 && previousNetData[1] == 0){
-                    //Not initiated. Set base and wait for next iteration
-                    previousNetData = [data.RX, data.TX];
-                }else{
-                    var rxd = data.RX - previousNetData[0];
-                    var txd = data.TX - previousNetData[1];
-                    previousNetData = [data.RX, data.TX];
-                    addAndShiftNetworkData(netChart, "", rxd, txd);
-
-                    $("#rx").text(bitToSize(rxd)+"/s");
-                    $("#tx").text(bitToSize(txd)+"/s");
-
-                    //Get the max value of the diagram, round it to the cloest 10x
-                    var chartMaxValue = Math.max.apply(this, getMergedRxTxDataset()) * 1.2;
-
-                    //Special Rounding for calculating graph scale
-                    baseValue = parseInt(chartMaxValue);
-                    var scale = "0 bps"
-                    var sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb'];
-                    function roundUpNearest(num) {
-                        return Math.ceil(num / 10) * 10;
-                    }
-
-                    if (baseValue == 0){
-
-                    }else{
-                        var i = parseInt(Math.floor(Math.log(baseValue) / Math.log(1000)));
-                        scale = roundUpNearest((baseValue / Math.pow(1024, i)).toFixed(0))
-                        scale += ' ' + sizes[i] + "ps";
-                    }
-                    
-                    //console.log(baseValue, chartMaxValue, scale);
-                    $("#netGraphScale").text(scale);
-                }
-            })
-
-            //Get UsageInfo with timeout
-            $.ajax({
-                url: "../../system/info/getUsageInfo",
-                method: "GET",
-                success:function(data){
-                    //Update graph
-                    addAndShiftChartDate(cpuChart, "", data.CPU);
-                    addAndShiftChartDate(ramChart, "", data.RamUsage);
-
-                    //Update values
-                    $("#cpuUsage").text(data.CPU.toFixed(1) + "%");
-                    $("#ramUsedPercentage").text(data.RamUsage.toFixed(1) + "%")
-                    $("#ramUsed").text(data.UsedRAM);
-                    $("#ramTotal").text(data.TotalRam);
-
-                    setTimeout(function(){
-                        updateData();
-                    }, 100);
-                },
-                error: function(){
-                    //Error, retry in 5 seconds
-                    setTimeout(function(){
-                        updateData();
-                    }, 5000);
-                },
-                timeout: 2000
-            });
-        }
-
-        function addNetData(chart, label, rx, tx) {
-            chart.data.labels.push(label);
-            chart.data.datasets[0].data.push(rx);
-            chart.data.datasets[1].data.push(tx);
-            chart.update();
-        }
-
-        function addData(chart, label, data) {
-            chart.data.labels.push(label);
-            chart.data.datasets.forEach((dataset) => {
-                dataset.data.push(data);
-            });
-            chart.update();
-        }
-
-        function addAndShiftChartDate(chart, label, newdata) {
-            chart.data.labels.splice(0, 1); // remove first label
-            chart.data.datasets.forEach(function(dataset) {
-                dataset.data.splice(0, 1); // remove first data point
-            });
-
-            chart.update();
-
-            // Add new data
-            chart.data.labels.push(label); // add new label at end
-            chart.data.datasets.forEach(function(dataset, index) {
-                dataset.data.push(newdata); // add new data at end
-            });
-
-            chart.update();
-        }
-
-        function addAndShiftNetworkData(chart, label, rxd, txd) {
-            chart.data.labels.splice(0, 1); // remove first label
-            chart.data.datasets.forEach(function(dataset) {
-                dataset.data.splice(0, 1); // remove first data point
-            });
-
-            chart.update();
-
-            // Add new data
-            chart.data.labels.push(label); // add new label at end
-            chart.data.datasets[0].data.push(rxd);
-            chart.data.datasets[1].data.push(txd);
-            
-            
-
-            //Update the sacle as well
-            netChart.options.scales.y.min = Math.min.apply(this, getMergedRxTxDataset());
-            netChart.options.scales.y.max = Math.max.apply(this, getMergedRxTxDataset()) *1.2;
-
-            chart.update();
-        }
-
-        function getMergedRxTxDataset(){
-            if (netChart == undefined){
-                return [0, 100];
-            }
-            var newArr = [];
-            newArr = newArr.concat(netChart.data.datasets[0].data,netChart.data.datasets[1].data);
-            return newArr;
-        }
-
     </script>
 </body>
 </html>

@@ -1,0 +1,63 @@
+/*
+    backend.agi — Scheduler registration backend (AGI example)
+    ===========================================================
+    Copy this into your webapp's folder (e.g. ./web/MyApp/backend.agi)
+    and call it from the frontend via ao_module_agirun().
+
+    This script handles four actions:
+        ?action=status      — return scheduler + run stats
+        ?action=register    — register the background task
+        ?action=unregister  — remove the background task
+
+    The task will execute  ./web/MyApp/cron.agi  at the chosen interval.
+
+    ── REST equivalent (use from plain fetch/jQuery if you prefer) ──────────
+    GET  /system/arsm/aecron/permission
+    GET  /system/arsm/aecron/app/check?appname=MyApp&taskname=MyApp_HourlySync
+    POST /system/arsm/aecron/app/register   appname taskname scriptname interval desc
+    POST /system/arsm/aecron/app/unregister appname taskname
+*/
+
+requirelib("scheduler");
+
+var APP  = "MyApp";               // must match the folder name in ./web/
+var TASK = "MyApp_HourlySync";    // unique, max 32 chars
+var TABLE = APP + "/" + USERNAME; // per-user persistent storage key
+
+var action = getPara("action");
+
+// ── status ────────────────────────────────────────────────────────────────────
+if (action === "status") {
+    newDBTableIfNotExists(TABLE);
+    var lastRun  = readDBItem(TABLE, "lastRun");
+    var runCount = parseInt(readDBItem(TABLE, "runCount") || "0", 10);
+
+    sendJSONResp({
+        hasPermission: scheduler.hasPermission(),
+        registered:    scheduler.registered(TASK, APP),
+        lastRun:       lastRun  || null,
+        runCount:      runCount
+    });
+
+// ── register ──────────────────────────────────────────────────────────────────
+} else if (action === "register") {
+    if (!scheduler.hasPermission()) {
+        // Front-end should call ao_module_requestSchedulerPermission() first
+        sendResp("no_permission");
+    } else if (scheduler.registered(TASK, APP)) {
+        sendResp("already_registered");
+    } else {
+        // register(taskName, appName, intervalSecs [, description [, scriptName]])
+        // scriptName defaults to "cron.agi" and must live inside ./web/MyApp/
+        var ok = scheduler.register(TASK, APP, 3600, "Hourly sync for MyApp");
+        sendResp(ok ? "ok" : "error");
+    }
+
+// ── unregister ────────────────────────────────────────────────────────────────
+} else if (action === "unregister") {
+    scheduler.unregister(TASK);
+    sendOK();
+
+} else {
+    sendJSONResp({ error: "unknown action — use status / register / unregister" });
+}

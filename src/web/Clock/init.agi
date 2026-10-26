@@ -1,22 +1,26 @@
 /*
-	Clock Module Register Script
+	Clock
+
+	Copyright 2021 ArozOS Project
+
+	World Clock, Countdown Timer and Stopwatch
 */
 
-//Setup the module information
+
+//Define the launchInfo for the module
 var moduleLaunchInfo = {
     Name: "Clock",
-	Desc: "A date and time telling tool",
+	Desc: "World Clock, Countdown Timer and Stopwatch",
 	Group: "Utilities",
-	IconPath: "img/module_icon.png",
-	Version: "0.1.0",
-	StartDir: "index.html",
+	IconPath: "Clock/img/module_icon.png",
+	Version: "3.0",
+	StartDir: "Clock/index.html",
 	SupportFW: true,
-	LaunchFWDir: "index.html",
+	LaunchFWDir: "Clock/index.html",
 	SupportEmb: false,
-	InitFWSize: [600, 400],
+	InitFWSize: [420, 450],
 	SupportedExt: []
 }
 
 //Register the module
-console.log("Registering clock module");
 registerModule(JSON.stringify(moduleLaunchInfo));

@@ -2,10 +2,12 @@ package ldap
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -74,7 +76,8 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 		"key":          key,
 	})
 	if err != nil {
-		log.Fatal(err)
+		logger.PrintAndLog("Ldap", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(template))
@@ -90,7 +93,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		//Username not defined
-		log.Println("[System Auth] Someone trying to login with username: " + username)
+		logger.PrintAndLog("Ldap", "[System Auth] Someone trying to login with username: "+username, nil)
 		//Write to log
 		ldap.ag.Logger.LogAuth(r, false)
 		utils.SendErrorResponse(w, "Username not defined or empty.")
@@ -118,7 +121,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ldap.ag.Logger.LogAuth(r, false)
 		utils.SendErrorResponse(w, "Unable to connect to LDAP server")
-		log.Println("LDAP Authentication error, " + err.Error())
+		logger.PrintAndLog("Ldap", "LDAP Authentication error, "+err.Error(), nil)
 		return
 	}
 	//The database contain this user information. Check its password if it is correct
@@ -132,13 +135,13 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			// Set user as authenticated
 			ldap.ag.LoginUserByRequest(w, r, username, rememberme)
 			//Print the login message to console
-			log.Println(username + " logged in.")
+			logger.PrintAndLog("Ldap", username+" logged in.", nil)
 			ldap.ag.Logger.LogAuth(r, true)
 			utils.SendOK(w)
 		}
 	} else {
 		//Password incorrect
-		log.Println(username + " has entered an invalid username or password")
+		logger.PrintAndLog("Ldap", username+" has entered an invalid username or password", nil)
 		utils.SendErrorResponse(w, "Invalid username or password")
 		ldap.ag.Logger.LogAuth(r, false)
 		return
@@ -196,7 +199,7 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 		}
 	} else {
 		utils.SendErrorResponse(w, "Improper key detected")
-		log.Println(r.RemoteAddr + " attempted to use invaild key to create new user but failed")
+		logger.PrintAndLog("Ldap", r.RemoteAddr+" attempted to use invaild key to create new user but failed", nil)
 		return
 	}
 }

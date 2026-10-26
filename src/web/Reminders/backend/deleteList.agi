@@ -1,0 +1,33 @@
+/*
+    Reminders - Delete a list by id (also removes every reminder in that list).
+    POST: listId (string)
+*/
+requirelib("filelib");
+
+var dataPath = "user:/Document/Reminders/data.json";
+
+if (!listId || listId === "") {
+    sendJSONResp({ error: "Missing listId" });
+} else {
+    var data = { lists: [], reminders: [] };
+    if (filelib.fileExists(dataPath)) {
+        try {
+            var parsed = JSON.parse(filelib.readFile(dataPath));
+            if (parsed && Array.isArray(parsed.lists) && Array.isArray(parsed.reminders)) data = parsed;
+        } catch (e) {}
+    }
+
+    var lists = [];
+    for (var i = 0; i < data.lists.length; i++) {
+        if (data.lists[i].id !== listId) lists.push(data.lists[i]);
+    }
+    var reminders = [];
+    for (var j = 0; j < data.reminders.length; j++) {
+        if (data.reminders[j].listId !== listId) reminders.push(data.reminders[j]);
+    }
+    data.lists = lists;
+    data.reminders = reminders;
+
+    filelib.writeFile(dataPath, JSON.stringify(data));
+    sendJSONResp({ ok: true });
+}

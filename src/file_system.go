@@ -5,13 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"hash/crc32"
 	"io"
 	"io/fs"
-	"log"
 	"math"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 
@@ -395,6 +395,14 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//A low-memory upload always targets a single file name. Reject separators
+	//and dot segments so the write cannot escape the selected directory.
+	if err := utils.ValidateFilename(filename); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - Invalid filename given"))
+		return
+	}
+
 	//Get upload target directory
 	uploadTarget, err := utils.GetPara(r, "path")
 	if uploadTarget == "" || err != nil {
@@ -403,21 +411,15 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Unescape the upload target path
-	unescapedPath, err := url.PathUnescape(uploadTarget)
-	if err != nil {
-		unescapedPath = uploadTarget
-	}
-
 	//Check if the user can write to this folder
-	if !userinfo.CanWrite(unescapedPath) {
+	if !userinfo.CanWrite(uploadTarget) {
 		//No permission
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Access Denied"))
 		return
 	}
 
-	fsh, subpath, err := GetFSHandlerSubpathFromVpath(unescapedPath)
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath(uploadTarget)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Path translation failed"))
@@ -498,6 +500,16 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	totalFileSize := int64(0)
+
+	// Full-file CRC32 hasher (IEEE polynomial, matches JS crc32Table implementation)
+	fileCRC32Hasher := crc32.NewIEEE()
+
+	// Per-chunk state machine:
+	// The client sends a text metadata frame {"index":N,"checksum":"hex"} before each binary frame.
+	var pendingChunkIndex int
+	var pendingChunkChecksum string
+	expectingBinary := false
+
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
@@ -510,20 +522,89 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			} else {
 				os.RemoveAll(uploadFolder)
 			}
-
 			return
 		}
-		//The mt should be 2 = binary for file upload and 1 for control syntax
+
 		if mt == 1 {
-			msg := strings.TrimSpace(string(message))
-			if msg == "done" {
-				//Start the merging process
-				break
+			// Text frame – either chunk metadata or done signal
+			textMsg := strings.TrimSpace(string(message))
+
+			if !expectingBinary {
+				// Check if this is the done signal
+				var doneSignal struct {
+					Done         bool   `json:"done"`
+					TotalChunks  int    `json:"totalChunks"`
+					FileChecksum string `json:"fileChecksum"`
+				}
+				if jsonErr := json.Unmarshal([]byte(textMsg), &doneSignal); jsonErr == nil && doneSignal.Done {
+					// Verify the full-file CRC32 before merging
+					if doneSignal.FileChecksum != "" {
+						computedSum := fileCRC32Hasher.Sum32()
+						computedSumBytes := []byte{byte(computedSum >> 24), byte(computedSum >> 16), byte(computedSum >> 8), byte(computedSum)}
+						computedHex := hex.EncodeToString(computedSumBytes)
+						if doneSignal.FileChecksum != computedHex {
+							systemWideLogger.PrintAndLog("File System", "Upload file checksum mismatch: client="+doneSignal.FileChecksum+" server="+computedHex, nil)
+							c.WriteMessage(1, []byte(`{"error":"File integrity check failed: full-file checksum mismatch"}`))
+							c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+							time.Sleep(1 * time.Second)
+							c.Close()
+							if isHugeFile {
+								fshAbs.RemoveAll(uploadFolder)
+							} else {
+								os.RemoveAll(uploadFolder)
+							}
+							return
+						}
+					}
+					// Checksum verified – proceed to merge
+					break
+				}
+
+				// Parse as chunk metadata
+				var meta struct {
+					Index    int    `json:"index"`
+					Checksum string `json:"checksum"`
+				}
+				if jsonErr := json.Unmarshal([]byte(textMsg), &meta); jsonErr != nil {
+					systemWideLogger.PrintAndLog("File System", "Invalid chunk metadata received: "+textMsg, jsonErr)
+					continue
+				}
+				pendingChunkIndex = meta.Index
+				pendingChunkChecksum = meta.Checksum
+				expectingBinary = true
 			}
+
 		} else if mt == 2 {
-			//File block. Save it to tmp folder
-			chunkFilepath := filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter))
-			chunkName = append(chunkName, chunkFilepath)
+			// Binary frame – the chunk data that follows a metadata frame
+			if !expectingBinary {
+				systemWideLogger.PrintAndLog("File System", "Received binary chunk without preceding metadata, ignoring", nil)
+				continue
+			}
+			expectingBinary = false
+
+			// Verify chunk CRC32
+			chunkSum := crc32.ChecksumIEEE(message)
+			chunkSumBytes := []byte{byte(chunkSum >> 24), byte(chunkSum >> 16), byte(chunkSum >> 8), byte(chunkSum)}
+			chunkHex := hex.EncodeToString(chunkSumBytes)
+			if pendingChunkChecksum != "" && pendingChunkChecksum != chunkHex {
+				// CRC32 mismatch – ask the client to re-send this chunk
+				systemWideLogger.PrintAndLog("File System", "Chunk "+strconv.Itoa(pendingChunkIndex)+" CRC32 mismatch: expected "+pendingChunkChecksum+" got "+chunkHex, nil)
+				retryMsg, _ := json.Marshal(map[string]int{"retryChunk": pendingChunkIndex})
+				c.WriteMessage(1, retryMsg)
+				// Reset state; client will re-send the metadata+binary for this chunk
+				continue
+			}
+
+			// Chunk verified – write to tmp folder.
+			// Use pendingChunkIndex as the canonical filename so that a retry overwrites
+			// the previous (corrupted) attempt rather than creating a duplicate entry.
+			chunkFilepath := filepath.Join(uploadFolder, "upld_"+strconv.Itoa(pendingChunkIndex))
+			if pendingChunkIndex == blockCounter {
+				// First time this chunk index is successfully received
+				chunkName = append(chunkName, chunkFilepath)
+				blockCounter++
+			}
+
 			var writeErr error
 			if isHugeFile {
 				writeErr = fshAbs.WriteFile(chunkFilepath, message, 0700)
@@ -532,16 +613,11 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if writeErr != nil {
-				//Unable to write block. Is the tmp folder fulled?
-				systemWideLogger.PrintAndLog("File System", "Upload chunk write failed: "+err.Error(), err)
-				c.WriteMessage(1, []byte(`{\"error\":\"Write file chunk to disk failed\"}`))
-
-				//Close the connection
+				systemWideLogger.PrintAndLog("File System", "Upload chunk write failed: "+writeErr.Error(), writeErr)
+				c.WriteMessage(1, []byte(`{"error":"Write file chunk to disk failed"}`))
 				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 				time.Sleep(1 * time.Second)
 				c.Close()
-
-				//Clear the tmp files
 				if isHugeFile {
 					fshAbs.RemoveAll(uploadFolder)
 				} else {
@@ -550,22 +626,18 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			//Update the last upload chunk time
-			lastChunkArrivalTime = time.Now().Unix()
+			// Update running full-file CRC32 with the verified chunk data
+			fileCRC32Hasher.Write(message)
 
-			//Check if the file size is too big
+			// Update timing and quota tracking
+			lastChunkArrivalTime = time.Now().Unix()
 			totalFileSize += int64(len(message))
 
 			if totalFileSize > max_upload_size {
-				//File too big
-				c.WriteMessage(1, []byte(`{\"error\":\"File size too large\"}`))
-
-				//Close the connection
+				c.WriteMessage(1, []byte(`{"error":"File size too large"}`))
 				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 				time.Sleep(1 * time.Second)
 				c.Close()
-
-				//Clear the tmp files
 				if isHugeFile {
 					fshAbs.RemoveAll(uploadFolder)
 				} else {
@@ -573,45 +645,29 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 				}
 				return
 			} else if !userinfo.StorageQuota.HaveSpace(totalFileSize) {
-				//Quota exceeded
-				c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
-
-				//Close the connection
+				c.WriteMessage(1, []byte(`{"error":"User Storage Quota Exceeded"}`))
 				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 				time.Sleep(1 * time.Second)
 				c.Close()
-
-				//Clear the tmp files
 				if isHugeFile {
 					fshAbs.RemoveAll(uploadFolder)
 				} else {
 					os.RemoveAll(uploadFolder)
 				}
+				return
 			}
-			blockCounter++
 
-			//Request client to send the next chunk
+			// Acknowledge the chunk; client will send the next metadata+binary pair
 			c.WriteMessage(1, []byte("next"))
-
 		}
-		//systemWideLogger.PrintAndLog("File System", ("recv:", len(message), "type", mt)
 	}
-
-	//Try to decode the location if possible
-	decodedUploadLocation, err := url.PathUnescape(targetUploadLocation)
-	if err != nil {
-		decodedUploadLocation = targetUploadLocation
-	}
-
-	//Do not allow % sign in filename. Replace all with underscore
-	decodedUploadLocation = strings.ReplaceAll(decodedUploadLocation, "%", "_")
 
 	//Merge the file. Merge file location must be on local machine
-	mergeFileLocation := decodedUploadLocation
+	mergeFileLocation := targetUploadLocation
 	var out arozfs.File
 	if fsh.RequireBuffer {
 		//The merge file location must be local buffer
-		mergeFileLocation = getFsBufferFilepath(decodedUploadLocation, false)
+		mergeFileLocation = getFsBufferFilepath(targetUploadLocation, false)
 		out, err = os.OpenFile(mergeFileLocation, os.O_CREATE|os.O_WRONLY, 0755)
 	} else {
 		//The merge file location can be local or remote that support OpenFile.
@@ -621,7 +677,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Failed to open file:"+err.Error(), err)
-		c.WriteMessage(1, []byte(`{\"error\":\"Failed to open destination file\"}`))
+		c.WriteMessage(1, []byte(`{"error":"Failed to open destination file"}`))
 		c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 		time.Sleep(1 * time.Second)
 		c.Close()
@@ -638,7 +694,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to open Source Chunk"+filesrc+" with error "+err.Error(), err)
-			c.WriteMessage(1, []byte(`{\"error\":\"Failed to open Source Chunk\"}`))
+			c.WriteMessage(1, []byte(`{"error":"Failed to open Source Chunk"}`))
 			return
 		}
 
@@ -655,7 +711,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 		//Write to websocket for the percentage of upload is written fro tmp to dest
 		moveProg := strconv.Itoa(int(math.Round(float64(counter)/float64(len(chunkName))*100))) + "%"
-		c.WriteMessage(1, []byte(`{\"move\":\"`+moveProg+`"}`))
+		c.WriteMessage(1, []byte(`{"move":"`+moveProg+`"}`))
 	}
 
 	out.Close()
@@ -671,11 +727,11 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Could not obtain stat, handle error
 		systemWideLogger.PrintAndLog("File System", "Failed to validate uploaded file: "+mergeFileLocation+". Error Message: "+err.Error(), err)
-		c.WriteMessage(1, []byte(`{\"error\":\"Failed to validate uploaded file\"}`))
+		c.WriteMessage(1, []byte(`{"error":"Failed to validate uploaded file"}`))
 		return
 	}
 	if !userinfo.StorageQuota.HaveSpace(fi.Size()) {
-		c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
+		c.WriteMessage(1, []byte(`{"error":"User Storage Quota Exceeded"}`))
 		if fsh.RequireBuffer {
 			os.RemoveAll(mergeFileLocation)
 		} else {
@@ -690,15 +746,15 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		f, err := os.Open(mergeFileLocation)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to open buffered file at "+mergeFileLocation+" with error "+err.Error(), err)
-			c.WriteMessage(1, []byte(`{\"error\":\"Failed to open buffered object\"}`))
+			c.WriteMessage(1, []byte(`{"error":"Failed to open buffered object"}`))
 			f.Close()
 			return
 		}
 
-		err = fsh.FileSystemAbstraction.WriteStream(decodedUploadLocation, f, 0775)
+		err = fsh.FileSystemAbstraction.WriteStream(targetUploadLocation, f, 0775)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to write to file system: "+fsh.UUID+" with error "+err.Error(), err)
-			c.WriteMessage(1, []byte(`{\"error\":\"Failed to upload to remote file system\"}`))
+			c.WriteMessage(1, []byte(`{"error":"Failed to upload to remote file system"}`))
 			f.Close()
 			return
 		}
@@ -709,10 +765,10 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Log the upload filename
-	systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+filepath.Base(decodedUploadLocation), nil)
+	systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+filepath.Base(targetUploadLocation), nil)
 
 	//Set owner of the new uploaded file
-	userinfo.SetOwnerOfFile(fsh, unescapedPath)
+	userinfo.SetOwnerOfFile(fsh, uploadTarget)
 
 	//Return complete signal
 	c.WriteMessage(1, []byte("OK"))
@@ -812,6 +868,14 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	//Reject absolute paths, traversal segments and separators that could
+	//escape the upload target. Directory uploads keep their relative layout.
+	storeFilename, err = utils.ValidateRelativePath(storeFilename)
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid filename: "+err.Error())
+		return
+	}
+
 	destFilepath := arozfs.ToSlash(filepath.Join(realUploadPath, storeFilename))
 	//fmt.Println(destFilepath, realUploadPath, storeFilename)
 	if !targetFs.FileExists(filepath.Dir(destFilepath)) {
@@ -834,9 +898,6 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, "User Storage Quota Exceeded")
 		return
 	}
-
-	//Do not allow % sign in filename. Replace all with underscore
-	destFilepath = strings.ReplaceAll(destFilepath, "%", "_")
 
 	//Move the file to destination file location
 	if *enable_asyncFileUpload {
@@ -895,8 +956,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Loop through all files are see if there are duplication during copy and paste
 	sourceFiles := []string{}
-	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
-	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	err = json.Unmarshal([]byte(vsrcFiles), &sourceFiles)
 	if err != nil {
 		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
@@ -940,7 +1000,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - " + err.Error()))
-		log.Print("Websocket Upgrade Error:", err.Error())
+		systemWideLogger.PrintAndLog("System", fmt.Sprint("Websocket Upgrade Error:", err.Error()), nil)
 		return
 	}
 
@@ -1274,10 +1334,17 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		//Validate the filename before using it as a single path element
+		if err := utils.ValidateFilename(filename); err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+
 		//Check if the file already exists. If yes, fix its filename.
 		newfilePath := filepath.ToSlash(filepath.Join(rpath, filename))
 
-		if fileType == "file" {
+		switch fileType {
+		case "file":
 			for fshAbs.FileExists(newfilePath) {
 				utils.SendErrorResponse(w, "Given filename already exists")
 				return
@@ -1300,7 +1367,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-		} else if fileType == "folder" {
+		case "folder":
 			if fshAbs.FileExists(newfilePath) {
 				utils.SendErrorResponse(w, "Given folder already exists")
 				return
@@ -1348,8 +1415,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	//Decode the source file list
 	var sourceFiles []string
 	tmp := []string{}
-	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
-	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	err = json.Unmarshal([]byte(vsrcFiles), &sourceFiles)
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Websocket file operation source file JSON parse error", err)
 		utils.SendErrorResponse(w, "Source file JSON parse error.")
@@ -1362,10 +1428,6 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	}
 	sourceFiles = tmp
 	vdestFile = strings.ReplaceAll(vdestFile, "{{plug_sign}}", "+")
-
-	//Decode the target position
-	escapedVdest, _ := url.QueryUnescape(vdestFile)
-	vdestFile = escapedVdest
 
 	destFsh, subpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 	if err != nil {
@@ -1400,7 +1462,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - " + err.Error()))
-		log.Print("Websocket Upgrade Error:", err.Error())
+		systemWideLogger.PrintAndLog("System", fmt.Sprint("Websocket Upgrade Error:", err.Error()), nil)
 		return
 	}
 
@@ -1418,7 +1480,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Send over the oprId for this file operation for tracking
 	time.Sleep(300 * time.Millisecond)
-	c.WriteMessage(1, []byte("{\"oprid\":\""+oprId+"\"}"))
+	c.WriteMessage(1, []byte(`{"oprid":"`+oprId+`"}`))
 
 	type ProgressUpdate struct {
 		LatestFile string
@@ -1794,9 +1856,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 	//As the user can pass in multiple source files at the same time, parse sourceFiles from json string
 	var sourceFiles []string
-	//This line is required in order to allow passing of special charaters
-	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
-	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	err = json.Unmarshal([]byte(vsrcFiles), &sourceFiles)
 	if err != nil {
 		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
@@ -1805,7 +1865,6 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	//Check if new filenames are also valid. If yes, translate it into string array
 	var newFilenames []string
 	if vnfilenames != "" {
-		vnfilenames, _ := url.QueryUnescape(vnfilenames)
 		err = json.Unmarshal([]byte(vnfilenames), &newFilenames)
 		if err != nil {
 			utils.SendErrorResponse(w, "Unable to parse JSON for new filenames")
@@ -1914,15 +1973,22 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				//Check if the target dir is not readonly
 				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
-				if accmode == arozfs.FsReadOnly {
+				switch accmode {
+				case arozfs.FsReadOnly:
 					utils.SendErrorResponse(w, "This directory is Read Only")
 					return
-				} else if accmode == arozfs.FsDenied {
+				case arozfs.FsDenied:
 					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
-				thisFilename := filepath.Base(newFilenames[i])
+				thisFilename := newFilenames[i]
+
+				//Validate the new filename before using it as a single path element
+				if err := utils.ValidateFilename(thisFilename); err != nil {
+					utils.SendErrorResponse(w, err.Error())
+					return
+				}
 				//Check if the name already exists. If yes, return false
 				if srcFshAbs.FileExists(filepath.Join(filepath.Dir(rsrcFile), thisFilename)) {
 					utils.SendErrorResponse(w, "File already exists")
@@ -2214,7 +2280,7 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 		result := ""
 		err := sysdb.Read("fs", "pref/"+key+"/"+username, &result)
 		if err != nil {
-			utils.SendJSONResponse(w, "{\"error\":\"Key not found.\"}")
+			utils.SendJSONResponse(w, `{"error":"Key not found."}`)
 			return
 		}
 		utils.SendTextResponse(w, result)
@@ -2228,9 +2294,9 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 		utils.SendOK(w)
 	} else if key != "" && value != "" {
 		//Set mode. Set the preference with given key
-		if len(value) > 1024 {
+		if len(value) > 1024*1024 { //1KB
 			//Size too big. Reject storage
-			utils.SendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1024 characters.")
+			utils.SendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1KB.")
 			return
 		}
 		sysdb.Write("fs", "pref/"+key+"/"+username, value)
@@ -2364,22 +2430,6 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 /*
 	Special Glob for handling path with [ or ] inside.
 	You can also pass in normal path for globing if you are not sure.
-*/
-
-func system_fs_specialURIDecode(inputPath string) string {
-	inputPath = strings.ReplaceAll(inputPath, "+", "{{plus_sign}}")
-	inputPath, _ = url.QueryUnescape(inputPath)
-	inputPath = strings.ReplaceAll(inputPath, "{{plus_sign}}", "+")
-	return inputPath
-}
-
-/*
-func system_fs_specialURIEncode(inputPath string) string {
-	inputPath = strings.ReplaceAll(inputPath, " ", "{{space_sign}}")
-	inputPath, _ = url.QueryUnescape(inputPath)
-	inputPath = strings.ReplaceAll(inputPath, "{{space_sign}}", "%20")
-	return inputPath
-}
 */
 
 // Handle file properties request
@@ -2516,8 +2566,6 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 	Usage: Pass in dir like the following examples:
 	AOR:/Desktop	<= Open /user/{username}/Desktop
 	S1:/			<= Open {uuid=S1}/
-
-
 */
 
 func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
@@ -2526,8 +2574,6 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	//Commented this line to handle dirname that contains "+" sign
-	//currentDir, _ = url.QueryUnescape(currentDir)
 	sortMode, _ := utils.PostPara(r, "sort")
 	showHidden, _ := utils.PostPara(r, "showHidden")
 
@@ -2543,8 +2589,8 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Pad a slash at the end of currentDir if not exists
-	if currentDir[len(currentDir)-1:] != "/" {
+	// Pad a slash at the end of currentDir if not exists
+	if !strings.HasSuffix(currentDir, "/") {
 		currentDir = currentDir + "/"
 	}
 
@@ -2556,12 +2602,12 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	fshAbs := fsh.FileSystemAbstraction
 
-	//Normal file systems
 	realpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
+
 	if !fshAbs.FileExists(realpath) {
 		//Path not exists
 		userRoot, _ := fshAbs.VirtualPathToRealPath("/", userinfo.Username)
@@ -2599,7 +2645,6 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	//Sorting use list
 	realpathList := []string{}
 	fileInfoList := []fs.FileInfo{}
-
 	for _, f := range files {
 		//Check if it is hidden file
 		isHidden, _ := hidden.IsHidden(f.Name(), false)
@@ -2666,7 +2711,6 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	jsonString, _ := json.Marshal(results)
 	utils.SendJSONResponse(w, string(jsonString))
-
 }
 
 // Handle getting a hash from a given contents in the given path

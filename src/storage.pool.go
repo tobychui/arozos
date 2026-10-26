@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -41,8 +41,9 @@ func StoragePoolEditorInit() {
 	//Create the required folder structure
 	err := os.MkdirAll("./system/storage", 0775)
 	if err != nil {
-		log.Println("Create storage pool setting folder failed: ")
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", "Create storage pool setting folder failed: ", nil)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 
 	adminRouter.HandleFunc("/system/storage/pool/list", HandleListStoragePools)
@@ -99,7 +100,7 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
-		//systemWideLogger.PrintAndLog("Storage", newFsOption, nil)
+		//systemWideLogger.PrintAndLog("Storage", fmt.Sprint(newFsOption), nil)
 
 		uuid := newFsOption.Uuid
 

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cron Demo</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            -webkit-font-smoothing: antialiased;
+        }
+        body.dark {
+            background: #1c1c1e;
+            color: #f0f0f0;
+        }
+
+        #app {
+            --accent:      #0071e3;
+            --danger:      #ff3b30;
+            --success:     #34c759;
+            --warning:     #ff9f0a;
+            --divider:     #d2d2d7;
+            --card-bg:     #ffffff;
+            --card-border: #e5e5ea;
+            --muted:       #6e6e73;
+            --code-bg:     #f0f0f5;
+            max-width: 460px;
+            margin: 0 auto;
+            padding: 20px 16px 32px;
+        }
+        body.dark #app {
+            --accent:      #2997ff;
+            --danger:      #ff453a;
+            --success:     #30d158;
+            --warning:     #ffd60a;
+            --divider:     #3a3a3c;
+            --card-bg:     #2c2c2e;
+            --card-border: #3a3a3c;
+            --muted:       #9a9a9f;
+            --code-bg:     #3a3a3c;
+        }
+
+        /* Header */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .app-header img {
+            width: 48px;
+            height: 48px;
+            border-radius: 11px;
+        }
+        .app-header-text h1 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .app-header-text p {
+            font-size: 12.5px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+        .card-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            padding: 12px 14px 4px;
+        }
+        .card-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--divider);
+            gap: 10px;
+        }
+        .card-row:last-child { border-bottom: none; }
+        .card-row-label {
+            font-size: 13.5px;
+        }
+        .card-row-value {
+            font-size: 13px;
+            color: var(--muted);
+            text-align: right;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Status badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12.5px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .badge-green  { background: rgba(52,199,89,0.13); color: var(--success); }
+        .badge-red    { background: rgba(255,59,48,0.12); color: var(--danger); }
+        .badge-yellow { background: rgba(255,159,10,0.13); color: var(--warning); }
+        body.dark .badge-green  { background: rgba(48,209,88,0.15); }
+        body.dark .badge-red    { background: rgba(255,69,58,0.15); }
+        body.dark .badge-yellow { background: rgba(255,214,10,0.15); }
+
+        /* Dot */
+        .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-green  { background: var(--success); }
+        .dot-red    { background: var(--danger); }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.12s;
+            outline: none;
+        }
+        .btn:hover { opacity: 0.82; }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-danger  { background: var(--danger); color: #fff; }
+        .btn-secondary {
+            background: var(--card-bg);
+            color: inherit;
+            border: 1px solid var(--card-border);
+        }
+
+        /* Action row */
+        .action-row {
+            display: flex;
+            gap: 8px;
+            padding: 12px 14px;
+            border-top: 1px solid var(--divider);
+        }
+        .action-row .btn { flex: 1; }
+
+        /* Code block */
+        .code-block {
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 11.5px;
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin: 0 14px 12px;
+            line-height: 1.6;
+            color: var(--muted);
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        /* Permission denied banner */
+        #no-perm-banner {
+            background: rgba(255,159,10,0.1);
+            border: 1px solid rgba(255,159,10,0.3);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            color: var(--warning);
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        /* Loading state */
+        .loading { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body>
+<div id="app">
+
+    <div class="app-header">
+        <img src="img/module_icon.png" alt="CronDemo">
+        <div class="app-header-text">
+            <h1>Cron Demo</h1>
+            <p>Background scheduler demonstration</p>
+        </div>
+    </div>
+
+    <!-- No-permission warning -->
+    <div id="no-perm-banner">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;vertical-align:-2px;margin-right:6px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>
+        Your account does not have permission to create scheduled tasks.
+        Ask your administrator to grant you cron job access.
+    </div>
+
+    <!-- Scheduler status card -->
+    <div class="card" id="status-card">
+        <div class="card-title">Scheduler Status</div>
+        <div class="card-row">
+            <span class="card-row-label">Background Task</span>
+            <span class="card-row-value" id="status-badge">
+                <span class="badge badge-yellow"><span class="dot"></span> Checking…</span>
+            </span>
+        </div>
+        <div class="card-row">
+            <span class="card-row-label">Task Name</span>
+            <span class="card-row-value" id="task-name-cell">CronDemo_Schedule</span>
+        </div>
+        <div class="card-row">
+            <span class="card-row-label">Runs Every</span>
+            <span class="card-row-value">1 minute <span style="color:var(--muted);font-size:11px;">(demo)</span></span>
+        </div>
+        <div class="action-row">
+            <button class="btn btn-primary" id="btn-register" onclick="register()" disabled>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Enable Schedule
+            </button>
+            <button class="btn btn-danger" id="btn-unregister" onclick="unregister()" style="display:none;">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Disable
+            </button>
+        </div>
+    </div>
+
+    <!-- Last run stats card -->
+    <div class="card">
+        <div class="card-title">Execution History</div>
+        <div class="card-row">
+            <span class="card-row-label">Last Run</span>
+            <span class="card-row-value" id="last-run">—</span>
+        </div>
+        <div class="card-row">
+            <span class="card-row-label">Run Count</span>
+            <span class="card-row-value" id="run-count">—</span>
+        </div>
+    </div>
+
+    <!-- How it works card -->
+    <div class="card">
+        <div class="card-title">How It Works</div>
+        <div class="card-row" style="display:block; padding: 10px 14px 6px;">
+            <p style="font-size:13px; line-height:1.6; color:var(--muted);">
+                When enabled, the scheduler calls <code style="font-size:11.5px; background:var(--code-bg); padding:1px 5px; border-radius:4px;">cron.agi</code>
+                every minute on your behalf. The script records a timestamp
+                and run count using <em>appdata</em> storage, which you can
+                see above after each tick.
+            </p>
+        </div>
+        <div class="code-block" id="source-snippet">// cron.agi — runs every minute
+requirelib("appdata");
+appdata.set("CronDemo", "lastRun", new Date().toISOString());
+var n = parseInt(appdata.get("CronDemo","runCount")||"0",10);
+appdata.set("CronDemo", "runCount", String(n + 1));
+sendOK();</div>
+    </div>
+
+</div>
+
+<script>
+    var APP_NAME  = "CronDemo";
+    var TASK_NAME = "CronDemo_Schedule";
+    var INTERVAL  = 60;   // 60 seconds — short for demo purposes
+
+    var canCreate    = false;
+    var isRegistered = false;
+
+    /* ── Theme ───────────────────────────────────────────────────────── */
+    ao_module_getSystemThemeColor(function(c) {
+        document.body.classList.toggle('dark', c !== 'whiteTheme');
+    });
+
+    /* ── Startup ─────────────────────────────────────────────────────── */
+    function init() {
+        // 1. Check cron creation permission
+        $.ajax({
+            url: "../system/arsm/aecron/permission",
+            success: function(data) {
+                canCreate = data && data.CanCreate;
+                if (!canCreate) {
+                    document.getElementById('no-perm-banner').style.display = 'block';
+                }
+                checkRegistered();
+            },
+            error: function() { checkRegistered(); }
+        });
+
+        // 2. Load last-run stats from backend
+        refreshStats();
+    }
+
+    function checkRegistered() {
+        $.ajax({
+            url: "../system/arsm/aecron/app/check",
+            data: { appname: APP_NAME, taskname: TASK_NAME },
+            success: function(data) {
+                isRegistered = data && data.Registered;
+                renderStatus();
+            },
+            error: function() { renderStatus(); }
+        });
+    }
+
+    function renderStatus() {
+        var badge  = document.getElementById('status-badge');
+        var btnReg = document.getElementById('btn-register');
+        var btnUnr = document.getElementById('btn-unregister');
+
+        if (isRegistered) {
+            badge.innerHTML = '<span class="badge badge-green"><span class="dot dot-green"></span> Active</span>';
+            btnReg.style.display = 'none';
+            btnUnr.style.display = '';
+        } else {
+            badge.innerHTML = '<span class="badge badge-red"><span class="dot dot-red"></span> Not scheduled</span>';
+            btnReg.style.display = '';
+            btnReg.disabled = !canCreate;
+            btnUnr.style.display = 'none';
+        }
+    }
+
+    /* ── Register ────────────────────────────────────────────────────── */
+    function register() {
+        ao_module_requestSchedulerPermission({
+            appName:     APP_NAME,
+            appIcon:     APP_NAME + "/img/module_icon.png",
+            taskName:    TASK_NAME,
+            scriptName:  "cron.agi",
+            interval:    INTERVAL,
+            description: "Demo background task — records a timestamp every minute."
+        }, function(result) {
+            if (result && result.allowed) {
+                isRegistered = true;
+                renderStatus();
+            }
+        });
+    }
+
+    /* ── Unregister ──────────────────────────────────────────────────── */
+    function unregister() {
+        if (!confirm("Disable the background scheduler for Cron Demo?")) return;
+        $.ajax({
+            url: "../system/arsm/aecron/app/unregister",
+            method: "POST",
+            data: { appname: APP_NAME, taskname: TASK_NAME },
+            success: function() {
+                isRegistered = false;
+                renderStatus();
+            },
+            error: function(xhr) {
+                alert("Failed to unregister: " + (xhr.responseText || "unknown error"));
+            }
+        });
+    }
+
+    /* ── Stats ───────────────────────────────────────────────────────── */
+    function refreshStats() {
+        ao_module_agirun("CronDemo/backend.agi", {}, function(data) {
+            var lastRunEl  = document.getElementById('last-run');
+            var runCountEl = document.getElementById('run-count');
+
+            if (data && data.lastRun) {
+                var d = new Date(data.lastRun);
+                lastRunEl.textContent = d.toLocaleString();
+            } else {
+                lastRunEl.textContent = "Never";
+            }
+
+            runCountEl.textContent = (data && data.runCount != null)
+                ? data.runCount + (data.runCount === 1 ? " time" : " times")
+                : "0 times";
+        }, function() {
+            document.getElementById('last-run').textContent = "—";
+            document.getElementById('run-count').textContent = "—";
+        });
+    }
+
+    /* ── Auto-refresh stats every 15 s ──────────────────────────────── */
+    setInterval(refreshStats, 15000);
+
+    init();
+</script>
+</body>
+</html>

@@ -4,8 +4,8 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "hostPower/host_power": "主機電源",
                 "hostPower/host_power_title": "主機電源",
                 "hostPower/change_power_state": "更改設備的電源狀態",
@@ -19,42 +19,120 @@
                 "hostPower/ensure_safety": "請確保您在可以物理上重新啟動主機的地方進行關機。",
                 "hostPower/status/online": "系統在線",
                 "hostPower/status/disconnected": "已離線",
-                "":""
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                
-                "":""
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "hostPower/host_power": "主機電源",
+                "hostPower/host_power_title": "主機電源",
+                "hostPower/change_power_state": "更改裝置的電源狀態",
+                "hostPower/system_online": "系統在線",
+                "hostPower/last_update": "上次更新時間：",
+                "hostPower/power_options": "電源選項",
+                "hostPower/power_off": "關機",
+                "hostPower/restart": "重新啟動",
+                "hostPower/restart_shutdown_risk": "重新啟動/關機具有風險",
+                "hostPower/shutdown_warning": "如果您決定關閉主機伺服器，ArozOS 將把關機信號傳送給主機作業系統，從 Web 介面並無法知道關機/重新啟動過程是否已完成。<br><b>請確保關機時您是位於可以物理上重新啟動主機的地方。</b>",
+                "hostPower/ensure_safety": "請確保您在可以物理上重新啟動主機的地方進行關機。",
+                "hostPower/status/online": "系統在線",
+                "hostPower/status/disconnected": "已離線",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
             "name": "简体中文（简体）",
-            "fwtitle" : "",
-            "strings":{
-                
-                "":""
+            "fwtitle": "",
+            "strings": {
+                "hostPower/host_power": "主机电源",
+                "hostPower/host_power_title": "主机电源",
+                "hostPower/change_power_state": "更改设备的电源状态",
+                "hostPower/system_online": "系统在线",
+                "hostPower/last_update": "上次更新时间：",
+                "hostPower/power_options": "电源选项",
+                "hostPower/power_off": "关机",
+                "hostPower/restart": "重新启动",
+                "hostPower/restart_shutdown_risk": "重新启动/关机具有风险",
+                "hostPower/shutdown_warning": "如果您决定关闭主机服务器，ArozOS 将把关机信号发送给主机操作系统，从 Web 界面并无法知道关机/重新启动过程是否已完成。<br><b>请确保关机时您处于可以物理重启主机的地方。</b>",
+                "hostPower/ensure_safety": "请确保您在可以物理重启主机的地方进行关机。",
+                "hostPower/status/online": "系统在线",
+                "hostPower/status/disconnected": "已离线",
+                "": ""
             },
-            "titles":{
-
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "hostPower/host_power": "Host Power",
+                "hostPower/host_power_title": "Host Power",
+                "hostPower/change_power_state": "Change the power state of the device",
+                "hostPower/system_online": "System Online",
+                "hostPower/last_update": "Last Update:",
+                "hostPower/power_options": "Power Options",
+                "hostPower/power_off": "Shut Down",
+                "hostPower/restart": "Restart",
+                "hostPower/restart_shutdown_risk": "Restart/Shutdown is Risky",
+                "hostPower/shutdown_warning": "If you decide to shut down the host server, ArozOS will send the shutdown signal to the host OS. The Web interface cannot confirm if the shutdown/restart process has completed.<br><b>Please make sure you are in a location where you can physically restart the host when shutting it down.</b>",
+                "hostPower/ensure_safety": "Please ensure you are in a location where you can physically restart the host before shutting down.",
+                "hostPower/status/online": "System Online",
+                "hostPower/status/disconnected": "Disconnected",
+                "": ""
             },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "hostPower/host_power": "ホスト電源",
+                "hostPower/host_power_title": "ホスト電源",
+                "hostPower/change_power_state": "デバイスの電源状態を変更",
+                "hostPower/system_online": "システムオンライン",
+                "hostPower/last_update": "最終更新：",
+                "hostPower/power_options": "電源オプション",
+                "hostPower/power_off": "シャットダウン",
+                "hostPower/restart": "再起動",
+                "hostPower/restart_shutdown_risk": "再起動/シャットダウンはリスクがあります",
+                "hostPower/shutdown_warning": "ホストサーバーをシャットダウンする場合、ArozOSはホストOSにシャットダウン信号を送信します。Webインターフェースからシャットダウン/再起動プロセスが完了したかどうかを確認することはできません。<br><b>シャットダウン時には物理的にホストを再起動できる場所にいることを確認してください。</b>",
+                "hostPower/ensure_safety": "シャットダウン前に物理的にホストを再起動できる場所にいることを確認してください。",
+                "hostPower/status/online": "システムオンライン",
+                "hostPower/status/disconnected": "切断",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "hostPower/host_power": "호스트 전원",
+                "hostPower/host_power_title": "호스트 전원",
+                "hostPower/change_power_state": "장치의 전원 상태 변경",
+                "hostPower/system_online": "시스템 온라인",
+                "hostPower/last_update": "마지막 업데이트:",
+                "hostPower/power_options": "전원 옵션",
+                "hostPower/power_off": "종료",
+                "hostPower/restart": "다시 시작",
+                "hostPower/restart_shutdown_risk": "다시 시작/종료는 위험합니다",
+                "hostPower/shutdown_warning": "호스트 서버를 종료하기로 결정한 경우, ArozOS는 호스트 OS에 종료 신호를 보냅니다. 웹 인터페이스에서 종료/재시작 프로세스가 완료되었는지 확인할 수 없습니다.<br><b>종료 시 물리적으로 호스트를 재시작할 수 있는 위치에 있는지 확인하세요.</b>",
+                "hostPower/ensure_safety": "종료하기 전에 물리적으로 호스트를 재시작할 수 있는 위치에 있는지 확인하세요.",
+                "hostPower/status/online": "시스템 온라인",
+                "hostPower/status/disconnected": "연결 끊김",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
         }
     }
 }

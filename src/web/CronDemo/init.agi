@@ -1,0 +1,24 @@
+/*
+	CronDemo — Scheduler Demo App
+	==============================
+	Demonstrates how a webapp can register a background cron job on behalf of
+	the user using the ArozOS Task Scheduler API.
+
+	The scheduled script (cron.agi) lives next to this init.agi.
+*/
+
+var moduleLaunchInfo = {
+	Name: "CronDemo",
+	Desc: "Demo app showing how to register a background scheduler task",
+	Group: "Development",
+	IconPath: "CronDemo/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "CronDemo/index.html",
+	SupportFW: true,
+	LaunchFWDir: "CronDemo/index.html",
+	SupportEmb: false,
+	InitFWSize: [480, 540],
+	SupportedExt: []
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

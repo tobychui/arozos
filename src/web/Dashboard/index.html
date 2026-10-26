@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArozOS Dashboard</title>
+    <link rel="icon" type="image/png" href="img/module_icon.png">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        /* ===== THEME VARIABLES ===== */
+        :root {
+            --bg:           #0f172a;
+            --bg2:          #1e293b;
+            --bg3:          #334155;
+            --accent:       #6366f1;
+            --accent2:      #818cf8;
+            --text:         #f1f5f9;
+            --text2:        #94a3b8;
+            --text3:        #64748b;
+            --card:         #1e293b;
+            --card-border:  rgba(255,255,255,0.08);
+            --hero-bg:      linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #0f2a3a 100%);
+            --radius:       12px;
+            --radius-sm:    8px;
+        }
+        body[data-theme="light"] {
+            --bg:           #f0f4f8;
+            --bg2:          #ffffff;
+            --bg3:          #e2e8f0;
+            --accent:       #4f46e5;
+            --accent2:      #6366f1;
+            --text:         #0f172a;
+            --text2:        #475569;
+            --text3:        #94a3b8;
+            --card:         #ffffff;
+            --card-border:  rgba(0,0,0,0.09);
+            --hero-bg:      linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
+        }
+        body[data-theme="midnight"] {
+            --bg:           #09090b;
+            --bg2:          #18181b;
+            --bg3:          #27272a;
+            --accent:       #a78bfa;
+            --accent2:      #c4b5fd;
+            --text:         #fafafa;
+            --text2:        #a1a1aa;
+            --text3:        #71717a;
+            --card:         #18181b;
+            --card-border:  rgba(255,255,255,0.06);
+            --hero-bg:      linear-gradient(135deg, #09090b 0%, #1e0535 55%, #09090b 100%);
+        }
+        body[data-theme="ocean"] {
+            --bg:           #042f2e;
+            --bg2:          #083344;
+            --bg3:          #164e63;
+            --accent:       #06b6d4;
+            --accent2:      #22d3ee;
+            --text:         #e0f7fa;
+            --text2:        #80deea;
+            --text3:        #4db6ac;
+            --card:         #083344;
+            --card-border:  rgba(6,182,212,0.12);
+            --hero-bg:      linear-gradient(135deg, #042f2e 0%, #083344 50%, #021d2e 100%);
+        }
+        body[data-theme="forest"] {
+            --bg:           #052e16;
+            --bg2:          #14532d;
+            --bg3:          #166534;
+            --accent:       #22c55e;
+            --accent2:      #4ade80;
+            --text:         #f0fdf4;
+            --text2:        #86efac;
+            --text3:        #4ade80;
+            --card:         #14532d;
+            --card-border:  rgba(34,197,94,0.12);
+            --hero-bg:      linear-gradient(135deg, #052e16 0%, #14532d 50%, #052e16 100%);
+        }
+        body[data-theme="sunset"] {
+            --bg:           #1c0a00;
+            --bg2:          #431407;
+            --bg3:          #7c2d12;
+            --accent:       #f97316;
+            --accent2:      #fb923c;
+            --text:         #fff7ed;
+            --text2:        #fed7aa;
+            --text3:        #fb923c;
+            --card:         #431407;
+            --card-border:  rgba(249,115,22,0.12);
+            --hero-bg:      linear-gradient(135deg, #1c0a00 0%, #431407 40%, #7c2d12 100%);
+        }
+        body[data-theme="rose"] {
+            --bg:           #1a0011;
+            --bg2:          #4c0519;
+            --bg3:          #881337;
+            --accent:       #fb7185;
+            --accent2:      #fda4af;
+            --text:         #fff1f2;
+            --text2:        #fecdd3;
+            --text3:        #fda4af;
+            --card:         #4c0519;
+            --card-border:  rgba(251,113,133,0.12);
+            --hero-bg:      linear-gradient(135deg, #1a0011 0%, #4c0519 50%, #1a0011 100%);
+        }
+        body[data-theme="slate"] {
+            --bg:           #0f0f0f;
+            --bg2:          #1a1a1a;
+            --bg3:          #2a2a2a;
+            --accent:       #6b7280;
+            --accent2:      #9ca3af;
+            --text:         #f9fafb;
+            --text2:        #d1d5db;
+            --text3:        #6b7280;
+            --card:         #1a1a1a;
+            --card-border:  rgba(255,255,255,0.07);
+            --hero-bg:      linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+        }
+
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            overflow: auto;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            background: var(--hero-bg);
+            padding: 28px 32px;
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 20px;
+            align-items: start;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* Clock */
+        .hero-clock { display: flex; flex-direction: column; gap: 6px; }
+        #clockTime {
+            font-size: 3.6rem;
+            font-weight: 700;
+            letter-spacing: -3px;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 2px 20px rgba(99,102,241,0.4);
+        }
+        #clockDate {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.5);
+        }
+        #clockDate .date-highlight { color: var(--accent2); }
+
+        /* Weather Card */
+        .weather-card {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            min-width: 210px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .weather-city {
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.45);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+        }
+        .weather-temp-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .weather-icon { font-size: 2.8rem; line-height: 1; }
+        .weather-temp {
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+        }
+        .weather-desc {
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 3px;
+        }
+        .weather-meta {
+            display: flex;
+            gap: 14px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .weather-meta-item {
+            font-size: 0.73rem;
+            color: rgba(255,255,255,0.35);
+        }
+        .weather-meta-item span { color: rgba(255,255,255,0.6); }
+        .weather-loading {
+            color: rgba(255,255,255,0.35);
+            font-size: 0.82rem;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        /* ===== MINI-TOOLS CARD ===== */
+        .minitools-card {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            min-width: 210px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .minitools-title {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.4);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 2px;
+        }
+        .minitool-row { display: flex; align-items: center; gap: 8px; }
+        .minitool-label { font-size: 0.72rem; color: rgba(255,255,255,0.45); width: 34px; flex-shrink: 0; }
+        .minitool-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .minitool-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.7);
+            transition: width 0.6s ease;
+            min-width: 2px;
+        }
+        .minitool-fill.warn  { background: #fbbf24; }
+        .minitool-fill.crit  { background: #ef4444; }
+        .minitool-val { font-size: 0.72rem; color: rgba(255,255,255,0.65); width: 52px; text-align: right; flex-shrink: 0; }
+        .minitool-net-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
+        .minitool-net-item { display: flex; flex-direction: column; gap: 2px; }
+        .minitool-net-label { font-size: 0.66rem; color: rgba(255,255,255,0.35); }
+        .minitool-net-val { font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.75); }
+
+        /* File-handler app badge */
+        .app-card.file-handler { border-style: dashed; opacity: 0.8; }
+        .app-card.file-handler .app-card-name::after { content: " 📎"; font-size: 0.6rem; }
+
+        /* ===== THEME SWATCHES ===== */
+        .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+        .theme-swatch {
+            border-radius: var(--radius-sm);
+            padding: 8px 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.18s, transform 0.15s;
+            text-align: center;
+        }
+        .theme-swatch:hover { transform: translateY(-2px); }
+        .theme-swatch.selected { border-color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,0.4); }
+        .theme-swatch-preview { height: 32px; border-radius: 5px; margin-bottom: 5px; }
+        .theme-swatch-name { font-size: 0.7rem; color: #fff; font-weight: 500; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            padding: 24px 32px;
+        }
+
+        /* ===== SECTION HEADER ===== */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            margin-top: 28px;
+        }
+        .section-header:first-of-type { margin-top: 0; }
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+        .section-line {
+            flex: 1;
+            height: 1px;
+            background: var(--card-border);
+        }
+
+        /* ===== PINNED APPS ===== */
+        .pinned-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            min-height: 96px;
+            align-items: flex-start;
+        }
+        .pinned-app {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 8px 10px;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s, background 0.18s;
+            width: 80px;
+            position: relative;
+            user-select: none;
+        }
+        .pinned-app:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 6px 20px rgba(99,102,241,0.25);
+            background: var(--bg3);
+        }
+        .pinned-app img {
+            width: 40px;
+            height: 40px;
+            border-radius: 9px;
+            object-fit: cover;
+        }
+        .pinned-app-name {
+            font-size: 0.7rem;
+            color: var(--text2);
+            text-align: center;
+            line-height: 1.25;
+            max-width: 72px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .pinned-unpin-btn {
+            position: absolute;
+            top: -7px;
+            right: -7px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            border: 2px solid var(--bg);
+            border-radius: 50%;
+            color: #fff;
+            font-size: 0.6rem;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .pinned-app:hover .pinned-unpin-btn { display: flex; }
+        .add-pin-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: 80px;
+            padding: 12px 8px 10px;
+            background: transparent;
+            border: 1px dashed var(--bg3);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text3);
+            font-size: 0.7rem;
+            transition: border-color 0.18s, color 0.18s;
+        }
+        .add-pin-btn:hover { border-color: var(--accent); color: var(--accent2); }
+        .add-pin-plus { font-size: 1.6rem; line-height: 1; }
+        .pinned-empty {
+            display: flex;
+            align-items: center;
+            color: var(--text3);
+            font-size: 0.82rem;
+            padding: 8px 0;
+        }
+
+        /* ===== CATEGORY TABS ===== */
+        .cat-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .cat-tab {
+            padding: 5px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            background: transparent;
+            color: var(--text3);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: background 0.18s, border-color 0.18s, color 0.18s;
+        }
+        .cat-tab:hover { border-color: var(--accent); color: var(--accent2); }
+        .cat-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        /* ===== APP GRID ===== */
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .app-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s, background 0.18s;
+            user-select: none;
+        }
+        .app-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            background: var(--bg3);
+        }
+        .app-card img {
+            width: 46px;
+            height: 46px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        .app-card-name {
+            font-size: 0.76rem;
+            color: var(--text2);
+            text-align: center;
+            line-height: 1.3;
+            word-break: break-word;
+            max-width: 100px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .app-card-group {
+            font-size: 0.66rem;
+            color: var(--text3);
+        }
+
+        /* ===== SYSTEM GRID ===== */
+        .system-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 10px;
+            padding-bottom: 32px;
+        }
+        .system-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.18s, border-color 0.18s;
+        }
+        .system-card:hover { background: var(--bg3); border-color: var(--accent); }
+        .sys-icon { font-size: 2rem; flex-shrink: 0; }
+        .sys-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+        .sys-desc { font-size: 0.75rem; color: var(--text3); margin-top: 2px; }
+
+        /* ===== MODALS ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.65);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--bg2);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 28px;
+            width: 500px;
+            max-width: 92vw;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+        }
+        .modal-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .modal-close:hover { color: var(--text); background: var(--bg3); }
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text2);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 0.86rem;
+            padding: 8px 12px;
+            outline: none;
+            transition: border-color 0.18s;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+        .form-group .hint { font-size: 0.73rem; color: var(--text3); margin-top: 4px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .toggle-row:last-of-type { border-bottom: none; }
+        .toggle-label { font-size: 0.86rem; color: var(--text); }
+        .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--bg3);
+            border-radius: 22px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .toggle input:checked + .toggle-slider { background: var(--accent); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-primary {
+            background: var(--accent);
+            border: none;
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-size: 0.86rem;
+            font-weight: 600;
+            padding: 9px 22px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover { background: var(--accent2); }
+        .btn-secondary {
+            background: var(--bg3);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            color: var(--text2);
+            font-size: 0.86rem;
+            padding: 9px 22px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-secondary:hover { background: var(--card-border); }
+
+        /* Pin app modal */
+        .pin-search {
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 0.86rem;
+            padding: 8px 12px;
+            outline: none;
+            margin-bottom: 12px;
+            transition: border-color 0.18s;
+        }
+        .pin-search:focus { border-color: var(--accent); }
+        .pin-app-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .pin-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.18s;
+            border: 1px solid transparent;
+        }
+        .pin-item:hover { background: var(--bg3); }
+        .pin-item.already-pinned { opacity: 0.4; pointer-events: none; }
+        .pin-item img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+        .pin-item-name { font-size: 0.8rem; color: var(--text); line-height: 1.2; }
+        .pin-item-group { font-size: 0.7rem; color: var(--text3); }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* ===== EMPTY / LOADING ===== */
+        .empty-msg {
+            color: var(--text3);
+            font-size: 0.82rem;
+            text-align: center;
+            padding: 24px;
+            grid-column: 1/-1;
+        }
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--bg3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== WIDGETS ROW (calendar + storage side by side) ===== */
+        .widgets-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-start;
+            margin-top: 28px;
+        }
+        .widgets-row > div {
+            flex: 0 0 auto;
+        }
+        #calendarSection  { width: 290px; }
+        #storageSection   { flex: 1 1 300px; max-width: 480px; min-width: 260px; }
+
+        /* ===== CALENDAR WIDGET ===== */
+        .calendar-widget {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+        }
+        .cal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .cal-title { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+        .cal-nav {
+            background: none; border: none; color: var(--text2); cursor: pointer;
+            font-size: 1.1rem; padding: 2px 8px; border-radius: var(--radius-sm);
+            transition: background 0.15s; line-height: 1;
+        }
+        .cal-nav:hover { background: var(--bg3); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+        .cal-dayname { font-size: 0.64rem; color: var(--text3); padding: 4px 0 6px; font-weight: 600; text-transform: uppercase; }
+        .cal-day {
+            font-size: 0.78rem; color: var(--text2); padding: 5px 0;
+            border-radius: 50%; cursor: default; transition: background 0.15s;
+            aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        }
+        .cal-day.today { background: var(--accent); color: #fff; font-weight: 700; }
+        .cal-day.other-month { color: var(--text3); opacity: 0.35; }
+
+        /* ===== STORAGE OVERVIEW ===== */
+        .storage-widget {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+        }
+        .storage-section-title {
+            font-size: 0.7rem; color: var(--text3); text-transform: uppercase;
+            letter-spacing: 1.2px; margin-bottom: 14px;
+        }
+        .storage-row { margin-bottom: 13px; }
+        .storage-row:last-child { margin-bottom: 0; }
+        .storage-row-header {
+            display: flex; justify-content: space-between;
+            font-size: 0.75rem; color: var(--text2); margin-bottom: 5px;
+        }
+        .storage-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+        .storage-fill {
+            height: 100%; border-radius: 3px;
+            background: var(--accent); transition: width 0.5s ease;
+        }
+        .storage-fill.warn { background: #fbbf24; }
+        .storage-fill.crit { background: #ef4444; }
+        .storage-bytes { font-size: 0.68rem; color: var(--text3); margin-top: 3px; text-align: right; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 720px) {
+            .hero { grid-template-columns: 1fr; padding: 20px 16px; }
+            .minitools-card, .weather-card { min-width: 0; width: 100%; }
+            .main-content { padding: 16px; }
+            #clockTime { font-size: 2.6rem; }
+            .app-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+            .theme-grid { grid-template-columns: repeat(2, 1fr); }
+            #calendarSection { width: 100%; }
+            #storageSection  { width: 100%; max-width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+<!-- ===== HERO ===== -->
+<div class="hero">
+    <div class="hero-clock">
+        <div id="clockTime">00:00:00</div>
+        <div id="clockDate">Loading...</div>
+    </div>
+    <!-- Mini-Tools: CPU / RAM / Network -->
+    <div class="minitools-card" id="minitoolsWidget">
+        <div class="minitools-title">⚡ System</div>
+        <div class="minitool-row">
+            <span class="minitool-label">CPU</span>
+            <div class="minitool-bar"><div id="cpuBar" class="minitool-fill" style="width:0%"></div></div>
+            <span class="minitool-val" id="cpuVal">—</span>
+        </div>
+        <div class="minitool-row">
+            <span class="minitool-label">RAM</span>
+            <div class="minitool-bar"><div id="ramBar" class="minitool-fill" style="width:0%"></div></div>
+            <span class="minitool-val" id="ramVal">—</span>
+        </div>
+        <div class="minitool-net-row">
+            <div class="minitool-net-item">
+                <span class="minitool-net-label">↓ Download</span>
+                <span class="minitool-net-val" id="netRxVal">—</span>
+            </div>
+            <div class="minitool-net-item">
+                <span class="minitool-net-label">↑ Upload</span>
+                <span class="minitool-net-val" id="netTxVal">—</span>
+            </div>
+        </div>
+    </div>
+    <div id="weatherWidget" class="weather-card">
+        <div class="weather-loading"><span class="spinner"></span></div>
+    </div>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main-content">
+
+    <!-- Pinned Apps -->
+    <div class="section-header">
+        <span class="section-title">Pinned Apps</span>
+        <div class="section-line"></div>
+    </div>
+    <div class="pinned-grid" id="pinnedGrid">
+        <span class="pinned-empty" id="pinnedEmpty">No pinned apps yet.</span>
+        <button class="add-pin-btn" id="addPinBtn" onclick="openAddPinModal()">
+            <span class="add-pin-plus">+</span>
+            <span>Add</span>
+        </button>
+    </div>
+
+    <!-- Applications by Category -->
+    <div class="section-header" style="margin-top:28px;">
+        <span class="section-title">Applications</span>
+        <div class="section-line"></div>
+    </div>
+    <div class="cat-tabs" id="catTabs">
+        <div class="empty-msg"><span class="spinner"></span></div>
+    </div>
+    <div class="app-grid" id="appGrid">
+        <div class="empty-msg"><span class="spinner"></span></div>
+    </div>
+
+    <!-- Calendar + Storage row -->
+    <div class="widgets-row">
+        <div id="calendarSection">
+            <div class="section-header">
+                <span class="section-title">Calendar</span>
+                <div class="section-line"></div>
+            </div>
+            <div class="calendar-widget" id="calendarWidget">
+                <div class="empty-msg"><span class="spinner"></span></div>
+            </div>
+        </div>
+
+        <div id="storageSection">
+            <div class="section-header">
+                <span class="section-title">Storage</span>
+                <div class="section-line"></div>
+            </div>
+            <div class="storage-widget" id="storageWidget">
+                <div class="empty-msg"><span class="spinner"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System -->
+    <div class="section-header" style="margin-top:28px;">
+        <span class="section-title">System</span>
+        <div class="section-line"></div>
+    </div>
+    <div class="system-grid">
+        <div class="system-card" onclick="openSystemSettings()">
+            <div class="sys-icon">⚙️</div>
+            <div>
+                <div class="sys-name">System Settings</div>
+                <div class="sys-desc">ArozOS system configuration</div>
+            </div>
+        </div>
+        <div class="system-card" onclick="openDashboardSettings()">
+            <div class="sys-icon">🎛️</div>
+            <div>
+                <div class="sys-name">Dashboard Settings</div>
+                <div class="sys-desc">Customize widgets &amp; theme</div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+
+<!-- ===== DASHBOARD SETTINGS MODAL ===== -->
+<div class="modal-overlay" id="dashSettingsModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal('dashSettingsModal')">✕</button>
+        <div class="modal-title">🎛️ Dashboard Settings</div>
+
+        <!-- Theme Selector -->
+        <div class="form-group">
+            <label>Theme</label>
+            <div class="theme-grid" id="themeGrid"><!-- built by JS --></div>
+        </div>
+
+        <!-- Weather settings -->
+        <div class="form-group">
+            <label>Location Name</label>
+            <input type="text" id="cfg_cityName" placeholder="e.g. London" maxlength="100">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Latitude</label>
+                <input type="number" id="cfg_latitude" step="0.0001" min="-90" max="90" placeholder="51.5074">
+                <p class="hint">Range: −90 to 90</p>
+            </div>
+            <div class="form-group">
+                <label>Longitude</label>
+                <input type="number" id="cfg_longitude" step="0.0001" min="-180" max="180" placeholder="-0.1278">
+                <p class="hint">Range: −180 to 180</p>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Temperature Unit</label>
+            <select id="cfg_tempUnit">
+                <option value="celsius">Celsius (°C)</option>
+                <option value="fahrenheit">Fahrenheit (°F)</option>
+            </select>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Show Weather Widget</span>
+            <label class="toggle">
+                <input type="checkbox" id="cfg_showWeather">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">
+                Show File-Handler Apps
+                <small>Apps that require a file to be passed in (e.g. PDF Viewer, STL Viewer)</small>
+            </span>
+            <label class="toggle">
+                <input type="checkbox" id="cfg_showHiddenApps">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Show System Monitor</span>
+            <label class="toggle">
+                <input type="checkbox" id="cfg_showSysInfo">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Show Calendar</span>
+            <label class="toggle">
+                <input type="checkbox" id="cfg_showCalendar">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Show Storage Overview</span>
+            <label class="toggle">
+                <input type="checkbox" id="cfg_showStorage">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="saveDashSettings()">Save Changes</button>
+            <button class="btn-secondary" onclick="closeModal('dashSettingsModal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== ADD PIN MODAL ===== -->
+<div class="modal-overlay" id="addPinModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal('addPinModal')">✕</button>
+        <div class="modal-title">📌 Pin an Application</div>
+        <input type="text" class="pin-search" id="pinSearchInput" placeholder="Search applications…" oninput="filterPinList(this.value)">
+        <div class="pin-app-list" id="pinAppList">
+            <div class="empty-msg">Loading…</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// =============================================================
+//  THEME DEFINITIONS
+// =============================================================
+var THEMES = [
+    { id: "dark",     label: "Dark",     bg: "#0f172a",  preview: "linear-gradient(135deg,#0f172a,#1e1b4b)" },
+    { id: "light",    label: "Light",    bg: "#e0e7ff",  preview: "linear-gradient(135deg,#e0e7ff,#c7d2fe)" },
+    { id: "midnight", label: "Midnight", bg: "#09090b",  preview: "linear-gradient(135deg,#09090b,#1e0535)" },
+    { id: "ocean",    label: "Ocean",    bg: "#042f2e",  preview: "linear-gradient(135deg,#042f2e,#083344)" },
+    { id: "forest",   label: "Forest",   bg: "#052e16",  preview: "linear-gradient(135deg,#052e16,#166534)" },
+    { id: "sunset",   label: "Sunset",   bg: "#1c0a00",  preview: "linear-gradient(135deg,#1c0a00,#7c2d12)" },
+    { id: "rose",     label: "Rose",     bg: "#1a0011",  preview: "linear-gradient(135deg,#1a0011,#881337)" },
+    { id: "slate",    label: "Slate",    bg: "#0f0f0f",  preview: "linear-gradient(135deg,#0f0f0f,#2a2a2a)" }
+];
+
+// =============================================================
+//  DASHBOARD – STATE
+// =============================================================
+var dashSettings = {
+    latitude:        51.5074,
+    longitude:       -0.1278,
+    cityName:        "London",
+    theme:           "dark",
+    pinnedApps:      [],
+    showWeather:     true,
+    showHiddenApps:  false,
+    showSysInfo:     true,
+    showCalendar:    true,
+    showStorage:     true,
+    temperatureUnit: "celsius"
+};
+var allModules        = [];
+var _sysInfoInterval  = null;
+var _selectedTheme    = "dark";
+var _calViewDate      = new Date();
+
+// =============================================================
+//  WMO WEATHER CODE TABLE
+// =============================================================
+var WMO = {
+    0:  { icon: "☀️",  desc: "Clear sky" },
+    1:  { icon: "🌤️", desc: "Mainly clear" },
+    2:  { icon: "⛅",  desc: "Partly cloudy" },
+    3:  { icon: "☁️",  desc: "Overcast" },
+    45: { icon: "🌫️", desc: "Foggy" },
+    48: { icon: "🌫️", desc: "Icy fog" },
+    51: { icon: "🌦️", desc: "Light drizzle" },
+    53: { icon: "🌦️", desc: "Drizzle" },
+    55: { icon: "🌧️", desc: "Heavy drizzle" },
+    61: { icon: "🌧️", desc: "Light rain" },
+    63: { icon: "🌧️", desc: "Rain" },
+    65: { icon: "🌧️", desc: "Heavy rain" },
+    71: { icon: "❄️",  desc: "Light snow" },
+    73: { icon: "❄️",  desc: "Snow" },
+    75: { icon: "❄️",  desc: "Heavy snow" },
+    77: { icon: "🌨️", desc: "Snow grains" },
+    80: { icon: "🌦️", desc: "Rain showers" },
+    81: { icon: "🌧️", desc: "Heavy showers" },
+    82: { icon: "⛈️",  desc: "Violent showers" },
+    85: { icon: "🌨️", desc: "Snow showers" },
+    86: { icon: "🌨️", desc: "Heavy snow showers" },
+    95: { icon: "⛈️",  desc: "Thunderstorm" },
+    96: { icon: "⛈️",  desc: "Thunderstorm w/ hail" },
+    99: { icon: "⛈️",  desc: "Thunderstorm w/ heavy hail" }
+};
+
+function wmoLookup(code) {
+    if (WMO[code]) return WMO[code];
+    if (code >= 0  && code <= 1)  return WMO[1];
+    if (code >= 2  && code <= 3)  return WMO[2];
+    if (code >= 40 && code <= 49) return WMO[45];
+    if (code >= 50 && code <= 59) return WMO[53];
+    if (code >= 60 && code <= 69) return WMO[63];
+    if (code >= 70 && code <= 79) return WMO[73];
+    if (code >= 80 && code <= 84) return WMO[81];
+    if (code >= 85 && code <= 89) return WMO[85];
+    if (code >= 90 && code <= 99) return WMO[95];
+    return { icon: "🌡️", desc: "Unknown" };
+}
+
+// =============================================================
+//  INIT
+// =============================================================
+$(document).ready(function() {
+    startClock();
+    buildThemeGrid();
+    loadSettings(); // kicks off everything else after settings arrive
+
+    // Close modal when clicking overlay background
+    $(".modal-overlay").on("click", function(e) {
+        if (e.target === this) $(this).removeClass("active");
+    });
+});
+
+// =============================================================
+//  CLOCK
+// =============================================================
+function startClock() {
+    var DAYS   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    var MONTHS = ["January","February","March","April","May","June",
+                  "July","August","September","October","November","December"];
+    function tick() {
+        var now = new Date();
+        var h = pad(now.getHours()), m = pad(now.getMinutes()), s = pad(now.getSeconds());
+        document.getElementById("clockTime").textContent = h + ":" + m + ":" + s;
+        var dayName = DAYS[now.getDay()];
+        var month   = MONTHS[now.getMonth()];
+        document.getElementById("clockDate").innerHTML =
+            dayName + ", " +
+            "<span class='date-highlight'>" + month + " " + now.getDate() + ", " + now.getFullYear() + "</span>";
+    }
+    tick();
+    setInterval(tick, 1000);
+}
+function pad(n) { return String(n).padStart(2, "0"); }
+
+// =============================================================
+//  SETTINGS
+// =============================================================
+function loadSettings() {
+    ao_module_agirun("Dashboard/backend/getSettings.agi", {}, function(data) {
+        data = parseJSON(data);
+        if (data && !data.error) {
+            // Merge incoming values over defaults
+            for (var k in data) { if (data.hasOwnProperty(k)) dashSettings[k] = data[k]; }
+        }
+        applyTheme(dashSettings.theme);
+        applyWidgetVisibility();
+        loadModules();
+        if (dashSettings.showWeather)             loadWeather();
+        if (dashSettings.showSysInfo  !== false)  startSysInfoPolling();
+        if (dashSettings.showCalendar !== false)  renderCalendar(_calViewDate);
+        if (dashSettings.showStorage  !== false)  loadStorage();
+    }, function() {
+        // On failure, still try to load modules
+        loadModules();
+        startSysInfoPolling();
+        renderCalendar(_calViewDate);
+        loadStorage();
+    });
+}
+
+function applyTheme(t) {
+    var valid = ["dark","light","midnight","ocean","forest","sunset","rose","slate"];
+    if (valid.indexOf(t) < 0) t = "dark";
+    document.body.setAttribute("data-theme", t);
+}
+
+function applyWidgetVisibility() {
+    var wd = document.getElementById("weatherWidget");
+    if (wd) wd.style.display = dashSettings.showWeather ? "" : "none";
+    var mt = document.getElementById("minitoolsWidget");
+    if (mt) mt.style.display = dashSettings.showSysInfo !== false ? "" : "none";
+    var cs = document.getElementById("calendarSection");
+    if (cs) cs.style.display = dashSettings.showCalendar !== false ? "" : "none";
+    var ss = document.getElementById("storageSection");
+    if (ss) ss.style.display = dashSettings.showStorage !== false ? "" : "none";
+}
+
+function openDashboardSettings() {
+    _selectedTheme = dashSettings.theme || "dark";
+    document.getElementById("cfg_cityName").value       = dashSettings.cityName        || "";
+    document.getElementById("cfg_latitude").value       = dashSettings.latitude        || 51.5074;
+    document.getElementById("cfg_longitude").value      = dashSettings.longitude       || -0.1278;
+    document.getElementById("cfg_tempUnit").value       = dashSettings.temperatureUnit || "celsius";
+    document.getElementById("cfg_showWeather").checked     = dashSettings.showWeather    !== false;
+    document.getElementById("cfg_showHiddenApps").checked  = dashSettings.showHiddenApps === true;
+    document.getElementById("cfg_showSysInfo").checked     = dashSettings.showSysInfo    !== false;
+    document.getElementById("cfg_showCalendar").checked    = dashSettings.showCalendar   !== false;
+    document.getElementById("cfg_showStorage").checked     = dashSettings.showStorage    !== false;
+    updateThemeSwatchSelection(_selectedTheme);
+    openModal("dashSettingsModal");
+}
+
+function saveDashSettings() {
+    var lat = parseFloat(document.getElementById("cfg_latitude").value);
+    var lon = parseFloat(document.getElementById("cfg_longitude").value);
+    if (isNaN(lat) || lat < -90  || lat > 90)  { alert("Latitude must be between -90 and 90.");   return; }
+    if (isNaN(lon) || lon < -180 || lon > 180) { alert("Longitude must be between -180 and 180."); return; }
+
+    dashSettings.cityName        = (document.getElementById("cfg_cityName").value.trim() || "My Location").substring(0, 100);
+    dashSettings.latitude        = lat;
+    dashSettings.longitude       = lon;
+    dashSettings.temperatureUnit = document.getElementById("cfg_tempUnit").value;
+    dashSettings.theme           = _selectedTheme;
+    dashSettings.showWeather     = document.getElementById("cfg_showWeather").checked;
+    dashSettings.showHiddenApps  = document.getElementById("cfg_showHiddenApps").checked;
+    dashSettings.showSysInfo     = document.getElementById("cfg_showSysInfo").checked;
+    dashSettings.showCalendar    = document.getElementById("cfg_showCalendar").checked;
+    dashSettings.showStorage     = document.getElementById("cfg_showStorage").checked;
+
+    ao_module_agirun("Dashboard/backend/saveSettings.agi", { settings: JSON.stringify(dashSettings) }, function() {
+        closeModal("dashSettingsModal");
+        applyTheme(dashSettings.theme);
+        applyWidgetVisibility();
+        // Re-render app grid to reflect showHiddenApps change
+        renderAppGrid(_currentGroup || "all");
+        if (dashSettings.showWeather) {
+            document.getElementById("weatherWidget").innerHTML = '<div class="weather-loading"><span class="spinner"></span></div>';
+            loadWeather();
+        }
+        if (dashSettings.showSysInfo) startSysInfoPolling();
+        else if (_sysInfoInterval) { clearInterval(_sysInfoInterval); _sysInfoInterval = null; }
+        if (dashSettings.showCalendar) renderCalendar(_calViewDate);
+        if (dashSettings.showStorage)  loadStorage();
+    });
+}
+
+function saveDashSettingsSilent() {
+    ao_module_agirun("Dashboard/backend/saveSettings.agi", { settings: JSON.stringify(dashSettings) }, function() {});
+}
+
+// =============================================================
+//  WEATHER
+// =============================================================
+function loadWeather() {
+    var lat  = parseFloat(dashSettings.latitude)  || 51.5074;
+    var lon  = parseFloat(dashSettings.longitude) || -0.1278;
+    var unit = dashSettings.temperatureUnit === "fahrenheit" ? "fahrenheit" : "celsius";
+    var url  = "https://api.open-meteo.com/v1/forecast" +
+               "?latitude=" + lat + "&longitude=" + lon +
+               "&current=temperature_2m,wind_speed_10m,weathercode,apparent_temperature,relative_humidity_2m" +
+               "&temperature_unit=" + unit;
+
+    $.ajax({
+        url: url, method: "GET", timeout: 9000,
+        success: function(data) { renderWeather(data); },
+        error:   function() {
+            document.getElementById("weatherWidget").innerHTML =
+                '<div class="weather-loading">Weather unavailable</div>';
+        }
+    });
+}
+
+function renderWeather(data) {
+    var c    = data.current;
+    var unit = dashSettings.temperatureUnit === "fahrenheit" ? "°F" : "°C";
+    var wmo  = wmoLookup(c.weathercode);
+    var el   = document.getElementById("weatherWidget");
+    el.innerHTML =
+        '<div class="weather-city">' + hesc(dashSettings.cityName || "My Location") + '</div>' +
+        '<div class="weather-temp-row">' +
+            '<span class="weather-icon">' + wmo.icon + '</span>' +
+            '<div>' +
+                '<div class="weather-temp">' + Math.round(c.temperature_2m) + unit + '</div>' +
+                '<div class="weather-desc">' + wmo.desc + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="weather-meta">' +
+            '<span class="weather-meta-item">Feels <span>' + Math.round(c.apparent_temperature) + unit + '</span></span>' +
+            '<span class="weather-meta-item">Humidity <span>' + Math.round(c.relative_humidity_2m) + '%</span></span>' +
+            '<span class="weather-meta-item">Wind <span>' + Math.round(c.wind_speed_10m) + ' km/h</span></span>' +
+        '</div>';
+}
+
+// =============================================================
+//  THEME SELECTOR
+// =============================================================
+function buildThemeGrid() {
+    var grid = document.getElementById("themeGrid");
+    if (!grid) return;
+    var html = "";
+    THEMES.forEach(function(t) {
+        html +=
+            '<div class="theme-swatch" data-tid="' + aesc(t.id) + '" onclick="selectThemeSwatch(\'' + ejs(t.id) + '\')"' +
+            ' style="background:' + aesc(t.bg) + '">' +
+            '<div class="theme-swatch-preview" style="background:' + aesc(t.preview) + '"></div>' +
+            '<span class="theme-swatch-name">' + hesc(t.label) + '</span>' +
+            '</div>';
+    });
+    grid.innerHTML = html;
+}
+
+function selectThemeSwatch(id) {
+    _selectedTheme = id;
+    updateThemeSwatchSelection(id);
+    applyTheme(id); // live preview
+}
+
+function updateThemeSwatchSelection(id) {
+    document.querySelectorAll(".theme-swatch").forEach(function(el) {
+        el.classList.toggle("selected", el.dataset.tid === id);
+    });
+}
+
+// =============================================================
+//  MINI-TOOLS (SYSINFO)
+// =============================================================
+function startSysInfoPolling() {
+    if (_sysInfoInterval) clearInterval(_sysInfoInterval);
+    fetchSysInfo();
+    _sysInfoInterval = setInterval(fetchSysInfo, 3000);
+}
+
+function fetchSysInfo() {
+    ao_module_agirun("Dashboard/backend/getSysInfo.agi", {}, function(data) {
+        data = parseJSON(data);
+        if (!data) return;
+        updateMiniTools(data);
+    });
+}
+
+function updateMiniTools(d) {
+    // CPU
+    var cpu = parseFloat(d.cpu) || 0;
+    cpu = Math.min(100, Math.max(0, cpu));
+    var cpuBar = document.getElementById("cpuBar");
+    var cpuVal = document.getElementById("cpuVal");
+    if (cpuBar) {
+        cpuBar.style.width = cpu.toFixed(1) + "%";
+        cpuBar.className = "minitool-fill" + (cpu >= 90 ? " crit" : cpu >= 70 ? " warn" : "");
+    }
+    if (cpuVal) cpuVal.textContent = cpu.toFixed(1) + "%";
+
+    // RAM
+    if (d.ram && d.ram.percent !== undefined) {
+        var rp = parseFloat(d.ram.percent) || 0;
+        rp = Math.min(100, Math.max(0, rp));
+        var ramBar = document.getElementById("ramBar");
+        var ramVal = document.getElementById("ramVal");
+        if (ramBar) {
+            ramBar.style.width = rp.toFixed(1) + "%";
+            ramBar.className = "minitool-fill" + (rp >= 90 ? " crit" : rp >= 70 ? " warn" : "");
+        }
+        if (ramVal) {
+            var usedMB = (d.ram.used > 0) ? (d.ram.used / 1048576).toFixed(0) + " MB" : rp.toFixed(1) + "%";
+            ramVal.textContent = usedMB;
+        }
+    }
+
+    // Network
+    if (d.net) {
+        var rxEl = document.getElementById("netRxVal");
+        var txEl = document.getElementById("netTxVal");
+        if (rxEl) rxEl.textContent = formatBytes(d.net.rxRate || 0) + "/s";
+        if (txEl) txEl.textContent = formatBytes(d.net.txRate || 0) + "/s";
+    }
+}
+
+function formatBytes(bytes) {
+    bytes = parseFloat(bytes) || 0;
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+    if (bytes >= 1024)    return (bytes / 1024).toFixed(1) + " KB";
+    return Math.round(bytes) + " B";
+}
+
+// =============================================================
+//  CALENDAR
+// =============================================================
+function renderCalendar(date) {
+    _calViewDate = date || new Date();
+    var today = new Date();
+    var y = _calViewDate.getFullYear();
+    var m = _calViewDate.getMonth();
+    var MONTHS = ["January","February","March","April","May","June",
+                  "July","August","September","October","November","December"];
+    var DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+    var firstDay    = new Date(y, m, 1).getDay();
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    var daysInPrev  = new Date(y, m, 0).getDate();
+
+    var dayNamesHtml = DAYS.map(function(d) {
+        return '<div class="cal-dayname">' + d + '</div>';
+    }).join("");
+
+    var cells = [];
+    // Leading cells from previous month
+    for (var i = firstDay - 1; i >= 0; i--) {
+        cells.push('<div class="cal-day other-month">' + (daysInPrev - i) + '</div>');
+    }
+    // Days of current month
+    for (var day = 1; day <= daysInMonth; day++) {
+        var isToday = (day === today.getDate() && m === today.getMonth() && y === today.getFullYear());
+        cells.push('<div class="cal-day' + (isToday ? " today" : "") + '">' + day + '</div>');
+    }
+    // Trailing cells to complete the last row
+    var trailing = (7 - (cells.length % 7)) % 7;
+    for (var t = 1; t <= trailing; t++) {
+        cells.push('<div class="cal-day other-month">' + t + '</div>');
+    }
+
+    // Compute prev/next month
+    var prevY = y, prevM = m - 1;
+    if (prevM < 0)  { prevM = 11; prevY--; }
+    var nextY = y, nextM = m + 1;
+    if (nextM > 11) { nextM = 0;  nextY++; }
+
+    document.getElementById("calendarWidget").innerHTML =
+        '<div class="cal-header">' +
+        '<button class="cal-nav" onclick="renderCalendar(new Date(' + prevY + ',' + prevM + ',1))">&#8249;</button>' +
+        '<span class="cal-title">' + hesc(MONTHS[m]) + ' ' + y + '</span>' +
+        '<button class="cal-nav" onclick="renderCalendar(new Date(' + nextY + ',' + nextM + ',1))">&#8250;</button>' +
+        '</div>' +
+        '<div class="cal-grid">' + dayNamesHtml + cells.join("") + '</div>';
+}
+
+// =============================================================
+//  STORAGE OVERVIEW
+// =============================================================
+function loadStorage() {
+    ao_module_agirun("Dashboard/backend/getStorage.agi", {}, function(data) {
+        data = parseJSON(data);
+        if (!Array.isArray(data)) return;
+        renderStorage(data);
+    });
+}
+
+function renderStorage(disks) {
+    if (!disks || disks.length === 0) {
+        document.getElementById("storageWidget").innerHTML = '<div class="empty-msg">No disk information available.</div>';
+        return;
+    }
+    var html = '<div class="storage-section-title">&#128190; Volumes</div>';
+    disks.forEach(function(disk) {
+        if (!disk.Volume || disk.Volume <= 0) return;
+        var pct = Math.min(100, Math.round(disk.Used / disk.Volume * 100));
+        var cls = pct >= 90 ? " crit" : pct >= 75 ? " warn" : "";
+        html +=
+            '<div class="storage-row">' +
+            '<div class="storage-row-header">' +
+            '<span>' + hesc(disk.MountPoint || disk.Device) + '</span>' +
+            '<span>' + pct + '%</span>' +
+            '</div>' +
+            '<div class="storage-bar"><div class="storage-fill' + cls + '" style="width:' + pct + '%"></div></div>' +
+            '<div class="storage-bytes">' + fmtBytes(disk.Used) + ' used of ' + fmtBytes(disk.Volume) + '</div>' +
+            '</div>';
+    });
+    document.getElementById("storageWidget").innerHTML = html;
+}
+
+function fmtBytes(bytes) {
+    bytes = parseFloat(bytes) || 0;
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + " GB";
+    if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1) + " MB";
+    if (bytes >= 1024)       return (bytes / 1024).toFixed(1) + " KB";
+    return Math.round(bytes) + " B";
+}
+
+// =============================================================
+//  MODULES
+// =============================================================
+function loadModules() {
+    ao_module_agirun("Dashboard/backend/getModules.agi", {}, function(data) {
+        data = parseJSON(data);
+        allModules = Array.isArray(data) ? data : [];
+        renderPinnedApps();
+        renderAppGrid("all");
+    }, function() {
+        document.getElementById("appGrid").innerHTML = '<div class="empty-msg">Could not load applications.</div>';
+    });
+}
+
+// ----- Pinned -----
+function renderPinnedApps() {
+    var grid  = document.getElementById("pinnedGrid");
+    var empty = document.getElementById("pinnedEmpty");
+    var addBtn = document.getElementById("addPinBtn");
+
+    // Remove old pinned cards
+    grid.querySelectorAll(".pinned-app").forEach(function(el) { el.remove(); });
+
+    var pins = dashSettings.pinnedApps || [];
+    empty.style.display = pins.length === 0 ? "" : "none";
+
+    pins.forEach(function(name) {
+        var mod = findModule(name);
+        if (!mod) return;
+        var iconUrl = mod.IconPath ? (ao_root + mod.IconPath) : (ao_root + "img/system/service.png");
+        var card = document.createElement("div");
+        card.className = "pinned-app";
+        card.title = mod.Name;
+        card.innerHTML =
+            '<button class="pinned-unpin-btn" title="Unpin" onclick="unpinApp(\'' + ejs(mod.Name) + '\');event.stopPropagation();">✕</button>' +
+            '<img src="' + aesc(iconUrl) + '" onerror="this.src=\'' + ao_root + 'img/system/service.png\'" alt="">' +
+            '<span class="pinned-app-name">' + hesc(mod.Name) + '</span>';
+        card.addEventListener("click", (function(m) { return function() { launchModule(m); }; })(mod));
+        grid.insertBefore(card, addBtn);
+    });
+}
+
+function pinApp(name) {
+    if (dashSettings.pinnedApps.indexOf(name) < 0) {
+        dashSettings.pinnedApps.push(name);
+        saveDashSettingsSilent();
+        renderPinnedApps();
+    }
+    // Mark as pinned in the modal list
+    var item = document.querySelector(".pin-item[data-module='" + CSS.escape(name) + "']");
+    if (item) item.classList.add("already-pinned");
+}
+
+function unpinApp(name) {
+    dashSettings.pinnedApps = dashSettings.pinnedApps.filter(function(n) { return n !== name; });
+    saveDashSettingsSilent();
+    renderPinnedApps();
+}
+
+// ----- App grid -----
+var _groups      = {};
+var _sortedGroups = [];
+var _currentGroup = "all";
+
+function renderAppGrid(activeGroup) {
+    _currentGroup = activeGroup || "all";
+    _groups = {};
+
+    var visibleMods = allModules.filter(function(mod) {
+        let requiresFile = mod.StartDir.trim() === "";
+        if (requiresFile && !dashSettings.showHiddenApps) return false;
+        return true;
+    });
+
+    visibleMods.forEach(function(mod) {
+        var g = (mod.Group && mod.Group.trim()) ? mod.Group.trim() : "Other";
+        if (!_groups[g]) _groups[g] = [];
+        _groups[g].push(mod);
+    });
+    _sortedGroups = Object.keys(_groups).sort();
+
+    // Build tabs
+    var tabsHtml = '<button class="cat-tab' + (_currentGroup === "all" ? " active" : "") + '" data-g="all" onclick="switchGroup(\'all\',this)">All</button>';
+    _sortedGroups.forEach(function(g) {
+        tabsHtml += '<button class="cat-tab' + (_currentGroup === g ? " active" : "") + '" data-g="' + aesc(g) + '" onclick="switchGroup(\'' + ejs(g) + '\',this)">' + hesc(g) + '</button>';
+    });
+    document.getElementById("catTabs").innerHTML = tabsHtml;
+
+    showGroupApps(_currentGroup);
+}
+
+function switchGroup(group, btn) {
+    _currentGroup = group;
+    document.querySelectorAll(".cat-tab").forEach(function(t) { t.classList.remove("active"); });
+    if (btn) btn.classList.add("active");
+    showGroupApps(group);
+}
+
+function showGroupApps(group) {
+    var mods;
+    if (group === "all") {
+        mods = [];
+        _sortedGroups.forEach(function(g) {
+            Array.prototype.push.apply(mods, _groups[g]);
+        });
+    } else {
+        mods = (_groups[group] || []).slice();
+    }
+    mods.sort(function(a, b) {
+        var ga = (a.Group || ""), gb = (b.Group || "");
+        if (ga !== gb) return ga.localeCompare(gb);
+        return (a.Name || "").localeCompare(b.Name || "");
+    });
+
+    if (mods.length === 0) {
+        document.getElementById("appGrid").innerHTML = '<div class="empty-msg">No applications in this category.</div>';
+        return;
+    }
+    var html = "";
+    mods.forEach(function(mod) {
+        var requireFilePassing = mod.StartDir.trim() == ""; //Module that can only be started with passing a file must have its StartDir set to empty string
+        var iconUrl = mod.IconPath ? (ao_root + mod.IconPath) : (ao_root + "img/system/service.png");
+        var extra   = requireFilePassing ? " file-handler" : "";
+        html +=
+            '<div class="app-card' + extra + '" data-module="' + aesc(mod.Name) + '" title="' + aesc((requireFilePassing ? "[Requires file] " : "") + (mod.Desc || mod.Name)) + '">' +
+            '<img src="' + aesc(iconUrl) + '" onerror="this.src=\'' + ao_root + 'img/system/service.png\'" alt="">' +
+            '<span class="app-card-name">' + hesc(mod.Name) + '</span>' +
+            '<span class="app-card-group">' + hesc(mod.Group || "") + '</span>' +
+            '</div>';
+    });
+    document.getElementById("appGrid").innerHTML = html;
+
+    // Bind clicks
+    document.querySelectorAll("#appGrid .app-card").forEach(function(card) {
+        card.addEventListener("click", function() {
+            var mod = findModule(this.dataset.module);
+            var requireFilePassing = mod.StartDir.trim() == "";
+            if (mod && requireFilePassing) {
+                alert("This application requires a file to be opened via the File Manager.");
+                return;
+            }
+            launchModule(mod);
+        });
+    });
+}
+
+// ----- Launch -----
+function launchModule(mod) {
+    if (!mod) return;
+    var requireFilePassing = mod.StartDir.trim() == "";
+    if (requireFilePassing) {
+        alert("This application requires a file to be opened via the File Manager.");
+        return;
+    }
+    var url = (mod.SupportFW && mod.LaunchFWDir) ? mod.LaunchFWDir : mod.StartDir;
+    if (!url) return;
+    ao_module_newfw({
+        url:     url,
+        title:   mod.Name,
+        appicon: mod.IconPath || "",
+        width:   (mod.InitFWSize && mod.InitFWSize[0]) ? mod.InitFWSize[0] : 900,
+        height:  (mod.InitFWSize && mod.InitFWSize[1]) ? mod.InitFWSize[1] : 600
+    });
+}
+
+function findModule(name) {
+    for (var i = 0; i < allModules.length; i++) {
+        if (allModules[i].Name === name) return allModules[i];
+    }
+    return null;
+}
+
+// =============================================================
+//  ADD PIN MODAL
+// =============================================================
+function openAddPinModal() {
+    var sortedMods = allModules.slice().sort(function(a, b) {
+        var ga = (a.Group || ""), gb = (b.Group || "");
+        if (ga !== gb) return ga.localeCompare(gb);
+        return (a.Name || "").localeCompare(b.Name || "");
+    });
+    var html = "";
+    sortedMods.forEach(function(mod) {
+        var pinned = dashSettings.pinnedApps.indexOf(mod.Name) >= 0;
+        var iconUrl = mod.IconPath ? (ao_root + mod.IconPath) : (ao_root + "img/system/service.png");
+        html +=
+            '<div class="pin-item' + (pinned ? " already-pinned" : "") + '" data-module="' + aesc(mod.Name) + '" onclick="pinApp(\'' + ejs(mod.Name) + '\')">' +
+            '<img src="' + aesc(iconUrl) + '" onerror="this.src=\'' + ao_root + 'img/system/service.png\'" alt="">' +
+            '<div><div class="pin-item-name">' + hesc(mod.Name) + '</div><div class="pin-item-group">' + hesc(mod.Group || "") + '</div></div>' +
+            '</div>';
+    });
+    document.getElementById("pinAppList").innerHTML = html || '<div class="empty-msg">No applications found.</div>';
+    document.getElementById("pinSearchInput").value = "";
+    openModal("addPinModal");
+}
+
+function filterPinList(query) {
+    query = query.toLowerCase();
+    document.querySelectorAll("#pinAppList .pin-item").forEach(function(el) {
+        var name  = (el.querySelector(".pin-item-name")  || {}).textContent || "";
+        var group = (el.querySelector(".pin-item-group") || {}).textContent || "";
+        el.style.display = (name.toLowerCase().includes(query) || group.toLowerCase().includes(query)) ? "" : "none";
+    });
+}
+
+// =============================================================
+//  SYSTEM ACTIONS
+// =============================================================
+function openSystemSettings() {
+    ao_module_openSetting("", "");
+}
+
+// =============================================================
+//  MODAL HELPERS
+// =============================================================
+function openModal(id)  { document.getElementById(id).classList.add("active"); }
+function closeModal(id) {
+    document.getElementById(id).classList.remove("active");
+    // Restore theme preview if settings modal cancelled without saving
+    applyTheme(dashSettings.theme);
+}
+
+// =============================================================
+//  SECURITY HELPERS
+// =============================================================
+function hesc(s) {
+    return String(s || "")
+        .replace(/&/g,  "&amp;")
+        .replace(/</g,  "&lt;")
+        .replace(/>/g,  "&gt;")
+        .replace(/"/g,  "&quot;")
+        .replace(/'/g,  "&#39;");
+}
+function aesc(s) { return hesc(s); }  // attribute escaping same as HTML here
+function ejs(s) {
+    // Escape for use inside single-quoted JS string in onclick attributes
+    return String(s || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+function parseJSON(v) {
+    if (typeof v === "object") return v;
+    try { return JSON.parse(v); } catch(e) { return null; }
+}
+</script>
+</body>
+</html>

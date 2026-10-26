@@ -1,0 +1,130 @@
+/*
+    Calendar - Read and parse an ICS file from the arozos VFS.
+    POST: filePath (string, arozos VFS path e.g. user:/Desktop/events.ics)
+    Returns: { ok: true, events: [...] }  or  { error: "..." }
+*/
+requirelib("filelib");
+
+if (!filePath || filePath === "") {
+    sendJSONResp({ error: "Missing filePath" });
+} else if (!filelib.fileExists(filePath)) {
+    sendJSONResp({ error: "File not found: " + filePath });
+} else {
+    var raw = filelib.readFile(filePath);
+
+    // ---- ICS parser ----
+    // Unfold continuation lines (RFC 5545 §3.1)
+    var unfolded = "";
+    var lines = raw.split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var ln = lines[i];
+        if (ln.length > 0 && (ln[0] === " " || ln[0] === "\t")) {
+            unfolded = unfolded.slice(0, unfolded.lastIndexOf("\n")) + ln.slice(1) + "\n";
+        } else {
+            unfolded += ln + "\n";
+        }
+    }
+
+    var parsedLines = unfolded.split("\n");
+    var events = [];
+    var inEvent = false;
+    var inAlarm = false;
+    var cur = null;
+
+    function trimCRLF(s) {
+        while (s.length > 0 && (s[s.length - 1] === "\r" || s[s.length - 1] === "\n")) {
+            s = s.slice(0, s.length - 1);
+        }
+        return s;
+    }
+
+    function parseDT(val) {
+        // Remove VALUE=DATE: prefix if present (already stripped by key split)
+        val = val.replace(/Z$/, "");
+        var allDay = val.indexOf("T") === -1;
+        var y, mo, d, h, mi, s2;
+        if (allDay) {
+            y  = parseInt(val.slice(0, 4), 10);
+            mo = parseInt(val.slice(4, 6), 10) - 1;
+            d  = parseInt(val.slice(6, 8), 10);
+            return { allDay: true, ms: new Date(y, mo, d, 0, 0, 0).getTime() };
+        } else {
+            y  = parseInt(val.slice(0, 4), 10);
+            mo = parseInt(val.slice(4, 6), 10) - 1;
+            d  = parseInt(val.slice(6, 8), 10);
+            h  = parseInt(val.slice(9, 11), 10);
+            mi = parseInt(val.slice(11, 13), 10);
+            s2 = parseInt(val.slice(13, 15), 10);
+            return { allDay: false, ms: new Date(y, mo, d, h, mi, s2).getTime() };
+        }
+    }
+
+    function parseTrigger(val) {
+        // e.g. -PT15M, -P1D, -PT2H
+        var neg = val[0] === "-";
+        val = val.replace(/^[-+]?P/i, "");
+        var days = 0, hours = 0, mins = 0;
+        var dayM = val.match(/(\d+)D/i);
+        var hourM = val.match(/(\d+)H/i);
+        var minM  = val.match(/(\d+)M/i);
+        if (dayM)  days  = parseInt(dayM[1], 10);
+        if (hourM) hours = parseInt(hourM[1], 10);
+        if (minM)  mins  = parseInt(minM[1], 10);
+        var total = days * 1440 + hours * 60 + mins;
+        if (neg) {
+            // Before event – store as positive minutes before
+            if (days > 0 && hours === 0 && mins === 0) return { value: days, unit: "days" };
+            if (hours > 0 && mins === 0) return { value: hours, unit: "hours" };
+            return { value: total, unit: "mins" };
+        }
+        return null;
+    }
+
+    for (var k = 0; k < parsedLines.length; k++) {
+        var line = trimCRLF(parsedLines[k]);
+        if (line === "BEGIN:VEVENT") {
+            inEvent = true;
+            inAlarm = false;
+            cur = { id: "", title: "", allDay: false, start: 0, end: 0, address: "", notes: "", reminder: null, color: "blue" };
+        } else if (line === "END:VEVENT") {
+            if (cur && cur.title !== "" && cur.start !== 0) {
+                if (cur.end === 0) cur.end = cur.start + 3600000;
+                if (cur.id === "") cur.id = "ics_" + cur.start.toString(36) + Math.random().toString(36).slice(2, 6);
+                events.push(cur);
+            }
+            inEvent = false;
+            cur = null;
+        } else if (line === "BEGIN:VALARM") {
+            inAlarm = true;
+        } else if (line === "END:VALARM") {
+            inAlarm = false;
+        } else if (inEvent && cur) {
+            var colonPos = line.indexOf(":");
+            if (colonPos < 0) continue;
+            var keyPart = line.slice(0, colonPos);
+            var value   = line.slice(colonPos + 1);
+            // Key may have params: DTSTART;TZID=America/New_York → key = DTSTART
+            var key = keyPart.split(";")[0].toUpperCase();
+
+            if (key === "UID") {
+                cur.id = "ics_" + value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
+            } else if (key === "SUMMARY") {
+                cur.title = value;
+            } else if (key === "DTSTART") {
+                var dtInfo = parseDT(value);
+                cur.allDay = dtInfo.allDay;
+                cur.start  = dtInfo.ms;
+            } else if (key === "DTEND") {
+                cur.end = parseDT(value).ms;
+            } else if (key === "LOCATION") {
+                cur.address = value;
+            } else if (key === "DESCRIPTION") {
+                cur.notes = value.replace(/\\n/g, "\n").replace(/\\,/g, ",");
+            } else if (inAlarm && key === "TRIGGER") {
+                cur.reminder = parseTrigger(value);
+            }
+        }
+    }
+
+    sendJSONResp({ ok: true, events: events });
+}

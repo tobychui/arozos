@@ -1,0 +1,197 @@
+/*
+    SQLite Admin — backend API
+    All parameters arrive as POST form fields (injected as JS variables by AGI runtime).
+
+    Required: action, db
+    Per-action extras:
+      tables  — (none)
+      schema  — table
+      query   — table, page (default 1), limit (default 50)
+      exec    — sql
+      update  — table, pk_col, pk_val, col, val
+      delete  — table, pk_col, pk_val
+      insert  — table, row (JSON string)
+*/
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+function respond(obj) {
+    sendJSONResp(JSON.stringify(obj));
+}
+
+if (!requirelib("sqlite")) {
+    respond({error: "SQLite library not available on this server"});
+    exit(0);
+}
+
+if (typeof action === "undefined" || action === "") {
+    respond({error: "Missing parameter: action"});
+    exit(0);
+}
+
+// available — no db required; lets callers probe library support before opening a file
+if (action === "available") {
+    respond({available: true});
+    exit(0);
+}
+
+if (typeof db === "undefined" || db === "") {
+    respond({error: "Missing parameter: db"});
+    exit(0);
+}
+
+// quoteIdent safely double-quotes an SQL identifier
+function quoteIdent(name) {
+    return '"' + name.replace(/"/g, '""') + '"';
+}
+
+// Validate a table name against the actual table list to prevent injection
+function validTable(dbConn, name) {
+    if (typeof name === "undefined" || name === "") { return false; }
+    var tables = dbConn.tables();
+    for (var i = 0; i < tables.length; i++) {
+        if (tables[i] === name) { return true; }
+    }
+    return false;
+}
+
+var dbConn = sqlite.open(db);
+if (!dbConn) {
+    respond({error: "Failed to open database: " + db});
+    exit(0);
+}
+
+try {
+    if (action === "tables") {
+        respond({tables: dbConn.tables()});
+
+    } else if (action === "schema") {
+        if (!validTable(dbConn, table)) {
+            respond({error: "Table not found: " + table});
+        } else {
+            respond({schema: dbConn.schema(table)});
+        }
+
+    } else if (action === "query") {
+        var pg   = (typeof page  !== "undefined" && page  !== "") ? parseInt(page)  : 1;
+        var lim  = (typeof limit !== "undefined" && limit !== "") ? parseInt(limit) : 50;
+        if (isNaN(pg)  || pg  < 1)   { pg  = 1;  }
+        if (isNaN(lim) || lim < 1 || lim > 500) { lim = 50; }
+        var offset = (pg - 1) * lim;
+
+        if (!validTable(dbConn, table)) {
+            respond({error: "Table not found: " + table});
+        } else {
+            var qt       = quoteIdent(table);
+            var schema   = dbConn.schema(table);
+            var countRow = dbConn.queryRow("SELECT COUNT(*) as cnt FROM " + qt);
+            var total    = (countRow && countRow.cnt !== null) ? parseInt(countRow.cnt) : 0;
+
+            // Build ORDER BY from sort_col / sort_dir params
+            var orderClause = "";
+            var sc = (typeof sort_col !== "undefined" && sort_col !== "") ? sort_col : "";
+            if (sc !== "") {
+                // Validate sort column exists in schema to prevent injection
+                var colValid = false;
+                for (var si = 0; si < schema.length; si++) {
+                    if (schema[si].name === sc) { colValid = true; break; }
+                }
+                if (colValid) {
+                    var sd = (typeof sort_dir !== "undefined" && sort_dir.toUpperCase() === "DESC") ? "DESC" : "ASC";
+                    orderClause = " ORDER BY " + quoteIdent(sc) + " " + sd;
+                }
+            }
+
+            var rows = dbConn.query("SELECT * FROM " + qt + orderClause + " LIMIT ? OFFSET ?", [lim, offset]);
+            respond({rows: rows, total: total, page: pg, limit: lim, schema: schema});
+        }
+
+    } else if (action === "exec") {
+        var sqlStmt = (typeof sql !== "undefined") ? sql : "";
+        if (sqlStmt.trim() === "") {
+            respond({error: "No SQL statement provided"});
+        } else {
+            // Try as a mutating statement first; fall back to a SELECT query
+            var trimmed = sqlStmt.trim().toUpperCase();
+            if (trimmed.indexOf("SELECT") === 0 || trimmed.indexOf("WITH") === 0 ||
+                trimmed.indexOf("PRAGMA") === 0 || trimmed.indexOf("EXPLAIN") === 0) {
+                var rows = dbConn.query(sqlStmt);
+                respond({ok: true, rows: rows});
+            } else {
+                try {
+                    var result = dbConn.exec(sqlStmt);
+                    respond({ok: true, result: result});
+                } catch(e) {
+                    // Retry as SELECT in case of mis-classification
+                    try {
+                        var rows2 = dbConn.query(sqlStmt);
+                        respond({ok: true, rows: rows2});
+                    } catch(e2) {
+                        respond({error: e.toString()});
+                    }
+                }
+            }
+        }
+
+    } else if (action === "update") {
+        if (!validTable(dbConn, table)) {
+            respond({error: "Table not found: " + table});
+        } else if (typeof pk_col === "undefined" || typeof pk_val === "undefined" || typeof col === "undefined") {
+            respond({error: "Missing update parameters"});
+        } else {
+            var updateSQL = "UPDATE " + quoteIdent(table) +
+                            " SET "   + quoteIdent(col)   + " = ?" +
+                            " WHERE " + quoteIdent(pk_col)+ " = ?";
+            var newVal = (typeof val !== "undefined") ? val : null;
+            var result = dbConn.exec(updateSQL, [newVal, pk_val]);
+            respond({ok: true, result: result});
+        }
+
+    } else if (action === "delete") {
+        if (!validTable(dbConn, table)) {
+            respond({error: "Table not found: " + table});
+        } else if (typeof pk_col === "undefined" || typeof pk_val === "undefined") {
+            respond({error: "Missing delete parameters"});
+        } else {
+            var deleteSQL = "DELETE FROM " + quoteIdent(table) +
+                            " WHERE " + quoteIdent(pk_col) + " = ?";
+            var result = dbConn.exec(deleteSQL, [pk_val]);
+            respond({ok: true, result: result});
+        }
+
+    } else if (action === "insert") {
+        if (!validTable(dbConn, table)) {
+            respond({error: "Table not found: " + table});
+        } else if (typeof row === "undefined" || row === "") {
+            respond({error: "Missing row data"});
+        } else {
+            var rowObj  = JSON.parse(row);
+            var cols    = Object.keys(rowObj);
+            var quotedCols   = cols.map(function(c) { return quoteIdent(c); }).join(", ");
+            var placeholders = cols.map(function()  { return "?"; }).join(", ");
+            var values  = cols.map(function(c) { return rowObj[c]; });
+            var insertSQL = "INSERT INTO " + quoteIdent(table) +
+                            " (" + quotedCols + ") VALUES (" + placeholders + ")";
+            var result = dbConn.exec(insertSQL, values);
+            respond({ok: true, result: result});
+        }
+
+    } else if (action === "droptable") {
+        if (typeof table !== "undefined" && table.indexOf("sqlite_") === 0) {
+            respond({error: "Cannot drop internal SQLite table: " + table});
+        } else if (!validTable(dbConn, table)) {
+            respond({error: "Table not found: " + table});
+        } else {
+            dbConn.exec("DROP TABLE " + quoteIdent(table));
+            respond({ok: true});
+        }
+
+    } else {
+        respond({error: "Unknown action: " + action});
+    }
+
+} catch(e) {
+    respond({error: e.toString()});
+} finally {
+    dbConn.close();
+}

@@ -2,7 +2,6 @@ package ssdp
 
 import (
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"os/exec"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	ssdp "github.com/koron/go-ssdp"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -40,11 +40,11 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 		interfaceName, err := getFirstNetworkInterfaceName()
 		if err != nil {
 			//Ignore the interface binding
-			log.Println("[WARN] No connected network interface. Starting SSDP anyway.")
+			logger.PrintAndLog("Ssdp", "[WARN] No connected network interface. Starting SSDP anyway.", nil)
 		} else {
 			mainNIC, err := net.InterfaceByName(interfaceName)
 			if err != nil {
-				log.Println("[WARN] Unable to get interface by name: " + interfaceName + ". Starting SSDP on all IPv4 interfaces.")
+				logger.PrintAndLog("Ssdp", "[WARN] Unable to get interface by name: "+interfaceName+". Starting SSDP on all IPv4 interfaces.", nil)
 			} else {
 				ssdp.Interfaces = []net.Interface{*mainNIC}
 			}
@@ -73,7 +73,7 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 func (a *SSDPHost) Start() {
 	//Advertise ssdp
 	http.HandleFunc("/ssdp.xml", a.handleSSDP)
-	log.Println("Starting SSDP Discovery Service: " + a.Option.URLBase)
+	logger.PrintAndLog("Ssdp", "Starting SSDP Discovery Service: "+a.Option.URLBase, nil)
 	var aliveTick <-chan time.Time
 	aliveTick = time.Tick(time.Duration(5) * time.Second)
 

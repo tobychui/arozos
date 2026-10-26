@@ -28,6 +28,14 @@
     <body>
         <div id="dplayer"></div>
         <script>
+            //Load global vol from localStorage
+            var defaultVol = localStorage.getItem("global_volume");
+            if (defaultVol == null || defaultVol == "" || typeof(defaultVol) == "undefined"){
+                defaultVol = 0.4;
+            }else{
+                defaultVol = parseFloat(defaultVol);
+            }
+
             //Check if there are another instant running. If yes, replace that another instance URL
             if (ao_module_virtualDesktop){
                 //If in ao_module mode, try to make this windows the only instance
@@ -39,11 +47,7 @@
             }
            
 
-            //Load global vol from localStorage
-            var defaultVol = localStorage.getItem("global_volume");
-            if (defaultVol == null || defaultVol == "" || defaultVol == undefined){
-                defaultVol = 0.4;
-            }
+           
 
             function initPlayback(){
                 //Get file playback info from hash
@@ -67,12 +71,12 @@
                     videoURL = '../media/transcode?file=' + encodeURIComponent(playbackFile.filepath);
                 }
 
-                 //Set player property
+                //Set player property
                 const dp = new DPlayer({
                     container: document.getElementById('dplayer'),
                     screenshot: true,
                     autoplay: true,
-                    volume: parseFloat(defaultVol),
+                    volume: defaultVol,
                     video: {
                         url: videoURL
                     },

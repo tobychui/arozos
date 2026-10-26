@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -105,13 +105,15 @@ func systemIdGenerateSystemUUID() {
 		}
 		err := os.WriteFile("./system/dev.uuid", []byte(thisuuid), 0755)
 		if err != nil {
-			log.Fatal(err)
+			systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+			os.Exit(1)
 		}
 		deviceUUID = thisuuid
 	} else {
 		thisuuid, err := os.ReadFile("./system/dev.uuid")
 		if err != nil {
-			log.Fatal("Failed to read system uuid file (system/dev.uuid).")
+			systemWideLogger.PrintAndLog("System", "Failed to read system uuid file (system/dev.uuid).", nil)
+			os.Exit(1)
 		}
 		deviceUUID = string(thisuuid)
 	}
@@ -121,7 +123,8 @@ func systemIdGetSystemUUID() string {
 	fileUUID, err := os.ReadFile("./system/dev.uuid")
 	if err != nil {
 		systemWideLogger.PrintAndLog("Storage", "Unable to read system UUID from dev.uuid file", err)
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 
 	return string(fileUUID)

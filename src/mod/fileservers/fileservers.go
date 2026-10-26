@@ -6,7 +6,7 @@ package fileservers
 	This module handle the functions related to file server managements
 */
 
-//Utilities
+// Utilities
 func GetFileServerById(servers []*Server, id string) *Server {
 	for _, server := range servers {
 		if server.ID == id {

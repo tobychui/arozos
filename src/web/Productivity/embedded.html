@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Productivity</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #F2F2F7;
+            color: #1C1C1E;
+        }
+
+        /* ── TOOLBAR ─────────────────────────────────────────── */
+        #toolbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            gap: 4px;
+            background: rgba(242,242,247,0.94);
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            z-index: 500;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .tb-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+
+        .tb-btn {
+            width: 30px; height: 30px;
+            border: none; background: none;
+            border-radius: 7px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: #3C3C43;
+            transition: background 0.1s;
+            flex-shrink: 0;
+        }
+        .tb-btn:hover  { background: rgba(0,0,0,0.07); }
+        .tb-btn:active { background: rgba(0,0,0,0.13); }
+        .tb-btn.active { background: rgba(0,122,255,0.12); color: #007AFF; }
+        .tb-btn:disabled { opacity: 0.3; cursor: default; }
+        .tb-btn:disabled:hover { background: none; }
+
+        .tb-sep {
+            width: 1px; height: 18px;
+            background: rgba(0,0,0,0.14);
+            flex-shrink: 0; margin: 0 5px;
+        }
+
+        #tbCenter {
+            flex: 1;
+            display: flex; align-items: center; justify-content: center;
+            gap: 7px; min-width: 0;
+        }
+
+        #tbFileIcon { flex-shrink: 0; }
+
+        #tbFileName {
+            font-size: 13px; font-weight: 590;
+            color: #1C1C1E;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        #tbZoomLabel {
+            font-size: 11.5px; font-weight: 500;
+            color: #6C6C70;
+            min-width: 38px; text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── CONTENT ─────────────────────────────────────────── */
+        #contentWrap {
+            position: fixed;
+            top: 44px; left: 0; right: 0; bottom: 0;
+        }
+
+        /* Empty state */
+        #emptyState {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 12px; color: #8E8E93;
+        }
+        #emptyState svg { opacity: 0.45; }
+        #emptyState p  { font-size: 14px; font-weight: 500; }
+
+        /* ── iframe viewer (HTML + PDF) ──────────────────────── */
+        #iframeViewer {
+            display: none;
+            width: 100%; height: 100%;
+            border: none;
+            transform-origin: top left;
+        }
+
+        /* ── Image viewer ────────────────────────────────────── */
+        #imageViewer {
+            display: none;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: #1C1C1E;
+            position: relative;
+        }
+
+        #imgStage {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+        }
+        #imgStage.grabbing { cursor: grabbing; }
+
+        #imgEl {
+            display: block;
+            max-width: 100%; max-height: 100%;
+            object-fit: contain;
+            transform-origin: center center;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+        }
+
+        #imgHint {
+            position: absolute;
+            bottom: 14px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            color: white; font-size: 12px;
+            padding: 5px 14px; border-radius: 20px;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s;
+            white-space: nowrap;
+        }
+
+        /* ── Code/text viewer ────────────────────────────────── */
+        #codeViewer {
+            display: none;
+            width: 100%; height: 100%;
+            overflow: auto;
+            background: #FAFAFA;
+        }
+
+        #codeTable {
+            border-collapse: collapse;
+            min-width: 100%;
+            font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+            font-size: 12.5px;
+            line-height: 1.65;
+        }
+
+        .cl-num {
+            padding: 0 12px 0 16px;
+            text-align: right;
+            color: #B0B0B0;
+            border-right: 1px solid #E5E5EA;
+            user-select: none;
+            white-space: nowrap;
+            vertical-align: top;
+            background: #F5F5F7;
+            min-width: 52px;
+        }
+
+        .cl-code {
+            padding: 0 20px 0 14px;
+            white-space: pre;
+            vertical-align: top;
+            color: #1C1C1E;
+        }
+
+        #codeTable tr:first-child .cl-num,
+        #codeTable tr:first-child .cl-code { padding-top: 16px; }
+
+        #codeTable tr:last-child .cl-num,
+        #codeTable tr:last-child .cl-code  { padding-bottom: 16px; }
+
+        /* ── Markdown viewer ─────────────────────────────────── */
+        #mdViewer {
+            display: none;
+            width: 100%; height: 100%;
+            overflow: auto;
+            background: white;
+        }
+
+        #mdBody {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 44px 36px 72px;
+            font-size: 15px;
+            line-height: 1.78;
+            color: #24292E;
+        }
+
+        #mdBody h1,#mdBody h2,#mdBody h3,#mdBody h4,#mdBody h5,#mdBody h6 {
+            margin-top: 1.6em; margin-bottom: 0.55em;
+            line-height: 1.3; font-weight: 600;
+        }
+        #mdBody h1 { font-size: 2em;   padding-bottom: 0.3em;  border-bottom: 1.5px solid #E5E7EB; }
+        #mdBody h2 { font-size: 1.5em; padding-bottom: 0.2em;  border-bottom: 1px solid #E5E7EB; }
+        #mdBody h3 { font-size: 1.25em; }
+        #mdBody h4 { font-size: 1em; }
+        #mdBody p  { margin: 0.75em 0; }
+        #mdBody a  { color: #0366D6; text-decoration: none; }
+        #mdBody a:hover { text-decoration: underline; }
+        #mdBody strong { font-weight: 600; }
+        #mdBody em     { font-style: italic; }
+        #mdBody del    { color: #6A737D; }
+        #mdBody code {
+            font-family: 'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
+            font-size: 0.875em;
+            background: #F6F8FA; border: 1px solid #E1E4E8;
+            border-radius: 4px; padding: 0.1em 0.4em;
+        }
+        #mdBody pre {
+            background: #F6F8FA; border: 1px solid #E1E4E8;
+            border-radius: 8px; padding: 16px;
+            overflow-x: auto; margin: 1.1em 0;
+        }
+        #mdBody pre code { background: none; border: none; padding: 0; font-size: 0.875em; }
+        #mdBody blockquote {
+            border-left: 4px solid #DFE2E5;
+            padding: 0.35em 0 0.35em 1em;
+            color: #6A737D; margin: 1em 0;
+        }
+        #mdBody ul, #mdBody ol { padding-left: 2em; margin: 0.55em 0; }
+        #mdBody li { margin: 0.25em 0; }
+        #mdBody li > ul, #mdBody li > ol { margin: 0.15em 0; }
+        #mdBody hr { border: none; border-top: 1.5px solid #E5E7EB; margin: 1.6em 0; }
+        #mdBody img { max-width: 100%; border-radius: 6px; margin: 0.5em 0; }
+        #mdBody table { border-collapse: collapse; width: 100%; margin: 1.1em 0; }
+        #mdBody th, #mdBody td { border: 1px solid #DFE2E5; padding: 7px 14px; text-align: left; }
+        #mdBody th { background: #F6F8FA; font-weight: 600; }
+        #mdBody tr:nth-child(even) td { background: #FAFBFC; }
+
+        /* ── Info sidebar ────────────────────────────────────── */
+        #infoSidebar {
+            position: fixed;
+            top: 44px; right: 0;
+            width: 260px; height: calc(100% - 44px);
+            background: rgba(242,242,247,0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(0,0,0,0.1);
+            transform: translateX(100%);
+            transition: transform 0.22s cubic-bezier(0.25,0.1,0.25,1);
+            overflow-y: auto; padding: 16px; z-index: 400;
+        }
+        #infoSidebar.open { transform: translateX(0); }
+
+        .info-hdr {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+        .info-hdr strong { font-size: 14px; font-weight: 600; }
+
+        .info-group { margin-bottom: 18px; }
+        .info-group-title {
+            font-size: 10.5px; font-weight: 700;
+            letter-spacing: 0.7px; text-transform: uppercase;
+            color: #8E8E93; margin-bottom: 8px;
+        }
+        .info-row { margin-bottom: 9px; }
+        .info-key { font-size: 11px; color: #8E8E93; margin-bottom: 2px; }
+        .info-val { font-size: 12.5px; color: #1C1C1E; word-break: break-all; line-height: 1.45; }
+
+        /* ── Dark mode ───────────────────────────────────────── */
+        @media (prefers-color-scheme: dark) {
+            html, body { background: #1C1C1E; color: #F2F2F7; }
+
+            #toolbar { background: rgba(28,28,30,0.94); border-bottom-color: rgba(255,255,255,0.1); }
+            #tbFileName { color: #F2F2F7; }
+            .tb-btn { color: #EBEBF5; }
+            .tb-btn:hover  { background: rgba(255,255,255,0.1); }
+            .tb-btn:active { background: rgba(255,255,255,0.17); }
+            .tb-btn.active { background: rgba(10,132,255,0.2); color: #0A84FF; }
+            .tb-sep { background: rgba(255,255,255,0.14); }
+            #tbZoomLabel { color: #8E8E93; }
+
+            #emptyState { color: #48484A; }
+
+            #codeViewer { background: #1C1C1E; }
+            .cl-num  { background: #2C2C2E; border-right-color: #3A3A3C; color: #48484A; }
+            .cl-code { color: #E5E5EA; }
+
+            #mdViewer { background: #1C1C1E; }
+            #mdBody { color: #E5E5EA; }
+            #mdBody h1,#mdBody h2 { border-bottom-color: #38383A; }
+            #mdBody a { color: #4EA1F3; }
+            #mdBody code { background: #2C2C2E; border-color: #38383A; }
+            #mdBody pre { background: #2C2C2E; border-color: #38383A; }
+            #mdBody blockquote { border-left-color: #38383A; color: #8E8E93; }
+            #mdBody th, #mdBody td { border-color: #38383A; }
+            #mdBody th { background: #2C2C2E; }
+            #mdBody tr:nth-child(even) td { background: #252527; }
+            #mdBody hr { border-top-color: #38383A; }
+
+            #infoSidebar { background: rgba(28,28,30,0.97); border-left-color: rgba(255,255,255,0.1); }
+            .info-val { color: #E5E5EA; }
+        }
+
+        /* ArozOS theme override — applied by ao_module_onThemeChanged via data-theme attribute.
+           These rules win over the media query because the attribute selector adds specificity. */
+        html[data-theme="dark"] body { background: #1C1C1E; color: #F2F2F7; }
+        html[data-theme="dark"] #toolbar { background: rgba(28,28,30,0.94); border-bottom-color: rgba(255,255,255,0.1); }
+        html[data-theme="dark"] #tbFileName { color: #F2F2F7; }
+        html[data-theme="dark"] .tb-btn { color: #EBEBF5; }
+        html[data-theme="dark"] .tb-btn:hover  { background: rgba(255,255,255,0.1); }
+        html[data-theme="dark"] .tb-btn:active { background: rgba(255,255,255,0.17); }
+        html[data-theme="dark"] .tb-btn.active { background: rgba(10,132,255,0.2); color: #0A84FF; }
+        html[data-theme="dark"] .tb-sep { background: rgba(255,255,255,0.14); }
+        html[data-theme="dark"] #tbZoomLabel { color: #8E8E93; }
+        html[data-theme="dark"] #emptyState { color: #48484A; }
+        html[data-theme="dark"] #codeViewer { background: #1C1C1E; }
+        html[data-theme="dark"] .cl-num  { background: #2C2C2E; border-right-color: #3A3A3C; color: #48484A; }
+        html[data-theme="dark"] .cl-code { color: #E5E5EA; }
+        html[data-theme="dark"] #mdViewer { background: #1C1C1E; }
+        html[data-theme="dark"] #mdBody { color: #E5E5EA; }
+        html[data-theme="dark"] #mdBody h1, html[data-theme="dark"] #mdBody h2 { border-bottom-color: #38383A; }
+        html[data-theme="dark"] #mdBody a { color: #4EA1F3; }
+        html[data-theme="dark"] #mdBody code { background: #2C2C2E; border-color: #38383A; }
+        html[data-theme="dark"] #mdBody pre  { background: #2C2C2E; border-color: #38383A; }
+        html[data-theme="dark"] #mdBody blockquote { border-left-color: #38383A; color: #8E8E93; }
+        html[data-theme="dark"] #mdBody th, html[data-theme="dark"] #mdBody td { border-color: #38383A; }
+        html[data-theme="dark"] #mdBody th { background: #2C2C2E; }
+        html[data-theme="dark"] #mdBody tr:nth-child(even) td { background: #252527; }
+        html[data-theme="dark"] #mdBody hr { border-top-color: #38383A; }
+        html[data-theme="dark"] #infoSidebar { background: rgba(28,28,30,0.97); border-left-color: rgba(255,255,255,0.1); }
+        html[data-theme="dark"] .info-val { color: #E5E5EA; }
+
+        /* Force light mode even when the OS prefers dark */
+        html[data-theme="light"] body { background: #F2F2F7; color: #1C1C1E; }
+        html[data-theme="light"] #toolbar { background: rgba(242,242,247,0.94); border-bottom-color: rgba(0,0,0,0.1); }
+        html[data-theme="light"] #tbFileName { color: #1C1C1E; }
+        html[data-theme="light"] .tb-btn { color: #3C3C43; }
+        html[data-theme="light"] .tb-btn:hover  { background: rgba(0,0,0,0.07); }
+        html[data-theme="light"] .tb-btn:active { background: rgba(0,0,0,0.13); }
+        html[data-theme="light"] .tb-btn.active { background: rgba(0,122,255,0.12); color: #007AFF; }
+        html[data-theme="light"] .tb-sep { background: rgba(0,0,0,0.14); }
+        html[data-theme="light"] #tbZoomLabel { color: #6C6C70; }
+        html[data-theme="light"] #emptyState { color: #8E8E93; }
+        html[data-theme="light"] #codeViewer { background: #FFFFFF; }
+        html[data-theme="light"] .cl-num  { background: #F2F2F7; border-right-color: #D1D1D6; color: #8E8E93; }
+        html[data-theme="light"] .cl-code { color: #1C1C1E; }
+        html[data-theme="light"] #mdViewer { background: #FFFFFF; }
+        html[data-theme="light"] #mdBody { color: #1C1C1E; }
+        html[data-theme="light"] #infoSidebar { background: rgba(242,242,247,0.97); border-left-color: rgba(0,0,0,0.1); }
+        html[data-theme="light"] .info-val { color: #1C1C1E; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOOLBAR
+══════════════════════════════════════════════════════════════ -->
+<div id="toolbar">
+
+    <!-- Left: file type badge -->
+    <div class="tb-group">
+        <div id="tbFileIcon" style="width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:0.3px;color:white;background:#8E8E93;flex-shrink:0;">
+            FILE
+        </div>
+    </div>
+
+    <!-- Center: file name -->
+    <div id="tbCenter">
+        <span id="tbFileName">Preview</span>
+    </div>
+
+    <!-- Right: zoom + info -->
+    <div class="tb-group">
+        <div class="tb-sep"></div>
+
+        <!-- Zoom out -->
+        <button class="tb-btn" id="btnZoomOut" onclick="adjustZoom(-0.15)" title="Zoom Out (Ctrl –)" disabled>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <circle cx="6.5" cy="6.5" r="4.5"/>
+                <line x1="4" y1="6.5" x2="9" y2="6.5"/>
+                <line x1="10.2" y1="10.2" x2="14" y2="14"/>
+            </svg>
+        </button>
+
+        <span id="tbZoomLabel">—</span>
+
+        <!-- Zoom in -->
+        <button class="tb-btn" id="btnZoomIn" onclick="adjustZoom(0.15)" title="Zoom In (Ctrl +)" disabled>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <circle cx="6.5" cy="6.5" r="4.5"/>
+                <line x1="4" y1="6.5" x2="9" y2="6.5"/>
+                <line x1="6.5" y1="4" x2="6.5" y2="9"/>
+                <line x1="10.2" y1="10.2" x2="14" y2="14"/>
+            </svg>
+        </button>
+
+        <!-- Reset zoom -->
+        <button class="tb-btn" id="btnZoomReset" onclick="resetZoom()" title="Reset Zoom (Ctrl 0)" disabled>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2.5 8 A5.5 5.5 0 1 1 8 13.5"/>
+                <polyline points="2.5,5.5 2.5,8 5,8"/>
+            </svg>
+        </button>
+
+        <!-- Open in Web Builder (HTML files only) -->
+        <button class="tb-btn" id="btnWebBuilder" onclick="openInWebBuilder()" title="Open in Web Builder" style="display:none">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="2" width="14" height="10" rx="1.3"/>
+                <line x1="1" y1="5.5" x2="15" y2="5.5"/>
+                <circle cx="3" cy="3.8" r="0.6" fill="currentColor" stroke="none"/>
+                <circle cx="5" cy="3.8" r="0.6" fill="currentColor" stroke="none"/>
+                <path d="M5.5 8.5 L4 10 L5.5 11.5"/>
+                <path d="M9.5 8.5 L11 10 L9.5 11.5"/>
+            </svg>
+        </button>
+        <div class="tb-sep" id="sepWebBuilder" style="display:none"></div>
+
+        <div class="tb-sep"></div>
+
+        <!-- Info toggle -->
+        <button class="tb-btn" id="btnInfo" onclick="toggleInfo()" title="File Info (Ctrl I)">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <circle cx="8" cy="8" r="6.5"/>
+                <line x1="8" y1="7.5" x2="8" y2="11.5"/>
+                <circle cx="8" cy="5" r="0.8" fill="currentColor" stroke="none"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CONTENT
+══════════════════════════════════════════════════════════════ -->
+<div id="contentWrap">
+
+    <!-- Empty / error state -->
+    <div id="emptyState">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect x="10" y="5" width="36" height="46" rx="5" fill="currentColor" opacity="0.2"/>
+            <path d="M36 5 L46 15 L36 15 Z" fill="currentColor" opacity="0.25"/>
+            <rect x="15" y="24" width="26" height="3" rx="1.5" fill="currentColor" opacity="0.4"/>
+            <rect x="15" y="30" width="20" height="3" rx="1.5" fill="currentColor" opacity="0.3"/>
+            <rect x="15" y="36" width="23" height="3" rx="1.5" fill="currentColor" opacity="0.3"/>
+            <circle cx="44" cy="44" r="14" stroke="currentColor" stroke-width="3" opacity="0.35"/>
+            <line x1="53.5" y1="53.5" x2="61" y2="61" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.35"/>
+        </svg>
+        <p id="emptyMsg">No file to preview</p>
+    </div>
+
+    <!-- iframe viewer: HTML and PDF -->
+    <iframe id="iframeViewer" title="File Preview" allowfullscreen></iframe>
+
+    <!-- Image viewer -->
+    <div id="imageViewer">
+        <div id="imgStage">
+            <img id="imgEl" alt="Preview image">
+        </div>
+        <div id="imgHint"></div>
+    </div>
+
+    <!-- Code / text viewer -->
+    <div id="codeViewer">
+        <table id="codeTable"><tbody id="codeTbody"></tbody></table>
+    </div>
+
+    <!-- Markdown viewer -->
+    <div id="mdViewer">
+        <div id="mdBody"></div>
+    </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INFO SIDEBAR
+══════════════════════════════════════════════════════════════ -->
+<div id="infoSidebar">
+    <div class="info-hdr">
+        <strong>File Info</strong>
+        <button class="tb-btn" onclick="toggleInfo()" style="color:#8E8E93">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <line x1="1" y1="1" x2="13" y2="13"/>
+                <line x1="13" y1="1" x2="1" y2="13"/>
+            </svg>
+        </button>
+    </div>
+    <div class="info-group">
+        <div class="info-group-title">General</div>
+        <div class="info-row"><div class="info-key">Name</div><div class="info-val" id="infoName">—</div></div>
+        <div class="info-row"><div class="info-key">Type</div><div class="info-val" id="infoType">—</div></div>
+        <div class="info-row"><div class="info-key">Extension</div><div class="info-val" id="infoExt">—</div></div>
+    </div>
+    <div class="info-group">
+        <div class="info-group-title">Location</div>
+        <div class="info-row"><div class="info-key">Path</div><div class="info-val" id="infoPath">—</div></div>
+    </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   FILE TYPE REGISTRY
+═══════════════════════════════════════════════════════════════ */
+var TYPE_MAP = {
+    html: ['html','htm'],
+    pdf:  ['pdf'],
+    image:['jpg','jpeg','png','gif','webp','svg','bmp','ico'],
+    markdown: ['md','markdown'],
+    code: [
+        'js','mjs','cjs','jsx','ts','tsx',
+        'py','rb','pl','r','go','rs','swift','kt','scala',
+        'java','c','h','cpp','hpp','cs','php',
+        'sh','bash','zsh','bat','cmd','ps1',
+        'json','yaml','yml','xml','css','scss','less',
+        'sql','lua','agi','dockerfile','makefile',
+        'gitignore','editorconfig','env',
+        'toml','ini','conf','cfg','log','txt'
+    ]
+};
+
+var TYPE_LABELS = {
+    html:'HTML', pdf:'PDF', image:'IMG',
+    markdown:'MD', code:'CODE'
+};
+
+var TYPE_COLORS = {
+    html: '#E44D26',
+    pdf:  '#FF3B30',
+    image:'#30B06E',
+    markdown: '#8B5CF6',
+    code: '#007AFF'
+};
+
+var TYPE_NAMES = {
+    html:'HTML Document', pdf:'PDF Document', image:'Image',
+    markdown:'Markdown Document', code:'Source File'
+};
+
+function getFileType(ext) {
+    ext = ext.toLowerCase().replace(/^\./, '');
+    for (var t in TYPE_MAP) {
+        if (TYPE_MAP[t].indexOf(ext) !== -1) return t;
+    }
+    return 'code';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+var currentFile = null;
+var currentType = null;
+var zoom = 1.0;
+
+// Image pan state
+var imgPan = { dragging: false, startX: 0, startY: 0, tx: 0, ty: 0, baseTx: 0, baseTy: 0 };
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showHint(msg) {
+    var h = document.getElementById('imgHint');
+    h.textContent = msg;
+    h.style.opacity = '1';
+    clearTimeout(h._tid);
+    h._tid = setTimeout(function(){ h.style.opacity = '0'; }, 1600);
+}
+
+function setZoomEnabled(on) {
+    document.getElementById('btnZoomOut').disabled   = !on;
+    document.getElementById('btnZoomIn').disabled    = !on;
+    document.getElementById('btnZoomReset').disabled = !on;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VIEWER SWITCHING
+═══════════════════════════════════════════════════════════════ */
+function showViewer(type) {
+    document.getElementById('emptyState').style.display    = 'none';
+    document.getElementById('iframeViewer').style.display  = 'none';
+    document.getElementById('imageViewer').style.display   = 'none';
+    document.getElementById('codeViewer').style.display    = 'none';
+    document.getElementById('mdViewer').style.display      = 'none';
+
+    if      (type === 'html' || type === 'pdf') document.getElementById('iframeViewer').style.display = 'block';
+    else if (type === 'image')                  document.getElementById('imageViewer').style.display  = 'block';
+    else if (type === 'code')                   document.getElementById('codeViewer').style.display   = 'block';
+    else if (type === 'markdown')               document.getElementById('mdViewer').style.display     = 'block';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ZOOM
+═══════════════════════════════════════════════════════════════ */
+function adjustZoom(delta) {
+    if (!currentType) return;
+    zoom = Math.round(Math.max(0.1, Math.min(8.0, zoom + delta)) * 100) / 100;
+    applyZoom();
+    updateZoomLabel();
+}
+
+function resetZoom() {
+    zoom = 1.0;
+    if (currentType === 'image') {
+        imgPan.tx = 0; imgPan.ty = 0;
+        imgPan.baseTx = 0; imgPan.baseTy = 0;
+    }
+    applyZoom();
+    updateZoomLabel();
+}
+
+function applyZoom() {
+    if (currentType === 'image') {
+        document.getElementById('imgEl').style.transform =
+            'translate(' + imgPan.tx + 'px,' + imgPan.ty + 'px) scale(' + zoom + ')';
+    } else if (currentType === 'code') {
+        document.getElementById('codeTable').style.fontSize = (12.5 * zoom) + 'px';
+    } else if (currentType === 'markdown') {
+        document.getElementById('mdBody').style.fontSize = (15 * zoom) + 'px';
+    } else if (currentType === 'html') {
+        /* CSS zoom works in Chromium/WebKit; harmless elsewhere */
+        document.getElementById('iframeViewer').style.zoom = zoom;
+    }
+}
+
+function updateZoomLabel() {
+    document.getElementById('tbZoomLabel').textContent = Math.round(zoom * 100) + '%';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IMAGE PAN
+═══════════════════════════════════════════════════════════════ */
+function initImagePan() {
+    var stage = document.getElementById('imgStage');
+
+    stage.addEventListener('mousedown', function(e) {
+        if (zoom <= 1.0) return;
+        e.preventDefault();
+        imgPan.dragging = true;
+        imgPan.startX = e.clientX;
+        imgPan.startY = e.clientY;
+        imgPan.baseTx = imgPan.tx;
+        imgPan.baseTy = imgPan.ty;
+        stage.classList.add('grabbing');
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!imgPan.dragging) return;
+        imgPan.tx = imgPan.baseTx + (e.clientX - imgPan.startX);
+        imgPan.ty = imgPan.baseTy + (e.clientY - imgPan.startY);
+        applyZoom();
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (!imgPan.dragging) return;
+        imgPan.dragging = false;
+        stage.classList.remove('grabbing');
+    });
+
+    /* touch pan */
+    stage.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1 && zoom > 1.0) {
+            imgPan.dragging = true;
+            imgPan.startX = e.touches[0].clientX;
+            imgPan.startY = e.touches[0].clientY;
+            imgPan.baseTx = imgPan.tx;
+            imgPan.baseTy = imgPan.ty;
+        }
+    }, {passive: true});
+
+    stage.addEventListener('touchmove', function(e) {
+        if (!imgPan.dragging || e.touches.length !== 1) return;
+        imgPan.tx = imgPan.baseTx + (e.touches[0].clientX - imgPan.startX);
+        imgPan.ty = imgPan.baseTy + (e.touches[0].clientY - imgPan.startY);
+        applyZoom();
+    }, {passive: true});
+
+    stage.addEventListener('touchend', function() { imgPan.dragging = false; });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MARKDOWN RENDERER
+═══════════════════════════════════════════════════════════════ */
+function renderMarkdown(raw) {
+    var codeBlocks = [];
+    var inlineCodes = [];
+
+    /* 1. Extract fenced code blocks */
+    raw = raw.replace(/```([^\n]*)\n([\s\S]*?)```/gm, function(_, lang, code) {
+        var i = codeBlocks.length;
+        codeBlocks.push('<pre><code>' + escHtml(code.replace(/\n$/, '')) + '</code></pre>');
+        return '\x01CB' + i + '\x01';
+    });
+
+    /* 2. Extract inline code */
+    raw = raw.replace(/`([^`]+)`/g, function(_, code) {
+        var i = inlineCodes.length;
+        inlineCodes.push('<code>' + escHtml(code) + '</code>');
+        return '\x01IC' + i + '\x01';
+    });
+
+    /* 3. Escape remaining HTML */
+    raw = raw.replace(/&(?![a-zA-Z#]\w*;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    /* 4. Block-level elements */
+    var lines = raw.split('\n');
+    var out = [];
+    var i = 0;
+
+    while (i < lines.length) {
+        var line = lines[i];
+
+        /* Headings */
+        var hm = line.match(/^(#{1,6})\s+(.*)/);
+        if (hm) {
+            var lvl = hm[1].length;
+            out.push('<h' + lvl + '>' + inlineMarkdown(hm[2]) + '</h' + lvl + '>');
+            i++; continue;
+        }
+
+        /* Horizontal rule */
+        if (/^(\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
+            out.push('<hr>'); i++; continue;
+        }
+
+        /* Blockquote */
+        if (line.startsWith('&gt;')) {
+            var qlines = [];
+            while (i < lines.length && lines[i].startsWith('&gt;')) {
+                qlines.push(lines[i].replace(/^&gt;\s?/, ''));
+                i++;
+            }
+            out.push('<blockquote>' + inlineMarkdown(qlines.join('\n')) + '</blockquote>');
+            continue;
+        }
+
+        /* Unordered list */
+        if (/^[\*\-]\s/.test(line)) {
+            var items = [];
+            while (i < lines.length && /^[\*\-]\s/.test(lines[i])) {
+                items.push('<li>' + inlineMarkdown(lines[i].replace(/^[\*\-]\s/, '')) + '</li>');
+                i++;
+            }
+            out.push('<ul>' + items.join('') + '</ul>');
+            continue;
+        }
+
+        /* Ordered list */
+        if (/^\d+\.\s/.test(line)) {
+            var oitems = [];
+            while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+                oitems.push('<li>' + inlineMarkdown(lines[i].replace(/^\d+\.\s/, '')) + '</li>');
+                i++;
+            }
+            out.push('<ol>' + oitems.join('') + '</ol>');
+            continue;
+        }
+
+        /* Table (pipe-separated) */
+        if (line.includes('|') && i + 1 < lines.length && /^\|?[\s\-:|]+\|/.test(lines[i+1])) {
+            var trows = [];
+            var headers = line.split('|').filter(function(c,idx,arr){ return idx > 0 || c.trim(); }).map(function(c){ return c.trim(); }).filter(Boolean);
+            trows.push('<thead><tr>' + headers.map(function(h){ return '<th>' + inlineMarkdown(h) + '</th>'; }).join('') + '</tr></thead>');
+            i += 2; /* skip separator */
+            var tbody = [];
+            while (i < lines.length && lines[i].includes('|')) {
+                var cells = lines[i].split('|').filter(function(c,idx,arr){ return idx > 0 || c.trim(); }).map(function(c){ return c.trim(); }).filter(Boolean);
+                tbody.push('<tr>' + cells.map(function(c){ return '<td>' + inlineMarkdown(c) + '</td>'; }).join('') + '</tr>');
+                i++;
+            }
+            out.push('<table><' + trows[0] + '<tbody>' + tbody.join('') + '</tbody></table>');
+            continue;
+        }
+
+        /* Blank line */
+        if (line.trim() === '') { out.push(''); i++; continue; }
+
+        /* Paragraph / inline text */
+        var para = [];
+        while (i < lines.length && lines[i].trim() !== '' &&
+               !/^(#{1,6}\s|[\*\-]\s|\d+\.\s|&gt;|(\*{3,}|-{3,}|_{3,})\s*$)/.test(lines[i]) &&
+               !lines[i].includes('\x01CB')) {
+            para.push(lines[i]);
+            i++;
+        }
+        if (para.length) out.push('<p>' + inlineMarkdown(para.join(' ')) + '</p>');
+    }
+
+    var html = out.join('\n');
+
+    /* Restore inline codes and code blocks */
+    inlineCodes.forEach(function(c, idx) { html = html.split('\x01IC' + idx + '\x01').join(c); });
+    codeBlocks.forEach(function(b, idx) { html = html.split('\x01CB' + idx + '\x01').join(b); });
+
+    return html;
+}
+
+function inlineMarkdown(s) {
+    /* images before links */
+    s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2">');
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,  '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    s = s.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
+    s = s.replace(/__(.+?)__/g,         '<strong>$1</strong>');
+    s = s.replace(/\*(.+?)\*/g,         '<em>$1</em>');
+    s = s.replace(/_(.+?)_/g,           '<em>$1</em>');
+    s = s.replace(/~~(.+?)~~/g,         '<del>$1</del>');
+    /* restore inline code placeholders pass-through */
+    return s;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOAD FILE
+═══════════════════════════════════════════════════════════════ */
+function loadFile(file) {
+    currentFile = file;
+    var ext = file.filename.split('.').pop().toLowerCase();
+    currentType = getFileType(ext);
+
+    /* Toolbar badge */
+    var badge = document.getElementById('tbFileIcon');
+    badge.textContent  = TYPE_LABELS[currentType] || 'FILE';
+    badge.style.background = TYPE_COLORS[currentType] || '#8E8E93';
+    badge.style.fontSize   = currentType === 'markdown' ? '10px' : '11px';
+
+    document.getElementById('tbFileName').textContent = file.filename;
+    ao_module_setWindowTitle('Preview — ' + file.filename);
+
+    /* Info sidebar */
+    document.getElementById('infoName').textContent = file.filename;
+    document.getElementById('infoPath').textContent = file.filepath;
+    document.getElementById('infoExt').textContent  = '.' + ext.toUpperCase();
+    document.getElementById('infoType').textContent = TYPE_NAMES[currentType] || 'File';
+
+    /* Reset zoom */
+    zoom = 1.0;
+    imgPan.tx = 0; imgPan.ty = 0; imgPan.baseTx = 0; imgPan.baseTy = 0;
+    updateZoomLabel();
+
+    showViewer(currentType);
+
+    /* Web Builder button — only available for HTML files */
+    var _wbVisible = currentType === 'html';
+    document.getElementById('btnWebBuilder').style.display = _wbVisible ? '' : 'none';
+    document.getElementById('sepWebBuilder').style.display = _wbVisible ? '' : 'none';
+
+    /* Support data URLs for files dragged in from the OS desktop */
+    var fileUrl = file.dataUrl
+        ? file.dataUrl
+        : '../media?file=' + encodeURIComponent(file.filepath);
+
+    if (currentType === 'html') {
+        setZoomEnabled(true);
+        var fr = document.getElementById('iframeViewer');
+        fr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+        if (file.dataUrl) {
+            /* Use srcdoc so the sandboxed iframe renders the HTML directly */
+            fetch(file.dataUrl).then(function(r){ return r.text(); }).then(function(html){
+                fr.removeAttribute('src');
+                fr.srcdoc = html;
+            });
+        } else {
+            fr.removeAttribute('srcdoc');
+            fr.src = fileUrl;
+        }
+    } else if (currentType === 'pdf') {
+        setZoomEnabled(false);
+        var fr = document.getElementById('iframeViewer');
+        fr.removeAttribute('sandbox');
+        fr.removeAttribute('srcdoc');
+        fr.src = fileUrl;
+    } else if (currentType === 'image') {
+        setZoomEnabled(true);
+        document.getElementById('imgEl').src = fileUrl;
+    } else if (currentType === 'code') {
+        setZoomEnabled(true);
+        fetchAndRenderCode(fileUrl);
+    } else if (currentType === 'markdown') {
+        setZoomEnabled(true);
+        fetchAndRenderMarkdown(fileUrl);
+    }
+}
+
+function fetchAndRenderCode(url) {
+    var tbody = document.getElementById('codeTbody');
+    tbody.innerHTML = '<tr><td class="cl-num">…</td><td class="cl-code" style="color:#8E8E93">Loading…</td></tr>';
+
+    fetch(url)
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function(text) {
+            var lines = text.split('\n');
+            /* Remove trailing empty line that split() adds */
+            if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+            var rows = '';
+            for (var i = 0; i < lines.length; i++) {
+                rows += '<tr><td class="cl-num">' + (i + 1) + '</td>'
+                      + '<td class="cl-code">' + escHtml(lines[i]) + '</td></tr>';
+            }
+            tbody.innerHTML = rows;
+        })
+        .catch(function(e) {
+            tbody.innerHTML = '<tr><td class="cl-num">!</td><td class="cl-code" style="color:#FF3B30">Failed to load file: ' + escHtml(e.message) + '</td></tr>';
+        });
+}
+
+function fetchAndRenderMarkdown(url) {
+    var body = document.getElementById('mdBody');
+    body.innerHTML = '<p style="color:#8E8E93">Loading…</p>';
+
+    fetch(url)
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function(text) {
+            body.innerHTML = renderMarkdown(text);
+        })
+        .catch(function(e) {
+            body.innerHTML = '<p style="color:#FF3B30">Failed to load file: ' + escHtml(e.message) + '</p>';
+        });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INFO SIDEBAR
+═══════════════════════════════════════════════════════════════ */
+function toggleInfo() {
+    var sb = document.getElementById('infoSidebar');
+    sb.classList.toggle('open');
+    document.getElementById('btnInfo').classList.toggle('active', sb.classList.contains('open'));
+}
+
+function openInWebBuilder() {
+    if (!currentFile) return;
+    var hashData = {
+        tool: 'webbuilder',
+        file: { filename: currentFile.filename, filepath: currentFile.filepath }
+    };
+    ao_module_newfw({
+        url: 'Productivity/index.html#' + encodeURIComponent(JSON.stringify(hashData)),
+        width: 1080,
+        height: 580,
+        title: currentFile.filename + ' - Web Builder',
+        appicon: 'Productivity/img/module_icon.svg'
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EVENT WIRING
+═══════════════════════════════════════════════════════════════ */
+
+/* Ctrl/Cmd +/- zoom */
+document.addEventListener('keydown', function(e) {
+    var ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl) return;
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); adjustZoom(0.15); }
+    else if (e.key === '-')             { e.preventDefault(); adjustZoom(-0.15); }
+    else if (e.key === '0')             { e.preventDefault(); resetZoom(); }
+    else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); toggleInfo(); }
+});
+
+/* Scroll-wheel zoom on image viewer */
+document.getElementById('imageViewer').addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var delta = e.deltaY < 0 ? 0.12 : -0.12;
+    adjustZoom(delta);
+    showHint(Math.round(zoom * 100) + '%');
+}, { passive: false });
+
+/* Ctrl+scroll zoom on code viewer */
+document.getElementById('codeViewer').addEventListener('wheel', function(e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    adjustZoom(e.deltaY < 0 ? 0.12 : -0.12);
+}, { passive: false });
+
+/* Ctrl+scroll zoom on markdown viewer */
+document.getElementById('mdViewer').addEventListener('wheel', function(e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    adjustZoom(e.deltaY < 0 ? 0.12 : -0.12);
+}, { passive: false });
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+initImagePan();
+
+var inputFiles = ao_module_loadInputFiles();
+if (inputFiles && inputFiles.length > 0) {
+    loadFile(inputFiles[0]);
+} else {
+    document.getElementById('emptyMsg').textContent = 'No file was passed to Preview';
+    document.getElementById('emptyState').style.display = 'flex';
+}
+
+/* ── ArozOS system theme binding ── */
+function applyAozTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+}
+
+ao_module_onThemeChanged(applyAozTheme);
+
+$.get(ao_root + 'system/file_system/preference?key=file_explorer/theme', function(data) {
+    applyAozTheme(data === 'darkTheme' ? 'dark' : 'light');
+});
+</script>
+</body>
+</html>

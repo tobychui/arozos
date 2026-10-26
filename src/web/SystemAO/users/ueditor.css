@@ -1,0 +1,214 @@
+/* Common CSS for editUser.html and editgroup.html */
+
+/* ── Reset ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: #fff; }
+body.dark { background: #2b2b2b; }
+
+/* ── Shared root: CSS variables & base styles ── */
+.ued-root {
+    --ued-text:        #1d1d1f;
+    --ued-dim:         #6e6e73;
+    --ued-muted:       #515153;
+    --ued-divider:     #d2d2d7;
+    --ued-hover:       rgba(0,0,0,0.045);
+    --ued-active:      rgba(0,0,0,0.09);
+    --ued-accent:      #588ce0;
+    --ued-danger:      #ff3b30;
+    --ued-success:     #34c759;
+    --ued-bg:          #ffffff;
+    --ued-card-bg:     #f5f5f7;
+    --ued-card-border: #e5e5ea;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ued-text);
+    background: var(--ued-bg);
+    border-radius: 0.6em;
+}
+
+.ued-root.dark {
+    --ued-text:        #f0f0f0;
+    --ued-dim:         #a0a0a5;
+    --ued-muted:       #ccccd1;
+    --ued-divider:     #3a3a3c;
+    --ued-hover:       rgba(255,255,255,0.06);
+    --ued-active:      rgba(255,255,255,0.12);
+    --ued-accent:      #2997ff;
+    --ued-danger:      #ff453a;
+    --ued-success:     #30d158;
+    --ued-bg:          #2b2b2b;
+    --ued-card-bg:     #3a3a3c;
+    --ued-card-border: #48484a;
+}
+
+/* ── Page container ── */
+.ued-page { padding: 0 0 24px; }
+
+/* ── Top accent bar ── */
+.ued-topbar { height: 0.4em; background: var(--ued-accent); }
+
+/* ── Toolbar ── */
+.ued-toolbar { padding: 10px 12px 14px; border-top: 1px solid var(--ued-divider); margin-top: 6px; }
+.ued-btn-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.ued-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 13px;
+    border-radius: 6px;
+    border: 1px solid var(--ued-card-border);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: background 0.1s, opacity 0.1s;
+    background: var(--ued-card-bg);
+    color: var(--ued-text);
+    white-space: nowrap;
+}
+.ued-btn:hover  { background: var(--ued-hover); }
+.ued-btn:active { background: var(--ued-active); }
+.ued-btn.primary { background: var(--ued-accent); color: #fff; border-color: var(--ued-accent); }
+.ued-btn.primary:hover { opacity: 0.85; background: var(--ued-accent); }
+.ued-btn.loading { opacity: 0.55; cursor: default; pointer-events: none; }
+
+/* ── Section labels ── */
+.ued-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ued-muted);
+    padding: 0 16px;
+    margin: 18px 0 6px;
+}
+
+/* ── Card ── */
+.ued-card {
+    border: 1px solid var(--ued-divider);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 12px 6px;
+    background: var(--ued-bg);
+}
+
+/* ── Field rows ── */
+.ued-field-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ued-divider);
+}
+.ued-field-row:last-child { border-bottom: none; }
+.ued-field-label {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ued-text);
+    min-width: 130px;
+    flex-shrink: 0;
+    padding-top: 5px;
+}
+.ued-field-body { flex: 1; min-width: 0; }
+
+/* ── Inputs ── */
+.ued-input {
+    width: 100%;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ued-text);
+    background: var(--ued-card-bg);
+    border: 1px solid var(--ued-card-border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    outline: none;
+    transition: border-color 0.1s;
+}
+.ued-input:focus { border-color: var(--ued-accent); }
+.ued-input[readonly] { color: var(--ued-dim); cursor: default; }
+.ued-input.error { border-color: var(--ued-danger); }
+.ued-input-hint { font-size: 11.5px; color: var(--ued-muted); margin-top: 4px; }
+
+/* ── Quota row ── */
+.ued-quota-row { display: flex; align-items: center; gap: 8px; }
+.ued-quota-row .ued-input { width: 110px; flex-shrink: 0; }
+.ued-select {
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ued-text);
+    background: var(--ued-card-bg);
+    border: 1px solid var(--ued-card-border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    outline: none;
+    cursor: pointer;
+}
+.ued-select:focus { border-color: var(--ued-accent); }
+
+/* ── Toggle row (admin/privilege checkbox) ── */
+.ued-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    cursor: pointer;
+    user-select: none;
+}
+.ued-toggle-row .ued-cb {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--ued-accent);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.ued-toggle-label { font-size: 12.5px; color: var(--ued-dim); }
+
+/* ── Toast notifications (bottom-centre bubble) ── */
+.ued-banner {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    max-width: calc(100% - 32px);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.ued-banner.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.ued-banner.success {
+    background: var(--ued-success);
+    color: #fff;
+}
+.ued-banner.error {
+    background: var(--ued-danger);
+    color: #fff;
+}
+
+/* ── Empty state ── */
+.ued-empty {
+    text-align: center;
+    padding: 20px 16px;
+    color: var(--ued-muted);
+    font-size: 13px;
+}

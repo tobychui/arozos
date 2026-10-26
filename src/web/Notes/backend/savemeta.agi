@@ -1,0 +1,28 @@
+/*
+    Notes - Save theme preference to metadata
+    POST: newTheme (string: "dark" | "white")
+    Only updates the theme field; never touches the notes array.
+*/
+requirelib("filelib");
+
+var metaPath = "user:/Document/Notes/meta.json";
+
+var meta = { lastOpened: "", theme: "dark", notes: [] };
+if (filelib.fileExists(metaPath)) {
+    try {
+        var raw    = filelib.readFile(metaPath);
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+            meta = parsed;
+        }
+        if (!meta.notes) meta.notes = [];
+    } catch (e) {}
+}
+
+// Only allow known theme values
+if (newTheme === "white" || newTheme === "dark") {
+    meta.theme = newTheme;
+}
+
+filelib.writeFile(metaPath, JSON.stringify(meta));
+sendJSONResp({ ok: true });

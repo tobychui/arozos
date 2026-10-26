@@ -1,0 +1,126 @@
+/*
+    Text - Image tool backend (AGI)
+
+    Handles the server side of the editor's image-import feature:
+      - ensures the per-document image folder exists
+      - imports an image that already lives on the server (the ao_module
+        file-selector picks a vpath) into that folder, optionally compressing it
+
+    Locally-picked images are uploaded straight from the browser with
+    ao_module_uploadFile, so they only need the "mkdir" action here.
+
+    POST parameters
+        action    "mkdir" | "import"
+        docpath   virtual path of the document being edited (e.g. user:/Desktop/note.md)
+        reldir    relative image dir, already templated by the client (e.g. "img/note")
+        src       (import only) vpath of the source image on the server
+        destname  (import only) desired file name inside the image folder
+        compress  (import only) "true" / "false"
+        maxwidth  (import only) max width in px when compressing (0 = keep)
+
+    Response (JSON)
+        { ok: true, imgdir: "<vpath>", rel: "<reldir>/<destname>" }
+        { error: "..." }
+*/
+
+function fail(msg){
+    sendJSONResp(JSON.stringify({ error: msg }));
+}
+
+// Return the parent directory of a virtual path, without the trailing slash.
+function dirOf(vpath){
+    var idx = vpath.lastIndexOf("/");
+    if (idx < 0) return vpath;
+    return vpath.substring(0, idx);
+}
+
+function main(){
+    if (!requirelib("filelib")){
+        fail("filelib unavailable");
+        return;
+    }
+
+    if (typeof docpath === "undefined" || docpath.trim() === ""){
+        fail("docpath is required");
+        return;
+    }
+    if (typeof reldir === "undefined" || reldir.trim() === ""){
+        fail("reldir is required");
+        return;
+    }
+
+    var imgdir = dirOf(docpath) + "/" + reldir;
+
+    // Always make sure the target folder exists (mkdir is recursive).
+    if (!filelib.mkdir(imgdir)){
+        fail("unable to create image folder: " + imgdir);
+        return;
+    }
+
+    if (action === "mkdir"){
+        sendJSONResp(JSON.stringify({ ok: true, imgdir: imgdir }));
+        return;
+    }
+
+    if (action === "import"){
+        if (typeof src === "undefined" || src.trim() === ""){
+            fail("src is required for import");
+            return;
+        }
+        if (!filelib.fileExists(src)){
+            fail("source image not found: " + src);
+            return;
+        }
+
+        var name = (typeof destname !== "undefined" && destname.trim() !== "")
+            ? destname : "image";
+        var dest = imgdir + "/" + name;
+
+        var wantCompress = (compress === "true" || compress === true);
+        var maxW = parseInt(maxwidth);
+        if (isNaN(maxW)) maxW = 0;
+
+        if (wantCompress && requirelib("imagelib")){
+            // Re-encode at (capped) original aspect ratio through imagelib.
+            var dim = imagelib.getImageDimension(src); // [w, h] or false
+            if (dim && dim.length === 2){
+                var w = dim[0], h = dim[1];
+                if (maxW > 0 && w > maxW){
+                    h = Math.round(h * (maxW / w));
+                    w = maxW;
+                }
+                if (imagelib.resizeImage(src, dest, w, h)){
+                    sendJSONResp(JSON.stringify({ ok: true, imgdir: imgdir, rel: reldir + "/" + name }));
+                    return;
+                }
+            }
+            // fall through to a plain copy if imagelib could not handle it
+        }
+
+        // Plain binary copy (no compression, or compression unavailable).
+        if (typeof _filelib_readBinaryFile === "function" &&
+            typeof _filelib_writeBinaryFile === "function"){
+            var hex = _filelib_readBinaryFile(src);
+            if (hex !== null && _filelib_writeBinaryFile(dest, hex)){
+                sendJSONResp(JSON.stringify({ ok: true, imgdir: imgdir, rel: reldir + "/" + name }));
+                return;
+            }
+        }
+
+        // Last resort: re-encode through imagelib at original size.
+        if (requirelib("imagelib")){
+            var d2 = imagelib.getImageDimension(src);
+            if (d2 && d2.length === 2 && imagelib.resizeImage(src, dest, d2[0], d2[1])){
+                sendJSONResp(JSON.stringify({ ok: true, imgdir: imgdir, rel: reldir + "/" + name }));
+                return;
+            }
+        }
+
+        fail("unable to import image");
+        return;
+    }
+
+    fail("unknown action: " + action);
+}
+
+main();

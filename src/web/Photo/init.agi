@@ -14,7 +14,7 @@ var moduleLaunchInfo = {
 	LaunchFWDir: "index.html",
 	SupportEmb: true,
 	LaunchEmb: "embedded.html",
-	InitFWSize: [900, 550],
+	InitFWSize: [1000, 700],
 	InitEmbSize: [900, 500],
 	SupportedExt: [".jpg",".jpeg",".gif",".png",".webp", ".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"]
 }

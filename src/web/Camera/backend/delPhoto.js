@@ -23,12 +23,13 @@ function deleteFile(){
         return
     }
 
-    //Check if it is supported image file extension
-    var ext = targetFilepath.split(".").pop();
-    if (ext != "png" && ext != "jpg"){
-        //This is not an image file. Reject delete operation
+    //Check if it is a supported photo or video file extension
+    var ext = targetFilepath.split(".").pop().toLowerCase();
+    var supportedExt = ["png", "jpg", "mp4", "webm"];
+    if (supportedExt.indexOf(ext) < 0){
+        //This is not a media file taken by Camera. Reject delete operation
         sendJSONResp(JSON.stringify({
-            error: "Target file is not an image taken by Camera"
+            error: "Target file is not a photo or video taken by Camera"
         }));
         return
     }

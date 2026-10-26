@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Screen Share — Arozcast</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg:     #0a0a0f;
+            --card:   rgba(255,255,255,.05);
+            --border: rgba(255,255,255,.1);
+            --accent: #b0b0b0;
+            --text:   #f0f0f5;
+            --text2:  #9090a8;
+            --green:  #22c55e;
+            --red:    #ef4444;
+            --blue:   #3b82f6;
+        }
+        html, body {
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .container { width: 100%; max-width: 480px; }
+
+        .header {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 32px;
+        }
+        .brand-icon { width: 42px; height: 42px; }
+        .brand-name { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+        .brand-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 11px; text-transform: uppercase; letter-spacing: .14em;
+            color: var(--text2); margin-bottom: 16px;
+        }
+
+        .code-row { display: flex; gap: 10px; }
+        .code-input {
+            flex: 1;
+            background: rgba(255,255,255,.07);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-size: 28px; font-weight: 700; letter-spacing: .25em;
+            text-align: center; outline: none;
+            transition: border-color .15s;
+        }
+        .code-input:focus { border-color: rgba(255,255,255,.3); }
+        .code-input::placeholder { color: var(--text2); font-size: 16px; letter-spacing: .1em; }
+
+        .btn {
+            padding: 12px 20px;
+            border-radius: 10px; border: none; cursor: pointer;
+            font-size: 14px; font-weight: 600;
+            transition: opacity .15s, transform .1s;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-green   { background: var(--green);  color: #000; }
+        .btn-red     { background: var(--red);    color: #fff; }
+        .btn-ghost   { background: rgba(255,255,255,.08); color: var(--text); }
+
+        .status-row {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: var(--text2);
+        }
+        .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--text2); flex-shrink: 0;
+        }
+        .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        .dot.blue  { background: var(--blue);  box-shadow: 0 0 6px var(--blue);  }
+        .dot.red   { background: var(--red); }
+
+        #localPreview {
+            width: 100%; border-radius: 10px; background: #000;
+            aspect-ratio: 16/9; object-fit: contain;
+            display: none; margin-top: 16px;
+        }
+        #localPreview.visible { display: block; }
+
+        .controls-row { display: flex; gap: 10px; margin-top: 16px; }
+        .controls-row .btn { flex: 1; }
+
+        .error-msg {
+            font-size: 13px; color: #fca5a5;
+            background: rgba(239,68,68,.08);
+            border: 1px solid rgba(239,68,68,.2);
+            border-radius: 8px; padding: 10px 14px;
+            margin-top: 12px; display: none;
+        }
+        .error-msg.visible { display: block; }
+
+        .hint {
+            font-size: 12px; color: var(--text2);
+            line-height: 1.65; margin-top: 14px;
+        }
+
+        #codeInput{
+            width: 100%;
+        }
+
+        /* ── Mobile / responsive ─────────────────────────────────────── */
+        @media (max-width: 420px) {
+            html, body { padding: 16px; }
+            .header { margin-bottom: 24px; gap: 12px; }
+            .card { padding: 18px; }
+            .code-input { font-size: 24px; padding: 11px 12px; }
+            /* Stack the share controls so the labels never get clipped */
+            .controls-row { flex-wrap: wrap; }
+            .controls-row .btn { flex: 1 1 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <img src="img/homepage_logo.png" style="width:64px;height:auto;" alt="Logo" class="cast-icon">
+
+        <div>
+            <div class="brand-name">Arozcast</div>
+            <div class="brand-sub">Screen Share</div>
+        </div>
+    </div>
+
+    <!-- Step 1: connect to room -->
+    <div class="card" id="connectCard">
+        <div class="card-title">Step 1 — Connect to receiver</div>
+        <div class="code-row">
+            <input class="code-input" id="codeInput" type="text" inputmode="numeric"
+                   maxlength="4" placeholder="0000" autocomplete="off">
+            <button class="btn btn-primary" id="connectBtn" onclick="connectRoom()">Connect</button>
+        </div>
+        <div style="margin-top:12px;">
+            <div class="status-row">
+                <div class="dot" id="connDot"></div>
+                <span id="connStatus">Enter the 4-digit code shown on the Arozcast receiver</span>
+            </div>
+        </div>
+        <div class="error-msg" id="connectError"></div>
+    </div>
+
+    <!-- Step 2: share controls (shown after connecting) -->
+    <div class="card" id="shareCard" style="display:none;">
+        <div class="card-title">Step 2 — Share your screen</div>
+        <div class="status-row">
+            <div class="dot green" id="shareDot"></div>
+            <span id="shareStatus">Connected</span>
+        </div>
+
+        <!-- Local preview (shown while sharing) -->
+        <video id="localPreview" muted playsinline autoplay></video>
+
+        <div class="controls-row">
+            <button class="btn btn-green"  id="startBtn"      onclick="startShare()">Start sharing</button>
+            <button class="btn btn-red"    id="stopBtn"       onclick="stopShare()"  style="display:none;" disabled>Stop sharing</button>
+            <button class="btn btn-ghost"  id="disconnectBtn" onclick="disconnect()">Disconnect</button>
+        </div>
+        <div class="error-msg" id="shareError"></div>
+        <p class="hint">
+            Your screen will be streamed live to the Arozcast receiver via a direct peer-to-peer connection.
+            System audio is included when your browser and OS support it.
+        </p>
+    </div>
+
+</div>
+<script>
+// ── WebRTC configuration ───────────────────────────────────────────────────
+// Default STUN-only config (works on a LAN). The TURN relay needed to traverse
+// NAT over the Internet is fetched from the server in loadIceServers().
+const RTC_CONFIG = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+    ]
+};
+
+// Fetch the server-provided ICE servers (STUN + built-in/configured TURN) so
+// screen share can connect over the Internet. Falls back to the STUN defaults
+// above if the request fails.
+async function loadIceServers(root) {
+    try {
+        const res  = await fetch(root + 'api/arozcast/iceservers');
+        const data = await res.json();
+        if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+            RTC_CONFIG.iceServers = data.iceServers;
+        }
+    } catch (e) { /* keep STUN defaults */ }
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let ws               = null;
+let pc               = null;   // RTCPeerConnection
+let stream           = null;   // MediaStream from getDisplayMedia
+let currentCode      = null;
+let heartbeatTimer   = null;
+let isSharing        = false;
+let iceQueue         = [];     // ICE candidates buffered before remote description is set
+
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const codeInput       = document.getElementById('codeInput');
+const connectBtn      = document.getElementById('connectBtn');
+const connDot         = document.getElementById('connDot');
+const connStatus      = document.getElementById('connStatus');
+const connectError    = document.getElementById('connectError');
+const connectCard     = document.getElementById('connectCard');
+const shareCard       = document.getElementById('shareCard');
+const shareStatus     = document.getElementById('shareStatus');
+const shareDot        = document.getElementById('shareDot');
+const startBtn        = document.getElementById('startBtn');
+const stopBtn         = document.getElementById('stopBtn');
+const disconnectBtn   = document.getElementById('disconnectBtn');
+const shareError      = document.getElementById('shareError');
+const localPreview    = document.getElementById('localPreview');
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function showError(el, msg) { el.textContent = msg; el.classList.add('visible'); }
+function clearError(el)     { el.classList.remove('visible'); }
+
+function setConnStatus(dotClass, html) {
+    connDot.className = 'dot' + (dotClass ? ' ' + dotClass : '');
+    connStatus.innerHTML = html;
+}
+function setShareStatus(dotClass, html) {
+    shareDot.className = 'dot' + (dotClass ? ' ' + dotClass : '');
+    shareStatus.innerHTML = html;
+}
+
+function wsSend(topic, payload) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ topic, payload: payload || {} }));
+    }
+}
+
+// ── Room connection ───────────────────────────────────────────────────────
+async function connectRoom() {
+    const code = codeInput.value.trim();
+    if (!/^\d{4}$/.test(code)) {
+        showError(connectError, 'Please enter a valid 4-digit room code.');
+        return;
+    }
+    clearError(connectError);
+    connectBtn.disabled = true;
+    codeInput.disabled  = true;
+    setConnStatus('', 'Checking room…');
+
+    const root = (typeof ao_root !== 'undefined' && ao_root) ? ao_root : '/';
+
+    try {
+        const res  = await fetch(root + 'api/arozcast/ping?code=' + code);
+        const data = await res.json();
+        if (!data.exists) {
+            showError(connectError, 'Room ' + code + ' not found. Check the code on the Arozcast receiver.');
+            connectBtn.disabled = false;
+            codeInput.disabled  = false;
+            setConnStatus('', 'Enter the 4-digit code shown on the Arozcast receiver');
+            return;
+        }
+    } catch (e) {
+        showError(connectError, 'Could not reach the server. Check your connection.');
+        connectBtn.disabled = false;
+        codeInput.disabled  = false;
+        return;
+    }
+
+    setConnStatus('', 'Connecting…');
+
+    // Load ICE servers now (while we have a network round-trip to spare) so the
+    // peer connection in startShare() — which must run inside the user gesture
+    // — has the TURN relay ready without an extra await before getDisplayMedia.
+    await loadIceServers(root);
+
+    const wsUrl = new URL(root + 'api/arozcast/ws?code=' + code, window.location.href);
+    wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(wsUrl.toString());
+
+    ws.onopen = () => {
+        currentCode = code;
+        wsSend('peer.hello', {});
+        heartbeatTimer = setInterval(() => wsSend('peer.heartbeat', {}), 5000);
+
+        connectCard.style.display = 'none';
+        shareCard.style.display   = 'block';
+        setShareStatus('green', 'Connected to room <strong>' + code + '</strong>');
+    };
+
+    ws.onmessage = (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); } catch (_) { return; }
+        handleMessage(msg);
+    };
+
+    ws.onclose = () => {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+        if (isSharing) _cleanupRTC();
+        if (currentCode) {
+            setShareStatus('red',
+                'Disconnected. <a href="" onclick="location.reload();return false;" style="color:#93c5fd;">Reconnect</a>');
+        }
+    };
+
+    ws.onerror = () => {};
+}
+
+// ── Incoming message handler ──────────────────────────────────────────────
+async function handleMessage(msg) {
+    switch (msg.topic) {
+        case 'webrtc.answer':
+            if (pc && pc.signalingState === 'have-local-offer') {
+                try {
+                    await pc.setRemoteDescription({ type: 'answer', sdp: msg.payload.sdp });
+                    for (const c of iceQueue) await pc.addIceCandidate(c).catch(() => {});
+                    iceQueue = [];
+                } catch (e) {
+                    showError(shareError, 'WebRTC negotiation failed: ' + e.message);
+                }
+            }
+            break;
+
+        case 'webrtc.ice':
+            if (pc) {
+                if (pc.remoteDescription) {
+                    pc.addIceCandidate(msg.payload.candidate).catch(() => {});
+                } else {
+                    iceQueue.push(msg.payload.candidate);
+                }
+            }
+            break;
+
+        case 'room.closed':
+            clearInterval(heartbeatTimer);
+            if (isSharing) _cleanupRTC();
+            setShareStatus('red', 'Room was closed by the server.');
+            break;
+    }
+}
+
+// ── Screen sharing ────────────────────────────────────────────────────────
+async function startShare() {
+    clearError(shareError);
+    startBtn.disabled = true;
+
+    try {
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    } catch (e) {
+        showError(shareError,
+            e.name === 'NotAllowedError'
+                ? 'Screen capture permission denied.'
+                : 'Could not start screen capture: ' + e.message);
+        startBtn.disabled = false;
+        return;
+    }
+
+    localPreview.srcObject = stream;
+    localPreview.classList.add('visible');
+
+    iceQueue = [];
+    pc = new RTCPeerConnection(RTC_CONFIG);
+
+    pc.onicecandidate = (e) => {
+        if (e.candidate) wsSend('webrtc.ice', { candidate: e.candidate.toJSON() });
+    };
+
+    pc.onconnectionstatechange = () => {
+        if (!pc) return;
+        if (pc.connectionState === 'connected') {
+            setShareStatus('blue', 'Streaming to room <strong>' + currentCode + '</strong>');
+        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+            showError(shareError, 'Peer connection lost. The receiver may have closed.');
+            stopShare(true);
+        }
+    };
+
+    for (const track of stream.getTracks()) {
+        pc.addTrack(track, stream);
+    }
+
+    // Handle user pressing the browser's native "Stop sharing" button
+    stream.getVideoTracks()[0].onended = () => stopShare();
+
+    wsSend('screen.start', {});
+
+    try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        wsSend('webrtc.offer', { sdp: offer.sdp, type: offer.type });
+    } catch (e) {
+        showError(shareError, 'Failed to create WebRTC offer: ' + e.message);
+        stopShare(true);
+        return;
+    }
+
+    isSharing = true;
+    startBtn.style.display      = 'none';
+    stopBtn.style.display       = 'block';
+    stopBtn.disabled            = false;
+    disconnectBtn.disabled      = true;
+    setShareStatus('blue', 'Connecting to receiver… room <strong>' + currentCode + '</strong>');
+}
+
+function stopShare(silent) {
+    _cleanupRTC();
+    if (!silent) wsSend('screen.stop', {});
+
+    startBtn.style.display  = 'block';
+    startBtn.disabled       = false;
+    stopBtn.style.display   = 'none';
+    stopBtn.disabled        = true;
+    disconnectBtn.disabled  = false;
+    setShareStatus('green', 'Connected to room <strong>' + currentCode + '</strong>');
+}
+
+function _cleanupRTC() {
+    isSharing = false;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    if (pc)     { pc.close(); pc = null; }
+    localPreview.srcObject = null;
+    localPreview.classList.remove('visible');
+}
+
+function disconnect() {
+    if (isSharing) stopShare();
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    currentCode    = null;
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+
+    connectCard.style.display = 'block';
+    shareCard.style.display   = 'none';
+    connectBtn.disabled = false;
+    codeInput.disabled  = false;
+    codeInput.value     = '';
+    setConnStatus('', 'Enter the 4-digit code shown on the Arozcast receiver');
+}
+
+// ── Keyboard shortcut ────────────────────────────────────────────────────
+codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') connectRoom(); });
+
+// ── Clean up on unload ────────────────────────────────────────────────────
+window.addEventListener('beforeunload', () => {
+    if (isSharing) _cleanupRTC();
+    if (ws) { ws.onclose = null; ws.close(); }
+});
+</script>
+</body>
+</html>

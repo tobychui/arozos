@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#0078d4">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <title>Zip File Manager</title>
+    <style>
+        /* ── CSS variables: light (default) ─────────────────── */
+        :root {
+            --bg:           #f3f3f3;
+            --toolbar-bg:   #ffffff;
+            --header-bg:    #fafafa;
+            --row-hover:    #f5f5f5;
+            --row-sel:      #ddeeff;
+            --border:       #e0e0e0;
+            --border-faint: #f0f0f0;
+            --text:         #201f1e;
+            --text-muted:   #797775;
+            --text-head:    #605e5c;
+            --accent:       #0078d4;
+            --accent-hover: #106ebe;
+            --btn-bg:       #ffffff;
+            --btn-border:   #d1d1d1;
+            --statusbar-bg: #f9f9f9;
+            --drop-overlay-bg: rgba(0,120,212,0.07);
+        }
+        body.dark {
+            --bg:           #1f1f1f;
+            --toolbar-bg:   #2b2b2b;
+            --header-bg:    #262626;
+            --row-hover:    #333333;
+            --row-sel:      #1a3a5c;
+            --border:       #3a3a3a;
+            --border-faint: #2e2e2e;
+            --text:         #e0e0e0;
+            --text-muted:   #999999;
+            --text-head:    #aaaaaa;
+            --accent:       #4ca3e0;
+            --accent-hover: #6ab4e8;
+            --btn-bg:       #333333;
+            --btn-border:   #4a4a4a;
+            --statusbar-bg: #252525;
+            --drop-overlay-bg: rgba(76,163,224,0.12);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        /* ── Toolbar ──────────────────────────────────────────── */
+        .toolbar {
+            height: 44px;
+            background: var(--toolbar-bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .toolbar-sep {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 11px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid var(--btn-border);
+            background: var(--btn-bg);
+            color: var(--text);
+            transition: background 0.1s, border-color 0.1s;
+            white-space: nowrap;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .btn:hover:not(:disabled) { background: var(--row-hover); }
+        .btn:disabled { opacity: 0.45; cursor: default; }
+
+        /* Toolbar SVG icons are monochrome dark-fill → invert in dark mode */
+        .btn img {
+            width: 14px;
+            height: 14px;
+        }
+        body.dark .btn img {
+            filter: invert(0.85) brightness(1.1);
+        }
+
+        /* ── Breadcrumb ───────────────────────────────────────── */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .crumb {
+            font-size: 13px;
+            color: var(--accent);
+            cursor: pointer;
+            padding: 3px 5px;
+            border-radius: 3px;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .crumb:hover { background: var(--row-hover); }
+        .crumb.current { color: var(--text); cursor: default; font-weight: 600; }
+        .crumb.current:hover { background: transparent; }
+        .crumb-sep { color: var(--text-muted); padding: 0 1px; font-size: 12px; flex-shrink: 0; }
+
+        /* ── File list container ─────────────────────────────── */
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* ── File table ───────────────────────────────────────── */
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .file-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 7px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-head);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            text-align: left;
+            user-select: none;
+        }
+        .file-table thead th:first-child { width: 34px; padding-left: 12px; }
+        .file-table thead th.col-size { width: 88px; text-align: right; padding-right: 14px; }
+
+        .file-row {
+            border-bottom: 1px solid var(--border-faint);
+            cursor: pointer;
+            user-select: none;
+        }
+        .file-row:hover { background: var(--row-hover); }
+        .file-row.selected { background: var(--row-sel); }
+
+        .file-row td {
+            padding: 6px 8px;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+        .file-row td:first-child { padding-left: 12px; }
+        .file-row td.col-size { text-align: right; padding-right: 14px; color: var(--text-muted); font-size: 12px; }
+
+        .file-cell {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        /* File-type icons are colored PNGs — no filter, they look fine on any background */
+        .file-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
+
+        /* ── Placeholder ──────────────────────────────────────── */
+        .placeholder {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .placeholder-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            opacity: 0.35;
+        }
+
+        .open-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 16px;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            transition: opacity 0.1s;
+            user-select: none;
+        }
+        .open-btn:hover { opacity: 0.85; }
+        body.dark .open-btn img { filter: invert(1); }
+
+        /* ── Progress bar ─────────────────────────────────────── */
+        #progressBar {
+            height: 3px;
+            background: var(--border);
+            flex-shrink: 0;
+            overflow: hidden;
+            display: none;
+        }
+        #progressBar.active { display: block; }
+        #progressInner {
+            height: 100%;
+            width: 35%;
+            background: var(--accent);
+            animation: progressSlide 1.4s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+        }
+        @keyframes progressSlide {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(310%); }
+        }
+
+        /* ── Status bar ───────────────────────────────────────── */
+        .statusbar {
+            height: 26px;
+            background: var(--statusbar-bg);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            gap: 14px;
+            flex-shrink: 0;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ── Toast ────────────────────────────────────────────── */
+        #toast {
+            position: fixed;
+            bottom: 34px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #323130;
+            color: #fff;
+            padding: 7px 18px;
+            border-radius: 4px;
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 300;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: calc(100vw - 32px);
+        }
+        body.dark #toast { background: #444; }
+        #toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="breadcrumb" id="breadcrumb">
+            <span class="crumb current" id="rootCrumb">Loading…</span>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <button class="btn" id="btnExtractAll" title="Extract all files to a folder"
+                onclick="extractAll()" disabled>
+            <img src="img/icons/extract.svg" alt="">
+            Extract All
+        </button>
+        <button class="btn" id="btnExtractSel" title="Extract selected items to a folder"
+                onclick="extractSelected()" disabled>
+            <img src="img/icons/extract.svg" alt="">
+            Extract Selected
+        </button>
+    </div>
+
+    <!-- File list -->
+    <div class="list-container" id="listContainer">
+<div class="placeholder" id="placeholder">
+            <img class="placeholder-icon"
+                 src="../img/desktop/files_icon/default/file archive outline.png" alt="">
+            <div>Loading…</div>
+        </div>
+
+        <table class="file-table" id="fileTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>
+                    <th>Name</th>
+                    <th class="col-size">Size</th>
+                </tr>
+            </thead>
+            <tbody id="fileBody"></tbody>
+        </table>
+    </div>
+
+    <div id="progressBar"><div id="progressInner"></div></div>
+
+    <!-- Status bar -->
+    <div class="statusbar">
+        <span id="statusItems">0 items</span>
+        <span id="statusSel" style="display:none;">·&nbsp;<span id="statusSelCount">0</span> selected</span>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        /* ── Icon paths ─────────────────────────────────────── */
+        var ICON_BASE = "../img/desktop/files_icon/default/";
+        var ICON_MAP = {
+            // images
+            jpg:"file image outline.png", jpeg:"file image outline.png",
+            png:"file image outline.png", gif:"file image outline.png",
+            webp:"file image outline.png", bmp:"file image outline.png",
+            svg:"file image outline.png", ico:"file image outline.png",
+            // video
+            mp4:"file video outline.png", mkv:"file video outline.png",
+            avi:"file video outline.png", mov:"file video outline.png",
+            webm:"file video outline.png", flv:"file video outline.png",
+            // audio
+            mp3:"file audio outline.png", ogg:"file audio outline.png",
+            flac:"file audio outline.png", wav:"file audio outline.png",
+            aac:"file audio outline.png", m4a:"file audio outline.png",
+            // documents
+            pdf:"file pdf outline.png",
+            doc:"file word outline.png",  docx:"file word outline.png",
+            xls:"file excel outline.png", xlsx:"file excel outline.png",
+            ppt:"file powerpoint outline.png", pptx:"file powerpoint outline.png",
+            // text / markup
+            txt:"file text outline.png", md:"file text outline.png",
+            csv:"file text outline.png", log:"file text outline.png",
+            // archives
+            zip:"file archive outline.png", tar:"file archive outline.png",
+            gz:"file archive outline.png",  rar:"file archive outline.png",
+            "7z":"file archive outline.png", bz2:"file archive outline.png",
+            // code
+            js:"file code outline.png",   ts:"file code outline.png",
+            py:"file code outline.png",   go:"file code outline.png",
+            html:"file code outline.png", css:"file code outline.png",
+            json:"file code outline.png", xml:"file code outline.png",
+            sh:"file code outline.png",   bat:"file code outline.png",
+            c:"file code outline.png",    cpp:"file code outline.png",
+            h:"file code outline.png",    java:"file code outline.png",
+            cs:"file code outline.png",   php:"file code outline.png",
+            rb:"file code outline.png",   rs:"file code outline.png",
+            kt:"file code outline.png",   swift:"file code outline.png",
+            lua:"file code outline.png",  agi:"file code outline.png",
+            yml:"file code outline.png",  yaml:"file code outline.png",
+            ini:"file code outline.png",  toml:"file code outline.png"
+        };
+
+        function getFileIconSrc(name) {
+            var ext = name.split(".").pop().toLowerCase();
+            return ICON_BASE + (ICON_MAP[ext] || "file outline.png");
+        }
+
+        /* ── State ──────────────────────────────────────────── */
+        var zipPath      = "";
+        var zipFilename  = "";
+        var currentDir   = "";
+        var dirStack     = [];   // [{label, fullPath}]
+        var items        = [];
+        var pendingExtractPaths = [];  // set before opening folder selector
+
+        /* ── Theme ──────────────────────────────────────────── */
+        function applyTheme(mode) {
+            document.body.classList.toggle("dark", mode === "dark");
+        }
+
+        // Desktop calls this when the user toggles the global theme
+        window.desktopThemeChanged = function(theme) {
+            applyTheme(theme === "dark" ? "dark" : "light");
+        };
+
+        /* ── Named file-selector callbacks (must be window-scope) ── */
+        window.zfmOnOpenFile = function(selected) {
+            if (!selected || selected.length === 0) return;
+            zipPath     = selected[0].filepath;
+            zipFilename = selected[0].filename;
+            ao_module_setWindowTitle("Zip — " + zipFilename);
+            document.getElementById("btnExtractAll").disabled = false;
+            dirStack  = [];
+            loadDirectory("");
+        };
+
+        window.zfmOnExtractAllDest = function(selected) {
+            if (!selected || selected.length === 0) return;
+            doExtractAll(selected[0].filepath);
+        };
+
+        window.zfmOnExtractSelDest = function(selected) {
+            if (!selected || selected.length === 0) return;
+            doExtractPartial(pendingExtractPaths, selected[0].filepath);
+        };
+
+        /* ── Init ───────────────────────────────────────────── */
+        (function init() {
+            // Apply current theme
+            ao_module_getSystemThemeColor(function(themeStr) {
+                applyTheme(themeStr === "darkTheme" ? "dark" : "light");
+            });
+
+            var fileInfo = ao_module_loadInputFiles();
+            if (!fileInfo || fileInfo.length === 0) {
+                showOpenPrompt();
+                return;
+            }
+            zipPath     = fileInfo[0].filepath;
+            zipFilename = fileInfo[0].filename;
+            ao_module_setWindowTitle("Zip — " + zipFilename);
+            document.getElementById("btnExtractAll").disabled = false;
+            loadDirectory("");
+        })();
+
+        /* ── Directory loading ───────────────────────────────── */
+        function loadDirectory(dir) {
+            currentDir = dir;
+            showPlaceholder("Loading…");
+            ao_module_agirun("Zip File Manager/backend/list.agi",
+                { src: zipPath, dir: dir },
+                function(data) {
+                    if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                    if (data && data.error) { showPlaceholder("Error: " + data.error); return; }
+                    if (!Array.isArray(data))  { showPlaceholder("Unexpected server response."); return; }
+                    items = data;
+                    renderList(data);
+                    updateBreadcrumb();
+                    updateStatus();
+                },
+                function() { showPlaceholder("Failed to load directory."); }
+            );
+        }
+
+        /* ── Render ─────────────────────────────────────────── */
+        function renderList(list) {
+            if (list.length === 0) { showPlaceholder("This folder is empty."); return; }
+
+            var tbody = document.getElementById("fileBody");
+            tbody.innerHTML = "";
+
+            var dirs  = list.filter(function(n) { return n.endsWith("/"); }).sort();
+            var files = list.filter(function(n) { return !n.endsWith("/"); }).sort();
+
+            dirs.concat(files).forEach(function(name) {
+                var isDir = name.endsWith("/");
+                var displayName = isDir ? name.slice(0, -1) : name;
+                var arcPath = currentDir ? currentDir + name : name;
+
+                var iconSrc = isDir
+                    ? (ICON_BASE + "folder.png")
+                    : getFileIconSrc(name);
+
+                var tr = document.createElement("tr");
+                tr.className = "file-row";
+                tr.dataset.arcPath = arcPath;
+                tr.dataset.isDir   = isDir ? "1" : "0";
+
+                tr.innerHTML =
+                    '<td><input type="checkbox" class="item-chk"' +
+                    '     onclick="event.stopPropagation();" onchange="onCheckChange()"></td>' +
+                    '<td><div class="file-cell">' +
+                    '  <img class="file-icon" src="' + escAttr(iconSrc) + '" alt="">' +
+                    '  <span class="file-name" title="' + escAttr(displayName) + '">' + escHtml(displayName) + '</span>' +
+                    '</div></td>' +
+                    '<td class="col-size"></td>';
+
+                // Single click → toggle selection only
+                tr.addEventListener("click", function(e) {
+                    if (e.target.type === "checkbox") return;
+                    var chk = tr.querySelector(".item-chk");
+                    chk.checked = !chk.checked;
+                    tr.classList.toggle("selected", chk.checked);
+                    onCheckChange();
+                });
+
+                // Double click → open (navigate folder, preview file)
+                tr.addEventListener("dblclick", function(e) {
+                    if (isDir) {
+                        navigateInto(name);
+                    } else {
+                        previewFile(arcPath);
+                    }
+                });
+
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById("placeholder").style.display = "none";
+            document.getElementById("fileTable").style.display = "";
+            document.getElementById("chkAll").checked = false;
+        }
+
+        function showPlaceholder(msg) {
+            document.getElementById("fileTable").style.display = "none";
+            var ph = document.getElementById("placeholder");
+            ph.innerHTML =
+                '<img class="placeholder-icon" src="' + ICON_BASE + 'file archive outline.png" alt="">' +
+                '<div>' + escHtml(msg) + '</div>';
+            ph.style.display = "";
+        }
+
+        function showOpenPrompt() {
+            document.getElementById("fileTable").style.display = "none";
+            var ph = document.getElementById("placeholder");
+            ph.innerHTML =
+                '<img class="placeholder-icon" src="' + ICON_BASE + 'file archive outline.png" alt="" style="width:64px;height:64px;opacity:0.25;">' +
+                '<div style="margin-bottom:4px;font-size:14px;font-weight:600;">No file open</div>' +
+                '<div>Select a zip file to browse its contents</div>' +
+                '<button class="open-btn" onclick="openZipFromSelector()">' +
+                '  <img src="img/icons/extract.svg" alt="" style="width:14px;height:14px;transform:rotate(180deg);">' +
+                '  Open Zip File…' +
+                '</button>';
+            ph.style.display = "";
+        }
+
+        function openZipFromSelector() {
+            ao_module_openFileSelector(
+                window.zfmOnOpenFile,
+                "user:/", "file", false,
+                { fnameOverride: "zfmOnOpenFile" }
+            );
+        }
+
+        /* ── Navigation ──────────────────────────────────────── */
+        function navigateInto(name) {
+            dirStack.push({ label: name.slice(0, -1), fullPath: currentDir + name });
+            loadDirectory(currentDir + name);
+        }
+
+        function navigateTo(stackIndex) {
+            var targetPath = (stackIndex === 0) ? "" : dirStack[stackIndex - 1].fullPath;
+            dirStack = dirStack.slice(0, stackIndex);
+            loadDirectory(targetPath);
+        }
+
+        /* ── Breadcrumb ──────────────────────────────────────── */
+        function updateBreadcrumb() {
+            var bc = document.getElementById("breadcrumb");
+            var segs = [{ label: zipFilename }].concat(dirStack);
+            bc.innerHTML = segs.map(function(seg, i) {
+                var isCurrent = (i === segs.length - 1);
+                return '<span class="crumb' + (isCurrent ? " current" : "") + '"' +
+                       (isCurrent ? "" : ' onclick="navigateTo(' + i + ')"') + '>' +
+                       escHtml(seg.label) + '</span>' +
+                       (isCurrent ? "" : '<span class="crumb-sep">›</span>');
+            }).join("");
+        }
+
+        /* ── Selection helpers ───────────────────────────────── */
+        function toggleAll(masterChk) {
+            document.querySelectorAll(".item-chk").forEach(function(chk) {
+                chk.checked = masterChk.checked;
+                chk.closest("tr").classList.toggle("selected", masterChk.checked);
+            });
+            onCheckChange();
+        }
+
+        function onCheckChange() {
+            var count = document.querySelectorAll(".item-chk:checked").length;
+            document.getElementById("btnExtractSel").disabled = (count === 0);
+            document.getElementById("chkAll").indeterminate =
+                (count > 0 && count < document.querySelectorAll(".item-chk").length);
+            if (count === document.querySelectorAll(".item-chk").length && count > 0) {
+                document.getElementById("chkAll").checked = true;
+                document.getElementById("chkAll").indeterminate = false;
+            } else if (count === 0) {
+                document.getElementById("chkAll").checked = false;
+                document.getElementById("chkAll").indeterminate = false;
+            }
+            updateStatus();
+        }
+
+        function getSelectedArcPaths() {
+            var paths = [];
+            document.querySelectorAll(".item-chk:checked").forEach(function(chk) {
+                paths.push(chk.closest("tr").dataset.arcPath);
+            });
+            return paths;
+        }
+
+        /* ── Status bar ──────────────────────────────────────── */
+        function updateStatus() {
+            var total = document.querySelectorAll(".item-chk").length;
+            var sel   = document.querySelectorAll(".item-chk:checked").length;
+            document.getElementById("statusItems").textContent =
+                total + " item" + (total !== 1 ? "s" : "");
+            var selSpan = document.getElementById("statusSel");
+            if (sel > 0) {
+                document.getElementById("statusSelCount").textContent = sel;
+                selSpan.style.display = "";
+            } else {
+                selSpan.style.display = "none";
+            }
+        }
+
+        /* ── Extract All ─────────────────────────────────────── */
+        function extractAll() {
+            ao_module_openFileSelector(
+                window.zfmOnExtractAllDest,
+                "user:/", "folder", false,
+                { fnameOverride: "zfmOnExtractAllDest" }
+            );
+        }
+
+        function doExtractAll(dest) {
+            showProgress();
+            showToast("Extracting all files…");
+            ao_module_agirun("Zip File Manager/backend/extractAll.agi",
+                { src: zipPath, dest: dest },
+                function(data) {
+                    hideProgress();
+                    if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                    if (data && data.error) { showToast("Error: " + data.error); return; }
+                    showToast("Extraction complete.");
+                    if (ao_module_virtualDesktop) { ao_module_openPath(dest); }
+                },
+                function() { hideProgress(); showToast("Extraction failed."); }
+            );
+        }
+
+        /* ── Extract Selected ────────────────────────────────── */
+        function extractSelected() {
+            pendingExtractPaths = getSelectedArcPaths();
+            if (pendingExtractPaths.length === 0) return;
+            ao_module_openFileSelector(
+                window.zfmOnExtractSelDest,
+                "user:/", "folder", false,
+                { fnameOverride: "zfmOnExtractSelDest" }
+            );
+        }
+
+        function doExtractPartial(paths, dest) {
+            showProgress();
+            showToast("Extracting " + paths.length + " item(s)…");
+            ao_module_agirun("Zip File Manager/backend/extractPartial.agi",
+                { src: zipPath, files: JSON.stringify(paths), dest: dest },
+                function(data) {
+                    hideProgress();
+                    if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                    if (data && data.error) { showToast("Error: " + data.error); return; }
+                    showToast("Extracted " + paths.length + " item(s).");
+                    if (ao_module_virtualDesktop) { ao_module_openPath(dest); }
+                },
+                function() { hideProgress(); showToast("Extraction failed."); }
+            );
+        }
+
+        /* ── Preview ─────────────────────────────────────────── */
+        function previewFile(arcPath) {
+            showToast("Preparing preview…");
+            ao_module_agirun("Zip File Manager/backend/preview.agi",
+                { src: zipPath, file: arcPath },
+                function(data) {
+                    if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                    if (data && data.error) { showToast("Preview failed: " + data.error); return; }
+                    var tmpPath  = data.path;
+                    var filename = tmpPath.split("/").pop();
+                    var ext      = "." + filename.split(".").pop().toLowerCase();
+
+                    if (!ao_module_virtualDesktop) {
+                        ao_module_openPath("tmp:/", filename);
+                        return;
+                    }
+                    $.get(ao_root + "system/modules/getDefault",
+                        { opr: "launch", ext: ext, mode: "launch" },
+                        function(moduleInfo) {
+                            var fileList = [{ filepath: tmpPath, filename: filename }];
+                            if (moduleInfo && !moduleInfo.error) {
+                                parent.openFileWithModule(moduleInfo, fileList);
+                            } else {
+                                var param = encodeURIComponent(JSON.stringify(fileList[0]));
+                                parent.newFloatWindow({
+                                    url: "SystemAO/file_system/defaultOpener.html#" + param,
+                                    width: 320, height: 510,
+                                    appicon: "SystemAO/file_system/img/opener.png",
+                                    title: "Open with…"
+                                });
+                            }
+                        }
+                    ).fail(function() { ao_module_openPath("tmp:/", filename); });
+                },
+                function() { showToast("Preview extraction failed."); }
+            );
+        }
+
+        /* ── Progress bar ───────────────────────────────────── */
+        function showProgress() {
+            document.getElementById("progressBar").classList.add("active");
+        }
+        function hideProgress() {
+            document.getElementById("progressBar").classList.remove("active");
+        }
+
+        /* ── Utilities ───────────────────────────────────────── */
+        var _toastTimer = null;
+        function showToast(msg) {
+            var el = document.getElementById("toast");
+            el.textContent = msg;
+            el.classList.add("show");
+            if (_toastTimer) clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(function() { el.classList.remove("show"); }, 2800);
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                            .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        }
+
+        function escAttr(s) { return escHtml(s); }
+    </script>
+</body>
+</html>
