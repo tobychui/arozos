@@ -35,6 +35,22 @@ func UserSystemInit() {
 	}
 	userHandler = uh
 
+	//Account creation through /system/auth/register needs the user and permission handlers
+	authAgent.RegisterAuthorizer = &auth.RegisterAuthorizer{
+		CallerIsAdmin: func(w http.ResponseWriter, r *http.Request) bool {
+			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+			return err == nil && userinfo.IsAdmin()
+		},
+		GroupExists: func(group string) bool {
+			//Exact match, group membership lookups are case sensitive
+			return permissionHandler.GetPermissionGroupByName(group) != nil
+		},
+		GroupIsAdmin: func(group string) bool {
+			pg := permissionHandler.GetPermissionGroupByName(group)
+			return pg != nil && pg.IsAdmin
+		},
+	}
+
 	/*
 		router := prout.NewModuleRouter(prout.RouterOption{
 			ModuleName:  "System Settings",

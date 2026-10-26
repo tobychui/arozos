@@ -176,7 +176,8 @@
         $.post("../../system/auth/register", { username: username, password: password, group: usergroup })
             .done(function(data) {
                 $(btn).removeClass("loading");
-                if (!data.includes("Error")) {
+                var errMsg = nuRegisterErrorMessage(data);
+                if (errMsg === null) {
                     try {
                         if (!(!parent.isDesktopMode)) {
                             ao_module_parentCallback(true);
@@ -186,7 +187,7 @@
                     } catch(e) {}
                     window.location.href = "../../SystemAO/closeTabInsturction.html";
                 } else {
-                    $("#nu-err-msg").text(data);
+                    $("#nu-err-msg").text(errMsg);
                     $("#nu-error").slideDown('fast');
                 }
             })
@@ -195,6 +196,13 @@
                 $("#nu-err-msg").text(nuLocale.getString('newuser/err-request-failed', 'Request failed. Please try again.'));
                 $("#nu-error").slideDown('fast');
             });
+    }
+
+    // Register replies with "Error. ..." text or a {"error": "..."} object on failure
+    function nuRegisterErrorMessage(data) {
+        if (data && typeof data === "object" && data.error !== undefined) return String(data.error);
+        if (typeof data === "string" && data.includes("Error")) return data;
+        return null;
     }
 
     function nuCancel() {

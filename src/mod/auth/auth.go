@@ -74,6 +74,18 @@ type AuthAgent struct {
 
 	//Logger
 	Logger *authlogger.Logger
+
+	//Account creation policy for /system/auth/register, wired in by main
+	RegisterAuthorizer *RegisterAuthorizer
+}
+
+// RegisterAuthorizer holds the permission checks HandleRegister needs. The auth
+// package cannot import the user or permission packages (both import auth), so
+// main fills these in once the user and permission handlers exist.
+type RegisterAuthorizer struct {
+	CallerIsAdmin func(w http.ResponseWriter, r *http.Request) bool //Signed-in caller belongs to an admin group
+	GroupExists   func(group string) bool                           //Permission group is defined
+	GroupIsAdmin  func(group string) bool                           //Permission group grants admin rights
 }
 
 type AuthEndpoints struct {
@@ -391,9 +403,9 @@ func (a *AuthAgent) CheckLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handle new user register. Require POST username, password, group.
+// With no users in the system this creates the first (admin) account without
+// login, otherwise only an administrator may create accounts.
 func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
-	userCount := a.GetUserCounts()
-
 	//Get username from request
 	newusername, err := utils.PostPara(r, "username")
 	if err != nil {
@@ -415,15 +427,16 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Check if the number of users in the system is == 0. If yes, there are no need to login before registering new user
-	if userCount > 0 {
-		//Require login to create new user
-		if a.CheckAuth(r) == false {
-			//System have more than one person and this user is not logged in
-			sendErrorResponse(w, "Login is needed to create new user")
-			return
-		}
+	err = a.checkRegisterPermission(w, r, group)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
 
+	//Never overwrite an existing account (and its password) from here
+	if a.UserExists(newusername) {
+		sendErrorResponse(w, "Username already taken")
+		return
 	}
 
 	//Ok to proceed create this user
@@ -436,7 +449,37 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	//Return to the client with OK
 	sendOK(w)
 	logger.PrintAndLog("Auth", "[System Auth] New user "+newusername+" added to system.", nil)
-	return
+}
+
+// checkRegisterPermission decides whether the request may create an account in
+// the given group. It fails closed when no RegisterAuthorizer is wired in.
+func (a *AuthAgent) checkRegisterPermission(w http.ResponseWriter, r *http.Request, group string) error {
+	authz := a.RegisterAuthorizer
+	if authz == nil || authz.CallerIsAdmin == nil || authz.GroupExists == nil || authz.GroupIsAdmin == nil {
+		return errors.New("Account registration is not available")
+	}
+
+	if a.GetUserCounts() == 0 {
+		//First run setup: no login needed, but the first account must be able to administrate the system
+		if !authz.GroupExists(group) || !authz.GroupIsAdmin(group) {
+			return errors.New("The first account must be created in an administrator group")
+		}
+		return nil
+	}
+
+	//Require login to create new user
+	if !a.CheckAuth(r) {
+		return errors.New("Login is needed to create new user")
+	}
+
+	if !authz.CallerIsAdmin(w, r) {
+		return errors.New("Permission denied")
+	}
+
+	if !authz.GroupExists(group) {
+		return errors.New("Permission group not exists")
+	}
+	return nil
 }
 
 // Check authentication from request header's session value

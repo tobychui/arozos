@@ -369,7 +369,8 @@ function createUser() {
 
     $.post("system/auth/register", { username: username, password: password, group: usergroup })
         .done(function(data) {
-            if (!data.includes("Error")) {
+            var errMsg = registerErrorMessage(data);
+            if (errMsg === null) {
                 $.get("system/auth/checkLogin", function(loggedIn) {
                     if (loggedIn == true) {
                         try {
@@ -385,9 +386,16 @@ function createUser() {
                     }
                 });
             } else {
-                $("#uu-err").text(data).slideDown('fast');
+                $("#uu-err").text(errMsg).slideDown('fast');
             }
         });
+}
+
+/* Register replies with "Error. ..." text or a {"error": "..."} object on failure */
+function registerErrorMessage(data) {
+    if (data && typeof data === "object" && data.error !== undefined) return String(data.error);
+    if (typeof data === "string" && data.includes("Error")) return data;
+    return null;
 }
 
 function cancel() {
