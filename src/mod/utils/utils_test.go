@@ -499,6 +499,7 @@ func TestValidateFilename(t *testing.T) {
 		`quote"name`,
 		"less<than",
 		"greater>than",
+		"trailing.dot.",
 		"日本語のファイル.txt",
 	}
 	for _, name := range validNames {
@@ -511,6 +512,9 @@ func TestValidateFilename(t *testing.T) {
 		"",
 		".",
 		"..",
+		".. ",
+		"...",
+		". ",
 		"file/with/slashes.txt",
 		`back\slash.txt`,
 		"line\nbreak.txt",
@@ -521,6 +525,47 @@ func TestValidateFilename(t *testing.T) {
 	for _, name := range invalidNames {
 		if err := ValidateFilename(name); err == nil {
 			t.Errorf("expected %q to be invalid", name)
+		}
+	}
+}
+
+// --- ValidateRelativePath ---
+
+func TestValidateRelativePath(t *testing.T) {
+	validPaths := map[string]string{
+		"file.txt":              "file.txt",
+		"folder/file.txt":       "folder/file.txt",
+		"50% off/file+name.txt": "50% off/file+name.txt",
+		`folder\file.txt`:       "folder/file.txt",
+	}
+	for input, expected := range validPaths {
+		got, err := ValidateRelativePath(input)
+		if err != nil {
+			t.Errorf("expected %q to be valid, got %v", input, err)
+			continue
+		}
+		if got != expected {
+			t.Errorf("expected %q to normalize to %q, got %q", input, expected, got)
+		}
+	}
+
+	invalidPaths := []string{
+		"",
+		"/etc/passwd",
+		"../evil.txt",
+		"folder/../../evil.txt",
+		"folder//file.txt",
+		"./file.txt",
+		"folder/.. /evil.txt",
+		"folder/.../evil.txt",
+		"folder/.",
+		`..\evil.txt`,
+		"//server/share/evil.txt",
+		"folder/a\nb.txt",
+	}
+	for _, path := range invalidPaths {
+		if _, err := ValidateRelativePath(path); err == nil {
+			t.Errorf("expected %q to be invalid", path)
 		}
 	}
 }

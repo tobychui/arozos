@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -232,7 +233,13 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 	if downloadMode {
 		filename := filepath.Base(realFilepath)
 
-		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+		//Format the filename as a MIME parameter so quotes, CR/LF or non-ASCII
+		//characters cannot break or inject into the Content-Disposition header.
+		disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
+		if disposition == "" {
+			disposition = "attachment"
+		}
+		w.Header().Set("Content-Disposition", disposition)
 		w.Header().Set("Content-Type", compatibility.BrowserCompatibilityOverrideContentType(r.UserAgent(), filename, r.Header.Get("Content-Type")))
 		if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
 			//Stream it directly from remote

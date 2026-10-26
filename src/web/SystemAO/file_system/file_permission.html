@@ -158,7 +158,7 @@
 
             if (files.length == 1){
                 var filename = files[0].split("/").pop();
-                $("#filename").append(filename);
+                $("#filename").text(filename);
             }else{
                 $("#filename").append(`<i class="file icon"></i>` + files.length + " files selected");
             }

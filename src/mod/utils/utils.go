@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -245,6 +246,11 @@ func ValidateFilename(filename string) error {
 	if filename == "." || filename == ".." {
 		return errors.New("filename cannot be . or ..")
 	}
+	//Windows strips trailing spaces and dots from path components, which can
+	//turn names like ".. " into "..". Reject those traversal-like variants.
+	if trimmed := strings.TrimRight(filename, " ."); trimmed == "" || trimmed == "." || trimmed == ".." {
+		return errors.New("filename cannot be . or ..")
+	}
 	if strings.ContainsAny(filename, `/\`) {
 		return errors.New("filename cannot contain path separators")
 	}
@@ -254,4 +260,34 @@ func ValidateFilename(filename string) error {
 		}
 	}
 	return nil
+}
+
+// ValidateRelativePath checks a relative path made of one or more filename
+// segments, as produced by browsers for directory uploads. It rejects absolute
+// paths, dot segments, empty segments and segments that ValidateFilename
+// rejects, and returns the path with forward slashes.
+func ValidateRelativePath(relativePath string) (string, error) {
+	//Browsers use forward slashes, but a crafted request may use backslashes.
+	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
+	if relativePath == "" {
+		return "", errors.New("path cannot be empty")
+	}
+	if strings.HasPrefix(relativePath, "/") || filepath.IsAbs(relativePath) || filepath.VolumeName(relativePath) != "" {
+		return "", errors.New("path must be relative")
+	}
+
+	segments := strings.Split(relativePath, "/")
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", errors.New("path contains invalid segments")
+		}
+		if filepath.VolumeName(segment) != "" {
+			return "", errors.New("path contains invalid segments")
+		}
+		if err := ValidateFilename(segment); err != nil {
+			return "", err
+		}
+	}
+
+	return strings.Join(segments, "/"), nil
 }

@@ -395,6 +395,14 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//A low-memory upload always targets a single file name. Reject separators
+	//and dot segments so the write cannot escape the selected directory.
+	if err := utils.ValidateFilename(filename); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - Invalid filename given"))
+		return
+	}
+
 	//Get upload target directory
 	uploadTarget, err := utils.GetPara(r, "path")
 	if uploadTarget == "" || err != nil {
@@ -858,6 +866,14 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+	}
+
+	//Reject absolute paths, traversal segments and separators that could
+	//escape the upload target. Directory uploads keep their relative layout.
+	storeFilename, err = utils.ValidateRelativePath(storeFilename)
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid filename: "+err.Error())
+		return
 	}
 
 	destFilepath := arozfs.ToSlash(filepath.Join(realUploadPath, storeFilename))

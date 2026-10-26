@@ -73,13 +73,8 @@
         return CATEGORY_COLOR[getCategory(ext)];
     }
 
-    function escapeHTML(text) {
-        return String(text)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
-    }
+    //Canonical implementation lives in shared/escape.js, which is loaded first.
+    var escapeHTML = global.escapeHTML;
 
     /*
         Human readable type name for the "Type" column, e.g. "PDF File".

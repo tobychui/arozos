@@ -10,6 +10,8 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <!-- HTML escaping shared with the File Manager -->
+        <script type="text/javascript" src="shared/escape.js"></script>
         <!-- File icon / thumbnail logic shared with the File Manager -->
         <!-- Design tokens and components shared with the File Manager -->
         <link rel="stylesheet" href="shared/fs-theme.css">
@@ -1002,7 +1004,6 @@
             */
             var folderGlyph = FileThumb.folderGlyph;
             var getExt       = FileThumb.getExt;
-            var escapeHTML   = FileThumb.escapeHTML;
             var formatBytes  = FileThumb.formatBytes;
             var formatTimestamp = FileThumb.formatTimestamp;
             var smallGlyph   = FileThumb.smallGlyph;

@@ -178,7 +178,7 @@ function listDirectory(path, callback=undefined, recordUndo=true){
                         $("#folderList").html(`<div class="ui basic segment">
                             <div class="ui header themed">
                                 <i class="remove icon"></i> <span>${applocale.getString("message/folderCannotOpen","This Folder Cannot Be Opened")}</span>
-                                <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc","The server return the following error message:")} <br><code>${data.error.toUpperCase()}</code><br>
+                                <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc","The server return the following error message:")} <br><code>${FileThumb.escapeHTML(data.error.toUpperCase())}</code><br>
                                     ${new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'})}</div>
                             </div>
                         </div>`);

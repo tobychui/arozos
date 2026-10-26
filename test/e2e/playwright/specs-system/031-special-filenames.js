@@ -186,7 +186,50 @@ h.run("SPECIAL-FILENAMES", async function (env) {
     expectEntry(listing, "uploaded 90% done.txt", "renamed upload is missing from listDir");
     h.ok("renames an uploaded file containing %");
 
-    // 7. The desktop UI copies through the WebSocket endpoint. Exercise it
+    // 7. Upload names must not be able to escape the selected directory.
+    //    Playwright's multipart helper sanitizes the name, so send a raw
+    //    multipart body with a traversal filename the way a crafted client
+    //    would.
+    const boundary = "----arozos-e2e-boundary";
+    const multipartBody =
+        "--" + boundary + "\r\n" +
+        "Content-Disposition: form-data; name=\"path\"\r\n\r\n" +
+        folderPath + "\r\n" +
+        "--" + boundary + "\r\n" +
+        "Content-Disposition: form-data; name=\"file\"; filename=\"../escape.txt\"\r\n" +
+        "Content-Type: text/plain\r\n\r\n" +
+        "traversal\r\n" +
+        "--" + boundary + "--\r\n";
+    const badUpload = await page.request.post(base + "/system/file_system/upload?path=" +
+        encodeURIComponent(folderPath), {
+        headers: {
+            // Firefox >= 94 takes the relative path from the raw header, which
+            // is the code path that must validate the traversal segments.
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:100.0) Gecko/20100101 Firefox/100.0",
+            "Content-Type": "multipart/form-data; boundary=" + boundary
+        },
+        data: multipartBody
+    });
+    const badUploadBody = (await badUpload.text()).trim();
+    if (badUploadBody.toLowerCase().indexOf("error") === -1) {
+        h.fail("multipart upload with ../ in its filename was not rejected: " + badUploadBody);
+    }
+    listing = await listDir(page, base, "user:/");
+    expectNoEntry(listing, "escape.txt", "traversal upload escaped the target directory");
+
+    const badLowMem = await page.request.get(base + "/system/file_system/lowmemUpload?filename=" +
+        encodeURIComponent("../escape-lowmem.txt") +
+        "&path=" + encodeURIComponent(folderPath));
+    const badLowMemBody = (await badLowMem.text()).trim();
+    if (badLowMem.status() !== 400 || !/invalid filename/i.test(badLowMemBody)) {
+        h.fail("low-memory upload with ../ in its filename was not rejected: HTTP " +
+            badLowMem.status() + " " + badLowMemBody.slice(0, 200));
+    }
+    listing = await listDir(page, base, "user:/");
+    expectNoEntry(listing, "escape-lowmem.txt", "low-memory traversal upload escaped the target directory");
+    h.ok("upload endpoints reject traversal in the uploaded file name");
+
+    // 8. The desktop UI copies through the WebSocket endpoint. Exercise it
     //    with the same {{plug_sign}} workaround the front end uses for "+".
     csrft = await h.csrfToken(page, base);
     await h.postForm(page, base + "/system/file_system/newItem", {
@@ -249,7 +292,7 @@ h.run("SPECIAL-FILENAMES", async function (env) {
     expectEntry(listing, renamedFileName, "WebSocket copy did not create the file");
     h.ok("WebSocket copy accepts a source path containing % and +");
 
-    // 8. Clean up the working folders.
+    // 9. Clean up the working folders.
     csrft = await h.csrfToken(page, base);
     resp = await h.postForm(page, base + "/system/file_system/fileOpr", {
         opr: "delete",
