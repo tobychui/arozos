@@ -551,7 +551,7 @@ func TestValidateRelativePath(t *testing.T) {
 
 	invalidPaths := []string{
 		"",
-		"/etc/passwd",
+		"/absolute/evil.txt",
 		"../evil.txt",
 		"folder/../../evil.txt",
 		"folder//file.txt",
