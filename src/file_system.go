@@ -3238,6 +3238,10 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 
 	//Get file owner
 	owner := userinfo.GetFileOwner(fsh, vpath)
+	if owner == "" {
+		//A file someone shared with this user belongs to whoever shared it
+		owner = sharedDriveOwnerOf(userinfo, fsh, vpath)
+	}
 
 	if owner == "" {
 		//Handle special virtual roots

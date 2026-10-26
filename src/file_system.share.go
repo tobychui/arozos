@@ -102,6 +102,20 @@ func sharedDriveAttach(handlers []*fs.FileSystemHandler) []*fs.FileSystemHandler
 	return append(handlers, newSharedDriveHandler())
 }
 
+// sharedDriveOwnerOf returns who shared a file on the share:/ drive with the
+// user, or "" for anything else (another drive, the drive root, a path that
+// is not shared). The file ownership records only know a user's own home.
+func sharedDriveOwnerOf(userinfo *user.User, fsh *fs.FileSystemHandler, vpath string) string {
+	if !share.IsSharedDrive(fsh) {
+		return ""
+	}
+	item, err := fsh.FileSystemAbstraction.(*sharefs.ShareFileSystem).ItemOf(vpath, userinfo.Username)
+	if err != nil || item == nil {
+		return ""
+	}
+	return item.Owner
+}
+
 // sharedDriveCopyDenied returns why a copy of one of the given files cannot be
 // taken, or nil: a file shared with the user whose owner does not allow
 // downloading it, or the drive root itself.
