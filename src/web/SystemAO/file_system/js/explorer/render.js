@@ -177,14 +177,14 @@ function fileObjectAttributes(d){
     let modAttr = ` modtime="${d.modTime}"`;
     //dragstart / drop / dragover / dblclick are delegated on #folderView by
     //bindFileListDelegates(), so rows carry no inline handlers.
-    return `draggable="true" fileID="${d.fileID}" filename="${d.filename}"` +
-           ` filepath="${d.filepath}" type="${d.type}"${sizeAttrs}${modAttr}`;
+    return `draggable="true" fileID="${d.fileID}" filename="${FileThumb.escapeHTML(d.filename)}"` +
+           ` filepath="${FileThumb.escapeHTML(d.filepath)}" type="${d.type}"${sizeAttrs}${modAttr}`;
 }
 
 function renderListItem(d){
     return `<div class="fileObject item" ${fileObjectAttributes(d)}>
                 <span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span>
-                <span class="filename">${d.displayName}</span>
+                <span class="filename">${FileThumb.escapeHTML(d.displayName)}</span>
                 ${d.shareIcon}
             </div>`;
 }
@@ -196,11 +196,11 @@ function renderGridItem(d){
 
     return `<div class="fileObject card" ${fileObjectAttributes(d)}>
                 <div class="image">
-                    <img draggable="false" src="${d.imagePath}">
+                    <img draggable="false" src="${FileThumb.escapeHTML(d.imagePath)}">
                     <div class="shareOverlay ${d.isShared ? "visible" : ""}">${d.shareIcon}</div>
                 </div>
                 <div class="content">
-                    <div class="header normal object" title="${d.filename}"><span class="filename">${shown}</span></div>
+                    <div class="header normal object" title="${FileThumb.escapeHTML(d.filename)}"><span class="filename">${FileThumb.escapeHTML(shown)}</span></div>
                     ${meta}
                 </div>
             </div>`;
@@ -214,9 +214,9 @@ function renderDetailsRow(d){
     let size = d.isDir ? "--" : d.displaysize;
 
     return `<tr class="fileObject details" ${fileObjectAttributes(d)}>
-                <td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${d.displayName}</span>${sharedMark}</span></td>
+                <td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${FileThumb.escapeHTML(d.displayName)}</span>${sharedMark}</span></td>
                 <td class="fmColDate light-text">${d.modTimeText}</td>
-                <td class="fmColType light-text">${typeName}</td>
+                <td class="fmColType light-text">${FileThumb.escapeHTML(typeName)}</td>
                 <td class="fmColSize light-text">${size}</td>
             </tr>`;
 }

@@ -21,7 +21,7 @@ function forceDelete(confirmed=false){
             var ext = thisfilename.split(".").pop();
             var icon = ao_module_utils.getIconFromExt(ext);
             deletePendingList.push(thispath);
-            $(listObject).append(`<div class="item" ><span style="display:inline-block;">${thisfilename}</span></div>`);
+            $(listObject).append(`<div class="item" ><span style="display:inline-block;">${FileThumb.escapeHTML(thisfilename)}</span></div>`);
         });
         showPopupWrapper();
         $("#forceDeleteConfirmBox").transition("slide left in");
@@ -60,7 +60,7 @@ function deleteFile(confirmed = false){
             var thisfilename = $(this).attr('filename');
             var thisFilepath = $(this).attr('filepath');
             deleteFileList.push(thisFilepath);
-            $("#deleteConfirmBox").find(".deleteFilelist").append(`<div class="item" ><span style="display:inline-block;">${thisfilename}</span></div>`);
+            $("#deleteConfirmBox").find(".deleteFilelist").append(`<div class="item" ><span style="display:inline-block;">${FileThumb.escapeHTML(thisfilename)}</span></div>`);
         });
         if (deleteFileList.length == 0){
             //No files selected

@@ -126,7 +126,7 @@ function listDirectory(path, callback=undefined, recordUndo=true){
             $.ajax({
                 url: "../../system/file_system/listDir",
                 method: "POST",
-                data: {dir: decodeURIComponent(path), sort: sortMode},
+                data: {dir: path, sort: sortMode},
                 success: function(data){
                     //Parse the filelist into global variable
                     currentFilelist = [];

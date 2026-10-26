@@ -162,7 +162,7 @@ function openRawFileInFloatWindow(btn){
     var targetObjects = $(".selected.fileObject");
     $(targetObjects).each(function(){
         if ($(this).attr("type") == "file"){
-            var launchURL = "media?file=" + $(this).attr('filepath');
+            var launchURL = "media?file=" + encodeURIComponent($(this).attr('filepath'));
             parent.newFloatWindow({
                 url: launchURL,
                 appicon: "img/system/file.png",
@@ -170,7 +170,7 @@ function openRawFileInFloatWindow(btn){
                 "background-color": "#1f1f1f"
             });
         }else if ($(this).attr("type") == "folder"){
-            var launchURL = "SystemAO/file_system/file_explorer.html#" + $(this).attr("filepath");
+            var launchURL = "SystemAO/file_system/file_explorer.html#" + encodeURIComponent($(this).attr("filepath"));
             parent.newFloatWindow({
                 url: launchURL,
                 appicon: "SystemAO/file_system/img/small_icon.png",

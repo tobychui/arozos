@@ -43,6 +43,12 @@
         return resultname
     }
 
+    //Escape a value for use inside a single-quoted inline event handler.
+    //encodeURIComponent leaves apostrophes alone, so encode those too.
+    function encodeInlineValue(value){
+        return encodeURIComponent(value).replace(/'/g, "%27");
+    }
+
     function getExtFromPath(path){
         if (path.includes(".") == false){
             return "";

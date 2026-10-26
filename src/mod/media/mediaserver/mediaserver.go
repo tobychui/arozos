@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -102,10 +101,6 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	targetfile, _ := utils.GetPara(r, "file")
-	targetfile, err = url.QueryUnescape(targetfile)
-	if err != nil {
-		return nil, "", "", err
-	}
 	if targetfile == "" {
 		return nil, "", "", errors.New("Missing paramter 'file'")
 	}
@@ -235,12 +230,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 
 	//Serve the file
 	if downloadMode {
-		escapedRealFilepath, err := url.PathUnescape(realFilepath)
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
-		}
-		filename := filepath.Base(escapedRealFilepath)
+		filename := filepath.Base(realFilepath)
 
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 		w.Header().Set("Content-Type", compatibility.BrowserCompatibilityOverrideContentType(r.UserAgent(), filename, r.Header.Get("Content-Type")))
@@ -255,7 +245,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 			io.Copy(w, remoteStream)
 			remoteStream.Close()
 		} else {
-			http.ServeFile(w, r, escapedRealFilepath)
+			http.ServeFile(w, r, realFilepath)
 		}
 
 	} else {

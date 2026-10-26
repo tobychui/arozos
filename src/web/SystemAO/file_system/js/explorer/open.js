@@ -129,10 +129,10 @@ function openFileLocation(){
     $(".selected.fileObject").each(function(){
         var thisFilepath = $(this).attr('filepath');
         var thisFilename = $(this).attr('filename');
-        openPathInNewWindow(encodeURIComponent(JSON.stringify([{
+        openPathInNewWindow(JSON.stringify([{
             filename: thisFilename,
             filepath: thisFilepath
-        }])))
+        }]))
     });
     
 }
@@ -230,7 +230,7 @@ function openSelectedFolderInNewWindow(){
     $(".fileObject.selected").each(function(){
         if ($(this).attr("type") == "folder"){
             console.log($(this).attr('filepath'));
-            openPathInNewWindow([$(this).attr('filepath')]);
+            openPathInNewWindow($(this).attr('filepath'));
         }
     })
 }
@@ -238,8 +238,7 @@ function openSelectedFolderInNewWindow(){
 function openSelectedVroot(){
     $("#storageroot").find(".dir.item").each(function(){
         if ($(this).hasClass("active")){
-            var thisRootPath = $(this).attr('filepath');
-            openPathInNewWindow([$(this).attr('filepath')]);
+            openPathInNewWindow($(this).attr('filepath'));
         }
     });
 }
@@ -255,9 +254,12 @@ function openFolderInNewWindow(paths){
 }
 
 function openPathInNewWindow(path){
-    console.log("Opening in new File Maanger: ", window.location.pathname + "#" + path);
+    //Callers pass the raw path (or a raw JSON open-protocol string). Encode it
+    //exactly once here; the new window decodes the hash once on boot.
+    var targetHash = encodeURIComponent(path);
+    console.log("Opening in new File Maanger: ", window.location.pathname + "#" + targetHash);
     ao_module_newfw({
-        url: window.location.pathname + "#" + path,
+        url: window.location.pathname + "#" + targetHash,
         appicon: "SystemAO/file_system/img/small_icon.png",
         title: "File Manager",
         width: 1080,

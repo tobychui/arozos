@@ -84,11 +84,16 @@ $(document).ready(function(){
             //Check if the hash is standard open protocol. If yes, translate it
             if (ao_module_loadInputFiles() === null){
                 //Window location hash set. List the desire directory
-                currentPath = window.location.hash.substring(1,window.location.hash.length);
+                try{
+                    currentPath = decodeURIComponent(window.location.hash.substring(1));
+                }catch(e){
+                    //Older links can contain a literal '%' that is not valid
+                    //percent-encoding. Fall back to the hash as it was written.
+                    currentPath = window.location.hash.substring(1);
+                }
                 if (currentPath.substring(currentPath.length -1) != "/"){
                     currentPath = currentPath + "/";
                 }
-                currentPath = decodeURIComponent(currentPath);
                 loadListModeFromDB(function(){
                     listDirectory(currentPath);
                 });

@@ -34,7 +34,7 @@ function initRootDirs(){
                     var displayName = specifcRootInfo[1];
                     var vpath = thisRootObject.Filepath;
                     let art = getRootIconArt(thisRootObject.Filename);
-                    $("#userroot").append(`<div class="dir item userrootfolder fsSideItem" filepath="${vpath}" type="folder" onclick="openthis(this);"><span class="fsSideIcon" style="color:${art[1]}">${art[0]}</span><span class="fsSideLabel">${displayName}</span></div>`);
+                    $("#userroot").append(`<div class="dir item userrootfolder fsSideItem" filepath="${FileThumb.escapeHTML(vpath)}" type="folder" onclick="openthis(this);"><span class="fsSideIcon" style="color:${art[1]}">${art[0]}</span><span class="fsSideLabel">${FileThumb.escapeHTML(displayName)}</span></div>`);
                 }
             }
         }   
@@ -49,7 +49,7 @@ function initRootDirs(){
                 var thisRoot = data[i];
                 var displayName = thisRoot.RootName;
                 var rootPath = thisRoot.RootPath;
-                $("#storageroot").append(`<div class="dir item vroot fsSideItem" filepath="${rootPath}" type="folder" rootname="${displayName}" onclick="openthis(this);"><span class="fsSideIcon" style="color:var(--fs-icon)">${FSIcons.drive}</span><span class="fsSideLabel">${displayName} (${rootPath})</span></div>`);
+                $("#storageroot").append(`<div class="dir item vroot fsSideItem" filepath="${FileThumb.escapeHTML(rootPath)}" type="folder" rootname="${FileThumb.escapeHTML(displayName)}" onclick="openthis(this);"><span class="fsSideIcon" style="color:var(--fs-icon)">${FSIcons.drive}</span><span class="fsSideLabel">${FileThumb.escapeHTML(displayName)} (${FileThumb.escapeHTML(rootPath)})</span></div>`);
             }
             highlightCurrentRoot();
         }

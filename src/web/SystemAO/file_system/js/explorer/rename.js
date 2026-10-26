@@ -47,16 +47,16 @@ function rename(){
         rootObject.attr("draggable", "false");
         if (viewMode == "list"){
             $(targetDOM).html(`<div class="renameinput" oldname="${encodeURIComponent(oldname)}" onkeydown="handleInputConfirmRename(this, event);" style="width: calc(100% - 5em); display: inline-block;">
-                <input type="text" value="${oldname}">
+                <input type="text" value="${FileThumb.escapeHTML(oldname)}">
             </div>`);
             $(rootObject).find(".sharebtn").remove();
         }else if (viewMode == "grid"){
             $(targetDOM).html(`<div class="renameinput" oldname="${encodeURIComponent(oldname)}" onkeydown="handleInputConfirmRename(this, event);" style="width: 100%; display: inline-block;">
-                <input type="text" value="${oldname}">
+                <input type="text" value="${FileThumb.escapeHTML(oldname)}">
             </div>`);
         }else if (viewMode == "details"){
             $(targetDOM).html(`<div class="renameinput" oldname="${encodeURIComponent(oldname)}" onkeydown="handleInputConfirmRename(this, event);" style="width: calc(100% - 5em); display: inline-block;">
-                <input type="text" value="${oldname}">
+                <input type="text" value="${FileThumb.escapeHTML(oldname)}">
             </div>`);
         }
         
@@ -78,7 +78,7 @@ function exitRenameModeWithConfirm(applyChange = true){
     if (oldname == newname || !applyChange){
         //Cancel Rename, in cases where old name = new name or applyChange set to false
         let filenameField = $(renamingObject).parent();
-        $(filenameField).html(oldname);
+        $(filenameField).text(oldname);
         renameMode = false;
         return;
     }
@@ -87,25 +87,19 @@ function exitRenameModeWithConfirm(applyChange = true){
 
 //Handle enter press on rename input box
 function handleInputConfirmRename(object, evt){
-    let filenameForbiddenCharKey = [
-        '/',
-        '<',
-        '>',
-        ':',
-        '"',
-        '\\',
-        '*'
-    ];
+    //Only path separators are blocked in the editor; every other character is
+    //valid on at least one supported storage backend and is checked server-side.
+    let filenameForbiddenCharKey = ['/', '\\'];
     if (evt.keyCode == 13){
         evt.preventDefault();
         evt.stopImmediatePropagation();
-        let oldname = $(object).attr("oldname").trim();
+        let oldname = decodeURIComponent($(object).attr("oldname")).trim();
         let newname = $(object).find("input").val().trim();
         $(".fileObject.selected.renaming").removeClass("renaming");
         if (oldname == newname){
             //Cancel Rename
             let filenameField = $(object).parent();
-            $(filenameField).html(oldname);
+            $(filenameField).text(oldname);
             renameMode = false;
             return;
         }
@@ -121,17 +115,6 @@ function handleInputConfirmRename(object, evt){
 }
 
 
-//Check if filename contains web-unsafe characters
-function filenameContainsIllegalCharacters(filename){
-    var illegalChars = ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>'];
-    for (var i = 0; i < illegalChars.length; i++){
-        if (filename.includes(illegalChars[i])){
-            return true;
-        }
-    }
-    return false;
-}
-
 function confirmRename(oldName=undefined, newName=undefined){
     renameMode = false;
     if (oldName == undefined){
@@ -140,12 +123,6 @@ function confirmRename(oldName=undefined, newName=undefined){
 
     if (newName == undefined){
         newName = $("#renameBox").find(".newfn").val().trim();
-    }
-
-    //Check for illegal characters
-    if (filenameContainsIllegalCharacters(newName)){
-        msgbox("red remove", applocale.getString("message/illegalCharacters", "Filename contains illegal characters"));
-        return;
     }
 
     if (newName == oldName){

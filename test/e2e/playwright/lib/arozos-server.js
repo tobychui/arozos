@@ -64,11 +64,22 @@ function resolveBinary() {
     return builtBin;
 }
 
+function linkWebRoot(linkPath) {
+    if (process.platform === "win32") {
+        // Directory symlinks need Developer Mode or an elevated shell on
+        // Windows. A junction is equivalent here and works for normal users;
+        // Node creates it directly, so no cmd.exe window is spawned.
+        fs.symlinkSync(WEB_ROOT, linkPath, "junction");
+    } else {
+        fs.symlinkSync(WEB_ROOT, linkPath, "dir");
+    }
+}
+
 // Wipe and recreate the isolated instance directory.
 function prepareInstanceDir() {
     fs.rmSync(INSTANCE_DIR, { recursive: true, force: true });
     fs.mkdirSync(INSTANCE_DIR, { recursive: true });
-    fs.symlinkSync(WEB_ROOT, path.join(INSTANCE_DIR, "web"), "dir");
+    linkWebRoot(path.join(INSTANCE_DIR, "web"));
     fs.cpSync(SYSTEM_TEMPLATE, path.join(INSTANCE_DIR, "system"), { recursive: true });
 }
 

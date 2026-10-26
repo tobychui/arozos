@@ -154,7 +154,7 @@ function updatePathDisplay(path){
     var l = pathInfo.length;
     //Append the starting vdir
     $(".pathDisplay").html("");
-    $(".pathDisplay").append(`<div class="section selectable" onclick="event.stopImmediatePropagation(); rootDir();"><i class="folder icon"></i> ${vdID}</div>`);
+    $(".pathDisplay").append(`<div class="section selectable" onclick="event.stopImmediatePropagation(); rootDir();"><i class="folder icon"></i> ${FileThumb.escapeHTML(vdID)}</div>`);
     $(".pathDisplay").append(`<div class="divider">/</div>`);
     let domPathChunks = [];
     let thisPath = vdID + "/";
@@ -165,7 +165,7 @@ function updatePathDisplay(path){
         if (i < pathInfo.length - 1){
             pathHighlight = pathInfo[i + 1];
         }
-        domPathChunks.push(`<div class="section selectable" onclick="event.stopImmediatePropagation(); listDirectoryAndHighlight('${thisPath}', '${pathHighlight}');">${shortenLongFoldername(thisname, 20)}</div>`);
+        domPathChunks.push(`<div class="section selectable" onclick="event.stopImmediatePropagation(); listDirectoryAndHighlight(decodeURIComponent('${encodeInlineValue(thisPath)}'), decodeURIComponent('${encodeInlineValue(pathHighlight)}'));">${FileThumb.escapeHTML(shortenLongFoldername(thisname, 20))}</div>`);
     }
 
     let fullpath = domPathChunks.join(`<div class="divider">/</div>`);

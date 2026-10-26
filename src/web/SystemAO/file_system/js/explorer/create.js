@@ -119,13 +119,6 @@ function newFolder(confirmed = false){
             return;
         }
 
-        //Check for invalid characters
-        if (filenameContainsIllegalCharacters(newFoldername)){
-            $("#createNewFolder").parent().addClass("error");
-            msgbox("red remove", applocale.getString("message/illegalCharacters", "Folder name contains illegal characters"));
-            return;
-        }
-
         if (currentFilelist.includes(newFoldername)){
             //Current filelist already contain a folder with the same name
             $("#createNewFolder").parent().addClass("error");
@@ -165,13 +158,6 @@ function confirmNewFile(){
     if (filename == ""){
         //Filename not set
         $("#createNewFileName").parent().addClass("error");
-        return;
-    }
-    
-    //Check for illegal characters
-    if (filenameContainsIllegalCharacters(filename)){
-        $("#createNewFileName").parent().addClass("error");
-        msgbox("red remove", applocale.getString("message/illegalCharacters", "Filename contains illegal characters"));
         return;
     }
     

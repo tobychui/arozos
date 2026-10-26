@@ -51,7 +51,8 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             /*
             Low Memory Upload Mode
         */
-        var filename = encodeURIComponent(file.name);
+        //Keep the raw name here; the WebSocket URL is encoded exactly once below
+        var filename = file.name;
 
         //Generate a new file item
         let taskUUID = uuid;    //For queueing objects
