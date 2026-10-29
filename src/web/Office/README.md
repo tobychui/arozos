@@ -708,7 +708,7 @@ the rest of the line out of shape; when the face *is* the one the browser
 used, the ratio is 1 and nothing happens. Spaces in a highlighted span are
 still drawn as their highlight box.
 
-Two things about placing the text that are easy to get wrong, and were:
+Three things about placing the text that are easy to get wrong, and were:
 
 - **The baseline is measured, not computed.** A canvas `measureText`
   reports the ascent and descent the browser resolved for a font stack —
@@ -718,6 +718,14 @@ Two things about placing the text that are easy to get wrong, and were:
   ascent plus descent tall, not `line-height` tall. The baseline is an
   ascent below the top of that rect. Treating it as the line box puts every
   line a couple of pixels high at 30px type.
+- **In Safari a range that starts at a wrap has one rect too many.** WebKit
+  adds an empty rect at the end of the line above, ahead of the real one,
+  and `getBoundingClientRect()` takes both in. Measured that way the first
+  character of every wrapped line sits on the line before, and the export
+  showed "Basics of R" / "everse Proxy", the next line indented by one
+  character. So ranges are measured with `OfficePdfCore.rangeBox`, the
+  union of the rects that have width, never with the bounding box
+  (`node web/Office/common/test_pdfcore.js` pins it).
 
 When a whole object does have to be rasterized (only a chart whose SVG the
 translator cannot express, now), the picture is taken through an SVG
@@ -1663,6 +1671,7 @@ node --check web/Office/docs/docs.js   # etc. for each edited JS file
 node web/Office/sheets/test_formula.js    # formula engine
 node web/Office/sheets/test_formula_fns.js  # formula functions (vs. Excel examples)
 node web/Office/common/test_share.js      # share links and OOXML app detection
+node web/Office/common/test_pdfcore.js    # PDF export: which text lands on which line
 node web/Office/slides/test_lines.js      # line styles, line ends, callout adjustments
 node web/Office/docs/test_pdfimport.js    # PDF import: lines, paragraphs, lists, tables
 sh ../scripts/check-conventions.sh --diff origin/master

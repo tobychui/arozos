@@ -841,11 +841,43 @@ var OfficePdfCore = (function () {
         return runs;
     }
 
+    /* rangeBox is the box of what a range draws: the union of its client
+       rects that have width, or null when none has (a collapsed space).
+
+       Not getBoundingClientRect, because of WebKit (Safari). A range that
+       starts where a line wrapped gets one more rect there: an empty one at
+       the end of the line above, ahead of the real one. The bounding box
+       takes both in, so the first character of every wrapped line measured
+       as if it sat on the line before - the export moved it up there
+       ("Basics of R" / "everse Proxy") and started the next line one
+       character late, and a whole line measured that way came out as wide
+       as the line above it. Blink and Gecko add no such rect; for them this
+       is the bounding box. */
+    function rangeBox(range) {
+        var rects = range.getClientRects();
+        var box = null;
+        for (var i = 0; i < rects.length; i++) {
+            var rc = rects[i];
+            if (!(rc.width > 0.01)) continue;
+            if (!box) {
+                box = { left: rc.left, top: rc.top, right: rc.right, bottom: rc.bottom };
+                continue;
+            }
+            box.left = Math.min(box.left, rc.left);
+            box.top = Math.min(box.top, rc.top);
+            box.right = Math.max(box.right, rc.right);
+            box.bottom = Math.max(box.bottom, rc.bottom);
+        }
+        if (box) box.width = box.right - box.left;
+        return box;
+    }
+
     /* splitByLine maps a text node's client rects back onto the substrings
        that produced them, so each line can be drawn at its own baseline.
        Character-by-character is the only reliable way: the browser decides
        where the break went, and only it knows. start is where each line's
-       text begins in the node. */
+       text begins in the node. A character with no width draws nothing, so
+       it never opens a line: it stays with the text before it. */
     function splitByLine(node, text, lineRects) {
         if (lineRects.length === 1) {
             return [{ text: text, rect: lineRects[0], start: 0 }];
@@ -859,8 +891,8 @@ var OfficePdfCore = (function () {
         for (var i = 0; i < text.length; i++) {
             range.setStart(node, i);
             range.setEnd(node, i + 1);
-            var r = range.getBoundingClientRect();
-            if (r.width === 0 && r.height === 0) { cur += text[i]; continue; }
+            var r = rangeBox(range);
+            if (!r) { cur += text[i]; continue; }
             var top = Math.round(r.top * 10) / 10;
             if (curTop === null || Math.abs(top - curTop) < 0.6) {
                 if (curTop === null) { curTop = top; curRect = { left: r.left, top: r.top, bottom: r.bottom, right: r.right }; }
@@ -947,7 +979,7 @@ var OfficePdfCore = (function () {
         try {
             range.setStart(r.node, r.start);
             range.setEnd(r.node, r.start + r.text.length);
-            now = range.getBoundingClientRect();
+            now = rangeBox(range);
         } catch (e) { now = null; }
         var nodeText = String(r.node.nodeValue || "").substr(r.start, r.text.length)
             .replace(/[\u0000-\u001F\u007F]/g, " ");
@@ -968,9 +1000,10 @@ var OfficePdfCore = (function () {
             var text = r.text.substring(s, e);
             range.setStart(r.node, r.start + s);
             range.setEnd(r.node, r.start + e);
-            var b = range.getBoundingClientRect();
+            var b = rangeBox(range);
+            // a piece with no width draws nothing
+            if (!b) return;
             var dx = (b.left - now.left) * k, w = b.width * k;
-            if (!(w > 0) && !visibleText(text).trim()) return;
             out.push({ text: transformText(text, r.transform), dx: dx, w: w, fit: w, raster: !p.ok });
         });
         return out;
@@ -1315,6 +1348,7 @@ var OfficePdfCore = (function () {
         dataUrlBytes: dataUrlBytes,
         Page: Page,
         collectRuns: collectRuns,
+        rangeBox: rangeBox,
         splitByLine: splitByLine,
         canDrawAsText: canDrawAsText,
         planRun: planRun,
