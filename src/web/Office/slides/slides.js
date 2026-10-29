@@ -295,7 +295,9 @@ var SlidesApp = (function () {
         var b = { size: [SLIDE_W, SLIDE_H], theme: "clean", slides: [] };
         body = b; // themeOf() needs it while building the first slide
         b.slides.push(newSlide("title"));
-        return b;
+        // through the same checks as an opened deck, so nothing (embedded
+        // fonts, missing fields) carries over from the previous one
+        return normalizeBody(b);
     }
     /* A deck states its own size: 960 wide and as tall as its shape (a
        4:3 PowerPoint deck is 960x720). Anything odd falls back to 16:9. */

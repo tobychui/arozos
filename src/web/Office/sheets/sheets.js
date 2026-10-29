@@ -116,7 +116,7 @@ var SheetsApp = (function () {
         };
     }
     function defaultBody() {
-        return { sheets: [newSheetData("Sheet1")], active: 0 };
+        return normalizeBody({ sheets: [newSheetData("Sheet1")], active: 0, names: [] });
     }
     function normalizeBody(b) {
         if (!b || typeof b !== "object") b = {};
@@ -162,10 +162,20 @@ var SheetsApp = (function () {
             name.toUpperCase() !== "TRUE" && name.toUpperCase() !== "FALSE" &&
             !F.lookupFunction(name);
     }
+    /* The workbook's defined names; a body that skipped normalizeBody
+       (or has none) answers an empty list instead of throwing. */
+    function definedNames() {
+        if (!body) return [];
+        if (!Array.isArray(body.names)) body.names = [];
+        return body.names;
+    }
     function nameEntry(name) {
+        if (name === undefined || name === null || name === "") return null;
         var want = String(name).toUpperCase();
-        for (var i = 0; i < body.names.length; i++) {
-            if (body.names[i].name.toUpperCase() === want) return body.names[i];
+        var list = definedNames();
+        for (var i = 0; i < list.length; i++) {
+            var n = list[i];
+            if (n && n.name && String(n.name).toUpperCase() === want) return n;
         }
         return null;
     }
@@ -1027,7 +1037,9 @@ var SheetsApp = (function () {
             // formulas (and defined names) that name the sheet follow the rename
             if (v !== old) {
                 eachFormulaCell(function (cell) { cell.v = F.renameSheetRefs(cell.v, old, v); });
-                body.names.forEach(function (n) { n.formula = F.renameSheetRefs(n.formula, old, v); });
+                definedNames().forEach(function (n) {
+                    if (n && n.formula) n.formula = F.renameSheetRefs(n.formula, old, v);
+                });
             }
             commit();
             renderTabs();
@@ -2616,25 +2628,27 @@ var SheetsApp = (function () {
             '<div class="of-dim" id="shNameMsg"></div></div>');
         function refresh() {
             var $t = $b.find(".sh-name-list tbody").empty();
-            if (!body.names.length) {
+            var names = definedNames();
+            if (!names.length) {
                 $t.append('<tr><td colspan="3" class="of-dim">No names yet. ' +
                     'Select a range first to fill the box below with it.</td></tr>');
             }
-            body.names.forEach(function (n, i) {
+            names.forEach(function (n, i) {
                 var $tr = $("<tr></tr>");
                 $tr.append($("<td></td>").text(n.name));
                 var $ref = $('<input spellcheck="false">').val(n.formula);
                 $ref.on("change", function () {
                     var v = String($ref.val()).trim();
                     if (!v) return;
-                    body.names[i].formula = v.charAt(0) === "=" ? v : "=" + v;
+                    n.formula = v.charAt(0) === "=" ? v : "=" + v;
                     commit();
                     renderAll();
                 });
                 $tr.append($("<td></td>").append($ref));
                 var $del = $('<button class="of-btn" title="Delete"><i class="trash alternate outline icon"></i></button>');
                 $del.on("click", function () {
-                    body.names.splice(i, 1);
+                    var at = names.indexOf(n);
+                    if (at >= 0) names.splice(at, 1);
                     commit();
                     renderAll();
                     refresh();
@@ -2662,7 +2676,7 @@ var SheetsApp = (function () {
                 msg.text("Enter the range or value the name stands for.");
                 return;
             }
-            body.names.push({ name: name, formula: ref.charAt(0) === "=" ? ref : "=" + ref });
+            definedNames().push({ name: name, formula: ref.charAt(0) === "=" ? ref : "=" + ref });
             msg.text("");
             $b.find("#shNameNew").val("");
             commit();
