@@ -29,7 +29,7 @@ export function gatherBoxes(world, minX, minY, minZ, maxX, maxY, maxZ, out) {
                     if (id === B.AIR) {
                         continue;
                     }
-                    boxes = collisionBoxes(id, world.getMeta(x, y, z));
+                    boxes = collisionBoxes(id, world.getMeta(x, y, z), world, x, y, z);
                 }
                 for (const b of boxes) {
                     out.push(x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]);

@@ -57,7 +57,8 @@ export class Entities {
         for (let i = this.items.length - 1; i >= 0; i--) {
             const e = this.items[i];
             e.age += dt;
-            if (e.age > DESPAWN) {
+            const here = world.getBlock(Math.floor(e.x), Math.floor(e.y), Math.floor(e.z));
+            if (e.age > DESPAWN || here === B.LAVA || here === B.FIRE) {
                 r.disposeItemMesh(e.mesh);
                 this.items.splice(i, 1);
                 continue;

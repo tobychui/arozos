@@ -42,6 +42,27 @@ its folder.
   part inside itself.
 - Random tick changes such as grass spreading or reeds growing do not mark a
   chunk as modified (`world.quiet`), so untouched chunks never enter the save.
+- World rules (`world.rules`, saved with the world): `tickSpeed` (random
+  ticks per section per game tick, default 3) and `fireSpread`.
+- Wheat does not use random ticks: `cropTick` runs once a second over
+  `chunk.crops` and adds to a per crop progress (`world.cropProgress`, saved)
+  so a full grow is about 30 minutes on watered farmland (+-15 % per stage,
+  half speed when dry), scaled by `tickSpeed / 3`. Crops need light 9 from
+  the sky or a lamp / torch, but grow at night too.
+- Liquids share one `liquidTick` (`LIQUID` table: water renews and flows 7,
+  lava flows 3 and slower). Lava touching water becomes obsidian (source) or
+  cobblestone. Fire is a scheduled tick that burns `FLAME_BURN` blocks and
+  jumps to air beside `FLAME_CATCH` blocks unless `fireSpread` is off.
+- Doors and beds are two blocks; `world.removePartner` removes the other half
+  whenever one changes, so only the broken half drops the item. A door hangs
+  on the edge nearest the player who placed it; its window pixels are
+  transparent (alpha tested). Each bed half has a raised mattress and two legs
+  at its outer end.
+- Short plants (tall grass, flowers, mushrooms, saplings, dead bushes) are
+  `replaceable`: placing a block, torch or liquid on them replaces them and
+  drops the plant, and a hoe tills through them.
+- Saved chunks are resumed (`resumeChunk`): crops re-registered, fire and
+  moving liquids rescheduled.
 
 ## Crafting
 
@@ -66,12 +87,28 @@ T opens the chat line, / opens it with a slash. Commands other than `/help`
 and `/seed` need the world's cheats option (also switchable in the pause
 menu): `/give`, `/tp` (`~` relative, y optional), `/time`, `/weather`,
 `/gamemode`, `/difficulty`, `/setblock`, `/clear`, `/heal`, `/kill`,
-`/spawnpoint`.
+`/spawnpoint`, `/tickspeed`, `/firespread` and `/gamerule randomTickSpeed |
+doFireTick`.
+
+## Pick block
+
+Middle click a block to take it in hand (`game.pickBlock`): if it is already
+on the hotbar that slot is selected; otherwise creative fills the selected
+slot with a full stack, and survival swaps a stack in from the main
+inventory (nothing happens when the player has none).
+
+## Beds
+
+Right click a bed at night (or in a thunderstorm) to sleep: the screen fades
+for three seconds, then time jumps to the next morning, the weather clears
+and the respawn point moves to the bed. Shift or a movement key gets you up.
 
 ## Testing standalone
 
 Serve `src/web` statically (the `webroot-static` launch config) and open
-`/Blocky/index.html`; worlds then go to IndexedDB. The Browser pane cannot
+`/Blocky/index.html`; worlds then go to IndexedDB. A world starts without a
+"click to play" screen; the pointer lock is requested right away and again
+on the first click into the view if the browser refused. The Browser pane cannot
 hold a pointer lock, so scripted tests fake it with
 `Object.defineProperty(blocky.input, "locked", { get: () => true })` and push
 key codes into `blocky.input.keys` / `pressed` and buttons into

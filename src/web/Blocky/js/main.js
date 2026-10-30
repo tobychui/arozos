@@ -467,7 +467,9 @@ class App {
         if (this.touchMode) {
             show("touch");
         } else {
-            show("resume");
+            //Straight into the game: grab the mouse now if the browser still
+            //counts the Play click, otherwise the first click on the view does
+            this.input.lock();
         }
     }
 
@@ -491,7 +493,7 @@ class App {
         this.input.unlock();
         show("hud", false);
         show("touch", false);
-        show("resume", false);
+        this.showSleep(false);
         show("loading", false);
         show("menu");
         this.ui.close();
@@ -511,7 +513,14 @@ class App {
     /* ---------------- in-game overlays ---------------- */
 
     bindOverlays() {
-        $("resume").addEventListener("click", () => this.resumePlay());
+        //Clicking the game view captures the mouse again
+        this.canvas.addEventListener("mousedown", () => {
+            const g = this.game;
+            if (this.state === "playing" && g && !this.input.locked && !g.paused && !g.player.dead && !this.ui.isOpen() && !this.chat.open && !this.touchMode) {
+                this.input.lock();
+            }
+        });
+        $("btnLeaveBed").onclick = () => this.game && this.game.wake(false);
         $("btnResume").onclick = () => this.resumePlay();
         $("btnPauseSettings").onclick = () => this.openSettings();
         $("btnSaveQuit").onclick = () => this.quitToTitle();
@@ -581,7 +590,6 @@ class App {
             return;
         }
         if (locked) {
-            show("resume", false);
             return;
         }
         const g = this.game;
@@ -595,7 +603,6 @@ class App {
         g.paused = true;
         this.pausedAt = performance.now();
         this.input.active = true;
-        show("resume", false);
         this.refreshPause();
         show("pause");
         g.save(true);
@@ -635,15 +642,17 @@ class App {
         g.paused = false;
         this.input.active = true;
         this.input.reset();
-        if (this.touchMode) {
-            show("resume", false);
-            return;
+        if (!this.touchMode) {
+            //If the browser refuses (too soon after Esc), a click on the view retries
+            await this.input.lock();
         }
-        const ok = await this.input.lock();
-        if (!ok && !this.ui.isOpen() && this.game === g) {
-            show("resume");
-        } else {
-            show("resume", false);
+    }
+
+    //Darken the screen while the player sleeps (fade 0-1)
+    showSleep(on, fade = 0) {
+        show("sleep", on);
+        if (on) {
+            $("sleep").style.background = `rgba(4, 6, 16, ${0.25 + fade * 0.7})`;
         }
     }
 

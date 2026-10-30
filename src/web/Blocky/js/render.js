@@ -45,6 +45,8 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uTime;
 uniform float uWaterLayer;
+uniform float uLavaLayer;
+uniform float uFireLayer;
 uniform float uAlphaTest;
 uniform float uOpacity;
 uniform float uGammaK;
@@ -62,6 +64,10 @@ void main() {
     vec2 uv = vUv;
     if (abs(vLayer - uWaterLayer) < 0.5) {
         uv += vec2(sin(uTime * 0.7 + vUv.y * 3.0) * 0.03, uTime * 0.05);
+    } else if (abs(vLayer - uLavaLayer) < 0.5) {
+        uv += vec2(sin(uTime * 0.35 + vUv.y * 4.0) * 0.06, uTime * 0.025);
+    } else if (abs(vLayer - uFireLayer) < 0.5) {
+        uv.x += sin(uTime * 9.0 + vUv.y * 6.0) * 0.04 * vUv.y;
     }
     vec4 tex = texture(uTex, vec3(uv.x, 1.0 - uv.y, vLayer));
     if (tex.a < uAlphaTest) {
@@ -256,6 +262,8 @@ export class Renderer {
             uFogFar: { value: 100 },
             uTime: { value: 0 },
             uWaterLayer: { value: tex.layerOf.get("water") },
+            uLavaLayer: { value: tex.layerOf.get("lava") },
+            uFireLayer: { value: tex.layerOf.get("fire") },
             uGammaK: { value: 1.2 }
         };
         this.solidMat = this.terrainMaterial({ alphaTest: 0.5 });
@@ -741,8 +749,8 @@ export class Renderer {
         g.rotation.set(-s * 0.9 + pose.eat * 0.5, -s2 * 0.4 + pose.eat * 0.6, s * 0.2);
         if (this.handMesh) {
             if (this.handMesh.userData.cube) {
-                this.handMesh.scale.setScalar(0.32);
-                this.handMesh.position.set(0.06, 0.0, -0.02);
+                this.handMesh.scale.setScalar(0.24);
+                this.handMesh.position.set(0.1, -0.02, -0.04);
                 this.handMesh.rotation.set(0.1, Math.PI / 4, 0);
             } else {
                 //A flat item held upright, turned a little toward the view
@@ -953,7 +961,11 @@ export class Renderer {
         const towardSun = Math.max(0, look.x * Math.cos(ang)) * sunset;
         fog = [lerp(fog[0], 1.0, towardSun * 0.45), lerp(fog[1], 0.55, towardSun * 0.3), lerp(fog[2], 0.3, towardSun * 0.3)];
         const far = Math.max(24, env.renderDistance * 16 - 6);
-        if (env.underwater) {
+        if (env.underlava) {
+            this.shared.uFogColor.value.setRGB(0.75, 0.2, 0.02);
+            this.shared.uFogNear.value = 0.1;
+            this.shared.uFogFar.value = 2.5;
+        } else if (env.underwater) {
             const k = Math.max(0.15, daylight);
             this.shared.uFogColor.value.setRGB(0.06 * k, 0.17 * k, 0.4 * k);
             this.shared.uFogNear.value = 1;

@@ -10,7 +10,7 @@
 */
 
 import {
-    B, BLOCKS, ITEMS, I, SHAPE, SOLID, blockDrops, breakSeconds, blockFaceLayer
+    B, BLOCKS, ITEMS, I, SHAPE, SOLID, blockDrops, breakSeconds, blockFaceLayer, isOpaqueAt, HDIR, facingFromYaw
 } from "./blocks.js";
 import { World, WORLD_H } from "./world.js";
 import { BIOME, BIOME_NAMES } from "./worldgen.js";
@@ -31,6 +31,9 @@ const DEATH_TEXT = {
     cactus: "You were pricked to death by a cactus",
     lightning: "You were struck by lightning",
     suffocate: "You suffocated in a wall",
+    lava: "You tried to swim in lava",
+    fire: "You went up in flames",
+    burn: "You burned to death",
     command: "You ended it with a command",
     void: "You fell out of the world"
 };
@@ -87,7 +90,11 @@ export class Game {
         this.world = new World(meta.seed, {
             onDrop: (x, y, z, id, n, dmg) => this.entities.spawnItem(x, y, z, id, n, dmg || 0),
             onFalling: (x, y, z, id, meta2) => this.entities.spawnFalling(x, y, z, id, meta2),
-            onBlockBroken: (x, y, z, id) => this.blockParticles(x, y, z, id, 0, 10)
+            onBlockBroken: (x, y, z, id) => this.blockParticles(x, y, z, id, 0, 10),
+            onFizz: (x, y, z) => {
+                this.sound.play("fizz");
+                this.renderer.spawnParticles(x + 0.5, y + 1, z + 0.5, [200, 200, 200], 12, 0.4, 2);
+            }
         });
         this.renderer.attachWorld(this.world);
         this.entities = new Entities(this.renderer);
@@ -229,7 +236,9 @@ export class Game {
             if (this.placeOnGround && ready) {
                 this.dropToGround();
             }
-            if (ready && !this.placeOnGround) {
+            if (this.sleeping) {
+                this.updateSleep(dt);
+            } else if (ready && !this.placeOnGround) {
                 const mv = this.movementInput();
                 let rem = Math.min(dt, 0.1);
                 while (rem > 1e-4) {
@@ -271,6 +280,7 @@ export class Game {
             thunder: this.weather.thunder,
             flash: this.weather.flash,
             underwater: p.headInWater,
+            underlava: p.headInLava,
             renderDistance: R
         });
         this.world.skyDarken = Math.round((1 - env.day) * 11 + this.weather.rain * 2);
@@ -305,18 +315,19 @@ export class Game {
             sky: this.world.getSky(ex, ey, ez) / 15,
             blk: this.world.getBlockLight(ex, ey, ez) / 15
         });
-        r.render(dt, !this.hideHud && !p.dead);
+        r.render(dt, !this.hideHud && !p.dead && !this.sleeping);
 
         this.ui.updateHud(this);
         document.getElementById("underwater").classList.toggle("on", p.headInWater);
         document.getElementById("hurt").classList.toggle("on", p.hurtTime > 0.3);
+        document.getElementById("burning").classList.toggle("on", !this.creative && (p.burnTime > 0 || p.inLava));
         this.updateDebug();
         input.endFrame();
     }
 
     movementInput() {
         const k = (c) => this.input.down(c);
-        if (this.ui.isOpen() || this.player.dead || this.paused || this.app.chat.open) {
+        if (this.ui.isOpen() || this.player.dead || this.paused || this.app.chat.open || this.sleeping) {
             return { forward: 0, strafe: 0, jump: false, sneak: false, sprint: false };
         }
         const t = this.input.touchMove;
@@ -478,7 +489,7 @@ export class Game {
         const p = this.player, input = this.input, r = this.renderer;
         this.breakCooldown = Math.max(0, this.breakCooldown - dt);
         this.useCooldown = Math.max(0, this.useCooldown - dt);
-        const active = !this.ui.isOpen() && !p.dead && !this.paused && !this.app.chat.open && (input.locked || this.touchActive);
+        const active = !this.ui.isOpen() && !p.dead && !this.paused && !this.app.chat.open && !this.sleeping && (input.locked || this.touchActive);
         if (!active) {
             this.breaking = null;
             this.eatT = 0;
@@ -489,13 +500,16 @@ export class Game {
         }
         const [ox, oy, oz, dx, dy, dz] = this.eyeRay();
         const reach = this.creative ? 5.5 : 4.5;
-        const hit = this.world.raycast(ox, oy, oz, dx, dy, dz, reach, selectionBox);
+        const hit = this.world.raycast(ox, oy, oz, dx, dy, dz, reach, (id, m, x, y, z) => selectionBox(id, m, this.world, x, y, z));
         this.hit = hit;
         r.setSelection(this.hideHud ? null : hit);
 
         const leftDown = input.buttons.has(0) || this.touchBreak;
         const rightDown = input.buttons.has(2);
         const rightClick = input.clicked.has(2) || this.touchUse;
+        if (input.clicked.has(1) && hit) {
+            this.pickBlock(hit);
+        }
         this.touchUse = false;
 
         //Mining
@@ -580,6 +594,38 @@ export class Game {
         }
     }
 
+    //Middle click: put the targeted block in hand. Creative fills the
+    //selected slot; survival swaps it in from the inventory if owned.
+    pickBlock(hit) {
+        const PICK = {
+            [B.DOOR]: I.DOOR, [B.BED]: I.BED, [B.FURNACE_LIT]: B.FURNACE, [B.WHEAT]: I.SEEDS, [B.FARMLAND]: B.DIRT
+        };
+        const id = PICK[hit.id] ?? hit.id;
+        if (!ITEMS[id]) {
+            return;
+        }
+        const inv = this.inventory;
+        const slots = inv.slots;
+        const hot = slots.findIndex((st, i) => i < 9 && st && st.id === id);
+        if (hot >= 0) {
+            inv.selected = hot;
+            return;
+        }
+        if (this.creative) {
+            slots[inv.selected] = { id, count: ITEMS[id].stack, dmg: 0 };
+        } else {
+            const at = slots.findIndex((st, i) => i >= 9 && st && st.id === id);
+            if (at < 0) {
+                return;
+            }
+            const cur = slots[inv.selected];
+            slots[inv.selected] = slots[at];
+            slots[at] = cur;
+        }
+        this.ui.hudKey = "";
+        this.sound.play("pop");
+    }
+
     blockParticles(x, y, z, id, meta, count, point) {
         const tex = this.app.tex;
         const layer = blockFaceLayer(id, 4, meta || 0);
@@ -618,40 +664,65 @@ export class Game {
         }
     }
 
-    useItem(hit) {
+    //Tall grass and other loose plants never get in the way: aim through
+    //them at the top of the block they grow on
+    throughPlant(hit) {
+        if (!hit || SHAPE[hit.id] !== "cross" || !BLOCKS[hit.id].replaceable) {
+            return hit;
+        }
+        const w = this.world, y = hit.y - 1;
+        const id = w.getBlock(hit.x, y, hit.z);
+        if (id === B.AIR) {
+            return hit;
+        }
+        return {
+            x: hit.x, y, z: hit.z, id, meta: w.getMeta(hit.x, y, hit.z), face: 2, t: hit.t, box: hit.box,
+            point: [hit.point[0], y + 1, hit.point[2]], throughPlant: true
+        };
+    }
+
+    useItem(rawHit) {
         const p = this.player, inv = this.inventory, w = this.world;
         const held = inv.held;
         const it = held && ITEMS[held.id];
-        if (hit && BLOCKS[hit.id].interact && !p.sneaking) {
-            this.interactBlock(hit);
+        if (rawHit && BLOCKS[rawHit.id].interact && !p.sneaking) {
+            this.interactBlock(rawHit);
             return;
         }
-        //Buckets look for water too
+        //An empty bucket scoops up a water or lava source
         if (held && held.id === I.BUCKET) {
             const [ox, oy, oz, dx, dy, dz] = this.eyeRay();
-            const wh = w.raycast(ox, oy, oz, dx, dy, dz, 4.5, (bid, m) => (bid === B.WATER && m === 0 ? [0, 0, 0, 1, 0.875, 1] : selectionBox(bid, m)));
-            if (wh && wh.id === B.WATER && wh.meta === 0) {
+            const wh = w.raycast(ox, oy, oz, dx, dy, dz, 4.5, (bid, m, bx, by, bz) =>
+                ((bid === B.WATER || bid === B.LAVA) && m === 0 ? [0, 0, 0, 1, 0.875, 1] : selectionBox(bid, m, w, bx, by, bz)));
+            if (wh && (wh.id === B.WATER || wh.id === B.LAVA) && wh.meta === 0) {
+                const full = wh.id === B.WATER ? I.WATER_BUCKET : I.LAVA_BUCKET;
                 w.setBlock(wh.x, wh.y, wh.z, B.AIR, 0);
-                this.sound.play("splash");
+                this.sound.play(wh.id === B.WATER ? "splash" : "fizz");
                 this.swing = 0;
                 if (!this.creative) {
                     inv.consumeHeld(1);
                     if (inv.held) {
-                        if (inv.add(I.WATER_BUCKET, 1)) {
-                            this.dropStack({ id: I.WATER_BUCKET, count: 1 });
+                        if (inv.add(full, 1)) {
+                            this.dropStack({ id: full, count: 1 });
                         }
                     } else {
-                        inv.slots[inv.selected] = { id: I.WATER_BUCKET, count: 1, dmg: 0 };
+                        inv.slots[inv.selected] = { id: full, count: 1, dmg: 0 };
                     }
                 }
             }
             return;
         }
-        if (!hit || !held) {
+        if (!rawHit || !held) {
             return;
         }
+        const hit = this.throughPlant(rawHit);
         if (it.tool && it.tool.kind === "hoe") {
-            if ((hit.id === B.GRASS || hit.id === B.DIRT) && hit.face !== 3 && w.getBlock(hit.x, hit.y + 1, hit.z) === B.AIR) {
+            const above = w.getBlock(hit.x, hit.y + 1, hit.z);
+            const free = above === B.AIR || (SHAPE[above] === "cross" && BLOCKS[above].replaceable);
+            if ((hit.id === B.GRASS || hit.id === B.DIRT) && hit.face !== 3 && free) {
+                if (above !== B.AIR) {
+                    w.breakNaturally(hit.x, hit.y + 1, hit.z);
+                }
                 w.setBlock(hit.x, hit.y, hit.z, B.FARMLAND, 0);
                 this.sound.block("step", "gravel");
                 this.swing = 0;
@@ -661,16 +732,28 @@ export class Game {
             }
             return;
         }
-        if (held.id === I.WATER_BUCKET) {
-            const t = this.placeTarget(hit);
-            if (t && (w.getBlock(t[0], t[1], t[2]) === B.AIR || BLOCKS[w.getBlock(t[0], t[1], t[2])].replaceable)) {
-                const cur = w.getBlock(t[0], t[1], t[2]);
-                if (cur !== B.AIR && cur !== B.WATER) {
-                    w.breakNaturally(t[0], t[1], t[2]);
+        if (it.tool && it.tool.kind === "igniter") {
+            const [x, y, z] = this.placeTarget(hit);
+            if (w.ignite(x, y, z)) {
+                this.sound.play("fizz");
+                this.swing = 0;
+                if (!this.creative && inv.damageHeld(1)) {
+                    this.sound.play("toolBreak");
                 }
-                w.setBlock(t[0], t[1], t[2], B.WATER, 0);
-                w.schedule(t[0], t[1], t[2], 5);
-                this.sound.play("splash");
+            }
+            return;
+        }
+        if (held.id === I.WATER_BUCKET || held.id === I.LAVA_BUCKET) {
+            const liquid = held.id === I.WATER_BUCKET ? B.WATER : B.LAVA;
+            const [x, y, z] = this.placeTarget(hit);
+            const cur = w.getBlock(x, y, z);
+            if (y >= 0 && y < WORLD_H && (cur === B.AIR || BLOCKS[cur].replaceable)) {
+                if (cur !== B.AIR && cur !== B.WATER && cur !== B.LAVA) {
+                    w.breakNaturally(x, y, z);
+                }
+                w.setBlock(x, y, z, liquid, 0);
+                w.schedule(x, y, z, 5);
+                this.sound.play(liquid === B.WATER ? "splash" : "fizz");
                 this.swing = 0;
                 if (!this.creative) {
                     inv.slots[inv.selected] = { id: I.BUCKET, count: 1, dmg: 0 };
@@ -689,6 +772,14 @@ export class Game {
             }
             return;
         }
+        if (held.id === I.DOOR) {
+            this.placeDoor(hit);
+            return;
+        }
+        if (held.id === I.BED) {
+            this.placeBed(hit);
+            return;
+        }
         if (it.block) {
             this.placeBlock(hit, it.block);
         }
@@ -696,15 +787,37 @@ export class Game {
 
     placeTarget(hit) {
         const def = BLOCKS[hit.id];
-        if (def.replaceable && hit.id !== B.WATER) {
+        if (def.replaceable && hit.id !== B.WATER && hit.id !== B.LAVA) {
             return [hit.x, hit.y, hit.z];
         }
         const d = FACE_DIR[hit.face];
         return [hit.x + d[0], hit.y + d[1], hit.z + d[2]];
     }
 
+    //Would this block at (x, y, z) collide with the player?
+    blocksPlayer(bid, meta, x, y, z) {
+        if (!SOLID[bid]) {
+            return false;
+        }
+        const pb = this.player.box();
+        for (const b of collisionBoxes(bid, meta, this.world, x, y, z)) {
+            if (pb[0] < x + b[3] && pb[3] > x + b[0] && pb[1] < y + b[4] && pb[4] > y + b[1] && pb[2] < z + b[5] && pb[5] > z + b[2]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    //Clear a replaceable block (a plant) so something can go there
+    clearSpot(x, y, z) {
+        const cur = this.world.getBlock(x, y, z);
+        if (cur !== B.AIR && cur !== B.WATER && cur !== B.LAVA) {
+            this.world.breakNaturally(x, y, z);
+        }
+    }
+
     placeBlock(hit, bid) {
-        const w = this.world, p = this.player, inv = this.inventory;
+        const w = this.world, p = this.player;
         const def = BLOCKS[bid];
         const face = hit.face;
         //Completing a slab into a double slab
@@ -740,6 +853,8 @@ export class Game {
                 return;
             }
             meta = face;
+        } else if (bid === B.FENCE_GATE) {
+            meta = facingFromYaw(p.yaw);
         } else if (def.orient) {
             const lx = -Math.sin(p.yaw), lz = -Math.cos(p.yaw);
             if (Math.abs(lx) > Math.abs(lz)) {
@@ -753,18 +868,58 @@ export class Game {
         if (def.support && !w.hasSupport(x, y, z, bid, meta)) {
             return;
         }
-        if (SOLID[bid]) {
-            const pb = p.box();
-            for (const b of collisionBoxes(bid, meta)) {
-                if (pb[0] < x + b[3] && pb[3] > x + b[0] && pb[1] < y + b[4] && pb[4] > y + b[1] && pb[2] < z + b[5] && pb[5] > z + b[2]) {
-                    return;
-                }
+        if (this.blocksPlayer(bid, meta, x, y, z)) {
+            return;
+        }
+        this.clearSpot(x, y, z);
+        this.finishPlace(x, y, z, bid, meta);
+    }
+
+    //Doors are two blocks tall and hang on the edge nearest the player
+    placeDoor(hit) {
+        const w = this.world;
+        const [x, y, z] = this.placeTarget(hit);
+        if (y < 1 || y + 1 >= WORLD_H) {
+            return;
+        }
+        if (!BLOCKS[w.getBlock(x, y, z)].replaceable || !BLOCKS[w.getBlock(x, y + 1, z)].replaceable) {
+            return;
+        }
+        if (!isOpaqueAt(w.getBlock(x, y - 1, z), w.getMeta(x, y - 1, z))) {
+            return;
+        }
+        const f = (facingFromYaw(this.player.yaw) + 2) & 3;
+        if (this.blocksPlayer(B.DOOR, f, x, y, z) || this.blocksPlayer(B.DOOR, f | 8, x, y + 1, z)) {
+            return;
+        }
+        this.clearSpot(x, y, z);
+        this.clearSpot(x, y + 1, z);
+        w.setBlock(x, y, z, B.DOOR, f, false);
+        this.finishPlace(x, y + 1, z, B.DOOR, f | 8);
+    }
+
+    //Beds take two blocks: the foot where you click, the head further on
+    placeBed(hit) {
+        const w = this.world;
+        const [x, y, z] = this.placeTarget(hit);
+        const f = facingFromYaw(this.player.yaw);
+        const hx = x + HDIR[f][0], hz = z + HDIR[f][1];
+        if (y < 1 || y >= WORLD_H) {
+            return;
+        }
+        for (const [bx, bz] of [[x, z], [hx, hz]]) {
+            if (!BLOCKS[w.getBlock(bx, y, bz)].replaceable || !isOpaqueAt(w.getBlock(bx, y - 1, bz), w.getMeta(bx, y - 1, bz))) {
+                this.ui.toast("A bed needs two free blocks on solid ground");
+                return;
+            }
+            if (this.blocksPlayer(B.BED, 0, bx, y, bz)) {
+                return;
             }
         }
-        if (cur !== B.AIR && cur !== B.WATER) {
-            w.breakNaturally(x, y, z);
-        }
-        this.finishPlace(x, y, z, bid, meta);
+        this.clearSpot(x, y, z);
+        this.clearSpot(hx, y, hz);
+        w.setBlock(hx, y, hz, B.BED, f | 4, false);
+        this.finishPlace(x, y, z, B.BED, f);
     }
 
     finishPlace(x, y, z, bid, meta) {
@@ -787,8 +942,22 @@ export class Game {
     interactBlock(hit) {
         const w = this.world;
         const kind = BLOCKS[hit.id].interact;
+        this.swing = 0;
         if (kind === "workbench") {
             this.openScreen("workbench");
+        } else if (kind === "door") {
+            const lowerY = hit.meta & 8 ? hit.y - 1 : hit.y;
+            for (const y of [lowerY, lowerY + 1]) {
+                if (w.getBlock(hit.x, y, hit.z) === B.DOOR) {
+                    w.setBlock(hit.x, y, hit.z, B.DOOR, w.getMeta(hit.x, y, hit.z) ^ 4, false);
+                }
+            }
+            this.sound.block("place", "wood");
+        } else if (kind === "gate") {
+            w.setBlock(hit.x, hit.y, hit.z, B.FENCE_GATE, hit.meta ^ 4, false);
+            this.sound.block("place", "wood");
+        } else if (kind === "bed") {
+            this.trySleep(hit);
         } else {
             let te = w.getTileEntity(hit.x, hit.y, hit.z);
             if (!te) {
@@ -796,6 +965,58 @@ export class Game {
             }
             this.openScreen(kind, te);
         }
+    }
+
+    /* ---------------- sleeping ---------------- */
+
+    trySleep(hit) {
+        const tod = this.ticks % DAY;
+        if (!(tod >= 12500 && tod <= 23500) && this.weather.state !== "thunder") {
+            this.ui.toast("You can only sleep at night or during a thunderstorm");
+            return;
+        }
+        const f = hit.meta & 3, d = HDIR[f];
+        const head = hit.meta & 4 ? [hit.x, hit.z] : [hit.x + d[0], hit.z + d[1]];
+        const foot = hit.meta & 4 ? [hit.x - d[0], hit.z - d[1]] : [hit.x, hit.z];
+        this.spawn = { x: foot[0] + 0.5, y: hit.y + 1, z: foot[1] + 0.5 };
+        this.sleeping = { t: 0, head, foot, y: hit.y, f };
+        this.breaking = null;
+        this.ui.toast("Respawn point set");
+        this.app.showSleep(true, 0);
+    }
+
+    updateSleep(dt) {
+        const s = this.sleeping;
+        s.t += dt;
+        for (const code of ["ShiftLeft", "ShiftRight", "Space", "KeyW", "KeyA", "KeyS", "KeyD"]) {
+            if (this.input.pressed.has(code)) {
+                this.wake(false);
+                return;
+            }
+        }
+        this.app.showSleep(true, Math.min(1, s.t / 2.2));
+        if (s.t >= 3) {
+            this.wake(true);
+        }
+    }
+
+    wake(skipNight) {
+        const s = this.sleeping;
+        if (!s) {
+            return;
+        }
+        this.sleeping = null;
+        if (skipNight) {
+            this.ticks = (Math.floor(this.ticks / DAY) + 1) * DAY + 500;
+            if (this.weather.state !== "clear") {
+                this.setWeather("clear");
+                this.weather.rain = 0;
+                this.weather.thunder = 0;
+            }
+            this.ui.toast("Good morning!");
+        }
+        this.player.setPos(s.foot[0] + 0.5, s.y + 0.5625, s.foot[1] + 0.5);
+        this.app.showSleep(false);
     }
 
     /* ---------------- items ---------------- */
@@ -851,7 +1072,10 @@ export class Game {
             if (e.type === "hurt") {
                 this.sound.play("hurt");
             } else if (e.type === "death") {
+                this.wake(false);
                 this.onDeath(e.cause);
+            } else if (e.type === "extinguish") {
+                this.sound.play("fizz");
             } else if (e.type === "land" && e.fall > 1.2) {
                 const id = this.world.getBlock(Math.floor(p.x), Math.floor(p.y - 0.2), Math.floor(p.z));
                 this.sound.block("step", BLOCKS[id].sound);
@@ -915,6 +1139,13 @@ export class Game {
 
     updateCamera(dt) {
         const p = this.player, cam = this.renderer.camera;
+        if (this.sleeping) {
+            //Lying on the pillow, looking along the bed toward the foot
+            const s = this.sleeping, d = HDIR[s.f];
+            cam.position.set(s.head[0] + 0.5 - d[0] * 0.2, s.y + 0.75, s.head[1] + 0.5 - d[1] * 0.2);
+            cam.rotation.set(0.45, Math.atan2(d[0], d[1]), 0);
+            return;
+        }
         let bx = 0, by = 0, roll = 0;
         if (this.settings.viewBobbing && p.onGround && !p.flying) {
             const phase = p.walkDist * Math.PI * 0.75;

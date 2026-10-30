@@ -56,6 +56,9 @@ export class Player {
         this.starveTimer = 0;
         this.drownTimer = 0;
         this.cactusTimer = 0;
+        this.fireTimer = 0;
+        this.burnTime = 0;
+        this.burnTick = 0;
         this.hurtTime = 0;
         this.dead = false;
         this.events = [];
@@ -75,20 +78,22 @@ export class Player {
         this.fallDistance = 0;
     }
 
-    //Does the voxel at (x, y, z) contain the given world point under water?
-    waterAt(px, py, pz) {
+    //Is the given world point under the surface of a liquid (water or lava)?
+    waterAt(px, py, pz, liquid = B.WATER) {
         const w = this.world;
         const x = Math.floor(px), y = Math.floor(py), z = Math.floor(pz);
-        if (w.getBlock(x, y, z) !== B.WATER) {
+        if (w.getBlock(x, y, z) !== liquid) {
             return false;
         }
-        const h = waterHeight(w.getMeta(x, y, z), w.getBlock(x, y + 1, z) === B.WATER);
+        const h = waterHeight(w.getMeta(x, y, z), w.getBlock(x, y + 1, z) === liquid);
         return py - y < h + 0.02;
     }
 
     sense() {
         const w = this.world;
-        this.inWater = this.waterAt(this.x, this.y + 0.25, this.z) || this.waterAt(this.x, this.y + 0.9, this.z);
+        this.inLava = this.waterAt(this.x, this.y + 0.25, this.z, B.LAVA) || this.waterAt(this.x, this.y + 0.9, this.z, B.LAVA);
+        this.headInLava = this.waterAt(this.x, this.eyeY, this.z, B.LAVA);
+        this.inWater = !this.inLava && (this.waterAt(this.x, this.y + 0.25, this.z) || this.waterAt(this.x, this.y + 0.9, this.z));
         this.headInWater = this.waterAt(this.x, this.eyeY, this.z);
         this.onLadder = false;
         const b = this.box();
@@ -132,6 +137,8 @@ export class Player {
         let speed;
         if (this.flying) {
             speed = this.sprinting ? 21.6 : 10.9;
+        } else if (this.inLava) {
+            speed = 1.1;
         } else if (this.inWater) {
             speed = this.sprinting ? 3.2 : 2.2;
         } else if (this.sneaking) {
@@ -142,7 +149,7 @@ export class Player {
         let accel;
         if (this.flying) {
             accel = 7;
-        } else if (this.inWater) {
+        } else if (this.inWater || this.inLava) {
             accel = 6;
         } else if (this.onGround) {
             accel = 16;
@@ -157,6 +164,17 @@ export class Player {
         if (this.flying) {
             const ty = (input.jump ? 8.5 : 0) - (input.sneak ? 8.5 : 0);
             this.vy += (ty - this.vy) * (1 - Math.exp(-10 * dt));
+        } else if (this.inLava) {
+            //Thick and slow: sinks gently, swims up weakly
+            this.vy -= 6 * dt;
+            this.vy *= Math.exp(-3.5 * dt);
+            if (input.jump) {
+                this.vy = Math.min(this.vy + 14 * dt, 1.8);
+                if (this.horizontalHit) {
+                    this.vy = 3.5;
+                }
+            }
+            this.vy = Math.max(this.vy, -1.8);
         } else if (this.inWater) {
             this.vy -= 10 * dt;
             this.vy *= Math.exp(-2.2 * dt);
@@ -239,6 +257,11 @@ export class Player {
             this.vz = 0;
         }
         this.horizontalHit = hitX || hitZ;
+        //Holding sneak while flying into the ground lands you
+        if (this.flying && this.onGround && input.sneak) {
+            this.flying = false;
+            this.vy = 0;
+        }
         const oldY = this.y;
         this.x = (box[0] + box[3]) / 2;
         this.y = box[1];
@@ -258,7 +281,7 @@ export class Player {
         }
 
         //Falling
-        if (this.flying || this.inWater || this.onLadder) {
+        if (this.flying || this.inWater || this.inLava || this.onLadder) {
             this.fallDistance = 0;
         } else if (this.y < oldY) {
             this.fallDistance += oldY - this.y;
@@ -387,6 +410,35 @@ export class Player {
             this.cactusTimer = 0.5;
             this.hurt(1, "cactus");
         }
+        //Fire and lava: damage while touching, then you keep burning a while
+        this.fireTimer = Math.max(0, this.fireTimer - dt);
+        if (this.inLava) {
+            this.burnTime = 8;
+            if (this.fireTimer === 0) {
+                this.fireTimer = 0.5;
+                this.hurt(4, "lava");
+            }
+        } else if (this.touching(B.FIRE)) {
+            this.burnTime = Math.max(this.burnTime, 4);
+            if (this.fireTimer === 0) {
+                this.fireTimer = 0.5;
+                this.hurt(1, "fire");
+            }
+        }
+        if (this.burnTime > 0) {
+            const rained = this.world.raining && this.world.rainTop(Math.floor(this.x), Math.floor(this.z)) <= this.y + 0.5;
+            if (this.inWater || rained) {
+                this.burnTime = 0;
+                this.events.push({ type: "extinguish" });
+            } else {
+                this.burnTime = Math.max(0, this.burnTime - dt);
+                this.burnTick += dt;
+                if (this.burnTick >= 1 && !this.inLava) {
+                    this.burnTick = 0;
+                    this.hurt(1, "burn");
+                }
+            }
+        }
         const hx = Math.floor(this.x), hy = Math.floor(this.eyeY), hz = Math.floor(this.z);
         if (this.world.isLoaded(hx, hz) && isOpaqueAt(this.world.getBlock(hx, hy, hz), this.world.getMeta(hx, hy, hz))) {
             this.suffocateTimer = (this.suffocateTimer || 0) + dt;
@@ -433,6 +485,7 @@ export class Player {
         this.air = 15;
         this.dead = false;
         this.hurtTime = 0;
+        this.burnTime = 0;
     }
 
     serialize() {

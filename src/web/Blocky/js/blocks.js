@@ -18,14 +18,28 @@ export const B = {
     TALL_GRASS: 27, FLOWER_YELLOW: 28, FLOWER_RED: 29, MUSHROOM_BROWN: 30, MUSHROOM_RED: 31,
     CACTUS: 32, REEDS: 33, FARMLAND: 34, WHEAT: 35, DEAD_BUSH: 36, LADDER: 37,
     STONE_SLAB: 38, PLANK_SLAB: 39, COBBLE_SLAB: 40, SANDSTONE_SLAB: 41,
-    IRON_BLOCK: 42, GOLD_BLOCK: 43, CRYSTAL_BLOCK: 44, LAMP: 45, MOSSY_COBBLE: 46
+    IRON_BLOCK: 42, GOLD_BLOCK: 43, CRYSTAL_BLOCK: 44, LAMP: 45, MOSSY_COBBLE: 46,
+    FIRE: 47, LAVA: 48, OBSIDIAN: 49, DOOR: 50, FENCE: 51, FENCE_GATE: 52, BED: 53
 };
 
 export const I = {
     STICK: 256, COAL: 257, IRON_INGOT: 258, GOLD_INGOT: 259, CRYSTAL: 260, FLINT: 261,
     CLAY_BALL: 262, BRICK: 263, SEEDS: 264, WHEAT: 265, BREAD: 266, APPLE: 267,
-    BOWL: 268, STEW: 269, BUCKET: 270, WATER_BUCKET: 271
+    BOWL: 268, STEW: 269, BUCKET: 270, WATER_BUCKET: 271, FLINT_AND_STEEL: 272,
+    LAVA_BUCKET: 273, DOOR: 274, BED: 275
 };
+
+//Horizontal facings used by doors, gates and beds: 0 +x, 1 +z, 2 -x, 3 -z
+export const HDIR = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+//Facing index the player looks along, from their yaw
+export function facingFromYaw(yaw) {
+    const lx = -Math.sin(yaw), lz = -Math.cos(yaw);
+    if (Math.abs(lx) > Math.abs(lz)) {
+        return lx > 0 ? 0 : 2;
+    }
+    return lz > 0 ? 1 : 3;
+}
 
 //Tool ids: 280 + material * 4 + kind (kinds: pickaxe, axe, shovel, hoe)
 export const TOOL_BASE = 280;
@@ -37,7 +51,7 @@ export const BLOCKS = [];
 export const ITEMS = [];
 
 const DEFAULTS = {
-    shape: "cube",      //cube, cross, crop, torch, slab, cactus, liquid, farmland, ladder, none
+    shape: "cube",      //cube, cross, crop, torch, slab, cactus, liquid, farmland, ladder, fire, door, fence, gate, bed, none
     solid: true,        //has collision
     opaque: true,       //full cube that hides neighbour faces
     lightOpacity: 15,
@@ -77,7 +91,7 @@ def(B.DIRT, "Dirt", { tex: "dirt", hardness: 0.5, tool: "shovel", sound: "gravel
 def(B.COBBLE, "Cobblestone", { tex: "cobblestone", hardness: 2, tool: "pickaxe", tier: 1 });
 def(B.MOSSY_COBBLE, "Mossy Cobblestone", { tex: "mossy", hardness: 2, tool: "pickaxe", tier: 1 });
 def(B.PLANKS, "Planks", { tex: "planks", hardness: 2, tool: "axe", sound: "wood" });
-def(B.SAPLING, "Sapling", Object.assign({}, NONSOLID_PLANT, { tex: "sapling" }));
+def(B.SAPLING, "Sapling", Object.assign({}, NONSOLID_PLANT, { tex: "sapling", replaceable: true }));
 def(B.BEDROCK, "Bedrock", { tex: "bedrock", hardness: -1, noItem: true });
 def(B.WATER, "Water", { tex: "water", shape: "liquid", solid: false, opaque: false, lightOpacity: 1, hardness: -1, replaceable: true, noItem: true, targetable: false, sound: "water" });
 def(B.SAND, "Sand", { tex: "sand", hardness: 0.5, tool: "shovel", sound: "sand", gravity: true });
@@ -111,10 +125,11 @@ def(B.FURNACE, "Furnace", { tex: { top: "furnace_top", bottom: "furnace_top", si
 def(B.FURNACE_LIT, "Lit Furnace", { tex: { top: "furnace_top", bottom: "furnace_top", side: "furnace_side", front: "furnace_front_lit" }, hardness: 3.5, tool: "pickaxe", tier: 1, orient: true, light: 13, noItem: true, interact: "furnace", drops: () => [[B.FURNACE, 1]] });
 def(B.CHEST, "Chest", { tex: { top: "chest_top", bottom: "chest_top", side: "chest_side", front: "chest_front" }, hardness: 2.5, tool: "axe", sound: "wood", orient: true, interact: "chest" });
 def(B.TALL_GRASS, "Tall Grass", Object.assign({}, NONSOLID_PLANT, { tex: "tall_grass", tint: "grass", replaceable: true, drops: (m, rng) => (rng() < 0.125 ? [[I.SEEDS, 1]] : []) }));
-def(B.FLOWER_YELLOW, "Yellow Flower", Object.assign({}, NONSOLID_PLANT, { tex: "flower_yellow" }));
-def(B.FLOWER_RED, "Red Flower", Object.assign({}, NONSOLID_PLANT, { tex: "flower_red" }));
-def(B.MUSHROOM_BROWN, "Brown Mushroom", Object.assign({}, NONSOLID_PLANT, { tex: "mushroom_brown", support: "solid", light: 1 }));
-def(B.MUSHROOM_RED, "Red Mushroom", Object.assign({}, NONSOLID_PLANT, { tex: "mushroom_red", support: "solid" }));
+//Short plants give way when a block is placed on them (they drop as items)
+def(B.FLOWER_YELLOW, "Yellow Flower", Object.assign({}, NONSOLID_PLANT, { tex: "flower_yellow", replaceable: true }));
+def(B.FLOWER_RED, "Red Flower", Object.assign({}, NONSOLID_PLANT, { tex: "flower_red", replaceable: true }));
+def(B.MUSHROOM_BROWN, "Brown Mushroom", Object.assign({}, NONSOLID_PLANT, { tex: "mushroom_brown", support: "solid", light: 1, replaceable: true }));
+def(B.MUSHROOM_RED, "Red Mushroom", Object.assign({}, NONSOLID_PLANT, { tex: "mushroom_red", support: "solid", replaceable: true }));
 def(B.CACTUS, "Cactus", { tex: { top: "cactus_top", bottom: "cactus_bottom", side: "cactus_side" }, shape: "cactus", opaque: false, lightOpacity: 0, hardness: 0.4, sound: "cloth", support: "cactus" });
 def(B.REEDS, "Reeds", Object.assign({}, NONSOLID_PLANT, { tex: "reeds", support: "reeds" }));
 def(B.FARMLAND, "Farmland", { tex: { top: "farmland_dry", bottom: "dirt", side: "dirt" }, shape: "farmland", opaque: false, lightOpacity: 0, hardness: 0.6, tool: "shovel", sound: "gravel", noItem: true, drops: () => [[B.DIRT, 1]] });
@@ -132,6 +147,13 @@ def(B.IRON_BLOCK, "Block of Iron", { tex: "iron_block", hardness: 5, tool: "pick
 def(B.GOLD_BLOCK, "Block of Gold", { tex: "gold_block", hardness: 3, tool: "pickaxe", tier: 3, sound: "metal" });
 def(B.CRYSTAL_BLOCK, "Block of Crystal", { tex: "crystal_block", hardness: 5, tool: "pickaxe", tier: 3, sound: "metal" });
 def(B.LAMP, "Lamp", { tex: "lamp", hardness: 0.3, light: 15, sound: "glass" });
+def(B.FIRE, "Fire", { tex: "fire", shape: "fire", solid: false, opaque: false, lightOpacity: 0, light: 15, hardness: 0, replaceable: true, noItem: true, sound: "fire", drops: () => [] });
+def(B.LAVA, "Lava", { tex: "lava", shape: "liquid", solid: false, opaque: false, lightOpacity: 15, light: 15, hardness: -1, replaceable: true, noItem: true, targetable: false, sound: "lava" });
+def(B.OBSIDIAN, "Obsidian", { tex: "obsidian", hardness: 35, tool: "pickaxe", tier: 4 });
+def(B.DOOR, "Door", { tex: "door_lower", shape: "door", opaque: false, lightOpacity: 0, hardness: 3, tool: "axe", sound: "wood", noItem: true, interact: "door", support: "door", drops: () => [[I.DOOR, 1]] });
+def(B.FENCE, "Fence", { tex: "planks", shape: "fence", opaque: false, lightOpacity: 0, hardness: 2, tool: "axe", sound: "wood" });
+def(B.FENCE_GATE, "Fence Gate", { tex: "planks", shape: "gate", opaque: false, lightOpacity: 0, hardness: 2, tool: "axe", sound: "wood", interact: "gate" });
+def(B.BED, "Bed", { tex: { top: "bed_foot_top", bottom: "planks", side: "bed_side" }, shape: "bed", opaque: false, lightOpacity: 0, hardness: 0.2, sound: "cloth", noItem: true, interact: "bed", drops: () => [[I.BED, 1]] });
 
 //Fill the gaps so every id lookup returns something sane
 for (let i = 0; i < 256; i++) {
@@ -156,7 +178,20 @@ for (let i = 0; i < 256; i++) {
     LIGHT_OPACITY[i] = b.lightOpacity;
     LIGHT_EMIT[i] = b.light;
     SHAPE[i] = b.shape;
-    RAIN_BLOCKING[i] = (b.solid || i === B.WATER || i === B.LEAVES) ? 1 : 0;
+    RAIN_BLOCKING[i] = (b.solid || i === B.WATER || i === B.LAVA || i === B.LEAVES) ? 1 : 0;
+}
+
+//Fire: how readily a block catches (spread) and burns away
+export const FLAME_CATCH = new Uint8Array(256);
+export const FLAME_BURN = new Uint8Array(256);
+for (const [id, c, b] of [
+    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
+    [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.BED, 5, 20],
+    [B.LADDER, 5, 20], [B.TALL_GRASS, 60, 100], [B.FLOWER_YELLOW, 60, 100], [B.FLOWER_RED, 60, 100],
+    [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100]
+]) {
+    FLAME_CATCH[id] = c;
+    FLAME_BURN[id] = b;
 }
 
 //A slab with meta 2 is a double slab: a full opaque cube
@@ -198,6 +233,12 @@ export function blockFaceLayer(id, face, meta) {
     if (id === B.FARMLAND && face === 2) {
         return tileLayer.get(meta > 0 ? "farmland_wet" : "farmland_dry");
     }
+    if (id === B.DOOR) {
+        return tileLayer.get(meta & 8 ? "door_upper" : "door_lower");
+    }
+    if (id === B.BED && face === 2) {
+        return tileLayer.get(meta & 4 ? "bed_head_top" : "bed_foot_top");
+    }
     if (id === B.WORKBENCH) {
         return (face === 4 || face === 5) ? fl[6] : fl[face];
     }
@@ -220,7 +261,8 @@ const FLAT_BLOCK_ICONS = {
     [B.SAPLING]: "sapling", [B.TORCH]: "torch", [B.TALL_GRASS]: "tall_grass",
     [B.FLOWER_YELLOW]: "flower_yellow", [B.FLOWER_RED]: "flower_red",
     [B.MUSHROOM_BROWN]: "mushroom_brown", [B.MUSHROOM_RED]: "mushroom_red",
-    [B.REEDS]: "reeds", [B.DEAD_BUSH]: "dead_bush", [B.LADDER]: "ladder"
+    [B.REEDS]: "reeds", [B.DEAD_BUSH]: "dead_bush", [B.LADDER]: "ladder",
+    [B.FENCE]: "fence_item", [B.FENCE_GATE]: "gate_item"
 };
 
 for (let i = 1; i < 256; i++) {
@@ -251,6 +293,10 @@ item(I.BOWL, "Bowl", { icon: { flat: "bowl" }, fuel: 100 });
 item(I.STEW, "Mushroom Stew", { icon: { flat: "stew" }, stack: 1, food: { hunger: 6, sat: 7.2, leaves: I.BOWL } });
 item(I.BUCKET, "Bucket", { icon: { flat: "bucket" }, stack: 16 });
 item(I.WATER_BUCKET, "Water Bucket", { icon: { flat: "water_bucket" }, stack: 1 });
+item(I.LAVA_BUCKET, "Lava Bucket", { icon: { flat: "lava_bucket" }, stack: 1, fuel: 20000, fuelLeaves: I.BUCKET });
+item(I.FLINT_AND_STEEL, "Flint and Steel", { icon: { flat: "flint_and_steel" }, stack: 1, tool: { kind: "igniter", tier: 0, speed: 1, durability: 64 } });
+item(I.DOOR, "Door", { icon: { flat: "door_item" }, stack: 16, fuel: 200 });
+item(I.BED, "Bed", { icon: { flat: "bed_item" }, stack: 1 });
 
 //Fuel for blocks (ticks at 20 ticks per second; one smelt takes 200 ticks)
 ITEMS[B.LOG].fuel = 300;
@@ -260,6 +306,8 @@ ITEMS[B.SAPLING].fuel = 100;
 ITEMS[B.WORKBENCH].fuel = 300;
 ITEMS[B.CHEST].fuel = 300;
 ITEMS[B.LADDER].fuel = 300;
+ITEMS[B.FENCE].fuel = 300;
+ITEMS[B.FENCE_GATE].fuel = 300;
 ITEMS[B.REEDS].block = B.REEDS;
 
 export const TOOL_STATS = [
@@ -399,6 +447,7 @@ TOOL_STATS.forEach((st, mi) => {
     });
 });
 shaped(I.BUCKET, 1, ["I.I", ".I."], { I: I.IRON_INGOT }, "Tools");
+shapeless(I.FLINT_AND_STEEL, 1, [I.IRON_INGOT, I.FLINT], "Tools");
 
 shaped(I.BOWL, 4, ["P.P", ".P."], { P: B.PLANKS }, "Food");
 shaped(I.BREAD, 1, ["WWW"], { W: I.WHEAT }, "Food");
@@ -415,6 +464,10 @@ shaped(B.PLANK_SLAB, 6, ["MMM"], { M: B.PLANKS });
 shaped(B.COBBLE_SLAB, 6, ["MMM"], { M: B.COBBLE });
 shaped(B.SANDSTONE_SLAB, 6, ["MMM"], { M: B.SANDSTONE });
 shaped(B.LAMP, 1, [".G.", "GTG", ".G."], { G: B.GLASS, T: B.TORCH });
+shaped(I.DOOR, 3, ["PP", "PP", "PP"], { P: B.PLANKS });
+shaped(B.FENCE, 3, ["PSP", "PSP"], { P: B.PLANKS, S: I.STICK });
+shaped(B.FENCE_GATE, 1, ["SPS", "SPS"], { P: B.PLANKS, S: I.STICK });
+shaped(I.BED, 1, ["WWW", "PPP"], { W: I.WHEAT, P: B.PLANKS });
 for (const [block, ingot] of [[B.IRON_BLOCK, I.IRON_INGOT], [B.GOLD_BLOCK, I.GOLD_INGOT], [B.CRYSTAL_BLOCK, I.CRYSTAL]]) {
     shaped(block, 1, ["III", "III", "III"], { I: ingot });
     shapeless(ingot, 9, [block], "Basics");
@@ -515,7 +568,8 @@ export function creativeGroups() {
     const building = [B.STONE, B.COBBLE, B.MOSSY_COBBLE, B.STONE_BRICKS, B.BRICKS, B.DIRT, B.GRASS, B.SAND, B.SANDSTONE,
         B.GRAVEL, B.CLAY, B.LOG, B.PLANKS, B.LEAVES, B.GLASS, B.LAMP, B.STONE_SLAB, B.PLANK_SLAB,
         B.COBBLE_SLAB, B.SANDSTONE_SLAB, B.IRON_BLOCK, B.GOLD_BLOCK, B.CRYSTAL_BLOCK, B.COAL_ORE, B.IRON_ORE,
-        B.GOLD_ORE, B.CRYSTAL_ORE, B.LADDER, B.TORCH, B.WORKBENCH, B.FURNACE, B.CHEST];
+        B.GOLD_ORE, B.CRYSTAL_ORE, B.OBSIDIAN, B.LADDER, B.TORCH, B.WORKBENCH, B.FURNACE, B.CHEST,
+        B.FENCE, B.FENCE_GATE, I.DOOR, I.BED];
     const nature = [B.SAPLING, B.TALL_GRASS, B.FLOWER_YELLOW, B.FLOWER_RED, B.MUSHROOM_BROWN, B.MUSHROOM_RED,
         B.CACTUS, B.REEDS, B.DEAD_BUSH, I.SEEDS];
     const tools = [];
@@ -524,7 +578,7 @@ export function creativeGroups() {
             tools.push(toolId(mi, ki));
         }
     }
-    tools.push(I.BUCKET, I.WATER_BUCKET);
+    tools.push(I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL);
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,
         I.WHEAT, I.BOWL, I.APPLE, I.BREAD, I.STEW];
     return [

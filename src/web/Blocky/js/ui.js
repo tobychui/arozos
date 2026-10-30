@@ -217,7 +217,7 @@ export class UI {
         panel.addEventListener("contextmenu", (e) => e.preventDefault());
         panel.addEventListener("mouseover", (e) => {
             const el = e.target.closest(".slot, .recipe, .pal");
-            this.hover = el && el.classList.contains("slot") ? el.dataset.ref : null;
+            this.hover = !el ? null : el.classList.contains("slot") ? el.dataset.ref : el.classList.contains("pal") ? "pal:" + el.dataset.id : null;
             this.showTooltip(el);
         });
         panel.addEventListener("mouseleave", () => {
@@ -310,8 +310,15 @@ export class UI {
                 const groups = creativeGroups();
                 const tabs = groups.map((g, i) => `<button class="tab ${i === this.creativeTab ? "on" : ""}" data-tab="${i}">${g.name}</button>`).join("");
                 const pal = groups[this.creativeTab].ids.map((id) => `<div class="pal" data-id="${id}"><div class="ic" style="${iconCss(this.icons, id, 36)}"></div></div>`).join("");
-                html = `<div class="scr-col wide"><div class="tabs">${tabs}</div><div class="palette">${pal}</div>
-                    ${this.invSection("Inventory")}<div class="trashrow"><span>Drop an item on the bin to delete it</span>${this.slotHtml("trash", "trash")}</div></div>`;
+                let hot = "";
+                for (let i = 0; i < 9; i++) {
+                    hot += this.slotHtml("inv:" + i);
+                }
+                //Item grid and the hotbar only: the rest of the inventory has no use in creative
+                html = `<div class="scr-col creative"><div class="tabs">${tabs}</div>
+                    <div class="palette"><div class="palgrid">${pal}</div></div>
+                    <div class="creativehot"><div class="slots grid9">${hot}</div>${this.slotHtml("trash", "trash")}</div>
+                    <p class="hint">Click an item to pick up a stack, shift click to add it to the hotbar, or press 1-9 over it. Drop items on the bin to delete them.</p></div>`;
             } else if (s.kind === "furnace") {
                 html = `<div class="scr-col"><h3>Furnace</h3><div class="furnace">
                     <div class="fcol">${this.slotHtml("te:0")}<div class="flame"><i></i></div>${this.slotHtml("te:1")}</div>
@@ -746,7 +753,8 @@ export class UI {
 
     quickMove(ref) {
         const s = this.getStack(ref);
-        if (!s) {
+        //Creative only shows the hotbar, so there is nowhere to move things to
+        if (!s || this.screen.kind === "creative") {
             return;
         }
         const range = (p, a, b) => {
@@ -794,6 +802,12 @@ export class UI {
 
     hotkey(n) {
         const h = this.hover;
+        if (h && h.startsWith("pal:")) {
+            const id = Number(h.slice(4));
+            this.game.inventory.slots[n] = { id, count: maxStack(id), dmg: 0 };
+            this.after();
+            return true;
+        }
         if (!h || !(h.startsWith("inv:") || h.startsWith("te:") || h.startsWith("craft:"))) {
             return false;
         }

@@ -26,6 +26,7 @@
     <div id="hud" class="hidden">
         <div id="underwater"></div>
         <div id="hurt"></div>
+        <div id="burning"></div>
         <div id="crosshair"></div>
         <pre id="debug" class="hidden"></pre>
         <div id="message"></div>
@@ -131,11 +132,10 @@
         </div>
     </div>
 
-    <div id="resume" class="overlay hidden">
-        <div class="box center clickable">
-            <h2>Click to play</h2>
-            <p>Move with W A S D, look with the mouse. Press Esc to pause.</p>
-        </div>
+    <div id="sleep" class="hidden">
+        <div class="sleepmsg">Sleeping...</div>
+        <div class="sleephint">Press Shift to get up</div>
+        <button class="btn" id="btnLeaveBed">Leave Bed</button>
     </div>
 
     <div id="pause" class="overlay dim hidden">
@@ -201,9 +201,10 @@
             <div class="helpgrid">
                 <div><b>W A S D</b> move, <b>Space</b> jump, <b>Shift</b> sneak, <b>Ctrl</b> or double tap <b>W</b> to sprint</div>
                 <div><b>Left mouse</b> mine a block, <b>Right mouse</b> place a block, use a workbench / furnace / chest, or eat</div>
-                <div><b>1 - 9</b> or the <b>mouse wheel</b> pick a hotbar slot</div>
+                <div><b>1 - 9</b> or the <b>mouse wheel</b> pick a hotbar slot, <b>Middle click</b> a block to take it in hand</div>
                 <div><b>E</b> inventory and 2 x 2 crafting, <b>Q</b> drop an item (Ctrl+Q the whole stack)</div>
                 <div><b>T</b> chat, <b>/</b> type a command such as <b>/give</b> or <b>/tp</b></div>
+                <div><b>Right click</b> a bed at night to sleep until morning, doors and gates to open them</div>
                 <div><b>Creative:</b> double tap <b>Space</b> to fly, Space / Shift to rise and sink</div>
                 <div><b>F3</b> debug info, <b>F1</b> hide the interface, <b>Esc</b> pause</div>
             </div>

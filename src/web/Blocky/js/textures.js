@@ -665,9 +665,225 @@ function paintCrystalBlock(t) {
     t.border([60, 168, 166], 3);
 }
 
+function paintFire(t) {
+    t.clear();
+    //Tongues of flame rising from the bottom, hottest at the base
+    for (let x = 0; x < 16; x++) {
+        const h = 7 + Math.round(5 * Math.abs(Math.sin(x * 1.3 + 0.5)) + t.r() * 4);
+        for (let i = 0; i < h; i++) {
+            const y = 15 - i;
+            const k = i / h;
+            const c = k < 0.3 ? [255, 236, 150] : k < 0.65 ? [255, 168, 40] : [222, 70, 20];
+            if (k > 0.8 && t.r() < 0.4) {
+                continue;
+            }
+            t.set(x, y, t.vary(c, 12), k > 0.85 ? 200 : 255);
+        }
+    }
+}
+
+function paintLava(t) {
+    for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+            const a = Math.sin((x / 16) * Math.PI * 2) + Math.cos((y / 16) * Math.PI * 4 + x * 0.4);
+            const b = Math.sin(((x + y) / 16) * Math.PI * 2 * 2);
+            const v = a * 0.6 + b * 0.4;
+            let c;
+            if (v > 0.75) {
+                c = [255, 214, 90];
+            } else if (v > 0.1) {
+                c = [246, 128, 26];
+            } else if (v > -0.7) {
+                c = [214, 76, 14];
+            } else {
+                c = [150, 36, 8];
+            }
+            t.set(x, y, t.vary(c, 8));
+        }
+    }
+}
+
+function paintObsidian(t) {
+    t.fill([22, 17, 32], 5);
+    for (let k = 0; k < 18; k++) {
+        t.set(t.ri(16), t.ri(16), t.vary([58, 40, 88], 10));
+    }
+    for (let k = 0; k < 6; k++) {
+        t.set(t.ri(16), t.ri(16), [120, 96, 160]);
+    }
+}
+
+function paintDoor(t, upper) {
+    const wood = [168, 126, 72], dark = [104, 74, 40];
+    t.fill(wood, 6);
+    for (let y = 0; y < 16; y++) {
+        for (const x of [0, 15]) {
+            t.set(x, y, t.vary(dark, 4));
+        }
+        if (y % 4 === 0) {
+            t.set(7, y, t.vary(dark, 4));
+        }
+    }
+    if (upper) {
+        for (let x = 0; x < 16; x++) {
+            t.set(x, 0, t.vary(dark, 4));
+        }
+        //Four open window panes you can look through, in a wooden frame
+        for (let y = 3; y < 12; y++) {
+            for (let x = 3; x < 13; x++) {
+                const frame = x === 3 || x === 12 || y === 3 || y === 11 || x === 7 || x === 8 || y === 7;
+                if (frame) {
+                    t.set(x, y, t.vary(dark, 4));
+                } else {
+                    t.set(x, y, [0, 0, 0], 0);
+                }
+            }
+        }
+    } else {
+        for (let x = 0; x < 16; x++) {
+            t.set(x, 15, t.vary(dark, 4));
+        }
+        for (const [y0, y1] of [[2, 6], [9, 13]]) {
+            for (let y = y0; y <= y1; y++) {
+                for (let x = 3; x < 13; x++) {
+                    if (y === y0 || y === y1 || x === 3 || x === 12) {
+                        t.set(x, y, t.vary([140, 102, 56], 4));
+                    }
+                }
+            }
+        }
+        t.set(13, 1, [70, 70, 76]);
+        t.set(13, 2, [70, 70, 76]);
+    }
+}
+
+function paintBedTop(t, head) {
+    t.fill([186, 40, 40], 8);
+    for (let y = 0; y < 16; y++) {
+        for (const x of [0, 15]) {
+            t.set(x, y, t.vary([124, 90, 50], 5));
+        }
+    }
+    if (head) {
+        //Pillow at the head end (top rows of the tile)
+        for (let y = 1; y < 6; y++) {
+            for (let x = 2; x < 14; x++) {
+                t.set(x, y, t.vary(y === 5 ? [196, 196, 204] : [236, 236, 242], 5));
+            }
+        }
+        for (let x = 0; x < 16; x++) {
+            t.set(x, 0, t.vary([124, 90, 50], 5));
+        }
+    } else {
+        for (let x = 1; x < 15; x++) {
+            t.set(x, 2, t.vary([150, 26, 26], 5));
+            t.set(x, 15, t.vary([124, 90, 50], 5));
+        }
+    }
+}
+
+function paintBedSide(t) {
+    t.clear();
+    for (let x = 0; x < 16; x++) {
+        for (let y = 7; y < 16; y++) {
+            let c;
+            if (y < 11) {
+                c = [186, 40, 40];
+            } else if (y === 11) {
+                c = [232, 232, 236];
+            } else {
+                c = [124, 90, 50];
+            }
+            t.set(x, y, t.vary(c, 6));
+        }
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* Item tiles                                                          */
 /* ------------------------------------------------------------------ */
+
+function paintDoorItem(t) {
+    t.clear();
+    for (let y = 1; y < 15; y++) {
+        for (let x = 4; x < 12; x++) {
+            let c = [168, 126, 72];
+            if (x === 4 || x === 11 || y === 1 || y === 14 || y === 8) {
+                c = [104, 74, 40];
+            } else if (y < 7 && x > 5 && x < 10) {
+                c = [176, 214, 232];
+            }
+            t.set(x, y, c);
+        }
+    }
+    t.set(10, 9, [70, 70, 76]);
+    t.outline(0.7);
+}
+
+function paintBedItem(t) {
+    t.clear();
+    for (let x = 1; x < 15; x++) {
+        t.set(x, 8, x < 5 ? [236, 236, 242] : [196, 46, 46]);
+        t.set(x, 9, x < 5 ? [210, 210, 218] : [176, 36, 36]);
+        t.set(x, 10, [124, 90, 50]);
+        t.set(x, 11, [104, 74, 40]);
+    }
+    for (const x of [1, 2, 13, 14]) {
+        t.set(x, 12, [104, 74, 40]);
+    }
+    for (let y = 5; y < 10; y++) {
+        t.set(1, y, [124, 90, 50]);
+    }
+    t.outline(0.7);
+}
+
+function paintFenceItem(t, gate) {
+    t.clear();
+    const posts = gate ? [1, 14] : [3, 11];
+    for (const x of posts) {
+        for (let y = 2; y < 15; y++) {
+            t.set(x, y, [168, 126, 72]);
+            t.set(x + 1, y, [130, 96, 54]);
+        }
+    }
+    for (const y of [5, 10]) {
+        for (let x = posts[0] + 2; x < posts[1]; x++) {
+            t.set(x, y, [178, 136, 80]);
+            t.set(x, y + 1, [130, 96, 54]);
+        }
+    }
+    if (gate) {
+        for (let y = 5; y < 12; y++) {
+            t.set(7, y, [168, 126, 72]);
+            t.set(8, y, [130, 96, 54]);
+        }
+    }
+    t.outline(0.7);
+}
+
+function paintFlintAndSteel(t) {
+    t.clear();
+    //Steel striker: a thick C shape
+    for (let a = 0; a < 40; a++) {
+        const ang = Math.PI * 0.35 + (a / 40) * Math.PI * 1.3;
+        for (const r of [3.2, 4]) {
+            t.set(5.5 + Math.cos(ang) * r, 8 + Math.sin(ang) * r, r > 3.5 ? [150, 150, 158] : [204, 204, 212]);
+        }
+    }
+    //Flint shard
+    t.shape((x, y) => x > 9 && x < 15 && y > 4 + (x - 9) * 0.6 && y < 13 - (x - 9) * 0.3, (x, y) => (x < 12 ? [96, 96, 102] : [60, 60, 66]));
+    t.outline(0.65);
+}
+
+function paintLavaBucket(t) {
+    paintBucket(t, false);
+    for (let x = 3; x < 13; x++) {
+        t.set(x, 5, [255, 170, 40]);
+    }
+    for (let x = 4; x < 12; x++) {
+        t.set(x, 6, [226, 90, 20]);
+    }
+}
 
 //Coordinates along / across a handle running from bottom-left to top-right
 function handleFrame(x, y) {
@@ -1053,7 +1269,22 @@ const PAINTERS = {
     bowl: (t) => paintBowl(t, false),
     stew: (t) => paintBowl(t, true),
     bucket: (t) => paintBucket(t, false),
-    water_bucket: (t) => paintBucket(t, true)
+    water_bucket: (t) => paintBucket(t, true),
+
+    fire: paintFire,
+    lava: paintLava,
+    obsidian: paintObsidian,
+    door_lower: (t) => paintDoor(t, false),
+    door_upper: (t) => paintDoor(t, true),
+    bed_head_top: (t) => paintBedTop(t, true),
+    bed_foot_top: (t) => paintBedTop(t, false),
+    bed_side: paintBedSide,
+    door_item: paintDoorItem,
+    bed_item: paintBedItem,
+    fence_item: (t) => paintFenceItem(t, false),
+    gate_item: (t) => paintFenceItem(t, true),
+    flint_and_steel: paintFlintAndSteel,
+    lava_bucket: paintLavaBucket
 };
 
 for (let s = 0; s < 8; s++) {

@@ -556,6 +556,41 @@ body.screen-open #crosshair {
     transition: none;
 }
 
+#burning {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(255, 110, 20, 0.55), rgba(255, 60, 0, 0.12) 45%, rgba(255, 60, 0, 0) 70%);
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
+#burning.on {
+    opacity: 1;
+}
+
+#sleep {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(4, 6, 16, 0.3);
+}
+
+.sleepmsg {
+    font-size: 28px;
+    font-weight: 700;
+    text-shadow: 2px 2px 0 #000;
+}
+
+.sleephint {
+    color: var(--muted);
+    text-shadow: 1px 1px 0 #000;
+}
+
 #debug {
     position: absolute;
     left: 6px;
@@ -1018,15 +1053,55 @@ body.screen-open #crosshair {
     background: #3c5f2c;
 }
 
+/* Creative item grid: nine columns plus room for a thin scrollbar, so it
+   can never need a horizontal one */
+.scr-col.creative {
+    --cell: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
 .palette {
-    display: grid;
-    grid-template-columns: repeat(9, 44px);
-    gap: 2px;
-    max-height: 190px;
+    box-sizing: content-box;
+    width: calc(9 * var(--cell) + 8 * 2px + 12px);
+    height: calc(6 * var(--cell) + 5 * 2px);
+    overflow-x: hidden;
     overflow-y: auto;
-    padding: 2px;
+    padding: 4px;
     background: rgba(0, 0, 0, 0.3);
     border: 2px solid #0b0c0e;
+    scrollbar-width: thin;
+    scrollbar-color: #5b616b rgba(0, 0, 0, 0.3);
+}
+
+.palette::-webkit-scrollbar {
+    width: 10px;
+}
+
+.palette::-webkit-scrollbar-thumb {
+    background: #5b616b;
+}
+
+.palette::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.palgrid {
+    display: grid;
+    grid-template-columns: repeat(9, var(--cell));
+    gap: 2px;
+}
+
+.creativehot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.scr-col.creative .hint {
+    max-width: calc(9 * var(--cell) + 80px);
 }
 
 .pal {
@@ -1206,9 +1281,12 @@ body.screen-open #crosshair {
         transform-origin: 0 0;
     }
 
-    .slots,
-    .palette {
+    .slots {
         grid-template-columns: repeat(9, 34px);
+    }
+
+    .scr-col.creative {
+        --cell: 34px;
     }
 
     #screenPanel {

@@ -8,6 +8,7 @@
     fall inside itself.
 
     Biomes: ocean, grassland, desert, forest (plus sandy beaches along water).
+    Caves below y = 11 are filled with lava, and some stone hides lava pockets.
 */
 
 import { Noise } from "./noise.js";
@@ -179,7 +180,8 @@ export class TerrainGen {
                                 const b = sample(caveB, lx, y, lz);
                                 const t = y < 28 ? 0.085 : 0.065;
                                 if (Math.abs(a) < t && Math.abs(b) < t * 1.4) {
-                                    id = B.AIR;
+                                    //The deepest caves are flooded with lava
+                                    id = y <= 10 ? B.LAVA : B.AIR;
                                 }
                             }
                         }
@@ -220,6 +222,9 @@ export class TerrainGen {
         vein(B.IRON_ORE, 12, 7, 5, 64, B.STONE);
         vein(B.GOLD_ORE, 2, 7, 5, 32, B.STONE);
         vein(B.CRYSTAL_ORE, 1, 5, 5, 17, B.STONE);
+        if (rng() < 0.3) {
+            vein(B.LAVA, 1, 14, 6, 40, B.STONE);
+        }
 
         this.placeTrees(chunk, cols);
         this.placePlants(chunk, cols, rng);

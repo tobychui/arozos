@@ -131,6 +131,36 @@ function surfaceY(game, x, z) {
     return w.gen.column(Math.floor(x), Math.floor(z)).h + 1;
 }
 
+const RULE_NAMES = {
+    randomtickspeed: "tickSpeed", tickspeed: "tickSpeed",
+    dofiretick: "fireSpread", firespread: "fireSpread"
+};
+
+//Show a world rule, or change it when a value is given
+function setRule(game, rule, value) {
+    const rules = game.world.rules;
+    if (rule === "tickSpeed") {
+        if (value === undefined) {
+            return `Tick speed is ${rules.tickSpeed} (default 3)`;
+        }
+        const v = Number(value);
+        if (!Number.isFinite(v) || v < 0 || v > 1000) {
+            fail("Tick speed must be a number from 0 to 1000");
+        }
+        rules.tickSpeed = v;
+        return `Tick speed set to ${v}` + (v > 3 ? ` - plants grow ${Math.round(v / 3 * 10) / 10}x faster` : "");
+    }
+    if (value === undefined) {
+        return `Fire spread is ${rules.fireSpread ? "on" : "off"}`;
+    }
+    const v = String(value).toLowerCase();
+    if (!["on", "off", "true", "false", "1", "0"].includes(v)) {
+        fail("Use on or off");
+    }
+    rules.fireSpread = v === "on" || v === "true" || v === "1";
+    return `Fire spread is now ${rules.fireSpread ? "on" : "off"}`;
+}
+
 /* ---------------- commands ---------------- */
 
 export const COMMANDS = {
@@ -369,6 +399,34 @@ export const COMMANDS = {
             return [`Spawn point set to ${Math.floor(p.x)}, ${Math.floor(p.y)}, ${Math.floor(p.z)}`];
         }
     },
+    tickspeed: {
+        usage: "/tickspeed [speed]",
+        desc: "How fast plants grow and random block updates happen (default 3, up to 1000)",
+        cheat: true,
+        run(game, args) {
+            return [setRule(game, "tickSpeed", args[0])];
+        }
+    },
+    firespread: {
+        usage: "/firespread [on|off]",
+        desc: "Let fire spread and burn blocks (off: fires stay put)",
+        cheat: true,
+        run(game, args) {
+            return [setRule(game, "fireSpread", args[0])];
+        }
+    },
+    gamerule: {
+        usage: "/gamerule <randomTickSpeed|doFireTick> [value]",
+        desc: "Read or change a world rule",
+        cheat: true,
+        run(game, args) {
+            const rule = RULE_NAMES[(args[0] || "").toLowerCase()];
+            if (!rule) {
+                fail("Rules: randomTickSpeed (number), doFireTick (true / false)");
+            }
+            return [setRule(game, rule, args[1])];
+        }
+    },
     seed: {
         usage: "/seed",
         desc: "Show the world seed",
@@ -428,12 +486,18 @@ export function complete(line) {
             pool = parts.length === 2 ? ["set", "add", "query"] : Object.keys(TIMES);
         } else if (cmd === "help") {
             pool = Object.keys(COMMANDS);
+        } else if (cmd === "firespread") {
+            pool = ["on", "off"];
+        } else if (cmd === "gamerule") {
+            pool = parts.length === 2 ? ["randomTickSpeed", "doFireTick"] : ["true", "false"];
+        } else if (cmd === "tickspeed") {
+            pool = ["3", "30", "300"];
         } else {
             pool = [...names().keys()];
         }
     }
     const lower = last.toLowerCase();
-    const options = pool.filter((o) => o.startsWith(lower)).sort();
+    const options = pool.filter((o) => o.toLowerCase().startsWith(lower)).sort();
     if (!options.length) {
         return { line, options: [] };
     }

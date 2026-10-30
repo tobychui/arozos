@@ -19,10 +19,10 @@
 
 import {
     B, BLOCKS, LIGHT_OPACITY, LIGHT_EMIT, SHAPE, SOLID, RAIN_BLOCKING, isOpaqueAt,
-    blockDrops, SMELTING, SMELT_TICKS, fuelTicks, ITEMS
+    blockDrops, SMELTING, SMELT_TICKS, fuelTicks, ITEMS, FLAME_CATCH, FLAME_BURN, HDIR
 } from "./blocks.js";
-import { TerrainGen, WORLD_H, SEA, idx } from "./worldgen.js";
-import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32 } from "./util.js";
+import { TerrainGen, WORLD_H, SEA, idx, BIOME } from "./worldgen.js";
+import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32, hash3 } from "./util.js";
 import { FACE_DIR } from "./shapes.js";
 
 export const SECTIONS = WORLD_H / 16;
@@ -31,7 +31,7 @@ const IS_SLAB = new Uint8Array(256);
 const WASHABLE = new Uint8Array(256);
 for (let i = 0; i < 256; i++) {
     IS_SLAB[i] = SHAPE[i] === "slab" ? 1 : 0;
-    WASHABLE[i] = (SHAPE[i] === "cross" || SHAPE[i] === "crop" || SHAPE[i] === "torch") && i !== B.REEDS ? 1 : 0;
+    WASHABLE[i] = (SHAPE[i] === "cross" || SHAPE[i] === "crop" || SHAPE[i] === "torch" || SHAPE[i] === "fire") && i !== B.REEDS ? 1 : 0;
 }
 
 function opacityOf(id, meta) {
@@ -43,6 +43,17 @@ function opacityOf(id, meta) {
 }
 
 const DIRS = [1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1];
+
+//Liquid behaviour: ticks between updates, level lost per block, last level
+const LIQUID = {
+    [B.WATER]: { delay: 5, step: 1, max: 7, renew: true },
+    [B.LAVA]: { delay: 30, step: 2, max: 6, renew: false }
+};
+
+//A wheat stage takes this long on watered farmland at tick speed 3, so a
+//full grow (7 steps over 8 stages) is about 30 minutes; dry farmland halves it
+export const CROP_STAGE_SECONDS = 1800 / 7;
+export const DEFAULT_RULES = { tickSpeed: 3, fireSpread: true };
 
 export class Chunk {
     constructor(cx, cz) {
@@ -60,6 +71,7 @@ export class Chunk {
         this.lit = false;
         this.modified = false;
         this.dirty = new Uint8Array(SECTIONS).fill(1);
+        this.crops = new Set();
         this.meshes = null; //owned by the renderer
     }
 }
@@ -84,6 +96,10 @@ export class World {
         this.onDrop = opts.onDrop || null;
         this.onFalling = opts.onFalling || null;
         this.onBlockBroken = opts.onBlockBroken || null;
+        this.onFizz = opts.onFizz || null;
+        this.rules = Object.assign({}, DEFAULT_RULES);
+        this.cropProgress = new Map();
+        this.quiet = false;
     }
 
     /* ---------------- chunk access ---------------- */
@@ -202,11 +218,25 @@ export class World {
             }
             c.modified = true;
             this.saved.delete(c.key);
+            this.resumeChunk(c);
         } else {
             this.gen.generate(c);
         }
         this.computeHeightmaps(c);
         c.generated = true;
+    }
+
+    //Pick up where a saved chunk left off: crops, fire and moving liquids
+    resumeChunk(c) {
+        const bx = c.cx * 16, bz = c.cz * 16;
+        for (let i = 0; i < c.blocks.length; i++) {
+            const id = c.blocks[i];
+            if (id === B.WHEAT) {
+                c.crops.add(i);
+            } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0)) {
+                this.schedule(bx + (i >> 11), i & 127, bz + ((i >> 7) & 15), 5 + Math.floor(this.rng() * 30));
+            }
+        }
     }
 
     computeHeightmaps(c) {
@@ -580,6 +610,19 @@ export class World {
         }
         this.markDirtyAround(x, y, z, c);
         if (oldId !== id) {
+            if (oldId === B.WHEAT) {
+                c.crops.delete(i);
+                this.cropProgress.delete(x + "," + y + "," + z);
+            }
+            if (id === B.WHEAT) {
+                c.crops.add(i);
+            }
+            if (id === B.FIRE) {
+                this.schedule(x, y, z, 30 + Math.floor(this.rng() * 10));
+            }
+            if ((oldId === B.DOOR || oldId === B.BED) && id !== oldId) {
+                this.removePartner(x, y, z, oldId, oldMeta);
+            }
             if ((oldId === B.LOG || oldId === B.LEAVES) && id !== B.LOG) {
                 this.scheduleLeafChecks(x, y, z);
             }
@@ -593,6 +636,23 @@ export class World {
             this.notifyNeighbors(x, y, z);
         }
         return true;
+    }
+
+    //Doors and beds are two blocks; removing one half removes the other
+    partnerOf(x, y, z, id, meta) {
+        if (id === B.DOOR) {
+            return [x, y + (meta & 8 ? -1 : 1), z];
+        }
+        const d = HDIR[meta & 3];
+        const s = meta & 4 ? -1 : 1;
+        return [x + d[0] * s, y, z + d[1] * s];
+    }
+
+    removePartner(x, y, z, id, meta) {
+        const [px, py, pz] = this.partnerOf(x, y, z, id, meta);
+        if (this.getBlock(px, py, pz) === id) {
+            this.setBlock(px, py, pz, B.AIR, 0);
+        }
     }
 
     setMeta(x, y, z, meta) {
@@ -643,8 +703,8 @@ export class World {
             return;
         }
         const def = BLOCKS[id];
-        if (id === B.WATER) {
-            this.schedule(x, y, z, 5);
+        if (id === B.WATER || id === B.LAVA) {
+            this.schedule(x, y, z, LIQUID[id].delay);
         } else if (def.gravity) {
             if (this.canFallInto(this.getBlock(x, y - 1, z))) {
                 this.schedule(x, y, z, 2);
@@ -660,7 +720,7 @@ export class World {
     }
 
     canFallInto(id) {
-        return id === B.AIR || id === B.WATER || WASHABLE[id] === 1;
+        return id === B.AIR || id === B.WATER || id === B.LAVA || WASHABLE[id] === 1;
     }
 
     hasSupport(x, y, z, id, meta) {
@@ -704,9 +764,14 @@ export class World {
                 if (isOpaqueAt(aid, am)) {
                     return true;
                 }
-                //Torches also stand on top slabs
-                return BLOCKS[id].support === "torch" && meta === 2 && IS_SLAB[aid] === 1 && am === 1;
+                //Torches also stand on top slabs and fence posts
+                return BLOCKS[id].support === "torch" && meta === 2 && ((IS_SLAB[aid] === 1 && am === 1) || aid === B.FENCE);
             }
+            case "door":
+                if (meta & 8) {
+                    return below === B.DOOR && (belowMeta & 8) === 0;
+                }
+                return isOpaqueAt(below, belowMeta) && this.getBlock(x, y + 1, z) === B.DOOR;
             default:
                 return true;
         }
@@ -725,7 +790,7 @@ export class World {
     breakNaturally(x, y, z) {
         const id = this.getBlock(x, y, z);
         const meta = this.getMeta(x, y, z);
-        if (id === B.AIR || id === B.WATER) {
+        if (id === B.AIR || id === B.WATER || id === B.LAVA) {
             return;
         }
         const drops = blockDrops(id, meta, this.rng, 0);
@@ -783,8 +848,10 @@ export class World {
         const id = this.getBlock(x, y, z);
         const meta = this.getMeta(x, y, z);
         const def = BLOCKS[id];
-        if (id === B.WATER) {
-            this.waterTick(x, y, z, meta);
+        if (id === B.WATER || id === B.LAVA) {
+            this.liquidTick(x, y, z, meta, id);
+        } else if (id === B.FIRE) {
+            this.fireTick(x, y, z, meta);
         } else if (def.gravity) {
             if (this.canFallInto(this.getBlock(x, y - 1, z)) && y > 0) {
                 if (this.onFalling) {
@@ -803,24 +870,49 @@ export class World {
         }
     }
 
-    /* ---------------- water ---------------- */
+    /* ---------------- liquids ---------------- */
 
-    flowInto(x, y, z, level) {
+    flowInto(x, y, z, level, liquid) {
         const id = this.getBlock(x, y, z);
         if (WASHABLE[id] === 1) {
-            this.breakNaturally(x, y, z);
+            if (liquid === B.WATER) {
+                this.breakNaturally(x, y, z);
+            } else {
+                this.setBlock(x, y, z, B.AIR, 0, false);
+            }
         }
-        this.setBlock(x, y, z, B.WATER, level);
+        this.setBlock(x, y, z, liquid, level);
     }
 
     canFlow(id) {
         return id === B.AIR || WASHABLE[id] === 1;
     }
 
-    waterTick(x, y, z, m) {
+    //Lava next to water hardens: a source into obsidian, flowing lava into cobblestone
+    lavaMeetsWater(x, y, z, m) {
+        for (let d = 0; d < 18; d += 3) {
+            if (DIRS[d + 1] === -1) {
+                continue;
+            }
+            if (this.getBlock(x + DIRS[d], y + DIRS[d + 1], z + DIRS[d + 2]) === B.WATER) {
+                this.setBlock(x, y, z, m === 0 ? B.OBSIDIAN : B.COBBLE, 0);
+                if (this.onFizz) {
+                    this.onFizz(x, y, z);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    liquidTick(x, y, z, m, id) {
+        const L = LIQUID[id];
+        if (id === B.LAVA && this.lavaMeetsWater(x, y, z, m)) {
+            return;
+        }
         if (m !== 0) {
             let newM;
-            if (this.getBlock(x, y + 1, z) === B.WATER) {
+            if (this.getBlock(x, y + 1, z) === id) {
                 newM = 8;
             } else {
                 let best = 99, sources = 0;
@@ -829,22 +921,22 @@ export class World {
                         continue;
                     }
                     const nx = x + DIRS[d], nz = z + DIRS[d + 2];
-                    if (this.getBlock(nx, y, nz) === B.WATER) {
+                    if (this.getBlock(nx, y, nz) === id) {
                         const nm = this.getMeta(nx, y, nz);
                         if (nm === 0) {
                             sources++;
                         }
                         const eff = nm === 8 ? 0 : nm;
-                        if (eff + 1 < best) {
-                            best = eff + 1;
+                        if (eff + L.step < best) {
+                            best = eff + L.step;
                         }
                     }
                 }
                 const below = this.getBlock(x, y - 1, z);
-                if (sources >= 2 && (isOpaqueAt(below, this.getMeta(x, y - 1, z)) || (below === B.WATER && this.getMeta(x, y - 1, z) === 0))) {
+                if (L.renew && sources >= 2 && (isOpaqueAt(below, this.getMeta(x, y - 1, z)) || (below === id && this.getMeta(x, y - 1, z) === 0))) {
                     newM = 0;
                 } else {
-                    newM = best <= 7 ? best : -1;
+                    newM = best <= L.max ? best : -1;
                 }
             }
             if (newM === -1) {
@@ -852,20 +944,20 @@ export class World {
                 return;
             }
             if (newM !== m) {
-                this.setBlock(x, y, z, B.WATER, newM);
+                this.setBlock(x, y, z, id, newM);
                 m = newM;
             }
         }
         const below = this.getBlock(x, y - 1, z);
         if (y > 0 && this.canFlow(below)) {
-            this.flowInto(x, y - 1, z, 8);
+            this.flowInto(x, y - 1, z, 8, id);
             return;
         }
-        if (below === B.WATER) {
+        if (below === id || below === B.WATER || below === B.LAVA) {
             return;
         }
-        const next = (m === 0 || m === 8) ? 1 : m + 1;
-        if (next > 7) {
+        const next = (m === 0 || m === 8) ? L.step : m + L.step;
+        if (next > L.max) {
             return;
         }
         for (let d = 0; d < 18; d += 3) {
@@ -878,11 +970,153 @@ export class World {
             }
             const nid = this.getBlock(nx, y, nz);
             if (this.canFlow(nid)) {
-                this.flowInto(nx, y, nz, next);
-            } else if (nid === B.WATER) {
+                this.flowInto(nx, y, nz, next, id);
+            } else if (nid === id) {
                 const nm = this.getMeta(nx, y, nz);
                 if (nm !== 0 && nm !== 8 && nm > next) {
-                    this.setBlock(nx, y, nz, B.WATER, next);
+                    this.setBlock(nx, y, nz, id, next);
+                }
+            }
+        }
+    }
+
+    /* ---------------- fire ---------------- */
+
+    //Highest catch chance of the blocks around a position
+    flammableAround(x, y, z) {
+        let best = 0;
+        for (let d = 0; d < 18; d += 3) {
+            const c = FLAME_CATCH[this.getBlock(x + DIRS[d], y + DIRS[d + 1], z + DIRS[d + 2])];
+            if (c > best) {
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    canFireStay(x, y, z) {
+        return isOpaqueAt(this.getBlock(x, y - 1, z), this.getMeta(x, y - 1, z)) || this.flammableAround(x, y, z) > 0;
+    }
+
+    //Light a fire if the spot is free and something can hold it
+    ignite(x, y, z) {
+        const cur = this.getBlock(x, y, z);
+        if ((cur !== B.AIR && WASHABLE[cur] !== 1) || !this.canFireStay(x, y, z)) {
+            return false;
+        }
+        this.setBlock(x, y, z, B.FIRE, 0);
+        return true;
+    }
+
+    fireTick(x, y, z, age) {
+        if (!this.rules.fireSpread) {
+            //Spreading is off: fires keep burning but touch nothing
+            this.schedule(x, y, z, 40);
+            return;
+        }
+        const rng = this.rng;
+        this.schedule(x, y, z, 30 + Math.floor(rng() * 10));
+        if (this.raining && this.rainTop(x, z) <= y + 1 && this.biomeAt(x, z) !== BIOME.DESERT && rng() < 0.6) {
+            this.setBlock(x, y, z, B.AIR, 0);
+            return;
+        }
+        const fuel = this.flammableAround(x, y, z);
+        const belowId = this.getBlock(x, y - 1, z);
+        if (!fuel && !isOpaqueAt(belowId, this.getMeta(x, y - 1, z))) {
+            this.setBlock(x, y, z, B.AIR, 0);
+            return;
+        }
+        const nextAge = Math.min(15, age + Math.floor(rng() * 3));
+        if (nextAge !== age) {
+            this.setBlock(x, y, z, B.FIRE, nextAge, false);
+        }
+        if (!fuel && nextAge > 3) {
+            this.setBlock(x, y, z, B.AIR, 0);
+            return;
+        }
+        if (nextAge >= 15 && !FLAME_BURN[belowId] && rng() < 0.25) {
+            this.setBlock(x, y, z, B.AIR, 0);
+            return;
+        }
+        //Burn the blocks it touches
+        for (let d = 0; d < 18; d += 3) {
+            const nx = x + DIRS[d], ny = y + DIRS[d + 1], nz = z + DIRS[d + 2];
+            const nid = this.getBlock(nx, ny, nz);
+            const burn = FLAME_BURN[nid];
+            if (burn && rng() * (DIRS[d + 1] === 0 ? 300 : 250) < burn) {
+                if (rng() < 0.55 && nextAge < 15) {
+                    this.setBlock(nx, ny, nz, B.FIRE, Math.min(15, nextAge + Math.floor(rng() * 5)));
+                } else {
+                    this.setBlock(nx, ny, nz, B.AIR, 0);
+                }
+            }
+        }
+        //Jump to air next to something that burns
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                for (let dy = -1; dy <= 3; dy++) {
+                    if (!dx && !dy && !dz) {
+                        continue;
+                    }
+                    const tx = x + dx, ty = y + dy, tz = z + dz;
+                    if (ty < 1 || ty >= WORLD_H || this.getBlock(tx, ty, tz) !== B.AIR) {
+                        continue;
+                    }
+                    const enc = this.flammableAround(tx, ty, tz);
+                    if (!enc) {
+                        continue;
+                    }
+                    const k = dy > 1 ? 100 + (dy - 1) * 100 : 100;
+                    if (rng() * k < enc * 0.35) {
+                        this.setBlock(tx, ty, tz, B.FIRE, Math.min(15, nextAge + Math.floor(rng() * 5)));
+                    }
+                }
+            }
+        }
+    }
+
+    /* ---------------- crops ---------------- */
+
+    //Runs once a second: wheat climbs one stage per CROP_STAGE_SECONDS
+    cropTick() {
+        const speed = this.rules.tickSpeed / 3;
+        if (speed <= 0) {
+            return;
+        }
+        for (const c of this.chunks.values()) {
+            if (!c.crops.size || !c.lit) {
+                continue;
+            }
+            for (const i of c.crops) {
+                let meta = c.meta[i];
+                if (meta >= 7) {
+                    continue;
+                }
+                const x = c.cx * 16 + (i >> 11), y = i & 127, z = c.cz * 16 + ((i >> 7) & 15);
+                //Crops grow day and night as long as they are open to the sky or lit
+                if (Math.max(c.light[i] >> 4, c.light[i] & 15) < 9) {
+                    continue;
+                }
+                const key = x + "," + y + "," + z;
+                const wet = this.getMeta(x, y - 1, z) > 0;
+                let prog = (this.cropProgress.get(key) || 0) + (wet ? 1 : 0.5) * speed;
+                let grew = false;
+                for (;;) {
+                    const need = CROP_STAGE_SECONDS * (0.85 + 0.3 * ((hash3(this.seed, x, y * 8 + meta, z) & 255) / 255));
+                    if (prog < need || meta >= 7) {
+                        break;
+                    }
+                    prog -= need;
+                    meta++;
+                    grew = true;
+                }
+                if (grew) {
+                    this.setBlock(x, y, z, B.WHEAT, meta, false);
+                }
+                if (meta >= 7) {
+                    this.cropProgress.delete(key);
+                } else {
+                    this.cropProgress.set(key, prog);
                 }
             }
         }
@@ -945,12 +1179,15 @@ export class World {
             if (!c.lit || Math.abs(c.cx - pcx) > radius || Math.abs(c.cz - pcz) > radius) {
                 continue;
             }
+            const speed = this.rules.tickSpeed;
             for (let s = 0; s < SECTIONS; s++) {
-                for (let k = 0; k < 3; k++) {
+                //Whole picks, plus one more with the fractional chance
+                const picks = Math.floor(speed) + (rng() < speed % 1 ? 1 : 0);
+                for (let k = 0; k < picks; k++) {
                     const r = (rng() * 4096) | 0;
                     const lx = r & 15, lz = (r >> 4) & 15, y = s * 16 + (r >> 8);
                     const id = c.blocks[(lx << 11) | (lz << 7) | y];
-                    if (id === B.GRASS || id === B.SAPLING || id === B.WHEAT || id === B.FARMLAND || id === B.REEDS || id === B.CACTUS) {
+                    if (id === B.GRASS || id === B.SAPLING || id === B.FARMLAND || id === B.REEDS || id === B.CACTUS || id === B.LAVA) {
                         this.randomTick(c.cx * 16 + lx, y, c.cz * 16 + lz, id);
                     }
                 }
@@ -974,11 +1211,12 @@ export class World {
             if (this.effectiveLight(x, y, z) >= 9 && rng() < 0.07) {
                 this.growTree(x, y, z);
             }
-        } else if (id === B.WHEAT) {
-            if (meta < 7 && this.effectiveLight(x, y, z) >= 9) {
-                const wet = this.getMeta(x, y - 1, z) > 0;
-                if (rng() < (wet ? 0.3 : 0.12)) {
-                    this.setBlock(x, y, z, B.WHEAT, meta + 1, false);
+        } else if (id === B.LAVA) {
+            //Lava sets nearby burnable things alight
+            if (this.rules.fireSpread && rng() < 0.3) {
+                const tx = x + Math.floor(rng() * 3) - 1, ty = y + 1 + Math.floor(rng() * 2), tz = z + Math.floor(rng() * 3) - 1;
+                if (this.getBlock(tx, ty, tz) === B.AIR && this.flammableAround(tx, ty, tz) > 0) {
+                    this.setBlock(tx, ty, tz, B.FIRE, 0);
                 }
             }
         } else if (id === B.FARMLAND) {
@@ -1121,9 +1359,10 @@ export class World {
             }
             if (te.burn === 0 && canSmelt && fuel && fuelTicks(fuel.id) > 0) {
                 te.burn = te.burnMax = fuelTicks(fuel.id);
+                const leaves = ITEMS[fuel.id].fuelLeaves;
                 fuel.count--;
                 if (fuel.count <= 0) {
-                    te.slots[1] = null;
+                    te.slots[1] = leaves ? { id: leaves, count: 1 } : null;
                 }
             }
             if (te.burn > 0 && canSmelt) {
@@ -1158,6 +1397,9 @@ export class World {
     tick(pcx, pcz) {
         this.tickCount++;
         this.runScheduled();
+        if (this.tickCount % 20 === 0) {
+            this.cropTick();
+        }
         this.randomTicks(pcx, pcz, 6);
         this.tickFurnaces();
     }
@@ -1177,7 +1419,7 @@ export class World {
         for (let guard = 0; guard < 64; guard++) {
             const id = this.getBlock(x, y, z);
             if (id !== B.AIR && y >= 0 && y < WORLD_H) {
-                const box = boxes(id, this.getMeta(x, y, z));
+                const box = boxes(id, this.getMeta(x, y, z), x, y, z);
                 if (box) {
                     const hit = rayBox(ox - x, oy - y, oz - z, dx, dy, dz, box);
                     if (hit && hit.t <= maxDist) {
@@ -1225,7 +1467,11 @@ export class World {
         for (const [k, v] of this.tileEntities) {
             tileEntities[k] = v;
         }
-        return { chunks, tileEntities };
+        const crops = {};
+        for (const [k, v] of this.cropProgress) {
+            crops[k] = Math.round(v);
+        }
+        return { chunks, tileEntities, rules: Object.assign({}, this.rules), crops };
     }
 
     load(data) {
@@ -1236,6 +1482,8 @@ export class World {
                 this.saved.set(chunkKey(cx, cz), data.chunks[name]);
             }
         }
+        this.rules = Object.assign({}, DEFAULT_RULES, (data && data.rules) || {});
+        this.cropProgress = new Map(Object.entries((data && data.crops) || {}));
         this.tileEntities.clear();
         if (data && data.tileEntities) {
             for (const k of Object.keys(data.tileEntities)) {
