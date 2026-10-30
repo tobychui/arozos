@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1b1d22">
+    <title>Blocky</title>
+    <link rel="icon" href="img/module_icon.svg">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./lib/three/three.module.min.js"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <canvas id="view"></canvas>
+
+    <!-- ================= In-game HUD ================= -->
+    <div id="hud" class="hidden">
+        <div id="underwater"></div>
+        <div id="hurt"></div>
+        <div id="crosshair"></div>
+        <pre id="debug" class="hidden"></pre>
+        <div id="message"></div>
+        <div id="saving" class="hidden">Saving...</div>
+        <div id="bottom">
+            <div id="itemName"></div>
+            <div id="statusbars">
+                <div class="barrow">
+                    <div id="hearts" class="iconrow"></div>
+                    <div class="barright">
+                        <div id="airbar" class="iconrow hidden"></div>
+                        <div id="foodbar" class="iconrow"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="hotbar"></div>
+        </div>
+    </div>
+
+    <!-- ================= Chat / commands ================= -->
+    <div id="chat">
+        <div id="chatLog"></div>
+        <input id="chatInput" class="hidden" type="text" maxlength="200" autocomplete="off" spellcheck="false" placeholder="Type a message or a /command (Tab completes)">
+    </div>
+
+    <!-- ================= Inventory / container screens ================= -->
+    <div id="screen" class="hidden">
+        <div id="screenPanel" class="panel"></div>
+        <div class="screenhint">E or Esc to close</div>
+    </div>
+    <div id="cursorStack" class="hidden"></div>
+    <div id="tooltip" class="hidden"></div>
+
+    <!-- ================= Start screen ================= -->
+    <div id="menu">
+        <canvas id="logo" width="760" height="190"></canvas>
+        <div class="tagline" id="tagline">Build anything. Survive the night.</div>
+
+        <div class="page" id="pageMain">
+            <button class="btn wide" id="btnPlay">Play</button>
+            <button class="btn wide" id="btnSettings">Settings</button>
+            <button class="btn wide" id="btnHelp">How to Play</button>
+            <button class="btn wide" id="btnQuit">Quit</button>
+        </div>
+
+        <div class="page hidden" id="pageWorlds">
+            <div class="box">
+                <h2>Select World</h2>
+                <div id="worldList" class="worldlist"></div>
+                <div class="row">
+                    <button class="btn" id="btnPlayWorld" disabled>Play Selected World</button>
+                    <button class="btn" id="btnNewWorld">Create New World</button>
+                </div>
+                <div class="row">
+                    <button class="btn" id="btnDeleteWorld" disabled>Delete</button>
+                    <button class="btn" id="btnWorldsBack">Back</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="page hidden" id="pageCreate">
+            <div class="box">
+                <h2>Create New World</h2>
+                <label class="field">World name
+                    <input type="text" id="newName" maxlength="40" value="New World">
+                </label>
+                <label class="field">Seed <small>(leave empty for a random one)</small>
+                    <input type="text" id="newSeed" maxlength="40" placeholder="Random">
+                </label>
+                <div class="field">Game mode
+                    <div class="toggle" id="newMode">
+                        <button class="btn on" data-mode="survival">Survival</button>
+                        <button class="btn" data-mode="creative">Creative</button>
+                    </div>
+                    <small id="modeHint">Gather resources, craft tools and keep yourself fed.</small>
+                </div>
+                <div class="field">Difficulty
+                    <div class="toggle" id="newDiff">
+                        <button class="btn" data-diff="0">Peaceful</button>
+                        <button class="btn" data-diff="1">Easy</button>
+                        <button class="btn on" data-diff="2">Normal</button>
+                        <button class="btn" data-diff="3">Hard</button>
+                    </div>
+                    <small id="diffHint"></small>
+                </div>
+                <label class="check"><input type="checkbox" id="newCheats" checked> Allow cheats (commands such as /give and /tp, game mode, time and weather)</label>
+                <div class="row">
+                    <button class="btn" id="btnCreate">Create World</button>
+                    <button class="btn" id="btnCreateCancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer"><span id="storageNote">Checking storage...</span></div>
+    </div>
+
+    <!-- ================= Overlays ================= -->
+    <div id="loading" class="overlay hidden">
+        <div class="box center">
+            <h2 id="loadTitle">Generating terrain</h2>
+            <div class="progress"><i id="loadBar"></i></div>
+            <p id="loadText">Preparing the world...</p>
+        </div>
+    </div>
+
+    <div id="resume" class="overlay hidden">
+        <div class="box center clickable">
+            <h2>Click to play</h2>
+            <p>Move with W A S D, look with the mouse. Press Esc to pause.</p>
+        </div>
+    </div>
+
+    <div id="pause" class="overlay dim hidden">
+        <div class="menugrid">
+            <h2 class="span2">Game Paused</h2>
+            <button class="btn span2" id="btnResume">Back to Game</button>
+            <button class="btn" id="btnDiff" title="How fast hunger drains">Difficulty: Normal</button>
+            <button class="btn" id="btnCheats" title="Lets you use commands and the buttons below">Cheats: On</button>
+            <button class="btn cheat" id="btnMode">Game Mode: Survival</button>
+            <button class="btn cheat" id="btnTime">Time: Day</button>
+            <button class="btn cheat" id="btnWeather">Weather: Clear</button>
+            <button class="btn" id="btnCommands">Commands...</button>
+            <button class="btn" id="btnPauseSettings">Settings...</button>
+            <button class="btn" id="btnPauseHelp">How to Play...</button>
+            <div class="gap span2"></div>
+            <button class="btn span2" id="btnSaveQuit">Save and Quit to Title</button>
+        </div>
+    </div>
+
+    <div id="cmdhelp" class="overlay hidden">
+        <div class="box">
+            <h2>Commands</h2>
+            <p>Press <b>T</b> to open the chat line, or <b>/</b> to start a command right away. <b>Tab</b> completes
+                command and item names, <b>Up</b> recalls earlier commands. Use <b>~</b> for your own position,
+                e.g. <code>/tp ~ ~20 ~</code>. Commands other than /help and /seed need cheats turned on.</p>
+            <div id="cmdlist" class="cmdlist"></div>
+            <div class="row"><button class="btn" id="btnCmdDone">Done</button></div>
+        </div>
+    </div>
+
+    <div id="death" class="overlay death hidden">
+        <div class="box center">
+            <h1>You Died</h1>
+            <p id="deathText"></p>
+            <button class="btn wide" id="btnRespawn">Respawn</button>
+            <button class="btn wide" id="btnDeathTitle">Save and Quit to Title</button>
+        </div>
+    </div>
+
+    <div id="settings" class="overlay hidden">
+        <div class="box">
+            <h2>Settings</h2>
+            <div class="settings-grid">
+                <label>Render distance <b id="valRender"></b><input type="range" id="setRender" min="2" max="12" step="1"></label>
+                <label>Field of view <b id="valFov"></b><input type="range" id="setFov" min="50" max="110" step="1"></label>
+                <label>Mouse sensitivity <b id="valSens"></b><input type="range" id="setSens" min="0.2" max="3" step="0.05"></label>
+                <label>Brightness <b id="valBright"></b><input type="range" id="setBright" min="0" max="1" step="0.05"></label>
+                <label>Volume <b id="valVolume"></b><input type="range" id="setVolume" min="0" max="1" step="0.05"></label>
+                <label>Render scale <b id="valScale"></b><input type="range" id="setScale" min="0.5" max="1" step="0.25"></label>
+                <label class="check"><input type="checkbox" id="setLeaves"> Fancy leaves</label>
+                <label class="check"><input type="checkbox" id="setClouds"> Clouds</label>
+                <label class="check"><input type="checkbox" id="setBob"> View bobbing</label>
+                <label class="check"><input type="checkbox" id="setInvert"> Invert mouse</label>
+                <label class="check"><input type="checkbox" id="setFps"> Show FPS</label>
+            </div>
+            <div class="row"><button class="btn" id="btnSettingsDone">Done</button></div>
+        </div>
+    </div>
+
+    <div id="help" class="overlay hidden">
+        <div class="box">
+            <h2>How to Play</h2>
+            <div class="helpgrid">
+                <div><b>W A S D</b> move, <b>Space</b> jump, <b>Shift</b> sneak, <b>Ctrl</b> or double tap <b>W</b> to sprint</div>
+                <div><b>Left mouse</b> mine a block, <b>Right mouse</b> place a block, use a workbench / furnace / chest, or eat</div>
+                <div><b>1 - 9</b> or the <b>mouse wheel</b> pick a hotbar slot</div>
+                <div><b>E</b> inventory and 2 x 2 crafting, <b>Q</b> drop an item (Ctrl+Q the whole stack)</div>
+                <div><b>T</b> chat, <b>/</b> type a command such as <b>/give</b> or <b>/tp</b></div>
+                <div><b>Creative:</b> double tap <b>Space</b> to fly, Space / Shift to rise and sink</div>
+                <div><b>F3</b> debug info, <b>F1</b> hide the interface, <b>Esc</b> pause</div>
+            </div>
+            <p>Start by punching a tree for logs, turn them into planks on the 2 x 2 grid in your inventory (E), and
+                build a workbench from four planks: it gives you a 3 x 3 grid. The recipe book next to the grid shows
+                every pattern and lays it out for you. A wooden pickaxe
+                mines stone; stone tools mine iron, iron tools mine gold and crystal. Smelt ores in a furnace.
+                Keep your food bar up: apples drop from leaves, seeds from tall grass grow into wheat for bread,
+                and two mushrooms with a bowl make stew. Harder difficulties make you hungry faster.</p>
+            <div class="row"><button class="btn" id="btnHelpDone">Got it</button></div>
+        </div>
+    </div>
+
+    <div id="confirm" class="overlay hidden">
+        <div class="box center">
+            <h2 id="confirmTitle">Are you sure?</h2>
+            <p id="confirmText"></p>
+            <div class="row">
+                <button class="btn danger" id="btnConfirmYes">Delete</button>
+                <button class="btn" id="btnConfirmNo">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= Touch controls ================= -->
+    <div id="touch" class="hidden">
+        <div id="stick"><div id="stickKnob"></div></div>
+        <div id="lookpad"></div>
+        <div class="tbtns">
+            <button id="tJump">Jump</button>
+            <button id="tSneak">Sneak</button>
+            <button id="tInv">Items</button>
+            <button id="tPause">Pause</button>
+        </div>
+    </div>
+
+    <div id="error" class="overlay hidden">
+        <div class="box center">
+            <h2>Blocky could not start</h2>
+            <p id="errorText"></p>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

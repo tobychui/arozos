@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+    <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#5d9cf0"/>
+            <stop offset="1" stop-color="#9cc8ff"/>
+        </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="60" height="60" rx="12" fill="url(#sky)"/>
+    <!-- grass block, top face -->
+    <path d="M32 12 L52 22 L32 32 L12 22 Z" fill="#6fb34c"/>
+    <path d="M22 17 h4 v2 h-4z M36 15 h4 v2 h-4z M30 23 h4 v2 h-4z M42 21 h4 v2 h-4z M18 22 h4 v2 h-4z" fill="#86c95f"/>
+    <!-- left face: dirt with grass fringe -->
+    <path d="M12 22 L32 32 L32 54 L12 44 Z" fill="#8a6141"/>
+    <path d="M12 22 L32 32 L32 37 L28 35 L28 38 L24 36 L24 33 L20 31 L20 34 L16 32 L16 29 L12 27 Z" fill="#5f9e3f"/>
+    <path d="M16 38 h3 v3 h-3z M24 43 h3 v3 h-3z M19 46 h2 v2 h-2z" fill="#6e4b31"/>
+    <!-- right face -->
+    <path d="M52 22 L52 44 L32 54 L32 32 Z" fill="#6d4c33"/>
+    <path d="M52 22 L32 32 L32 37 L36 35 L36 38 L40 36 L40 33 L44 31 L44 34 L48 32 L48 29 L52 27 Z" fill="#4c8233"/>
+    <path d="M44 40 h3 v3 h-3z M37 45 h2 v3 h-2z" fill="#563926"/>
+    <path d="M32 12 L52 22 L32 32 L12 22 Z M12 22 L32 32 L32 54 L12 44 Z M52 22 L52 44 L32 54 L32 32 Z"
+          fill="none" stroke="#1f2a16" stroke-width="1.4" stroke-linejoin="round"/>
+</svg>

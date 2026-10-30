@@ -1,0 +1,25 @@
+/*
+    Blocky
+
+    A voxel sandbox game: explore generated grassland, desert, ocean and
+    forest biomes, mine and place blocks, craft at a workbench, smelt in a
+    furnace and keep yourself fed in survival, or build freely in creative.
+    Everything (textures, sounds, three.js) ships inside this folder and
+    worlds are saved to the user's appdata folder by backend/worlds.agi.
+*/
+
+var moduleLaunchInfo = {
+    Name: "Blocky",
+    Desc: "A voxel sandbox game with survival and creative modes",
+    Group: "Games",
+    IconPath: "Blocky/img/module_icon.svg",
+    Version: "1.0",
+    StartDir: "Blocky/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Blocky/index.html",
+    SupportEmb: false,
+    InitFWSize: [1200, 760],
+    SupportedExt: []
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));

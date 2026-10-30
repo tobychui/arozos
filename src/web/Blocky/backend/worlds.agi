@@ -1,0 +1,192 @@
+/*
+    Blocky - world storage backend
+
+    Worlds are kept per user in user:/.appdata/Blocky/worlds/<id>/:
+        meta.json           - name, seed, mode, difficulty, generation, part count
+        data.<gen>.<index>  - the compressed world payload, split in parts so a
+                              single POST never gets near the form size limit
+
+    A save writes every part of a new generation first and the meta file last,
+    then removes the parts of older generations; an interrupted save therefore
+    leaves the previous generation readable.
+
+    POST parameters:
+        action  - list | meta | loadpart | savepart | savemeta | delete
+        id      - world id ([A-Za-z0-9_-], up to 48 characters)
+        gen     - generation number (savepart / loadpart)
+        index   - part index (savepart / loadpart)
+        data    - part content (savepart)
+        meta    - JSON meta object (savemeta)
+*/
+
+var WORLDS = "user:/.appdata/Blocky/worlds/";
+
+function respond(obj) {
+    sendJSONResp(JSON.stringify(obj));
+}
+
+function fail(msg) {
+    respond({ ok: false, error: msg });
+}
+
+function validId(s) {
+    return typeof s === "string" && /^[A-Za-z0-9_-]{1,48}$/.test(s);
+}
+
+//Non negative integer given as a plain decimal string, or -1
+function toInt(s, max) {
+    if (typeof s === "undefined" || !/^[0-9]{1,9}$/.test(String(s))) {
+        return -1;
+    }
+    var n = parseInt(s, 10);
+    return n <= max ? n : -1;
+}
+
+function ensureDir(p) {
+    if (!filelib.fileExists(p)) {
+        filelib.mkdir(p);
+    }
+}
+
+function listDir(p) {
+    if (!filelib.fileExists(p)) {
+        return [];
+    }
+    var entries = filelib.readdir(p, "default");
+    return entries ? entries : [];
+}
+
+function main() {
+    if (!requirelib("filelib")) {
+        fail("filelib unavailable");
+        return;
+    }
+    if (typeof action === "undefined") {
+        fail("action is required");
+        return;
+    }
+
+    if (action === "list") {
+        var worlds = [];
+        var dirs = listDir(WORLDS);
+        for (var i = 0; i < dirs.length; i++) {
+            if (!dirs[i].IsDir || !validId(dirs[i].Filename)) {
+                continue;
+            }
+            var mp = WORLDS + dirs[i].Filename + "/meta.json";
+            if (!filelib.fileExists(mp)) {
+                continue;
+            }
+            try {
+                var m = JSON.parse(filelib.readFile(mp));
+                m.id = dirs[i].Filename;
+                worlds.push(m);
+            } catch (e) {
+                //Skip unreadable worlds
+            }
+        }
+        respond({ ok: true, worlds: worlds });
+        return;
+    }
+
+    if (typeof id === "undefined" || !validId(id)) {
+        fail("invalid world id");
+        return;
+    }
+    var dir = WORLDS + id + "/";
+
+    if (action === "meta") {
+        if (!filelib.fileExists(dir + "meta.json")) {
+            fail("world not found");
+            return;
+        }
+        respond({ ok: true, meta: JSON.parse(filelib.readFile(dir + "meta.json")) });
+        return;
+    }
+
+    if (action === "loadpart") {
+        var lg = toInt(gen, 999999999), li = toInt(index, 999);
+        if (lg < 0 || li < 0) {
+            fail("invalid part");
+            return;
+        }
+        var lp = dir + "data." + lg + "." + li;
+        if (!filelib.fileExists(lp)) {
+            fail("part not found");
+            return;
+        }
+        respond({ ok: true, data: filelib.readFile(lp) });
+        return;
+    }
+
+    if (action === "savepart") {
+        var sg = toInt(gen, 999999999), si = toInt(index, 999);
+        if (sg < 0 || si < 0 || typeof data === "undefined") {
+            fail("invalid part");
+            return;
+        }
+        ensureDir(dir);
+        if (!filelib.writeFile(dir + "data." + sg + "." + si, data)) {
+            fail("unable to write world data");
+            return;
+        }
+        respond({ ok: true });
+        return;
+    }
+
+    if (action === "savemeta") {
+        var parsed;
+        try {
+            parsed = JSON.parse(meta);
+        } catch (e) {
+            fail("meta must be valid JSON");
+            return;
+        }
+        var mg = toInt(String(parsed.gen), 999999999), mparts = toInt(String(parsed.parts), 999);
+        if (mg < 0 || mparts < 1) {
+            fail("invalid meta");
+            return;
+        }
+        //Every part of this generation must be on disk before it becomes current
+        for (var k = 0; k < mparts; k++) {
+            if (!filelib.fileExists(dir + "data." + mg + "." + k)) {
+                fail("missing part " + k);
+                return;
+            }
+        }
+        parsed.id = id;
+        if (!filelib.writeFile(dir + "meta.json", JSON.stringify(parsed))) {
+            fail("unable to write meta");
+            return;
+        }
+        //Remove parts that belong to other generations
+        var files = listDir(dir);
+        for (var f = 0; f < files.length; f++) {
+            var name = files[f].Filename;
+            var mm = /^data\.([0-9]+)\.([0-9]+)$/.exec(name);
+            if (mm && (parseInt(mm[1], 10) !== mg || parseInt(mm[2], 10) >= mparts)) {
+                filelib.deleteFile(dir + name);
+            }
+        }
+        respond({ ok: true });
+        return;
+    }
+
+    if (action === "delete") {
+        var all = listDir(dir);
+        for (var d = 0; d < all.length; d++) {
+            if (!all[d].IsDir) {
+                filelib.deleteFile(dir + all[d].Filename);
+            }
+        }
+        if (filelib.fileExists(dir)) {
+            filelib.deleteFile(dir);
+        }
+        respond({ ok: true });
+        return;
+    }
+
+    fail("unknown action");
+}
+
+main();
