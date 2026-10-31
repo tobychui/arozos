@@ -99,6 +99,7 @@ export class World {
         this.onBlockBroken = opts.onBlockBroken || null;
         this.onFizz = opts.onFizz || null;
         this.onPowerSound = opts.onPowerSound || null;
+        this.onPistonPush = opts.onPistonPush || null;
         this.powerBusy = false;
         this.pistonMoving = false;
         this.buttonDue = new Map();
@@ -802,8 +803,8 @@ export class World {
                 if (isOpaqueAt(aid, am)) {
                     return true;
                 }
-                //Torches also stand on top slabs and fence posts
-                return BLOCKS[id].support === "torch" && meta === 2 && ((IS_SLAB[aid] === 1 && am === 1) || aid === B.FENCE);
+                //Torches also stand on top slabs, upside down stairs and fence posts
+                return BLOCKS[id].support === "torch" && meta === 2 && ((IS_SLAB[aid] === 1 && am === 1) || (SHAPE[aid] === "stairs" && (am & 4)) || aid === B.FENCE);
             }
             case "door":
                 if (meta & 8) {

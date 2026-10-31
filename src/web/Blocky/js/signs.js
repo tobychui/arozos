@@ -14,7 +14,7 @@ import { signAngle, SIGN_BOARD, SIGN_WALL_BOARD } from "./shapes.js";
 export const SIGN_LINES = 4;
 export const SIGN_LINE_MAX = 15;
 const RANGE = 40;
-const CW = 256, CH = 128;
+const CW = 512, CH = 256;
 
 export class Signs {
     constructor(game) {
@@ -97,14 +97,14 @@ export class Signs {
         const canvas = mesh.userData.canvas;
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, CW, CH);
-        ctx.fillStyle = "#24170a";
+        ctx.fillStyle = "#140c04";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = "bold 25px Arial, Helvetica, sans-serif";
+        ctx.font = "bold 56px Arial, Helvetica, sans-serif";
         for (let i = 0; i < SIGN_LINES; i++) {
             const text = (lines[i] || "").slice(0, SIGN_LINE_MAX);
             if (text) {
-                ctx.fillText(text, CW / 2, CH * (i + 0.5) / SIGN_LINES, CW - 8);
+                ctx.fillText(text, CW / 2, CH * (i + 0.5) / SIGN_LINES, CW - 16);
             }
         }
         mesh.material.map.needsUpdate = true;

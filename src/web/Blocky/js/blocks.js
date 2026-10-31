@@ -24,7 +24,9 @@ export const B = {
     BLUE_FLOWER: 71, GLASS_PANE: 72, SPARK_ORE: 73, SPARK_WIRE: 74, SPARK_TORCH: 75, SPARK_TORCH_OFF: 76,
     LEVER: 77, BUTTON: 78, SPARK_LAMP: 79, SPARK_LAMP_ON: 80, PISTON: 81, STICKY_PISTON: 82,
     PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86, PLATE_WOOD: 87, PLATE_STONE: 88,
-    RETIMER: 89, RETIMER_ON: 90, SIGN: 91, WALL_SIGN: 92, IRON_BARS: 93
+    RETIMER: 89, RETIMER_ON: 90, SIGN: 91, WALL_SIGN: 92, IRON_BARS: 93,
+    PLANK_STAIRS: 94, COBBLE_STAIRS: 95, STONE_STAIRS: 96, STONE_BRICK_STAIRS: 97, BRICK_STAIRS: 98,
+    SANDSTONE_STAIRS: 99
 };
 
 //Wool and dye colours: key, name, colour
@@ -79,7 +81,7 @@ export const BLOCKS = [];
 export const ITEMS = [];
 
 const DEFAULTS = {
-    shape: "cube",      //cube, cross, crop, torch, slab, cactus, liquid, farmland, ladder, fire, door, fence, gate, bed, none
+    shape: "cube",      //cube, cross, crop, torch, slab, stairs, cactus, liquid, farmland, ladder, fire, door, fence, gate, bed, none
     solid: true,        //has collision
     opaque: true,       //full cube that hides neighbour faces
     lightOpacity: 15,
@@ -171,6 +173,15 @@ def(B.STONE_SLAB, "Stone Slab", { tex: { top: "slab_top", bottom: "slab_top", si
 def(B.PLANK_SLAB, "Plank Slab", { tex: "planks", shape: "slab", opaque: false, lightOpacity: 0, hardness: 2, tool: "axe", sound: "wood" });
 def(B.COBBLE_SLAB, "Cobblestone Slab", { tex: "cobblestone", shape: "slab", opaque: false, lightOpacity: 0, hardness: 2, tool: "pickaxe", tier: 1 });
 def(B.SANDSTONE_SLAB, "Sandstone Slab", { tex: { top: "sandstone_top", bottom: "sandstone_bottom", side: "sandstone_side" }, shape: "slab", opaque: false, lightOpacity: 0, hardness: 0.8, tool: "pickaxe", tier: 1 });
+//Stairs: meta bits 0-1 the side they climb toward, bit 2 upside down
+//(shapes.js). They dim light a little, so a stair roof gives shade.
+const STAIRS = { shape: "stairs", opaque: false, lightOpacity: 3, tool: "pickaxe", tier: 1 };
+def(B.PLANK_STAIRS, "Wooden Stairs", Object.assign({}, STAIRS, { tex: "planks", hardness: 2, tool: "axe", tier: 0, sound: "wood" }));
+def(B.COBBLE_STAIRS, "Cobblestone Stairs", Object.assign({}, STAIRS, { tex: "cobblestone", hardness: 2 }));
+def(B.STONE_STAIRS, "Stone Stairs", Object.assign({}, STAIRS, { tex: "stone", hardness: 1.5 }));
+def(B.STONE_BRICK_STAIRS, "Stone Brick Stairs", Object.assign({}, STAIRS, { tex: "stone_bricks", hardness: 1.5 }));
+def(B.BRICK_STAIRS, "Brick Stairs", Object.assign({}, STAIRS, { tex: "bricks", hardness: 2 }));
+def(B.SANDSTONE_STAIRS, "Sandstone Stairs", Object.assign({}, STAIRS, { tex: { top: "sandstone_top", bottom: "sandstone_bottom", side: "sandstone_side" }, hardness: 0.8 }));
 def(B.IRON_BLOCK, "Block of Iron", { tex: "iron_block", hardness: 5, tool: "pickaxe", tier: 2, sound: "metal" });
 def(B.GOLD_BLOCK, "Block of Gold", { tex: "gold_block", hardness: 3, tool: "pickaxe", tier: 3, sound: "metal" });
 def(B.CRYSTAL_BLOCK, "Block of Crystal", { tex: "crystal_block", hardness: 5, tool: "pickaxe", tier: 3, sound: "metal" });
@@ -181,11 +192,12 @@ WOOL_COLORS.forEach(([key, name], i) => {
 });
 def(B.BLUE_FLOWER, "Blue Flower", Object.assign({}, NONSOLID_PLANT, { tex: "blue_flower", replaceable: true }));
 def(B.GLASS_PANE, "Glass Pane", { tex: "glass", shape: "pane", opaque: false, lightOpacity: 0, hardness: 0.3, sound: "glass", cutout: true, drops: () => [] });
-def(B.IRON_BARS, "Iron Bars", { tex: "iron_bars", shape: "pane", opaque: false, lightOpacity: 0, hardness: 5, tool: "pickaxe", tier: 1, sound: "metal", cutout: true });
+//Iron bars link like panes but are modelled as solid bars (ironBars in mesher.js)
+def(B.IRON_BARS, "Iron Bars", { tex: "iron_bar_metal", shape: "pane", opaque: false, lightOpacity: 0, hardness: 5, tool: "pickaxe", tier: 1, sound: "metal" });
 //Signs: a standing sign turns in 16 steps (meta), a wall sign hangs on the
 //face given by meta; the text lives in a tile entity (signs.js)
-def(B.SIGN, "Sign", { tex: "planks", shape: "sign", solid: false, opaque: false, lightOpacity: 0, hardness: 1, tool: "axe", sound: "wood", support: "solid", interact: "sign" });
-def(B.WALL_SIGN, "Sign", { tex: "planks", shape: "sign", solid: false, opaque: false, lightOpacity: 0, hardness: 1, tool: "axe", sound: "wood", support: "wall", interact: "sign", noItem: true, drops: () => [[B.SIGN, 1]] });
+def(B.SIGN, "Sign", { tex: "sign_board", shape: "sign", solid: false, opaque: false, lightOpacity: 0, hardness: 1, tool: "axe", sound: "wood", support: "solid", interact: "sign" });
+def(B.WALL_SIGN, "Sign", { tex: "sign_board", shape: "sign", solid: false, opaque: false, lightOpacity: 0, hardness: 1, tool: "axe", sound: "wood", support: "wall", interact: "sign", noItem: true, drops: () => [[B.SIGN, 1]] });
 
 //The spark (signal) system
 def(B.SPARK_ORE, "Spark Ore", { tex: "spark_ore", hardness: 3, tool: "pickaxe", tier: 3, drops: (m, rng) => [[I.SPARK_DUST, 4 + Math.floor(rng() * 2)]] });
@@ -249,7 +261,7 @@ for (let i = 0; i < 256; i++) {
 export const FLAME_CATCH = new Uint8Array(256);
 export const FLAME_BURN = new Uint8Array(256);
 for (const [id, c, b] of [
-    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.PLATE_WOOD, 5, 20], [B.SIGN, 5, 20], [B.WALL_SIGN, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
+    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.PLANK_STAIRS, 5, 20], [B.PLATE_WOOD, 5, 20], [B.SIGN, 5, 20], [B.WALL_SIGN, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
     [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.BED, 5, 20],
     [B.LADDER, 5, 20], [B.TALL_GRASS, 60, 100], [B.FLOWER_YELLOW, 60, 100], [B.FLOWER_RED, 60, 100],
     [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100], [B.WOOL, 30, 60],
@@ -423,6 +435,7 @@ item(I.FURNACE_MINECART, "Furnace Minecart", { icon: { flat: "furnace_minecart" 
 ITEMS[B.LOG].fuel = 300;
 ITEMS[B.PLANKS].fuel = 300;
 ITEMS[B.PLANK_SLAB].fuel = 150;
+ITEMS[B.PLANK_STAIRS].fuel = 300;
 ITEMS[B.SAPLING].fuel = 100;
 ITEMS[B.WORKBENCH].fuel = 300;
 ITEMS[B.CHEST].fuel = 300;
@@ -654,6 +667,10 @@ shaped(B.STONE_SLAB, 6, ["MMM"], { M: B.STONE });
 shaped(B.PLANK_SLAB, 6, ["MMM"], { M: B.PLANKS });
 shaped(B.COBBLE_SLAB, 6, ["MMM"], { M: B.COBBLE });
 shaped(B.SANDSTONE_SLAB, 6, ["MMM"], { M: B.SANDSTONE });
+for (const [stairs, material] of [[B.PLANK_STAIRS, B.PLANKS], [B.COBBLE_STAIRS, B.COBBLE], [B.STONE_STAIRS, B.STONE],
+    [B.STONE_BRICK_STAIRS, B.STONE_BRICKS], [B.BRICK_STAIRS, B.BRICKS], [B.SANDSTONE_STAIRS, B.SANDSTONE]]) {
+    shaped(stairs, 4, ["M..", "MM.", "MMM"], { M: material });
+}
 shaped(B.LAMP, 1, [".G.", "GTG", ".G."], { G: B.GLASS, T: B.TORCH });
 shaped(I.DOOR, 3, ["PP", "PP", "PP"], { P: B.PLANKS });
 shaped(B.FENCE, 3, ["PSP", "PSP"], { P: B.PLANKS, S: I.STICK });
@@ -762,7 +779,8 @@ export function fuelTicks(id) {
 export function creativeGroups() {
     const building = [B.STONE, B.COBBLE, B.MOSSY_COBBLE, B.STONE_BRICKS, B.BRICKS, B.DIRT, B.GRASS, B.SAND, B.SANDSTONE,
         B.GRAVEL, B.CLAY, B.LOG, B.PLANKS, B.LEAVES, B.GLASS, B.LAMP, B.STONE_SLAB, B.PLANK_SLAB,
-        B.COBBLE_SLAB, B.SANDSTONE_SLAB, B.IRON_BLOCK, B.GOLD_BLOCK, B.CRYSTAL_BLOCK, B.COAL_ORE, B.IRON_ORE,
+        B.COBBLE_SLAB, B.SANDSTONE_SLAB, B.PLANK_STAIRS, B.COBBLE_STAIRS, B.STONE_STAIRS, B.STONE_BRICK_STAIRS,
+        B.BRICK_STAIRS, B.SANDSTONE_STAIRS, B.IRON_BLOCK, B.GOLD_BLOCK, B.CRYSTAL_BLOCK, B.COAL_ORE, B.IRON_ORE,
         B.GOLD_ORE, B.CRYSTAL_ORE, B.OBSIDIAN, B.LADDER, B.TORCH, B.WORKBENCH, B.FURNACE, B.CHEST,
         B.FENCE, B.FENCE_GATE, I.DOOR, I.BED, B.GLASS_PANE, B.IRON_BARS, B.SIGN, B.WOOL];
     for (let i = 0; i < WOOL_COLORS.length; i++) {

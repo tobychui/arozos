@@ -35,7 +35,11 @@ const ALIASES = {
     gold_block: B.GOLD_BLOCK,
     crystal_block: B.CRYSTAL_BLOCK,
     mossy_cobble: B.MOSSY_COBBLE,
-    double_stone_slab: B.STONE_SLAB
+    double_stone_slab: B.STONE_SLAB,
+    plank_stairs: B.PLANK_STAIRS,
+    wood_stairs: B.PLANK_STAIRS,
+    oak_stairs: B.PLANK_STAIRS,
+    cobble_stairs: B.COBBLE_STAIRS
 };
 
 function names() {

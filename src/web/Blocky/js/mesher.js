@@ -8,7 +8,7 @@
     Cube faces get smooth lighting and ambient occlusion: every corner
     averages the light of the four voxels in front of it and darkens with
     the solid blocks around it. Everything else (plants, crops, torches,
-    slabs, cactus, farmland, ladders, water) is built from boxes and planes
+    slabs, stairs, cactus, farmland, ladders, water) is built from boxes and planes
     with flat light.
 
     Vertex layout: position (3), uv (2), layer (1), light (sky, block) (2),
@@ -20,7 +20,7 @@ import { WORLD_H } from "./worldgen.js";
 import {
     FACE_DIR, doorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
     signAngle, SIGN_BOARD, SIGN_POST, SIGN_WALL_BOARD,
-    PISTON_BASE, HEAD_PLATE, HEAD_ROD
+    PISTON_BASE, HEAD_PLATE, HEAD_ROD, stairShape, stairBoxes
 } from "./shapes.js";
 
 const P = 18;
@@ -250,6 +250,8 @@ export function meshSection(world, chunk, sy, opts) {
                         }
                         return false;
                     });
+                } else if (shape === "stairs") {
+                    stairs(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "cactus") {
                     const e = 1 / 16;
                     boxFaces(solidBuf, p, x, y, z, id, meta, e, 0, e, 1 - e, 1, 1 - e, (f, np) => {
@@ -392,6 +394,53 @@ function boxFaces(buf, p, x, y, z, id, meta, x0, y0, z0, x1, y1, z1, cull, topFa
             buf.vert(x + vx, y + vy, z + vz, uv[0], uv[1], layer, ls, lb, s, s, s);
         }
         buf.quad(false);
+    }
+}
+
+//Does another box of the set cover face f of box i completely (two boxes
+//of one block touching inside it)?
+function faceCovered(boxes, i, f) {
+    const b = boxes[i];
+    const axis = FACE_AXIS[f], pos = FACE_SIGN[f] > 0;
+    const plane = pos ? b[axis + 3] : b[axis];
+    const a1 = (axis + 1) % 3, a2 = (axis + 2) % 3;
+    for (let j = 0; j < boxes.length; j++) {
+        const o = boxes[j];
+        if (j === i || (pos ? o[axis] : o[axis + 3]) !== plane) {
+            continue;
+        }
+        if (o[a1] <= b[a1] && o[a1 + 3] >= b[a1 + 3] && o[a2] <= b[a2] && o[a2 + 3] >= b[a2 + 3]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//Stairs: the half slab and the raised step, joined into corners with the
+//stairs around them. Faces take the light of the open cell they look
+//into, since the stair itself dims light.
+function stairs(buf, p, x, y, z, id, meta) {
+    const boxes = stairBoxes(meta, stairShape((a, b, c) => pBlk[pi(a, b, c)], (a, b, c) => pMeta[pi(a, b, c)], x, y, z, meta));
+    for (let i = 0; i < boxes.length; i++) {
+        const bx = boxes[i];
+        for (let f = 0; f < 6; f++) {
+            const axis = FACE_AXIS[f];
+            const np = p + FACE_OFF[f];
+            const onEdge = FACE_SIGN[f] > 0 ? bx[axis + 3] >= 1 : bx[axis] <= 0;
+            if (onEdge ? pOpq[np] === 1 : faceCovered(boxes, i, f)) {
+                continue;
+            }
+            const lp = !pOpq[np] ? np : !pOpq[p + P2] ? p + P2 : p;
+            const ls = (pLight[lp] >> 4) / 15, lb = (pLight[lp] & 15) / 15;
+            const layer = blockFaceLayer(id, f, meta);
+            const sh = FACE_SHADE[f];
+            for (const c of FACE_VERTS[f]) {
+                const vx = c[0] ? bx[3] : bx[0], vy = c[1] ? bx[4] : bx[1], vz = c[2] ? bx[5] : bx[2];
+                const uv = faceUV(f, vx, vy, vz);
+                buf.vert(x + vx, y + vy, z + vz, uv[0], uv[1], layer, ls, lb, sh, sh, sh);
+            }
+            buf.quad(false);
+        }
     }
 }
 
@@ -564,6 +613,10 @@ function pane(buf, p, x, y, z, id, meta) {
     const getId = (a, b, c) => pBlk[pi(a, b, c)];
     const getMeta = (a, b, c) => pMeta[pi(a, b, c)];
     const links = paneLinks(getId, getMeta, x, y, z);
+    if (id === B.IRON_BARS) {
+        ironBars(buf, p, x, y, z, id, meta, links);
+        return;
+    }
     const capped = (f, np) => (f === 2 || f === 3) && (pOpq[np] === 1 || SHAPE[pBlk[np]] === "pane");
     boxFaces(buf, p, x, y, z, id, meta, 7 * U, 0, 7 * U, 9 * U, 1, 9 * U, capped);
     const arms = [
@@ -575,6 +628,36 @@ function pane(buf, p, x, y, z, id, meta) {
             boxFaces(buf, p, x, y, z, id, meta, a0, 0, b0, a1, 1, b1, (f, np) => f === endFace || capped(f, np));
         }
     });
+}
+
+//Iron bars: a 2 x 2 post, and toward each linked side a framed half panel
+//(rails at the top and bottom, a bar in the middle of the half and a half
+//bar on the edge that meets the neighbour's into a whole one), 2 px deep.
+//Pieces are listed for the +x arm as [along0, y0, along1, y1].
+const BAR_ARM = [
+    [9, 0, 16, 1], [9, 15, 16, 16],
+    [11, 1, 13, 15], [15, 1, 16, 15]
+];
+
+function ironBars(buf, p, x, y, z, id, meta, links) {
+    const capped = (f, np) => (f === 2 || f === 3) && (pOpq[np] === 1 || pBlk[np] === B.IRON_BARS);
+    boxFaces(buf, p, x, y, z, id, meta, 7 * U, 0, 7 * U, 9 * U, 1, 9 * U, capped);
+    //Arm k (+x, -x, +z, -z): its end face and how an along range maps to x / z
+    const END = [0, 1, 4, 5];
+    for (let k = 0; k < 4; k++) {
+        if (!links[k]) {
+            continue;
+        }
+        for (const [a0, y0, a1, y1] of BAR_ARM) {
+            //Mirror the +x layout for the arms pointing the other way
+            const lo = k === 0 || k === 2 ? a0 : 16 - a1, hi = k === 0 || k === 2 ? a1 : 16 - a0;
+            const box = k < 2 ? [lo, y0, 7, hi, y1, 9] : [7, y0, lo, 9, y1, hi];
+            //Only faces on the block's own edge can be hidden by a neighbour
+            const atEnd = a1 === 16;
+            boxFaces(buf, p, x, y, z, id, meta, box[0] * U, box[1] * U, box[2] * U, box[3] * U, box[4] * U, box[5] * U,
+                (f, np) => (atEnd && f === END[k]) || (((f === 2 && y1 === 16) || (f === 3 && y0 === 0)) && pOpq[np] === 1));
+        }
+    }
 }
 
 const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
@@ -594,7 +677,12 @@ function wire(buf, p, x, y, z, id, meta) {
     const above = pOpq[p + P2];
     const links = dirs.map(([dx, dz]) => {
         const np = p + dx + dz * P;
-        if (WIRE_LINKS.has(pBlk[np])) {
+        const nid = pBlk[np];
+        //A retimer only takes wire at its back (input) and front (output)
+        if (nid === B.RETIMER || nid === B.RETIMER_ON) {
+            return (dx !== 0) === ((pMeta[np] & 1) === 0);
+        }
+        if (WIRE_LINKS.has(nid)) {
             return true;
         }
         if (!above && pBlk[np + P2] === B.SPARK_WIRE) {
@@ -603,11 +691,19 @@ function wire(buf, p, x, y, z, id, meta) {
         return !pOpq[np] && pBlk[np - P2] === B.SPARK_WIRE;
     });
     const n = links.filter(Boolean).length;
+    //A lone wire is a cross and a dead end runs on straight, but never
+    //into the side of a retimer
+    const retimerSide = (k) => {
+        const nid = pBlk[p + dirs[k][0] + dirs[k][1] * P];
+        return !links[k] && (nid === B.RETIMER || nid === B.RETIMER_ON);
+    };
     if (n === 0) {
-        links.fill(true);
+        for (let k = 0; k < 4; k++) {
+            links[k] = !retimerSide(k);
+        }
     } else if (n === 1) {
         const k = links.indexOf(true);
-        links[k ^ 1] = true;
+        links[k ^ 1] = !retimerSide(k ^ 1);
     }
     const t = meta / 15;
     const r = 0.34 + 0.66 * t, g = 0.03 + 0.1 * t, bl = 0.03 + 0.07 * t;
@@ -638,14 +734,16 @@ function retimer(buf, p, x, y, z, id, meta) {
 
 //A box in sign space (see SIGN_BOARD) turned by angle a about the block's
 //vertical axis, lit by the sign's own cell
-function yawBox(buf, p, x, y, z, b, a, layer) {
+//frontShade, when given, lights the two broad faces (along the box's local
+//z) the same whichever way the box is turned
+function yawBox(buf, p, x, y, z, b, a, layer, frontShade = 0) {
     const s = Math.sin(a), c = Math.cos(a);
     const ls = (pLight[p] >> 4) / 15, lb = (pLight[p] & 15) / 15;
     for (let f = 0; f < 6; f++) {
         //World normal of this face picks the shade
         const n = [[1, 0], [-1, 0], [0, 0], [0, 0], [0, 1], [0, -1]][f];
         const nx = n[0] * c + n[1] * s;
-        const sh = f === 2 ? 1 : f === 3 ? 0.5 : Math.abs(nx) > 0.7 ? 0.6 : 0.8;
+        const sh = f === 2 ? 1 : f === 3 ? 0.5 : frontShade && f >= 4 ? frontShade : Math.abs(nx) > 0.7 ? 0.6 : 0.8;
         for (const v of FACE_VERTS[f]) {
             const lx = v[0] ? b[3] : b[0], ly = v[1] ? b[4] : b[1], lz = v[2] ? b[5] : b[2];
             const uv = faceUV(f, lx, ly, lz);
@@ -658,11 +756,11 @@ function yawBox(buf, p, x, y, z, b, a, layer) {
 
 //Sign: a board on a post (standing) or a board on the wall behind it
 function sign(buf, p, x, y, z, id, meta) {
-    const a = signAngle(id, meta), layer = layerOfTile("planks");
+    const a = signAngle(id, meta), layer = layerOfTile("sign_board");
     if (id === B.WALL_SIGN) {
-        yawBox(buf, p, x, y, z, SIGN_WALL_BOARD, a, layer);
+        yawBox(buf, p, x, y, z, SIGN_WALL_BOARD, a, layer, 0.9);
     } else {
-        yawBox(buf, p, x, y, z, SIGN_BOARD, a, layer);
+        yawBox(buf, p, x, y, z, SIGN_BOARD, a, layer, 0.9);
         yawBox(buf, p, x, y, z, SIGN_POST, a, layerOfTile("log_side"));
     }
 }
@@ -856,33 +954,45 @@ export function cardGeometry(tile) {
     return buf.take();
 }
 
+//How stairs are shown in the hand, as dropped items and as icons: the step
+//on the -x half
+export const STAIR_ITEM_BOXES = [[0, 0, 0, 1, 0.5, 1], [0, 0.5, 0, 0.5, 1, 1]];
+
 //Geometry for held items and dropped items, centred on the origin.
-//Blocks are unit cubes (slabs half height), everything else a flat card.
+//Blocks are unit cubes (slabs half height, stairs two boxes), everything
+//else a flat card.
 export function itemGeometry(id) {
     const buf = new GeoBuf(64);
     buf.reset();
     const it = ITEMS[id];
     const blockId = it && it.block;
     const shape = blockId ? SHAPE[blockId] : null;
-    const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "cactus" || shape === "farmland" || shape === "piston" ||
-        shape === "plate" || shape === "retimer");
+    const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "stairs" || shape === "cactus" || shape === "farmland" ||
+        shape === "piston" || shape === "plate" || shape === "retimer");
     if (cubeLike) {
         const def = BLOCKS[blockId];
         const meta = def.orient ? 4 : 0;
         const top = shape === "slab" ? 0.5 : shape === "plate" ? 1 / 16 : shape === "retimer" ? 2 / 16 : 1;
         const inset = shape === "cactus" ? 1 / 16 : 0;
+        const boxes = shape === "stairs" ? STAIR_ITEM_BOXES : [[inset, 0, inset, 1 - inset, top, 1 - inset]];
         const tintC = def.tint === "foliage" ? [0.48, 0.86, 0.32] : def.tint === "grass" ? [0.62, 1.0, 0.43] : null;
-        for (let f = 0; f < 6; f++) {
-            const layer = blockFaceLayer(blockId, f, meta);
-            const s = FACE_SHADE[f];
-            const tinted = tintC && (def.tint === "foliage" || f === 2);
-            const r = (tinted ? tintC[0] : 1) * s, g = (tinted ? tintC[1] : 1) * s, b = (tinted ? tintC[2] : 1) * s;
-            for (const c of FACE_VERTS[f]) {
-                const vx = c[0] ? 1 - inset : inset, vy = c[1] ? top : 0, vz = c[2] ? 1 - inset : inset;
-                const uv = faceUV(f, vx, vy, vz);
-                buf.vert(vx - 0.5, vy - 0.5, vz - 0.5, uv[0], uv[1], layer, 1, 0, r, g, b);
+        for (let i = 0; i < boxes.length; i++) {
+            const bx = boxes[i];
+            for (let f = 0; f < 6; f++) {
+                if (faceCovered(boxes, i, f)) {
+                    continue;
+                }
+                const layer = blockFaceLayer(blockId, f, meta);
+                const s = FACE_SHADE[f];
+                const tinted = tintC && (def.tint === "foliage" || f === 2);
+                const r = (tinted ? tintC[0] : 1) * s, g = (tinted ? tintC[1] : 1) * s, b = (tinted ? tintC[2] : 1) * s;
+                for (const c of FACE_VERTS[f]) {
+                    const vx = c[0] ? bx[3] : bx[0], vy = c[1] ? bx[4] : bx[1], vz = c[2] ? bx[5] : bx[2];
+                    const uv = faceUV(f, vx, vy, vz);
+                    buf.vert(vx - 0.5, vy - 0.5, vz - 0.5, uv[0], uv[1], layer, 1, 0, r, g, b);
+                }
+                buf.quad(false);
             }
-            buf.quad(false);
         }
         return { geo: buf.take(), cube: true };
     }

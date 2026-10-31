@@ -7,7 +7,8 @@
 */
 
 import { ITEMS, BLOCKS, SHAPE, blockFaceLayer } from "./blocks.js";
-import { drawIsoIcon, drawFlatIcon, ICON, GRASS_TINT, FOLIAGE_TINT } from "./textures.js";
+import { drawIsoIcon, drawIsoBoxes, drawFlatIcon, ICON, GRASS_TINT, FOLIAGE_TINT } from "./textures.js";
+import { STAIR_ITEM_BOXES } from "./mesher.js";
 
 export function buildIcons(tex) {
     const ids = [];
@@ -48,7 +49,11 @@ export function buildIcons(tex) {
             opts.topTint = FOLIAGE_TINT;
             opts.sideTint = FOLIAGE_TINT;
         }
-        drawIsoIcon(ctx, x, y, tiles, opts);
+        if (shape === "stairs") {
+            drawIsoBoxes(ctx, x, y, tiles, STAIR_ITEM_BOXES, opts);
+        } else {
+            drawIsoIcon(ctx, x, y, tiles, opts);
+        }
     });
     const icons = { pos, cols, rows };
     //One style rule carries the sheet; elements only set size and offset

@@ -5,7 +5,10 @@
 
     Movement: walking, sprinting, sneaking (which keeps you from walking off
     edges), jumping, swimming, ladder climbing and creative flight, with a
-    0.6 block auto-step so slabs can be walked up.
+    0.6 block auto-step so slabs and stairs can be walked up, and a snap
+    down onto a step up to 0.6 below so they can be walked down. Steps
+    move the camera smoothly (eyeSmooth). Swimming against a bank pushes
+    you out once its top is within reach.
 
     Survival: 20 health points, 20 food points with a hidden saturation
     buffer and exhaustion counter. Exhaustion comes from actions and from a
@@ -45,6 +48,7 @@ export class Player {
         this.horizontalHit = false;
         this.fallDistance = 0;
         this.walkDist = 0;
+        this.eyeSmooth = 0;
         this.creative = false;
         this.difficulty = 2;
         this.health = 20;
@@ -76,6 +80,7 @@ export class Player {
         this.x = x; this.y = y; this.z = z;
         this.vx = this.vy = this.vz = 0;
         this.fallDistance = 0;
+        this.eyeSmooth = 0;
     }
 
     //Is the given world point under the surface of a liquid (water or lava)?
@@ -87,6 +92,19 @@ export class Player {
         }
         const h = waterHeight(w.getMeta(x, y, z), w.getBlock(x, y + 1, z) === liquid);
         return py - y < h + 0.02;
+    }
+
+    //Swimming against a bank: would the spot 0.6 higher and a little ahead
+    //(along wx, wz) be free of blocks and above any liquid? Then the bank
+    //can be climbed, even one level with the water surface.
+    canClimbOut(wx, wz) {
+        const b = this.box();
+        const ox = wx * 0.2, oz = wz * 0.2, lift = 0.6;
+        if (regionBlocked(this.world, b[0] + ox, b[1] + lift, b[2] + oz, b[3] + ox, b[4] + lift, b[5] + oz)) {
+            return false;
+        }
+        const fx = this.x + ox, fy = this.y + lift, fz = this.z + oz;
+        return !this.waterAt(fx, fy, fz) && !this.waterAt(fx, fy, fz, B.LAVA);
     }
 
     sense() {
@@ -171,7 +189,7 @@ export class Player {
             if (input.jump) {
                 this.vy = Math.min(this.vy + 14 * dt, 1.8);
                 if (this.horizontalHit) {
-                    this.vy = 3.5;
+                    this.vy = this.canClimbOut(wx, wz) ? 6 : 3.5;
                 }
             }
             this.vy = Math.max(this.vy, -1.8);
@@ -180,8 +198,10 @@ export class Player {
             this.vy *= Math.exp(-2.2 * dt);
             if (input.jump) {
                 this.vy = Math.min(this.vy + 26 * dt, 3.2);
+                //Against a bank: 4.5 alone tops out just under a bank level
+                //with the surface, so once its top is in reach push harder
                 if (this.horizontalHit) {
-                    this.vy = 4.5;
+                    this.vy = this.canClimbOut(wx, wz) ? 6.5 : 4.5;
                 }
             }
             this.vy = Math.max(this.vy, -3.5);
@@ -243,6 +263,7 @@ export class Player {
             const az = moveAxis(w, alt, 2, mz);
             moveAxis(w, alt, 1, -up);
             if (ax * ax + az * az > rx * rx + rz * rz + 1e-6) {
+                this.eyeSmooth -= alt[1] - box[1];
                 for (let i = 0; i < 6; i++) {
                     box[i] = alt[i];
                 }
@@ -257,6 +278,25 @@ export class Player {
             this.vz = 0;
         }
         this.horizontalHit = hitX || hitZ;
+        //Walked off a step (stairs, a slab): land on the one below right away
+        //instead of falling, so walking downstairs keeps you on the ground
+        if (wasGround && !this.onGround && this.vy <= 0 && !input.jump && !this.flying && !this.inWater && !this.inLava && !this.onLadder) {
+            const probe = box.slice();
+            const down = moveAxis(w, probe, 1, -STEP);
+            if (down > -STEP + 1e-6) {
+                this.eyeSmooth -= down;
+                for (let i = 0; i < 6; i++) {
+                    box[i] = probe[i];
+                }
+                this.onGround = true;
+                this.vy = 0;
+            }
+        }
+        //The camera follows steps smoothly
+        this.eyeSmooth = clamp(this.eyeSmooth * Math.exp(-18 * dt), -0.6, 0.6);
+        if (Math.abs(this.eyeSmooth) < 1e-3) {
+            this.eyeSmooth = 0;
+        }
         //Holding sneak while flying into the ground lands you
         if (this.flying && this.onGround && input.sneak) {
             this.flying = false;

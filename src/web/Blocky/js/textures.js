@@ -230,6 +230,26 @@ function paintPlanks(t, base = [168, 134, 82]) {
     }
 }
 
+//Sign boards: light wood with soft seams, so the writing stands out
+function paintSignBoard(t) {
+    const base = [204, 168, 112];
+    for (let b = 0; b < 4; b++) {
+        const f = 0.96 + t.r() * 0.06;
+        for (let yy = 0; yy < 4; yy++) {
+            const y = b * 4 + yy;
+            for (let x = 0; x < 16; x++) {
+                let k = f;
+                if (yy === 3) {
+                    k *= 0.86;
+                } else if (t.r() < 0.1) {
+                    k *= 0.94;
+                }
+                t.set(x, y, t.vary([base[0] * k, base[1] * k, base[2] * k], 3));
+            }
+        }
+    }
+}
+
 function paintLogSide(t) {
     const base = [104, 82, 52];
     for (let x = 0; x < 16; x++) {
@@ -1308,6 +1328,16 @@ function paintIronBars(t) {
     }
 }
 
+//The metal of iron bar models: lighter along one edge, darker along the other
+function paintIronBarMetal(t) {
+    for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+            const base = x % 4 === 0 ? [196, 198, 202] : x % 4 === 3 ? [112, 114, 118] : [154, 156, 160];
+            t.set(x, y, t.vary(base, 7));
+        }
+    }
+}
+
 function paintSignItem(t) {
     t.clear();
     t.rect(1, 2, 14, 8, [176, 136, 80], 10);
@@ -1603,6 +1633,7 @@ const PAINTERS = {
     log_side: paintLogSide,
     log_top: paintLogTop,
     planks: (t) => paintPlanks(t),
+    sign_board: paintSignBoard,
     leaves: paintLeaves,
     glass: paintGlass,
     coal_ore: (t) => paintOre(t, [36, 36, 40], 5),
@@ -1753,6 +1784,7 @@ Object.assign(PAINTERS, {
     lever_item: paintLeverItem,
     button_item: paintButtonItem,
     iron_bars: paintIronBars,
+    iron_bar_metal: paintIronBarMetal,
     sign_item: paintSignItem,
     retimer_top: (t) => paintRetimerTop(t, false),
     retimer_top_on: (t) => paintRetimerTop(t, true),
@@ -1895,6 +1927,39 @@ export function drawIsoIcon(ctx, ox, oy, tiles, opts = {}) {
         ctx.drawImage(shadedTile(tiles.right, 0.6, opts.sideTint), 0, 16 - h, 16, h, 0, 0, 16, h);
     } else {
         ctx.drawImage(shadedTile(tiles.right, 0.6, opts.sideTint), 0, 0);
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+//Draw an isometric icon made of several boxes in block units
+//[x0, y0, z0, x1, y1, z1] (stairs), back boxes first. Each box shows its
+//top, +z (front left) and +x (front right) faces cut from the tiles.
+export function drawIsoBoxes(ctx, ox, oy, tiles, boxes, opts = {}) {
+    const sc = 0.86;
+    const off = (1 - sc) * ICON / 2;
+    const tf = (a, b, c, d, e, f) => {
+        ctx.setTransform(a * sc, b * sc, c * sc, d * sc, ox + e * sc + off, oy + f * sc + off);
+    };
+    //Part of a tile in tile pixels, drawn at the same spot of the face
+    const part = (img, u0, v0, u1, v1) => {
+        if (u1 - u0 > 0 && v1 - v0 > 0) {
+            ctx.drawImage(img, u0, v0, u1 - u0, v1 - v0, u0, v0, u1 - u0, v1 - v0);
+        }
+    };
+    ctx.imageSmoothingEnabled = false;
+    const top = shadedTile(tiles.top, 1, opts.topTint);
+    const left = shadedTile(tiles.left, 0.78, opts.sideTint);
+    const right = shadedTile(tiles.right, 0.6, opts.sideTint);
+    for (const [x0, y0, z0, x1, y1, z1] of boxes) {
+        //Top: u runs toward -z, v toward +x
+        tf(2, -1, 2, 1, 0, 16 + 32 * (1 - y1));
+        part(top, 16 * (1 - z1), 16 * x0, 16 * (1 - z0), 16 * x1);
+        //+z face: u along x, v down from the top
+        tf(2, 1, 0, 2, 32 - 32 * z1, 16 * z1);
+        part(left, 16 * x0, 16 * (1 - y1), 16 * x1, 16 * (1 - y0));
+        //+x face: u toward -z
+        tf(2, -1, 0, 2, 32 * x1, 16 * x1 + 16);
+        part(right, 16 * (1 - z1), 16 * (1 - y1), 16 * (1 - z0), 16 * (1 - y0));
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

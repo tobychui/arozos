@@ -140,7 +140,12 @@ rose, the grays) and the others are mixed from two dyes on the grid.
 Six glass make 16 panes; six iron ingots make 16 iron bars, which share the
 pane shape with a see-through bar texture. Panes and bars join each other. A pane is a thin post that grows arms toward
 neighbouring panes and solid blocks (`paneLinks` in `shapes.js`); its
-collision and selection boxes follow the arms.
+collision and selection boxes follow the arms. Iron bars link the same way but are
+modelled as solid metal (`ironBars` in `mesher.js`, tile `iron_bar_metal`):
+a 2 x 2 post on its own, and toward each linked side a half panel 2 px deep
+with rails at the top and bottom, a bar in its middle and a half bar on the
+edge that meets the neighbour's into a whole one. The flat `iron_bars` tile
+is only the item icon.
 
 ## Spark circuits
 
@@ -152,7 +157,13 @@ ticks), pressure plates, spark torches and spark blocks. A wire carries level 15
 source and loses 1 per block (`updateWires`, a relaxation over the wire
 network). A powered block powers what touches it: lamps light up, a spark
 torch on a powered block turns off (an inverter), pistons push up to 12
-blocks (sticky pistons pull one back), powered rails boost carts. Parts react
+blocks (sticky pistons pull one back), powered rails boost carts. An
+extending piston shoves the player, animals and dropped items out of the
+head and the blocks it moved (`Game.pistonPush`, called through
+`world.onPistonPush`): their box is tested against each moved box swept
+back over the cell it came from and placed just past its far face, or, with
+no room there (a wall), moved as far as collisions allow; the player also
+gets a 5 blocks/s shove. Parts react
 through scheduled ticks two game ticks later. `POWER` flags each block: 1
 wire, 2 source, 4 reacts, 8 rail. Lever and button meta is the face they are
 attached to plus bit 8 for on / pressed; a pressed button's release time is
@@ -177,7 +188,9 @@ signal one way, in the direction the player faced when placing them, after
 `B.RETIMER_ON` (lit) share meta: bits 0-1 facing (`HDIR`), bits 2-3 steps -
 1. The input is the block behind (wire, source, a powered block or another
 retimer pointing in); a lit retimer powers the block in front strongly and
-nothing at its sides. Changes on their way wait in `world.retimerDue`, so a
+nothing at its sides. Wire is drawn joining a retimer only at its back and
+front; a wire beside it neither branches into its side nor runs on into it
+(`wire` in `mesher.js`). Changes on their way wait in `world.retimerDue`, so a
 pulse shorter than the delay is stretched to it.
 
 ## Rails and carts
@@ -263,6 +276,34 @@ Settings > Realistic Graphics. `js/realistic.js` with `render.js`:
 - Turning the mode off disposes every target. It needs float render targets
   (`EXT_color_buffer_float`); without them the setting stays off.
 
+## Stairs
+
+Wooden, cobblestone, stone, stone brick, brick and sandstone stairs (six
+blocks in a staircase pattern make four). Meta bits 0-1 are the side the
+steps climb toward (away from the player who placed them), bit 2 hangs them
+upside down (placed under a block or on the upper half of a side). A stair
+joins the stairs beside it (`stairShape` in `shapes.js`): one behind it
+turned across makes an outer corner, one in front turned across an inner
+corner, unless a stair on the far side continues a straight run.
+`stairBoxes` gives the half slab and the raised step; collision, meshing
+(`stairs` in `mesher.js`, faces lit from the open cell they look into) and
+the corner logic all use it, while the selection box is the whole block.
+Stairs have light opacity 3, so a stair roof gives shade without leaving
+the stair itself dark. Torches stand on upside down stairs.
+
+Walking: the 0.6 auto-step climbs the 0.5 steps from the front (from behind
+the full height blocks you), and a player who walks off a step lands on one
+up to 0.6 lower at once instead of falling, so stairs go down without
+leaving the ground. Both move the camera smoothly (`Player.eyeSmooth`).
+
+## Swimming out
+
+Jumping against a bank in water or lava gives a stronger push once the spot
+0.6 higher and a little ahead is free of blocks and above the liquid
+(`Player.canClimbOut`), so a bank level with the water surface can be
+climbed without building a step. A bank a full block above the surface
+still cannot.
+
 ## Signs
 
 Six planks and a stick make three signs. Placed on top of a block a sign
@@ -270,9 +311,12 @@ stands on a post, turned in 16 steps to face the player (`B.SIGN`, meta =
 step); placed on a side it hangs on the wall (`B.WALL_SIGN`, meta = face).
 `mesher.js` draws the board and post as boxes turned about the block's
 vertical axis (`yawBox`, parts in `shapes.js`: `SIGN_BOARD`, `SIGN_POST`,
-`SIGN_WALL_BOARD`, `signAngle`). The text is a tile entity
+`SIGN_WALL_BOARD`, `signAngle`). The board uses its own light wood tile
+(`sign_board`, soft seams) and its broad faces are lit evenly whichever way
+the sign turns, so the writing stays readable. The text is a tile entity
 `{ type: "sign", lines: [4], ver }`; `js/signs.js` gives every sign within
-40 blocks a plane in front of its board with the lines drawn on a canvas
+40 blocks a plane in front of its board with the lines drawn on a 512 x 256
+canvas in bold dark type
 (redrawn when `ver` changes, lit like other objects). Placing a sign opens
 the Edit Sign screen (4 lines of up to 15 characters; Enter moves down, Esc
 or Done closes) and right clicking one opens it again. Breaking a sign or

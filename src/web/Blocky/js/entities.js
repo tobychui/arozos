@@ -9,7 +9,7 @@
 import { B, BLOCKS } from "./blocks.js";
 import { moveAxis } from "./physics.js";
 
-const ITEM_HALF = 0.125;
+export const ITEM_HALF = 0.125;
 const DESPAWN = 300;
 
 export class Entities {

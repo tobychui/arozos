@@ -20,7 +20,8 @@ import { World, WORLD_H } from "./world.js";
 import { BIOME, BIOME_NAMES } from "./worldgen.js";
 import { Player, DIFFICULTY } from "./player.js";
 import { Inventory } from "./inventory.js";
-import { Entities } from "./entities.js";
+import { Entities, ITEM_HALF } from "./entities.js";
+import { moveAxis, regionBlocked } from "./physics.js";
 import { selectionBox, collisionBoxes, FACE_DIR, doorHinge } from "./shapes.js";
 import { deflateString, mulberry32, clamp, lerp } from "./util.js";
 
@@ -106,6 +107,7 @@ export class Game {
                     this.sound.play("click");
                 }
             },
+            onPistonPush: (cells, d) => this.pistonPush(cells, d),
             onFizz: (x, y, z) => {
                 this.sound.play("fizz");
                 this.renderer.spawnParticles(x + 0.5, y + 1, z + 0.5, [200, 200, 200], 12, 0.4, 2);
@@ -1050,6 +1052,93 @@ export class Game {
         return [hit.x + d[0], hit.y + d[1], hit.z + d[2]];
     }
 
+    //Move an entity box out of the cells a piston just filled, along the
+    //piston direction d, to the far face of what moved (stopped by blocks
+    //beyond). Returns the distance.
+    pushOut(box, cells, d) {
+        const w = this.world;
+        const a = d[0] !== 0 ? 0 : d[1] !== 0 ? 1 : 2, s = d[a];
+        const pos = [0, 0, 0];
+        let need = 0;
+        for (const [cx, cy, cz] of cells) {
+            const id = w.getBlock(cx, cy, cz);
+            if (!SOLID[id]) {
+                continue;
+            }
+            for (const b of collisionBoxes(id, w.getMeta(cx, cy, cz), w, cx, cy, cz)) {
+                pos[0] = cx; pos[1] = cy; pos[2] = cz;
+                //The box swept over the block it moved through (the head's
+                //plate crosses its whole cell)
+                let hit = true;
+                for (let k = 0; k < 3 && hit; k++) {
+                    const lo = pos[k] + b[k] - (k === a && s > 0 ? 1 : 0), hi = pos[k] + b[k + 3] + (k === a && s < 0 ? 1 : 0);
+                    hit = box[k] < hi - 1e-6 && box[k + 3] > lo + 1e-6;
+                }
+                if (hit) {
+                    need = Math.max(need, s > 0 ? pos[a] + b[a + 3] - box[a] : box[a + 3] - (pos[a] + b[a]));
+                }
+            }
+        }
+        if (need <= 0) {
+            return 0;
+        }
+        //Straight past the far face when there is room (the moving parts
+        //push from behind, so they must not stop it); otherwise as far as
+        //the blocks allow, which pins it against the head
+        const shift = s * (need + 0.01);
+        box[a] += shift;
+        box[a + 3] += shift;
+        if (!regionBlocked(w, box[0], box[1], box[2], box[3], box[4], box[5])) {
+            return Math.abs(shift);
+        }
+        box[a] -= shift;
+        box[a + 3] -= shift;
+        return Math.abs(moveAxis(w, box, a, shift));
+    }
+
+    //A piston extended: push the player, animals and dropped items out of
+    //the head and the blocks it moved, with a little momentum
+    pistonPush(cells, d) {
+        const p = this.player;
+        const box = p.box();
+        const moved = this.pushOut(box, cells, d);
+        if (moved > 0) {
+            p.x = (box[0] + box[3]) / 2;
+            p.y = box[1];
+            p.z = (box[2] + box[5]) / 2;
+            if (d[1] !== 0) {
+                p.vy = Math.max(p.vy * d[1], 0) * d[1];
+                p.fallDistance = 0;
+                p.eyeSmooth -= d[1] * moved;
+            } else {
+                p.vx = d[0] !== 0 ? d[0] * Math.max(p.vx * d[0], 5) : p.vx;
+                p.vz = d[2] !== 0 ? d[2] * Math.max(p.vz * d[2], 5) : p.vz;
+            }
+        }
+        for (const m of this.mobs.list) {
+            const mb = this.mobs.box(m);
+            if (this.pushOut(mb, cells, d) > 0) {
+                m.x = (mb[0] + mb[3]) / 2;
+                m.y = mb[1];
+                m.z = (mb[2] + mb[5]) / 2;
+                m.vx += d[0] * 5;
+                m.vz += d[2] * 5;
+                m.vy = d[1] !== 0 ? Math.max(m.vy, 0) : m.vy;
+            }
+        }
+        for (const e of this.entities.items) {
+            const ib = [e.x - ITEM_HALF, e.y - ITEM_HALF, e.z - ITEM_HALF, e.x + ITEM_HALF, e.y + ITEM_HALF, e.z + ITEM_HALF];
+            if (this.pushOut(ib, cells, d) > 0) {
+                e.x = (ib[0] + ib[3]) / 2;
+                e.y = (ib[1] + ib[4]) / 2;
+                e.z = (ib[2] + ib[5]) / 2;
+                e.vx += d[0] * 3;
+                e.vy = Math.max(e.vy, d[1] * 3);
+                e.vz += d[2] * 3;
+            }
+        }
+    }
+
     //Would this block at (x, y, z) collide with the player?
     blocksPlayer(bid, meta, x, y, z) {
         if (!SOLID[bid]) {
@@ -1142,6 +1231,13 @@ export class Game {
             meta = face;
         } else if (bid === B.FENCE_GATE) {
             meta = facingFromYaw(p.yaw);
+        } else if (SHAPE[bid] === "stairs") {
+            //The steps climb away from the player; placed under a block or
+            //on the upper half of a side they hang upside down
+            meta = facingFromYaw(p.yaw);
+            if (face === 3 || (face !== 2 && hit.point[1] - hit.y > 0.5)) {
+                meta |= 4;
+            }
         } else if (def.orient) {
             const lx = -Math.sin(p.yaw), lz = -Math.cos(p.yaw);
             if (Math.abs(lx) > Math.abs(lz)) {
@@ -1486,7 +1582,7 @@ export class Game {
             roll += Math.sin(p.hurtTime * 40) * 0.04 * p.hurtTime;
         }
         const cos = Math.cos(p.yaw), sin = Math.sin(p.yaw);
-        cam.position.set(p.x + cos * bx, p.eyeY + by, p.z - sin * bx);
+        cam.position.set(p.x + cos * bx, p.eyeY + p.eyeSmooth + by, p.z - sin * bx);
         cam.rotation.set(p.pitch, p.yaw, roll);
         let fov = this.settings.fov;
         if (p.sprinting) {

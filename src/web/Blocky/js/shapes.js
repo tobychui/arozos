@@ -2,11 +2,12 @@
     Blocky - shapes.js
 
     Collision and selection boxes of the non-cube block shapes, in block
-    local coordinates [x0, y0, z0, x1, y1, z1]. Fences look at their
-    neighbours, so the box functions take the world and the position too.
+    local coordinates [x0, y0, z0, x1, y1, z1]. Fences and stairs look at
+    their neighbours, so the box functions take the world and the position
+    too.
 */
 
-import { B, SHAPE, SOLID, isOpaqueAt } from "./blocks.js";
+import { B, SHAPE, SOLID, HDIR, isOpaqueAt } from "./blocks.js";
 
 const FULL = [0, 0, 0, 1, 1, 1];
 const NONE = [];
@@ -98,6 +99,79 @@ function unionBox(boxes) {
     return u;
 }
 
+//Stair meta: bits 0-1 the side the steps climb toward (HDIR), bit 2 upside
+//down (the half slab on top, the step hanging under it)
+export const STAIR_FLIP = 4;
+
+//How a stair joins the stairs next to it, as kind * 4 + side: kind 0
+//straight, 1 outer corner (only the quarter between the climbing side and
+//`side` is raised: a stair behind it turns away), 2 inner corner (the
+//climbing half and the `side` half are raised: a stair in front of it
+//turns away). Only stairs of the same half join; a stair that continues a
+//straight run on the far side keeps the run straight.
+export function stairShape(getId, getMeta, x, y, z, meta) {
+    const f = meta & 3, flip = meta & STAIR_FLIP;
+    const stairMeta = (ax, az) => (SHAPE[getId(ax, y, az)] === "stairs" && (getMeta(ax, y, az) & STAIR_FLIP) === flip ? getMeta(ax, y, az) : -1);
+    const sameRun = (ax, az) => {
+        const m = stairMeta(ax, az);
+        return m >= 0 && (m & 3) === f;
+    };
+    const d = HDIR[f];
+    const behind = stairMeta(x + d[0], z + d[1]);
+    if (behind >= 0 && ((behind & 3) & 1) !== (f & 1)) {
+        const s = behind & 3;
+        if (!sameRun(x - HDIR[s][0], z - HDIR[s][1])) {
+            return 4 + s;
+        }
+    }
+    const front = stairMeta(x - d[0], z - d[1]);
+    if (front >= 0 && ((front & 3) & 1) !== (f & 1)) {
+        const s = front & 3;
+        if (!sameRun(x + HDIR[s][0], z + HDIR[s][1])) {
+            return 8 + s;
+        }
+    }
+    return f;
+}
+
+//[x0, x1, z0, z1] of the half of a block toward side
+function halfToward(side) {
+    const d = HDIR[side];
+    return [d[0] > 0 ? 0.5 : 0, d[0] < 0 ? 0.5 : 1, d[1] > 0 ? 0.5 : 0, d[1] < 0 ? 0.5 : 1];
+}
+
+//The part of both halves, as a box between y0 and y1
+function halvesBox(a, b, y0, y1) {
+    return [Math.max(a[0], b[0]), y0, Math.max(a[2], b[2]), Math.min(a[1], b[1]), y1, Math.min(a[3], b[3])];
+}
+
+//Boxes of a stair: the half slab first, then the raised step (two boxes for
+//an inner corner). They never overlap.
+export function stairBoxes(meta, shape) {
+    const flip = meta & STAIR_FLIP;
+    const out = [flip ? [0, 0.5, 0, 1, 1, 1] : [0, 0, 0, 1, 0.5, 1]];
+    const y0 = flip ? 0 : 0.5, y1 = flip ? 0.5 : 1;
+    const kind = shape >> 2, side = shape & 3;
+    const up = halfToward(meta & 3);
+    if (kind === 1) {
+        out.push(halvesBox(up, halfToward(side), y0, y1));
+        return out;
+    }
+    out.push([up[0], y0, up[2], up[1], y1, up[3]]);
+    if (kind === 2) {
+        out.push(halvesBox(halfToward(side), halfToward((meta & 3) ^ 2), y0, y1));
+    }
+    return out;
+}
+
+//A stair placed in the world, joined to its neighbours
+export function stairBoxesAt(world, x, y, z, meta) {
+    if (!world) {
+        return stairBoxes(meta, meta & 3);
+    }
+    return stairBoxes(meta, stairShape((a, b, c) => world.getBlock(a, b, c), (a, b, c) => world.getMeta(a, b, c), x, y, z, meta));
+}
+
 const DOOR_T = 3 / 16;
 //Closed door panel along the edge the door faces (0 +x, 1 +z, 2 -x, 3 -z)
 const DOOR_PANEL = [
@@ -165,6 +239,8 @@ export function collisionBoxes(id, meta, world, x, y, z) {
                 return [FULL];
             }
             return [meta === 1 ? [0, 0.5, 0, 1, 1, 1] : [0, 0, 0, 1, 0.5, 1]];
+        case "stairs":
+            return stairBoxesAt(world, x, y, z, meta);
         case "cactus":
             return [[0.0625, 0, 0.0625, 0.9375, 1, 0.9375]];
         case "farmland":

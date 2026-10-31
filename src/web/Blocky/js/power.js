@@ -274,6 +274,12 @@ function extend(w, x, y, z, id, meta, onSound) {
     w.setBlock(x, y, z, id, meta | 8);
     w.setBlock(x + d[0], y + d[1], z + d[2], B.PISTON_HEAD, f | (id === B.STICKY_PISTON ? 8 : 0));
     w.pistonMoving = false;
+    //The head and the moved blocks shove whatever stands in their new cells
+    if (w.onPistonPush) {
+        const cells = line.map(([px, py, pz]) => [px + d[0], py + d[1], pz + d[2]]);
+        cells.push([x + d[0], y + d[1], z + d[2]]);
+        w.onPistonPush(cells, d);
+    }
     onSound(true);
 }
 
