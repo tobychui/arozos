@@ -1377,6 +1377,27 @@ function paintMinecart(t, cargo) {
     t.outline(0.7);
 }
 
+//Boat item: a wooden hull seen from the side with an oar across it
+function paintBoatItem(t) {
+    t.clear();
+    for (let x = 3; x < 13; x++) {
+        t.set(x, 2 + Math.abs(x - 7.5) * 0.25 | 0, [84, 60, 34]);
+    }
+    for (let i = 0; i < 9; i++) {
+        t.set(4 + i, 1 + i, [130, 96, 56]);
+    }
+    t.rect(10, 6, 3, 2, [96, 70, 40]);
+    for (let y = 8; y < 13; y++) {
+        const inset = Math.max(0, y - 10);
+        for (let x = 1 + inset; x < 15 - inset; x++) {
+            const seam = y === 10;
+            const rim = y === 8;
+            t.set(x, y, rim ? [214, 176, 116] : seam ? [118, 88, 50] : t.vary([176, 136, 80], 6));
+        }
+    }
+    t.outline(0.65);
+}
+
 function paintIngot(t, base) {
     t.clear();
     const light = [Math.min(255, base[0] + 45), Math.min(255, base[1] + 45), Math.min(255, base[2] + 45)];
@@ -1792,7 +1813,8 @@ Object.assign(PAINTERS, {
     retimer_pin_on: (t) => t.fill([255, 60, 44], 14),
     minecart: (t) => paintMinecart(t, null),
     chest_minecart: (t) => paintMinecart(t, "chest"),
-    furnace_minecart: (t) => paintMinecart(t, "furnace")
+    furnace_minecart: (t) => paintMinecart(t, "furnace"),
+    boat_item: paintBoatItem
 });
 
 //Coloured wool blocks and the dyes that make them (colours as in blocks.js)

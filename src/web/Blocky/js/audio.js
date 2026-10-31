@@ -244,6 +244,11 @@ export class Sound {
                 f.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.4);
                 break;
             }
+            case "paddle": {
+                const f = this.noiseBurst("lowpass", 1300, 0.7, 0.3, 0.16);
+                f.frequency.exponentialRampToValueAtTime(260, this.ctx.currentTime + 0.28);
+                break;
+            }
             case "toolBreak":
                 this.tone(900, 0.2, 0.2, "square", 0, 300);
                 this.noiseBurst("highpass", 3000, 0.5, 0.2, 0.3);

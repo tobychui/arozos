@@ -15,6 +15,7 @@ import {
 } from "./blocks.js";
 import { Mobs } from "./mobs.js";
 import { Carts } from "./carts.js";
+import { Boats } from "./boats.js";
 import { Signs } from "./signs.js";
 import { World, WORLD_H } from "./world.js";
 import { BIOME, BIOME_NAMES } from "./worldgen.js";
@@ -117,8 +118,10 @@ export class Game {
         this.entities = new Entities(this.renderer);
         this.mobs = new Mobs(this);
         this.carts = new Carts(this);
+        this.boats = new Boats(this);
         this.signs = new Signs(this);
         this.riding = null;
+        this.boat = null;
         this.player = new Player(this.world);
         this.inventory = new Inventory();
         this.player.creative = meta.mode === "creative";
@@ -188,6 +191,7 @@ export class Game {
         }
         this.entities.load(state.entities);
         this.carts.load(state.carts);
+        this.boats.load(state.boats);
         this.ui.hudKey = "";
     }
 
@@ -210,6 +214,7 @@ export class Game {
         this.entities.clear();
         this.mobs.clear();
         this.carts.clear();
+        this.boats.clear();
         this.signs.clear();
         this.renderer.detachWorld();
         this.renderer.setHeldItem(0);
@@ -263,8 +268,8 @@ export class Game {
             }
             if (this.sleeping) {
                 this.updateSleep(dt);
-            } else if (this.riding) {
-                //The cart carries the player (carts.update below)
+            } else if (this.riding || this.boat) {
+                //The cart or boat carries the player (updates below)
             } else if (ready && !this.placeOnGround) {
                 const mv = this.movementInput();
                 let rem = Math.min(dt, 0.1);
@@ -286,6 +291,14 @@ export class Game {
                 p.z = c.z;
                 p.vx = p.vy = p.vz = 0;
                 p.fallDistance = 0;
+            }
+            this.boats.update(dt, this.boat ? this.movementInput() : null);
+            if (this.boat) {
+                [p.x, p.y, p.z] = this.boats.seat(this.boat);
+                p.vx = p.vy = p.vz = 0;
+                p.fallDistance = 0;
+                p.sense();
+                p.onGround = true;
             }
             r.updateParticles(dt, this.world);
             r.updateLightning(dt);
@@ -598,9 +611,12 @@ export class Game {
         //sticks out a little in front of the cart's lower half
         const onRail = cartHit && hit && SHAPE[hit.id] === "rail" && cartHit.t < hit.t + 1;
         const aimCart = (near(cartHit) || onRail) && (!mobHit || cartHit.t < mobHit.t) ? cartHit.cart : null;
-        const aimMob = !aimCart && near(mobHit) ? mobHit.mob : null;
+        //Boats sit in water, which the block ray passes through
+        const boatHit = aimCart ? null : this.boats.raycast(ox, oy, oz, dx, dy, dz, reach);
+        const aimBoat = near(boatHit) && (!mobHit || boatHit.t < mobHit.t) ? boatHit.boat : null;
+        const aimMob = !aimCart && !aimBoat && near(mobHit) ? mobHit.mob : null;
         this.aimMob = aimMob;
-        r.setSelection(this.hideHud || aimMob || aimCart ? null : hit);
+        r.setSelection(this.hideHud || aimMob || aimCart || aimBoat ? null : hit);
 
         const leftDown = input.buttons.has(0) || this.touchBreak;
         const rightDown = input.buttons.has(2);
@@ -624,16 +640,20 @@ export class Game {
             this.swing = 0;
             this.carts.hit(aimCart);
         }
+        if (aimBoat && input.clicked.has(0)) {
+            this.swing = 0;
+            this.boats.hit(aimBoat);
+        }
         //After hitting a cart or an animal, holding the button on mines
         //nothing until it is let go (the block behind would break next)
-        if ((aimCart || aimMob) && leftDown) {
+        if ((aimCart || aimBoat || aimMob) && leftDown) {
             this.attackHold = true;
         } else if (!leftDown) {
             this.attackHold = false;
         }
 
         //Mining
-        if (leftDown && !aimMob && !aimCart && !this.attackHold) {
+        if (leftDown && !aimMob && !aimCart && !aimBoat && !this.attackHold) {
             if (input.clicked.has(0) || this.swing >= 1) {
                 this.swing = 0;
             }
@@ -691,6 +711,12 @@ export class Game {
         if (aimCart && rightClick) {
             this.swing = 0;
             this.carts.use(aimCart);
+            this.useHold = true;
+            return;
+        }
+        if (aimBoat && rightClick) {
+            this.swing = 0;
+            this.boats.use(aimBoat);
             this.useHold = true;
             return;
         }
@@ -949,6 +975,10 @@ export class Game {
             }
             return;
         }
+        if (it && it.boat) {
+            this.placeBoat();
+            return;
+        }
         if (!rawHit || !held) {
             return;
         }
@@ -1040,6 +1070,37 @@ export class Game {
         }
         if (it.block) {
             this.placeBlock(hit, it.block);
+        }
+    }
+
+    //A boat goes onto the water (or ground) under the crosshair, facing the
+    //way the player looks
+    placeBoat() {
+        const w = this.world, p = this.player;
+        const [ox, oy, oz, dx, dy, dz] = this.eyeRay();
+        const h = w.raycast(ox, oy, oz, dx, dy, dz, 4.5, (bid, m, bx, by, bz) =>
+            (bid === B.WATER ? [0, 0, 0, 1, 0.875, 1] : selectionBox(bid, m, w, bx, by, bz)));
+        if (!h) {
+            return;
+        }
+        let x = h.point[0], y, z = h.point[2];
+        if (h.id === B.WATER || h.face === 2) {
+            y = h.point[1];
+        } else {
+            const [tx, ty, tz] = this.placeTarget(h);
+            x = tx + 0.5;
+            y = ty;
+            z = tz + 0.5;
+        }
+        if (y < 0 || y >= WORLD_H) {
+            return;
+        }
+        this.boats.spawn(x, y, z, { yaw: p.yaw });
+        this.sound.block("place", "wood");
+        this.swing = 0;
+        this.useHold = true;
+        if (!this.creative) {
+            this.inventory.consumeHeld(1);
         }
     }
 
@@ -1497,6 +1558,7 @@ export class Game {
             } else if (e.type === "death") {
                 this.wake(false);
                 this.carts.dismount();
+                this.boats.dismount();
                 this.onDeath(e.cause);
             } else if (e.type === "extinguish") {
                 this.sound.play("fizz");
@@ -1653,7 +1715,8 @@ export class Game {
             inventory: this.inventory.serialize(),
             world: this.world.serialize(),
             entities: this.entities.serialize(),
-            carts: this.carts.serialize()
+            carts: this.carts.serialize(),
+            boats: this.boats.serialize()
         };
     }
 

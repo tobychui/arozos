@@ -23,6 +23,7 @@ its folder.
 | `js/realistic.js` | Realistic graphics pipeline: shadow map, sea reflection, terrain lighting chunk, HDR post passes. |
 | `js/power.js` | Spark circuits: power sources, wire levels, torches, lamps, pistons, rail shapes. |
 | `js/carts.js` | Minecarts (plain, chest, furnace) following rails. |
+| `js/boats.js` | Boats: floating, rowing, steering, riding. |
 | `js/dynlight.js` | Light from a glowing item held in hand. |
 | `js/signs.js` | The text on signs: canvas planes in front of the boards. |
 | `js/blocks.js` | Block / item registry, mining rules, shaped recipes and the grid matcher, smelting. |
@@ -246,6 +247,27 @@ lean on it instead of walking through. The model tilts
 with the slope it is on (`pose`, from the rail direction kept by `step`).
 Two hits break a cart (one in creative); a cart takes the click over the
 rail under it, whose box can stick out in front of a cart sitting in a dip.
+
+## Boats
+
+Five planks in a U make a boat. Right click water (or the ground) to put
+one down facing the way you look; right click it to sit in it. W / S row
+forward (up to 7 blocks/s) and back (2.5), A / D turn the boat and your
+view with it, Shift gets you out onto the nearest dry spot within two
+blocks. On land a boat only shuffles along at 1.2 blocks/s. Two hits break
+it (one in creative) and drop the boat; lava burns it up.
+
+`js/boats.js`: a boat looks for the top of the water column it is in
+(`surface`) and springs toward 0.14 below it (`DRAFT`), so one placed under
+water rises; off water it falls. Its collision box is square and 0.98 wide
+(the hull turns, the box does not), so it fits a one block canal; sideways
+speed is damped hard, like a keel. Walking into an empty boat nudges it,
+boats bump into each other, and they are saved with the world (`boats` in
+the save). The model is textured boxes cut from the planks tile at block
+pixel size, with oars that sweep while rowing (a soft `paddle` sound); a
+depth-only plane just under the rim keeps the water surface from showing
+inside the hull. While seated the game skips player physics, puts the
+player at `Boats.seat` and refreshes `Player.sense` for breath and fire.
 
 ## Realistic graphics
 

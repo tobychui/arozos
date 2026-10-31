@@ -47,7 +47,7 @@ export const I = {
     COOKED_MUTTON: 279, BOW: 305, ARROW: 306, RAW_CHICKEN: 307, COOKED_CHICKEN: 308, FEATHER: 309,
     STRING: 310, BONE: 311, BONE_MEAL: 312,
     DYE: 313, //313-328: dyes, in WOOL_COLORS order
-    SPARK_DUST: 329, MINECART: 330, CHEST_MINECART: 331, FURNACE_MINECART: 332
+    SPARK_DUST: 329, MINECART: 330, CHEST_MINECART: 331, FURNACE_MINECART: 332, BOAT: 333
 };
 
 export const dyeId = (key) => I.DYE + WOOL_COLORS.findIndex((c) => c[0] === key);
@@ -430,6 +430,7 @@ item(I.SPARK_DUST, "Spark Dust", { icon: { flat: "spark_dust" }, block: B.SPARK_
 item(I.MINECART, "Minecart", { icon: { flat: "minecart" }, stack: 1, cart: "cart" });
 item(I.CHEST_MINECART, "Chest Minecart", { icon: { flat: "chest_minecart" }, stack: 1, cart: "chest" });
 item(I.FURNACE_MINECART, "Furnace Minecart", { icon: { flat: "furnace_minecart" }, stack: 1, cart: "furnace" });
+item(I.BOAT, "Boat", { icon: { flat: "boat_item" }, stack: 1, boat: true, fuel: 400 });
 
 //Fuel for blocks (ticks at 20 ticks per second; one smelt takes 200 ticks)
 ITEMS[B.LOG].fuel = 300;
@@ -654,6 +655,7 @@ shapeless(I.FURNACE_MINECART, 1, [I.MINECART, B.FURNACE], "Spark");
 shapeless(I.FLINT_AND_STEEL, 1, [I.IRON_INGOT, I.FLINT], "Tools");
 
 shaped(I.BOWL, 4, ["P.P", ".P."], { P: B.PLANKS }, "Food");
+shaped(I.BOAT, 1, ["P.P", "PPP"], { P: B.PLANKS }, "Tools");
 shaped(I.BREAD, 1, ["WWW"], { W: I.WHEAT }, "Food");
 shapeless(I.STEW, 1, [B.MUSHROOM_BROWN, B.MUSHROOM_RED, I.BOWL], "Food");
 
@@ -797,7 +799,7 @@ export function creativeGroups() {
     for (let mi = 0; mi < 5; mi++) {
         tools.push(swordId(mi));
     }
-    tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL);
+    tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL, I.BOAT);
     const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.SPARK_LAMP,
         B.PISTON, B.STICKY_PISTON, B.RAIL, B.POWERED_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,
