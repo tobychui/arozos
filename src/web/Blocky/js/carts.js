@@ -33,6 +33,23 @@ const RAIL_EXITS = [
 
 export const CART_ITEM = { cart: I.MINECART, chest: I.CHEST_MINECART, furnace: I.FURNACE_MINECART };
 const MAX_SPEED = 8;
+//How a cart rolls, by what it carries: [coast, roll, brake]. coast: blocks
+//it keeps full speed for before it starts to slow; roll: its deceleration
+//on plain rails after that (blocks / s^2); brake: its deceleration on an
+//unpowered powered rail (stronger than a slope's pull, so a braked cart
+//stops and stays put). From full speed on level track that comes to:
+//          stops on plain rails  (coast + 64 / 2 roll)   on brakes
+//  ridden  309 blocks            (176 + 133)             1.5 blocks
+//  empty   165                   (65 + 100)              1
+//  chest with 5 stacks  101      (45 + 56)               1.5
+//  full chest  40                (0 + 40)                1
+const LOAD_RIDDEN = [176, 0.24, 21];
+const LOAD_EMPTY = [65, 0.32, 32];
+const LOAD_SOME = [45, 0.57, 21];
+const LOAD_FULL = [0, 0.8, 32];
+const SOME_STACKS = 5;
+//Pace of a cart a player pushes along an unpowered powered rail
+const BRAKE_PUSH = 1.5;
 const HALF = 0.49;
 
 export class Carts {
@@ -62,6 +79,26 @@ export class Carts {
             }
         }
         return null;
+    }
+
+    //[coast, roll, brake] for what the cart carries (see LOAD_RIDDEN): a
+    //chest cart goes from empty to full by how many stacks fill its slots
+    loadOf(c) {
+        if (c.rider) {
+            return LOAD_RIDDEN;
+        }
+        if (c.kind !== "chest") {
+            return LOAD_EMPTY;
+        }
+        let stacks = 0;
+        for (const s of c.slots) {
+            if (s) {
+                stacks += s.count / ((ITEMS[s.id] && ITEMS[s.id].stack) || 64);
+            }
+        }
+        const k0 = SOME_STACKS, k1 = c.slots.length;
+        const [a, b, f] = stacks <= k0 ? [LOAD_EMPTY, LOAD_SOME, stacks / k0] : [LOAD_SOME, LOAD_FULL, Math.min(1, (stacks - k0) / (k1 - k0))];
+        return a.map((v, i) => v + (b[i] - v) * f);
     }
 
     //Where a cart sits on a rail block: the middle of its path
@@ -286,9 +323,22 @@ export class Carts {
         if (!w.isLoaded(Math.floor(c.x), Math.floor(c.z))) {
             return;
         }
-        const r = this.railAt(c.x, c.y, c.z);
+        let r = this.railAt(c.x, c.y, c.z);
+        if (r && c.air) {
+            //Off the rails it only lands on a rail it has come down onto
+            if (c.vy > 0.01 || c.y > r.by + 0.55 || c.y < r.by - 0.2) {
+                r = null;
+            } else {
+                c.air = false;
+                c.vy = 0;
+            }
+        }
         if (!r) {
-            //Loose: fall and slide to a stop
+            //Loose: it keeps its speed through the air and falls; a block
+            //in the way stops it sideways but not its fall; on the ground
+            //it slides to a stop (and sits level)
+            c.air = true;
+            c.slopeY = 0;
             c.vy -= 20 * h;
             const box = this.box(c);
             const my = moveAxis(w, box, 1, c.vy * h);
@@ -296,12 +346,18 @@ export class Carts {
             if (my !== c.vy * h) {
                 c.vy = 0;
             }
-            if (ground) {
+            //Sliding only with a block under its middle: a cart leaving a
+            //track end grazes the last block without slowing
+            if (ground && BLOCKS[w.getBlock(Math.floor(c.x), Math.floor(box[1] - 0.05), Math.floor(c.z))].solid) {
                 c.vx *= Math.exp(-4 * h);
                 c.vz *= Math.exp(-4 * h);
             }
-            moveAxis(w, box, 0, c.vx * h);
-            moveAxis(w, box, 2, c.vz * h);
+            if (moveAxis(w, box, 0, c.vx * h) !== c.vx * h) {
+                c.vx = 0;
+            }
+            if (moveAxis(w, box, 2, c.vz * h) !== c.vz * h) {
+                c.vz = 0;
+            }
             c.x = (box[0] + box[3]) / 2;
             c.y = box[1];
             c.z = (box[2] + box[5]) / 2;
@@ -320,6 +376,19 @@ export class Carts {
         if (Math.abs(s) > speed * 0.3) {
             s = Math.sign(s) * speed;
         }
+        //Entering another rail block: carry on away from the end it came in
+        //by. Two curves in a row (a U-turn) meet at a right angle, where
+        //the speed would not carry over by projection.
+        const key = r.bx + "," + r.by + "," + r.bz;
+        let enter = 0;
+        if (key !== c.railKey) {
+            c.railKey = key;
+            const t0 = ((c.x - ax) * dx + (c.y - ay) * dy + (c.z - az) * dz) / len;
+            if (speed > 0.05 && (t0 < 0.25 || t0 > 0.75)) {
+                enter = t0 < 0.5 ? 1 : -1;
+                s = enter * speed;
+            }
+        }
         //Downhill pull
         s -= 12 * dy * h;
         if (r.id === B.POWERED_RAIL) {
@@ -335,15 +404,10 @@ export class Carts {
                 } else {
                     s += Math.sign(s) * 14 * h;
                 }
-            } else {
-                s *= Math.exp(-7 * h);
-                if (Math.abs(s) < 0.05) {
-                    s = 0;
-                }
             }
         }
         if (c.kind === "furnace" && c.fuel > 0) {
-            const want = c.pushX * dx + c.pushZ * dz >= 0 ? 1 : -1;
+            const want = enter || (c.pushX * dx + c.pushZ * dz >= 0 ? 1 : -1);
             if (Math.abs(s) < 4 || Math.sign(s) !== want) {
                 s += want * 7 * h;
             }
@@ -359,15 +423,62 @@ export class Carts {
                 s += (lx * dx + lz * dz) * 4 * h;
             }
         }
-        s *= Math.exp(-0.3 * h);
+        //Rolling and braking come last, after anything pushing: steady
+        //decelerations, so the stopping distance grows with the speed
+        const [coast, roll, brake] = this.loadOf(c);
+        const slow = (dec) => (Math.abs(s) <= dec * h ? 0 : s - Math.sign(s) * dec * h);
+        if (r.id === B.POWERED_RAIL && !r.powered) {
+            //A player leaning on it moves it at a slow pace
+            s = c.shove ? c.shove * BRAKE_PUSH : slow(brake);
+            c.shove = 0;
+            c.coast = 0;
+            c.cruising = false;
+        } else {
+            c.shove = 0;
+            //Reaching full speed it keeps going a while before it slows
+            if (Math.abs(s) >= MAX_SPEED - 0.05) {
+                if (!c.cruising) {
+                    c.cruising = true;
+                    c.coast = coast;
+                }
+            } else if (Math.abs(s) < MAX_SPEED - 1) {
+                c.cruising = false;
+                c.coast = 0;
+            }
+            if (c.coast > 0) {
+                c.coast -= Math.abs(s) * h;
+            } else {
+                s = slow(roll);
+            }
+        }
         s = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, s));
+        //The slope it runs on, for tilting the model (pose)
+        c.slopeX = dx;
+        c.slopeY = dy;
+        c.slopeZ = dz;
         //Advance along the path of this rail block
         const px = c.x - ax, py = c.y - ay, pz = c.z - az;
         let t = (px * dx + py * dy + pz * dz) / len + s * h / len;
         let nx = ax + dx * len * t, ny = ay + dy * len * t, nz = az + dz * len * t;
         if ((t < 0 || t > 1) && !this.railAt(nx, ny, nz)) {
-            //End of the line: stop at the buffer
-            t = Math.max(0, Math.min(1, t));
+            //The rail ends. Into open space the cart carries on with its
+            //speed off the rails (and falls if nothing is below); into a
+            //block it stops at the buffer.
+            const end = t > 1 ? b : a, out = t > 1 ? 0.01 : -0.01;
+            const beyond = w.getBlock(Math.floor(r.bx + end[0] + dx * out), Math.floor(r.by + end[1] + 0.01), Math.floor(r.bz + end[2] + dz * out));
+            if (!BLOCKS[beyond].solid && Math.abs(s) > 0.05) {
+                c.x = nx;
+                c.y = ny;
+                c.z = nz;
+                c.vx = dx * s;
+                c.vy = dy * s;
+                c.vz = dz * s;
+                c.air = true;
+                c.railKey = null;
+                return;
+            }
+            //(just inside the end, so the cart is still found on this rail)
+            t = Math.max(0.001, Math.min(0.999, t));
             nx = ax + dx * len * t;
             ny = ay + dy * len * t;
             nz = az + dz * len * t;
@@ -386,9 +497,24 @@ export class Carts {
         const p = g.player;
         if (!c.rider && !p.dead && Math.abs(p.x - c.x) < 0.8 && Math.abs(p.z - c.z) < 0.8 && p.y < c.y + 0.7 && p.y + 1.8 > c.y) {
             const ex = c.x - p.x, ez = c.z - p.z, l = Math.hypot(ex, ez) || 1;
-            const push = ((ex / l) * dx + (ez / l) * dz) * 3 * h;
-            c.vx += dx * push;
-            c.vz += dz * push;
+            const dot = (ex / l) * dx + (ez / l) * dz;
+            if (r.id === B.POWERED_RAIL && !r.powered) {
+                //On a brake the push sets a slow pace (next step) instead,
+                //and the cart holds the player back to it so they lean on it
+                //rather than walk through it
+                c.shove = Math.sign(dot);
+                const along = (p.x - c.x) * dx + (p.z - c.z) * dz;
+                const side = Math.abs((p.x - c.x) * dz - (p.z - c.z) * dx);
+                if (c.shove && side < 0.6 && Math.abs(along) < 0.75) {
+                    const fix = -c.shove * 0.75 - along;
+                    p.x += dx * fix;
+                    p.z += dz * fix;
+                }
+            } else {
+                const push = dot * 3 * h;
+                c.vx += dx * push;
+                c.vz += dz * push;
+            }
         }
     }
 
@@ -422,7 +548,13 @@ export class Carts {
     pose(c, dt) {
         const g = c.model.group;
         g.position.set(c.x, c.y, c.z);
-        g.rotation.y = c.yaw;
+        //Tilt with the slope: how much the rail rises along the way the
+        //cart faces (its model points along local +z)
+        const along = (c.slopeX || 0) * Math.sin(c.yaw) + (c.slopeZ || 0) * Math.cos(c.yaw);
+        const run = Math.hypot(c.slopeX || 0, c.slopeZ || 0) || 1;
+        const want = c.slopeY ? -Math.atan2(c.slopeY * (along < 0 ? -1 : 1), run) : 0;
+        c.pitch = (c.pitch || 0) + (want - (c.pitch || 0)) * Math.min(1, dt * 14);
+        g.rotation.set(c.pitch, c.yaw, 0, "YXZ");
         const w = this.game.world;
         const fx = Math.floor(c.x), fy = Math.floor(c.y + 0.5), fz = Math.floor(c.z);
         const sky = w.getSky(fx, fy, fz) / 15, blk = Math.max(w.getBlockLight(fx, fy, fz), this.renderer.dyn.at(fx, fy, fz)) / 15;

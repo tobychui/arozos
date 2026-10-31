@@ -23,7 +23,7 @@ import {
 } from "./blocks.js";
 import { TerrainGen, WORLD_H, SEA, idx, BIOME } from "./worldgen.js";
 import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32, hash3 } from "./util.js";
-import { FACE_DIR } from "./shapes.js";
+import { FACE_DIR, doorHinge } from "./shapes.js";
 import { POWER, powerTick, powerChanged, railPlaced, pressButton, pressPlate } from "./power.js";
 
 export const SECTIONS = WORLD_H / 16;
@@ -658,6 +658,9 @@ export class World {
                     this.dropTileEntity(x, y, z);
                 }
             }
+            if ((oldId === B.SIGN || oldId === B.WALL_SIGN) && id !== B.SIGN && id !== B.WALL_SIGN) {
+                this.tileEntities.delete(this.teKey(x, y, z));
+            }
         }
         if (notify) {
             this.notifyNeighbors(x, y, z);
@@ -844,6 +847,39 @@ export class World {
 
     pressButton(x, y, z) {
         pressButton(this, x, y, z, this.getMeta(x, y, z));
+    }
+
+    //The other door of a double door: the door beside this one on the side
+    //away from its hinge, facing the same way with its hinge on its far
+    //side. Returns its lower half, or null.
+    doorPartner(x, y, z) {
+        const ly = this.getMeta(x, y, z) & 8 ? y - 1 : y;
+        const lm = this.getMeta(x, ly, z);
+        const d = HDIR[(doorHinge(lm) + 2) & 3];
+        const px = x + d[0], pz = z + d[1];
+        if (this.getBlock(px, ly, pz) !== B.DOOR) {
+            return null;
+        }
+        const pm = this.getMeta(px, ly, pz);
+        if ((pm & 8) || (pm & 3) !== (lm & 3) || (pm & 16) === (lm & 16)) {
+            return null;
+        }
+        return [px, ly, pz];
+    }
+
+    //Open or shut a door (both halves), and the other door of a double door
+    setDoorOpen(x, y, z, open) {
+        const ly = this.getMeta(x, y, z) & 8 ? y - 1 : y;
+        const partner = this.doorPartner(x, ly, z);
+        const doors = partner ? [[x, z], [partner[0], partner[2]]] : [[x, z]];
+        for (const [dx, dz] of doors) {
+            for (let yy = ly; yy <= ly + 1; yy++) {
+                if (this.getBlock(dx, yy, dz) === B.DOOR) {
+                    const m = this.getMeta(dx, yy, dz);
+                    this.setBlock(dx, yy, dz, B.DOOR, open ? m | 4 : m & ~4, false);
+                }
+            }
+        }
     }
 
     pressPlate(x, y, z) {
@@ -1364,15 +1400,27 @@ export class World {
                 this.setBlock(x, y, z, B.DIRT);
                 return;
             }
-            if (this.effectiveLight(x, y + 1, z) >= 9) {
-                const tx = x + Math.floor(rng() * 3) - 1;
-                const ty = y + Math.floor(rng() * 5) - 3;
-                const tz = z + Math.floor(rng() * 3) - 1;
-                if (this.getBlock(tx, ty, tz) === B.DIRT) {
-                    const a = this.getBlock(tx, ty + 1, tz);
-                    if (!isOpaqueAt(a, this.getMeta(tx, ty + 1, tz)) && a !== B.WATER && this.effectiveLight(tx, ty + 1, tz) >= 4) {
-                        this.setBlock(tx, ty, tz, B.GRASS);
+            //Spread to one of the dirt blocks around it that can take
+            //grass (open, lit top), most of the times it is ticked
+            if (this.effectiveLight(x, y + 1, z) >= 9 && rng() < 0.7) {
+                const spots = [];
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dz = -1; dz <= 1; dz++) {
+                        for (let dy = -3; dy <= 1; dy++) {
+                            const tx = x + dx, ty = y + dy, tz = z + dz;
+                            if (this.getBlock(tx, ty, tz) !== B.DIRT) {
+                                continue;
+                            }
+                            const a = this.getBlock(tx, ty + 1, tz);
+                            if (!isOpaqueAt(a, this.getMeta(tx, ty + 1, tz)) && a !== B.WATER && this.effectiveLight(tx, ty + 1, tz) >= 4) {
+                                spots.push(tx, ty, tz);
+                            }
+                        }
                     }
+                }
+                if (spots.length) {
+                    const i = Math.floor(rng() * spots.length / 3) * 3;
+                    this.setBlock(spots[i], spots[i + 1], spots[i + 2], B.GRASS);
                 }
             }
             return;
@@ -1442,7 +1490,7 @@ export class World {
         }
         this.tileEntities.delete(key);
         if (this.onDrop) {
-            for (const s of te.slots) {
+            for (const s of te.slots || []) {
                 if (s && s.count > 0) {
                     this.onDrop(x + 0.5, y + 0.5, z + 0.5, s.id, s.count, s.dmg || 0);
                 }

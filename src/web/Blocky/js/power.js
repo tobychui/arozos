@@ -29,7 +29,8 @@ for (const id of [B.SPARK_LAMP, B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SP
     B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.RETIMER, B.RETIMER_ON]) {
     POWER[id] |= 4;
 }
-POWER[B.RAIL] |= 8;
+//Plain rails react too: a junction is a switch (railSwitch)
+POWER[B.RAIL] |= 8 | 4;
 POWER[B.POWERED_RAIL] |= 8;
 
 const SIDES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
@@ -232,7 +233,7 @@ export function powerChanged(w, x, y, z) {
 
 /* ---------------- pistons ---------------- */
 
-const FRAGILE = new Set(["cross", "crop", "torch", "wire", "lever", "button", "ladder", "rail", "fire", "plate", "retimer"]);
+const FRAGILE = new Set(["cross", "crop", "torch", "wire", "lever", "button", "ladder", "rail", "fire", "plate", "retimer", "sign"]);
 
 function movable(id, meta) {
     if (id === B.BEDROCK || id === B.OBSIDIAN || id === B.PISTON_HEAD || id === B.FURNACE || id === B.FURNACE_LIT ||
@@ -314,9 +315,90 @@ function railLinks(w, x, y, z) {
 
 const CURVES = { "2,0": 6, "2,1": 7, "3,1": 8, "3,0": 9 };
 
+//The sides (FLAT index) each rail shape leads out of
+const RAIL_ENDS = [[2, 3], [0, 1], [0, 1], [0, 1], [2, 3], [2, 3], [2, 0], [2, 1], [3, 1], [3, 0]];
+
+function railEnds(w, x, y, z) {
+    const id = w.getBlock(x, y, z), m = w.getMeta(x, y, z);
+    return RAIL_ENDS[id === B.POWERED_RAIL ? m & 7 : Math.min(9, m & 15)] || RAIL_ENDS[0];
+}
+
+//The rail beside (x, y, z) on side k (level, one up or one down)
+function railBeside(w, x, y, z, k) {
+    const [dx, dz] = FLAT[k];
+    for (const dy of [0, 1, -1]) {
+        if (POWER[w.getBlock(x + dx, y + dy, z + dz)] & 8) {
+            return [x + dx, y + dy, z + dz];
+        }
+    }
+    return null;
+}
+
+//Does the rail at n lead out toward side k?
+function railPoints(w, n, k) {
+    return railEnds(w, n[0], n[1], n[2]).includes(k);
+}
+
+//How many ends of the rail at (x, y, z) are joined to a rail that leads
+//back into it, not counting the rail at `skip`
+function railJoined(w, x, y, z, skip) {
+    let n = 0;
+    for (const k of railEnds(w, x, y, z)) {
+        const r = railBeside(w, x, y, z, k);
+        if (r && !(skip && same(r, skip)) && railPoints(w, r, k ^ 1)) {
+            n++;
+        }
+    }
+    return n;
+}
+
+//Neighbours a rail may join: ones already leading into it, and ones with a
+//free end. A rail joined at both ends to others is left alone, so a track
+//passing beside another is never bent into it.
+function railCandidates(w, x, y, z) {
+    const here = [x, y, z];
+    const out = [];
+    for (let k = 0; k < 4; k++) {
+        const n = railBeside(w, x, y, z, k);
+        if (!n) {
+            continue;
+        }
+        const back = railPoints(w, n, k ^ 1);
+        if (back || railJoined(w, n[0], n[1], n[2], here) < 2) {
+            out.push({ k, dy: n[1] - y, back });
+        }
+    }
+    return out;
+}
+
 export function shapeRail(w, x, y, z, preferX) {
     const id = w.getBlock(x, y, z);
-    const links = railLinks(w, x, y, z);
+    const cands = railCandidates(w, x, y, z);
+    let links = cands.map((c) => [c.k, c.dy]);
+    if (cands.length > 2 || (cands.length === 2 && id === B.POWERED_RAIL && (cands[0].k ^ 1) !== cands[1].k)) {
+        //Best pair: rails leading in count most, then a straight line
+        let best = null, bestScore = -1;
+        for (let i = 0; i < cands.length; i++) {
+            for (let j = i + 1; j < cands.length; j++) {
+                const a = cands[i], b = cands[j], straight = (a.k ^ 1) === b.k;
+                if (!straight && id === B.POWERED_RAIL) {
+                    continue;
+                }
+                const score = (a.back ? 2 : 1) + (b.back ? 2 : 1) + (straight ? 0.5 : 0);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = [a, b];
+                }
+            }
+        }
+        if (best) {
+            links = best.map((c) => [c.k, c.dy]);
+        } else {
+            //A powered rail with only bends on offer: run toward one of them
+            const c = cands.find((v) => v.back) || cands[0];
+            links = [[c.k, c.dy]];
+        }
+    }
     let shape = preferX ? 1 : 0;
     const dirOf = (k) => (k === 0 ? 2 : k === 1 ? 3 : k === 2 ? 4 : 5);
     if (links.length >= 2) {
@@ -347,17 +429,98 @@ export function shapeRail(w, x, y, z, preferX) {
     }
 }
 
-//A new rail: shape it, then let loose neighbours bend toward it
-export function railPlaced(w, x, y, z, preferX) {
-    shapeRail(w, x, y, z, preferX);
-    FLAT.forEach(([dx, dz]) => {
-        for (const dy of [0, 1, -1]) {
-            const nx = x + dx, ny = y + dy, nz = z + dz;
-            if ((POWER[w.getBlock(nx, ny, nz)] & 8) && railLinks(w, nx, ny, nz).length <= 2) {
-                shapeRail(w, nx, ny, nz, dx !== 0);
-            }
+//Two parallel lines joined into a loop end in a U-turn: two curves side by
+//side, each leading on along the lines. A new rail just past one of them
+//(where its line would go on) opens the U-turn: both curves run straight
+//again, the new rail continues that line, and the next rail laid beside it
+//closes the loop once more. So two lines laid side by side, in any order,
+//grow into one long loop.
+function openUTurn(w, x, y, z) {
+    const isCurve = (e) => (e[0] >> 1) !== (e[1] >> 1);
+    for (let k = 0; k < 4; k++) {
+        //n: the rail on side k of the new one, a curve that leads on in
+        //direction k (away from the new rail) and turns toward m
+        const [dx, dz] = FLAT[k];
+        const nx = x + dx, nz = z + dz;
+        if (w.getBlock(nx, y, nz) !== B.RAIL) {
+            continue;
         }
-    });
+        const ne = railEnds(w, nx, y, nz);
+        if (!isCurve(ne) || !ne.includes(k)) {
+            continue;
+        }
+        const turn = ne[0] === k ? ne[1] : ne[0];
+        const mx = nx + FLAT[turn][0], mz = nz + FLAT[turn][1];
+        if (w.getBlock(mx, y, mz) !== B.RAIL) {
+            continue;
+        }
+        //m: the other half of the U-turn, turning back toward n and leading
+        //on in the same direction
+        const me = railEnds(w, mx, y, mz);
+        if (!isCurve(me) || !me.includes(turn ^ 1) || !me.includes(k)) {
+            continue;
+        }
+        const straight = k < 2 ? 1 : 0;
+        w.setBlock(nx, y, nz, B.RAIL, straight, false);
+        w.setBlock(mx, y, mz, B.RAIL, straight, false);
+        return;
+    }
+}
+
+//A new rail: shape it, then let the neighbours it leads into turn toward
+//it, unless they are already joined at both ends
+export function railPlaced(w, x, y, z, preferX) {
+    if (w.getBlock(x, y, z) === B.RAIL || w.getBlock(x, y, z) === B.POWERED_RAIL) {
+        openUTurn(w, x, y, z);
+    }
+    shapeRail(w, x, y, z, preferX);
+    for (const k of railEnds(w, x, y, z)) {
+        const n = railBeside(w, x, y, z, k);
+        //(also when it leads here already: one block lower it must slope up)
+        if (n && railJoined(w, n[0], n[1], n[2], [x, y, z]) < 2) {
+            shapeRail(w, n[0], n[1], n[2], FLAT[k][0] !== 0);
+        }
+    }
+}
+
+//A plain rail where three tracks meet is a switch. The two tracks on
+//opposite sides are the through line, the third the stem; power sends the
+//stem the other way along the through line, and taking it away sends it
+//back. Meta bit 16: switched by power; bit 32: it lay along the through
+//line before (so it goes back to that rather than to the other curve).
+function railSwitch(w, x, y, z) {
+    const sides = [0, 1, 2, 3].filter((k) => railBeside(w, x, y, z, k));
+    if (sides.length !== 3) {
+        return;
+    }
+    const m = w.getMeta(x, y, z);
+    const powered = isPowered(w, x, y, z);
+    if (powered === ((m & 16) !== 0)) {
+        return;
+    }
+    const stem = sides.find((k) => !sides.includes(k ^ 1));
+    const arms = sides.filter((k) => k !== stem);
+    const curve = (a, b) => (a >= 2 ? CURVES[a + "," + b] : CURVES[b + "," + a]);
+    const ends = RAIL_ENDS[Math.min(9, m & 15)];
+    const onStem = ends.includes(stem) && arms.some((a) => ends.includes(a));
+    let meta;
+    if (powered) {
+        if (onStem) {
+            const arm = arms.find((a) => !ends.includes(a));
+            meta = curve(stem, arm) | 16;
+        } else {
+            meta = curve(stem, arms[0]) | 16 | 32;
+        }
+    } else if (m & 32) {
+        meta = arms[0] < 2 ? 1 : 0;
+    } else if (onStem) {
+        const arm = arms.find((a) => !ends.includes(a));
+        meta = curve(stem, arm);
+    } else {
+        //Reshaped while switched: just forget the switch
+        meta = m & 15;
+    }
+    w.setBlock(x, y, z, B.RAIL, meta, false);
 }
 
 //Axis a rail shape runs along: [dx, dz]
@@ -521,21 +684,23 @@ export function powerTick(w, x, y, z, id, meta, sound) {
             if (w.getBlock(x, ly, z) !== B.DOOR || w.getBlock(x, ly + 1, z) !== B.DOOR) {
                 break;
             }
-            const powered = isPowered(w, x, ly, z) || isPowered(w, x, ly + 1, z);
+            //A double door shares its power: either door powered opens both
+            const partner = w.doorPartner(x, ly, z);
+            const doors = partner ? [[x, z], [partner[0], partner[2]]] : [[x, z]];
+            const powered = doors.some(([dx, dz]) => isPowered(w, dx, ly, dz) || isPowered(w, dx, ly + 1, dz));
             const key = x + "," + ly + "," + z;
             if (powered === w.doorPowered.has(key)) {
                 break;
             }
-            if (powered) {
-                w.doorPowered.add(key);
-            } else {
-                w.doorPowered.delete(key);
+            for (const [dx, dz] of doors) {
+                if (powered) {
+                    w.doorPowered.add(dx + "," + ly + "," + dz);
+                } else {
+                    w.doorPowered.delete(dx + "," + ly + "," + dz);
+                }
             }
             if (((w.getMeta(x, ly, z) & 4) !== 0) !== powered) {
-                for (const yy of [ly, ly + 1]) {
-                    const m = w.getMeta(x, yy, z);
-                    w.setBlock(x, yy, z, B.DOOR, powered ? m | 4 : m & ~4, false);
-                }
+                w.setDoorOpen(x, ly, z, powered);
                 sound(powered);
             }
             break;
@@ -543,7 +708,12 @@ export function powerTick(w, x, y, z, id, meta, sound) {
         case B.RAIL:
         case B.POWERED_RAIL: {
             if (railLinks(w, x, y, z).length < 2) {
-                shapeRail(w, x, y, z, false);
+                //Keep to the axis it lies on now
+                const m = w.getMeta(x, y, z);
+                shapeRail(w, x, y, z, railAxis(id === B.POWERED_RAIL ? m & 7 : m & 15)[0] === 1);
+            }
+            if (id === B.RAIL) {
+                railSwitch(w, x, y, z);
             }
             if (id === B.POWERED_RAIL) {
                 const m = w.getMeta(x, y, z);

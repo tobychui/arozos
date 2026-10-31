@@ -15,12 +15,13 @@ import {
 } from "./blocks.js";
 import { Mobs } from "./mobs.js";
 import { Carts } from "./carts.js";
+import { Signs } from "./signs.js";
 import { World, WORLD_H } from "./world.js";
 import { BIOME, BIOME_NAMES } from "./worldgen.js";
 import { Player, DIFFICULTY } from "./player.js";
 import { Inventory } from "./inventory.js";
 import { Entities } from "./entities.js";
-import { selectionBox, collisionBoxes, FACE_DIR } from "./shapes.js";
+import { selectionBox, collisionBoxes, FACE_DIR, doorHinge } from "./shapes.js";
 import { deflateString, mulberry32, clamp, lerp } from "./util.js";
 
 const TICK = 0.05;
@@ -114,6 +115,7 @@ export class Game {
         this.entities = new Entities(this.renderer);
         this.mobs = new Mobs(this);
         this.carts = new Carts(this);
+        this.signs = new Signs(this);
         this.riding = null;
         this.player = new Player(this.world);
         this.inventory = new Inventory();
@@ -206,6 +208,7 @@ export class Game {
         this.entities.clear();
         this.mobs.clear();
         this.carts.clear();
+        this.signs.clear();
         this.renderer.detachWorld();
         this.renderer.setHeldItem(0);
         this.sound.setRain(0, false);
@@ -332,7 +335,9 @@ export class Game {
         }
         this.equip = Math.max(0, this.equip - dt * 6);
         this.swing = Math.min(1, this.swing + dt * 4);
-        r.setHeldItem(held);
+        //A drawn bow shows its string pulled back with an arrow on it
+        const pull = held === I.BOW && this.bowDraw > 0 ? Math.min(1, this.bowDraw) : 0;
+        r.setHeldItem(held, pull > 0 ? (pull < 0.35 ? "bow_pull_0" : pull < 0.75 ? "bow_pull_1" : "bow_pull_2") : null);
         const ex = Math.floor(p.x), ey = Math.floor(p.eyeY), ez = Math.floor(p.z);
         //A torch or other glowing thing in hand lights the area
         const glow = p.dead ? 0 : held === I.LAVA_BUCKET ? 15 : held > 0 && held < 256 ? LIGHT_EMIT[held] : 0;
@@ -351,7 +356,15 @@ export class Game {
             sky: this.world.getSky(ex, ey, ez) / 15,
             blk: Math.max(this.world.getBlockLight(ex, ey, ez), r.dyn.at(ex, ey, ez)) / 15
         });
+        this.signs.update();
         r.render(dt, !this.hideHud && !p.dead && !this.sleeping);
+        if (this.shotPending) {
+            //Read the canvas in the same task as the draw, before the
+            //browser presents (and may clear) the drawing buffer
+            this.shotPending = false;
+            this.sound.play("click");
+            r.canvas.toBlob((blob) => this.app.saveScreenshot(blob), "image/png");
+        }
 
         this.ui.updateHud(this);
         document.getElementById("underwater").classList.toggle("on", p.headInWater);
@@ -407,6 +420,9 @@ export class Game {
                 }
             } else if (code === "KeyQ" && !ui.isOpen() && !this.paused && !p.dead) {
                 this.dropHeld(input.down("ControlLeft") || input.down("ControlRight"));
+            } else if (code === "F2") {
+                //Taken right after the next frame is drawn
+                this.shotPending = true;
             } else if (code === "F3") {
                 this.debug = !this.debug;
             } else if (code === "F1") {
@@ -576,7 +592,10 @@ export class Game {
         const mobHit = this.mobs.raycast(ox, oy, oz, dx, dy, dz, this.creative ? 5 : 3.5);
         const cartHit = this.carts.raycast(ox, oy, oz, dx, dy, dz, reach);
         const near = (h) => h && (!hit || h.t < hit.t);
-        const aimCart = near(cartHit) && (!mobHit || cartHit.t < mobHit.t) ? cartHit.cart : null;
+        //A cart wins over the rail it stands on: in a dip the rail's box
+        //sticks out a little in front of the cart's lower half
+        const onRail = cartHit && hit && SHAPE[hit.id] === "rail" && cartHit.t < hit.t + 1;
+        const aimCart = (near(cartHit) || onRail) && (!mobHit || cartHit.t < mobHit.t) ? cartHit.cart : null;
         const aimMob = !aimCart && near(mobHit) ? mobHit.mob : null;
         this.aimMob = aimMob;
         r.setSelection(this.hideHud || aimMob || aimCart ? null : hit);
@@ -661,10 +680,19 @@ export class Game {
         const held = this.inventory.held;
         const heldDef = held && ITEMS[held.id];
 
-        //Carts take right clicks before anything held does
+        //Carts take right clicks before anything held does. The button is
+        //still down for a few frames after the click: until it is let go
+        //it must not place the held block where the cart was.
+        if (!rightDown) {
+            this.useHold = false;
+        }
         if (aimCart && rightClick) {
             this.swing = 0;
             this.carts.use(aimCart);
+            this.useHold = true;
+            return;
+        }
+        if (this.useHold) {
             return;
         }
 
@@ -804,7 +832,7 @@ export class Game {
     //selected slot; survival swaps it in from the inventory if owned.
     pickBlock(hit) {
         const PICK = {
-            [B.DOOR]: I.DOOR, [B.BED]: I.BED, [B.FURNACE_LIT]: B.FURNACE, [B.RETIMER_ON]: B.RETIMER, [B.WHEAT]: I.SEEDS, [B.FARMLAND]: B.DIRT
+            [B.DOOR]: I.DOOR, [B.BED]: I.BED, [B.FURNACE_LIT]: B.FURNACE, [B.RETIMER_ON]: B.RETIMER, [B.WALL_SIGN]: B.SIGN, [B.WHEAT]: I.SEEDS, [B.FARMLAND]: B.DIRT
         };
         const id = PICK[hit.id] ?? hit.id;
         if (!ITEMS[id]) {
@@ -1084,6 +1112,18 @@ export class Game {
             } else {
                 meta = lz > 0 ? 5 : 4;
             }
+        } else if (bid === B.SIGN) {
+            //On top of a block it stands, turned to face the player; on a
+            //side it hangs on the wall
+            if (face === 3) {
+                return;
+            }
+            if (face === 2) {
+                meta = ((Math.round(p.yaw / (Math.PI / 8)) % 16) + 16) % 16;
+            } else {
+                bid = B.WALL_SIGN;
+                meta = face;
+            }
         } else if (bid === B.RETIMER) {
             //Signal runs away from the player
             meta = facingFromYaw(p.yaw);
@@ -1135,7 +1175,28 @@ export class Game {
         if (!isOpaqueAt(w.getBlock(x, y - 1, z), w.getMeta(x, y - 1, z))) {
             return;
         }
-        const f = (facingFromYaw(this.player.yaw) + 2) & 3;
+        let f = (facingFromYaw(this.player.yaw) + 2) & 3;
+        //Beside a door facing the same way: become its other half of a
+        //double door, hinged on the far side (mirrored when needed). A lone
+        //neighbour hinged toward this door turns its hinge outward too.
+        for (const side of [(f + 1) & 3, (f + 3) & 3]) {
+            const nx = x + HDIR[side][0], nz = z + HDIR[side][1];
+            const nm = w.getMeta(nx, y, nz);
+            if (w.getBlock(nx, y, nz) !== B.DOOR || (nm & 8) || (nm & 3) !== (f & 3)) {
+                continue;
+            }
+            if (side === ((f + 1) & 3)) {
+                f |= 16;
+            }
+            if (doorHinge(nm) !== side && !w.doorPartner(nx, y, nz)) {
+                for (const yy of [y, y + 1]) {
+                    if (w.getBlock(nx, yy, nz) === B.DOOR) {
+                        w.setBlock(nx, yy, nz, B.DOOR, w.getMeta(nx, yy, nz) ^ 16, false);
+                    }
+                }
+            }
+            break;
+        }
         if (this.blocksPlayer(B.DOOR, f, x, y, z) || this.blocksPlayer(B.DOOR, f | 8, x, y + 1, z)) {
             return;
         }
@@ -1178,6 +1239,9 @@ export class Game {
             w.createTileEntity(x, y, z, "furnace");
         } else if (bid === B.CHEST) {
             w.createTileEntity(x, y, z, "chest");
+        } else if (bid === B.SIGN || bid === B.WALL_SIGN) {
+            //Write on it straight away
+            this.openScreen("sign", Signs.create(w, x, y, z));
         }
         this.sound.block("place", BLOCKS[bid].sound);
         this.swing = 0;
@@ -1193,12 +1257,8 @@ export class Game {
         if (kind === "workbench") {
             this.openScreen("workbench");
         } else if (kind === "door") {
-            const lowerY = hit.meta & 8 ? hit.y - 1 : hit.y;
-            for (const y of [lowerY, lowerY + 1]) {
-                if (w.getBlock(hit.x, y, hit.z) === B.DOOR) {
-                    w.setBlock(hit.x, y, hit.z, B.DOOR, w.getMeta(hit.x, y, hit.z) ^ 4, false);
-                }
-            }
+            //(a double door opens and shuts together)
+            w.setDoorOpen(hit.x, hit.y, hit.z, !(hit.meta & 4));
             this.sound.block("place", "wood");
         } else if (kind === "lever") {
             w.setBlock(hit.x, hit.y, hit.z, B.LEVER, hit.meta ^ 8);
@@ -1208,6 +1268,9 @@ export class Game {
                 w.pressButton(hit.x, hit.y, hit.z);
                 this.sound.play("click");
             }
+        } else if (kind === "sign") {
+            const te = w.getTileEntity(hit.x, hit.y, hit.z) || Signs.create(w, hit.x, hit.y, hit.z);
+            this.openScreen("sign", te);
         } else if (kind === "retimer") {
             //Next delay: 1 to 4 steps of 2 ticks
             const steps = (((hit.meta >> 2) & 3) + 1) % 4;

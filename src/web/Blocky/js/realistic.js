@@ -1,5 +1,5 @@
 /*
-    Blocky - experimental realistic renderer
+    Blocky - realistic renderer
 
     An optional pipeline on top of the normal renderer, for fast PCs:
     - a shadow map from the sun (or the moon at night) with soft edges

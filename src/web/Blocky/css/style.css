@@ -873,6 +873,39 @@ body.screen-open #crosshair {
     overflow: auto;
 }
 
+.signboard {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    background: #a8834e;
+    border: 3px solid #6b4c26;
+    border-radius: 3px;
+}
+
+.signline {
+    width: 260px;
+    max-width: 70vw;
+    font: bold 18px Arial, Helvetica, sans-serif;
+    color: #24170a;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid transparent;
+    border-radius: 2px;
+    padding: 3px 6px;
+    outline: none;
+}
+
+.signline:focus {
+    border-color: #f5e7c4;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.kind-sign .signdone {
+    width: 100%;
+}
+
 #screenPanel h3 {
     margin: 4px 0 8px;
     font-size: 15px;

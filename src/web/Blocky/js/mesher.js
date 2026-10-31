@@ -19,6 +19,7 @@ import { B, OPAQUE, SHAPE, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR, FLA
 import { WORLD_H } from "./worldgen.js";
 import {
     FACE_DIR, doorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
+    signAngle, SIGN_BOARD, SIGN_POST, SIGN_WALL_BOARD,
     PISTON_BASE, HEAD_PLATE, HEAD_ROD
 } from "./shapes.js";
 
@@ -280,6 +281,8 @@ export function meshSection(world, chunk, sy, opts) {
                     lever(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "button") {
                     button(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "sign") {
+                    sign(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "retimer") {
                     retimer(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "plate") {
@@ -561,7 +564,7 @@ function pane(buf, p, x, y, z, id, meta) {
     const getId = (a, b, c) => pBlk[pi(a, b, c)];
     const getMeta = (a, b, c) => pMeta[pi(a, b, c)];
     const links = paneLinks(getId, getMeta, x, y, z);
-    const capped = (f, np) => (f === 2 || f === 3) && (pOpq[np] === 1 || pBlk[np] === B.GLASS_PANE);
+    const capped = (f, np) => (f === 2 || f === 3) && (pOpq[np] === 1 || SHAPE[pBlk[np]] === "pane");
     boxFaces(buf, p, x, y, z, id, meta, 7 * U, 0, 7 * U, 9 * U, 1, 9 * U, capped);
     const arms = [
         [9 * U, 7 * U, 1, 9 * U, 0], [0, 7 * U, 7 * U, 9 * U, 1],
@@ -630,6 +633,37 @@ function retimer(buf, p, x, y, z, id, meta) {
     for (const s of [0.78, 0.55 - 0.1 * ((meta >> 2) & 3)]) {
         const cx = 0.5 + d[0] * (s - 0.5), cz = 0.5 + d[1] * (s - 0.5);
         turnedBox(buf, p, x, y, z, [cx - U, 2 * U, cz - U, cx + U, 7 * U, cz + U], 2, () => pin);
+    }
+}
+
+//A box in sign space (see SIGN_BOARD) turned by angle a about the block's
+//vertical axis, lit by the sign's own cell
+function yawBox(buf, p, x, y, z, b, a, layer) {
+    const s = Math.sin(a), c = Math.cos(a);
+    const ls = (pLight[p] >> 4) / 15, lb = (pLight[p] & 15) / 15;
+    for (let f = 0; f < 6; f++) {
+        //World normal of this face picks the shade
+        const n = [[1, 0], [-1, 0], [0, 0], [0, 0], [0, 1], [0, -1]][f];
+        const nx = n[0] * c + n[1] * s;
+        const sh = f === 2 ? 1 : f === 3 ? 0.5 : Math.abs(nx) > 0.7 ? 0.6 : 0.8;
+        for (const v of FACE_VERTS[f]) {
+            const lx = v[0] ? b[3] : b[0], ly = v[1] ? b[4] : b[1], lz = v[2] ? b[5] : b[2];
+            const uv = faceUV(f, lx, ly, lz);
+            const du = lx - 0.5, dw = lz - 0.5;
+            buf.vert(x + 0.5 + du * c + dw * s, y + ly, z + 0.5 - du * s + dw * c, uv[0], uv[1], layer, ls, lb, sh, sh, sh);
+        }
+        buf.quad(false);
+    }
+}
+
+//Sign: a board on a post (standing) or a board on the wall behind it
+function sign(buf, p, x, y, z, id, meta) {
+    const a = signAngle(id, meta), layer = layerOfTile("planks");
+    if (id === B.WALL_SIGN) {
+        yawBox(buf, p, x, y, z, SIGN_WALL_BOARD, a, layer);
+    } else {
+        yawBox(buf, p, x, y, z, SIGN_BOARD, a, layer);
+        yawBox(buf, p, x, y, z, SIGN_POST, a, layerOfTile("log_side"));
     }
 }
 
@@ -807,6 +841,20 @@ function liquidFaces(buf, p, x, y, z, id, meta) {
 }
 
 /* ---------------- item models ---------------- */
+
+//A flat double sided card showing one tile, centred on the origin
+export function cardGeometry(tile) {
+    const buf = new GeoBuf(8);
+    buf.reset();
+    const layer = layerOfTile(tile);
+    buf.vert(-0.5, -0.5, 0, 0, 0, layer, 1, 0, 1, 1, 1);
+    buf.vert(0.5, -0.5, 0, 1, 0, layer, 1, 0, 1, 1, 1);
+    buf.vert(0.5, 0.5, 0, 1, 1, layer, 1, 0, 1, 1, 1);
+    buf.vert(-0.5, 0.5, 0, 0, 1, layer, 1, 0, 1, 1, 1);
+    buf.quad(false);
+    buf.backQuad();
+    return buf.take();
+}
 
 //Geometry for held items and dropped items, centred on the origin.
 //Blocks are unit cubes (slabs half height), everything else a flat card.

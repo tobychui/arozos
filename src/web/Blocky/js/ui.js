@@ -15,6 +15,7 @@ import { ITEMS, RECIPES, SMELTING, SMELT_TICKS, fuelTicks, itemName, creativeGro
 import { iconCss } from "./icons.js";
 import { maxStack, cloneStack, recipesFor } from "./inventory.js";
 import { escapeHtml } from "./util.js";
+import { SIGN_LINES, SIGN_LINE_MAX } from "./signs.js";
 
 const svgUrl = (svg) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 const HEART = "M9 14.6C9 14.6 1.4 9.9 1.4 5.4C1.4 3.2 3.1 1.5 5.2 1.5C6.8 1.5 8.2 2.5 9 3.9C9.8 2.5 11.2 1.5 12.8 1.5C14.9 1.5 16.6 3.2 16.6 5.4C16.6 9.9 9 14.6 9 14.6Z";
@@ -38,6 +39,7 @@ export class UI {
         this.app = app;
         this.icons = app.icons;
         this.cursor = null;
+        this.fadeTimers = new Map();
         this.screen = null;
         this.hover = null;
         this.hudKey = "";
@@ -153,19 +155,33 @@ export class UI {
     showItemName(id) {
         const el = document.getElementById("itemName");
         el.textContent = id ? itemName(id) : "";
-        el.classList.remove("fade");
-        void el.offsetWidth;
-        if (id) {
-            el.classList.add("fade");
-        }
+        this.fadeOnce(el, !!id);
     }
 
     toast(msg) {
         const el = document.getElementById("message");
         el.textContent = msg;
+        this.fadeOnce(el, true);
+    }
+
+    //Play the fade out once. The class comes off when it ends: a hidden HUD
+    //shown again would otherwise restart the animation and repeat an old
+    //message (leaving a world and coming back).
+    fadeOnce(el, on) {
         el.classList.remove("fade");
         void el.offsetWidth;
-        el.classList.add("fade");
+        if (on) {
+            el.classList.add("fade");
+        }
+        const done = () => {
+            clearTimeout(this.fadeTimers.get(el));
+            el.classList.remove("fade");
+            el.textContent = "";
+        };
+        el.onanimationend = done;
+        //The animation does not run in a hidden page: end it by time too
+        clearTimeout(this.fadeTimers.get(el));
+        this.fadeTimers.set(el, setTimeout(done, 2700));
     }
 
     /* ---------------- screens ---------------- */
@@ -338,7 +354,15 @@ export class UI {
                 html = `<div class="scr-col creative"><div class="tabs">${tabs}</div>
                     <div class="palette"><div class="palgrid">${pal}</div></div>
                     <div class="creativehot"><div class="slots grid9">${hot}</div>${this.slotHtml("trash", "trash")}</div>
-                    <p class="hint">Click an item to pick up a stack, shift click to add it to the hotbar, or press 1-9 over it. Drop items on the bin to delete them.</p></div>`;
+                    <p class="hint">Click an item to pick up a stack, shift click to add it to the hotbar, or press 1-9 over it. Drop items on the bin or the item grid to delete them.</p></div>`;
+            } else if (s.kind === "sign") {
+                let rows = "";
+                for (let i = 0; i < SIGN_LINES; i++) {
+                    rows += `<input class="signline" type="text" maxlength="${SIGN_LINE_MAX}" spellcheck="false" autocomplete="off" data-i="${i}">`;
+                }
+                html = `<div class="scr-col"><h3>Edit Sign</h3><div class="signboard">${rows}</div>
+                    <button class="btn signdone">Done</button>
+                    <p class="hint">Up to ${SIGN_LINES} lines. Enter moves to the next line, Esc or Done finishes.</p></div>`;
             } else if (s.kind === "furnace") {
                 html = `<div class="scr-col"><h3>Furnace</h3><div class="furnace">
                     <div class="fcol">${this.slotHtml("te:0")}<div class="flame"><i></i></div>${this.slotHtml("te:1")}</div>
@@ -369,6 +393,9 @@ export class UI {
             }
             panel.innerHTML = html;
             panel.className = "panel kind-" + s.kind;
+            if (s.kind === "sign") {
+                this.bindSignEditor(panel, s.te);
+            }
         }
         if (s.grid) {
             this.updateResult();
@@ -388,6 +415,37 @@ export class UI {
             panel.querySelector(".flame i").style.height = te.burnMax > 0 ? Math.round((te.burn / te.burnMax) * 100) + "%" : "0%";
         }
         this.renderCursor();
+    }
+
+    //The sign editor: the text goes into the tile entity as it is typed
+    bindSignEditor(panel, te) {
+        const inputs = [...panel.querySelectorAll(".signline")];
+        const done = () => this.game.closeScreen();
+        inputs.forEach((el, i) => {
+            el.value = te.lines[i] || "";
+            el.addEventListener("input", () => {
+                te.lines[i] = el.value.slice(0, SIGN_LINE_MAX);
+                te.ver = (te.ver || 0) + 1;
+            });
+            el.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || (e.key === "ArrowDown" && i < inputs.length - 1)) {
+                    e.preventDefault();
+                    if (i < inputs.length - 1) {
+                        inputs[i + 1].focus();
+                    } else if (e.key === "Enter") {
+                        done();
+                    }
+                } else if (e.key === "ArrowUp" && i > 0) {
+                    e.preventDefault();
+                    inputs[i - 1].focus();
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    done();
+                }
+            });
+        });
+        panel.querySelector(".signdone").addEventListener("click", done);
+        setTimeout(() => inputs[0].focus(), 0);
     }
 
     //How many of an item the player can use: inventory plus the grid

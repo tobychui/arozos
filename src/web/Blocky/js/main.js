@@ -37,7 +37,9 @@ const DEFAULT_SETTINGS = {
     invertY: false,
     showFps: false,
     animalVolume: 0.8,
-    realistic: false
+    realistic: false,
+    //ArozOS folder screenshots (F2) are saved into
+    screenshotDir: "user:/Photo/Blocky"
 };
 const PREVIEW_SEED = 734011;
 
@@ -688,7 +690,7 @@ class App {
         const toggles = [
             ["setLeaves", "fancyLeaves", "Fancy Leaves"], ["setClouds", "clouds", "Clouds"],
             ["setBob", "viewBobbing", "View Bobbing"], ["setInvert", "invertY", "Invert Mouse"],
-            ["setFps", "showFps", "Show FPS"], ["setReal", "realistic", "Realistic Graphics (Experimental)"]
+            ["setFps", "showFps", "Show FPS"], ["setReal", "realistic", "Realistic Graphics"]
         ];
         this.syncSettingsForm = () => {
             for (const [id, key, fmt] of ranges) {
@@ -698,7 +700,25 @@ class App {
             for (const [id, key, label] of toggles) {
                 $(id).textContent = label + ": " + (s()[key] ? "ON" : "OFF");
             }
+            this.syncShotDir();
         };
+        //Screenshot folder: picked with the ArozOS folder selector; run
+        //standalone, screenshots are downloaded by the browser instead
+        window.blockyShotDirPicked = (files) => {
+            if (files && files.length && files[0].filepath) {
+                this.settings.screenshotDir = files[0].filepath.replace(/\/+$/, "");
+                this.saveSettings();
+                this.syncShotDir();
+            }
+        };
+        $("setShotDir").addEventListener("click", () => {
+            if (!this.canUploadShots()) {
+                return;
+            }
+            ao_module_openFileSelector(window.blockyShotDirPicked, this.settings.screenshotDir || "user:/", "folder", false, {
+                path_memory_key: "screenshots"
+            });
+        });
         for (const [id, key, fmt] of ranges) {
             $(id).addEventListener("input", () => {
                 const v = Number($(id).value);
@@ -718,6 +738,55 @@ class App {
             this.closeSettings();
             this.saveSettings();
         };
+    }
+
+    syncShotDir() {
+        $("setShotDir").textContent = this.canUploadShots()
+            ? "Screenshot Folder (F2): " + (this.settings.screenshotDir || DEFAULT_SETTINGS.screenshotDir)
+            : "Screenshots (F2): Downloaded by the Browser";
+    }
+
+    /* ---------------- screenshots ---------------- */
+
+    //Inside ArozOS (worlds saved on the server) screenshots go to a folder
+    //there; standalone they are downloaded
+    canUploadShots() {
+        return this.storage.mode === "server" && typeof ao_module_uploadFile === "function";
+    }
+
+    //A PNG of the frame just drawn
+    saveScreenshot(blob) {
+        if (!blob) {
+            this.game && this.game.ui.toast("Could not take a screenshot");
+            return;
+        }
+        const d = new Date(), two = (n) => String(n).padStart(2, "0");
+        const name = "Blocky " + d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate()) +
+            " " + two(d.getHours()) + "-" + two(d.getMinutes()) + "-" + two(d.getSeconds()) + ".png";
+        const toast = (msg) => this.game && this.game.ui.toast(msg);
+        if (!this.canUploadShots()) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            toast("Screenshot saved as " + name);
+            return;
+        }
+        const dir = this.settings.screenshotDir || DEFAULT_SETTINGS.screenshotDir;
+        const file = new File([blob], name, { type: "image/png" });
+        ao_module_uploadFile(file, dir, (resp) => {
+            let err = null;
+            try {
+                const obj = JSON.parse(resp);
+                err = obj && obj.error;
+            } catch (e) {
+                //A plain "ok" body
+            }
+            toast(err ? "Screenshot not saved: " + err : "Screenshot saved to " + dir + "/" + name);
+        }, undefined, () => toast("Screenshot not saved: the upload failed"));
     }
 
     openSettings() {

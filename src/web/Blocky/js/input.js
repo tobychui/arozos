@@ -7,7 +7,7 @@
     for flying and sprinting.
 */
 
-const GAME_KEYS = new Set(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F1", "F3", "Tab", "KeyQ", "KeyE", "Slash", "KeyT"]);
+const GAME_KEYS = new Set(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "F1", "F2", "F3", "Tab", "KeyQ", "KeyE", "Slash", "KeyT"]);
 
 export class Input {
     constructor(canvas) {

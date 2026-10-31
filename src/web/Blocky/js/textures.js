@@ -713,7 +713,9 @@ function paintObsidian(t) {
     }
 }
 
-function paintDoor(t, upper) {
+//mirror: the handle on the other side (the second door of a double door)
+//edge: the panel's thin sides, without the handle
+function paintDoor(t, upper, mirror = false, edge = false) {
     const wood = [168, 126, 72], dark = [104, 74, 40];
     t.fill(wood, 6);
     for (let y = 0; y < 16; y++) {
@@ -721,7 +723,7 @@ function paintDoor(t, upper) {
             t.set(x, y, t.vary(dark, 4));
         }
         if (y % 4 === 0) {
-            t.set(7, y, t.vary(dark, 4));
+            t.set(mirror ? 8 : 7, y, t.vary(dark, 4));
         }
     }
     if (upper) {
@@ -752,8 +754,10 @@ function paintDoor(t, upper) {
                 }
             }
         }
-        t.set(13, 1, [70, 70, 76]);
-        t.set(13, 2, [70, 70, 76]);
+        if (!edge) {
+            t.set(mirror ? 2 : 13, 1, [70, 70, 76]);
+            t.set(mirror ? 2 : 13, 2, [70, 70, 76]);
+        }
     }
 }
 
@@ -984,6 +988,38 @@ function paintBow(t) {
     }
     for (let i = 0; i <= 11; i++) {
         t.set(13 - i, 2 + i, [214, 214, 214]);
+    }
+    t.outline(0.75);
+}
+
+//A bow drawn back: the string pulled toward the top left corner by `pull`
+//pixels with an arrow nocked on it, its head past the limb
+function paintBowPulled(t, pull) {
+    t.clear();
+    for (let i = 0; i <= 40; i++) {
+        const k = i / 40;
+        const a = (1 - k) * (1 - k), b = 2 * k * (1 - k), c = k * k;
+        const x = a * 13 + b * 15 + c * 2, y = a * 2 + b * 15 + c * 13;
+        t.set(x, y, WOOD_LIGHT);
+        t.set(x - 0.6, y - 0.6, WOOD_DARK);
+    }
+    const px = 7.5 - pull, py = 7.5 - pull;
+    for (let i = 0; i <= 12; i++) {
+        const k = i / 12;
+        t.set(13 + (px - 13) * k, 2 + (py - 2) * k, [214, 214, 214]);
+        t.set(px + (2 - px) * k, py + (13 - py) * k, [214, 214, 214]);
+    }
+    //Shaft from the string to just past the limb, flint head, fletching
+    const len = 7 + pull;
+    for (let i = 1; i <= len; i++) {
+        t.set(px + i, py + i, [150, 112, 64]);
+    }
+    const hx = Math.round(px + len), hy = Math.round(py + len);
+    for (const [dx, dy] of [[0, 0], [1, 1], [1, 0], [0, 1], [2, 2], [-1, 1], [1, -1]]) {
+        t.set(hx + dx, hy + dy, [96, 96, 104]);
+    }
+    for (const [dx, dy] of [[1, 0], [0, 1], [2, 0], [0, 2]]) {
+        t.set(Math.round(px) + dx, Math.round(py) + dy, [236, 236, 236]);
     }
     t.outline(0.75);
 }
@@ -1252,6 +1288,35 @@ function paintRetimerTop(t, on) {
         t.set(6 - k, 3 + k, line);
         t.set(9 + k, 3 + k, line);
     }
+}
+
+//Iron bars: four bars with a band near the top and bottom, see-through
+function paintIronBars(t) {
+    t.clear();
+    const hi = [196, 198, 200], mid = [150, 152, 156], lo = [104, 106, 110];
+    for (const x0 of [1, 5, 9, 13]) {
+        for (let y = 0; y < 16; y++) {
+            t.set(x0, y, t.vary(hi, 6));
+            t.set(x0 + 1, y, t.vary(lo, 6));
+        }
+    }
+    for (const y0 of [2, 12]) {
+        for (let x = 0; x < 16; x++) {
+            t.set(x, y0, t.vary(mid, 6));
+            t.set(x, y0 + 1, t.vary(lo, 6));
+        }
+    }
+}
+
+function paintSignItem(t) {
+    t.clear();
+    t.rect(1, 2, 14, 8, [176, 136, 80], 10);
+    t.rect(1, 2, 14, 1, [204, 166, 108], 4);
+    for (const y of [4, 6, 8]) {
+        t.rect(3, y, 10, 1, [96, 70, 40], 4);
+    }
+    t.rect(7, 10, 2, 5, [120, 88, 52], 6);
+    t.outline(0.6);
 }
 
 function paintButtonItem(t) {
@@ -1611,6 +1676,9 @@ const PAINTERS = {
     obsidian: paintObsidian,
     door_lower: (t) => paintDoor(t, false),
     door_upper: (t) => paintDoor(t, true),
+    door_lower_m: (t) => paintDoor(t, false, true),
+    door_edge: (t) => paintDoor(t, false, false, true),
+    door_upper_m: (t) => paintDoor(t, true, true),
     bed_head_top: (t) => paintBedTop(t, true),
     bed_foot_top: (t) => paintBedTop(t, false),
     bed_side: paintBedSide,
@@ -1645,6 +1713,9 @@ for (const m of TOOL_MATERIALS) {
 Object.assign(PAINTERS, {
     wool: paintWool,
     bow: paintBow,
+    bow_pull_0: (t) => paintBowPulled(t, 1.5),
+    bow_pull_1: (t) => paintBowPulled(t, 3),
+    bow_pull_2: (t) => paintBowPulled(t, 4.5),
     arrow: paintArrow,
     feather: paintFeather,
     string: paintString,
@@ -1681,6 +1752,8 @@ Object.assign(PAINTERS, {
     powered_rail_on: (t) => paintRail(t, "on"),
     lever_item: paintLeverItem,
     button_item: paintButtonItem,
+    iron_bars: paintIronBars,
+    sign_item: paintSignItem,
     retimer_top: (t) => paintRetimerTop(t, false),
     retimer_top_on: (t) => paintRetimerTop(t, true),
     retimer_pin_off: (t) => t.fill([92, 24, 20], 10),

@@ -47,9 +47,22 @@ export const HEAD_ROD = [6 * U, -4 * U, 6 * U, 10 * U, 12 * U, 10 * U];
 export function paneLinks(getId, getMeta, x, y, z) {
     const link = (nx, nz) => {
         const id = getId(nx, y, nz);
-        return id === B.GLASS_PANE || id === B.GLASS || isOpaqueAt(id, getMeta(nx, y, nz));
+        return SHAPE[id] === "pane" || id === B.GLASS || isOpaqueAt(id, getMeta(nx, y, nz));
     };
     return [link(x + 1, z), link(x - 1, z), link(x, z + 1), link(x, z - 1)];
+}
+
+//Sign parts in sign space: u across the board, v up, w toward the front
+//(the side with the writing), the block centre at u = w = 0.5; turned by
+//signAngle about the vertical axis (the front then faces (sin a, cos a))
+const SIGN_T = 2 / 16;
+export const SIGN_BOARD = [0, 0.5, 0.5 - SIGN_T / 2, 1, 1, 0.5 + SIGN_T / 2];
+export const SIGN_POST = [7 / 16, 0, 0.5 - 1 / 16, 9 / 16, 0.5, 0.5 + 1 / 16];
+export const SIGN_WALL_BOARD = [0, 4 / 16, 0, 1, 12 / 16, SIGN_T];
+const WALL_SIGN_ANGLE = { 0: Math.PI / 2, 1: -Math.PI / 2, 4: 0, 5: Math.PI };
+
+export function signAngle(id, meta) {
+    return id === B.WALL_SIGN ? (WALL_SIGN_ANGLE[meta] || 0) : (meta & 15) * Math.PI / 8;
 }
 
 function paneBoxes(world, x, y, z) {
@@ -94,10 +107,16 @@ const DOOR_PANEL = [
     [0, 0, 0, 1, 1, DOOR_T]
 ];
 
-//Door meta: bits 0-1 facing, bit 2 open, bit 3 upper half
+//Door meta: bits 0-1 facing, bit 2 open, bit 3 upper half, bit 4 hinge on
+//the other side (the second door of a double door, mirrored)
 export function doorBox(meta) {
     const f = meta & 3;
-    return DOOR_PANEL[meta & 4 ? (f + 1) & 3 : f];
+    return DOOR_PANEL[meta & 4 ? (f + (meta & 16 ? 3 : 1)) & 3 : f];
+}
+
+//The side (HDIR index) a door's hinge is on
+export function doorHinge(meta) {
+    return (meta & 3) + (meta & 16 ? 3 : 1) & 3;
 }
 
 //Gate meta: bits 0-1 facing, bit 2 open. A gate facing x spans the z axis.
@@ -242,6 +261,18 @@ export function selectionBox(id, meta, world, x, y, z) {
             return rotateBox(meta & 7, [4 * U, 0, 4 * U, 12 * U, 9 * U, 12 * U]);
         case "button":
             return rotateBox(meta & 7, BUTTON_BOX);
+        case "sign": {
+            if (id !== B.WALL_SIGN) {
+                return [0.25, 0, 0.25, 0.75, 1, 0.75];
+            }
+            const b = SIGN_WALL_BOARD, t = b[5];
+            switch (meta) {
+                case 0: return [0, b[1], 0, t, b[4], 1];
+                case 1: return [1 - t, b[1], 0, 1, b[4], 1];
+                case 5: return [0, b[1], 1 - t, 1, b[4], 1];
+                default: return [0, b[1], 0, 1, b[4], t];
+            }
+        }
         case "plate":
             return [U, 0, U, 15 * U, meta & 1 ? U / 2 : U, 15 * U];
         case "retimer":

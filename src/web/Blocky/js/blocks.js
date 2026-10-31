@@ -24,7 +24,7 @@ export const B = {
     BLUE_FLOWER: 71, GLASS_PANE: 72, SPARK_ORE: 73, SPARK_WIRE: 74, SPARK_TORCH: 75, SPARK_TORCH_OFF: 76,
     LEVER: 77, BUTTON: 78, SPARK_LAMP: 79, SPARK_LAMP_ON: 80, PISTON: 81, STICKY_PISTON: 82,
     PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86, PLATE_WOOD: 87, PLATE_STONE: 88,
-    RETIMER: 89, RETIMER_ON: 90
+    RETIMER: 89, RETIMER_ON: 90, SIGN: 91, WALL_SIGN: 92, IRON_BARS: 93
 };
 
 //Wool and dye colours: key, name, colour
@@ -181,6 +181,11 @@ WOOL_COLORS.forEach(([key, name], i) => {
 });
 def(B.BLUE_FLOWER, "Blue Flower", Object.assign({}, NONSOLID_PLANT, { tex: "blue_flower", replaceable: true }));
 def(B.GLASS_PANE, "Glass Pane", { tex: "glass", shape: "pane", opaque: false, lightOpacity: 0, hardness: 0.3, sound: "glass", cutout: true, drops: () => [] });
+def(B.IRON_BARS, "Iron Bars", { tex: "iron_bars", shape: "pane", opaque: false, lightOpacity: 0, hardness: 5, tool: "pickaxe", tier: 1, sound: "metal", cutout: true });
+//Signs: a standing sign turns in 16 steps (meta), a wall sign hangs on the
+//face given by meta; the text lives in a tile entity (signs.js)
+def(B.SIGN, "Sign", { tex: "planks", shape: "sign", solid: false, opaque: false, lightOpacity: 0, hardness: 1, tool: "axe", sound: "wood", support: "solid", interact: "sign" });
+def(B.WALL_SIGN, "Sign", { tex: "planks", shape: "sign", solid: false, opaque: false, lightOpacity: 0, hardness: 1, tool: "axe", sound: "wood", support: "wall", interact: "sign", noItem: true, drops: () => [[B.SIGN, 1]] });
 
 //The spark (signal) system
 def(B.SPARK_ORE, "Spark Ore", { tex: "spark_ore", hardness: 3, tool: "pickaxe", tier: 3, drops: (m, rng) => [[I.SPARK_DUST, 4 + Math.floor(rng() * 2)]] });
@@ -244,7 +249,7 @@ for (let i = 0; i < 256; i++) {
 export const FLAME_CATCH = new Uint8Array(256);
 export const FLAME_BURN = new Uint8Array(256);
 for (const [id, c, b] of [
-    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.PLATE_WOOD, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
+    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.PLATE_WOOD, 5, 20], [B.SIGN, 5, 20], [B.WALL_SIGN, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
     [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.BED, 5, 20],
     [B.LADDER, 5, 20], [B.TALL_GRASS, 60, 100], [B.FLOWER_YELLOW, 60, 100], [B.FLOWER_RED, 60, 100],
     [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100], [B.WOOL, 30, 60],
@@ -264,6 +269,9 @@ export function isOpaqueAt(id, meta) {
 //faceLayers[id] = Int16Array(6) resolved after the atlas is built
 export const faceLayers = [];
 let tileLayer = null;
+
+//Which way (x, z) a side face's texture u runs (see faceUV in mesher.js)
+const DOOR_FACE_U = [[0, -1], [0, 1], null, null, [1, 0], [-1, 0]];
 
 export function resolveBlockTextures(layerOf) {
     tileLayer = layerOf;
@@ -294,7 +302,19 @@ export function blockFaceLayer(id, face, meta) {
         return tileLayer.get(meta > 0 ? "farmland_wet" : "farmland_dry");
     }
     if (id === B.DOOR) {
-        return tileLayer.get(meta & 8 ? "door_upper" : "door_lower");
+        //The handle sits away from the hinge (or, open, away from the
+        //door's edge), seen from either side: the tile is mirrored on the
+        //faces whose texture runs the other way
+        const base = meta & 8 ? "door_upper" : "door_lower";
+        const f = meta & 3, hinge = (f + (meta & 16 ? 3 : 1)) & 3;
+        const u = DOOR_FACE_U[face];
+        //The panel's thin sides (faces across its own normal) show no handle
+        const n = HDIR[meta & 4 ? hinge : f];
+        if (!u || u[0] * n[0] + u[1] * n[1] !== 0) {
+            return tileLayer.get(face === 2 || face === 3 || (meta & 8) ? base : "door_edge");
+        }
+        const hd = HDIR[meta & 4 ? (f + 2) & 3 : (hinge + 2) & 3];
+        return tileLayer.get(base + (u[0] * hd[0] + u[1] * hd[1] < 0 ? "_m" : ""));
     }
     if (id === B.PISTON || id === B.STICKY_PISTON || id === B.PISTON_HEAD) {
         const f = meta & 7;
@@ -343,7 +363,8 @@ const FLAT_BLOCK_ICONS = {
     [B.REEDS]: "reeds", [B.DEAD_BUSH]: "dead_bush", [B.LADDER]: "ladder",
     [B.FENCE]: "fence_item", [B.FENCE_GATE]: "gate_item", [B.BLUE_FLOWER]: "blue_flower",
     [B.GLASS_PANE]: "glass", [B.SPARK_TORCH]: "spark_torch_on", [B.LEVER]: "lever_item",
-    [B.BUTTON]: "button_item", [B.RAIL]: "rail", [B.POWERED_RAIL]: "powered_rail"
+    [B.BUTTON]: "button_item", [B.RAIL]: "rail", [B.POWERED_RAIL]: "powered_rail",
+    [B.SIGN]: "sign_item", [B.IRON_BARS]: "iron_bars"
 };
 
 for (let i = 1; i < 256; i++) {
@@ -597,6 +618,8 @@ WOOL_COLORS.forEach(([key], i) => {
     shapeless(B.WOOL_COLOR + i, 1, [I.DYE + i, B.WOOL], "Dyes");
 });
 shaped(B.GLASS_PANE, 16, ["GGG", "GGG"], { G: B.GLASS });
+shaped(B.IRON_BARS, 16, ["III", "III"], { I: I.IRON_INGOT });
+shaped(B.SIGN, 3, ["PPP", "PPP", ".S."], { P: B.PLANKS, S: I.STICK });
 
 //Spark system and rails
 shaped(B.SPARK_TORCH, 1, ["D", "S"], { D: I.SPARK_DUST, S: I.STICK }, "Spark");
@@ -741,7 +764,7 @@ export function creativeGroups() {
         B.GRAVEL, B.CLAY, B.LOG, B.PLANKS, B.LEAVES, B.GLASS, B.LAMP, B.STONE_SLAB, B.PLANK_SLAB,
         B.COBBLE_SLAB, B.SANDSTONE_SLAB, B.IRON_BLOCK, B.GOLD_BLOCK, B.CRYSTAL_BLOCK, B.COAL_ORE, B.IRON_ORE,
         B.GOLD_ORE, B.CRYSTAL_ORE, B.OBSIDIAN, B.LADDER, B.TORCH, B.WORKBENCH, B.FURNACE, B.CHEST,
-        B.FENCE, B.FENCE_GATE, I.DOOR, I.BED, B.GLASS_PANE, B.WOOL];
+        B.FENCE, B.FENCE_GATE, I.DOOR, I.BED, B.GLASS_PANE, B.IRON_BARS, B.SIGN, B.WOOL];
     for (let i = 0; i < WOOL_COLORS.length; i++) {
         building.push(B.WOOL_COLOR + i);
     }

@@ -9,7 +9,7 @@
 */
 
 import * as THREE from "three";
-import { meshSection, itemGeometry } from "./mesher.js";
+import { meshSection, itemGeometry, cardGeometry } from "./mesher.js";
 import { layerOfTile, ITEMS, BLOCKS } from "./blocks.js";
 import { SECTIONS, WORLD_H } from "./world.js";
 import { BIOME } from "./worldgen.js";
@@ -413,7 +413,7 @@ export class Renderer {
         this.resize();
     }
 
-    //Turn the experimental realistic pipeline on or off; false when the
+    //Turn the realistic pipeline on or off; false when the
     //browser cannot run it
     setRealistic(on) {
         if (on && !this.real) {
@@ -798,6 +798,18 @@ export class Renderer {
         return entry;
     }
 
+    //A flat card showing one tile (held item variants)
+    cardGeometry(tile) {
+        const key = "tile:" + tile;
+        let entry = this.itemGeoCache.get(key);
+        if (!entry) {
+            entry = { geometry: this.toGeometry(cardGeometry(tile)), cube: false };
+            entry.geometry.computeBoundingSphere();
+            this.itemGeoCache.set(key, entry);
+        }
+        return entry;
+    }
+
     //A mesh for a dropped item / falling block with its own light uniform
     makeItemMesh(id) {
         const entry = this.itemGeometry(id);
@@ -865,13 +877,29 @@ export class Renderer {
         this.armMat = new THREE.MeshBasicMaterial({ vertexColors: true });
         this.arm = new THREE.Mesh(armGeo, this.armMat);
         this.handGroup.add(this.arm);
+        //Held card orientations: at rest, and a drawn bow (the arrow on the
+        //tile runs from the top left to the bottom right corner)
+        this.handIdleQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.1, -0.75, 0.12));
+        const aL = new THREE.Vector3(1, -1, 0).normalize(), nL = new THREE.Vector3(0, 0, 1);
+        const bL = new THREE.Vector3().crossVectors(nL, aL);
+        const aW = new THREE.Vector3(-0.72, 0.16, -0.68).normalize();
+        const nW = new THREE.Vector3(-0.6, 0.12, 0.8);
+        nW.addScaledVector(aW, -nW.dot(aW)).normalize();
+        const bW = new THREE.Vector3().crossVectors(nW, aW);
+        const local = new THREE.Matrix4().makeBasis(aL, bL, nL);
+        const world = new THREE.Matrix4().makeBasis(aW, bW, nW);
+        this.bowAimQ = new THREE.Quaternion().setFromRotationMatrix(world.multiply(local.transpose()));
     }
 
-    setHeldItem(id) {
-        if (id === this.handId) {
+    //tile: draw the held item as this flat tile instead (a pulled bow)
+    setHeldItem(id, tile = null) {
+        const key = id + ":" + (tile || "");
+        if (key === this.handKey) {
             return;
         }
+        this.handKey = key;
         this.handId = id;
+        this.handTile = tile;
         if (this.handMesh) {
             this.handGroup.remove(this.handMesh);
             this.handMesh = null;
@@ -880,7 +908,7 @@ export class Renderer {
         if (!id) {
             return;
         }
-        const entry = this.itemGeometry(id);
+        const entry = tile ? this.cardGeometry(tile) : this.itemGeometry(id);
         this.handMesh = new THREE.Mesh(entry.geometry, this.handMat);
         this.handMesh.userData.cube = entry.cube;
         this.handGroup.add(this.handMesh);
@@ -897,12 +925,22 @@ export class Renderer {
         g.position.set(0.52 + pose.bobX - s2 * 0.2, -0.5 + pose.bobY - pose.equip * 0.6 + s * 0.12 - pose.eat * 0.05 * Math.abs(Math.sin(pose.eatT * 18)), -0.9 - s * 0.15);
         g.rotation.set(-s * 0.9 + pose.eat * 0.5, -s2 * 0.4 + pose.eat * 0.6, s * 0.2);
         if (pose.draw) {
-            //Pulling a bow string back toward the face
-            g.position.x -= pose.draw * 0.22;
-            g.position.z += pose.draw * 0.18;
-            g.rotation.z += pose.draw * 0.3;
+            //Pulling a bow: the bow comes in toward the middle of the view
+            //and back toward the face, shaking a little at full draw
+            const d = Math.min(1, pose.draw * 3);
+            const shake = pose.draw >= 1 ? Math.sin(performance.now() * 0.06) * 0.004 : 0;
+            g.position.x -= d * 0.24;
+            g.position.y += d * 0.1 + shake;
+            g.position.z += d * 0.12 + pose.draw * 0.08;
         }
-        if (this.handMesh) {
+        if (this.handMesh && pose.draw && this.handTile) {
+            //Turn the card so the arrow points at the crosshair and its face
+            //looks back toward the player
+            const d = Math.min(1, pose.draw * 3);
+            this.handMesh.scale.setScalar(0.5);
+            this.handMesh.position.set(0.02, 0.1, -0.05);
+            this.handMesh.quaternion.copy(this.handIdleQ).slerp(this.bowAimQ, d);
+        } else if (this.handMesh) {
             if (this.handMesh.userData.cube) {
                 this.handMesh.scale.setScalar(0.24);
                 this.handMesh.position.set(0.1, -0.02, -0.04);
