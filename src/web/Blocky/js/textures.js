@@ -947,6 +947,326 @@ function paintTool(t, kind, color) {
     t.outline(0.6);
 }
 
+/* ------------------------------------------------------------------ */
+/* Weapons, animal drops and wool                                      */
+/* ------------------------------------------------------------------ */
+
+function paintSword(t, color) {
+    t.clear();
+    const light = [Math.min(255, color[0] + 50), Math.min(255, color[1] + 50), Math.min(255, color[2] + 50)];
+    //Grip and pommel
+    t.shape((x, y) => {
+        const [u, v] = handleFrame(x, y);
+        return u > -0.3 && u < 3.6 && Math.abs(v) < 0.8;
+    }, (x, y) => (handleFrame(x + 0.5, y + 0.5)[1] < 0 ? WOOD_LIGHT : WOOD_DARK));
+    //Blade with a pointed tip, lighter along one edge
+    t.shape((x, y) => {
+        const [u, v] = handleFrame(x, y);
+        return u > 4.4 && u < 15.4 && Math.abs(v) < (u < 13.4 ? 1.25 : 1.25 - (u - 13.4) * 0.62);
+    }, (x, y) => (handleFrame(x + 0.5, y + 0.5)[1] < 0 ? light : color));
+    //Cross guard
+    t.shape((x, y) => {
+        const [u, v] = handleFrame(x, y);
+        return u > 3.4 && u < 4.6 && Math.abs(v) < 3;
+    }, () => [color[0] * 0.55, color[1] * 0.55, color[2] * 0.55]);
+    t.outline(0.6);
+}
+
+function paintBow(t) {
+    t.clear();
+    //Wooden limb bending away from a straight string
+    for (let i = 0; i <= 40; i++) {
+        const k = i / 40;
+        const a = (1 - k) * (1 - k), b = 2 * k * (1 - k), c = k * k;
+        const x = a * 13 + b * 15 + c * 2, y = a * 2 + b * 15 + c * 13;
+        t.set(x, y, WOOD_LIGHT);
+        t.set(x - 0.6, y - 0.6, WOOD_DARK);
+    }
+    for (let i = 0; i <= 11; i++) {
+        t.set(13 - i, 2 + i, [214, 214, 214]);
+    }
+    t.outline(0.75);
+}
+
+function paintArrow(t) {
+    t.clear();
+    for (let i = 0; i < 9; i++) {
+        t.set(4 + i, 11 - i, [150, 112, 64]);
+    }
+    //Flint head
+    for (const [x, y] of [[12, 2], [13, 2], [13, 3], [12, 3], [14, 1], [11, 2], [13, 4]]) {
+        t.set(x, y, [96, 96, 104]);
+    }
+    //Fletching
+    for (const [x, y] of [[2, 12], [3, 12], [2, 13], [4, 13], [3, 14], [1, 13], [3, 11], [2, 11]]) {
+        t.set(x, y, [236, 236, 236]);
+    }
+    t.outline(0.75);
+}
+
+function paintFeather(t) {
+    t.clear();
+    for (let i = 0; i < 11; i++) {
+        const x = 3 + i, y = 13 - i;
+        t.set(x, y, [200, 200, 204]);
+        if (i > 1) {
+            t.set(x - 1, y - 1, [246, 246, 248]);
+            t.set(x - 2, y, [236, 236, 240]);
+            t.set(x + 1, y + 1, [226, 226, 232]);
+        }
+    }
+    t.outline(0.8);
+}
+
+function paintString(t) {
+    t.clear();
+    for (let x = 1; x < 15; x++) {
+        const y = 8 + Math.round(Math.sin(x * 0.9) * 3);
+        t.set(x, y, [226, 226, 226]);
+        t.set(x, y + 1, [170, 170, 174]);
+    }
+}
+
+function paintBone(t) {
+    t.clear();
+    for (let i = 0; i < 9; i++) {
+        t.set(4 + i, 11 - i, [236, 232, 214]);
+        t.set(5 + i, 11 - i, [206, 200, 180]);
+    }
+    for (const [cx, cy] of [[3, 12], [13, 3]]) {
+        for (const [dx, dy] of [[-1, 0], [0, 1], [1, 1], [0, -1], [-1, -1], [1, 0]]) {
+            t.set(cx + dx, cy + dy, [240, 236, 220]);
+        }
+    }
+    t.outline(0.7);
+}
+
+function paintBoneMeal(t) {
+    t.clear();
+    for (let y = 8; y < 14; y++) {
+        const half = 1 + (y - 8);
+        for (let x = 8 - half; x < 8 + half; x++) {
+            if (t.r() < 0.85) {
+                t.set(x, y, t.vary([236, 234, 226], 14));
+            }
+        }
+    }
+    t.outline(0.75);
+}
+
+function paintMeat(t, base, fat, cooked) {
+    t.clear();
+    paintBlob(t, 8, 8.5, 6, 4.6, (x, y) => (x < 6 && y < 8 ? [base[0] + 30, base[1] + 24, base[2] + 20] : base));
+    //Marbling (raw) or grill lines (cooked)
+    for (let k = 0; k < 5; k++) {
+        const x = 4 + t.ri(8), y = 6 + t.ri(5);
+        if (t.alpha(x, y)) {
+            t.set(x, y, fat);
+            if (!cooked) {
+                t.set(x + 1, y, fat);
+            }
+        }
+    }
+    if (cooked) {
+        for (const x of [5, 8, 11]) {
+            for (let y = 6; y < 12; y++) {
+                if (t.alpha(x + (y - 6) % 2, y)) {
+                    t.set(x + (y - 6) % 2, y, [base[0] * 0.55, base[1] * 0.55, base[2] * 0.55]);
+                }
+            }
+        }
+    }
+    t.outline(0.62);
+}
+
+function paintWool(t) {
+    t.fill([232, 232, 228], 8);
+    for (let k = 0; k < 30; k++) {
+        const x = t.ri(16), y = t.ri(16);
+        t.set(x, y, t.vary([210, 210, 206], 6));
+        t.set(x + 1, y, t.vary([246, 246, 244], 4));
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Coloured wool, dyes, panes and the spark system                     */
+/* ------------------------------------------------------------------ */
+
+function paintColorWool(t, c) {
+    const lum = (c[0] + c[1] + c[2]) / 3;
+    const v = lum < 60 ? 8 : 14;
+    t.fill(c, v);
+    for (let k = 0; k < 30; k++) {
+        const x = t.ri(16), y = t.ri(16);
+        t.set(x, y, t.vary([c[0] * 0.82, c[1] * 0.82, c[2] * 0.82], 5));
+        t.set(x + 1, y, t.vary([Math.min(255, c[0] * 1.12 + 6), Math.min(255, c[1] * 1.12 + 6), Math.min(255, c[2] * 1.12 + 6)], 4));
+    }
+}
+
+//A small heap of powder in the given colour (dyes, spark dust)
+function paintPowder(t, c) {
+    t.clear();
+    for (let y = 7; y < 14; y++) {
+        const half = 1 + (y - 7) * 0.9;
+        for (let x = Math.round(8 - half); x < Math.round(8 + half); x++) {
+            if (t.r() < 0.88) {
+                const k = y < 9 ? 1.15 : 1;
+                t.set(x, y, t.vary([Math.min(255, c[0] * k), Math.min(255, c[1] * k), Math.min(255, c[2] * k)], 16));
+            }
+        }
+    }
+    t.set(6, 8, [Math.min(255, c[0] + 60), Math.min(255, c[1] + 60), Math.min(255, c[2] + 60)]);
+    t.outline(0.7);
+}
+
+function paintSparkTorch(t, on) {
+    t.clear();
+    for (let y = 9; y < 16; y++) {
+        t.set(7, y, [138, 102, 54]);
+        t.set(8, y, [104, 76, 40]);
+    }
+    const head = on ? [[255, 214, 120], [255, 170, 40], [255, 236, 170], [240, 130, 20]] : [[120, 40, 24], [96, 30, 18], [140, 52, 30], [80, 24, 14]];
+    t.set(7, 6, head[0]);
+    t.set(8, 6, head[1]);
+    t.set(7, 7, head[2]);
+    t.set(8, 7, head[1]);
+    t.set(7, 8, head[1]);
+    t.set(8, 8, head[3]);
+}
+
+function paintSparkLamp(t, on) {
+    for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+            const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+            const c = on ? (d < 3 ? [255, 236, 160] : [255, 176, 64]) : (d < 3 ? [120, 70, 40] : [92, 52, 30]);
+            t.set(x, y, t.vary(c, 8));
+        }
+    }
+    t.border([70, 66, 64], 4);
+    for (let i = 1; i < 15; i++) {
+        if (i % 5 === 0) {
+            for (let k = 1; k < 15; k++) {
+                t.set(i, k, [90, 84, 80]);
+                t.set(k, i, [90, 84, 80]);
+            }
+        }
+    }
+}
+
+function paintPistonSide(t) {
+    paintStone(t);
+    //The wooden top strip and a dark iron band
+    for (let x = 0; x < 16; x++) {
+        for (let y = 0; y < 4; y++) {
+            t.set(x, y, t.vary(y === 3 ? [110, 84, 50] : [168, 134, 82], 6));
+        }
+        t.set(x, 9, [86, 86, 90]);
+    }
+}
+
+function paintPistonTop(t, sticky) {
+    paintPlanks(t);
+    t.border([110, 84, 50], 3);
+    if (sticky) {
+        for (let y = 4; y < 12; y++) {
+            for (let x = 4; x < 12; x++) {
+                t.set(x, y, t.vary([150, 176, 196], 10));
+            }
+        }
+    } else {
+        t.rect(6, 6, 4, 4, [120, 120, 124], 6);
+    }
+}
+
+function paintPistonBottom(t) {
+    paintStone(t);
+    t.border([90, 90, 94], 3);
+    t.rect(5, 5, 6, 6, [110, 110, 114], 6);
+}
+
+function paintPistonInner(t) {
+    paintStone(t);
+    t.rect(6, 6, 4, 4, [168, 134, 82], 6);
+}
+
+function paintRail(t, kind) {
+    t.clear();
+    const metal = kind === "powered" ? [214, 176, 60] : kind === "on" ? [244, 210, 90] : [176, 176, 182];
+    const tie = [110, 80, 44];
+    if (kind === "curve") {
+        //Ties around a quarter circle, rails along it (bottom edge to right edge)
+        for (let a = 0; a <= 8; a++) {
+            const ang = (a / 8) * Math.PI / 2;
+            for (let r = 2; r <= 14; r++) {
+                if (a % 2 === 0) {
+                    t.set(16 - Math.cos(ang) * r, 16 - Math.sin(ang) * r, tie);
+                }
+            }
+        }
+        for (let i = 0; i <= 60; i++) {
+            const ang = (i / 60) * Math.PI / 2;
+            for (const r of [4, 12]) {
+                t.set(16 - Math.cos(ang) * r, 16 - Math.sin(ang) * r, metal);
+            }
+        }
+        return;
+    }
+    for (let y = 1; y < 16; y += 4) {
+        for (let x = 1; x < 15; x++) {
+            t.set(x, y, tie);
+            t.set(x, y + 1, [tie[0] * 0.8, tie[1] * 0.8, tie[2] * 0.8]);
+        }
+    }
+    for (let y = 0; y < 16; y++) {
+        for (const x of [3, 12]) {
+            t.set(x, y, metal);
+            t.set(x + (x === 3 ? -1 : 1), y, [metal[0] * 0.7, metal[1] * 0.7, metal[2] * 0.7]);
+        }
+        if (kind === "on" || kind === "powered") {
+            t.set(7, y, kind === "on" ? [255, 120, 40] : [96, 40, 24]);
+            t.set(8, y, kind === "on" ? [255, 160, 60] : [110, 46, 26]);
+        }
+    }
+}
+
+function paintLeverItem(t) {
+    t.clear();
+    t.rect(4, 11, 8, 4, [128, 128, 128], 10);
+    t.outline(0.7);
+    for (let i = 0; i < 9; i++) {
+        t.set(7 + i * 0.45, 11 - i, [150, 112, 64]);
+        t.set(8 + i * 0.45, 11 - i, [104, 76, 40]);
+    }
+}
+
+function paintButtonItem(t) {
+    t.clear();
+    t.rect(4, 6, 8, 5, [146, 146, 146], 6);
+    t.rect(4, 6, 8, 1, [176, 176, 176], 2);
+    t.outline(0.6);
+}
+
+function paintMinecart(t, cargo) {
+    t.clear();
+    if (cargo === "chest") {
+        t.rect(4, 2, 8, 6, [160, 112, 52], 6);
+        t.rect(7, 4, 2, 2, [205, 205, 205]);
+    } else if (cargo === "furnace") {
+        t.rect(4, 2, 8, 6, [118, 118, 118], 6);
+        t.rect(6, 5, 4, 3, [255, 150, 40]);
+    }
+    for (let y = 7; y < 13; y++) {
+        for (let x = 1; x < 15; x++) {
+            const edge = y === 7 || x === 1 || x === 14;
+            t.set(x, y, edge ? [190, 190, 196] : t.vary([120, 120, 126], 6));
+        }
+    }
+    for (const x of [3, 12]) {
+        t.rect(x - 1, 13, 3, 2, [60, 60, 64]);
+    }
+    t.outline(0.7);
+}
+
 function paintIngot(t, base) {
     t.clear();
     const light = [Math.min(255, base[0] + 45), Math.min(255, base[1] + 45), Math.min(255, base[2] + 45)];
@@ -1304,6 +1624,63 @@ for (const m of TOOL_MATERIALS) {
     for (const k of TOOL_KINDS) {
         PAINTERS[m.key + "_" + k] = (t) => paintTool(t, k, m.color);
     }
+    PAINTERS[m.key + "_sword"] = (t) => paintSword(t, m.color);
+}
+
+Object.assign(PAINTERS, {
+    wool: paintWool,
+    bow: paintBow,
+    arrow: paintArrow,
+    feather: paintFeather,
+    string: paintString,
+    bone: paintBone,
+    bone_meal: paintBoneMeal,
+    raw_meat: (t) => paintMeat(t, [196, 64, 64], [240, 196, 196], false),
+    cooked_meat: (t) => paintMeat(t, [138, 82, 46], [184, 122, 72], true),
+    raw_mutton: (t) => paintMeat(t, [210, 90, 96], [246, 214, 214], false),
+    cooked_mutton: (t) => paintMeat(t, [150, 94, 56], [196, 140, 86], true),
+    raw_chicken: (t) => paintMeat(t, [236, 182, 168], [250, 226, 214], false),
+    cooked_chicken: (t) => paintMeat(t, [204, 146, 80], [232, 190, 120], true),
+    blue_flower: (t) => paintFlower(t, [70, 104, 232], [240, 220, 96]),
+    spark_ore: (t) => paintOre(t, [255, 150, 40], 5),
+    spark_dust: (t) => paintPowder(t, [255, 150, 40]),
+    spark_wire: (t) => {
+        t.fill([196, 196, 196], 26);
+        for (let k = 0; k < 20; k++) {
+            t.set(t.ri(16), t.ri(16), [255, 255, 255]);
+        }
+    },
+    spark_torch_on: (t) => paintSparkTorch(t, true),
+    spark_torch_off: (t) => paintSparkTorch(t, false),
+    spark_lamp_off: (t) => paintSparkLamp(t, false),
+    spark_lamp_on: (t) => paintSparkLamp(t, true),
+    spark_block: (t) => paintMetal(t, [240, 140, 40], [190, 96, 24], [176, 86, 20]),
+    piston_side: paintPistonSide,
+    piston_top: (t) => paintPistonTop(t, false),
+    piston_top_sticky: (t) => paintPistonTop(t, true),
+    piston_bottom: paintPistonBottom,
+    piston_inner: paintPistonInner,
+    rail: (t) => paintRail(t, "plain"),
+    rail_curve: (t) => paintRail(t, "curve"),
+    powered_rail: (t) => paintRail(t, "powered"),
+    powered_rail_on: (t) => paintRail(t, "on"),
+    lever_item: paintLeverItem,
+    button_item: paintButtonItem,
+    minecart: (t) => paintMinecart(t, null),
+    chest_minecart: (t) => paintMinecart(t, "chest"),
+    furnace_minecart: (t) => paintMinecart(t, "furnace")
+});
+
+//Coloured wool blocks and the dyes that make them (colours as in blocks.js)
+const COLORS = [
+    ["red", [178, 48, 40]], ["orange", [214, 122, 44]], ["yellow", [222, 206, 60]], ["chartreuse", [146, 198, 56]],
+    ["green", [86, 172, 66]], ["spring", [100, 198, 124]], ["cyan", [112, 208, 206]], ["capri", [104, 150, 216]],
+    ["ultramarine", [94, 98, 208]], ["violet", [112, 52, 216]], ["purple", [134, 72, 202]], ["magenta", [184, 78, 208]],
+    ["rose", [188, 64, 122]], ["lightgray", [152, 152, 152]], ["darkgray", [66, 66, 68]], ["black", [28, 28, 32]]
+];
+for (const [key, c] of COLORS) {
+    PAINTERS["wool_" + key] = (t) => paintColorWool(t, c);
+    PAINTERS["dye_" + key] = (t) => paintPowder(t, c);
 }
 
 for (let s = 0; s < 10; s++) {

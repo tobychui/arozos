@@ -21,6 +21,7 @@ export class Sound {
     constructor() {
         this.ctx = null;
         this.volume = 0.8;
+        this.animalVolume = 0.8;
         this.rainGain = null;
     }
 
@@ -40,6 +41,10 @@ export class Sound {
         this.master = this.ctx.createGain();
         this.master.gain.value = this.volume;
         this.master.connect(this.ctx.destination);
+        //Animal noises have their own volume setting
+        this.animalBus = this.ctx.createGain();
+        this.animalBus.gain.value = this.animalVolume;
+        this.animalBus.connect(this.master);
         const len = this.ctx.sampleRate * 2;
         this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
         const d = this.noise.getChannelData(0);
@@ -61,6 +66,84 @@ export class Sound {
         this.volume = v;
         if (this.master) {
             this.master.gain.value = v;
+        }
+    }
+
+    setAnimalVolume(v) {
+        this.animalVolume = v;
+        if (this.animalBus) {
+            this.animalBus.gain.value = v;
+        }
+    }
+
+    //A voiced call: an oscillator gliding through pitches, shaped by a formant
+    //filter, with optional vibrato. Routed to the animal bus.
+    voice(opts) {
+        const ctx = this.ctx;
+        const t = ctx.currentTime + (opts.delay || 0);
+        const o = ctx.createOscillator();
+        o.type = opts.wave || "sawtooth";
+        const pts = opts.pitch;
+        o.frequency.setValueAtTime(pts[0], t);
+        for (let i = 1; i < pts.length; i++) {
+            o.frequency.linearRampToValueAtTime(pts[i], t + opts.dur * i / (pts.length - 1));
+        }
+        if (opts.vibrato) {
+            const lfo = ctx.createOscillator(), depth = ctx.createGain();
+            lfo.frequency.value = opts.vibrato[0];
+            depth.gain.value = opts.vibrato[1];
+            lfo.connect(depth).connect(o.frequency);
+            lfo.start(t);
+            lfo.stop(t + opts.dur + 0.1);
+        }
+        const f = ctx.createBiquadFilter();
+        f.type = "bandpass";
+        f.frequency.value = opts.formant || 800;
+        f.Q.value = opts.q || 1.5;
+        const g = ctx.createGain();
+        const peak = opts.gain;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + (opts.attack || 0.05));
+        g.gain.setValueAtTime(peak, t + opts.dur * 0.7);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + opts.dur);
+        o.connect(f).connect(g).connect(this.animalBus);
+        o.start(t);
+        o.stop(t + opts.dur + 0.05);
+    }
+
+    //kind: idle, hurt, death, angry; distance fades the sound out by 26 blocks
+    animal(type, kind, distance = 0) {
+        if (!this.ctx || !this.animalBus) {
+            return;
+        }
+        const near = Math.max(0, 1 - distance / 26);
+        if (near <= 0) {
+            return;
+        }
+        const r = 0.92 + Math.random() * 0.16;
+        const up = kind === "hurt" ? 1.35 : kind === "death" ? 0.8 : 1;
+        const g = (v) => v * near;
+        if (type === "cow") {
+            this.voice({ pitch: [150 * r * up, 120 * r * up, 100 * r * up], dur: kind === "idle" ? 1.0 : 0.4, formant: 420, q: 2, gain: g(0.5), vibrato: [5, 3] });
+        } else if (type === "sheep") {
+            this.voice({ pitch: [330 * r * up, 310 * r * up], dur: kind === "idle" ? 0.7 : 0.35, formant: 1000, q: 2.5, gain: g(0.35), vibrato: [8, 22] });
+        } else if (type === "chicken") {
+            const n = kind === "idle" ? 3 : 1;
+            for (let i = 0; i < n; i++) {
+                this.voice({ pitch: [1050 * r * up, 820 * r * up], dur: 0.07, wave: "square", formant: 1600, q: 2, gain: g(0.18), attack: 0.01, delay: i * 0.13 });
+            }
+        } else if (type === "wolf") {
+            if (kind === "idle") {
+                this.voice({ pitch: [420 * r, 640 * r, 600 * r, 460 * r], dur: 1.8, wave: "triangle", formant: 700, q: 1, gain: g(0.3), vibrato: [5, 8], attack: 0.3 });
+            } else if (kind === "angry") {
+                this.voice({ pitch: [95, 85], dur: 0.7, formant: 300, q: 1, gain: g(0.45), vibrato: [30, 12] });
+            } else {
+                this.voice({ pitch: [900 * up, 620 * up], dur: 0.18, wave: "triangle", formant: 1100, gain: g(0.35), attack: 0.01 });
+            }
+        } else if (type === "bear") {
+            const len = kind === "angry" || kind === "death" ? 1.1 : 0.6;
+            this.voice({ pitch: [120 * r * up, 90 * r * up, 70 * r * up], dur: len, formant: 380, q: 0.8, gain: g(0.6), vibrato: [24, 10], attack: 0.08 });
+            this.noiseBurst("lowpass", 500, 0.6, len, g(0.25));
         }
     }
 
@@ -178,6 +261,18 @@ export class Sound {
                 this.noiseBurst("lowpass", 160, 0.5, len * 0.8, 0.9 * near, delay + 0.4 + Math.random() * 0.5, this.brown);
                 break;
             }
+            case "piston":
+                this.noiseBurst("lowpass", opts.out ? 900 : 600, 0.8, 0.14, 0.45);
+                this.tone(opts.out ? 220 : 150, 0.1, 0.25, "triangle");
+                break;
+            case "bow":
+                this.tone(320, 0.18, 0.25, "triangle", 0, 140);
+                this.noiseBurst("bandpass", 1800, 2, 0.08, 0.2);
+                break;
+            case "hit":
+                this.noiseBurst("lowpass", 900, 0.8, 0.09, 0.5);
+                this.tone(140, 0.08, 0.3, "sine");
+                break;
             case "fizz":
                 this.noiseBurst("highpass", 4000, 0.5, 0.3, 0.2);
                 break;

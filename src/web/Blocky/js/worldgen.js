@@ -8,7 +8,9 @@
     fall inside itself.
 
     Biomes: ocean, grassland, desert, forest (plus sandy beaches along water).
-    Caves below y = 11 are filled with lava, and some stone hides lava pockets.
+    Caves are worm tunnels: winding passages 3-7 blocks wide, forking, with
+    the odd cavern, that link into networks across many chunks. Cave floors
+    below y = 11 are lava, and some stone hides lava pockets.
 */
 
 import { Noise } from "./noise.js";
@@ -19,6 +21,11 @@ export const WORLD_H = 128;
 export const SEA = 62;
 
 export const BIOME = { OCEAN: 0, GRASSLAND: 1, DESERT: 2, FOREST: 3, BEACH: 4 };
+
+//Share of chunks that start a cave system, and how many chunks away a
+//system's tunnels can still reach
+const CAVE_CHANCE = 0.3;
+const CAVE_REACH = 8;
 export const BIOME_NAMES = ["Ocean", "Grassland", "Desert", "Forest", "Beach"];
 
 //Grass and foliage tints per biome blend
@@ -38,11 +45,10 @@ export class TerrainGen {
         this.nHum = new Noise(seed ^ 0x3c4d5e);
         this.nHill = new Noise(seed ^ 0x4d5e6f);
         this.nDetail = new Noise(seed ^ 0x5e6f70);
-        this.nCaveA = new Noise(seed ^ 0x6f7081);
-        this.nCaveB = new Noise(seed ^ 0x708192);
         this.nFloor = new Noise(seed ^ 0x8192a3);
         this.nPeak = new Noise(seed ^ 0x92a3b4);
         this.colCache = new Map();
+        this.caveCache = new Map();
     }
 
     //Height, biome and tints of one column
@@ -119,30 +125,6 @@ export class TerrainGen {
             }
         }
 
-        //Coarse cave noise grid (every 4 blocks), trilinearly interpolated
-        const gy = Math.min(32, (maxH >> 2) + 2);
-        const caveA = new Float32Array(5 * 5 * (gy + 1));
-        const caveB = new Float32Array(5 * 5 * (gy + 1));
-        for (let ix = 0; ix < 5; ix++) {
-            for (let iz = 0; iz < 5; iz++) {
-                for (let iy = 0; iy <= gy; iy++) {
-                    const wx = x0 + ix * 4, wy = iy * 4, wz = z0 + iz * 4;
-                    const g = (ix * 5 + iz) * (gy + 1) + iy;
-                    caveA[g] = this.nCaveA.noise3(wx / 42, wy / 24, wz / 42);
-                    caveB[g] = this.nCaveB.noise3(wx / 42, wy / 24, wz / 42);
-                }
-            }
-        }
-        const sample = (arr, lx, y, lz) => {
-            const fx = lx / 4, fy = y / 4, fz = lz / 4;
-            const ix = Math.min(3, fx | 0), iy = Math.min(gy - 1, fy | 0), iz = Math.min(3, fz | 0);
-            const tx = fx - ix, ty = fy - iy, tz = fz - iz;
-            const g = (a, b, c) => arr[((ix + a) * 5 + (iz + c)) * (gy + 1) + iy + b];
-            const c00 = lerp(g(0, 0, 0), g(1, 0, 0), tx), c01 = lerp(g(0, 0, 1), g(1, 0, 1), tx);
-            const c10 = lerp(g(0, 1, 0), g(1, 1, 0), tx), c11 = lerp(g(0, 1, 1), g(1, 1, 1), tx);
-            return lerp(lerp(c00, c01, tz), lerp(c10, c11, tz), ty);
-        };
-
         const rng = mulberry32(hash2(this.seed, chunk.cx, chunk.cz));
 
         for (let lz = 0; lz < 16; lz++) {
@@ -172,19 +154,6 @@ export class TerrainGen {
                             const soil = 3 + ((hash2(this.seed, x0 + lx, z0 + lz) & 1));
                             id = depth === 0 ? B.GRASS : depth <= soil ? B.DIRT : B.STONE;
                         }
-                        //Caves: two ridged noises crossing carve tunnels
-                        if (y > 4 && id !== B.BEDROCK) {
-                            const nearWater = h < SEA + 4 && y > h - 9;
-                            if (!nearWater) {
-                                const a = sample(caveA, lx, y, lz);
-                                const b = sample(caveB, lx, y, lz);
-                                const t = y < 28 ? 0.085 : 0.065;
-                                if (Math.abs(a) < t && Math.abs(b) < t * 1.4) {
-                                    //The deepest caves are flooded with lava
-                                    id = y <= 10 ? B.LAVA : B.AIR;
-                                }
-                            }
-                        }
                     } else {
                         id = y <= SEA ? B.WATER : B.AIR;
                     }
@@ -192,6 +161,8 @@ export class TerrainGen {
                 }
             }
         }
+
+        this.carveCaves(chunk, cols);
 
         //Ores and underground pockets
         const vein = (id, tries, size, ymin, ymax, replace) => {
@@ -222,12 +193,139 @@ export class TerrainGen {
         vein(B.IRON_ORE, 12, 7, 5, 64, B.STONE);
         vein(B.GOLD_ORE, 2, 7, 5, 32, B.STONE);
         vein(B.CRYSTAL_ORE, 1, 5, 5, 17, B.STONE);
+        vein(B.SPARK_ORE, 4, 6, 5, 18, B.STONE);
         if (rng() < 0.3) {
             vein(B.LAVA, 1, 14, 6, 40, B.STONE);
         }
 
         this.placeTrees(chunk, cols);
         this.placePlants(chunk, cols, rng);
+    }
+
+    /* ---------------- caves ---------------- */
+
+    //Cave systems started by one chunk: a list of carving spheres
+    //(x, y, z, radius) plus their bounding box. Cached, since every chunk
+    //within reach replays them.
+    caveSystems(cx, cz) {
+        const key = (cx + 32768) * 65536 + (cz + 32768);
+        let sys = this.caveCache.get(key);
+        if (sys) {
+            return sys;
+        }
+        const rng = mulberry32(hash2(this.seed ^ 0xca7e5, cx, cz));
+        const out = [];
+        if (rng() < CAVE_CHANCE) {
+            const systems = rng() < 0.35 ? 2 : 1;
+            for (let n = 0; n < systems; n++) {
+                const x = cx * 16 + rng() * 16, z = cz * 16 + rng() * 16;
+                const y = 12 + rng() * 50;
+                if (rng() < 0.3) {
+                    //A cavern where the tunnels meet
+                    const room = 3.5 + rng() * 3;
+                    out.push(x, y, z, room, x + room * 0.5, y, z, room * 0.8);
+                }
+                const tunnels = 2 + Math.floor(rng() * 3);
+                for (let t = 0; t < tunnels; t++) {
+                    this.caveWorm(out, rng, x, y, z, rng() * Math.PI * 2, (rng() - 0.5) * 0.4,
+                        70 + Math.floor(rng() * 60), 1.4 + rng() * 1.5, 0);
+                }
+            }
+        }
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+        for (let i = 0; i < out.length; i += 4) {
+            minX = Math.min(minX, out[i] - out[i + 3]);
+            maxX = Math.max(maxX, out[i] + out[i + 3]);
+            minZ = Math.min(minZ, out[i + 2] - out[i + 3]);
+            maxZ = Math.max(maxZ, out[i + 2] + out[i + 3]);
+        }
+        sys = { spheres: new Float32Array(out), minX, maxX, minZ, maxZ };
+        if (this.caveCache.size > 4096) {
+            this.caveCache.clear();
+        }
+        this.caveCache.set(key, sys);
+        return sys;
+    }
+
+    //One winding tunnel: steady turns, mostly level, fattest in the middle,
+    //with a chance to fork once
+    caveWorm(out, rng, x, y, z, yaw, pitch, len, radius, depth) {
+        let yawV = 0, pitchV = 0;
+        const forkAt = depth < 2 && rng() < 0.55 ? Math.floor(len * (0.25 + rng() * 0.5)) : -1;
+        for (let i = 0; i < len; i++) {
+            const r = radius * (0.7 + 0.6 * Math.sin(Math.PI * i / len));
+            x += Math.cos(yaw) * Math.cos(pitch);
+            z += Math.sin(yaw) * Math.cos(pitch);
+            y += Math.sin(pitch);
+            yawV = yawV * 0.8 + (rng() - 0.5) * 1.6;
+            pitchV = pitchV * 0.8 + (rng() - 0.5) * 0.8;
+            yaw += yawV * 0.1;
+            pitch = pitch * 0.85 + pitchV * 0.08;
+            if (y < 8) {
+                pitch = Math.abs(pitch) + 0.05;
+            } else if (y > 72) {
+                pitch = -Math.abs(pitch) - 0.05;
+            }
+            out.push(x, y, z, r);
+            if (i === forkAt) {
+                const side = rng() < 0.5 ? -1 : 1;
+                this.caveWorm(out, rng, x, y, z, yaw + side * (Math.PI / 2 + (rng() - 0.5) * 0.6), pitch * 0.5,
+                    Math.floor((len - i) * (0.6 + rng() * 0.5)), radius * 0.85, depth + 1);
+            }
+        }
+    }
+
+    carveCaves(chunk, cols) {
+        const x0 = chunk.cx * 16, z0 = chunk.cz * 16;
+        const R = CAVE_REACH;
+        for (let dcx = -R; dcx <= R; dcx++) {
+            for (let dcz = -R; dcz <= R; dcz++) {
+                const sys = this.caveSystems(chunk.cx + dcx, chunk.cz + dcz);
+                if (sys.maxX < x0 || sys.minX > x0 + 16 || sys.maxZ < z0 || sys.minZ > z0 + 16) {
+                    continue;
+                }
+                const sp = sys.spheres;
+                for (let i = 0; i < sp.length; i += 4) {
+                    const r = sp[i + 3];
+                    if (sp[i] + r < x0 || sp[i] - r > x0 + 16 || sp[i + 2] + r < z0 || sp[i + 2] - r > z0 + 16) {
+                        continue;
+                    }
+                    this.carveSphere(chunk, cols, sp[i] - x0, sp[i + 1], sp[i + 2] - z0, r);
+                }
+            }
+        }
+    }
+
+    carveSphere(chunk, cols, cx, cy, cz, r) {
+        const blocks = chunk.blocks;
+        const ry = r * 0.75;
+        const lx0 = Math.max(0, Math.floor(cx - r)), lx1 = Math.min(15, Math.floor(cx + r));
+        const lz0 = Math.max(0, Math.floor(cz - r)), lz1 = Math.min(15, Math.floor(cz + r));
+        const y0 = Math.max(1, Math.floor(cy - ry)), y1 = Math.min(WORLD_H - 2, Math.floor(cy + ry));
+        for (let lx = lx0; lx <= lx1; lx++) {
+            const dx = (lx + 0.5 - cx) / r;
+            for (let lz = lz0; lz <= lz1; lz++) {
+                const dz = (lz + 0.5 - cz) / r;
+                const col = cols[lz * 16 + lx];
+                for (let y = y0; y <= y1; y++) {
+                    const dy = (y + 0.5 - cy) / ry;
+                    if (dx * dx + dy * dy + dz * dz >= 1) {
+                        continue;
+                    }
+                    //Keep seas, lakes and beaches sealed
+                    if (col.h < SEA + 3 && y > col.h - 7) {
+                        continue;
+                    }
+                    const i = idx(lx, y, lz);
+                    const id = blocks[i];
+                    if (id === B.AIR || id === B.WATER || id === B.BEDROCK || id === B.LAVA || blocks[i + 1] === B.WATER) {
+                        continue;
+                    }
+                    //The deepest caves are flooded with lava
+                    blocks[i] = y <= 10 ? B.LAVA : B.AIR;
+                }
+            }
+        }
     }
 
     //Trees of this chunk and its neighbours, clipped to this chunk
@@ -343,7 +441,8 @@ export class TerrainGen {
                         if (r < 0.2) {
                             blocks[above] = B.TALL_GRASS;
                         } else if (r < 0.225) {
-                            blocks[above] = rng() < 0.6 ? B.FLOWER_YELLOW : B.FLOWER_RED;
+                            const f = rng();
+                            blocks[above] = f < 0.5 ? B.FLOWER_YELLOW : f < 0.8 ? B.FLOWER_RED : B.BLUE_FLOWER;
                         }
                     } else if (c.biome === BIOME.FOREST) {
                         const shaded = columnTop(lx, lz) > y + 2;
@@ -352,7 +451,7 @@ export class TerrainGen {
                         } else if (shaded && r < 0.11) {
                             blocks[above] = rng() < 0.6 ? B.MUSHROOM_BROWN : B.MUSHROOM_RED;
                         } else if (r < 0.115) {
-                            blocks[above] = B.FLOWER_RED;
+                            blocks[above] = rng() < 0.5 ? B.FLOWER_RED : B.BLUE_FLOWER;
                         }
                     }
                 }

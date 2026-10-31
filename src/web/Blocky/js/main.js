@@ -35,7 +35,9 @@ const DEFAULT_SETTINGS = {
     clouds: true,
     viewBobbing: true,
     invertY: false,
-    showFps: false
+    showFps: false,
+    animalVolume: 0.8,
+    realistic: false
 };
 const PREVIEW_SEED = 734011;
 
@@ -92,6 +94,7 @@ class App {
         this.renderer.applySettings(this.settings);
         this.sound = new Sound();
         this.sound.setVolume(this.settings.volume);
+        this.sound.setAnimalVolume(this.settings.animalVolume);
         this.storage = new Storage();
         this.input = new Input(this.canvas);
         this.ui = new UI(this);
@@ -566,6 +569,9 @@ class App {
             if (e.code === "Escape" && this.game && this.game.paused) {
                 for (const id of ["settings", "cmdhelp", "help"]) {
                     if (!$(id).classList.contains("hidden")) {
+                        if (id === "settings") {
+                            this.closeSettings();
+                        }
                         show(id, false);
                         this.pausedAt = performance.now();
                         return;
@@ -639,6 +645,8 @@ class App {
         for (const id of ["pause", "settings", "cmdhelp", "help"]) {
             show(id, false);
         }
+        $("pause").classList.remove("behind");
+        $("menu").classList.remove("behind");
         g.paused = false;
         this.input.active = true;
         this.input.reset();
@@ -667,25 +675,28 @@ class App {
 
     bindSettings() {
         const s = () => this.settings;
+        const pct = (v) => (v === 0 ? "OFF" : Math.round(v * 100) + "%");
         const ranges = [
-            ["setRender", "renderDistance", (v) => v + " chunks"],
-            ["setFov", "fov", (v) => v + "\u00b0"],
-            ["setSens", "sensitivity", (v) => Math.round(v * 100) + "%"],
-            ["setBright", "brightness", (v) => (v < 0.2 ? "Moody" : v > 0.8 ? "Bright" : Math.round(v * 100) + "%")],
-            ["setVolume", "volume", (v) => Math.round(v * 100) + "%"],
-            ["setScale", "pixelRatio", (v) => Math.round(v * 100) + "%"]
+            ["setRender", "renderDistance", (v) => "Render Distance: " + v + " Chunks"],
+            ["setFov", "fov", (v) => "Field of View: " + v],
+            ["setSens", "sensitivity", (v) => "Mouse Sensitivity: " + Math.round(v * 100) + "%"],
+            ["setBright", "brightness", (v) => "Brightness: " + (v < 0.2 ? "Moody" : v > 0.8 ? "Bright" : Math.round(v * 100) + "%")],
+            ["setVolume", "volume", (v) => "Master Volume: " + pct(v)],
+            ["setAnimals", "animalVolume", (v) => "Animal Sounds: " + pct(v)],
+            ["setScale", "pixelRatio", (v) => "Render Scale: " + Math.round(v * 100) + "%"]
         ];
-        const checks = [
-            ["setLeaves", "fancyLeaves"], ["setClouds", "clouds"], ["setBob", "viewBobbing"],
-            ["setInvert", "invertY"], ["setFps", "showFps"]
+        const toggles = [
+            ["setLeaves", "fancyLeaves", "Fancy Leaves"], ["setClouds", "clouds", "Clouds"],
+            ["setBob", "viewBobbing", "View Bobbing"], ["setInvert", "invertY", "Invert Mouse"],
+            ["setFps", "showFps", "Show FPS"], ["setReal", "realistic", "Realistic Graphics (Experimental)"]
         ];
         this.syncSettingsForm = () => {
             for (const [id, key, fmt] of ranges) {
                 $(id).value = s()[key];
                 $("val" + id.slice(3)).textContent = fmt(Number(s()[key]));
             }
-            for (const [id, key] of checks) {
-                $(id).checked = !!s()[key];
+            for (const [id, key, label] of toggles) {
+                $(id).textContent = label + ": " + (s()[key] ? "ON" : "OFF");
             }
         };
         for (const [id, key, fmt] of ranges) {
@@ -696,14 +707,15 @@ class App {
                 this.applySettings(key);
             });
         }
-        for (const [id, key] of checks) {
-            $(id).addEventListener("change", () => {
-                s()[key] = $(id).checked;
+        for (const [id, key, label] of toggles) {
+            $(id).addEventListener("click", () => {
+                s()[key] = !s()[key];
+                $(id).textContent = label + ": " + (s()[key] ? "ON" : "OFF");
                 this.applySettings(key);
             });
         }
         $("btnSettingsDone").onclick = () => {
-            show("settings", false);
+            this.closeSettings();
             this.saveSettings();
         };
     }
@@ -711,12 +723,28 @@ class App {
     openSettings() {
         this.syncSettingsForm();
         show("settings");
+        //The title screen or pause menu would show through the grid
+        $("menu").classList.add("behind");
+        $("pause").classList.add("behind");
+    }
+
+    closeSettings() {
+        show("settings", false);
+        $("menu").classList.remove("behind");
+        $("pause").classList.remove("behind");
+        this.saveSettings();
     }
 
     applySettings(key) {
         const st = this.settings;
         this.renderer.applySettings(st);
+        if (key === "realistic" && st.realistic && !this.renderer.real) {
+            //The browser could not set it up (no float render targets)
+            st.realistic = false;
+            $("setReal").textContent = "Realistic Graphics: Not Supported Here";
+        }
         this.sound.setVolume(st.volume);
+        this.sound.setAnimalVolume(st.animalVolume);
         if (key === "fancyLeaves") {
             const w = this.game ? this.game.world : this.preview && this.preview.world;
             if (w) {

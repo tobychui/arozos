@@ -19,15 +19,42 @@ export const B = {
     CACTUS: 32, REEDS: 33, FARMLAND: 34, WHEAT: 35, DEAD_BUSH: 36, LADDER: 37,
     STONE_SLAB: 38, PLANK_SLAB: 39, COBBLE_SLAB: 40, SANDSTONE_SLAB: 41,
     IRON_BLOCK: 42, GOLD_BLOCK: 43, CRYSTAL_BLOCK: 44, LAMP: 45, MOSSY_COBBLE: 46,
-    FIRE: 47, LAVA: 48, OBSIDIAN: 49, DOOR: 50, FENCE: 51, FENCE_GATE: 52, BED: 53
+    FIRE: 47, LAVA: 48, OBSIDIAN: 49, DOOR: 50, FENCE: 51, FENCE_GATE: 52, BED: 53, WOOL: 54,
+    WOOL_COLOR: 55, //55-70: the coloured wools, in WOOL_COLORS order
+    BLUE_FLOWER: 71, GLASS_PANE: 72, SPARK_ORE: 73, SPARK_WIRE: 74, SPARK_TORCH: 75, SPARK_TORCH_OFF: 76,
+    LEVER: 77, BUTTON: 78, SPARK_LAMP: 79, SPARK_LAMP_ON: 80, PISTON: 81, STICKY_PISTON: 82,
+    PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86
 };
+
+//Wool and dye colours: key, name, colour
+export const WOOL_COLORS = [
+    ["red", "Red", [178, 48, 40]], ["orange", "Orange", [214, 122, 44]], ["yellow", "Yellow", [222, 206, 60]],
+    ["chartreuse", "Chartreuse", [146, 198, 56]], ["green", "Green", [86, 172, 66]], ["spring", "Spring Green", [100, 198, 124]],
+    ["cyan", "Cyan", [112, 208, 206]], ["capri", "Capri", [104, 150, 216]], ["ultramarine", "Ultramarine", [94, 98, 208]],
+    ["violet", "Violet", [112, 52, 216]], ["purple", "Purple", [134, 72, 202]], ["magenta", "Magenta", [184, 78, 208]],
+    ["rose", "Rose", [188, 64, 122]], ["lightgray", "Light Gray", [152, 152, 152]], ["darkgray", "Dark Gray", [66, 66, 68]],
+    ["black", "Black", [28, 28, 32]]
+];
 
 export const I = {
     STICK: 256, COAL: 257, IRON_INGOT: 258, GOLD_INGOT: 259, CRYSTAL: 260, FLINT: 261,
     CLAY_BALL: 262, BRICK: 263, SEEDS: 264, WHEAT: 265, BREAD: 266, APPLE: 267,
     BOWL: 268, STEW: 269, BUCKET: 270, WATER_BUCKET: 271, FLINT_AND_STEEL: 272,
-    LAVA_BUCKET: 273, DOOR: 274, BED: 275
+    LAVA_BUCKET: 273, DOOR: 274, BED: 275, RAW_MEAT: 276, COOKED_MEAT: 277, RAW_MUTTON: 278,
+    COOKED_MUTTON: 279, BOW: 305, ARROW: 306, RAW_CHICKEN: 307, COOKED_CHICKEN: 308, FEATHER: 309,
+    STRING: 310, BONE: 311, BONE_MEAL: 312,
+    DYE: 313, //313-328: dyes, in WOOL_COLORS order
+    SPARK_DUST: 329, MINECART: 330, CHEST_MINECART: 331, FURNACE_MINECART: 332
 };
+
+export const dyeId = (key) => I.DYE + WOOL_COLORS.findIndex((c) => c[0] === key);
+export const woolId = (key) => B.WOOL_COLOR + WOOL_COLORS.findIndex((c) => c[0] === key);
+
+//Sword ids: 300 + material (wood, stone, iron, gold, crystal)
+export const SWORD_BASE = 300;
+export function swordId(matIndex) {
+    return SWORD_BASE + matIndex;
+}
 
 //Horizontal facings used by doors, gates and beds: 0 +x, 1 +z, 2 -x, 3 -z
 export const HDIR = [[1, 0], [0, 1], [-1, 0], [0, -1]];
@@ -147,6 +174,28 @@ def(B.IRON_BLOCK, "Block of Iron", { tex: "iron_block", hardness: 5, tool: "pick
 def(B.GOLD_BLOCK, "Block of Gold", { tex: "gold_block", hardness: 3, tool: "pickaxe", tier: 3, sound: "metal" });
 def(B.CRYSTAL_BLOCK, "Block of Crystal", { tex: "crystal_block", hardness: 5, tool: "pickaxe", tier: 3, sound: "metal" });
 def(B.LAMP, "Lamp", { tex: "lamp", hardness: 0.3, light: 15, sound: "glass" });
+def(B.WOOL, "Wool", { tex: "wool", hardness: 0.8, sound: "cloth" });
+WOOL_COLORS.forEach(([key, name], i) => {
+    def(B.WOOL_COLOR + i, name + " Wool", { tex: "wool_" + key, hardness: 0.8, sound: "cloth" });
+});
+def(B.BLUE_FLOWER, "Blue Flower", Object.assign({}, NONSOLID_PLANT, { tex: "blue_flower", replaceable: true }));
+def(B.GLASS_PANE, "Glass Pane", { tex: "glass", shape: "pane", opaque: false, lightOpacity: 0, hardness: 0.3, sound: "glass", cutout: true, drops: () => [] });
+
+//The spark (signal) system
+def(B.SPARK_ORE, "Spark Ore", { tex: "spark_ore", hardness: 3, tool: "pickaxe", tier: 3, drops: (m, rng) => [[I.SPARK_DUST, 4 + Math.floor(rng() * 2)]] });
+def(B.SPARK_WIRE, "Spark Wire", { tex: "spark_wire", shape: "wire", solid: false, opaque: false, lightOpacity: 0, hardness: 0, noItem: true, support: "solid", sound: "grass", drops: () => [[I.SPARK_DUST, 1]] });
+def(B.SPARK_TORCH, "Spark Torch", { tex: "spark_torch_on", shape: "torch", solid: false, opaque: false, lightOpacity: 0, light: 7, hardness: 0, sound: "wood", support: "torch" });
+def(B.SPARK_TORCH_OFF, "Spark Torch", { tex: "spark_torch_off", shape: "torch", solid: false, opaque: false, lightOpacity: 0, hardness: 0, sound: "wood", support: "torch", noItem: true, drops: () => [[B.SPARK_TORCH, 1]] });
+def(B.LEVER, "Lever", { tex: "cobblestone", shape: "lever", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, sound: "wood", support: "wall", interact: "lever" });
+def(B.BUTTON, "Button", { tex: "stone", shape: "button", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, support: "wall", interact: "button" });
+def(B.SPARK_LAMP, "Spark Lamp", { tex: "spark_lamp_off", hardness: 0.3, sound: "glass" });
+def(B.SPARK_LAMP_ON, "Spark Lamp", { tex: "spark_lamp_on", hardness: 0.3, sound: "glass", light: 15, noItem: true, drops: () => [[B.SPARK_LAMP, 1]] });
+def(B.PISTON, "Piston", { tex: { side: "piston_side", top: "piston_top", bottom: "piston_bottom" }, shape: "piston", opaque: false, lightOpacity: 15, hardness: 0.5, sound: "stone" });
+def(B.STICKY_PISTON, "Sticky Piston", { tex: { side: "piston_side", top: "piston_top_sticky", bottom: "piston_bottom" }, shape: "piston", opaque: false, lightOpacity: 15, hardness: 0.5, sound: "stone" });
+def(B.PISTON_HEAD, "Piston Head", { tex: { side: "piston_side", top: "piston_top" }, shape: "pistonhead", opaque: false, lightOpacity: 0, hardness: 0.5, noItem: true, drops: () => [] });
+def(B.RAIL, "Rail", { tex: "rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
+def(B.POWERED_RAIL, "Powered Rail", { tex: "powered_rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
+def(B.SPARK_BLOCK, "Block of Spark", { tex: "spark_block", hardness: 5, tool: "pickaxe", tier: 1, sound: "metal" });
 def(B.FIRE, "Fire", { tex: "fire", shape: "fire", solid: false, opaque: false, lightOpacity: 0, light: 15, hardness: 0, replaceable: true, noItem: true, sound: "fire", drops: () => [] });
 def(B.LAVA, "Lava", { tex: "lava", shape: "liquid", solid: false, opaque: false, lightOpacity: 15, light: 15, hardness: -1, replaceable: true, noItem: true, targetable: false, sound: "lava" });
 def(B.OBSIDIAN, "Obsidian", { tex: "obsidian", hardness: 35, tool: "pickaxe", tier: 4 });
@@ -188,7 +237,8 @@ for (const [id, c, b] of [
     [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
     [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.BED, 5, 20],
     [B.LADDER, 5, 20], [B.TALL_GRASS, 60, 100], [B.FLOWER_YELLOW, 60, 100], [B.FLOWER_RED, 60, 100],
-    [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100]
+    [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100], [B.WOOL, 30, 60],
+    ...WOOL_COLORS.map((c, i) => [B.WOOL_COLOR + i, 30, 60]), [B.BLUE_FLOWER, 60, 100]
 ]) {
     FLAME_CATCH[id] = c;
     FLAME_BURN[id] = b;
@@ -236,6 +286,25 @@ export function blockFaceLayer(id, face, meta) {
     if (id === B.DOOR) {
         return tileLayer.get(meta & 8 ? "door_upper" : "door_lower");
     }
+    if (id === B.PISTON || id === B.STICKY_PISTON || id === B.PISTON_HEAD) {
+        const f = meta & 7;
+        if (face === f) {
+            if (id === B.PISTON_HEAD) {
+                return tileLayer.get(meta & 8 ? "piston_top_sticky" : "piston_top");
+            }
+            return meta & 8 ? tileLayer.get("piston_inner") : fl[2];
+        }
+        if (id !== B.PISTON_HEAD && face === (f ^ 1)) {
+            return fl[3];
+        }
+        return fl[0];
+    }
+    if (id === B.POWERED_RAIL) {
+        return tileLayer.get(meta & 8 ? "powered_rail_on" : "powered_rail");
+    }
+    if (id === B.RAIL) {
+        return tileLayer.get((meta & 15) >= 6 ? "rail_curve" : "rail");
+    }
     if (id === B.BED && face === 2) {
         return tileLayer.get(meta & 4 ? "bed_head_top" : "bed_foot_top");
     }
@@ -262,7 +331,9 @@ const FLAT_BLOCK_ICONS = {
     [B.FLOWER_YELLOW]: "flower_yellow", [B.FLOWER_RED]: "flower_red",
     [B.MUSHROOM_BROWN]: "mushroom_brown", [B.MUSHROOM_RED]: "mushroom_red",
     [B.REEDS]: "reeds", [B.DEAD_BUSH]: "dead_bush", [B.LADDER]: "ladder",
-    [B.FENCE]: "fence_item", [B.FENCE_GATE]: "gate_item"
+    [B.FENCE]: "fence_item", [B.FENCE_GATE]: "gate_item", [B.BLUE_FLOWER]: "blue_flower",
+    [B.GLASS_PANE]: "glass", [B.SPARK_TORCH]: "spark_torch_on", [B.LEVER]: "lever_item",
+    [B.BUTTON]: "button_item", [B.RAIL]: "rail", [B.POWERED_RAIL]: "powered_rail"
 };
 
 for (let i = 1; i < 256; i++) {
@@ -297,6 +368,25 @@ item(I.LAVA_BUCKET, "Lava Bucket", { icon: { flat: "lava_bucket" }, stack: 1, fu
 item(I.FLINT_AND_STEEL, "Flint and Steel", { icon: { flat: "flint_and_steel" }, stack: 1, tool: { kind: "igniter", tier: 0, speed: 1, durability: 64 } });
 item(I.DOOR, "Door", { icon: { flat: "door_item" }, stack: 16, fuel: 200 });
 item(I.BED, "Bed", { icon: { flat: "bed_item" }, stack: 1 });
+item(I.RAW_MEAT, "Raw Meat", { icon: { flat: "raw_meat" }, food: { hunger: 3, sat: 1.8 } });
+item(I.COOKED_MEAT, "Cooked Meat", { icon: { flat: "cooked_meat" }, food: { hunger: 8, sat: 12.8 } });
+item(I.RAW_MUTTON, "Raw Mutton", { icon: { flat: "raw_mutton" }, food: { hunger: 2, sat: 1.2 } });
+item(I.COOKED_MUTTON, "Cooked Mutton", { icon: { flat: "cooked_mutton" }, food: { hunger: 6, sat: 9.6 } });
+item(I.RAW_CHICKEN, "Raw Chicken", { icon: { flat: "raw_chicken" }, food: { hunger: 2, sat: 1.2 } });
+item(I.COOKED_CHICKEN, "Cooked Chicken", { icon: { flat: "cooked_chicken" }, food: { hunger: 6, sat: 7.2 } });
+item(I.FEATHER, "Feather", { icon: { flat: "feather" } });
+item(I.STRING, "String", { icon: { flat: "string" } });
+item(I.BONE, "Bone", { icon: { flat: "bone" } });
+item(I.BONE_MEAL, "Bone Meal", { icon: { flat: "bone_meal" } });
+item(I.ARROW, "Arrow", { icon: { flat: "arrow" } });
+item(I.BOW, "Bow", { icon: { flat: "bow" }, stack: 1, fuel: 200, tool: { kind: "bow", tier: 0, speed: 1, durability: 384 } });
+WOOL_COLORS.forEach(([key, name], i) => {
+    item(I.DYE + i, name + " Dye", { icon: { flat: "dye_" + key } });
+});
+item(I.SPARK_DUST, "Spark Dust", { icon: { flat: "spark_dust" }, block: B.SPARK_WIRE });
+item(I.MINECART, "Minecart", { icon: { flat: "minecart" }, stack: 1, cart: "cart" });
+item(I.CHEST_MINECART, "Chest Minecart", { icon: { flat: "chest_minecart" }, stack: 1, cart: "chest" });
+item(I.FURNACE_MINECART, "Furnace Minecart", { icon: { flat: "furnace_minecart" }, stack: 1, cart: "furnace" });
 
 //Fuel for blocks (ticks at 20 ticks per second; one smelt takes 200 ticks)
 ITEMS[B.LOG].fuel = 300;
@@ -319,17 +409,36 @@ export const TOOL_STATS = [
 ];
 const KIND_NAMES = ["Pickaxe", "Axe", "Shovel", "Hoe"];
 
+//Melee damage (in half hearts) of swords and the other tools; a fist does 1
+const SWORD_DAMAGE = [4, 5, 6, 4, 7];
+const TOOL_DAMAGE = { pickaxe: [2, 3, 4, 2, 5], axe: [3, 4, 5, 3, 6], shovel: [1.5, 2.5, 3.5, 1.5, 4.5], hoe: [1, 1, 1, 1, 1] };
+
 TOOL_MATERIALS.forEach((m, mi) => {
+    const st = TOOL_STATS[mi];
+    item(swordId(mi), st.name + " Sword", {
+        icon: { flat: m.key + "_sword" },
+        stack: 1,
+        tool: { kind: "sword", tier: st.tier, speed: 1.5, durability: st.durability },
+        damage: SWORD_DAMAGE[mi],
+        fuel: mi === 0 ? 200 : 0
+    });
     TOOL_KINDS.forEach((k, ki) => {
         const st = TOOL_STATS[mi];
         item(toolId(mi, ki), st.name + " " + KIND_NAMES[ki], {
             icon: { flat: m.key + "_" + k },
             stack: 1,
             tool: { kind: k, tier: st.tier, speed: st.speed, durability: st.durability },
+            damage: TOOL_DAMAGE[k][mi],
             fuel: mi === 0 ? 200 : 0
         });
     });
 });
+
+//Damage a held item does to an animal
+export function attackDamage(itemId) {
+    const it = ITEMS[itemId];
+    return (it && it.damage) || 1;
+}
 
 export function itemDef(id) {
     return ITEMS[id] || null;
@@ -447,6 +556,52 @@ TOOL_STATS.forEach((st, mi) => {
     });
 });
 shaped(I.BUCKET, 1, ["I.I", ".I."], { I: I.IRON_INGOT }, "Tools");
+TOOL_STATS.forEach((st, mi) => {
+    shaped(swordId(mi), 1, ["M", "M", "S"], { M: st.material, S: I.STICK }, "Tools");
+});
+shaped(I.BOW, 1, [".ST", "S.T", ".ST"], { S: I.STICK, T: I.STRING }, "Tools");
+shaped(I.ARROW, 4, ["F", "S", "E"], { F: I.FLINT, S: I.STICK, E: I.FEATHER }, "Tools");
+shapeless(I.STRING, 4, [B.WOOL], "Basics");
+shaped(B.WOOL, 1, ["SS", "SS"], { S: I.STRING });
+shapeless(I.BONE_MEAL, 3, [I.BONE], "Basics");
+
+//Dyes from plants, coal and bone meal, then mixed into the other colours
+const DYE = (k) => dyeId(k);
+shapeless(DYE("red"), 2, [B.FLOWER_RED], "Dyes");
+shapeless(DYE("yellow"), 2, [B.FLOWER_YELLOW], "Dyes");
+shapeless(DYE("ultramarine"), 2, [B.BLUE_FLOWER], "Dyes");
+shapeless(DYE("green"), 1, [B.LEAVES], "Dyes");
+shapeless(DYE("black"), 1, [I.COAL], "Dyes");
+shapeless(DYE("orange"), 2, [DYE("red"), DYE("yellow")], "Dyes");
+shapeless(DYE("chartreuse"), 2, [DYE("yellow"), DYE("green")], "Dyes");
+shapeless(DYE("capri"), 2, [DYE("ultramarine"), I.BONE_MEAL], "Dyes");
+shapeless(DYE("cyan"), 2, [DYE("green"), DYE("capri")], "Dyes");
+shapeless(DYE("spring"), 2, [DYE("green"), DYE("cyan")], "Dyes");
+shapeless(DYE("purple"), 2, [DYE("red"), DYE("ultramarine")], "Dyes");
+shapeless(DYE("violet"), 2, [DYE("purple"), DYE("ultramarine")], "Dyes");
+shapeless(DYE("rose"), 2, [DYE("red"), I.BONE_MEAL], "Dyes");
+shapeless(DYE("magenta"), 2, [DYE("purple"), DYE("rose")], "Dyes");
+shapeless(DYE("darkgray"), 2, [DYE("black"), I.BONE_MEAL], "Dyes");
+shapeless(DYE("lightgray"), 3, [DYE("black"), I.BONE_MEAL, I.BONE_MEAL], "Dyes");
+WOOL_COLORS.forEach(([key], i) => {
+    shapeless(B.WOOL_COLOR + i, 1, [I.DYE + i, B.WOOL], "Dyes");
+});
+shaped(B.GLASS_PANE, 16, ["GGG", "GGG"], { G: B.GLASS });
+
+//Spark system and rails
+shaped(B.SPARK_TORCH, 1, ["D", "S"], { D: I.SPARK_DUST, S: I.STICK }, "Spark");
+shaped(B.LEVER, 1, ["S", "C"], { S: I.STICK, C: B.COBBLE }, "Spark");
+shapeless(B.BUTTON, 1, [B.STONE], "Spark");
+shaped(B.SPARK_LAMP, 1, [".D.", "DLD", ".D."], { D: I.SPARK_DUST, L: B.LAMP }, "Spark");
+shaped(B.PISTON, 1, ["PPP", "CIC", "CDC"], { P: B.PLANKS, C: B.COBBLE, I: I.IRON_INGOT, D: I.SPARK_DUST }, "Spark");
+shapeless(B.STICKY_PISTON, 1, [B.PISTON, I.CLAY_BALL], "Spark");
+shaped(B.SPARK_BLOCK, 1, ["DDD", "DDD", "DDD"], { D: I.SPARK_DUST }, "Spark");
+shapeless(I.SPARK_DUST, 9, [B.SPARK_BLOCK], "Spark");
+shaped(B.RAIL, 16, ["I.I", "ISI", "I.I"], { I: I.IRON_INGOT, S: I.STICK }, "Spark");
+shaped(B.POWERED_RAIL, 6, ["G.G", "GSG", "GDG"], { G: I.GOLD_INGOT, S: I.STICK, D: I.SPARK_DUST }, "Spark");
+shaped(I.MINECART, 1, ["I.I", "III"], { I: I.IRON_INGOT }, "Spark");
+shapeless(I.CHEST_MINECART, 1, [I.MINECART, B.CHEST], "Spark");
+shapeless(I.FURNACE_MINECART, 1, [I.MINECART, B.FURNACE], "Spark");
 shapeless(I.FLINT_AND_STEEL, 1, [I.IRON_INGOT, I.FLINT], "Tools");
 
 shaped(I.BOWL, 4, ["P.P", ".P."], { P: B.PLANKS }, "Food");
@@ -468,6 +623,7 @@ shaped(I.DOOR, 3, ["PP", "PP", "PP"], { P: B.PLANKS });
 shaped(B.FENCE, 3, ["PSP", "PSP"], { P: B.PLANKS, S: I.STICK });
 shaped(B.FENCE_GATE, 1, ["SPS", "SPS"], { P: B.PLANKS, S: I.STICK });
 shaped(I.BED, 1, ["WWW", "PPP"], { W: I.WHEAT, P: B.PLANKS });
+shaped(I.BED, 1, ["WWW", "PPP"], { W: B.WOOL, P: B.PLANKS });
 for (const [block, ingot] of [[B.IRON_BLOCK, I.IRON_INGOT], [B.GOLD_BLOCK, I.GOLD_INGOT], [B.CRYSTAL_BLOCK, I.CRYSTAL]]) {
     shaped(block, 1, ["III", "III", "III"], { I: ingot });
     shapeless(ingot, 9, [block], "Basics");
@@ -555,7 +711,10 @@ export const SMELTING = new Map([
     [B.COBBLE, B.STONE],
     [I.CLAY_BALL, I.BRICK],
     [B.LOG, I.COAL],
-    [B.CACTUS, B.SAND]
+    [B.CACTUS, B.SAND],
+    [I.RAW_MEAT, I.COOKED_MEAT],
+    [I.RAW_MUTTON, I.COOKED_MUTTON],
+    [I.RAW_CHICKEN, I.COOKED_CHICKEN]
 ]);
 
 export function fuelTicks(id) {
@@ -569,22 +728,35 @@ export function creativeGroups() {
         B.GRAVEL, B.CLAY, B.LOG, B.PLANKS, B.LEAVES, B.GLASS, B.LAMP, B.STONE_SLAB, B.PLANK_SLAB,
         B.COBBLE_SLAB, B.SANDSTONE_SLAB, B.IRON_BLOCK, B.GOLD_BLOCK, B.CRYSTAL_BLOCK, B.COAL_ORE, B.IRON_ORE,
         B.GOLD_ORE, B.CRYSTAL_ORE, B.OBSIDIAN, B.LADDER, B.TORCH, B.WORKBENCH, B.FURNACE, B.CHEST,
-        B.FENCE, B.FENCE_GATE, I.DOOR, I.BED];
+        B.FENCE, B.FENCE_GATE, I.DOOR, I.BED, B.GLASS_PANE, B.WOOL];
+    for (let i = 0; i < WOOL_COLORS.length; i++) {
+        building.push(B.WOOL_COLOR + i);
+    }
     const nature = [B.SAPLING, B.TALL_GRASS, B.FLOWER_YELLOW, B.FLOWER_RED, B.MUSHROOM_BROWN, B.MUSHROOM_RED,
-        B.CACTUS, B.REEDS, B.DEAD_BUSH, I.SEEDS];
+        B.BLUE_FLOWER, B.CACTUS, B.REEDS, B.DEAD_BUSH, I.SEEDS];
     const tools = [];
     for (let mi = 0; mi < 5; mi++) {
         for (let ki = 0; ki < 4; ki++) {
             tools.push(toolId(mi, ki));
         }
     }
-    tools.push(I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL);
+    for (let mi = 0; mi < 5; mi++) {
+        tools.push(swordId(mi));
+    }
+    tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL);
+    const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.SPARK_LAMP,
+        B.PISTON, B.STICKY_PISTON, B.RAIL, B.POWERED_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,
-        I.WHEAT, I.BOWL, I.APPLE, I.BREAD, I.STEW];
+        I.WHEAT, I.BOWL, I.APPLE, I.BREAD, I.STEW, I.RAW_MEAT, I.COOKED_MEAT, I.RAW_MUTTON,
+        I.COOKED_MUTTON, I.RAW_CHICKEN, I.COOKED_CHICKEN, I.FEATHER, I.STRING, I.BONE, I.BONE_MEAL];
+    for (let i = 0; i < WOOL_COLORS.length; i++) {
+        items.push(I.DYE + i);
+    }
     return [
         { name: "Building", ids: building },
         { name: "Nature", ids: nature },
         { name: "Tools", ids: tools },
+        { name: "Spark", ids: spark },
         { name: "Items", ids: items }
     ];
 }

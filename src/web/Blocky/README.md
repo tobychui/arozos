@@ -2,8 +2,9 @@
 
 An original voxel sandbox game for the ArozOS desktop: generated worlds with
 grassland, forest, desert and ocean biomes, survival (health, hunger,
-crafting, smelting) and creative modes, day / night, rain and thunderstorms.
-There are no creatures. All textures and sounds are generated in code and
+crafting, smelting) and creative modes, day / night, rain and thunderstorms,
+animals, spark circuits with pistons and rails, and an optional experimental
+realistic renderer. All textures and sounds are generated in code and
 three.js is vendored in `lib/three/`, so the app loads nothing from outside
 its folder.
 
@@ -19,10 +20,14 @@ its folder.
 | `js/worldgen.js` | Deterministic terrain, biomes, caves, ores, trees, plants. |
 | `js/mesher.js` | Section meshing (smooth light + ambient occlusion) and item models. |
 | `js/render.js` | three.js scene, terrain shader, sky, clouds, rain, lightning, selection, particles, held item. |
+| `js/realistic.js` | Experimental realistic pipeline: shadow map, sea reflection, terrain lighting chunk, HDR post passes. |
+| `js/power.js` | Spark circuits: power sources, wire levels, torches, lamps, pistons, rail shapes. |
+| `js/carts.js` | Minecarts (plain, chest, furnace) following rails. |
 | `js/blocks.js` | Block / item registry, mining rules, shaped recipes and the grid matcher, smelting. |
 | `js/player.js`, `js/physics.js` | Movement, collisions, survival stats. |
 | `js/ui.js`, `js/icons.js` | HUD, inventory / workbench / furnace / chest / creative screens, icon sheet. |
 | `js/chat.js`, `js/commands.js` | Chat line and slash commands. |
+| `js/mobs.js` | Animals (models, spawning, AI, combat, drops) and bow arrows. |
 | `js/textures.js` | Procedural pixel art for every tile, crack overlays and isometric icons. |
 | `js/audio.js` | Web Audio synthesised sounds. |
 | `js/storage.js` | AGI backend client with an IndexedDB fallback when run standalone. |
@@ -37,6 +42,12 @@ its folder.
   flood; sky light at level 15 travels straight down without loss.
 - All tiles live in one `DataArrayTexture` so mipmaps never bleed between
   tiles; the terrain shader is GLSL3 (`render.js`).
+- Caves are worm tunnels (`caveSystems` / `caveWorm` / `carveCaves` in
+  `worldgen.js`): 30 % of chunks start a system of 2-4 winding tunnels
+  (radius 1.4-2.9, 70-130 blocks, forking, sometimes a cavern room). A chunk
+  replays the cached systems of every chunk within 8 and carves the spheres
+  that touch it, so tunnels are seamless across chunks. Columns at or near
+  sea level are never carved near their top, keeping seas sealed.
 - Trees can cross chunk borders because column height and biome come from 2D
   noise alone: every chunk re-derives its neighbours' trees and stamps the
   part inside itself.
@@ -90,12 +101,104 @@ menu): `/give`, `/tp` (`~` relative, y optional), `/time`, `/weather`,
 `/spawnpoint`, `/tickspeed`, `/firespread` and `/gamerule randomTickSpeed |
 doFireTick`.
 
+## Wool and dyes
+
+Sixteen coloured wools (`WOOL_COLORS` in `blocks.js`: red, orange, yellow,
+chartreuse, green, spring green, cyan, capri, ultramarine, violet, purple,
+magenta, rose, light gray, dark gray, black) plus white wool. A dye and a
+white wool make a coloured wool. Base dyes come from red, yellow and blue
+flowers, leaves (green) and coal (black); bone meal lightens a dye (capri,
+rose, the grays) and the others are mixed from two dyes on the grid.
+
+## Glass panes
+
+Six glass make 16 panes. A pane is a thin post that grows arms toward
+neighbouring panes and solid blocks (`paneLinks` in `shapes.js`); its
+collision and selection boxes follow the arms.
+
+## Spark circuits
+
+`js/power.js`, Blocky's own take on wiring. Spark ore (deep underground)
+drops spark dust, which is laid as wire. Sources: levers (toggle), buttons
+(20 ticks), spark torches and spark blocks. A wire carries level 15 from a
+source and loses 1 per block (`updateWires`, a relaxation over the wire
+network). A powered block powers what touches it: lamps light up, a spark
+torch on a powered block turns off (an inverter), pistons push up to 12
+blocks (sticky pistons pull one back), powered rails boost carts. Parts react
+through scheduled ticks two game ticks later. `POWER` flags each block: 1
+wire, 2 source, 4 reacts, 8 rail. Lever and button meta is the face they are
+attached to plus bit 8 for on / pressed; a pressed button's release time is
+kept in `world.buttonDue`, so other updates cannot let it go early.
+
+## Rails and carts
+
+Rails shape themselves (`railPlaced` / `shapeRail`): straight, rising toward
+a neighbour one block up, or curved between two neighbours. Powered rails
+(on a powered block or next to a source; power runs along up to 8 connected
+powered rails) speed carts up, unpowered ones brake them. `js/carts.js`:
+place a cart on a rail; right click to ride (Shift gets out), a chest cart
+to open its 27 slots, a furnace cart with fuel to drive it away from you
+(coal lasts 3 minutes) - it pushes the carts in front of it. Carts keep their
+speed through curves and onto slopes, roll downhill, bump into each other,
+stop at the end of the line and are saved with the world. Two hits break a
+cart (one in creative).
+
+## Realistic graphics (experimental)
+
+Settings > Realistic Graphics. `js/realistic.js` with `render.js`:
+
+- **Shadows**: a 2048 (4096 on big GPUs) depth map from the sun, or the
+  moon at night, covering 72 blocks around the camera and snapped to whole
+  texels. Chunk meshes, animals, carts and items are on layer 1 and drawn
+  into it with `scene.overrideMaterial` (alpha tested, so leaves cast dappled
+  shadows); 4 x 4 PCF in the terrain shader. The sun's path is tilted
+  (`SUN_TILT`) so shadows are not all axis aligned.
+- **Terrain shader**: the materials get the `REALISTIC` define. Lighting is
+  done in linear space: the baked face shade is divided back out (face
+  normal from `dFdx` / `dFdy`), then sun x shadow, sky ambient, ground
+  bounce and warm block light. Leaves and plants wave (`WAVE_GLSL`, also in
+  the shadow pass) and glow when backlit. Water uses wave normals, Fresnel,
+  a planar reflection of the sea (`SEA_Y`, a mirrored camera rendered at half
+  size with terrain below the surface clipped) and sun glints; other water
+  reflects the sky.
+- **Post**: the scene is drawn into a half float target in display space.
+  Light shafts march toward the sun over open sky (depth = 1; clouds write
+  depth in this mode so they block them), bloom is a bright pass blurred at
+  1/4 and 1/8 size, then exposure, extended Reinhard tone mapping (half per
+  channel, half on luminance so skies keep their colour), grading, vignette
+  and dither.
+- Animals, carts, items and the held item use the standard shader;
+  `Renderer.objectLight` gives them a brightness that matches this lighting.
+- Turning the mode off disposes every target. It needs float render targets
+  (`EXT_color_buffer_float`); without them the setting stays off.
+
 ## Pick block
 
 Middle click a block to take it in hand (`game.pickBlock`): if it is already
 on the hotbar that slot is selected; otherwise creative fills the selected
 slot with a full stack, and survival swaps a stack in from the main
 inventory (nothing happens when the player has none).
+
+## Animals
+
+`js/mobs.js`. Cows, sheep and chickens spawn on daylight grass in grassland,
+forest and beaches (cap 14); wolves (packs of 2-3) and bears spawn only where
+the light is below 7 - at night on the surface of grassland and forests, or
+in caves (cap 6, none on Peaceful). Predators attack on Normal and Hard at
+night or in the dark, on Easy only after being hit (the whole pack joins in);
+passive animals flee when hit. Models are box parts with procedural 16 px
+textures, lit per animal from the block and sky light. Animals are not
+saved. Sounds are synthesised in `audio.js` (`animal()`) on their own volume
+bus, set by the Animal Sounds slider.
+
+Weapons: swords (damage 4-7 by material; other tools 1.5-6, fist 1), and a
+bow - hold right click to draw (up to 1 s), release to fire; damage 2-9 by
+draw. Arrows stick in blocks for 60 s and can be picked up. Falling hits
+deal 1.5x. Drops: raw meat (cow, bear), wool and mutton (sheep), chicken and
+feathers (chicken), bones (wolf, bear). Meats cook in the furnace; wool
+makes string (4) and beds; bones make bone meal, which ripens wheat, grows
+saplings and sprouts grass and flowers. Sleeping is refused while an angry
+animal is within 10 blocks.
 
 ## Beds
 

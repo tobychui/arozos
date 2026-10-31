@@ -24,6 +24,7 @@ import {
 import { TerrainGen, WORLD_H, SEA, idx, BIOME } from "./worldgen.js";
 import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32, hash3 } from "./util.js";
 import { FACE_DIR } from "./shapes.js";
+import { POWER, powerTick, powerChanged, railPlaced, pressButton } from "./power.js";
 
 export const SECTIONS = WORLD_H / 16;
 
@@ -97,6 +98,11 @@ export class World {
         this.onFalling = opts.onFalling || null;
         this.onBlockBroken = opts.onBlockBroken || null;
         this.onFizz = opts.onFizz || null;
+        this.onPowerSound = opts.onPowerSound || null;
+        this.powerBusy = false;
+        this.pistonMoving = false;
+        this.buttonDue = new Map();
+        this.railPreferX = false;
         this.rules = Object.assign({}, DEFAULT_RULES);
         this.cropProgress = new Map();
         this.quiet = false;
@@ -233,7 +239,7 @@ export class World {
             const id = c.blocks[i];
             if (id === B.WHEAT) {
                 c.crops.add(i);
-            } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0)) {
+            } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0) || (id === B.BUTTON && (c.meta[i] & 8))) {
                 this.schedule(bx + (i >> 11), i & 127, bz + ((i >> 7) & 15), 5 + Math.floor(this.rng() * 30));
             }
         }
@@ -620,6 +626,22 @@ export class World {
             if (id === B.FIRE) {
                 this.schedule(x, y, z, 30 + Math.floor(this.rng() * 10));
             }
+            //A piston and its head go together, unless the piston itself moves them
+            if (!this.pistonMoving) {
+                if (oldId === B.PISTON_HEAD) {
+                    const d = FACE_DIR[oldMeta & 7];
+                    const bx = x - d[0], by = y - d[1], bz = z - d[2];
+                    const base = this.getBlock(bx, by, bz);
+                    if ((base === B.PISTON || base === B.STICKY_PISTON) && (this.getMeta(bx, by, bz) & 8)) {
+                        this.breakNaturally(bx, by, bz);
+                    }
+                } else if ((oldId === B.PISTON || oldId === B.STICKY_PISTON) && (oldMeta & 8)) {
+                    const d = FACE_DIR[oldMeta & 7];
+                    if (this.getBlock(x + d[0], y + d[1], z + d[2]) === B.PISTON_HEAD) {
+                        this.setBlock(x + d[0], y + d[1], z + d[2], B.AIR, 0);
+                    }
+                }
+            }
             if ((oldId === B.DOOR || oldId === B.BED) && id !== oldId) {
                 this.removePartner(x, y, z, oldId, oldMeta);
             }
@@ -634,6 +656,12 @@ export class World {
         }
         if (notify) {
             this.notifyNeighbors(x, y, z);
+        }
+        if (oldId !== id && (POWER[id] & 8)) {
+            railPlaced(this, x, y, z, this.railPreferX);
+        }
+        if (!this.powerBusy && (POWER[oldId] || POWER[id])) {
+            powerChanged(this, x, y, z);
         }
         return true;
     }
@@ -711,6 +739,8 @@ export class World {
             }
         } else if (def.support) {
             this.schedule(x, y, z, 1);
+        } else if (POWER[id]) {
+            this.schedule(x, y, z, 2);
         } else if (id === B.FARMLAND) {
             const above = this.getBlock(x, y + 1, z);
             if (isOpaqueAt(above, this.getMeta(x, y + 1, z))) {
@@ -758,7 +788,7 @@ export class World {
                 return true;
             case "torch":
             case "wall": {
-                const n = FACE_DIR[meta] || FACE_DIR[2];
+                const n = FACE_DIR[meta & 7] || FACE_DIR[2];
                 const ax = x - n[0], ay = y - n[1], az = z - n[2];
                 const aid = this.getBlock(ax, ay, az), am = this.getMeta(ax, ay, az);
                 if (isOpaqueAt(aid, am)) {
@@ -806,6 +836,10 @@ export class World {
     }
 
     /* ---------------- scheduled ticks ---------------- */
+
+    pressButton(x, y, z) {
+        pressButton(this, x, y, z, this.getMeta(x, y, z));
+    }
 
     schedule(x, y, z, delay) {
         const key = x + "," + y + "," + z;
@@ -859,6 +893,16 @@ export class World {
                     this.onFalling(x, y, z, id, meta);
                 }
             }
+        } else if (POWER[id]) {
+            if (def.support && !this.hasSupport(x, y, z, id, meta)) {
+                this.breakNaturally(x, y, z);
+                return;
+            }
+            powerTick(this, x, y, z, id, meta, (out) => {
+                if (this.onPowerSound) {
+                    this.onPowerSound(x, y, z, id, out);
+                }
+            });
         } else if (def.support) {
             if (!this.hasSupport(x, y, z, id, meta)) {
                 this.breakNaturally(x, y, z);

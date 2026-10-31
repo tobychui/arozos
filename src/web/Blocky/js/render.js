@@ -14,6 +14,7 @@ import { layerOfTile, ITEMS, BLOCKS } from "./blocks.js";
 import { SECTIONS, WORLD_H } from "./world.js";
 import { BIOME } from "./worldgen.js";
 import { clamp, lerp, mulberry32 } from "./util.js";
+import { Realistic, WAVE_GLSL, SHADE_GLSL, SUN_TILT, SEA_Y } from "./realistic.js";
 
 THREE.ColorManagement.enabled = false;
 
@@ -26,12 +27,23 @@ flat out float vLayer;
 out vec2 vLight;
 out vec3 vColor;
 out float vDist;
+#ifdef REALISTIC
+out vec3 vWorld;
+${WAVE_GLSL}
+#endif
 void main() {
     vUv = uv;
     vLayer = aLayer;
     vLight = aLight;
     vColor = aColor;
+#ifdef REALISTIC
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    wp.xyz = waveOffset(wp.xyz, aLayer, step(0.5, uv.y));
+    vWorld = wp.xyz;
+    vec4 mv = viewMatrix * wp;
+#else
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
+#endif
     vDist = length(mv.xyz);
     gl_Position = projectionMatrix * mv;
 }`;
@@ -60,7 +72,15 @@ layout(location = 0) out highp vec4 outColor;
 float curve(float l) {
     return l / (1.0 + uGammaK * (1.0 - l));
 }
+#ifdef REALISTIC
+${SHADE_GLSL}
+#endif
 void main() {
+#ifdef REALISTIC
+    if (vWorld.y < uClipY) {
+        discard;
+    }
+#endif
     vec2 uv = vUv;
     if (abs(vLayer - uWaterLayer) < 0.5) {
         uv += vec2(sin(uTime * 0.7 + vUv.y * 3.0) * 0.03, uTime * 0.05);
@@ -74,14 +94,22 @@ void main() {
         discard;
     }
     vec2 L = uLightOverride.x > 0.5 ? uLightOverride.yz : vLight;
+#ifdef REALISTIC
+    outColor = shadeRealistic(tex, L, abs(vLayer - uWaterLayer) < 0.5);
+#else
     float sky = curve(L.x * uDaylight);
     float blk = curve(L.y);
     vec3 light = max(vec3(sky), vec3(blk) * vec3(1.0, 0.86, 0.68));
     light = max(light, vec3(0.03));
+    if (uLightOverride.x > 1.5) {
+        //A brightness worked out by Renderer.objectLight
+        light = vec3(uLightOverride.y);
+    }
     vec3 col = tex.rgb * vColor * light;
     float fog = smoothstep(uFogNear, uFogFar, vDist);
     col = mix(col, uFogColor, fog);
     outColor = vec4(col, tex.a * uOpacity);
+#endif
 }`;
 
 const SKY_VERT = `
@@ -123,14 +151,28 @@ uniform vec2 uOffset;
 uniform vec3 uColor;
 uniform vec3 uCam;
 uniform float uFade;
+uniform float uSoft;
 varying vec3 vWorld;
 void main() {
     vec2 uv = (vWorld.xz + uOffset) / 1024.0;
-    vec4 t = texture2D(uMap, uv);
-    if (t.a < 0.5) discard;
+    float cov;
+    if (uSoft > 0.5) {
+        //Realistic mode: blend the cloud cells into soft rounded puffs
+        vec2 p = uv * 64.0 - 0.5;
+        vec2 f = smoothstep(0.0, 1.0, fract(p));
+        vec2 b = (floor(p) + 0.5) / 64.0;
+        float o = 1.0 / 64.0;
+        float c00 = texture2D(uMap, b).a, c10 = texture2D(uMap, b + vec2(o, 0.0)).a;
+        float c01 = texture2D(uMap, b + vec2(0.0, o)).a, c11 = texture2D(uMap, b + vec2(o, o)).a;
+        cov = smoothstep(0.3, 0.75, mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y));
+        if (cov < 0.04) discard;
+    } else {
+        if (texture2D(uMap, uv).a < 0.5) discard;
+        cov = 1.0;
+    }
     float d = length(vWorld.xz - uCam.xz);
-    float a = 0.82 * (1.0 - smoothstep(uFade * 0.55, uFade, d));
-    gl_FragColor = vec4(uColor, a);
+    float a = 0.82 * cov * (1.0 - smoothstep(uFade * 0.55, uFade, d));
+    gl_FragColor = vec4(uColor * mix(1.0, 0.9 + 0.1 * cov, uSoft), a);
 }`;
 
 const CRACK_FRAG = `
@@ -264,8 +306,38 @@ export class Renderer {
             uWaterLayer: { value: tex.layerOf.get("water") },
             uLavaLayer: { value: tex.layerOf.get("lava") },
             uFireLayer: { value: tex.layerOf.get("fire") },
-            uGammaK: { value: 1.2 }
+            uGammaK: { value: 1.2 },
+            //Realistic mode (see realistic.js)
+            uWind: { value: 0.3 },
+            uWaveLeaf: { value: [-10, -10] },
+            uWavePlant: { value: new Array(16).fill(-10) },
+            uShadowMap: { value: null },
+            uShadowMatrix: { value: new THREE.Matrix4() },
+            uShadowTexel: { value: 1 / 2048 },
+            uShadowOn: { value: 0 },
+            uLightDir: { value: new THREE.Vector3(0, 1, 0) },
+            uSunColor: { value: new THREE.Vector3(1, 1, 1) },
+            uAmbient: { value: new THREE.Vector3(0.3, 0.35, 0.45) },
+            uCamPos: { value: new THREE.Vector3() },
+            uClipY: { value: -1e9 },
+            uReflectMap: { value: null },
+            uReflectMatrix: { value: new THREE.Matrix4() },
+            uReflectOn: { value: 0 },
+            uSeaY: { value: SEA_Y },
+            uSkyTop: { value: new THREE.Color() },
+            uSkyHorizon: { value: new THREE.Color() },
+            uWetness: { value: 0 },
+            uLeafLayer: { value: -10 }
         };
+        const layerOf = (n) => (tex.layerOf.has(n) ? tex.layerOf.get(n) : -10);
+        this.shared.uWaveLeaf.value[0] = layerOf("leaves");
+        this.shared.uLeafLayer.value = layerOf("leaves");
+        ["tall_grass", "flower_yellow", "flower_red", "blue_flower", "sapling", "dead_bush",
+            ...Array.from({ length: 8 }, (_, i) => "wheat_" + i)].forEach((n, i) => {
+            this.shared.uWavePlant.value[i] = layerOf(n);
+        });
+        this.real = null;
+        this.env = {};
         this.solidMat = this.terrainMaterial({ alphaTest: 0.5 });
         this.waterMat = this.terrainMaterial({ alphaTest: 0.0, transparent: true });
         this.solidMat.side = THREE.FrontSide;
@@ -312,17 +384,52 @@ export class Renderer {
 
     applySettings(s) {
         Object.assign(this.settings, s);
+        if (!!this.settings.realistic !== !!this.real) {
+            this.setRealistic(!!this.settings.realistic);
+        }
         this.shared.uGammaK.value = lerp(2.0, 0.25, clamp(this.settings.brightness, 0, 1));
         this.clouds.visible = this.settings.clouds !== false;
         this.resize();
+    }
+
+    //Turn the experimental realistic pipeline on or off; false when the
+    //browser cannot run it
+    setRealistic(on) {
+        if (on && !this.real) {
+            try {
+                this.real = new Realistic(this);
+            } catch (e) {
+                this.real = null;
+            }
+        } else if (!on && this.real) {
+            this.real.dispose();
+            this.real = null;
+        }
+        for (const m of [this.solidMat, this.waterMat]) {
+            m.defines = this.real ? { REALISTIC: 1 } : {};
+            m.needsUpdate = true;
+        }
+        //Clouds hide the sun from the light shafts; the sun feeds the bloom
+        this.clouds.material.depthWrite = !!this.real;
+        this.cloudUniforms.uSoft.value = this.real ? 1 : 0;
+        this.sun.material.color.setScalar(this.real ? 1.6 : 1);
+        if (!this.real) {
+            this.celestial.rotation.x = 0;
+        }
+        return !!this.real;
+    }
+
+    //Animals, carts and items show up in the shadow map
+    castShadows(obj) {
+        obj.traverse((o) => o.layers.enable(1));
     }
 
     /* ---------------- sky ---------------- */
 
     buildSky() {
         this.skyUniforms = {
-            uTop: { value: new THREE.Color() },
-            uHorizon: { value: new THREE.Color() },
+            uTop: this.shared.uSkyTop,
+            uHorizon: this.shared.uSkyHorizon,
             uBottom: { value: new THREE.Color() },
             uSunDir: { value: new THREE.Vector3(1, 0, 0) },
             uGlowColor: { value: new THREE.Color(1.0, 0.5, 0.25) },
@@ -389,7 +496,8 @@ export class Renderer {
             uOffset: { value: new THREE.Vector2() },
             uColor: { value: new THREE.Color(1, 1, 1) },
             uCam: { value: new THREE.Vector3() },
-            uFade: { value: 300 }
+            uFade: { value: 300 },
+            uSoft: { value: 0 }
         };
         const m = new THREE.ShaderMaterial({
             vertexShader: CLOUD_VERT,
@@ -675,12 +783,32 @@ export class Renderer {
         const mat = this.terrainMaterial({ alphaTest: 0.3, override: true });
         const mesh = new THREE.Mesh(entry.geometry, mat);
         mesh.userData.cube = entry.cube;
+        mesh.layers.enable(1);
         return mesh;
     }
 
     setMeshLight(mesh, sky, blk) {
         const v = mesh.material.uniforms.uLightOverride.value;
-        v.set(1, sky, blk);
+        if (this.real) {
+            v.set(2, this.objectLight(sky, blk), 0);
+        } else {
+            v.set(1, sky, blk);
+        }
+    }
+
+    //Brightness (display space) of things lit by one light level: animals,
+    //carts, dropped items and the held item. The realistic mode lights the
+    //terrain differently, so they follow its sun, sky and torch light.
+    objectLight(sky, blk) {
+        const sh = this.shared, k = sh.uGammaK.value;
+        const curve = (l) => l / (1 + k * (1 - l));
+        if (!this.real) {
+            return Math.max(0.06, curve(sky * sh.uDaylight.value), curve(blk));
+        }
+        const luma = (v) => 0.2126 * v.x + 0.7152 * v.y + 0.0722 * v.z;
+        const lin = luma(sh.uSunColor.value) * 0.55 * THREE.MathUtils.smoothstep(sky, 0.4, 0.93) +
+            luma(sh.uAmbient.value) * Math.pow(curve(sky), 1.3) + 0.012 + Math.pow(curve(blk), 2.2) * 1.4;
+        return Math.min(1.6, Math.pow(lin, 1 / 2.2));
     }
 
     disposeItemMesh(mesh) {
@@ -739,14 +867,20 @@ export class Renderer {
 
     //pose: { swing 0-1, equip 0-1, bobX, bobY, eat 0-1, sky, blk }
     updateHand(pose) {
-        this.handMat.uniforms.uLightOverride.value.set(1, pose.sky, pose.blk);
-        const c = Math.max(0.2, Math.max(pose.sky * this.shared.uDaylight.value, pose.blk));
+        this.setMeshLight({ material: this.handMat }, pose.sky, pose.blk);
+        const c = this.real ? Math.max(0.2, this.objectLight(pose.sky, pose.blk)) : Math.max(0.2, Math.max(pose.sky * this.shared.uDaylight.value, pose.blk));
         this.armMat.color.setRGB(c, c, c);
         const s = Math.sin(pose.swing * Math.PI);
         const s2 = Math.sin(Math.sqrt(pose.swing) * Math.PI);
         const g = this.handGroup;
         g.position.set(0.52 + pose.bobX - s2 * 0.2, -0.5 + pose.bobY - pose.equip * 0.6 + s * 0.12 - pose.eat * 0.05 * Math.abs(Math.sin(pose.eatT * 18)), -0.9 - s * 0.15);
         g.rotation.set(-s * 0.9 + pose.eat * 0.5, -s2 * 0.4 + pose.eat * 0.6, s * 0.2);
+        if (pose.draw) {
+            //Pulling a bow string back toward the face
+            g.position.x -= pose.draw * 0.22;
+            g.position.z += pose.draw * 0.18;
+            g.rotation.z += pose.draw * 0.3;
+        }
         if (this.handMesh) {
             if (this.handMesh.userData.cube) {
                 this.handMesh.scale.setScalar(0.24);
@@ -834,6 +968,7 @@ export class Renderer {
             const g = this.toGeometry(data.solid);
             g.boundingSphere = sphere;
             const m = new THREE.Mesh(g, this.solidMat);
+            m.layers.enable(1);
             m.position.set(c.cx * 16, sy * 16, c.cz * 16);
             m.matrixAutoUpdate = false;
             m.updateMatrix();
@@ -917,7 +1052,9 @@ export class Renderer {
         const daylight = Math.min(1.2, daylightBase + env.flash * 0.9);
         this.shared.uDaylight.value = daylight;
 
-        const dayTop = [0.42, 0.62, 1.0], dayHor = [0.74, 0.85, 1.0];
+        //The realistic mode's tone mapping lightens the sky; start it deeper
+        const dayTop = this.real ? [0.24, 0.48, 0.98] : [0.42, 0.62, 1.0];
+        const dayHor = this.real ? [0.58, 0.74, 0.97] : [0.74, 0.85, 1.0];
         const nightTop = [0.008, 0.01, 0.035], nightHor = [0.03, 0.04, 0.09];
         const top = [0, 1, 2].map((i) => lerp(nightTop[i], dayTop[i], day));
         const hor = [0, 1, 2].map((i) => lerp(nightHor[i], dayHor[i], day));
@@ -939,8 +1076,12 @@ export class Renderer {
         this.skyUniforms.uBottom.value.setRGB(h[0] * 0.92, h[1] * 0.92, h[2] * 0.95);
         const sunset = clamp(1 - Math.abs(sunH) * 3.2, 0, 1) * (1 - rain);
         this.skyUniforms.uGlow.value = sunset * 0.9;
-        this.skyUniforms.uSunDir.value.set(Math.cos(ang), Math.sin(ang), 0);
+        //The realistic mode tilts the sun's path so shadows are not all square
+        const tilt = this.real ? SUN_TILT : 0;
+        const sd = this.skyUniforms.uSunDir.value.set(Math.cos(ang), Math.sin(ang) * Math.cos(tilt), Math.sin(ang) * Math.sin(tilt));
+        this.celestial.rotation.x = tilt;
         this.celestial.rotation.z = ang;
+        this.realLight(sd, t, h, env);
         this.sun.material.opacity = 1 - rain;
         this.moonMat.opacity = 1 - rain * 0.9;
         this.starMat.opacity = clamp(1 - day * 1.6, 0, 1) * (1 - rain);
@@ -984,6 +1125,28 @@ export class Renderer {
         return { daylight, day };
     }
 
+    //Direct light (sun by day, moon by night) and sky ambient, in linear light
+    realLight(sd, top, hor, env) {
+        const sh = this.shared, sm = THREE.MathUtils.smoothstep;
+        const dim = (1 - env.rain * 0.8) * (1 - env.thunder * 0.5);
+        const col = sh.uSunColor.value, dir = sh.uLightDir.value;
+        if (sd.y > -0.02) {
+            const k = sm(sd.y, 0.02, 0.5);
+            dir.copy(sd);
+            col.set(1.0, lerp(0.42, 0.92, k), lerp(0.16, 0.8, k)).multiplyScalar(2.3 * sm(sd.y, -0.02, 0.15) * dim);
+        } else {
+            dir.copy(sd).negate();
+            col.set(0.55, 0.65, 1.0).multiplyScalar(0.3 * sm(-sd.y, -0.02, 0.15) * dim);
+        }
+        const amb = [0, 1, 2].map((i) => Math.pow(lerp(hor[i], top[i], 0.6), 2.2) * 0.45);
+        //A third grey, so shade is cool but not blue
+        const grey = (amb[0] + amb[1] + amb[2]) / 3;
+        sh.uAmbient.value.set(...amb.map((v) => lerp(v, grey, 0.35) + env.flash * 0.8));
+        sh.uWetness.value = env.rain;
+        sh.uWind.value = 0.3 + env.rain * 0.5 + env.thunder * 0.5;
+        this.env = env;
+    }
+
     render(dt, showHand) {
         this.time += dt;
         this.shared.uTime.value = this.time;
@@ -993,6 +1156,10 @@ export class Renderer {
         this.clouds.position.set(cam.position.x, 112, cam.position.z);
         this.cloudUniforms.uOffset.value.set(this.time * 1.2, 0);
         this.cloudUniforms.uCam.value.copy(cam.position);
+        if (this.real) {
+            this.real.render(showHand, this.env);
+            return;
+        }
         this.gl.clear();
         this.gl.render(this.scene, cam);
         if (showHand) {

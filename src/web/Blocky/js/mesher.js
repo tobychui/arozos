@@ -17,7 +17,10 @@
 
 import { B, OPAQUE, SHAPE, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR } from "./blocks.js";
 import { WORLD_H } from "./worldgen.js";
-import { FACE_DIR, doorBox, gateAlongZ, fenceLinks } from "./shapes.js";
+import {
+    FACE_DIR, doorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
+    PISTON_BASE, HEAD_PLATE, HEAD_ROD
+} from "./shapes.js";
 
 const P = 18;
 const P2 = P * P;
@@ -269,6 +272,20 @@ export function meshSection(world, chunk, sy, opts) {
                     }
                 } else if (shape === "bed") {
                     bed(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "pane") {
+                    pane(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "wire") {
+                    wire(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "lever") {
+                    lever(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "button") {
+                    button(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "piston") {
+                    piston(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "pistonhead") {
+                    pistonHead(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "rail") {
+                    rail(solidBuf, p, x, y, z, id, meta);
                 }
             }
         }
@@ -452,6 +469,162 @@ function firePlanes(buf, p, x, y, z, id, meta) {
     }
 }
 
+/* ---------------- panes, spark parts and rails ---------------- */
+
+//World face index a canonical (facing up) face points to after turning
+const TURNED_FACE = [];
+for (let face = 0; face < 6; face++) {
+    TURNED_FACE[face] = [];
+    const c = rotatePoint(face, 0.5, 0.5, 0.5);
+    for (let f = 0; f < 6; f++) {
+        const n = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]][f];
+        const q = rotatePoint(face, 0.5 + n[0] * 0.5, 0.5 + n[1] * 0.5, 0.5 + n[2] * 0.5);
+        const d = [Math.round((q[0] - c[0]) * 2), Math.round((q[1] - c[1]) * 2), Math.round((q[2] - c[2]) * 2)];
+        TURNED_FACE[face][f] = d[0] === 1 ? 0 : d[0] === -1 ? 1 : d[1] === 1 ? 2 : d[1] === -1 ? 3 : d[2] === 1 ? 4 : 5;
+    }
+}
+
+//A box modelled facing up, turned to `face`. layerFn(f) picks the texture
+//by canonical face; lean tilts the top along z (lever handles); faces on
+//the block boundary are skipped against opaque neighbours.
+function turnedBox(buf, p, x, y, z, b, face, layerFn, lean = 0) {
+    const mins = [b[0], b[1], b[2]], maxs = [b[3], b[4], b[5]];
+    for (let f = 0; f < 6; f++) {
+        const wf = TURNED_FACE[face][f];
+        const axis = FACE_AXIS[f];
+        const onEdge = FACE_SIGN[f] > 0 ? maxs[axis] >= 1 : mins[axis] <= 0;
+        const np = p + FACE_OFF[wf];
+        if (onEdge && !lean && pOpq[np]) {
+            continue;
+        }
+        //Opaque parts (pistons) hold no light themselves: light each face
+        //from the space it looks into
+        const lp = pOpq[np] ? p : np;
+        const ls = (pLight[lp] >> 4) / 15, lb = (pLight[lp] & 15) / 15;
+        const layer = layerFn(f);
+        const s = FACE_SHADE[wf];
+        for (const c of FACE_VERTS[f]) {
+            const vx = c[0] ? b[3] : b[0], vy = c[1] ? b[4] : b[1];
+            let vz = c[2] ? b[5] : b[2];
+            const uv = faceUV(f, vx, vy, vz);
+            if (lean) {
+                vz += (vy - b[1]) * lean;
+            }
+            const q = rotatePoint(face, vx, vy, vz);
+            buf.vert(x + q[0], y + q[1], z + q[2], uv[0], uv[1], layer, ls, lb, s, s, s);
+        }
+        buf.quad(false);
+    }
+}
+
+function pane(buf, p, x, y, z, id, meta) {
+    const getId = (a, b, c) => pBlk[pi(a, b, c)];
+    const getMeta = (a, b, c) => pMeta[pi(a, b, c)];
+    const links = paneLinks(getId, getMeta, x, y, z);
+    const capped = (f, np) => (f === 2 || f === 3) && (pOpq[np] === 1 || pBlk[np] === B.GLASS_PANE);
+    boxFaces(buf, p, x, y, z, id, meta, 7 * U, 0, 7 * U, 9 * U, 1, 9 * U, capped);
+    const arms = [
+        [9 * U, 7 * U, 1, 9 * U, 0], [0, 7 * U, 7 * U, 9 * U, 1],
+        [7 * U, 9 * U, 9 * U, 1, 4], [7 * U, 0, 9 * U, 7 * U, 5]
+    ];
+    arms.forEach(([a0, b0, a1, b1, endFace], k) => {
+        if (links[k]) {
+            boxFaces(buf, p, x, y, z, id, meta, a0, 0, b0, a1, 1, b1, (f, np) => f === endFace || capped(f, np));
+        }
+    });
+}
+
+const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
+    B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_BLOCK, B.POWERED_RAIL]);
+
+function flatQuad(buf, x0, z0, x1, z1, yy, layer, ls, lb, r, g, b) {
+    buf.vert(x0, yy, z1, 0, 0, layer, ls, lb, r, g, b);
+    buf.vert(x1, yy, z1, 1, 0, layer, ls, lb, r, g, b);
+    buf.vert(x1, yy, z0, 1, 1, layer, ls, lb, r, g, b);
+    buf.vert(x0, yy, z0, 0, 1, layer, ls, lb, r, g, b);
+    buf.quad(false);
+}
+
+//Spark wire: a dot with arms toward whatever it connects to, brighter with power
+function wire(buf, p, x, y, z, id, meta) {
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const above = pOpq[p + P2];
+    const links = dirs.map(([dx, dz]) => {
+        const np = p + dx + dz * P;
+        if (WIRE_LINKS.has(pBlk[np])) {
+            return true;
+        }
+        if (!above && pBlk[np + P2] === B.SPARK_WIRE) {
+            return true;
+        }
+        return !pOpq[np] && pBlk[np - P2] === B.SPARK_WIRE;
+    });
+    const n = links.filter(Boolean).length;
+    if (n === 0) {
+        links.fill(true);
+    } else if (n === 1) {
+        const k = links.indexOf(true);
+        links[k ^ 1] = true;
+    }
+    const t = meta / 15;
+    const r = 0.38 + 0.62 * t, g = 0.14 + 0.46 * t, bl = 0.05 + 0.12 * t;
+    const ls = (pLight[p] >> 4) / 15, lb = Math.max((pLight[p] & 15) / 15, t * 0.7);
+    const layer = blockFaceLayer(id, 2, meta);
+    const yy = y + 1 / 64;
+    const lo = 6 * U, hi = 10 * U;
+    flatQuad(buf, x + lo, z + lo, x + hi, z + hi, yy, layer, ls, lb, r, g, bl);
+    const arms = [[hi, lo, 1, hi], [0, lo, lo, hi], [lo, hi, hi, 1], [lo, 0, hi, lo]];
+    arms.forEach((a, k) => {
+        if (links[k]) {
+            flatQuad(buf, x + a[0], z + a[1], x + a[2], z + a[3], yy, layer, ls, lb, r, g, bl);
+        }
+    });
+}
+
+function lever(buf, p, x, y, z, id, meta) {
+    const face = meta & 7;
+    const stone = blockFaceLayer(id, 2, meta), wood = layerOfTile("planks");
+    turnedBox(buf, p, x, y, z, LEVER_BASE, face, () => stone);
+    turnedBox(buf, p, x, y, z, [7 * U, 1 * U, 7 * U, 9 * U, 10 * U, 9 * U], face, () => wood, meta & 8 ? 0.55 : -0.55);
+}
+
+function button(buf, p, x, y, z, id, meta) {
+    const layer = blockFaceLayer(id, 2, meta);
+    turnedBox(buf, p, x, y, z, meta & 8 ? BUTTON_PRESSED : BUTTON_BOX, meta & 7, () => layer);
+}
+
+function piston(buf, p, x, y, z, id, meta) {
+    const face = meta & 7;
+    const front = blockFaceLayer(id, face, meta), back = blockFaceLayer(id, face ^ 1, meta), side = blockFaceLayer(id, face < 2 ? 2 : 0, meta);
+    turnedBox(buf, p, x, y, z, meta & 8 ? PISTON_BASE : [0, 0, 0, 1, 1, 1], face, (f) => (f === 2 ? front : f === 3 ? back : side));
+}
+
+function pistonHead(buf, p, x, y, z, id, meta) {
+    const face = meta & 7;
+    const front = blockFaceLayer(id, face, meta), side = blockFaceLayer(id, face < 2 ? 2 : 0, meta);
+    turnedBox(buf, p, x, y, z, HEAD_PLATE, face, (f) => (f === 2 ? front : side));
+    turnedBox(buf, p, x, y, z, HEAD_ROD, face, () => side, 1e-6);
+}
+
+//Rail shapes: 0 NS, 1 EW, 2-5 rising toward +x, -x, +z, -z, 6-9 curves SE, SW, NW, NE
+const RAIL_UV_FACING = [3, 0, 0, 0, 3, 3, 3, 0, 1, 2];
+function rail(buf, p, x, y, z, id, meta) {
+    const shape = id === B.POWERED_RAIL ? meta & 7 : meta & 15;
+    const layer = blockFaceLayer(id, 2, meta);
+    const [ls, lb] = selfLight(p);
+    const rise = (vx, vz) => (shape === 2 ? vx : shape === 3 ? 1 - vx : shape === 4 ? vz : shape === 5 ? 1 - vz : 0);
+    const facing = RAIL_UV_FACING[shape] ?? 3;
+    for (const c of FACE_VERTS[2]) {
+        const vx = c[0], vz = c[2];
+        const uv = topUV(facing, vx, vz);
+        buf.vert(x + vx, y + 1 / 16 + rise(vx, vz), z + vz, uv[0], uv[1], layer, ls, lb, 1, 1, 1);
+    }
+    buf.quad(false);
+    if (shape >= 2 && shape <= 5) {
+        buf.backQuad();
+    }
+}
+
 function selfLight(p) {
     return [(pLight[p] >> 4) / 15, (pLight[p] & 15) / 15];
 }
@@ -591,7 +764,7 @@ export function itemGeometry(id) {
     const it = ITEMS[id];
     const blockId = it && it.block;
     const shape = blockId ? SHAPE[blockId] : null;
-    const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "cactus" || shape === "farmland");
+    const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "cactus" || shape === "farmland" || shape === "piston");
     if (cubeLike) {
         const def = BLOCKS[blockId];
         const meta = def.orient ? 4 : 0;

@@ -175,23 +175,26 @@
         </div>
     </div>
 
-    <div id="settings" class="overlay hidden">
-        <div class="box">
-            <h2>Settings</h2>
-            <div class="settings-grid">
-                <label>Render distance <b id="valRender"></b><input type="range" id="setRender" min="2" max="12" step="1"></label>
-                <label>Field of view <b id="valFov"></b><input type="range" id="setFov" min="50" max="110" step="1"></label>
-                <label>Mouse sensitivity <b id="valSens"></b><input type="range" id="setSens" min="0.2" max="3" step="0.05"></label>
-                <label>Brightness <b id="valBright"></b><input type="range" id="setBright" min="0" max="1" step="0.05"></label>
-                <label>Volume <b id="valVolume"></b><input type="range" id="setVolume" min="0" max="1" step="0.05"></label>
-                <label>Render scale <b id="valScale"></b><input type="range" id="setScale" min="0.5" max="1" step="0.25"></label>
-                <label class="check"><input type="checkbox" id="setLeaves"> Fancy leaves</label>
-                <label class="check"><input type="checkbox" id="setClouds"> Clouds</label>
-                <label class="check"><input type="checkbox" id="setBob"> View bobbing</label>
-                <label class="check"><input type="checkbox" id="setInvert"> Invert mouse</label>
-                <label class="check"><input type="checkbox" id="setFps"> Show FPS</label>
-            </div>
-            <div class="row"><button class="btn" id="btnSettingsDone">Done</button></div>
+    <!-- Settings: the same two column button grid as the pause menu. Sliders
+         are button shaped ranges with their value written on them. -->
+    <div id="settings" class="overlay dim hidden">
+        <div class="menugrid">
+            <h2 class="span2">Settings</h2>
+            <label class="slidebtn"><input type="range" id="setRender" min="2" max="12" step="1"><span id="valRender"></span></label>
+            <label class="slidebtn"><input type="range" id="setFov" min="50" max="110" step="1"><span id="valFov"></span></label>
+            <label class="slidebtn"><input type="range" id="setSens" min="0.2" max="3" step="0.05"><span id="valSens"></span></label>
+            <label class="slidebtn"><input type="range" id="setBright" min="0" max="1" step="0.05"><span id="valBright"></span></label>
+            <label class="slidebtn"><input type="range" id="setVolume" min="0" max="1" step="0.05"><span id="valVolume"></span></label>
+            <label class="slidebtn"><input type="range" id="setAnimals" min="0" max="1" step="0.05"><span id="valAnimals"></span></label>
+            <label class="slidebtn"><input type="range" id="setScale" min="0.5" max="1" step="0.25"><span id="valScale"></span></label>
+            <button class="btn" id="setLeaves"></button>
+            <button class="btn" id="setClouds"></button>
+            <button class="btn" id="setBob"></button>
+            <button class="btn" id="setInvert"></button>
+            <button class="btn" id="setFps"></button>
+            <button class="btn span2" id="setReal" title="Shadows, reflections, bloom and light shafts. Needs a fast graphics card."></button>
+            <div class="gap span2"></div>
+            <button class="btn span2" id="btnSettingsDone">Done</button>
         </div>
     </div>
 
@@ -205,6 +208,9 @@
                 <div><b>E</b> inventory and 2 x 2 crafting, <b>Q</b> drop an item (Ctrl+Q the whole stack)</div>
                 <div><b>T</b> chat, <b>/</b> type a command such as <b>/give</b> or <b>/tp</b></div>
                 <div><b>Right click</b> a bed at night to sleep until morning, doors and gates to open them</div>
+                <div><b>Left click</b> an animal to hit it; hold <b>Right click</b> with a bow to draw, let go to shoot</div>
+                <div><b>Right click</b> levers and buttons to power spark wire, lamps and pistons</div>
+                <div><b>Right click</b> a cart to ride it (Shift to get out), a chest cart to open it, a furnace cart with fuel to drive it</div>
                 <div><b>Creative:</b> double tap <b>Space</b> to fly, Space / Shift to rise and sink</div>
                 <div><b>F3</b> debug info, <b>F1</b> hide the interface, <b>Esc</b> pause</div>
             </div>
@@ -213,7 +219,11 @@
                 every pattern and lays it out for you. A wooden pickaxe
                 mines stone; stone tools mine iron, iron tools mine gold and crystal. Smelt ores in a furnace.
                 Keep your food bar up: apples drop from leaves, seeds from tall grass grow into wheat for bread,
-                and two mushrooms with a bowl make stew. Harder difficulties make you hungry faster.</p>
+                and two mushrooms with a bowl make stew. Harder difficulties make you hungry faster.
+                Cows, sheep and chickens give food, wool and feathers. Wolves and bears come out in the dark and,
+                on Normal and Hard, hunt you at night - fight back with a sword or a bow and arrows.
+                Dye white wool with flowers, leaves or coal. Spark dust from deep spark ore makes wire, spark
+                torches, rails and pistons. On a fast computer, try Realistic Graphics in the settings.</p>
             <div class="row"><button class="btn" id="btnHelpDone">Got it</button></div>
         </div>
     </div>

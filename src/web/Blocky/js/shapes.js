@@ -16,6 +16,75 @@ export const FACE_DIR = [
     [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]
 ];
 
+//Turn a point of a shape modelled facing up (+y) to face `face`
+export function rotatePoint(face, x, y, z) {
+    switch (face) {
+        case 3: return [x, 1 - y, 1 - z];
+        case 4: return [x, 1 - z, y];
+        case 5: return [x, z, 1 - y];
+        case 0: return [y, 1 - x, z];
+        case 1: return [1 - y, x, z];
+        default: return [x, y, z];
+    }
+}
+
+//The same for a whole box (corners re-sorted)
+export function rotateBox(face, b) {
+    const a = rotatePoint(face, b[0], b[1], b[2]), c = rotatePoint(face, b[3], b[4], b[5]);
+    return [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.min(a[2], c[2]), Math.max(a[0], c[0]), Math.max(a[1], c[1]), Math.max(a[2], c[2])];
+}
+
+const U = 1 / 16;
+//Canonical (floor mounted / facing up) shapes of the spark parts
+export const LEVER_BASE = [5 * U, 0, 4 * U, 11 * U, 3 * U, 12 * U];
+export const BUTTON_BOX = [5 * U, 0, 6 * U, 11 * U, 2 * U, 10 * U];
+export const BUTTON_PRESSED = [5 * U, 0, 6 * U, 11 * U, 1 * U, 10 * U];
+export const PISTON_BASE = [0, 0, 0, 1, 12 * U, 1];
+export const HEAD_PLATE = [0, 12 * U, 0, 1, 1, 1];
+export const HEAD_ROD = [6 * U, -4 * U, 6 * U, 10 * U, 12 * U, 10 * U];
+
+//Which sides (+x, -x, +z, -z) a glass pane links to
+export function paneLinks(getId, getMeta, x, y, z) {
+    const link = (nx, nz) => {
+        const id = getId(nx, y, nz);
+        return id === B.GLASS_PANE || id === B.GLASS || isOpaqueAt(id, getMeta(nx, y, nz));
+    };
+    return [link(x + 1, z), link(x - 1, z), link(x, z + 1), link(x, z - 1)];
+}
+
+function paneBoxes(world, x, y, z) {
+    const lo = 7 * U, hi = 9 * U;
+    const out = [[lo, 0, lo, hi, 1, hi]];
+    if (!world) {
+        return out;
+    }
+    const l = paneLinks((a, b, c) => world.getBlock(a, b, c), (a, b, c) => world.getMeta(a, b, c), x, y, z);
+    if (l[0]) {
+        out.push([hi, 0, lo, 1, 1, hi]);
+    }
+    if (l[1]) {
+        out.push([0, 0, lo, lo, 1, hi]);
+    }
+    if (l[2]) {
+        out.push([lo, 0, hi, hi, 1, 1]);
+    }
+    if (l[3]) {
+        out.push([lo, 0, 0, hi, 1, lo]);
+    }
+    return out;
+}
+
+function unionBox(boxes) {
+    const u = [1, 1, 1, 0, 0, 0];
+    for (const b of boxes) {
+        for (let i = 0; i < 3; i++) {
+            u[i] = Math.min(u[i], b[i]);
+            u[i + 3] = Math.max(u[i + 3], b[i + 3]);
+        }
+    }
+    return u;
+}
+
 const DOOR_T = 3 / 16;
 //Closed door panel along the edge the door faces (0 +x, 1 +z, 2 -x, 3 -z)
 const DOOR_PANEL = [
@@ -92,6 +161,12 @@ export function collisionBoxes(id, meta, world, x, y, z) {
             return [gateAlongZ(meta) ? [0.375, 0, 0, 0.625, 1.5, 1] : [0, 0, 0.375, 1, 1.5, 0.625]];
         case "bed":
             return [[0, 0, 0, 1, 0.5625, 1]];
+        case "pane":
+            return paneBoxes(world, x, y, z);
+        case "piston":
+            return [meta & 8 ? rotateBox(meta & 7, PISTON_BASE) : FULL];
+        case "pistonhead":
+            return [rotateBox(meta & 7, HEAD_PLATE), rotateBox(meta & 7, [6 * U, 0, 6 * U, 10 * U, 12 * U, 10 * U])];
         default:
             return [FULL];
     }
@@ -157,6 +232,20 @@ export function selectionBox(id, meta, world, x, y, z) {
             return gateAlongZ(meta) ? [0.375, 0, 0, 0.625, 1, 1] : [0, 0, 0.375, 1, 1, 0.625];
         case "bed":
             return [0, 0, 0, 1, 0.5625, 1];
+        case "pane":
+            return unionBox(paneBoxes(world, x, y, z));
+        case "wire":
+            return [0, 0, 0, 1, 1 / 16, 1];
+        case "rail":
+            return (meta & 7) >= 2 && (meta & 7) <= 5 ? [0, 0, 0, 1, 0.5, 1] : [0, 0, 0, 1, 2 / 16, 1];
+        case "lever":
+            return rotateBox(meta & 7, [4 * U, 0, 4 * U, 12 * U, 9 * U, 12 * U]);
+        case "button":
+            return rotateBox(meta & 7, BUTTON_BOX);
+        case "piston":
+            return meta & 8 ? rotateBox(meta & 7, PISTON_BASE) : FULL;
+        case "pistonhead":
+            return rotateBox(meta & 7, [0, 0, 0, 1, 1, 1]);
         default:
             return FULL;
     }
