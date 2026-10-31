@@ -10,15 +10,24 @@
  * survival mode runs on.
  */
 export class WaveDirector {
-  constructor(data, world) {
+  /**
+   * @param {object} data
+   * @param {object} world
+   * @param {{hp?:number, count?:number, window?:number}} [scale] difficulty
+   *   multipliers on ship hull, ships per wave and build-window length
+   */
+  constructor(data, world, scale = {}) {
     this.data = data;
     this.world = world;
     const w = data.waves ?? {};
     this.list = w.list ?? [];
-    this.buildWindow = w.buildWindow ?? 25;
+    this.hpMult = scale.hp ?? 1;
+    this.countMult = scale.count ?? 1;
+    const windowMult = scale.window ?? 1;
+    this.buildWindow = (w.buildWindow ?? 25) * windowMult;
     // The opening window is much longer: there is nothing built yet, and the
     // first minutes are where a base is actually established.
-    this.firstWindow = w.firstWindow ?? this.buildWindow;
+    this.firstWindow = (w.firstWindow ?? w.buildWindow ?? 25) * windowMult;
     this.endless = w.endless ?? { after: 10, hpScale: 1.12, countScale: 1.08 };
 
     this.waveIndex = 0;       // how many waves have been launched
@@ -41,20 +50,24 @@ export class WaveDirector {
 
   /** Composition of wave n (1-based), scaling past the scripted list. */
   compositionFor(n) {
+    let comp;
+    let mult = this.countMult;
     if (n <= this.list.length) {
-      return this._parse(this.list[n - 1].spawn);
+      comp = this._parse(this.list[n - 1].spawn);
+    } else {
+      // Beyond the script: replay the last entry with growing counts.
+      comp = this._parse(this.list[this.list.length - 1].spawn);
+      mult *= Math.pow(this.endless.countScale ?? 1.08, n - this.list.length);
     }
-    // Beyond the script: replay the last entry with growing counts.
-    const base = this._parse(this.list[this.list.length - 1].spawn);
-    const over = n - this.list.length;
-    const mult = Math.pow(this.endless.countScale ?? 1.08, over);
-    return base.map((e) => ({ type: e.type, count: Math.ceil(e.count * mult) }));
+    if (mult === 1) return comp;
+    // Never below one ship of a listed type, so an easy wave keeps its shape.
+    return comp.map((e) => ({ type: e.type, count: Math.max(1, Math.round(e.count * mult)) }));
   }
 
-  /** Extra hit points multiplier applied to ships past the scripted list. */
+  /** Hit point multiplier for wave n: difficulty, then endless scaling. */
   hpScaleFor(n) {
-    if (n <= this.list.length) return 1;
-    return Math.pow(this.endless.hpScale ?? 1.12, n - this.list.length);
+    if (n <= this.list.length) return this.hpMult;
+    return this.hpMult * Math.pow(this.endless.hpScale ?? 1.12, n - this.list.length);
   }
 
   _parse(spawn) {
@@ -166,7 +179,7 @@ export class WaveDirector {
     const e = this.world.spawnEnemy(type, Math.cos(a) * r, Math.sin(a) * r);
     if (e) {
       const scale = this.hpScaleFor(this.waveIndex);
-      if (scale > 1) {
+      if (scale !== 1) {
         e.maxHp = Math.round(e.maxHp * scale);
         e.hp = e.maxHp;
       }

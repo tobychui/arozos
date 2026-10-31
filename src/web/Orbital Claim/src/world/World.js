@@ -52,7 +52,16 @@ const ENEMY_CLASSES = {
  * never move.
  */
 export class World {
-  constructor(data, seed = 1337) {
+  /**
+   * @param {object} data entities.json
+   * @param {number} seed
+   * @param {object} [opts] per-run tuning, from a mode's difficulty
+   * @param {object} [opts.field] passed to Field.generate (clusters, richness,
+   *   homeRocks, minOre)
+   * @param {number} [opts.startMinerals]
+   * @param {{hp?:number, count?:number, window?:number}} [opts.waves]
+   */
+  constructor(data, seed = 1337, opts = {}) {
     this.data = data;
     this.seed = seed;
 
@@ -62,9 +71,11 @@ export class World {
     this.effects = [];
     this.bots = [];        // repair drones, owned by their stations
 
-    const field = Field.generate(seed, { radius: 1600 });
+    const field = Field.generate(seed, { radius: 1600, ...opts.field });
     this.asteroids = field.asteroids;
     this.fieldRadius = field.radius;
+    /** Ore the field held when it was generated. */
+    this.fieldOre = field.totalOre;
 
     this.asteroidHash = new SpatialHash(160);
     this.asteroidHash.rebuild(this.asteroids);
@@ -74,7 +85,10 @@ export class World {
     this.enemyHash = new SpatialHash(128);
 
     this.grid = new PowerGrid(data.grid?.linkRange ?? 170);
-    this.economy = new Economy(data.resources?.minerals);
+    this.economy = new Economy({
+      ...data.resources?.minerals,
+      ...(opts.startMinerals != null ? { start: opts.startMinerals } : {}),
+    });
 
     this.time = 0;
     // Sandbox: structures are finished the moment they are placed.
@@ -94,7 +108,14 @@ export class World {
     this.structuresLost = 0;
 
     this._placeStartingBase();
-    this.waves = new WaveDirector(data, this);
+    this.waves = new WaveDirector(data, this, opts.waves);
+  }
+
+  /** Ore still in the rocks, for readouts; not cheap, so not per frame. */
+  get oreRemaining() {
+    let ore = 0;
+    for (const a of this.asteroids) ore += a.ore;
+    return ore;
   }
 
   /**

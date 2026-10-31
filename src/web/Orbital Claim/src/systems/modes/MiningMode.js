@@ -14,6 +14,18 @@ export class MiningMode extends Mode {
     this.name = 'Mining Race';
     this.target = cfg.target ?? 6000;
     this.timeLimit = cfg.time ?? 600;
+    // Set by the Game from entities.json → modes.mining.difficulties.
+    this.difficulty = cfg.difficulty ?? 'normal';
+    this.difficultyName = cfg.name ?? 'Normal';
+  }
+
+  /** Normal keeps the plain key, so bests from before difficulties still count. */
+  get recordKey() {
+    return MiningMode.recordKeyFor(this.difficulty);
+  }
+
+  static recordKeyFor(difficulty) {
+    return difficulty === 'normal' ? 'mining' : `mining-${difficulty}`;
   }
 
   get remaining() {
@@ -44,6 +56,7 @@ export class MiningMode extends Mode {
   summary() {
     const mined = Math.floor(this.world.economy.totalMined);
     return [
+      ['Difficulty', this.difficultyName],
       ['Extracted', `${mined} / ${this.target}`],
       ['Time taken', formatTime(this.elapsed)],
       ['Waves survived', String(this.world.waves.waveIndex)],

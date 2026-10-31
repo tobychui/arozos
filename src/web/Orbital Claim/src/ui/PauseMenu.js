@@ -209,6 +209,7 @@ export class PauseMenu {
     ];
     if (mode.target !== undefined) {
       stats.push(['Mined', `${Math.floor(w.economy.totalMined)} / ${mode.target}`]);
+      stats.push(['Ore in field', Math.floor(w.oreRemaining).toLocaleString()]);
     }
 
     return `
@@ -499,7 +500,7 @@ export class PauseMenu {
         this.confirm({
           title: 'Restart this run?', ok: 'Restart', danger: true,
           text: `A fresh ${g.modeName} run starts on a new map. Progress in this one is lost.`,
-          run: () => g.start(g.mode.key),
+          run: () => g.start(g.mode.key, g.mode.difficulty),
         });
         break;
       case 'title':

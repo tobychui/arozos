@@ -25,6 +25,11 @@ export class Mode {
     return this.state !== 'playing';
   }
 
+  /** Where this run's personal best is kept. Difficulties keep their own. */
+  get recordKey() {
+    return this.key;
+  }
+
   update(dt) {
     if (this.finished) return;
     this.elapsed += dt;

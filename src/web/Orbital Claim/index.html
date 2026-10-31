@@ -102,6 +102,27 @@
   .mode .mn { display:block; font-size:15px; font-weight:600; color:#e6f2ff; }
   .mode .md { display:block; font-size:11.5px; color:var(--dim); margin:5px 0 9px; line-height:1.5; }
   .mode .mb { display:block; font-size:11px; color:var(--mint); }
+  /* A mode with difficulties: the card holds one start button per level. */
+  .mode.has-diff { cursor:default; width:262px; }
+  .mode.has-diff:hover { border-color:var(--line); background:var(--panel); transform:none; }
+  .diffs { display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; margin-top:-1px; }
+  .diff {
+    display:flex; flex-direction:column; align-items:center; gap:1px; min-width:0;
+    font:inherit; padding:6px 2px 5px; cursor:pointer; color:var(--text);
+    background:#0d1622; border:1px solid var(--line); border-radius:6px;
+    transition:border-color .14s, background .14s, transform .1s;
+  }
+  .diff:hover { transform:translateY(-1px); }
+  .diff:focus-visible { outline:2px solid var(--cyan); outline-offset:1px; }
+  .diff b { font-size:12px; font-weight:600; }
+  .diff i { font-style:normal; font-size:10px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .diff em { font-style:normal; font-size:10px; color:var(--mint); font-variant-numeric:tabular-nums; }
+  .diff-easy b { color:var(--mint); }
+  .diff-easy:hover { border-color:#2f7a5c; background:#0f2420; }
+  .diff-normal b { color:var(--cyan); }
+  .diff-normal:hover { border-color:var(--cyan); background:#101f2b; }
+  .diff-hard b { color:#ff9a8b; }
+  .diff-hard:hover { border-color:#7d3a3a; background:#1d1013; }
   .mode.debug { border-style:dashed; border-color:#6b4d16; }
   .mode.debug .mb { color:var(--amber); }
   .howto {

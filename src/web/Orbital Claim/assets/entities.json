@@ -635,7 +635,50 @@
     "mining": {
       "goal": "Bank a target amount of minerals before the timer expires.",
       "target": 6000,
-      "time": 600
+      "time": 600,
+      "defaultDifficulty": "normal",
+      "difficulties": {
+        "$comment": "oreMargin: every field holds at least target x oreMargin ore, whatever the seed. clusters / oreRichness / homeRocks shape the field; enemyHp / enemyCount / buildWindow scale the waves.",
+        "easy": {
+          "name": "Easy",
+          "target": 4000,
+          "time": 720,
+          "startMinerals": 450,
+          "clusters": 16,
+          "oreRichness": 1.15,
+          "homeRocks": 9,
+          "oreMargin": 4,
+          "enemyHp": 0.7,
+          "enemyCount": 0.75,
+          "buildWindow": 1.3
+        },
+        "normal": {
+          "name": "Normal",
+          "target": 6000,
+          "time": 600,
+          "startMinerals": 300,
+          "clusters": 14,
+          "oreRichness": 1,
+          "homeRocks": 7,
+          "oreMargin": 3,
+          "enemyHp": 1,
+          "enemyCount": 1,
+          "buildWindow": 1
+        },
+        "hard": {
+          "name": "Hard",
+          "target": 9000,
+          "time": 480,
+          "startMinerals": 250,
+          "clusters": 8,
+          "oreRichness": 0.6,
+          "homeRocks": 4,
+          "oreMargin": 2.5,
+          "enemyHp": 1.35,
+          "enemyCount": 1.3,
+          "buildWindow": 0.8
+        }
+      }
     },
     "survival": {
       "goal": "Last as long as possible against endless escalating waves."

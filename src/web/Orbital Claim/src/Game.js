@@ -104,7 +104,7 @@ export class Game {
   _bindOverlay() {
     // Bound once, rather than per run, so repeated games do not stack handlers.
     document.getElementById('again').addEventListener('click', () => {
-      this.start(this.mode?.key ?? 'survival');
+      this.start(this.mode?.key ?? 'survival', this.mode?.difficulty);
     });
     document.getElementById('tomenu').addEventListener('click', () => this.quitToTitle());
     document.getElementById('title-settings').addEventListener('click', () => this.menu.open());
@@ -168,7 +168,20 @@ export class Game {
   }
 
   get modeName() {
-    return MODE_NAMES[this.mode?.key] ?? this.mode?.name ?? '';
+    const name = MODE_NAMES[this.mode?.key] ?? this.mode?.name ?? '';
+    return this.mode?.difficultyName ? `${name} (${this.mode.difficultyName})` : name;
+  }
+
+  /**
+   * A mode's settings with its difficulty laid over them. Modes without
+   * difficulties come back as they are, with no difficulty key.
+   */
+  _modeConfig(modeKey, difficulty) {
+    const base = this.data.modes?.[modeKey] ?? {};
+    const diffs = base.difficulties;
+    if (!diffs) return base;
+    const key = diffs[difficulty] ? difficulty : base.defaultDifficulty ?? 'normal';
+    return { ...base, ...diffs[key], difficulty: key };
   }
 
   /** Sandbox runs and runs with creative tools switched on. */
@@ -197,6 +210,10 @@ export class Game {
 
     for (const [key, cfg] of Object.entries(this.data.modes ?? {})) {
       if (!MODE_CLASSES[key]) continue; // 'missions' is not built yet
+      if (cfg.difficulties) {
+        list.appendChild(this._difficultyCard(key, cfg));
+        continue;
+      }
       const best = this.save.bestFor(key);
       const debug = key === 'sandbox';
       const btn = document.createElement('button');
@@ -215,6 +232,37 @@ export class Game {
     this.titleScene.start();
   }
 
+  /**
+   * A mode card with one start button per difficulty, each showing its quota,
+   * clock and personal best — picking a difficulty is starting the run, so
+   * there is no selection to remember.
+   */
+  _difficultyCard(key, cfg) {
+    const card = document.createElement('div');
+    card.className = 'mode has-diff';
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', MODE_NAMES[key] ?? key);
+    const diffs = Object.entries(cfg.difficulties).filter(([k]) => !k.startsWith('$'));
+    card.innerHTML = `
+      <span class="mn">${MODE_NAMES[key] ?? key}</span>
+      <span class="md">${cfg.goal ?? ''}</span>
+      <span class="diffs">
+        ${diffs.map(([dk, d]) => {
+          const best = this.save.bestFor(MiningMode.recordKeyFor(dk));
+          return `<button class="diff diff-${dk}" data-diff="${dk}"
+              title="${d.name}: bank ${d.target.toLocaleString()} minerals in ${formatTime(d.time)}">
+            <b>${d.name}</b>
+            <i>${(d.target / 1000).toLocaleString()}k · ${formatTime(d.time)}</i>
+            <em>${best ? this._formatBest(best) : '—'}</em>
+          </button>`;
+        }).join('')}
+      </span>`;
+    card.querySelectorAll('[data-diff]').forEach((b) => {
+      b.addEventListener('click', () => this.start(key, b.dataset.diff));
+    });
+    return card;
+  }
+
   _formatBest(best) {
     if (!best) return '—';
     return best.metric === 'time' ? formatTime(best.value) : `wave ${best.value}`;
@@ -222,7 +270,12 @@ export class Game {
 
   // ------------------------------------------------------------------- start
 
-  start(modeKey) {
+  /**
+   * @param {string} modeKey
+   * @param {string} [difficulty] for modes that have difficulties; the mode's
+   *   default otherwise
+   */
+  start(modeKey, difficulty) {
     this.menu.close({ resume: false });
     this.titleScene.stop();
     document.getElementById('menu').classList.remove('show');
@@ -230,13 +283,25 @@ export class Game {
 
     this.runCharts?.destroy();
     this.runCharts = null;
-    this.world = new World(this.data, Math.floor(Math.random() * 100000));
+    const cfg = this._modeConfig(modeKey, difficulty);
+    this.world = new World(this.data, Math.floor(Math.random() * 100000), {
+      startMinerals: cfg.startMinerals,
+      field: {
+        clusters: cfg.clusters,
+        richness: cfg.oreRichness,
+        homeRocks: cfg.homeRocks,
+        // A quota must always be payable from the field, with room to spare
+        // for rocks lost to raids or too exposed to work.
+        minOre: cfg.target ? cfg.target * (cfg.oreMargin ?? 2) : 0,
+      },
+      waves: { hp: cfg.enemyHp, count: cfg.enemyCount, window: cfg.buildWindow },
+    });
     this.world.onSound = (cue, x, y) => this._worldSound(cue, x, y);
     this.world.waves.onWaveStart = () => this.sound.play('waveStart');
     this.world.waves.onWaveClear = () => this.sound.play('waveClear');
     this.stats = new StatsRecorder(this.world);
     const Cls = MODE_CLASSES[modeKey] ?? SurvivalMode;
-    this.mode = new Cls(this.world, this.data.modes?.[modeKey] ?? {});
+    this.mode = new Cls(this.world, cfg);
     this.inRun = true;
 
     this.hud = new Hud(this.hudRoot, this.world, this.data);
@@ -647,8 +712,8 @@ export class Game {
     this.stats.finish();
     const won = this.mode.state === 'won';
     // A run that used creative tools proves nothing, so it never sets a best.
-    const isBest = !this.mode.creative && this.save.recordScore(this.mode.key, this.mode.score());
-    const best = this.save.bestFor(this.mode.key);
+    const isBest = !this.mode.creative && this.save.recordScore(this.mode.recordKey, this.mode.score());
+    const best = this.save.bestFor(this.mode.recordKey);
     this.sound.setHum(0);
     this.sound.play(won ? 'win' : 'lose');
 
