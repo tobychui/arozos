@@ -1,0 +1,21 @@
+/*
+	Orbital Claim
+
+	A real-time orbital strategy and defence game.
+*/
+
+var moduleLaunchInfo = {
+	Name: "Orbital Claim",
+	Desc: "Build an orbital defence network, manage power and survive enemy waves",
+	Group: "Games",
+	IconPath: "Orbital Claim/img/module_icon.png",
+	Version: "1.0.0",
+	StartDir: "Orbital Claim/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Orbital Claim/index.html",
+	SupportEmb: false,
+	InitFWSize: [1280, 800],
+	SupportedExt: []
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));

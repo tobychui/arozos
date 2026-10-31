@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbital Claim — How to Play</title>
+<link rel="icon" href="img/module_icon.png">
+<style>
+  :root {
+    --bg:#05070f; --panel:#0b131e; --line:#17293d;
+    --cyan:#4fd1e0; --mint:#7ef0c0; --amber:#ffc65c; --red:#ff5a4d;
+    --text:#c2d2e6; --dim:#6d8098;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--bg); }
+  body {
+    font:14px/1.5 "Segoe UI", system-ui, sans-serif; color:var(--text);
+    padding:0 20px 80px;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 50%),
+      radial-gradient(1px 1px at 68% 9%,  #fff6 50%, transparent 50%),
+      radial-gradient(1px 1px at 32% 62%, #fff5 50%, transparent 50%),
+      radial-gradient(1px 1px at 86% 48%, #fff7 50%, transparent 50%),
+      radial-gradient(1200px 700px at 50% -8%, #16305c44, transparent 62%);
+  }
+
+  header { max-width:960px; margin:0 auto; padding:44px 0 6px; text-align:center; }
+  h1 {
+    margin:0; font-size:27px; letter-spacing:.26em; text-transform:uppercase;
+    color:#dff0ff; text-shadow:0 0 22px #4fd1e055;
+  }
+  header p { color:var(--dim); margin:8px 0 0; letter-spacing:.08em; font-size:12.5px; }
+
+  .wrap { max-width:960px; margin:0 auto; }
+  .card {
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    margin-top:16px; padding:18px 20px 20px; display:grid; gap:16px;
+    grid-template-columns:170px 1fr; align-items:center;
+  }
+  @media (max-width:720px) { .card { grid-template-columns:1fr; } }
+  .card h2 {
+    margin:0; font-size:12px; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--cyan);
+  }
+  .card .lede { margin:7px 0 0; font-size:13px; color:var(--text); }
+  .card .sub  { margin:5px 0 0; font-size:11.5px; color:var(--dim); line-height:1.6; }
+  .stage {
+    background:#070c14; border:1px solid #12202f; border-radius:9px;
+    overflow:hidden;
+  }
+  .stage svg { display:block; width:100%; height:auto; }
+
+  .lab { font:600 10.5px system-ui,sans-serif; fill:var(--dim); letter-spacing:.1em; text-transform:uppercase; }
+  .val { font:700 13px system-ui,sans-serif; fill:#e6f2ff; }
+  .good { fill:var(--mint); } .warn { fill:var(--amber); } .bad { fill:var(--red); }
+
+  /* ---- shared animations ------------------------------------------------ */
+  .flow { stroke-dasharray:6 12; animation:flow 1.1s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset:-18; } }
+  .flow-back { stroke-dasharray:6 12; animation:flowb 1.1s linear infinite; }
+  @keyframes flowb { to { stroke-dashoffset:18; } }
+
+  .blink { animation:blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:.15} 50%{opacity:1} }
+
+  .beat { animation:beat 1.4s ease-in-out infinite; transform-origin:center; }
+  @keyframes beat { 0%,100%{opacity:.25} 45%{opacity:1} }
+
+  .spin { animation:spin 9s linear infinite; transform-origin:center; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .drift { animation:drift 3.2s ease-in-out infinite; }
+  @keyframes drift { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-46px)} }
+
+  .bolt { animation:bolt 0.9s linear infinite; }
+  @keyframes bolt { 0%{transform:translateX(0);opacity:0} 12%{opacity:1} 100%{transform:translateX(96px);opacity:0} }
+  .bolt2 { animation-delay:.3s; } .bolt3 { animation-delay:.6s; }
+
+  .far { animation:far 0.8s linear infinite; }
+  @keyframes far { 0%{transform:translateX(0);opacity:0} 10%{opacity:1} 100%{transform:translateX(230px);opacity:0} }
+
+  /* Aegis: an enemy missile closes, an interceptor meets it, it pops. */
+  .inmis { animation:inmis 2.4s linear infinite; }
+  @keyframes inmis { 0%{transform:translateX(0);opacity:0} 8%{opacity:1} 55%{transform:translateX(-96px);opacity:1} 56%,100%{transform:translateX(-96px);opacity:0} }
+  .icpt { animation:icpt 2.4s linear infinite; }
+  @keyframes icpt { 0%,25%{transform:translateX(0);opacity:0} 26%{opacity:1} 55%{transform:translateX(92px);opacity:1} 56%,100%{transform:translateX(92px);opacity:0} }
+  .pop { animation:pop 2.4s ease-out infinite; transform-box:fill-box; transform-origin:center; }
+  @keyframes pop { 0%,54%{transform:scale(.2);opacity:0} 57%{transform:scale(.7);opacity:1} 85%,100%{transform:scale(1.5);opacity:0} }
+  .drain { animation:drain 2.4s steps(1) infinite; }
+  @keyframes drain { 0%,55%{opacity:.25} 56%,100%{opacity:1} }
+
+  .grow { animation:grow 2.4s ease-out infinite; transform-origin:center; }
+  @keyframes grow { 0%{transform:scale(.2);opacity:.9} 70%{opacity:0} 100%{transform:scale(1.6);opacity:0} }
+
+  .fill-bar { animation:fill 3.4s ease-in-out infinite; }
+  @keyframes fill { 0%{width:8%} 55%{width:88%} 100%{width:8%} }
+
+  .step { animation:step 4.5s steps(1) infinite; }
+  @keyframes step { 0%,32%{opacity:1} 33%,100%{opacity:0} }
+  .step2 { animation:step2 4.5s steps(1) infinite; }
+  @keyframes step2 { 0%,32%{opacity:0} 33%,65%{opacity:1} 66%,100%{opacity:0} }
+  .step3 { animation:step3 4.5s steps(1) infinite; }
+  @keyframes step3 { 0%,65%{opacity:0} 66%,100%{opacity:1} }
+
+  /* ---- small chips ------------------------------------------------------ */
+  .chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .chip {
+    display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--dim);
+    background:#101a2650; border:1px solid var(--line); border-radius:6px; padding:4px 9px;
+  }
+  .chip svg { width:17px; height:17px; }
+  .chip b { color:var(--text); font-weight:600; }
+  kbd {
+    font:600 10.5px/1 monospace; color:#cfe6ff; background:#0d1622;
+    border:1px solid var(--line); border-radius:4px; padding:4px 6px;
+  }
+
+  .foot { max-width:960px; margin:26px auto 0; text-align:center; }
+  .foot a {
+    display:inline-block; font-size:13.5px; padding:11px 30px; border-radius:8px;
+    background:#12202f; border:1px solid #31557d; color:#cfe6ff; text-decoration:none;
+  }
+  .foot a:hover { background:#183044; border-color:var(--cyan); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>How to Play</h1>
+  <p>Orbital Claim &middot; mine the field, wire the grid, hold the line</p>
+</header>
+
+<div class="wrap">
+
+  <!-- ============================================================ GOAL === -->
+  <section class="card">
+    <div>
+      <h2>The Loop</h2>
+      <p class="lede">Mine &rarr; Power &rarr; Defend.</p>
+      <p class="sub">You lose only when every structure is gone.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <!-- mine -->
+        <use href="assets/sprites.svg#asteroid-a" x="26" y="40" width="46" height="46"/>
+        <use href="assets/sprites.svg#miner" x="86" y="38" width="50" height="50"/>
+        <line x1="76" y1="63" x2="106" y2="63" stroke="#7ef0c0" stroke-width="2.5" class="beat"/>
+        <text class="lab" x="60" y="112" text-anchor="middle">mine</text>
+
+        <path d="M156 63 h32" stroke="#2b4a6b" stroke-width="2"/>
+        <path d="M184 58 l8 5 l-8 5 z" fill="#2b4a6b"/>
+
+        <!-- power -->
+        <use href="assets/sprites.svg#solar" x="206" y="38" width="50" height="50"/>
+        <use href="assets/sprites.svg#relay" x="266" y="42" width="42" height="42"/>
+        <line x1="252" y1="63" x2="278" y2="63" stroke="#4fd1e0" stroke-width="2.5" class="flow"/>
+        <text class="lab" x="256" y="112" text-anchor="middle">power</text>
+
+        <path d="M326 63 h32" stroke="#2b4a6b" stroke-width="2"/>
+        <path d="M354 58 l8 5 l-8 5 z" fill="#2b4a6b"/>
+
+        <!-- defend -->
+        <use href="assets/sprites.svg#laser" x="378" y="38" width="50" height="50"/>
+        <use href="assets/sprites.svg#fighter" x="484" y="40" width="44" height="44"/>
+        <line x1="424" y1="62" x2="492" y2="62" stroke="#bdf3ff" stroke-width="2" class="beat"/>
+        <text class="lab" x="452" y="112" text-anchor="middle">defend</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- =========================================================== POWER === -->
+  <section class="card">
+    <div>
+      <h2>Power</h2>
+      <p class="lede">Solar makes it. Relay carries it. Everything else spends it.</p>
+      <p class="sub">Thick, bright links carry more.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <use href="assets/sprites.svg#solar" x="34" y="38" width="54" height="54"/>
+        <use href="assets/sprites.svg#relay" x="232" y="43" width="44" height="44"/>
+        <use href="assets/sprites.svg#miner" x="430" y="20" width="46" height="46"/>
+        <use href="assets/sprites.svg#laser" x="430" y="66" width="46" height="46"/>
+
+        <!-- trunk: thick -->
+        <line x1="88" y1="65" x2="234" y2="65" stroke="#4fd1e0" stroke-width="5" opacity=".55"/>
+        <line x1="88" y1="65" x2="234" y2="65" stroke="#bdf3ff" stroke-width="2.4" class="flow"/>
+        <!-- spurs: thin -->
+        <line x1="274" y1="60" x2="434" y2="43" stroke="#4fd1e0" stroke-width="2" opacity=".45"/>
+        <line x1="274" y1="60" x2="434" y2="43" stroke="#bdf3ff" stroke-width="1.4" class="flow"/>
+        <line x1="274" y1="70" x2="434" y2="89" stroke="#4fd1e0" stroke-width="2" opacity=".45"/>
+        <line x1="274" y1="70" x2="434" y2="89" stroke="#bdf3ff" stroke-width="1.4" class="flow"/>
+
+        <text class="lab" x="61" y="112" text-anchor="middle">+60</text>
+        <text class="lab" x="254" y="112" text-anchor="middle">carries</text>
+        <text class="lab" x="453" y="122" text-anchor="middle">&minus;14</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ============================================================ MINE === -->
+  <section class="card">
+    <div>
+      <h2>Mining</h2>
+      <p class="lede">Miners work every rock in range.</p>
+      <p class="sub">Rocks run dry. Faster flashes = more ore.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <use href="assets/sprites.svg#miner" x="60" y="38" width="52" height="52"/>
+        <circle cx="86" cy="64" r="58" fill="none" stroke="#7ef0c0" stroke-width="1.2"
+                stroke-dasharray="4 6" opacity=".3"/>
+
+        <use href="assets/sprites.svg#asteroid-a" x="196" y="14" width="46" height="46"/>
+        <use href="assets/sprites.svg#asteroid-b" x="206" y="72" width="42" height="42"/>
+
+        <line x1="112" y1="58" x2="212" y2="36" stroke="#7ef0c0" stroke-width="2.6" class="beat"/>
+        <line x1="112" y1="72" x2="220" y2="92" stroke="#7ef0c0" stroke-width="2.6" class="beat"
+              style="animation-delay:.55s"/>
+
+        <!-- ore readout -->
+        <use href="assets/sprites.svg#icon-mineral" x="330" y="46" width="24" height="24"/>
+        <text class="val" x="364" y="64">+4.0 / s</text>
+        <rect x="330" y="82" width="180" height="6" rx="3" fill="#16232f"/>
+        <rect x="330" y="82" width="120" height="6" rx="3" fill="#7ef0c0" opacity=".85"/>
+        <text class="lab" x="330" y="106">rock depletes</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- =========================================================== LINKS === -->
+  <section class="card">
+    <div>
+      <h2>Links</h2>
+      <p class="lede">Relays and solars branch. Miners and weapons don't.</p>
+      <p class="sub">Build your network out of relays.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <!-- carrier -->
+        <use href="assets/sprites.svg#relay" x="82" y="42" width="46" height="46"/>
+        <g stroke="#4fd1e0" stroke-width="2" opacity=".75">
+          <line x1="105" y1="65" x2="45"  y2="30"/><line x1="105" y1="65" x2="165" y2="30"/>
+          <line x1="105" y1="65" x2="35"  y2="65"/><line x1="105" y1="65" x2="175" y2="65"/>
+          <line x1="105" y1="65" x2="45"  y2="100"/><line x1="105" y1="65" x2="165" y2="100"/>
+        </g>
+        <g fill="#4fd1e0">
+          <circle cx="45" cy="30" r="3.5"/><circle cx="165" cy="30" r="3.5"/>
+          <circle cx="35" cy="65" r="3.5"/><circle cx="175" cy="65" r="3.5"/>
+          <circle cx="45" cy="100" r="3.5"/><circle cx="165" cy="100" r="3.5"/>
+        </g>
+        <text class="lab good" x="105" y="124" text-anchor="middle">branches &times;6</text>
+
+        <line x1="280" y1="18" x2="280" y2="112" stroke="#17293d" stroke-width="1.5"/>
+
+        <!-- leaf -->
+        <use href="assets/sprites.svg#laser" x="404" y="42" width="46" height="46"/>
+        <line x1="427" y1="65" x2="352" y2="65" stroke="#4fd1e0" stroke-width="2" opacity=".75"/>
+        <circle cx="348" cy="65" r="3.5" fill="#4fd1e0"/>
+        <g stroke="var(--red)" stroke-width="2" opacity=".65">
+          <line x1="462" y1="46" x2="486" y2="34"/><line x1="486" y1="34" x2="462" y2="46"/>
+        </g>
+        <g stroke="var(--red)" stroke-width="2.4">
+          <line x1="470" y1="30" x2="486" y2="46"/><line x1="486" y1="30" x2="470" y2="46"/>
+        </g>
+        <text class="lab warn" x="427" y="124" text-anchor="middle">one link only</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- =========================================================== BUILD === -->
+  <section class="card">
+    <div>
+      <h2>Building</h2>
+      <p class="lede">Out of reach = no power = no progress.</p>
+      <p class="sub">Reach it with a relay and it starts itself. Lost one? Click <b>Show</b> on the &ldquo;isolated&rdquo; warning to jump to it.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <use href="assets/sprites.svg#solar" x="34" y="40" width="50" height="50"/>
+
+        <!-- stage 1: stranded -->
+        <g class="step">
+          <use href="assets/sprites.svg#laser" x="380" y="40" width="50" height="50" opacity=".4"/>
+          <circle cx="405" cy="65" r="34" fill="none" stroke="var(--amber)" stroke-width="2.2"
+                  stroke-dasharray="5 5"/>
+          <text class="lab warn" x="405" y="122" text-anchor="middle">0%</text>
+        </g>
+        <!-- stage 2: relay bridges -->
+        <g class="step2">
+          <use href="assets/sprites.svg#relay" x="206" y="44" width="42" height="42"/>
+          <line x1="84" y1="65" x2="208" y2="65" stroke="#4fd1e0" stroke-width="3" opacity=".5"/>
+          <line x1="84" y1="65" x2="208" y2="65" stroke="#bdf3ff" stroke-width="1.6" class="flow"/>
+          <line x1="248" y1="65" x2="382" y2="65" stroke="#4fd1e0" stroke-width="3" opacity=".5"/>
+          <line x1="248" y1="65" x2="382" y2="65" stroke="#bdf3ff" stroke-width="1.6" class="flow"/>
+          <use href="assets/sprites.svg#laser" x="380" y="40" width="50" height="50" opacity=".65"/>
+          <circle cx="405" cy="65" r="34" fill="none" stroke="var(--cyan)" stroke-width="2.6"
+                  stroke-dasharray="120 214" transform="rotate(-90 405 65)"/>
+          <text class="lab" x="405" y="122" text-anchor="middle">building</text>
+        </g>
+        <!-- stage 3: online -->
+        <g class="step3">
+          <use href="assets/sprites.svg#relay" x="206" y="44" width="42" height="42"/>
+          <line x1="84" y1="65" x2="208" y2="65" stroke="#4fd1e0" stroke-width="3" opacity=".5"/>
+          <line x1="84" y1="65" x2="208" y2="65" stroke="#bdf3ff" stroke-width="1.6" class="flow"/>
+          <line x1="248" y1="65" x2="382" y2="65" stroke="#4fd1e0" stroke-width="3" opacity=".5"/>
+          <line x1="248" y1="65" x2="382" y2="65" stroke="#bdf3ff" stroke-width="1.6" class="flow"/>
+          <use href="assets/sprites.svg#laser" x="380" y="40" width="50" height="50"/>
+          <text class="lab good" x="405" y="122" text-anchor="middle">online</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ========================================================= BALANCE === -->
+  <section class="card">
+    <div>
+      <h2>Balance</h2>
+      <p class="lede">Demand over supply slows <em>everything</em>.</p>
+      <p class="sub">Batteries absorb spikes first. Yellow links = that grid is short.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <use href="assets/sprites.svg#icon-power" x="26" y="24" width="22" height="22"/>
+        <text class="lab" x="56" y="40">supply</text>
+        <rect x="118" y="27" width="200" height="9" rx="4.5" fill="#16232f"/>
+        <rect x="118" y="27" width="150" height="9" rx="4.5" fill="#4fd1e0" opacity=".9"/>
+
+        <text class="lab" x="56" y="68">demand</text>
+        <rect x="118" y="55" width="200" height="9" rx="4.5" fill="#16232f"/>
+        <rect x="118" y="55" width="186" height="9" rx="4.5" fill="var(--amber)" class="beat"/>
+
+        <use href="assets/sprites.svg#battery" x="360" y="14" width="46" height="46"/>
+        <text class="lab warn" x="383" y="76" text-anchor="middle">buffers</text>
+
+        <!-- healthy vs short link -->
+        <line x1="118" y1="100" x2="236" y2="100" stroke="#4fd1e0" stroke-width="4" opacity=".6"/>
+        <line x1="118" y1="100" x2="236" y2="100" stroke="#bdf3ff" stroke-width="1.8" class="flow"/>
+        <text class="lab good" x="248" y="104">ok</text>
+
+        <line x1="330" y1="100" x2="448" y2="100" stroke="var(--amber)" stroke-width="4" opacity=".6"/>
+        <line x1="330" y1="100" x2="448" y2="100" stroke="#ffe2aa" stroke-width="1.8" class="flow"/>
+        <text class="lab warn" x="460" y="104">short</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ========================================================= WEAPONS === -->
+  <section class="card">
+    <div>
+      <h2>Weapons</h2>
+      <p class="lede">Beam never misses. Pulser outranges. Missiles splash.</p>
+      <p class="sub">Missiles spend minerals per shot.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 150">
+        <!-- laser -->
+        <use href="assets/sprites.svg#laser" x="24" y="16" width="44" height="44"/>
+        <line x1="66" y1="38" x2="150" y2="38" stroke="#4fd1e0" stroke-width="5" opacity=".28"/>
+        <line x1="66" y1="38" x2="150" y2="38" stroke="#d6f7ff" stroke-width="1.8" class="beat"/>
+        <use href="assets/sprites.svg#fighter" x="146" y="16" width="40" height="40"/>
+        <text class="lab" x="200" y="42">steady beam</text>
+
+        <!-- pulser -->
+        <use href="assets/sprites.svg#pulser" x="24" y="62" width="44" height="44"/>
+        <g fill="#4fd1e0">
+          <rect class="bolt"  x="68" y="82" width="11" height="3.4" rx="1.7"/>
+          <rect class="bolt bolt2" x="68" y="82" width="11" height="3.4" rx="1.7"/>
+          <rect class="bolt bolt3" x="68" y="82" width="11" height="3.4" rx="1.7"/>
+        </g>
+        <use href="assets/sprites.svg#fighter" x="146" y="62" width="40" height="40"/>
+        <text class="lab" x="200" y="88">long-range bolts</text>
+
+        <!-- missile -->
+        <use href="assets/sprites.svg#missile-bay" x="24" y="106" width="44" height="44"/>
+        <circle cx="166" cy="128" r="20" fill="var(--amber)" opacity=".22" class="grow"/>
+        <use href="assets/sprites.svg#swarmer" x="150" y="112" width="30" height="30"/>
+        <use href="assets/sprites.svg#swarmer" x="176" y="118" width="26" height="26"/>
+        <text class="lab" x="212" y="132">splash</text>
+        <use href="assets/sprites.svg#icon-mineral" x="292" y="118" width="18" height="18"/>
+        <text class="lab warn" x="316" y="132">costs ore</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ========================================================= THREATS === -->
+  <section class="card">
+    <div>
+      <h2>Threats</h2>
+      <p class="lede">Each one punishes a different lazy answer.</p>
+      <p class="sub">Mix your defences.</p>
+    </div>
+    <div class="stage" style="padding:14px 12px">
+      <div class="chips">
+        <span class="chip"><svg viewBox="0 0 64 64"><use href="assets/sprites.svg#fighter"/></svg><b>Fighter</b> weaves</span>
+        <span class="chip"><svg viewBox="0 0 64 64"><use href="assets/sprites.svg#swarmer"/></svg><b>Swarmer</b> many</span>
+        <span class="chip"><svg viewBox="0 0 64 64"><use href="assets/sprites.svg#missile-ship"/></svg><b>Missile</b> outranges lasers, homing shots</span>
+        <span class="chip"><svg viewBox="0 0 64 64"><use href="assets/sprites.svg#exploder"/></svg><b>Exploder</b> rams</span>
+        <span class="chip"><svg viewBox="0 0 64 64"><use href="assets/sprites.svg#ring-ship"/></svg><b>Ring</b> shielded</span>
+        <span class="chip"><svg viewBox="0 0 64 64"><use href="assets/sprites.svg#mothership"/></svg><b>Mothership</b> boss, fires missiles</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================== WAVES === -->
+  <section class="card">
+    <div>
+      <h2>Waves</h2>
+      <p class="lede">Arrows show where they'll come from.</p>
+      <p class="sub">Late waves arrive from several sides at once.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 150">
+        <!-- early: one arrow -->
+        <circle cx="150" cy="75" r="52" fill="none" stroke="#4fd1e0" stroke-width="1" opacity=".22"
+                stroke-dasharray="6 8"/>
+        <use href="assets/sprites.svg#solar" x="128" y="53" width="44" height="44"/>
+        <g class="blink">
+          <path d="M228 61 l16 14 l-16 14" fill="none" stroke="var(--red)" stroke-width="3.4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        <use href="assets/sprites.svg#fighter" x="254" y="55" width="40" height="40" class="drift"/>
+        <text class="lab" x="150" y="140" text-anchor="middle">early &mdash; one side</text>
+
+        <line x1="330" y1="18" x2="330" y2="132" stroke="#17293d" stroke-width="1.5"/>
+
+        <!-- late: several arrows -->
+        <circle cx="452" cy="75" r="52" fill="none" stroke="#4fd1e0" stroke-width="1" opacity=".22"
+                stroke-dasharray="6 8"/>
+        <use href="assets/sprites.svg#solar" x="430" y="53" width="44" height="44"/>
+        <g class="blink" fill="none" stroke="var(--red)" stroke-width="3.2"
+           stroke-linecap="round" stroke-linejoin="round">
+          <path d="M528 61 l14 14 l-14 14"/>
+          <path d="M376 89 l-14 -14 l14 -14"/>
+          <path d="M438 15 l14 -12 l14 12"/>
+          <path d="M438 135 l14 12 l14 -12"/>
+        </g>
+        <text class="lab" x="452" y="140" text-anchor="middle">wave 13+ &mdash; many</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ======================================================== UPGRADES === -->
+  <section class="card">
+    <div>
+      <h2>Upgrades</h2>
+      <p class="lede">More blades, more power, same footprint.</p>
+      <p class="sub">Batteries upgrade once, to 4&times; storage. Weapons and repair stations pick a <b>path</b> on their first upgrade &mdash; and stay on it.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <use href="assets/sprites.svg#solar" x="60" y="34" width="58" height="58"/>
+        <text class="val" x="89" y="112" text-anchor="middle">20</text>
+
+        <path d="M140 63 h32" stroke="#2b4a6b" stroke-width="2"/>
+        <path d="M168 58 l8 5 l-8 5 z" fill="#2b4a6b"/>
+
+        <use href="assets/sprites.svg#solar-4" x="196" y="34" width="58" height="58"/>
+        <text class="val" x="225" y="112" text-anchor="middle">40</text>
+
+        <path d="M276 63 h32" stroke="#2b4a6b" stroke-width="2"/>
+        <path d="M304 58 l8 5 l-8 5 z" fill="#2b4a6b"/>
+
+        <use href="assets/sprites.svg#solar-6" x="332" y="34" width="58" height="58"/>
+        <text class="val good" x="361" y="112" text-anchor="middle">60</text>
+
+        <use href="assets/sprites.svg#battery"   x="440" y="38" width="46" height="46"/>
+        <use href="assets/sprites.svg#battery-2" x="496" y="38" width="46" height="46"/>
+        <text class="lab warn" x="492" y="112" text-anchor="middle">4&times;</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ==================================================== PULSER PATHS === -->
+  <section class="card">
+    <div>
+      <h2>Pulser Paths</h2>
+      <p class="lede">Pick one: snipe, shred, or shield.</p>
+      <p class="sub">Aegis stops shooting ships. It shoots down enemy missiles instead and never misses, but drains heavy power recharging after each one. Its upgrades shorten the recharge.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 162">
+        <!-- lance -->
+        <use href="assets/sprites.svg#pulser-lance2" x="24" y="6" width="44" height="44"/>
+        <g fill="#c4ecff">
+          <rect class="far" x="66" y="26.5" width="16" height="3" rx="1.5"/>
+        </g>
+        <use href="assets/sprites.svg#ring-ship" x="290" y="10" width="36" height="36"/>
+        <text class="lab" x="344" y="24">Lance</text>
+        <text class="lab good" x="344" y="38">extreme range, heavy slugs</text>
+
+        <!-- barrage -->
+        <use href="assets/sprites.svg#pulser-barrage4" x="24" y="56" width="44" height="44"/>
+        <g fill="#4fd1e0">
+          <rect class="bolt"       x="68" y="72" width="10" height="3" rx="1.5"/>
+          <rect class="bolt bolt2" x="68" y="77" width="10" height="3" rx="1.5"/>
+          <rect class="bolt bolt3" x="68" y="82" width="10" height="3" rx="1.5"/>
+        </g>
+        <use href="assets/sprites.svg#swarmer" x="160" y="62" width="24" height="24"/>
+        <use href="assets/sprites.svg#swarmer" x="178" y="74" width="22" height="22"/>
+        <text class="lab" x="344" y="74">Barrage</text>
+        <text class="lab good" x="344" y="88">4 barrels, a wall of bolts</text>
+
+        <!-- aegis -->
+        <use href="assets/sprites.svg#pulser-aegis2" x="24" y="108" width="44" height="44"/>
+        <g class="inmis">
+          <rect x="256" y="128.4" width="12" height="3.2" fill="#ffc65c"/>
+          <circle cx="262" cy="130" r="7" fill="none" stroke="#7ef0c0" stroke-width="1.2"/>
+        </g>
+        <g class="icpt">
+          <use href="assets/sprites.svg#interceptor" x="64" y="122" width="16" height="16"
+               transform="rotate(90 72 130)"/>
+        </g>
+        <circle class="pop" cx="164" cy="130" r="14" fill="var(--amber)" opacity=".7"/>
+        <text class="lab" x="344" y="124">Aegis</text>
+        <text class="lab good" x="344" y="138">intercepts missiles</text>
+        <g class="drain">
+          <use href="assets/sprites.svg#icon-power" x="342" y="142" width="13" height="13"/>
+          <text class="lab warn" x="358" y="152">power spike per intercept</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ========================================================== REPAIR === -->
+  <section class="card">
+    <div>
+      <h2>Repair</h2>
+      <p class="lede">Drones fly out, patch, and come home.</p>
+      <p class="sub">Hurt drones retreat and recharge on the pad.</p>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 560 130">
+        <use href="assets/sprites.svg#repair" x="46" y="40" width="50" height="50"/>
+        <circle cx="71" cy="65" r="40" fill="none" stroke="#7ef0c0" stroke-width="1"
+                stroke-dasharray="4 6" opacity=".28"/>
+
+        <!-- charging tether -->
+        <use href="assets/sprites.svg#repair-bot" x="106" y="24" width="26" height="26"/>
+        <line x1="88" y1="52" x2="112" y2="38" stroke="var(--amber)" stroke-width="1.8"
+              stroke-dasharray="3 4" class="flow"/>
+        <text class="lab warn" x="146" y="41">recharging</text>
+
+        <!-- out working -->
+        <use href="assets/sprites.svg#repair-bot" x="300" y="52" width="28" height="28"/>
+        <use href="assets/sprites.svg#pulser" x="380" y="42" width="46" height="46"/>
+        <line x1="326" y1="66" x2="386" y2="66" stroke="#7ef0c0" stroke-width="2.6" class="beat"/>
+        <text class="lab good" x="330" y="104">patching</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ======================================================== CONTROLS === -->
+  <section class="card">
+    <div>
+      <h2>Controls</h2>
+      <p class="lede">Everything you need.</p>
+    </div>
+    <div class="stage" style="padding:14px 12px">
+      <div class="chips">
+        <span class="chip"><kbd>1</kbd>&ndash;<kbd>8</kbd> pick</span>
+        <span class="chip"><kbd>Click</kbd> place / select</span>
+        <span class="chip"><kbd>Shift</kbd> place many</span>
+        <span class="chip"><kbd>Esc</kbd> cancel / menu</span>
+        <span class="chip"><kbd>Drag</kbd> / <kbd>WASD</kbd> pan</span>
+        <span class="chip"><kbd>Wheel</kbd> zoom</span>
+        <span class="chip"><kbd>G</kbd> grid lines</span>
+        <span class="chip"><kbd>X</kbd> recycle</span>
+        <span class="chip"><kbd>Space</kbd> pause</span>
+        <span class="chip"><kbd>Enter</kbd> call wave</span>
+        <span class="chip"><kbd>M</kbd> mute</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="foot">
+  <a href="index.html">Start playing &rarr;</a>
+</div>
+
+<script>
+  // Opened from the in-game Esc menu: the footer link and Esc go back to the
+  // paused run, instead of loading a second copy of the game into the frame.
+  if (new URLSearchParams(location.search).has('embedded') && window.parent !== window) {
+    const back = () => parent.postMessage({ type: 'orbitalclaim:close-help' }, location.origin);
+    const link = document.querySelector('.foot a');
+    link.textContent = 'Back to the game';
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      back();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') back();
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbital Claim — asset sheet</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 20px 60px;
+    background: #070b12;
+    background-image:
+      radial-gradient(1px 1px at 15% 20%, #fff8 50%, transparent 50%),
+      radial-gradient(1px 1px at 65% 12%, #fff6 50%, transparent 50%),
+      radial-gradient(1px 1px at 35% 70%, #fff5 50%, transparent 50%),
+      radial-gradient(1px 1px at 88% 55%, #fff7 50%, transparent 50%),
+      radial-gradient(1000px 600px at 50% -10%, #102a4433, transparent 65%);
+    color: #b9c8dc;
+    font: 14px/1.55 "Segoe UI", system-ui, sans-serif;
+  }
+  header { max-width: 1100px; margin: 0 auto; padding: 34px 0 10px; }
+  h1 { margin: 0; font-size: 24px; letter-spacing: .2em; text-transform: uppercase; color: #dff0ff; }
+  .sub { margin: 6px 0 0; color: #66798f; font-size: 12.5px; letter-spacing: .06em; }
+  h2 {
+    max-width: 1100px; margin: 34px auto 12px; font-size: 12px; letter-spacing: .22em;
+    text-transform: uppercase; color: #4fd1e0; border-bottom: 1px solid #17293d; padding-bottom: 8px;
+  }
+  .grid { max-width: 1100px; margin: 0 auto; display: grid; gap: 12px;
+          grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); }
+  .card {
+    background: #0c141f; border: 1px solid #17293d; border-radius: 8px;
+    padding: 14px; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .card svg { flex: none; width: 56px; height: 56px; filter: drop-shadow(0 0 10px #0af3); }
+  .nm { color: #e2eefc; font-weight: 600; font-size: 13.5px; }
+  .dsc { color: #6d8098; font-size: 11.5px; margin-top: 3px; }
+  .stats { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 10.5px; color: #7f93ab; }
+  .stats b { color: #4fd1e0; font-weight: 600; }
+  footer { max-width: 1100px; margin: 40px auto 0; color: #4a5a70; font-size: 11.5px;
+           border-top: 1px solid #17293d; padding-top: 14px; }
+  code { color: #7ef0c0; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Orbital Claim</h1>
+  <p class="sub">HTML5 rebuild &middot; asset sheet &middot; original artwork, no extracted Flash assets</p>
+</header>
+
+<div id="out"></div>
+
+<footer>
+  Sprites live in <code>assets/sprites.svg</code> as <code>&lt;symbol&gt;</code> definitions and are
+  referenced with <code>&lt;use href="assets/sprites.svg#miner"&gt;</code>.
+  Balance data is <code>assets/entities.json</code>. See <code>../README.md</code> for the build plan.
+</footer>
+
+<script>
+const SHEET = "assets/sprites.svg";
+const out = document.getElementById("out");
+
+function card(id, name, desc, stats) {
+  const keys = Object.entries(stats || {})
+    .filter(([k, v]) => typeof v === "number")
+    .map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("");
+  return `<div class="card">
+    <svg viewBox="0 0 64 64"><use href="${SHEET}#${id}"></use></svg>
+    <div>
+      <div class="nm">${name}</div>
+      <div class="dsc">${desc || ""}</div>
+      <div class="stats">${keys}</div>
+    </div>
+  </div>`;
+}
+
+function section(title, html) {
+  return `<h2>${title}</h2><div class="grid">${html}</div>`;
+}
+
+fetch("assets/entities.json").then(r => r.json()).then(data => {
+  const b = Object.entries(data.buildings)
+    .map(([k, v]) => card(v.sprite, v.name, v.desc, v)).join("");
+  const e = Object.entries(data.enemies)
+    .map(([k, v]) => card(v.sprite, v.name, v.desc, v)).join("");
+  const w = ["asteroid-a", "asteroid-b", "asteroid-c"]
+    .map(id => card(id, id, "Mineable rock — depletes as it is worked.", {})).join("");
+  const fx = [["bolt", "Laser bolt"], ["missile", "Missile"], ["blast", "Detonation"]]
+    .map(([id, n]) => card(id, n, "", {})).join("");
+
+  out.innerHTML =
+    section("Structures", b) +
+    section("Hostiles", e) +
+    section("Field", w) +
+    section("Effects", fx);
+}).catch(err => {
+  out.innerHTML = `<h2>Could not load entities.json</h2>
+    <p class="sub">Serve this folder over HTTP (fetch is blocked on file://). ${err}</p>`;
+});
+</script>
+</body>
+</html>

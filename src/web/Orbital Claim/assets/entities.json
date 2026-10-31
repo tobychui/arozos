@@ -1,0 +1,650 @@
+{
+  "$comment": "Orbital Claim - balance data. Original values; the 2009 game's numbers were never published and are not used here. Distances are world units (1 unit = 1 px at zoom 1). Times are seconds.",
+  "resources": {
+    "minerals": {
+      "start": 300,
+      "note": "uncapped: a ceiling only produced storage-depot busywork"
+    },
+    "power": {
+      "start": 0,
+      "note": "power is a live supply/demand balance per grid island, not a stockpile"
+    }
+  },
+  "grid": {
+    "$comment": "Structures must be inside the powered network or they idle at 0% rate.",
+    "linkRange": 170,
+    "relayMaxLinks": 6,
+    "solarMaxLinks": 12,
+    "hubMaxLinks": 12,
+    "brownoutBehaviour": "If demand exceeds supply, every consumer runs at supply/demand rate."
+  },
+  "buildings": {
+    "miner": {
+      "name": "Mineral Miner",
+      "sprite": "miner",
+      "radius": 20,
+      "cost": 120,
+      "power": -6,
+      "hp": 320,
+      "buildTime": 2.5,
+      "range": 130,
+      "mineRate": 4.0,
+      "desc": "Extracts ore from every asteroid in range. Rate splits across asteroids; asteroids deplete.",
+      "maxLinks": 1,
+      "upgrades": [
+        {
+          "name": "Deep Bore",
+          "cost": 85,
+          "time": 3.5,
+          "mineRate": 6.0,
+          "power": -10,
+          "hp": 360,
+          "rings": 1,
+          "desc": "1.5x extraction. Costs more per unit of yield than a second miner - use it when there is no room left."
+        }
+      ]
+    },
+    "solar": {
+      "name": "Solar Station",
+      "sprite": "solar",
+      "radius": 18,
+      "cost": 100,
+      "power": 20,
+      "hp": 260,
+      "buildTime": 2.0,
+      "desc": "Generates power and anchors the grid. Accepts many links.",
+      "upgrades": [
+        {
+          "name": "Solar Array II",
+          "cost": 160,
+          "time": 4.0,
+          "sprite": "solar-4",
+          "power": 40,
+          "hp": 320,
+          "radius": 18.5,
+          "desc": "Four panels. Doubles output for one grid slot."
+        },
+        {
+          "name": "Solar Array III",
+          "cost": 300,
+          "time": 6.0,
+          "sprite": "solar-6",
+          "power": 60,
+          "hp": 380,
+          "radius": 19,
+          "desc": "Six panels. Triples output, but the last tier is the priciest per point."
+        }
+      ]
+    },
+    "relay": {
+      "name": "Energy Relay",
+      "sprite": "relay",
+      "radius": 16,
+      "cost": 45,
+      "power": -1,
+      "hp": 180,
+      "buildTime": 1.2,
+      "desc": "Cheap grid extender. Limited to 6 links, so plan trunk lines."
+    },
+    "laser": {
+      "name": "Basic Laser",
+      "sprite": "laser",
+      "radius": 18,
+      "cost": 80,
+      "power": -8,
+      "hp": 260,
+      "buildTime": 1.8,
+      "range": 165,
+      "beam": true,
+      "dps": 14,
+      "refundRatio": 1.0,
+      "desc": "Continuous cutting beam. Never misses, but wears targets down slowly. Full refund on sell.",
+      "maxLinks": 1,
+      "upgradePaths": {
+        "focus": {
+          "name": "Focus",
+          "desc": "Tighter beam. Hits far harder, same reach.",
+          "tiers": [
+            {
+              "name": "Focused Beam II",
+              "cost": 120,
+              "time": 3.5,
+              "dps": 23,
+              "power": -14,
+              "hp": 300,
+              "desc": "Heavier cutting power.",
+              "rings": 1
+            },
+            {
+              "name": "Focused Beam III",
+              "cost": 210,
+              "time": 5.5,
+              "dps": 34,
+              "power": -21,
+              "hp": 340,
+              "desc": "Melts armour up close. Hungry.",
+              "rings": 2
+            }
+          ]
+        },
+        "optics": {
+          "name": "Optics",
+          "desc": "Longer reach. Outranges missile ships.",
+          "tiers": [
+            {
+              "name": "Long Optics II",
+              "cost": 110,
+              "time": 3.5,
+              "range": 220,
+              "dps": 16,
+              "power": -13,
+              "hp": 290,
+              "desc": "Reaches past the front line.",
+              "sprite": "laser-long"
+            },
+            {
+              "name": "Long Optics III",
+              "cost": 195,
+              "time": 5.5,
+              "range": 275,
+              "dps": 19,
+              "power": -19,
+              "hp": 320,
+              "desc": "Sniper coverage over a wide arc.",
+              "sprite": "laser-long2"
+            }
+          ]
+        }
+      }
+    },
+    "pulser": {
+      "name": "Pulser",
+      "sprite": "pulser",
+      "radius": 18,
+      "cost": 180,
+      "power": -14,
+      "hp": 300,
+      "buildTime": 2.4,
+      "range": 210,
+      "damage": 7,
+      "fireRate": 4.0,
+      "projectile": "bolt",
+      "desc": "Long-range bolt thrower. Out-reaches the laser, but bolts can miss fast movers. Power hungry.",
+      "maxLinks": 1,
+      "upgradePaths": {
+        "lance": {
+          "name": "Lance",
+          "desc": "Single rail. Slow, heavy slugs from extreme range.",
+          "tiers": [
+            {
+              "name": "Rail Lance II",
+              "cost": 190,
+              "time": 4.0,
+              "range": 275,
+              "damage": 24,
+              "fireRate": 1.6,
+              "projectile": "slug",
+              "projectileSpeed": 1000,
+              "barrels": 1,
+              "power": -20,
+              "hp": 330,
+              "desc": "Fast slugs that rarely miss. Outranges missile ships.",
+              "sprite": "pulser-lance"
+            },
+            {
+              "name": "Rail Lance III",
+              "cost": 330,
+              "time": 6.0,
+              "range": 340,
+              "damage": 46,
+              "fireRate": 1.25,
+              "projectileSpeed": 1250,
+              "power": -29,
+              "hp": 360,
+              "desc": "Cracks ring-ship shields long before they close.",
+              "sprite": "pulser-lance2"
+            }
+          ]
+        },
+        "barrage": {
+          "name": "Barrage",
+          "desc": "Extra barrels. A wall of bolts at long range.",
+          "tiers": [
+            {
+              "name": "Long Barrage II",
+              "cost": 170,
+              "time": 4.0,
+              "range": 240,
+              "damage": 7,
+              "fireRate": 6.0,
+              "barrels": 3,
+              "barrelGap": 7,
+              "power": -20,
+              "hp": 330,
+              "desc": "Third barrel. Thins packs before they reach the line.",
+              "sprite": "pulser-barrage3"
+            },
+            {
+              "name": "Long Barrage III",
+              "cost": 300,
+              "time": 6.0,
+              "range": 270,
+              "damage": 8,
+              "fireRate": 8.0,
+              "barrels": 4,
+              "barrelGap": 6,
+              "power": -28,
+              "hp": 370,
+              "desc": "Four barrels. Shreds swarms at range.",
+              "sprite": "pulser-barrage4"
+            }
+          ]
+        },
+        "aegis": {
+          "name": "Aegis",
+          "desc": "Special: becomes missile defence. Shoots down incoming missiles and never misses, but stops firing at ships and burns heavy power recharging after every intercept.",
+          "tiers": [
+            {
+              "name": "Aegis Interceptor II",
+              "cost": 220,
+              "time": 4.5,
+              "intercept": true,
+              "range": 240,
+              "fireRate": 0.6,
+              "projectile": "interceptor",
+              "projectileSpeed": 900,
+              "barrels": 2,
+              "barrelGap": 8,
+              "power": -38,
+              "idleFactor": 0.1,
+              "hp": 330,
+              "desc": "Intercepts one missile every 1.7s. Draws 38 power while recharging.",
+              "sprite": "pulser-aegis"
+            },
+            {
+              "name": "Aegis Interceptor III",
+              "cost": 380,
+              "time": 6.5,
+              "fireRate": 1.25,
+              "barrelGap": 9,
+              "power": -48,
+              "hp": 370,
+              "desc": "Intercepts one missile every 0.8s. Draws 48 power while recharging.",
+              "sprite": "pulser-aegis2"
+            }
+          ]
+        }
+      }
+    },
+    "missileBay": {
+      "name": "Missile Battery",
+      "sprite": "missile-bay",
+      "radius": 20,
+      "cost": 260,
+      "power": -12,
+      "hp": 340,
+      "buildTime": 3.0,
+      "range": 290,
+      "damage": 40,
+      "splash": 70,
+      "fireRate": 0.5,
+      "projectile": "missile",
+      "minRange": 60,
+      "ammoCost": 9,
+      "desc": "Long range splash, but every missile costs minerals. Goes quiet if you run dry.",
+      "maxLinks": 1,
+      "upgradePaths": {
+        "warhead": {
+          "name": "Warhead",
+          "desc": "Bigger blast per shot, pricier ordnance.",
+          "tiers": [
+            {
+              "name": "Heavy Warhead II",
+              "cost": 270,
+              "time": 4.5,
+              "damage": 64,
+              "splash": 92,
+              "ammoCost": 14,
+              "power": -18,
+              "hp": 390,
+              "desc": "Wider, heavier detonation.",
+              "sprite": "missile-heavy"
+            },
+            {
+              "name": "Heavy Warhead III",
+              "cost": 430,
+              "time": 6.5,
+              "damage": 95,
+              "splash": 118,
+              "ammoCost": 20,
+              "power": -27,
+              "hp": 440,
+              "desc": "Clears a whole cluster per missile.",
+              "sprite": "missile-heavy2"
+            }
+          ]
+        },
+        "salvo": {
+          "name": "Salvo",
+          "desc": "Fires faster and further, same warhead.",
+          "tiers": [
+            {
+              "name": "Rapid Salvo II",
+              "cost": 250,
+              "time": 4.5,
+              "fireRate": 0.8,
+              "range": 335,
+              "ammoCost": 10,
+              "power": -18,
+              "hp": 370,
+              "desc": "More missiles in the air.",
+              "sprite": "missile-salvo3"
+            },
+            {
+              "name": "Rapid Salvo III",
+              "cost": 400,
+              "time": 6.5,
+              "fireRate": 1.2,
+              "range": 380,
+              "ammoCost": 11,
+              "power": -27,
+              "hp": 410,
+              "desc": "Sustained bombardment at long reach.",
+              "sprite": "missile-salvo4"
+            }
+          ]
+        }
+      }
+    },
+    "battery": {
+      "name": "Battery Bank",
+      "sprite": "battery",
+      "radius": 19,
+      "cost": 140,
+      "power": 0,
+      "hp": 240,
+      "buildTime": 2.2,
+      "capacity": 240,
+      "chargeRate": 14,
+      "dischargeRate": 30,
+      "desc": "Stores surplus power and covers deficits, so a spike browns out the bank instead of the base.",
+      "upgrades": [
+        {
+          "name": "Battery Bank II",
+          "cost": 220,
+          "time": 4.5,
+          "sprite": "battery-2",
+          "hp": 300,
+          "radius": 20,
+          "capacity": 960,
+          "chargeRate": 28,
+          "dischargeRate": 60,
+          "desc": "Second cell column. Four times the storage."
+        }
+      ]
+    },
+    "repair": {
+      "name": "Repair Station",
+      "sprite": "repair",
+      "radius": 20,
+      "cost": 200,
+      "power": -10,
+      "hp": 280,
+      "buildTime": 2.6,
+      "range": 260,
+      "healRate": 16,
+      "botCount": 4,
+      "botHp": 40,
+      "botSpeed": 105,
+      "botRebuildTime": 6,
+      "botRechargeRate": 14,
+      "botRecallAt": 0.2,
+      "desc": "Launches four repair drones to patch damaged structures. Drones can be shot down and are rebuilt with power.",
+      "upgradePaths": {
+        "fleet": {
+          "name": "Fleet",
+          "desc": "More, tougher drones. Mends many things at once.",
+          "tiers": [
+            {
+              "name": "Expanded Fleet II",
+              "cost": 230,
+              "time": 4.0,
+              "botCount": 6,
+              "botHp": 58,
+              "power": -16,
+              "hp": 320,
+              "desc": "Six drones, sturdier hulls. Mends six things at once.",
+              "healRate": 21
+            },
+            {
+              "name": "Expanded Fleet III",
+              "cost": 390,
+              "time": 6.0,
+              "botCount": 8,
+              "botHp": 78,
+              "botRebuildTime": 4.5,
+              "power": -25,
+              "hp": 370,
+              "desc": "Eight drones, rebuilt quickly when shot down.",
+              "healRate": 28
+            }
+          ]
+        },
+        "nanites": {
+          "name": "Nanites",
+          "desc": "Same four drones, far more repair each.",
+          "tiers": [
+            {
+              "name": "Nanite Swarm II",
+              "cost": 210,
+              "time": 4.0,
+              "healRate": 27,
+              "botSpeed": 132,
+              "range": 300,
+              "power": -16,
+              "hp": 310,
+              "desc": "Faster drones, heavier repair.",
+              "rings": 1
+            },
+            {
+              "name": "Nanite Swarm III",
+              "cost": 360,
+              "time": 6.0,
+              "healRate": 42,
+              "botSpeed": 158,
+              "range": 345,
+              "botRechargeRate": 22,
+              "power": -25,
+              "hp": 350,
+              "desc": "Rebuilds a damaged turret in seconds.",
+              "rings": 2
+            }
+          ]
+        }
+      }
+    }
+  },
+  "enemies": {
+    "fighter": {
+      "name": "Fighter",
+      "sprite": "fighter",
+      "radius": 12,
+      "hp": 45,
+      "speed": 62,
+      "damage": 6,
+      "fireRate": 1.4,
+      "range": 90,
+      "bounty": 8,
+      "desc": "Fast and fragile. Dangerous only in numbers."
+    },
+    "swarmer": {
+      "name": "Swarmer",
+      "sprite": "swarmer",
+      "radius": 8,
+      "hp": 18,
+      "speed": 88,
+      "damage": 3,
+      "fireRate": 2.0,
+      "range": 60,
+      "bounty": 3,
+      "desc": "Tiny and quick, arrives in large packs. Punishes single-target turrets."
+    },
+    "missileShip": {
+      "name": "Missile Ship",
+      "sprite": "missile-ship",
+      "radius": 14,
+      "hp": 120,
+      "speed": 42,
+      "damage": 22,
+      "fireRate": 0.6,
+      "range": 200,
+      "bounty": 20,
+      "desc": "Outranges basic lasers and fires homing missiles. Push it with pulsers or missiles, or shoot its missiles down with an Aegis."
+    },
+    "exploder": {
+      "name": "Exploder",
+      "sprite": "exploder",
+      "radius": 14,
+      "hp": 90,
+      "speed": 74,
+      "damage": 120,
+      "splash": 90,
+      "range": 0,
+      "bounty": 18,
+      "suicide": true,
+      "desc": "Rams the nearest structure and detonates. Kill it at distance."
+    },
+    "ringShip": {
+      "name": "Ring Ship",
+      "sprite": "ring-ship",
+      "radius": 18,
+      "hp": 200,
+      "shield": 250,
+      "shieldRegen": 8,
+      "speed": 34,
+      "damage": 14,
+      "fireRate": 1.0,
+      "range": 150,
+      "bounty": 35,
+      "desc": "Regenerating shield. Needs burst damage rather than chip damage."
+    },
+    "mothership": {
+      "name": "Mothership",
+      "sprite": "mothership",
+      "radius": 30,
+      "hp": 2200,
+      "speed": 20,
+      "damage": 30,
+      "fireRate": 0.8,
+      "range": 230,
+      "projectile": "missile",
+      "projectileSpeed": 190,
+      "missileSplash": 45,
+      "bounty": 250,
+      "spawns": {
+        "type": "swarmer",
+        "every": 4.0,
+        "count": 2
+      },
+      "desc": "Wave boss. Tanky, shells your base with splash missiles, and keeps launching swarmers while it closes."
+    }
+  },
+  "waves": {
+    "$comment": "Waves are telegraphed: the spawn bearing and composition are shown during the build window. The first window is much longer so a new base can actually get established.",
+    "firstWindow": 75,
+    "buildWindow": 25,
+    "multiDirectionFrom": 12,
+    "maxDirections": 4,
+    "list": [
+      {
+        "n": 1,
+        "spawn": [
+          "fighter x4"
+        ]
+      },
+      {
+        "n": 2,
+        "spawn": [
+          "fighter x7"
+        ]
+      },
+      {
+        "n": 3,
+        "spawn": [
+          "fighter x6",
+          "swarmer x8"
+        ]
+      },
+      {
+        "n": 4,
+        "spawn": [
+          "swarmer x16"
+        ]
+      },
+      {
+        "n": 5,
+        "spawn": [
+          "fighter x8",
+          "missileShip x2"
+        ]
+      },
+      {
+        "n": 6,
+        "spawn": [
+          "missileShip x4",
+          "swarmer x10"
+        ]
+      },
+      {
+        "n": 7,
+        "spawn": [
+          "exploder x4",
+          "fighter x8"
+        ]
+      },
+      {
+        "n": 8,
+        "spawn": [
+          "ringShip x2",
+          "fighter x10"
+        ]
+      },
+      {
+        "n": 9,
+        "spawn": [
+          "exploder x6",
+          "missileShip x4"
+        ]
+      },
+      {
+        "n": 10,
+        "spawn": [
+          "mothership x1",
+          "fighter x8"
+        ]
+      }
+    ],
+    "endless": {
+      "after": 10,
+      "hpScale": 1.12,
+      "countScale": 1.08,
+      "note": "Multiplied per wave beyond the scripted list."
+    }
+  },
+  "modes": {
+    "mining": {
+      "goal": "Bank a target amount of minerals before the timer expires.",
+      "target": 6000,
+      "time": 600
+    },
+    "survival": {
+      "goal": "Last as long as possible against endless escalating waves."
+    },
+    "missions": {
+      "goal": "Scripted maps with fixed objectives and starting layouts."
+    },
+    "sandbox": {
+      "goal": "Debug playground. Infinite minerals and power, instant build and upgrades, spawn any enemy on demand."
+    }
+  }
+}

@@ -1,0 +1,536 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute">
+<!--
+  Orbital Claim - sprite sheet.
+
+  Original artwork. Nothing here is derived from the 2009 Flash game's assets;
+  only the genre conventions are shared. Every sprite is a <symbol> on a 64x64
+  viewBox (world sprites) so they can be dropped in with
+  <use href="sprites.svg#miner"/> or drawn to canvas via an Image().
+
+  Palette
+    hull      #1b2735 / #24374b     structure bodies
+    friendly  #4fd1e0               player accent, energy, beams
+    mineral   #7ef0c0               ore, income
+    hostile   #ff7a4d / #ff4d5e     enemies, damage
+    warn      #ffc65c               alerts, missiles
+-->
+<defs>
+  <linearGradient id="hull" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2c4258"/>
+    <stop offset="1" stop-color="#16212e"/>
+  </linearGradient>
+  <linearGradient id="hullHot" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#5a3040"/>
+    <stop offset="1" stop-color="#2a1620"/>
+  </linearGradient>
+  <radialGradient id="glowCyan" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#4fd1e0" stop-opacity="0.85"/>
+    <stop offset="1" stop-color="#4fd1e0" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="glowRed" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#ff5a4d" stop-opacity="0.9"/>
+    <stop offset="1" stop-color="#ff5a4d" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="rock" cx="0.35" cy="0.3" r="0.8">
+    <stop offset="0" stop-color="#6b7481"/>
+    <stop offset="1" stop-color="#333b45"/>
+  </radialGradient>
+
+  <!-- One fan blade, pointing up from the origin: narrow at the hub, widening
+       to a rounded tip, with a slight sweep so a ring of them reads as a fan
+       rather than a flower. Lives in <defs> because the rasteriser copies only
+       this block into each standalone symbol SVG, so a <use> target defined
+       anywhere else would resolve to nothing. -->
+  <g id="panel">
+    <path d="M-2.6 -8
+             C -7.5 -14, -8.4 -21, -5.2 -25.5
+             C -2.6 -29, 2.6 -29, 5.2 -25.5
+             C 8.4 -21, 7.5 -14, 2.6 -8 Z"
+          fill="#18313f" stroke="#5fd8e8" stroke-width="1.4"/>
+    <!-- Cell seams along the blade. -->
+    <path d="M-5.2 -22 h10.4 M-6 -17 h12 M-4.4 -12 h8.8"
+          stroke="#5fd8e8" stroke-width="0.9" stroke-opacity="0.5"/>
+    <path d="M0 -9 v-18" stroke="#5fd8e8" stroke-width="0.9" stroke-opacity="0.35"/>
+  </g>
+
+  <!-- One battery column for the bank, sitting on the baseline. -->
+  <g id="cell">
+    <rect x="-6" y="-15" width="12" height="30" rx="3" fill="url(#hull)"
+          stroke="#ffc65c" stroke-width="1.6"/>
+    <rect x="-3.5" y="-11" width="7" height="6" rx="1.2" fill="#ffc65c" fill-opacity="0.9"/>
+    <rect x="-3.5" y="-3" width="7" height="6" rx="1.2" fill="#ffc65c" fill-opacity="0.6"/>
+    <rect x="-3.5" y="5" width="7" height="6" rx="1.2" fill="#ffc65c" fill-opacity="0.3"/>
+  </g>
+</defs>
+
+<!-- ============================ WORLD ============================ -->
+
+<symbol id="asteroid-a" viewBox="0 0 64 64">
+  <path d="M32 4 L48 10 L58 24 L56 44 L42 58 L22 58 L8 44 L6 24 L18 9 Z"
+        fill="url(#rock)"/>
+  <path d="M32 4 L48 10 L58 24 L56 44 L42 58 L22 58 L8 44 L6 24 L18 9 Z"
+        fill="none" stroke="#79838f" stroke-width="1.5" stroke-opacity="0.5"/>
+  <circle cx="24" cy="26" r="5" fill="#000" fill-opacity="0.22"/>
+  <circle cx="42" cy="38" r="7" fill="#000" fill-opacity="0.18"/>
+  <circle cx="38" cy="18" r="2.6" fill="#7ef0c0" fill-opacity="0.9"/>
+  <circle cx="20" cy="42" r="2" fill="#7ef0c0" fill-opacity="0.75"/>
+  <circle cx="46" cy="48" r="1.6" fill="#7ef0c0" fill-opacity="0.6"/>
+</symbol>
+
+<symbol id="asteroid-b" viewBox="0 0 64 64">
+  <path d="M30 6 L46 8 L58 20 L54 40 L38 56 L18 54 L6 38 L10 18 Z" fill="url(#rock)"/>
+  <path d="M30 6 L46 8 L58 20 L54 40 L38 56 L18 54 L6 38 L10 18 Z"
+        fill="none" stroke="#79838f" stroke-width="1.5" stroke-opacity="0.45"/>
+  <circle cx="34" cy="30" r="8" fill="#000" fill-opacity="0.2"/>
+  <circle cx="18" cy="24" r="2.4" fill="#7ef0c0" fill-opacity="0.85"/>
+  <circle cx="44" cy="44" r="2" fill="#7ef0c0" fill-opacity="0.7"/>
+</symbol>
+
+<symbol id="asteroid-c" viewBox="0 0 64 64">
+  <path d="M32 8 L44 12 L52 26 L48 42 L34 52 L20 48 L12 34 L16 18 Z" fill="url(#rock)"/>
+  <path d="M32 8 L44 12 L52 26 L48 42 L34 52 L20 48 L12 34 L16 18 Z"
+        fill="none" stroke="#79838f" stroke-width="1.3" stroke-opacity="0.45"/>
+  <circle cx="28" cy="30" r="5" fill="#000" fill-opacity="0.2"/>
+  <circle cx="38" cy="22" r="2" fill="#7ef0c0" fill-opacity="0.8"/>
+</symbol>
+
+<!-- ========================= PLAYER BUILDINGS ===================== -->
+
+<!-- Command hub: the thing you must not lose. -->
+<symbol id="hub" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" fill="url(#glowCyan)" opacity="0.35"/>
+  <path d="M32 6 L52 18 L52 46 L32 58 L12 46 L12 18 Z" fill="url(#hull)"
+        stroke="#4fd1e0" stroke-width="2"/>
+  <path d="M32 14 L45 22 L45 42 L32 50 L19 42 L19 22 Z" fill="#0e1721"/>
+  <circle cx="32" cy="32" r="8" fill="#4fd1e0" fill-opacity="0.25"/>
+  <circle cx="32" cy="32" r="4.5" fill="#4fd1e0"/>
+  <path d="M32 6 L32 14 M52 18 L45 22 M52 46 L45 42 M32 58 L32 50 M12 46 L19 42 M12 18 L19 22"
+        stroke="#4fd1e0" stroke-width="1.6" stroke-opacity="0.7"/>
+</symbol>
+
+<!-- Mineral miner: extracts ore from asteroids in range.
+     Circular hull sized to fill its footprint, so the tier ring sits snug
+     against it. Distinguished from the relay by being much larger, mint rather
+     than cyan, and carrying a drill bit and intake ports. -->
+<symbol id="miner" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" fill="url(#glowCyan)" opacity="0.16"/>
+  <circle cx="32" cy="32" r="27" fill="url(#hull)" stroke="#7ef0c0" stroke-width="2"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#7ef0c0"
+          stroke-width="1" stroke-opacity="0.35"/>
+  <!-- Intake ports on the flanks. -->
+  <rect x="4"  y="28" width="8" height="8" rx="2" fill="#24374b"
+        stroke="#7ef0c0" stroke-width="1.3"/>
+  <rect x="52" y="28" width="8" height="8" rx="2" fill="#24374b"
+        stroke="#7ef0c0" stroke-width="1.3"/>
+  <!-- Drill aperture. -->
+  <circle cx="32" cy="32" r="11" fill="#0e1721" stroke="#7ef0c0" stroke-width="1.5"/>
+  <path d="M32 22 L38 32 L32 42 L26 32 Z" fill="#7ef0c0"/>
+  <circle cx="32" cy="32" r="2.4" fill="#0e1721"/>
+</symbol>
+
+<!-- Solar station: generates power.
+     Flower layout on a round base. Panels are petals radiating from the core, so
+     the upgrade tiers (2 -> 4 -> 6 panels) are the same silhouette with more
+     petals rather than a different building. `panel` is one petal, reused by
+     each tier via <use> so all three stay visually identical. -->
+<symbol id="solar" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="26" fill="url(#glowCyan)" opacity="0.12"/>
+  <!-- Dark grey housing: the blades sit on a solid disc, which is what makes the
+       tiers read as one machine gaining blades rather than a growing flower. -->
+  <circle cx="32" cy="32" r="27" fill="#242a31" stroke="#3c454f" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="22" fill="#1c2228" stroke="#333b44" stroke-width="1"/>
+  <g transform="translate(32 32)">
+    <use href="#panel" transform="rotate(90)"/>
+    <use href="#panel" transform="rotate(270)"/>
+  </g>
+  <circle cx="32" cy="32" r="9" fill="#2b323a" stroke="#4c5661" stroke-width="1.4"/>
+  <circle cx="32" cy="32" r="5" fill="#ffc65c" fill-opacity="0.9"/>
+  <circle cx="32" cy="32" r="1.8" fill="#fff3d6"/>
+</symbol>
+
+<symbol id="solar-4" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="27" fill="url(#glowCyan)" opacity="0.15"/>
+  <circle cx="32" cy="32" r="28" fill="#242a31" stroke="#3c454f" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="23" fill="#1c2228" stroke="#333b44" stroke-width="1"/>
+  <g transform="translate(32 32)">
+    <use href="#panel" transform="rotate(45)"/>
+    <use href="#panel" transform="rotate(135)"/>
+    <use href="#panel" transform="rotate(225)"/>
+    <use href="#panel" transform="rotate(315)"/>
+  </g>
+  <circle cx="32" cy="32" r="9" fill="#2b323a" stroke="#4c5661" stroke-width="1.4"/>
+  <circle cx="32" cy="32" r="5" fill="#ffc65c" fill-opacity="0.9"/>
+  <circle cx="32" cy="32" r="1.8" fill="#fff3d6"/>
+</symbol>
+
+<symbol id="solar-6" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="28" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="29" fill="#242a31" stroke="#46515d" stroke-width="1.8"/>
+  <circle cx="32" cy="32" r="24" fill="#1c2228" stroke="#333b44" stroke-width="1"/>
+  <g transform="translate(32 32)">
+    <use href="#panel" transform="rotate(0)"/>
+    <use href="#panel" transform="rotate(60)"/>
+    <use href="#panel" transform="rotate(120)"/>
+    <use href="#panel" transform="rotate(180)"/>
+    <use href="#panel" transform="rotate(240)"/>
+    <use href="#panel" transform="rotate(300)"/>
+  </g>
+  <circle cx="32" cy="32" r="9.5" fill="#2b323a" stroke="#5a6672" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="5.4" fill="#ffc65c"/>
+  <circle cx="32" cy="32" r="2" fill="#fff3d6"/>
+</symbol>
+
+<!-- Energy relay: extends the power grid. Limited connections.
+     Drawn as a plain node — concentric circles, no barrel and no hexagon — so
+     it never reads as a weapon or a hub at a glance. -->
+<symbol id="relay" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="20" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="13" fill="none" stroke="#4fd1e0"
+          stroke-width="1.2" stroke-opacity="0.45"/>
+  <circle cx="32" cy="32" r="9" fill="url(#hull)" stroke="#4fd1e0" stroke-width="1.8"/>
+  <circle cx="32" cy="32" r="4.2" fill="#4fd1e0"/>
+  <circle cx="32" cy="32" r="1.6" fill="#eafcff"/>
+  <!-- Four tiny connector nubs, hinting at its job without adding bulk. -->
+  <circle cx="32" cy="19" r="1.7" fill="#4fd1e0" fill-opacity="0.8"/>
+  <circle cx="32" cy="45" r="1.7" fill="#4fd1e0" fill-opacity="0.8"/>
+  <circle cx="19" cy="32" r="1.7" fill="#4fd1e0" fill-opacity="0.8"/>
+  <circle cx="45" cy="32" r="1.7" fill="#4fd1e0" fill-opacity="0.8"/>
+</symbol>
+
+<!-- Basic laser turret. -->
+<symbol id="laser" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="url(#glowCyan)" opacity="0.15"/>
+  <circle cx="32" cy="32" r="14" fill="url(#hull)" stroke="#4fd1e0" stroke-width="1.8"/>
+  <rect x="29" y="6" width="6" height="24" rx="2" fill="#24374b" stroke="#4fd1e0" stroke-width="1.4"/>
+  <rect x="30.5" y="4" width="3" height="8" rx="1.5" fill="#4fd1e0"/>
+  <circle cx="32" cy="32" r="5" fill="#0e1721" stroke="#4fd1e0" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2" fill="#4fd1e0"/>
+</symbol>
+
+<!-- Laser, Optics path: the emitter barrel grows visibly longer each tier. -->
+<symbol id="laser-long" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="url(#glowCyan)" opacity="0.15"/>
+  <circle cx="32" cy="32" r="13" fill="url(#hull)" stroke="#4fd1e0" stroke-width="1.8"/>
+  <rect x="29" y="2" width="6" height="29" rx="2" fill="#24374b" stroke="#4fd1e0" stroke-width="1.4"/>
+  <rect x="27.5" y="14" width="9" height="3.5" rx="1.5" fill="#24374b" stroke="#4fd1e0" stroke-width="1"/>
+  <rect x="30.5" y="0" width="3" height="9" rx="1.5" fill="#4fd1e0"/>
+  <circle cx="32" cy="32" r="5" fill="#0e1721" stroke="#4fd1e0" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2" fill="#4fd1e0"/>
+</symbol>
+
+<symbol id="laser-long2" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="23" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="12" fill="url(#hull)" stroke="#9ad9ff" stroke-width="1.8"/>
+  <rect x="29.2" y="0" width="5.6" height="32" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.4"/>
+  <rect x="27" y="9" width="10" height="3.5" rx="1.5" fill="#24374b" stroke="#9ad9ff" stroke-width="1"/>
+  <rect x="27" y="19" width="10" height="3.5" rx="1.5" fill="#24374b" stroke="#9ad9ff" stroke-width="1"/>
+  <rect x="30.6" y="0" width="2.8" height="7" rx="1.4" fill="#d6f7ff"/>
+  <circle cx="32" cy="32" r="5" fill="#0e1721" stroke="#9ad9ff" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2" fill="#9ad9ff"/>
+</symbol>
+
+<!-- Missile bay, Warhead path: fewer but far heavier tubes. -->
+<symbol id="missile-heavy" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="23" fill="url(#glowCyan)" opacity="0.14"/>
+  <path d="M17 20 h30 v24 h-30 Z" fill="url(#hull)" stroke="#ffc65c" stroke-width="1.8"/>
+  <rect x="19" y="6" width="10" height="21" rx="2.5" fill="#24374b" stroke="#ffc65c" stroke-width="1.4"/>
+  <rect x="35" y="6" width="10" height="21" rx="2.5" fill="#24374b" stroke="#ffc65c" stroke-width="1.4"/>
+  <path d="M24 6 l0 -4 M40 6 l0 -4" stroke="#ffc65c" stroke-width="2.6"/>
+  <circle cx="32" cy="38" r="4.4" fill="#ffc65c" fill-opacity="0.85"/>
+</symbol>
+
+<symbol id="missile-heavy2" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="25" fill="url(#glowRed)" opacity="0.16"/>
+  <path d="M15 20 h34 v25 h-34 Z" fill="url(#hull)" stroke="#ffc65c" stroke-width="2"/>
+  <rect x="17" y="1" width="12" height="26" rx="3" fill="#24374b" stroke="#ffc65c" stroke-width="1.6"/>
+  <rect x="35" y="1" width="12" height="26" rx="3" fill="#24374b" stroke="#ffc65c" stroke-width="1.6"/>
+  <path d="M23 1 l0 -1 M41 1 l0 -1" stroke="#ffc65c" stroke-width="3.2"/>
+  <rect x="19" y="9" width="8" height="3" rx="1.5" fill="#ffc65c" fill-opacity="0.7"/>
+  <rect x="37" y="9" width="8" height="3" rx="1.5" fill="#ffc65c" fill-opacity="0.7"/>
+  <circle cx="32" cy="38" r="5" fill="#ffc65c" fill-opacity="0.9"/>
+</symbol>
+
+<!-- Missile bay, Salvo path: a third then a fourth tube. -->
+<symbol id="missile-salvo3" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="23" fill="url(#glowCyan)" opacity="0.14"/>
+  <path d="M15 20 h34 v24 h-34 Z" fill="url(#hull)" stroke="#ffc65c" stroke-width="1.8"/>
+  <rect x="17" y="12" width="7" height="15" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="28.5" y="12" width="7" height="15" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="40" y="12" width="7" height="15" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <path d="M20.5 12 l0 -4 M32 12 l0 -4 M43.5 12 l0 -4" stroke="#ffc65c" stroke-width="2"/>
+  <circle cx="32" cy="38" r="4" fill="#ffc65c" fill-opacity="0.85"/>
+</symbol>
+
+<symbol id="missile-salvo4" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="25" fill="url(#glowCyan)" opacity="0.18"/>
+  <path d="M11 20 h42 v25 h-42 Z" fill="url(#hull)" stroke="#ffc65c" stroke-width="2"/>
+  <rect x="13" y="10" width="7" height="17" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="23.5" y="10" width="7" height="17" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="34" y="10" width="7" height="17" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="44.5" y="10" width="7" height="17" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <path d="M16.5 10 l0 -4 M27 10 l0 -4 M37.5 10 l0 -4 M48 10 l0 -4"
+        stroke="#ffc65c" stroke-width="2"/>
+  <circle cx="32" cy="38" r="4.4" fill="#ffc65c" fill-opacity="0.9"/>
+</symbol>
+
+<!-- Pulser: faster, longer ranged. -->
+<symbol id="pulser" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="24" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="14" fill="url(#hull)" stroke="#9ad9ff" stroke-width="1.8"/>
+  <rect x="24" y="8" width="5" height="22" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.2"/>
+  <rect x="35" y="8" width="5" height="22" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.2"/>
+  <circle cx="26.5" cy="8" r="2" fill="#9ad9ff"/>
+  <circle cx="37.5" cy="8" r="2" fill="#9ad9ff"/>
+  <circle cx="32" cy="32" r="5" fill="#0e1721" stroke="#9ad9ff" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2" fill="#9ad9ff"/>
+</symbol>
+
+<!-- Pulser, Lance path: the twin barrels merge into one long rail, with
+     accelerator coils added per tier. -->
+<symbol id="pulser-lance" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="24" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="13.5" fill="url(#hull)" stroke="#9ad9ff" stroke-width="1.8"/>
+  <rect x="28.5" y="3" width="7" height="28" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.3"/>
+  <rect x="26" y="11" width="12" height="3.5" rx="1.5" fill="#24374b" stroke="#9ad9ff" stroke-width="1"/>
+  <rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#9ad9ff"/>
+  <circle cx="32" cy="32" r="5" fill="#0e1721" stroke="#9ad9ff" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2" fill="#9ad9ff"/>
+</symbol>
+
+<symbol id="pulser-lance2" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="25" fill="url(#glowCyan)" opacity="0.22"/>
+  <circle cx="32" cy="32" r="13" fill="url(#hull)" stroke="#c4ecff" stroke-width="1.9"/>
+  <rect x="28.3" y="0" width="7.4" height="31" rx="2" fill="#24374b" stroke="#c4ecff" stroke-width="1.4"/>
+  <rect x="25.5" y="6" width="13" height="3.5" rx="1.5" fill="#24374b" stroke="#c4ecff" stroke-width="1"/>
+  <rect x="25.5" y="13" width="13" height="3.5" rx="1.5" fill="#24374b" stroke="#c4ecff" stroke-width="1"/>
+  <rect x="25.5" y="20" width="13" height="3.5" rx="1.5" fill="#24374b" stroke="#c4ecff" stroke-width="1"/>
+  <rect x="30.6" y="0" width="2.8" height="6" rx="1.4" fill="#eafcff"/>
+  <circle cx="32" cy="32" r="5" fill="#0e1721" stroke="#c4ecff" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2.2" fill="#eafcff"/>
+</symbol>
+
+<!-- Pulser, Barrage path: a third then a fourth barrel. -->
+<symbol id="pulser-barrage3" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="24" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="15" fill="url(#hull)" stroke="#9ad9ff" stroke-width="1.8"/>
+  <rect x="18.5" y="7" width="5" height="22" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.2"/>
+  <rect x="29.5" y="5" width="5" height="24" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.2"/>
+  <rect x="40.5" y="7" width="5" height="22" rx="2" fill="#24374b" stroke="#9ad9ff" stroke-width="1.2"/>
+  <circle cx="21" cy="7" r="2" fill="#9ad9ff"/>
+  <circle cx="32" cy="5" r="2" fill="#9ad9ff"/>
+  <circle cx="43" cy="7" r="2" fill="#9ad9ff"/>
+  <circle cx="32" cy="34" r="5" fill="#0e1721" stroke="#9ad9ff" stroke-width="1.2"/>
+  <circle cx="32" cy="34" r="2" fill="#9ad9ff"/>
+</symbol>
+
+<symbol id="pulser-barrage4" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="25" fill="url(#glowCyan)" opacity="0.22"/>
+  <circle cx="32" cy="32" r="16" fill="url(#hull)" stroke="#c4ecff" stroke-width="1.9"/>
+  <rect x="15.8" y="7" width="4.4" height="22" rx="2" fill="#24374b" stroke="#c4ecff" stroke-width="1.1"/>
+  <rect x="25.1" y="4" width="4.4" height="25" rx="2" fill="#24374b" stroke="#c4ecff" stroke-width="1.1"/>
+  <rect x="34.5" y="4" width="4.4" height="25" rx="2" fill="#24374b" stroke="#c4ecff" stroke-width="1.1"/>
+  <rect x="43.8" y="7" width="4.4" height="22" rx="2" fill="#24374b" stroke="#c4ecff" stroke-width="1.1"/>
+  <circle cx="18" cy="7" r="1.9" fill="#eafcff"/>
+  <circle cx="27.3" cy="4" r="1.9" fill="#eafcff"/>
+  <circle cx="36.7" cy="4" r="1.9" fill="#eafcff"/>
+  <circle cx="46" cy="7" r="1.9" fill="#eafcff"/>
+  <rect x="17" y="18" width="30" height="3" rx="1.5" fill="#24374b" stroke="#c4ecff" stroke-width="0.9"/>
+  <circle cx="32" cy="35" r="5" fill="#0e1721" stroke="#c4ecff" stroke-width="1.2"/>
+  <circle cx="32" cy="35" r="2.2" fill="#eafcff"/>
+</symbol>
+
+<!-- Pulser, Aegis path: point defence. Mint rather than blue so it reads as
+     protective, with stubby interceptor tubes and a tracking radar at the back. -->
+<symbol id="pulser-aegis" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="24" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="35" r="14" fill="url(#hull)" stroke="#7ef0c0" stroke-width="1.8"/>
+  <path d="M20 48 A13 6 0 0 0 44 48" fill="none" stroke="#7ef0c0" stroke-width="1.8" stroke-linecap="round"/>
+  <rect x="21" y="12" width="9" height="16" rx="2.5" fill="#24374b" stroke="#7ef0c0" stroke-width="1.3"/>
+  <rect x="34" y="12" width="9" height="16" rx="2.5" fill="#24374b" stroke="#7ef0c0" stroke-width="1.3"/>
+  <path d="M25.5 12 l0 -4 M38.5 12 l0 -4" stroke="#7ef0c0" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="32" cy="37" r="4.5" fill="#0e1721" stroke="#7ef0c0" stroke-width="1.2"/>
+  <circle cx="32" cy="37" r="1.8" fill="#7ef0c0"/>
+</symbol>
+
+<symbol id="pulser-aegis2" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="25" fill="url(#glowCyan)" opacity="0.22"/>
+  <circle cx="32" cy="36" r="15" fill="url(#hull)" stroke="#b8ffe0" stroke-width="1.9"/>
+  <path d="M18 49 A15 7 0 0 0 46 49" fill="none" stroke="#b8ffe0" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M23 54 A10 4 0 0 0 41 54" fill="none" stroke="#7ef0c0" stroke-width="1.4" stroke-linecap="round"/>
+  <rect x="18" y="6" width="28" height="24" rx="3" fill="#24374b" stroke="#b8ffe0" stroke-width="1.4"/>
+  <circle cx="25" cy="13" r="3.4" fill="#0e1721" stroke="#7ef0c0" stroke-width="1.1"/>
+  <circle cx="39" cy="13" r="3.4" fill="#0e1721" stroke="#7ef0c0" stroke-width="1.1"/>
+  <circle cx="25" cy="23" r="3.4" fill="#0e1721" stroke="#7ef0c0" stroke-width="1.1"/>
+  <circle cx="39" cy="23" r="3.4" fill="#0e1721" stroke="#7ef0c0" stroke-width="1.1"/>
+  <circle cx="25" cy="13" r="1.4" fill="#b8ffe0"/>
+  <circle cx="39" cy="13" r="1.4" fill="#b8ffe0"/>
+  <circle cx="25" cy="23" r="1.4" fill="#b8ffe0"/>
+  <circle cx="39" cy="23" r="1.4" fill="#b8ffe0"/>
+  <circle cx="32" cy="39" r="4.5" fill="#0e1721" stroke="#b8ffe0" stroke-width="1.2"/>
+  <circle cx="32" cy="39" r="2" fill="#b8ffe0"/>
+</symbol>
+
+<!-- Missile battery: slow, high damage, splash. -->
+<symbol id="missile-bay" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="url(#glowCyan)" opacity="0.12"/>
+  <path d="M18 20 h28 v24 h-28 Z" fill="url(#hull)" stroke="#ffc65c" stroke-width="1.8" rx="2"/>
+  <rect x="21" y="12" width="7" height="14" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="36" y="12" width="7" height="14" rx="2" fill="#24374b" stroke="#ffc65c" stroke-width="1.2"/>
+  <path d="M24.5 12 l0 -4 M39.5 12 l0 -4" stroke="#ffc65c" stroke-width="2"/>
+  <circle cx="32" cy="38" r="4" fill="#ffc65c" fill-opacity="0.85"/>
+</symbol>
+
+<!-- Repair station: heals structures in range. -->
+<symbol id="repair" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="url(#glowCyan)" opacity="0.15"/>
+  <circle cx="32" cy="32" r="15" fill="url(#hull)" stroke="#7ef0c0" stroke-width="1.8"/>
+  <path d="M32 22 v20 M22 32 h20" stroke="#7ef0c0" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="15" fill="none" stroke="#7ef0c0" stroke-width="1"
+          stroke-opacity="0.5" stroke-dasharray="3 4"/>
+</symbol>
+
+<!-- Battery bank: stores surplus power, covers deficits.
+     Round base with the cells mounted on it, so the upgrade tier (1 column ->
+     2 columns at double capacity) is the same building with more hardware
+     bolted on rather than a new silhouette. -->
+<symbol id="battery" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="24" fill="url(#glowCyan)" opacity="0.15"/>
+  <circle cx="32" cy="32" r="19" fill="#101b26" stroke="#2c4258" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="13.5" fill="none" stroke="#ffc65c"
+          stroke-width="1" stroke-opacity="0.28"/>
+  <use href="#cell" transform="translate(24 32)"/>
+  <!-- Empty mount, hinting the second column can be added. -->
+  <rect x="35" y="21" width="10" height="22" rx="3" fill="none"
+        stroke="#2c4258" stroke-width="1.3" stroke-dasharray="3 3"/>
+</symbol>
+
+<symbol id="battery-2" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="25" fill="url(#glowCyan)" opacity="0.18"/>
+  <circle cx="32" cy="32" r="20" fill="#101b26" stroke="#2c4258" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="14" fill="none" stroke="#ffc65c"
+          stroke-width="1" stroke-opacity="0.3"/>
+  <use href="#cell" transform="translate(24 32)"/>
+  <use href="#cell" transform="translate(40 32)"/>
+</symbol>
+
+<!-- Repair drone: flies out from a repair station to patch damage. -->
+<symbol id="repair-bot" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="20" fill="url(#glowCyan)" opacity="0.2"/>
+  <circle cx="32" cy="32" r="11" fill="url(#hull)" stroke="#7ef0c0" stroke-width="2"/>
+  <path d="M32 26 v12 M26 32 h12" stroke="#7ef0c0" stroke-width="3.4" stroke-linecap="round"/>
+  <circle cx="18" cy="32" r="3" fill="#7ef0c0" fill-opacity="0.7"/>
+  <circle cx="46" cy="32" r="3" fill="#7ef0c0" fill-opacity="0.7"/>
+</symbol>
+
+<!-- Storage: raises mineral/energy cap. -->
+<symbol id="storage" viewBox="0 0 64 64">
+  <path d="M16 18 h32 v28 h-32 Z" fill="url(#hull)" stroke="#7ef0c0" stroke-width="1.8"/>
+  <path d="M16 26 h32 M16 34 h32 M16 42 h32" stroke="#7ef0c0" stroke-width="1" stroke-opacity="0.45"/>
+  <rect x="22" y="10" width="20" height="8" rx="2" fill="#24374b" stroke="#7ef0c0" stroke-width="1.2"/>
+  <circle cx="32" cy="38" r="3" fill="#7ef0c0"/>
+</symbol>
+
+<!-- ============================= ENEMIES ========================== -->
+
+<!-- Fighter: fast, weak, swarms. Points "up"; rotate to heading. -->
+<symbol id="fighter" viewBox="0 0 64 64">
+  <path d="M32 8 L44 34 L32 28 L20 34 Z" fill="url(#hullHot)" stroke="#ff7a4d" stroke-width="1.8"/>
+  <path d="M32 28 L38 46 L32 42 L26 46 Z" fill="#2a1620" stroke="#ff7a4d" stroke-width="1.4"/>
+  <circle cx="32" cy="24" r="3" fill="#ff4d5e"/>
+  <path d="M28 46 l-2 6 M36 46 l2 6" stroke="#ff7a4d" stroke-width="1.6" stroke-opacity="0.8"/>
+</symbol>
+
+<!-- Missile ship: outranges basic lasers. -->
+<symbol id="missile-ship" viewBox="0 0 64 64">
+  <path d="M32 10 L42 26 L42 44 L32 50 L22 44 L22 26 Z" fill="url(#hullHot)"
+        stroke="#ff7a4d" stroke-width="1.8"/>
+  <rect x="14" y="26" width="6" height="14" rx="2" fill="#2a1620" stroke="#ffc65c" stroke-width="1.2"/>
+  <rect x="44" y="26" width="6" height="14" rx="2" fill="#2a1620" stroke="#ffc65c" stroke-width="1.2"/>
+  <circle cx="32" cy="28" r="3.5" fill="#ffc65c"/>
+</symbol>
+
+<!-- Exploder: suicide bomber, splash on contact. -->
+<symbol id="exploder" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="26" fill="url(#glowRed)" opacity="0.4"/>
+  <circle cx="32" cy="32" r="15" fill="url(#hullHot)" stroke="#ff4d5e" stroke-width="2"/>
+  <circle cx="32" cy="32" r="7" fill="#ff4d5e" fill-opacity="0.55"/>
+  <circle cx="32" cy="32" r="3" fill="#fff2ec"/>
+  <path d="M32 17 v-6 M32 47 v6 M17 32 h-6 M47 32 h6" stroke="#ff4d5e" stroke-width="2.2"/>
+</symbol>
+
+<!-- Swarmer: tiny, many. -->
+<symbol id="swarmer" viewBox="0 0 64 64">
+  <path d="M32 18 L40 34 L32 30 L24 34 Z" fill="url(#hullHot)" stroke="#ff7a4d" stroke-width="1.6"/>
+  <circle cx="32" cy="28" r="2.4" fill="#ff4d5e"/>
+</symbol>
+
+<!-- Ring ship: shielded, must be broken down. -->
+<symbol id="ring-ship" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#ff7a4d" stroke-width="3" stroke-opacity="0.85"/>
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#ffc65c" stroke-width="1"
+          stroke-dasharray="4 6" stroke-opacity="0.8"/>
+  <circle cx="32" cy="32" r="10" fill="url(#hullHot)" stroke="#ff4d5e" stroke-width="1.8"/>
+  <circle cx="32" cy="32" r="4" fill="#ff4d5e"/>
+</symbol>
+
+<!-- Mothership: wave boss. -->
+<symbol id="mothership" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" fill="url(#glowRed)" opacity="0.3"/>
+  <path d="M32 4 L54 18 L58 38 L32 60 L6 38 L10 18 Z" fill="url(#hullHot)"
+        stroke="#ff4d5e" stroke-width="2.4"/>
+  <path d="M32 14 L46 23 L48 37 L32 50 L16 37 L18 23 Z" fill="#1d0f16"/>
+  <circle cx="32" cy="32" r="9" fill="#ff4d5e" fill-opacity="0.35"/>
+  <circle cx="32" cy="32" r="5" fill="#ffc65c"/>
+  <path d="M14 26 h-8 M50 26 h8 M14 40 h-8 M50 40 h8" stroke="#ff7a4d" stroke-width="2.2"/>
+</symbol>
+
+<!-- ============================== FX ============================= -->
+
+<symbol id="bolt" viewBox="0 0 16 16">
+  <rect x="6" y="1" width="4" height="14" rx="2" fill="#4fd1e0"/>
+  <rect x="7" y="3" width="2" height="10" rx="1" fill="#eafcff"/>
+</symbol>
+
+<!-- Rail Lance slug: longer and paler than a bolt, so heavy hits read apart. -->
+<symbol id="slug" viewBox="0 0 16 16">
+  <rect x="5" y="0" width="6" height="16" rx="3" fill="#9ad9ff" fill-opacity="0.45"/>
+  <rect x="6.5" y="1" width="3" height="14" rx="1.5" fill="#c4ecff"/>
+  <rect x="7.3" y="2" width="1.4" height="10" rx="0.7" fill="#ffffff"/>
+</symbol>
+
+<!-- Aegis interceptor: a slim mint dart, distinct from both bolts and missiles. -->
+<symbol id="interceptor" viewBox="0 0 16 16">
+  <path d="M8 0 L10 5 L10 12 L6 12 L6 5 Z" fill="#b8ffe0" stroke="#7ef0c0" stroke-width="0.8"/>
+  <path d="M6 10 l-2 3 M10 10 l2 3" stroke="#7ef0c0" stroke-width="1.1"/>
+  <rect x="7" y="12" width="2" height="4" rx="1" fill="#7ef0c0" fill-opacity="0.6"/>
+</symbol>
+
+<symbol id="missile" viewBox="0 0 16 16">
+  <path d="M8 1 L11 7 L11 13 L5 13 L5 7 Z" fill="#ffc65c" stroke="#ff7a4d" stroke-width="1"/>
+  <path d="M5 13 l-2 3 M11 13 l2 3" stroke="#ff7a4d" stroke-width="1.2"/>
+</symbol>
+
+<symbol id="blast" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" fill="url(#glowRed)"/>
+  <circle cx="32" cy="32" r="14" fill="#ffc65c" fill-opacity="0.85"/>
+  <circle cx="32" cy="32" r="6" fill="#fff6ec"/>
+</symbol>
+
+<!-- ============================== UI ============================= -->
+
+<symbol id="icon-mineral" viewBox="0 0 24 24">
+  <path d="M12 3 L20 8 L18 19 L6 19 L4 8 Z" fill="#7ef0c0" fill-opacity="0.22"
+        stroke="#7ef0c0" stroke-width="1.6"/>
+  <path d="M12 3 L12 19 M4 8 L20 8" stroke="#7ef0c0" stroke-width="1.2" stroke-opacity="0.7"/>
+</symbol>
+
+<symbol id="icon-power" viewBox="0 0 24 24">
+  <path d="M13 2 L5 13 h6 l-2 9 l10 -12 h-6 Z" fill="#ffc65c" fill-opacity="0.25"
+        stroke="#ffc65c" stroke-width="1.6" stroke-linejoin="round"/>
+</symbol>
+
+<symbol id="icon-hull" viewBox="0 0 24 24">
+  <path d="M12 2 L20 6 v7 c0 4 -4 7 -8 9 c-4 -2 -8 -5 -8 -9 V6 Z"
+        fill="#4fd1e0" fill-opacity="0.2" stroke="#4fd1e0" stroke-width="1.6"/>
+</symbol>
+</svg>
