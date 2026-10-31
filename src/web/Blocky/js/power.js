@@ -22,10 +22,11 @@ import { FACE_DIR } from "./shapes.js";
 //1 wire, 2 source, 4 reacts, 8 rail
 export const POWER = new Uint8Array(256);
 POWER[B.SPARK_WIRE] = 1;
-for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK]) {
+for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER_ON]) {
     POWER[id] |= 2;
 }
-for (const id of [B.SPARK_LAMP, B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.POWERED_RAIL, B.BUTTON]) {
+for (const id of [B.SPARK_LAMP, B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.POWERED_RAIL, B.BUTTON,
+    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.RETIMER, B.RETIMER_ON]) {
     POWER[id] |= 4;
 }
 POWER[B.RAIL] |= 8;
@@ -35,6 +36,18 @@ const SIDES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -
 const FLAT = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+const isPlate = (id) => id === B.PLATE_WOOD || id === B.PLATE_STONE;
+
+//The block a retimer sends its signal into
+function retimerFront(meta, x, y, z) {
+    const d = HDIR[meta & 3];
+    return [x + d[0], y, z + d[1]];
+}
+
+//Is the block at n a lit retimer pointing at t?
+function retimerInto(w, nx, ny, nz, t) {
+    return w.getBlock(nx, ny, nz) === B.RETIMER_ON && same(retimerFront(w.getMeta(nx, ny, nz), nx, ny, nz), t);
+}
 
 //Block a lever, button or torch hangs on
 export function attachedTo(meta, x, y, z) {
@@ -45,6 +58,9 @@ export function attachedTo(meta, x, y, z) {
 function sourceOn(id, meta) {
     if (id === B.LEVER || id === B.BUTTON) {
         return (meta & 8) !== 0;
+    }
+    if (isPlate(id)) {
+        return (meta & 1) !== 0;
     }
     return id === B.SPARK_TORCH || id === B.SPARK_BLOCK;
 }
@@ -59,6 +75,13 @@ export function blockPoweredBySource(w, x, y, z) {
                 return true;
             }
         }
+        if (id === B.RETIMER_ON && retimerInto(w, x + dx, y + dy, z + dz, [x, y, z])) {
+            return true;
+        }
+    }
+    //A pressed plate powers the block it lies on
+    if (isPlate(w.getBlock(x, y + 1, z)) && (w.getMeta(x, y + 1, z) & 1)) {
+        return true;
     }
     return w.getBlock(x, y - 1, z) === B.SPARK_TORCH;
 }
@@ -90,6 +113,12 @@ export function isPowered(w, x, y, z) {
             }
             continue;
         }
+        if (id === B.RETIMER_ON) {
+            if (retimerInto(w, nx, ny, nz, [x, y, z])) {
+                return true;
+            }
+            continue;
+        }
         if (sourceOn(id, m)) {
             return true;
         }
@@ -109,7 +138,7 @@ function wireTarget(w, x, y, z) {
     for (const [dx, dy, dz] of SIDES) {
         const nx = x + dx, ny = y + dy, nz = z + dz;
         const id = w.getBlock(nx, ny, nz), m = w.getMeta(nx, ny, nz);
-        if (sourceOn(id, m)) {
+        if (sourceOn(id, m) || (id === B.RETIMER_ON && retimerInto(w, nx, ny, nz, [x, y, z]))) {
             return 15;
         }
         if (isOpaqueAt(id, m) && blockPoweredBySource(w, nx, ny, nz)) {
@@ -172,7 +201,7 @@ function scheduleParts(w, x, y, z) {
                     continue;
                 }
                 const id = w.getBlock(x + dx, y + dy, z + dz);
-                if ((POWER[id] & 4) && id !== B.BUTTON) {
+                if ((POWER[id] & 4) && id !== B.BUTTON && !isPlate(id)) {
                     w.schedule(x + dx, y + dy, z + dz, 2);
                 }
             }
@@ -203,7 +232,7 @@ export function powerChanged(w, x, y, z) {
 
 /* ---------------- pistons ---------------- */
 
-const FRAGILE = new Set(["cross", "crop", "torch", "wire", "lever", "button", "ladder", "rail", "fire"]);
+const FRAGILE = new Set(["cross", "crop", "torch", "wire", "lever", "button", "ladder", "rail", "fire", "plate", "retimer"]);
 
 function movable(id, meta) {
     if (id === B.BEDROCK || id === B.OBSIDIAN || id === B.PISTON_HEAD || id === B.FURNACE || id === B.FURNACE_LIT ||
@@ -369,6 +398,36 @@ export function pressButton(w, x, y, z, meta) {
     w.schedule(x, y, z, 20);
 }
 
+//Something is on a plate: press it, and keep it down for 20 ticks after
+//the last time anything was on it. True when it was just pressed.
+export function pressPlate(w, x, y, z) {
+    w.buttonDue.set(x + "," + y + "," + z, w.tickCount + 20);
+    const id = w.getBlock(x, y, z);
+    if (w.getMeta(x, y, z) & 1) {
+        return false;
+    }
+    w.setBlock(x, y, z, id, 1);
+    w.schedule(x, y, z, 20);
+    return true;
+}
+
+//Is the block behind a retimer giving it power?
+function retimerInput(w, x, y, z, meta) {
+    const d = HDIR[meta & 3];
+    const bx = x - d[0], bz = z - d[1];
+    const id = w.getBlock(bx, y, bz), m = w.getMeta(bx, y, bz);
+    if (id === B.SPARK_WIRE) {
+        return m > 0;
+    }
+    if (id === B.RETIMER_ON) {
+        return retimerInto(w, bx, y, bz, [x, y, z]);
+    }
+    if (sourceOn(id, m)) {
+        return true;
+    }
+    return isOpaqueAt(id, m) && blockPowered(w, bx, y, bz);
+}
+
 export function powerTick(w, x, y, z, id, meta, sound) {
     switch (id) {
         case B.SPARK_WIRE:
@@ -416,6 +475,71 @@ export function powerTick(w, x, y, z, id, meta, sound) {
                 sound(false);
             }
             break;
+        case B.PLATE_WOOD:
+        case B.PLATE_STONE:
+            if (meta & 1) {
+                const key = x + "," + y + "," + z;
+                const due = w.buttonDue.get(key);
+                if (due > w.tickCount) {
+                    w.schedule(x, y, z, due - w.tickCount);
+                    break;
+                }
+                w.buttonDue.delete(key);
+                w.setBlock(x, y, z, id, 0);
+                sound(false);
+            }
+            break;
+        case B.RETIMER:
+        case B.RETIMER_ON: {
+            //A change at the input reaches the output after the delay; a
+            //pulse shorter than the delay is stretched to it
+            const key = x + "," + y + "," + z;
+            const pend = w.retimerDue.get(key);
+            let on = id === B.RETIMER_ON;
+            if (pend) {
+                if (pend.due > w.tickCount) {
+                    w.schedule(x, y, z, pend.due - w.tickCount);
+                    break;
+                }
+                w.retimerDue.delete(key);
+                if (pend.on !== on) {
+                    on = pend.on;
+                    w.setBlock(x, y, z, on ? B.RETIMER_ON : B.RETIMER, meta);
+                }
+            }
+            if (retimerInput(w, x, y, z, meta) !== on) {
+                const delay = (((meta >> 2) & 3) + 1) * 2;
+                w.retimerDue.set(key, { due: w.tickCount + delay, on: !on });
+                w.schedule(x, y, z, delay);
+            }
+            break;
+        }
+        case B.DOOR: {
+            //A door opens when power arrives and shuts when it goes; in
+            //between it can still be opened by hand
+            const ly = meta & 8 ? y - 1 : y;
+            if (w.getBlock(x, ly, z) !== B.DOOR || w.getBlock(x, ly + 1, z) !== B.DOOR) {
+                break;
+            }
+            const powered = isPowered(w, x, ly, z) || isPowered(w, x, ly + 1, z);
+            const key = x + "," + ly + "," + z;
+            if (powered === w.doorPowered.has(key)) {
+                break;
+            }
+            if (powered) {
+                w.doorPowered.add(key);
+            } else {
+                w.doorPowered.delete(key);
+            }
+            if (((w.getMeta(x, ly, z) & 4) !== 0) !== powered) {
+                for (const yy of [ly, ly + 1]) {
+                    const m = w.getMeta(x, yy, z);
+                    w.setBlock(x, yy, z, B.DOOR, powered ? m | 4 : m & ~4, false);
+                }
+                sound(powered);
+            }
+            break;
+        }
         case B.RAIL:
         case B.POWERED_RAIL: {
             if (railLinks(w, x, y, z).length < 2) {

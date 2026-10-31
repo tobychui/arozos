@@ -52,7 +52,9 @@ export class Carts {
     railAt(x, y, z) {
         const w = this.game.world;
         const bx = Math.floor(x), bz = Math.floor(z), fy = Math.floor(y + 0.02);
-        for (const by of [fy, fy - 1]) {
+        //One above too: a fast cart running off the foot of a slope dips
+        //a little below the flat rail that follows it
+        for (const by of [fy, fy - 1, fy + 1]) {
             const id = w.getBlock(bx, by, bz);
             if (id === B.RAIL || id === B.POWERED_RAIL) {
                 const m = w.getMeta(bx, by, bz);
@@ -423,7 +425,7 @@ export class Carts {
         g.rotation.y = c.yaw;
         const w = this.game.world;
         const fx = Math.floor(c.x), fy = Math.floor(c.y + 0.5), fz = Math.floor(c.z);
-        const sky = w.getSky(fx, fy, fz) / 15, blk = w.getBlockLight(fx, fy, fz) / 15;
+        const sky = w.getSky(fx, fy, fz) / 15, blk = Math.max(w.getBlockLight(fx, fy, fz), this.renderer.dyn.at(fx, fy, fz)) / 15;
         const bright = this.renderer.objectLight(sky, blk);
         for (const m of c.model.mats) {
             m.color.copy(m.userData.base).multiplyScalar(bright);

@@ -124,7 +124,7 @@ export class Entities {
             e.mesh.position.set(e.x, e.y + bob, e.z);
             e.mesh.rotation.y = e.spin;
             const lx = Math.floor(e.x), ly = Math.floor(e.y), lz = Math.floor(e.z);
-            r.setMeshLight(e.mesh, world.getSky(lx, ly, lz) / 15, world.getBlockLight(lx, ly, lz) / 15);
+            r.setMeshLight(e.mesh, world.getSky(lx, ly, lz) / 15, Math.max(world.getBlockLight(lx, ly, lz), r.dyn.at(lx, ly, lz)) / 15);
         }
 
         for (let i = this.falling.length - 1; i >= 0; i--) {
@@ -152,7 +152,7 @@ export class Entities {
             }
             e.y = ny;
             e.mesh.position.set(e.x, e.y + 0.5, e.z);
-            r.setMeshLight(e.mesh, world.getSky(bx, Math.floor(e.y), bz) / 15, world.getBlockLight(bx, Math.floor(e.y), bz) / 15);
+            r.setMeshLight(e.mesh, world.getSky(bx, Math.floor(e.y), bz) / 15, Math.max(world.getBlockLight(bx, Math.floor(e.y), bz), r.dyn.at(bx, Math.floor(e.y), bz)) / 15);
         }
     }
 

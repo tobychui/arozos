@@ -177,6 +177,16 @@ export class UI {
             if (slot && panel.contains(slot)) {
                 e.preventDefault();
                 this.slotClick(slot.dataset.ref, e.button, e.shiftKey);
+                //A stack picked up here may be dragged onto the palette
+                this.dragging = !!this.cursor;
+                return;
+            }
+            //Creative: whatever is held and clicked onto the palette is gone
+            if (this.cursor && e.target.closest(".palette")) {
+                e.preventDefault();
+                this.cursor = null;
+                this.after();
+                this.renderCursor();
                 return;
             }
             const rec = e.target.closest(".recipe");
@@ -215,6 +225,16 @@ export class UI {
             }
         });
         panel.addEventListener("contextmenu", (e) => e.preventDefault());
+        document.addEventListener("mouseup", (e) => {
+            //Creative: a stack dragged from a slot and let go over the
+            //palette is thrown away
+            if (this.dragging && this.cursor && this.screen && e.target.closest && e.target.closest(".palette")) {
+                this.cursor = null;
+                this.after();
+                this.renderCursor();
+            }
+            this.dragging = false;
+        });
         panel.addEventListener("mouseover", (e) => {
             const el = e.target.closest(".slot, .recipe, .pal");
             this.hover = !el ? null : el.classList.contains("slot") ? el.dataset.ref : el.classList.contains("pal") ? "pal:" + el.dataset.id : null;

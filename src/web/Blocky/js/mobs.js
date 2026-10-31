@@ -467,7 +467,9 @@ export class Mobs {
             m.idle -= dt;
             if (m.target) {
                 const tx = m.target[0] - m.x, tz = m.target[1] - m.z;
-                if (Math.hypot(tx, tz) < 0.6 || m.idle < -8) {
+                //Give up on a spot it cannot reach (blocked for a while)
+                if (Math.hypot(tx, tz) < 0.6 || m.idle < -8 || m.blockedT > 1.5) {
+                    m.blockedT = 0;
                     m.target = null;
                     m.idle = 2 + rng() * 5;
                 } else {
@@ -526,10 +528,13 @@ export class Mobs {
         }
         const mx = moveAxis(w, box, 0, dx);
         const mz = moveAxis(w, box, 2, dz);
-        //Hop up one block when walking into it
-        if ((Math.abs(mx - dx) > 1e-6 || Math.abs(mz - dz) > 1e-6) && (m.onGround || inWater)) {
-            m.vy = inWater ? 4 : 7.6;
+        //Hop up one block when walking into it (8.4 clears about 1.25
+        //blocks, so a one block step never leaves an animal stuck)
+        const bumped = Math.abs(mx - dx) > 1e-6 || Math.abs(mz - dz) > 1e-6;
+        if (bumped && (m.onGround || inWater)) {
+            m.vy = inWater ? 4 : 8.4;
         }
+        m.blockedT = bumped ? (m.blockedT || 0) + dt : 0;
         m.x = (box[0] + box[3]) / 2;
         m.y = box[1];
         m.z = (box[2] + box[5]) / 2;
@@ -569,7 +574,7 @@ export class Mobs {
         //Light and the red flash when hurt
         const w = this.game.world;
         const fx = Math.floor(m.x), fy = Math.floor(m.y + 0.5), fz = Math.floor(m.z);
-        const b = this.renderer.objectLight(w.getSky(fx, fy, fz) / 15, w.getBlockLight(fx, fy, fz) / 15);
+        const b = this.renderer.objectLight(w.getSky(fx, fy, fz) / 15, Math.max(w.getBlockLight(fx, fy, fz), this.renderer.dyn.at(fx, fy, fz)) / 15);
         for (const mt of mats) {
             const base = mt.userData.base;
             if (m.hurtTime > 0) {

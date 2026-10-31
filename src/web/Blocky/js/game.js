@@ -11,7 +11,7 @@
 
 import {
     B, BLOCKS, ITEMS, I, SHAPE, SOLID, blockDrops, breakSeconds, blockFaceLayer, isOpaqueAt, HDIR, facingFromYaw,
-    attackDamage
+    attackDamage, LIGHT_EMIT
 } from "./blocks.js";
 import { Mobs } from "./mobs.js";
 import { Carts } from "./carts.js";
@@ -99,6 +99,8 @@ export class Game {
             onPowerSound: (x, y, z, id, out) => {
                 if (id === B.PISTON || id === B.STICKY_PISTON) {
                     this.sound.play("piston", { out });
+                } else if (id === B.DOOR) {
+                    this.sound.block("place", "wood");
                 } else {
                     this.sound.play("click");
                 }
@@ -332,6 +334,9 @@ export class Game {
         this.swing = Math.min(1, this.swing + dt * 4);
         r.setHeldItem(held);
         const ex = Math.floor(p.x), ey = Math.floor(p.eyeY), ez = Math.floor(p.z);
+        //A torch or other glowing thing in hand lights the area
+        const glow = p.dead ? 0 : held === I.LAVA_BUCKET ? 15 : held > 0 && held < 256 ? LIGHT_EMIT[held] : 0;
+        r.dyn.update(this.world, p.x, p.eyeY, p.z, glow, dt);
         const bobOn = this.settings.viewBobbing && p.onGround && !p.flying;
         const phase = p.walkDist * Math.PI * 0.75;
         const amp = bobOn ? Math.min(1, Math.hypot(p.vx, p.vz) / 4.3) : 0;
@@ -344,7 +349,7 @@ export class Game {
             draw: this.bowDraw > 0 ? Math.min(1, this.bowDraw) : 0,
             eatT: this.eatT,
             sky: this.world.getSky(ex, ey, ez) / 15,
-            blk: this.world.getBlockLight(ex, ey, ez) / 15
+            blk: Math.max(this.world.getBlockLight(ex, ey, ez), r.dyn.at(ex, ey, ez)) / 15
         });
         r.render(dt, !this.hideHud && !p.dead && !this.sleeping);
 
@@ -424,10 +429,44 @@ export class Game {
 
     /* ---------------- ticks ---------------- */
 
+    //Pressure plates under the player, animals and (wooden ones only)
+    //dropped items
+    pressPlates() {
+        const w = this.world, U = 1 / 16;
+        const stand = (x, y, z, half, living) => {
+            const by = Math.floor(y + 0.01);
+            for (let bx = Math.floor(x - half); bx <= Math.floor(x + half); bx++) {
+                for (let bz = Math.floor(z - half); bz <= Math.floor(z + half); bz++) {
+                    const id = w.getBlock(bx, by, bz);
+                    if ((id !== B.PLATE_WOOD && id !== B.PLATE_STONE) || (id === B.PLATE_STONE && !living)) {
+                        continue;
+                    }
+                    if (y - by > 0.25 || x + half <= bx + U || x - half >= bx + 1 - U || z + half <= bz + U || z - half >= bz + 1 - U) {
+                        continue;
+                    }
+                    if (w.pressPlate(bx, by, bz)) {
+                        this.sound.play("click");
+                    }
+                }
+            }
+        };
+        const p = this.player;
+        if (!p.dead) {
+            stand(p.x, p.y, p.z, 0.3, true);
+        }
+        for (const m of this.mobs.list) {
+            stand(m.x, m.y, m.z, m.def.w / 2, true);
+        }
+        for (const e of this.entities.items) {
+            stand(e.x, e.y, e.z, 0.125, false);
+        }
+    }
+
     tick() {
         this.ticks++;
         const p = this.player;
         this.world.tick(Math.floor(p.x / 16), Math.floor(p.z / 16));
+        this.pressPlates();
         p.tick();
         const w = this.weather;
         w.timer--;
@@ -564,9 +603,16 @@ export class Game {
             this.swing = 0;
             this.carts.hit(aimCart);
         }
+        //After hitting a cart or an animal, holding the button on mines
+        //nothing until it is let go (the block behind would break next)
+        if ((aimCart || aimMob) && leftDown) {
+            this.attackHold = true;
+        } else if (!leftDown) {
+            this.attackHold = false;
+        }
 
         //Mining
-        if (leftDown && !aimMob && !aimCart) {
+        if (leftDown && !aimMob && !aimCart && !this.attackHold) {
             if (input.clicked.has(0) || this.swing >= 1) {
                 this.swing = 0;
             }
@@ -758,7 +804,7 @@ export class Game {
     //selected slot; survival swaps it in from the inventory if owned.
     pickBlock(hit) {
         const PICK = {
-            [B.DOOR]: I.DOOR, [B.BED]: I.BED, [B.FURNACE_LIT]: B.FURNACE, [B.WHEAT]: I.SEEDS, [B.FARMLAND]: B.DIRT
+            [B.DOOR]: I.DOOR, [B.BED]: I.BED, [B.FURNACE_LIT]: B.FURNACE, [B.RETIMER_ON]: B.RETIMER, [B.WHEAT]: I.SEEDS, [B.FARMLAND]: B.DIRT
         };
         const id = PICK[hit.id] ?? hit.id;
         if (!ITEMS[id]) {
@@ -1038,6 +1084,9 @@ export class Game {
             } else {
                 meta = lz > 0 ? 5 : 4;
             }
+        } else if (bid === B.RETIMER) {
+            //Signal runs away from the player
+            meta = facingFromYaw(p.yaw);
         } else if (bid === B.RAIL || bid === B.POWERED_RAIL) {
             meta = Math.abs(Math.sin(p.yaw)) > Math.abs(Math.cos(p.yaw)) ? 1 : 0;
             w.railPreferX = meta === 1;
@@ -1159,6 +1208,11 @@ export class Game {
                 w.pressButton(hit.x, hit.y, hit.z);
                 this.sound.play("click");
             }
+        } else if (kind === "retimer") {
+            //Next delay: 1 to 4 steps of 2 ticks
+            const steps = (((hit.meta >> 2) & 3) + 1) % 4;
+            w.setBlock(hit.x, hit.y, hit.z, hit.id, (hit.meta & 3) | (steps << 2));
+            this.sound.play("click");
         } else if (kind === "gate") {
             w.setBlock(hit.x, hit.y, hit.z, B.FENCE_GATE, hit.meta ^ 4, false);
             this.sound.block("place", "wood");

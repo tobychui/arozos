@@ -24,7 +24,7 @@ import {
 import { TerrainGen, WORLD_H, SEA, idx, BIOME } from "./worldgen.js";
 import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32, hash3 } from "./util.js";
 import { FACE_DIR } from "./shapes.js";
-import { POWER, powerTick, powerChanged, railPlaced, pressButton } from "./power.js";
+import { POWER, powerTick, powerChanged, railPlaced, pressButton, pressPlate } from "./power.js";
 
 export const SECTIONS = WORLD_H / 16;
 
@@ -102,6 +102,10 @@ export class World {
         this.powerBusy = false;
         this.pistonMoving = false;
         this.buttonDue = new Map();
+        //Doors held open by power (lower half positions)
+        this.doorPowered = new Set();
+        //Retimer output changes on their way: key -> { due, on }
+        this.retimerDue = new Map();
         this.railPreferX = false;
         this.rules = Object.assign({}, DEFAULT_RULES);
         this.cropProgress = new Map();
@@ -239,7 +243,8 @@ export class World {
             const id = c.blocks[i];
             if (id === B.WHEAT) {
                 c.crops.add(i);
-            } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0) || (id === B.BUTTON && (c.meta[i] & 8))) {
+            } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0) || (id === B.BUTTON && (c.meta[i] & 8)) ||
+                ((id === B.PLATE_WOOD || id === B.PLATE_STONE) && (c.meta[i] & 1)) || id === B.RETIMER || id === B.RETIMER_ON) {
                 this.schedule(bx + (i >> 11), i & 127, bz + ((i >> 7) & 15), 5 + Math.floor(this.rng() * 30));
             }
         }
@@ -841,6 +846,10 @@ export class World {
         pressButton(this, x, y, z, this.getMeta(x, y, z));
     }
 
+    pressPlate(x, y, z) {
+        return pressPlate(this, x, y, z);
+    }
+
     schedule(x, y, z, delay) {
         const key = x + "," + y + "," + z;
         if (this.schedSet.has(key)) {
@@ -884,6 +893,9 @@ export class World {
         const def = BLOCKS[id];
         if (id === B.WATER || id === B.LAVA) {
             this.liquidTick(x, y, z, meta, id);
+            if (id === B.LAVA && this.getBlock(x, y, z) === B.LAVA) {
+                this.lavaHeat(x, y, z);
+            }
         } else if (id === B.FIRE) {
             this.fireTick(x, y, z, meta);
         } else if (def.gravity) {
@@ -1050,6 +1062,66 @@ export class World {
         }
         this.setBlock(x, y, z, B.FIRE, 0);
         return true;
+    }
+
+    //Lava sets burnable things near it alight. While anything burnable is
+    //within reach it keeps ticking every few seconds (random ticks alone
+    //come round too rarely); otherwise random ticks wake it again.
+    lavaHeat(x, y, z) {
+        if (!this.rules.fireSpread) {
+            return;
+        }
+        let fuel = false;
+        for (let dx = -2; dx <= 2 && !fuel; dx++) {
+            for (let dz = -2; dz <= 2 && !fuel; dz++) {
+                for (let dy = -1; dy <= 3; dy++) {
+                    if (FLAME_CATCH[this.getBlock(x + dx, y + dy, z + dz)]) {
+                        fuel = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!fuel) {
+            return;
+        }
+        const rng = this.rng;
+        this.schedule(x, y, z, 40 + Math.floor(rng() * 60));
+        if (rng() < 0.7) {
+            return;
+        }
+        const catches = (id) => id === B.AIR || (WASHABLE[id] === 1 && FLAME_CATCH[id] > 0);
+        //Heat rises: wander up to three blocks up and light the first
+        //open spot that touches something burnable
+        let tx = x, ty = y, tz = z;
+        const steps = 1 + Math.floor(rng() * 3);
+        for (let i = 0; i < steps; i++) {
+            tx += Math.floor(rng() * 3) - 1;
+            ty++;
+            tz += Math.floor(rng() * 3) - 1;
+            const id = this.getBlock(tx, ty, tz);
+            if (catches(id)) {
+                if (this.flammableAround(tx, ty, tz) > 0 || FLAME_CATCH[id]) {
+                    this.setBlock(tx, ty, tz, B.FIRE, 0);
+                    return;
+                }
+            } else if (SOLID[id]) {
+                break;
+            }
+        }
+        //Burnable things beside the lava catch on top or next to it
+        for (let k = 0; k < 3; k++) {
+            const bx = x + Math.floor(rng() * 3) - 1, bz = z + Math.floor(rng() * 3) - 1;
+            const id = this.getBlock(bx, y, bz);
+            if (catches(id) && (FLAME_CATCH[id] || this.flammableAround(bx, y, bz) > 0)) {
+                this.setBlock(bx, y, bz, B.FIRE, 0);
+                return;
+            }
+            if (FLAME_CATCH[id] && catches(this.getBlock(bx, y + 1, bz))) {
+                this.setBlock(bx, y + 1, bz, B.FIRE, 0);
+                return;
+            }
+        }
     }
 
     fireTick(x, y, z, age) {
@@ -1256,13 +1328,7 @@ export class World {
                 this.growTree(x, y, z);
             }
         } else if (id === B.LAVA) {
-            //Lava sets nearby burnable things alight
-            if (this.rules.fireSpread && rng() < 0.3) {
-                const tx = x + Math.floor(rng() * 3) - 1, ty = y + 1 + Math.floor(rng() * 2), tz = z + Math.floor(rng() * 3) - 1;
-                if (this.getBlock(tx, ty, tz) === B.AIR && this.flammableAround(tx, ty, tz) > 0) {
-                    this.setBlock(tx, ty, tz, B.FIRE, 0);
-                }
-            }
+            this.lavaHeat(x, y, z);
         } else if (id === B.FARMLAND) {
             let wet = this.raining && this.rainTop(x, z) <= y + 1;
             if (!wet) {

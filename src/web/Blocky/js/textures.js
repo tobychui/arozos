@@ -1125,7 +1125,7 @@ function paintSparkTorch(t, on) {
         t.set(7, y, [138, 102, 54]);
         t.set(8, y, [104, 76, 40]);
     }
-    const head = on ? [[255, 214, 120], [255, 170, 40], [255, 236, 170], [240, 130, 20]] : [[120, 40, 24], [96, 30, 18], [140, 52, 30], [80, 24, 14]];
+    const head = on ? [[255, 120, 104], [236, 34, 26], [255, 176, 160], [200, 20, 14]] : [[96, 24, 22], [74, 18, 16], [112, 32, 28], [58, 14, 12]];
     t.set(7, 6, head[0]);
     t.set(8, 6, head[1]);
     t.set(7, 7, head[2]);
@@ -1223,8 +1223,8 @@ function paintRail(t, kind) {
             t.set(x + (x === 3 ? -1 : 1), y, [metal[0] * 0.7, metal[1] * 0.7, metal[2] * 0.7]);
         }
         if (kind === "on" || kind === "powered") {
-            t.set(7, y, kind === "on" ? [255, 120, 40] : [96, 40, 24]);
-            t.set(8, y, kind === "on" ? [255, 160, 60] : [110, 46, 26]);
+            t.set(7, y, kind === "on" ? [255, 48, 36] : [92, 24, 20]);
+            t.set(8, y, kind === "on" ? [255, 90, 70] : [106, 30, 24]);
         }
     }
 }
@@ -1236,6 +1236,21 @@ function paintLeverItem(t) {
     for (let i = 0; i < 9; i++) {
         t.set(7 + i * 0.45, 11 - i, [150, 112, 64]);
         t.set(8 + i * 0.45, 11 - i, [104, 76, 40]);
+    }
+}
+
+//Retimer top: smooth stone with the signal line and an arrow pointing to
+//the top of the tile (the way it faces)
+function paintRetimerTop(t, on) {
+    paintSmoothStone(t, false);
+    const line = on ? [255, 52, 40] : [104, 26, 22];
+    for (let y = 2; y < 15; y++) {
+        t.set(7, y, line);
+        t.set(8, y, line);
+    }
+    for (let k = 0; k < 4; k++) {
+        t.set(6 - k, 3 + k, line);
+        t.set(9 + k, 3 + k, line);
     }
 }
 
@@ -1642,8 +1657,8 @@ Object.assign(PAINTERS, {
     raw_chicken: (t) => paintMeat(t, [236, 182, 168], [250, 226, 214], false),
     cooked_chicken: (t) => paintMeat(t, [204, 146, 80], [232, 190, 120], true),
     blue_flower: (t) => paintFlower(t, [70, 104, 232], [240, 220, 96]),
-    spark_ore: (t) => paintOre(t, [255, 150, 40], 5),
-    spark_dust: (t) => paintPowder(t, [255, 150, 40]),
+    spark_ore: (t) => paintOre(t, [226, 28, 24], 5),
+    spark_dust: (t) => paintPowder(t, [214, 26, 22]),
     spark_wire: (t) => {
         t.fill([196, 196, 196], 26);
         for (let k = 0; k < 20; k++) {
@@ -1654,7 +1669,7 @@ Object.assign(PAINTERS, {
     spark_torch_off: (t) => paintSparkTorch(t, false),
     spark_lamp_off: (t) => paintSparkLamp(t, false),
     spark_lamp_on: (t) => paintSparkLamp(t, true),
-    spark_block: (t) => paintMetal(t, [240, 140, 40], [190, 96, 24], [176, 86, 20]),
+    spark_block: (t) => paintMetal(t, [214, 36, 30], [150, 20, 18], [128, 16, 14]),
     piston_side: paintPistonSide,
     piston_top: (t) => paintPistonTop(t, false),
     piston_top_sticky: (t) => paintPistonTop(t, true),
@@ -1666,6 +1681,10 @@ Object.assign(PAINTERS, {
     powered_rail_on: (t) => paintRail(t, "on"),
     lever_item: paintLeverItem,
     button_item: paintButtonItem,
+    retimer_top: (t) => paintRetimerTop(t, false),
+    retimer_top_on: (t) => paintRetimerTop(t, true),
+    retimer_pin_off: (t) => t.fill([92, 24, 20], 10),
+    retimer_pin_on: (t) => t.fill([255, 60, 44], 14),
     minecart: (t) => paintMinecart(t, null),
     chest_minecart: (t) => paintMinecart(t, "chest"),
     furnace_minecart: (t) => paintMinecart(t, "furnace")
@@ -1777,13 +1796,15 @@ function shadedTile(src, shade, tint) {
 
 //Draw one isometric block (or slab) icon at (ox, oy) on ctx
 export function drawIsoIcon(ctx, ox, oy, tiles, opts = {}) {
-    const half = !!opts.half;
+    //Height of the box in tile pixels (16 = a cube)
+    const h = opts.height || 16;
+    const half = h < 16;
     const sc = 0.86;
     const off = (1 - sc) * ICON / 2;
     const tf = (a, b, c, d, e, f) => {
         ctx.setTransform(a * sc, b * sc, c * sc, d * sc, ox + e * sc + off, oy + f * sc + off);
     };
-    const dy = half ? 16 : 0;
+    const dy = 2 * (16 - h);
     ctx.imageSmoothingEnabled = false;
     //Top face
     tf(2, -1, 2, 1, 0, 16 + dy);
@@ -1791,14 +1812,14 @@ export function drawIsoIcon(ctx, ox, oy, tiles, opts = {}) {
     //Left (front-left) face
     tf(2, 1, 0, 2, 0, 16 + dy);
     if (half) {
-        ctx.drawImage(shadedTile(tiles.left, 0.78, opts.sideTint), 0, 8, 16, 8, 0, 0, 16, 8);
+        ctx.drawImage(shadedTile(tiles.left, 0.78, opts.sideTint), 0, 16 - h, 16, h, 0, 0, 16, h);
     } else {
         ctx.drawImage(shadedTile(tiles.left, 0.78, opts.sideTint), 0, 0);
     }
     //Right (front-right) face
     tf(2, -1, 0, 2, 32, 32 + dy);
     if (half) {
-        ctx.drawImage(shadedTile(tiles.right, 0.6, opts.sideTint), 0, 8, 16, 8, 0, 0, 16, 8);
+        ctx.drawImage(shadedTile(tiles.right, 0.6, opts.sideTint), 0, 16 - h, 16, h, 0, 0, 16, h);
     } else {
         ctx.drawImage(shadedTile(tiles.right, 0.6, opts.sideTint), 0, 0);
     }

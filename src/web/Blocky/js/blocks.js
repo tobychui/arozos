@@ -23,7 +23,8 @@ export const B = {
     WOOL_COLOR: 55, //55-70: the coloured wools, in WOOL_COLORS order
     BLUE_FLOWER: 71, GLASS_PANE: 72, SPARK_ORE: 73, SPARK_WIRE: 74, SPARK_TORCH: 75, SPARK_TORCH_OFF: 76,
     LEVER: 77, BUTTON: 78, SPARK_LAMP: 79, SPARK_LAMP_ON: 80, PISTON: 81, STICKY_PISTON: 82,
-    PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86
+    PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86, PLATE_WOOD: 87, PLATE_STONE: 88,
+    RETIMER: 89, RETIMER_ON: 90
 };
 
 //Wool and dye colours: key, name, colour
@@ -196,6 +197,15 @@ def(B.PISTON_HEAD, "Piston Head", { tex: { side: "piston_side", top: "piston_top
 def(B.RAIL, "Rail", { tex: "rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
 def(B.POWERED_RAIL, "Powered Rail", { tex: "powered_rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
 def(B.SPARK_BLOCK, "Block of Spark", { tex: "spark_block", hardness: 5, tool: "pickaxe", tier: 1, sound: "metal" });
+//Pressure plates: meta 1 while pressed. Anything presses a wooden one;
+//only players and animals press a stone one.
+def(B.PLATE_WOOD, "Wooden Pressure Plate", { tex: "planks", shape: "plate", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, tool: "axe", sound: "wood", support: "solid" });
+def(B.PLATE_STONE, "Stone Pressure Plate", { tex: "stone", shape: "plate", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, support: "solid" });
+//Retimer: passes a signal on in the direction it faces, after a delay.
+//Meta: bits 0-1 facing (HDIR), bits 2-3 delay steps - 1 (2 ticks each).
+const RETIMER_DEF = { shape: "retimer", solid: false, opaque: false, lightOpacity: 0, hardness: 0, sound: "stone", support: "solid", interact: "retimer" };
+def(B.RETIMER, "Retimer", Object.assign({ tex: { top: "retimer_top", side: "slab_side", bottom: "slab_top" } }, RETIMER_DEF));
+def(B.RETIMER_ON, "Retimer", Object.assign({ tex: { top: "retimer_top_on", side: "slab_side", bottom: "slab_top" }, noItem: true, drops: () => [[B.RETIMER, 1]] }, RETIMER_DEF));
 def(B.FIRE, "Fire", { tex: "fire", shape: "fire", solid: false, opaque: false, lightOpacity: 0, light: 15, hardness: 0, replaceable: true, noItem: true, sound: "fire", drops: () => [] });
 def(B.LAVA, "Lava", { tex: "lava", shape: "liquid", solid: false, opaque: false, lightOpacity: 15, light: 15, hardness: -1, replaceable: true, noItem: true, targetable: false, sound: "lava" });
 def(B.OBSIDIAN, "Obsidian", { tex: "obsidian", hardness: 35, tool: "pickaxe", tier: 4 });
@@ -234,7 +244,7 @@ for (let i = 0; i < 256; i++) {
 export const FLAME_CATCH = new Uint8Array(256);
 export const FLAME_BURN = new Uint8Array(256);
 for (const [id, c, b] of [
-    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
+    [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.PLATE_WOOD, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
     [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.BED, 5, 20],
     [B.LADDER, 5, 20], [B.TALL_GRASS, 60, 100], [B.FLOWER_YELLOW, 60, 100], [B.FLOWER_RED, 60, 100],
     [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100], [B.WOOL, 30, 60],
@@ -592,6 +602,9 @@ shaped(B.GLASS_PANE, 16, ["GGG", "GGG"], { G: B.GLASS });
 shaped(B.SPARK_TORCH, 1, ["D", "S"], { D: I.SPARK_DUST, S: I.STICK }, "Spark");
 shaped(B.LEVER, 1, ["S", "C"], { S: I.STICK, C: B.COBBLE }, "Spark");
 shapeless(B.BUTTON, 1, [B.STONE], "Spark");
+shaped(B.PLATE_WOOD, 1, ["PP"], { P: B.PLANKS }, "Spark");
+shaped(B.PLATE_STONE, 1, ["SS"], { S: B.STONE }, "Spark");
+shaped(B.RETIMER, 1, ["TDT", "SSS"], { T: B.SPARK_TORCH, D: I.SPARK_DUST, S: B.STONE }, "Spark");
 shaped(B.SPARK_LAMP, 1, [".D.", "DLD", ".D."], { D: I.SPARK_DUST, L: B.LAMP }, "Spark");
 shaped(B.PISTON, 1, ["PPP", "CIC", "CDC"], { P: B.PLANKS, C: B.COBBLE, I: I.IRON_INGOT, D: I.SPARK_DUST }, "Spark");
 shapeless(B.STICKY_PISTON, 1, [B.PISTON, I.CLAY_BALL], "Spark");
@@ -744,7 +757,7 @@ export function creativeGroups() {
         tools.push(swordId(mi));
     }
     tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL);
-    const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.SPARK_LAMP,
+    const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.SPARK_LAMP,
         B.PISTON, B.STICKY_PISTON, B.RAIL, B.POWERED_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,
         I.WHEAT, I.BOWL, I.APPLE, I.BREAD, I.STEW, I.RAW_MEAT, I.COOKED_MEAT, I.RAW_MUTTON,

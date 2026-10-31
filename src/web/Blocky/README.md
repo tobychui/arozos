@@ -23,6 +23,7 @@ its folder.
 | `js/realistic.js` | Experimental realistic pipeline: shadow map, sea reflection, terrain lighting chunk, HDR post passes. |
 | `js/power.js` | Spark circuits: power sources, wire levels, torches, lamps, pistons, rail shapes. |
 | `js/carts.js` | Minecarts (plain, chest, furnace) following rails. |
+| `js/dynlight.js` | Light from a glowing item held in hand. |
 | `js/blocks.js` | Block / item registry, mining rules, shaped recipes and the grid matcher, smelting. |
 | `js/player.js`, `js/physics.js` | Movement, collisions, survival stats. |
 | `js/ui.js`, `js/icons.js` | HUD, inventory / workbench / furnace / chest / creative screens, icon sheet. |
@@ -63,7 +64,20 @@ its folder.
 - Liquids share one `liquidTick` (`LIQUID` table: water renews and flows 7,
   lava flows 3 and slower). Lava touching water becomes obsidian (source) or
   cobblestone. Fire is a scheduled tick that burns `FLAME_BURN` blocks and
-  jumps to air beside `FLAME_CATCH` blocks unless `fireSpread` is off.
+  jumps to air beside `FLAME_CATCH` blocks unless `fireSpread` is off. Lava
+  lights burnable things up to three blocks above or beside it
+  (`lavaHeat`); while anything burnable is within reach it reschedules
+  itself every 2-5 s, otherwise random ticks wake it again. Fire standing on
+  a solid or burnable block is drawn as crossed, leaning sheets; fire held
+  up only by burnable neighbours clings to their faces (and hangs under a
+  burning block above) - `firePlanes` in `mesher.js`.
+- Held light (`js/dynlight.js`): a torch, spark torch, lamp, lava bucket or
+  other glowing item in hand floods its light from the player's head (one
+  level per block, stopped by opaque blocks) into a 32 x 32 x 32 grid that
+  the terrain shader samples at the cell each face looks into, in both
+  render modes. It is refreshed when the player moves to another block and
+  four times a second; animals, carts, items and the hand read it too. The
+  world's own light is never changed.
 - Doors and beds are two blocks; `world.removePartner` removes the other half
   whenever one changes, so only the broken half drops the item. A door hangs
   on the edge nearest the player who placed it; its window pixels are
@@ -119,8 +133,10 @@ collision and selection boxes follow the arms.
 ## Spark circuits
 
 `js/power.js`, Blocky's own take on wiring. Spark ore (deep underground)
-drops spark dust, which is laid as wire. Sources: levers (toggle), buttons
-(20 ticks), spark torches and spark blocks. A wire carries level 15 from a
+drops spark dust, which is laid as wire. Everything that carries a signal
+is red (ore, dust, wire, torches, the block, the powered rail stripe) so it
+never looks like an ordinary torch. Sources: levers (toggle), buttons (20
+ticks), pressure plates, spark torches and spark blocks. A wire carries level 15 from a
 source and loses 1 per block (`updateWires`, a relaxation over the wire
 network). A powered block powers what touches it: lamps light up, a spark
 torch on a powered block turns off (an inverter), pistons push up to 12
@@ -129,6 +145,18 @@ through scheduled ticks two game ticks later. `POWER` flags each block: 1
 wire, 2 source, 4 reacts, 8 rail. Lever and button meta is the face they are
 attached to plus bit 8 for on / pressed; a pressed button's release time is
 kept in `world.buttonDue`, so other updates cannot let it go early.
+
+Pressure plates (two planks or two stone in a row) lie on a solid block;
+meta 1 while pressed. `Game.pressPlates` runs every game tick: the player
+and animals press both kinds, dropped items only wooden ones. Each press
+sets the plate's release time 20 ticks ahead in `world.buttonDue`, so a
+plate lets go a second after the last thing leaves it. A pressed plate
+powers the wire beside it, the block under it and whatever touches it.
+
+Doors react to power too: when power arrives at either half the door
+opens, when it goes the door shuts, and in between it can still be opened
+by hand (`world.doorPowered` remembers which doors are held by power; it is
+not saved, so after loading a door just follows the next change).
 
 ## Rails and carts
 

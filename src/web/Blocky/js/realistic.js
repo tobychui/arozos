@@ -65,7 +65,6 @@ uniform vec3 uSkyTop;
 uniform vec3 uSkyHorizon;
 uniform float uWetness;
 uniform float uLeafLayer;
-in vec3 vWorld;
 
 float shadowAt(vec3 N, float skyRaw) {
     float fallback = smoothstep(0.8, 1.0, skyRaw);

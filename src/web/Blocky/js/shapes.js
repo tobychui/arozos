@@ -242,6 +242,10 @@ export function selectionBox(id, meta, world, x, y, z) {
             return rotateBox(meta & 7, [4 * U, 0, 4 * U, 12 * U, 9 * U, 12 * U]);
         case "button":
             return rotateBox(meta & 7, BUTTON_BOX);
+        case "plate":
+            return [U, 0, U, 15 * U, meta & 1 ? U / 2 : U, 15 * U];
+        case "retimer":
+            return [0, 0, 0, 1, 2 * U, 1];
         case "piston":
             return meta & 8 ? rotateBox(meta & 7, PISTON_BASE) : FULL;
         case "pistonhead":

@@ -15,6 +15,7 @@ import { SECTIONS, WORLD_H } from "./world.js";
 import { BIOME } from "./worldgen.js";
 import { clamp, lerp, mulberry32 } from "./util.js";
 import { Realistic, WAVE_GLSL, SHADE_GLSL, SUN_TILT, SEA_Y } from "./realistic.js";
+import { DynLight, DYN_SIZE } from "./dynlight.js";
 
 THREE.ColorManagement.enabled = false;
 
@@ -27,8 +28,8 @@ flat out float vLayer;
 out vec2 vLight;
 out vec3 vColor;
 out float vDist;
-#ifdef REALISTIC
 out vec3 vWorld;
+#ifdef REALISTIC
 ${WAVE_GLSL}
 #endif
 void main() {
@@ -42,7 +43,9 @@ void main() {
     vWorld = wp.xyz;
     vec4 mv = viewMatrix * wp;
 #else
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorld = wp.xyz;
+    vec4 mv = viewMatrix * wp;
 #endif
     vDist = length(mv.xyz);
     gl_Position = projectionMatrix * mv;
@@ -50,7 +53,10 @@ void main() {
 
 const TERRAIN_FRAG = `
 precision highp sampler2DArray;
+precision highp sampler3D;
 uniform sampler2DArray uTex;
+uniform sampler3D uDynTex;
+uniform vec4 uDyn;
 uniform float uDaylight;
 uniform vec3 uFogColor;
 uniform float uFogNear;
@@ -68,9 +74,18 @@ flat in float vLayer;
 in vec2 vLight;
 in vec3 vColor;
 in float vDist;
+in vec3 vWorld;
 layout(location = 0) out highp vec4 outColor;
 float curve(float l) {
     return l / (1.0 + uGammaK * (1.0 - l));
+}
+//Held light (dynlight.js): the grid cell this face looks into
+float heldLight() {
+    vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+    if (dot(n, cameraPosition - vWorld) < 0.0) {
+        n = -n;
+    }
+    return texture(uDynTex, (vWorld + n * 0.5 - uDyn.xyz) / ${DYN_SIZE}.0).r;
 }
 #ifdef REALISTIC
 ${SHADE_GLSL}
@@ -94,6 +109,9 @@ void main() {
         discard;
     }
     vec2 L = uLightOverride.x > 0.5 ? uLightOverride.yz : vLight;
+    if (uDyn.w > 0.5 && uLightOverride.x < 0.5) {
+        L.y = max(L.y, heldLight());
+    }
 #ifdef REALISTIC
     outColor = shadeRealistic(tex, L, abs(vLayer - uWaterLayer) < 0.5);
 #else
@@ -296,8 +314,11 @@ export class Renderer {
         at.needsUpdate = true;
         this.arrayTex = at;
 
+        this.dyn = new DynLight();
         this.shared = {
             uTex: { value: at },
+            uDynTex: { value: this.dyn.tex },
+            uDyn: { value: this.dyn.uniform },
             uDaylight: { value: 1 },
             uFogColor: { value: new THREE.Color(0.75, 0.85, 1) },
             uFogNear: { value: 60 },

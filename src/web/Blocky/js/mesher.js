@@ -15,7 +15,7 @@
     colour (tint x shade x occlusion) (3).
 */
 
-import { B, OPAQUE, SHAPE, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR } from "./blocks.js";
+import { B, OPAQUE, SHAPE, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR, FLAME_CATCH } from "./blocks.js";
 import { WORLD_H } from "./worldgen.js";
 import {
     FACE_DIR, doorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
@@ -280,6 +280,10 @@ export function meshSection(world, chunk, sy, opts) {
                     lever(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "button") {
                     button(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "retimer") {
+                    retimer(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "plate") {
+                    boxFaces(solidBuf, p, x, y, z, id, meta, U, 0, U, 15 * U, meta & 1 ? U / 2 : U, 15 * U, (f, np) => f === 3 && pOpq[np] === 1);
                 } else if (shape === "piston") {
                     piston(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "pistonhead") {
@@ -449,23 +453,59 @@ function gateBoxes(meta) {
         : [u0 * U, y0 * U, w0 * U, u1 * U, y1 * U, w1 * U]));
 }
 
-//Fire: four double sided flame sheets, always fully bright
+//Fire: double sided flame sheets, always fully bright. On a floor (solid
+//or burnable) they stand crossed and leaning; a fire held up only by
+//burnable neighbours clings to their faces and licks the block above.
+const FIRE_UV = [0, 0, 1, 0, 1, 1, 0, 1];
+const FIRE_H = 1.25;
 function firePlanes(buf, p, x, y, z, id, meta) {
     const ls = (pLight[p] >> 4) / 15;
     const layer = blockFaceLayer(id, 4, meta);
-    for (const k of [0.2, 0.8]) {
-        buf.vert(x + k, y, z, 0, 0, layer, ls, 1, 1, 1, 1);
-        buf.vert(x + k, y, z + 1, 1, 0, layer, ls, 1, 1, 1, 1);
-        buf.vert(x + k, y + 1, z + 1, 1, 1, layer, ls, 1, 1, 1, 1);
-        buf.vert(x + k, y + 1, z, 0, 1, layer, ls, 1, 1, 1, 1);
+    //c: bottom-left, bottom-right, top-right, top-left corners
+    const sheet = (c) => {
+        for (let k = 0; k < 4; k++) {
+            buf.vert(x + c[k * 3], y + c[k * 3 + 1], z + c[k * 3 + 2], FIRE_UV[k * 2], FIRE_UV[k * 2 + 1], layer, ls, 1, 1, 1, 1);
+        }
         buf.quad(false);
         buf.backQuad();
-        buf.vert(x, y, z + k, 0, 0, layer, ls, 1, 1, 1, 1);
-        buf.vert(x + 1, y, z + k, 1, 0, layer, ls, 1, 1, 1, 1);
-        buf.vert(x + 1, y + 1, z + k, 1, 1, layer, ls, 1, 1, 1, 1);
-        buf.vert(x, y + 1, z + k, 0, 1, layer, ls, 1, 1, 1, 1);
-        buf.quad(false);
-        buf.backQuad();
+    };
+    const H = FIRE_H;
+    const below = p + FACE_OFF[3];
+    let clings = false;
+    if (!pOpq[below] && !FLAME_CATCH[pBlk[below]]) {
+        const e = 0.99, s = 0.01, lean = 0.22;
+        if (FLAME_CATCH[pBlk[p + FACE_OFF[0]]]) {
+            sheet([e, 0, 0, e, 0, 1, e - lean, H, 1, e - lean, H, 0]);
+            clings = true;
+        }
+        if (FLAME_CATCH[pBlk[p + FACE_OFF[1]]]) {
+            sheet([s, 0, 1, s, 0, 0, s + lean, H, 0, s + lean, H, 1]);
+            clings = true;
+        }
+        if (FLAME_CATCH[pBlk[p + FACE_OFF[4]]]) {
+            sheet([1, 0, e, 0, 0, e, 0, H, e - lean, 1, H, e - lean]);
+            clings = true;
+        }
+        if (FLAME_CATCH[pBlk[p + FACE_OFF[5]]]) {
+            sheet([0, 0, s, 1, 0, s, 1, H, s + lean, 0, H, s + lean]);
+            clings = true;
+        }
+        if (FLAME_CATCH[pBlk[p + FACE_OFF[2]]]) {
+            //A tent of flames under the burning block
+            for (const [b, t] of [[0.1, 0.5], [0.9, 0.5]]) {
+                sheet([b, 0.35, 0, b, 0.35, 1, t, 1, 1, t, 1, 0]);
+                sheet([0, 0.35, b, 1, 0.35, b, 1, 1, t, 0, 1, t]);
+            }
+            clings = true;
+        }
+    }
+    if (clings) {
+        return;
+    }
+    //Standing fire: an inner pair crossing over and an outer pair leaning in
+    for (const [b, t] of [[0.7, 0.2], [0.3, 0.8], [0.02, 0.35], [0.98, 0.65]]) {
+        sheet([b, 0, 0, b, 0, 1, t, H, 1, t, H, 0]);
+        sheet([0, 0, b, 1, 0, b, 1, H, t, 0, H, t]);
     }
 }
 
@@ -534,7 +574,7 @@ function pane(buf, p, x, y, z, id, meta) {
     });
 }
 
-const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
+const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
     B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_BLOCK, B.POWERED_RAIL]);
 
 function flatQuad(buf, x0, z0, x1, z1, yy, layer, ls, lb, r, g, b) {
@@ -567,7 +607,7 @@ function wire(buf, p, x, y, z, id, meta) {
         links[k ^ 1] = true;
     }
     const t = meta / 15;
-    const r = 0.38 + 0.62 * t, g = 0.14 + 0.46 * t, bl = 0.05 + 0.12 * t;
+    const r = 0.34 + 0.66 * t, g = 0.03 + 0.1 * t, bl = 0.03 + 0.07 * t;
     const ls = (pLight[p] >> 4) / 15, lb = Math.max((pLight[p] & 15) / 15, t * 0.7);
     const layer = blockFaceLayer(id, 2, meta);
     const yy = y + 1 / 64;
@@ -579,6 +619,18 @@ function wire(buf, p, x, y, z, id, meta) {
             flatQuad(buf, x + a[0], z + a[1], x + a[2], z + a[3], yy, layer, ls, lb, r, g, bl);
         }
     });
+}
+
+//Retimer: a thin slab with its arrow turned to the facing, a fixed pin near
+//the front and a pin that slides back with the delay
+function retimer(buf, p, x, y, z, id, meta) {
+    const f = meta & 3, d = HDIR[f];
+    boxFaces(buf, p, x, y, z, id, meta, 0, 0, 0, 1, 2 * U, 1, (ff, np) => ff === 3 && pOpq[np] === 1, f);
+    const pin = layerOfTile(id === B.RETIMER_ON ? "retimer_pin_on" : "retimer_pin_off");
+    for (const s of [0.78, 0.55 - 0.1 * ((meta >> 2) & 3)]) {
+        const cx = 0.5 + d[0] * (s - 0.5), cz = 0.5 + d[1] * (s - 0.5);
+        turnedBox(buf, p, x, y, z, [cx - U, 2 * U, cz - U, cx + U, 7 * U, cz + U], 2, () => pin);
+    }
 }
 
 function lever(buf, p, x, y, z, id, meta) {
@@ -764,11 +816,12 @@ export function itemGeometry(id) {
     const it = ITEMS[id];
     const blockId = it && it.block;
     const shape = blockId ? SHAPE[blockId] : null;
-    const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "cactus" || shape === "farmland" || shape === "piston");
+    const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "cactus" || shape === "farmland" || shape === "piston" ||
+        shape === "plate" || shape === "retimer");
     if (cubeLike) {
         const def = BLOCKS[blockId];
         const meta = def.orient ? 4 : 0;
-        const top = shape === "slab" ? 0.5 : 1;
+        const top = shape === "slab" ? 0.5 : shape === "plate" ? 1 / 16 : shape === "retimer" ? 2 / 16 : 1;
         const inset = shape === "cactus" ? 1 / 16 : 0;
         const tintC = def.tint === "foliage" ? [0.48, 0.86, 0.32] : def.tint === "grass" ? [0.62, 1.0, 0.43] : null;
         for (let f = 0; f < 6; f++) {
