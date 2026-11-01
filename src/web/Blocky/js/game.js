@@ -470,36 +470,49 @@ export class Game {
 
     /* ---------------- ticks ---------------- */
 
-    //Pressure plates under the player, animals and (wooden ones only)
-    //dropped items
+    //Pressure plates pressed by the player, animals and (wooden ones only)
+    //dropped items, carts and boats. A plate senses the bottom quarter of
+    //its block, inset 1/16 at the sides: feet standing on it, or a body
+    //passing through (beside a plate on a fence post, say)
     pressPlates() {
         const w = this.world, U = 1 / 16;
-        const stand = (x, y, z, half, living) => {
-            const by = Math.floor(y + 0.01);
-            for (let bx = Math.floor(x - half); bx <= Math.floor(x + half); bx++) {
-                for (let bz = Math.floor(z - half); bz <= Math.floor(z + half); bz++) {
-                    const id = w.getBlock(bx, by, bz);
-                    if ((id !== B.PLATE_WOOD && id !== B.PLATE_STONE) || (id === B.PLATE_STONE && !living)) {
-                        continue;
-                    }
-                    if (y - by > 0.25 || x + half <= bx + U || x - half >= bx + 1 - U || z + half <= bz + U || z - half >= bz + 1 - U) {
-                        continue;
-                    }
-                    if (w.pressPlate(bx, by, bz)) {
-                        this.sound.play("click");
+        const press = (b, living) => {
+            for (let by = Math.floor(b[1]); by < b[4]; by++) {
+                if (b[1] >= by + 0.25) {
+                    continue;
+                }
+                for (let bx = Math.floor(b[0]); bx < b[3]; bx++) {
+                    for (let bz = Math.floor(b[2]); bz < b[5]; bz++) {
+                        const id = w.getBlock(bx, by, bz);
+                        if ((id !== B.PLATE_WOOD && id !== B.PLATE_STONE) || (id === B.PLATE_STONE && !living)) {
+                            continue;
+                        }
+                        if (b[3] <= bx + U || b[0] >= bx + 1 - U || b[5] <= bz + U || b[2] >= bz + 1 - U) {
+                            continue;
+                        }
+                        if (w.pressPlate(bx, by, bz)) {
+                            this.sound.play("click");
+                        }
                     }
                 }
             }
         };
         const p = this.player;
         if (!p.dead) {
-            stand(p.x, p.y, p.z, 0.3, true);
+            press(p.box(), true);
         }
         for (const m of this.mobs.list) {
-            stand(m.x, m.y, m.z, m.def.w / 2, true);
+            press(this.mobs.box(m), true);
         }
+        const h = ITEM_HALF;
         for (const e of this.entities.items) {
-            stand(e.x, e.y, e.z, 0.125, false);
+            press([e.x - h, e.y, e.z - h, e.x + h, e.y + 2 * h, e.z + h], false);
+        }
+        for (const c of this.carts.list) {
+            press(this.carts.box(c), false);
+        }
+        for (const b of this.boats.list) {
+            press(this.boats.box(b), false);
         }
     }
 
@@ -1329,6 +1342,7 @@ export class Game {
         } else if (bid === B.RAIL || bid === B.POWERED_RAIL) {
             meta = Math.abs(Math.sin(p.yaw)) > Math.abs(Math.cos(p.yaw)) ? 1 : 0;
             w.railPreferX = meta === 1;
+            w.railAim = face === 2 ? [hit.point[0] - x - 0.5, hit.point[2] - z - 0.5] : null;
         } else if (bid === B.TORCH || bid === B.SPARK_TORCH) {
             if (face === 3) {
                 return;

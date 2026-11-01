@@ -277,9 +277,17 @@ wire, 2 source, 4 reacts, 8 rail. Lever and button meta is the face they are
 attached to plus bit 8 for on / pressed; a pressed button's release time is
 kept in `world.buttonDue`, so other updates cannot let it go early.
 
-Pressure plates (two planks or two stone in a row) lie on a solid block;
-meta 1 while pressed. `Game.pressPlates` runs every game tick: the player
-and animals press both kinds, dropped items only wooden ones. Each press
+Pressure plates (two planks or two stone in a row) lie on a solid block,
+or on the same flat tops a torch stands on (top slab, upside down stairs,
+fence post: `flatTop` in world.js, support kind "plate"); meta 1 while
+pressed. `Game.pressPlates` runs every game tick and, like MC, senses any
+entity box that reaches the bottom quarter of the plate's block (inset
+1/16 at the sides), so a body passing beside a plate on a fence post
+presses it too. The player and animals press both kinds; dropped items,
+carts and boats only wooden ones. A cart's rider reaches 1.55 above the
+rail (feet 0.25 below it, 1.8 tall), so a plate on a fence over the track
+(sensing from 2.0) is never pressed by a rider; carts ignore blocks above
+their rail and roll through that fence. Each press
 sets the plate's release time 20 ticks ahead in `world.buttonDue`, so a
 plate lets go a second after the last thing leaves it. A pressed plate
 powers the wire beside it, the block under it and whatever touches it.
@@ -318,6 +326,13 @@ lines. A cart entering another rail block carries on away from the end it
 came in by, which takes it through the right angle where the two curves
 of a U-turn meet.
 
+A plain rail laid where three or four rails lead into it curves (MC-like),
+never runs straight: toward the half of the block the player clicked
+(`world.railAim`, set by game.js for that one placement), else south-east.
+A cart arriving from the side the curve leaves out is carried on along the
+curve, away from the end it is nearer (a gravity cart detector: the cart
+runs through onto a slope, and rolling back it turns onto the stem).
+
 Switches (`railSwitch`): a plain rail with rails on three sides is a
 junction. The two opposite sides are the through line, the third is the
 stem. Power (a lever or button beside it, wire, a powered block) sends the
@@ -332,7 +347,12 @@ rolls depends on its load (`Carts.loadOf`, `LOAD_*` in `carts.js`): reaching
 full speed (8) it cruises for a while, then slows at a steady rate; brakes
 are a much stronger steady deceleration that also holds it on a slope or
 against a furnace cart's push. Both come after anything pushing, so the
-stopping distance grows with the speed. From full speed on level track:
+stopping distance grows with the speed. A powered rail pushes a ridden
+(or loaded chest) cart harder than an empty one (`BOOST_RIDDEN` 26,
+`BOOST_EMPTY` 14 blocks/s^2): launched from a wall by one powered rail
+with two plain rails before a slope, the empty cart climbs 0.6 of the
+first slope block and rolls back, the ridden one just makes it past it
+(about 1.1). From full speed on level track:
 
 | Load | Stops on plain rails | Full speed for | Stops on brakes |
 | --- | --- | --- | --- |
@@ -350,7 +370,8 @@ speed through curves and onto slopes, roll downhill, bump into each other,
 are saved with the world. At the end of a track a cart stops against a
 block (a buffer) but rolls on into open space: off the rails it keeps its
 speed through the air and falls (`c.air`), a block in its way stops it
-sideways but not its fall, on the ground it slides to a stop, and it lands
+sideways but not its fall, on the ground it scrapes to a stop
+(`GROUND_DRAG` and `GROUND_STOP`: 1.25 blocks from full speed), and it lands
 back on any rail it comes down onto. A player walking into a cart on an
 unpowered powered rail pushes it at a slow pace (`BRAKE_PUSH`, 1.5
 blocks/s, also up a slope); the cart holds them back to that pace, so they

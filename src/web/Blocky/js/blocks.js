@@ -216,8 +216,8 @@ def(B.POWERED_RAIL, "Powered Rail", { tex: "powered_rail", shape: "rail", solid:
 def(B.SPARK_BLOCK, "Block of Spark", { tex: "spark_block", hardness: 5, tool: "pickaxe", tier: 1, sound: "metal" });
 //Pressure plates: meta 1 while pressed. Anything presses a wooden one;
 //only players and animals press a stone one.
-def(B.PLATE_WOOD, "Wooden Pressure Plate", { tex: "planks", shape: "plate", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, tool: "axe", sound: "wood", support: "solid" });
-def(B.PLATE_STONE, "Stone Pressure Plate", { tex: "stone", shape: "plate", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, support: "solid" });
+def(B.PLATE_WOOD, "Wooden Pressure Plate", { tex: "planks", shape: "plate", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, tool: "axe", sound: "wood", support: "plate" });
+def(B.PLATE_STONE, "Stone Pressure Plate", { tex: "stone", shape: "plate", solid: false, opaque: false, lightOpacity: 0, hardness: 0.5, support: "plate" });
 //Retimer: passes a signal on in the direction it faces, after a delay.
 //Meta: bits 0-1 facing (HDIR), bits 2-3 delay steps - 1 (2 ticks each).
 const RETIMER_DEF = { shape: "retimer", solid: false, opaque: false, lightOpacity: 0, hardness: 0, sound: "stone", support: "solid", interact: "retimer" };
@@ -437,7 +437,7 @@ item(I.FURNACE_MINECART, "Furnace Minecart", { icon: { flat: "furnace_minecart" 
 item(I.BOAT, "Boat", { icon: { flat: "boat_item" }, stack: 1, boat: true, fuel: 400 });
 //Its needle points to the world spawn (the held compass turns, game.js);
 //with WorldEdit on it is also the navigation tool (worldedit.js)
-item(I.COMPASS, "Compass", { icon: { flat: "compass" } });
+item(I.COMPASS, "Compass", { icon: { flat: "compass" }, stack: 1 });
 
 //Fuel for blocks (ticks at 20 ticks per second; one smelt takes 200 ticks)
 ITEMS[B.LOG].fuel = 300;

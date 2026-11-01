@@ -43,6 +43,12 @@ function opacityOf(id, meta) {
     return o;
 }
 
+//Tops that are not full blocks but still hold a torch or a pressure plate:
+//a top slab, upside down stairs and a fence post
+function flatTop(id, meta) {
+    return (IS_SLAB[id] === 1 && meta === 1) || (SHAPE[id] === "stairs" && (meta & 4) !== 0) || id === B.FENCE;
+}
+
 const DIRS = [1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1];
 
 //Liquid behaviour: ticks between updates, level lost per block, last level
@@ -112,6 +118,8 @@ export class World {
         //Retimer output changes on their way: key -> { due, on }
         this.retimerDue = new Map();
         this.railPreferX = false;
+        //Where the player clicked the block a rail is laid on (game.js)
+        this.railAim = null;
         this.rules = Object.assign({}, DEFAULT_RULES);
         this.cropProgress = new Map();
         this.quiet = false;
@@ -675,7 +683,9 @@ export class World {
             this.notifyNeighbors(x, y, z);
         }
         if (oldId !== id && (POWER[id] & 8)) {
-            railPlaced(this, x, y, z, this.railPreferX);
+            const aim = this.railAim;
+            this.railAim = null;
+            railPlaced(this, x, y, z, this.railPreferX, aim);
         }
         if (!this.powerBusy && (POWER[oldId] || POWER[id])) {
             powerChanged(this, x, y, z);
@@ -778,6 +788,8 @@ export class World {
                 return below === B.GRASS || below === B.DIRT || below === B.FARMLAND;
             case "solid":
                 return isOpaqueAt(below, belowMeta);
+            case "plate":
+                return isOpaqueAt(below, belowMeta) || flatTop(below, belowMeta);
             case "sand":
                 return below === B.SAND || below === B.GRASS || below === B.DIRT;
             case "farmland":
@@ -812,7 +824,7 @@ export class World {
                     return true;
                 }
                 //Torches also stand on top slabs, upside down stairs and fence posts
-                return BLOCKS[id].support === "torch" && meta === 2 && ((IS_SLAB[aid] === 1 && am === 1) || (SHAPE[aid] === "stairs" && (am & 4)) || aid === B.FENCE);
+                return BLOCKS[id].support === "torch" && meta === 2 && flatTop(aid, am);
             }
             case "door":
                 if (meta & 8) {

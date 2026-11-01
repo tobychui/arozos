@@ -33,24 +33,34 @@ const RAIL_EXITS = [
 
 export const CART_ITEM = { cart: I.MINECART, chest: I.CHEST_MINECART, furnace: I.FURNACE_MINECART };
 const MAX_SPEED = 8;
-//How a cart rolls, by what it carries: [coast, roll, brake]. coast: blocks
-//it keeps full speed for before it starts to slow; roll: its deceleration
-//on plain rails after that (blocks / s^2); brake: its deceleration on an
-//unpowered powered rail (stronger than a slope's pull, so a braked cart
-//stops and stays put). From full speed on level track that comes to:
+const BOOST_EMPTY = 14, BOOST_RIDDEN = 26;
+//How a cart rolls, by what it carries: [coast, roll, brake, boost]. coast:
+//blocks it keeps full speed for before it starts to slow; roll: its
+//deceleration on plain rails after that (blocks / s^2); brake: its
+//deceleration on an unpowered powered rail (stronger than a slope's pull,
+//so a braked cart stops and stays put); boost: the push of a powered rail
+//(blocks / s^2). A ridden cart takes more from a powered rail than an
+//empty one: launched from a wall by one powered rail, the empty cart climbs
+//most of one block up a slope and rolls back, the ridden one just makes
+//it past the first block (the "empty cart detector").
+//From full speed on level track that comes to:
 //          stops on plain rails  (coast + 64 / 2 roll)   on brakes
 //  ridden  309 blocks            (176 + 133)             1.5 blocks
 //  empty   165                   (65 + 100)              1
 //  chest with 5 stacks  101      (45 + 56)               1.5
 //  full chest  40                (0 + 40)                1
-const LOAD_RIDDEN = [176, 0.24, 21];
-const LOAD_EMPTY = [65, 0.32, 32];
-const LOAD_SOME = [45, 0.57, 21];
-const LOAD_FULL = [0, 0.8, 32];
+const LOAD_RIDDEN = [176, 0.24, 21, BOOST_RIDDEN];
+const LOAD_EMPTY = [65, 0.32, 32, BOOST_EMPTY];
+const LOAD_SOME = [45, 0.57, 21, BOOST_RIDDEN];
+const LOAD_FULL = [0, 0.8, 32, BOOST_RIDDEN];
 const SOME_STACKS = 5;
 //Pace of a cart a player pushes along an unpowered powered rail
 const BRAKE_PUSH = 1.5;
 const HALF = 0.49;
+//Off the rails on the ground: speed falls by GROUND_DRAG per second
+//(exponential) plus a steady GROUND_STOP, so it comes to a real stop
+const GROUND_DRAG = 5;
+const GROUND_STOP = 3;
 
 export class Carts {
     constructor(game) {
@@ -349,8 +359,12 @@ export class Carts {
             //Sliding only with a block under its middle: a cart leaving a
             //track end grazes the last block without slowing
             if (ground && BLOCKS[w.getBlock(Math.floor(c.x), Math.floor(box[1] - 0.05), Math.floor(c.z))].solid) {
-                c.vx *= Math.exp(-4 * h);
-                c.vz *= Math.exp(-4 * h);
+                //Wheels scraping on the ground: full speed stops in about
+                //one and a half blocks
+                const sp = Math.hypot(c.vx, c.vz);
+                const k = sp > 0 ? Math.max(0, sp * Math.exp(-GROUND_DRAG * h) - GROUND_STOP * h) / sp : 0;
+                c.vx *= k;
+                c.vz *= k;
             }
             if (moveAxis(w, box, 0, c.vx * h) !== c.vx * h) {
                 c.vx = 0;
@@ -391,6 +405,7 @@ export class Carts {
         }
         //Downhill pull
         s -= 12 * dy * h;
+        const [coast, roll, brake, boost] = this.loadOf(c);
         if (r.id === B.POWERED_RAIL) {
             if (r.powered) {
                 if (Math.abs(s) < 0.4) {
@@ -402,7 +417,7 @@ export class Carts {
                         s = -2;
                     }
                 } else {
-                    s += Math.sign(s) * 14 * h;
+                    s += Math.sign(s) * boost * h;
                 }
             }
         }
@@ -425,7 +440,6 @@ export class Carts {
         }
         //Rolling and braking come last, after anything pushing: steady
         //decelerations, so the stopping distance grows with the speed
-        const [coast, roll, brake] = this.loadOf(c);
         const slow = (dec) => (Math.abs(s) <= dec * h ? 0 : s - Math.sign(s) * dec * h);
         if (r.id === B.POWERED_RAIL && !r.powered) {
             //A player leaning on it moves it at a slow pace

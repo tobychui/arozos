@@ -377,12 +377,18 @@ function railCandidates(w, x, y, z) {
     return out;
 }
 
-export function shapeRail(w, x, y, z, preferX) {
+//aim: where on the block the player clicked, [dx, dz] from its middle (or
+//null), which picks the side a rail laid into a junction curves to
+export function shapeRail(w, x, y, z, preferX, aim) {
     const id = w.getBlock(x, y, z);
     const cands = railCandidates(w, x, y, z);
     let links = cands.map((c) => [c.k, c.dy]);
     if (cands.length > 2 || (cands.length === 2 && id === B.POWERED_RAIL && (cands[0].k ^ 1) !== cands[1].k)) {
-        //Best pair: rails leading in count most, then a straight line
+        //Best pair: rails leading in count most. Then a plain rail where
+        //three or four tracks meet curves (a switch, see railSwitch) toward
+        //the side clicked, else south-east like MC; a powered rail, which
+        //cannot curve, runs straight.
+        const [ax, az] = aim || [0.01, 0.01];
         let best = null, bestScore = -1;
         for (let i = 0; i < cands.length; i++) {
             for (let j = i + 1; j < cands.length; j++) {
@@ -390,7 +396,8 @@ export function shapeRail(w, x, y, z, preferX) {
                 if (!straight && id === B.POWERED_RAIL) {
                     continue;
                 }
-                const score = (a.back ? 2 : 1) + (b.back ? 2 : 1) + (straight ? 0.5 : 0);
+                const toward = straight ? 0 : (FLAT[a.k][0] + FLAT[b.k][0]) * ax + (FLAT[a.k][1] + FLAT[b.k][1]) * az;
+                const score = (a.back ? 2 : 1) + (b.back ? 2 : 1) + (straight ? 0 : 0.5 + 0.1 * Math.max(-1, Math.min(1, toward)));
                 if (score > bestScore) {
                     bestScore = score;
                     best = [a, b];
@@ -475,11 +482,11 @@ function openUTurn(w, x, y, z) {
 
 //A new rail: shape it, then let the neighbours it leads into turn toward
 //it, unless they are already joined at both ends
-export function railPlaced(w, x, y, z, preferX) {
+export function railPlaced(w, x, y, z, preferX, aim) {
     if (w.getBlock(x, y, z) === B.RAIL || w.getBlock(x, y, z) === B.POWERED_RAIL) {
         openUTurn(w, x, y, z);
     }
-    shapeRail(w, x, y, z, preferX);
+    shapeRail(w, x, y, z, preferX, aim);
     for (const k of railEnds(w, x, y, z)) {
         const n = railBeside(w, x, y, z, k);
         //(also when it leads here already: one block lower it must slope up)
