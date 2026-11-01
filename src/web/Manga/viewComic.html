@@ -392,7 +392,11 @@ if (typeof applocale !== 'undefined') {
     });
 }
 
-var chapterPath  = decodeURIComponent(window.location.hash.substr(1));
+// Firefox inside a desktop float window does not reload the new chapter when
+// the iframe hash changes, so there the chapter travels in ?chapter= instead.
+var useQueryNav  = ao_module_virtualDesktop && /firefox/i.test(navigator.userAgent);
+var chapterPath  = new URLSearchParams(window.location.search).get("chapter") ||
+                   decodeURIComponent(window.location.hash.substr(1));
 var allChapters  = [];   // [{name, path}] natural-sorted
 var currentChIdx = -1;
 var mangaRootPath = '';  // set once getMangaInfo returns; used for back-navigation
@@ -593,6 +597,10 @@ function updateNavButtons() {
 }
 
 function gotoChapter(path) {
+    if (useQueryNav) {
+        window.location.href = window.location.pathname + "?chapter=" + encodeURIComponent(path);
+        return;
+    }
     window.location.hash = encodeURIComponent(path);
     window.location.reload();
 }
