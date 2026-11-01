@@ -9,6 +9,7 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <script type="text/javascript" src="shared/escape.js"></script>
         <style>
             body{
                 background-color:white;
@@ -175,7 +176,7 @@
                         //console.log(thisFile);
 
                         $("#trashList").append(`<tr>
-                            <td>${thisFile.OriginalFilename}</td>
+                            <td>${escapeHTML(thisFile.OriginalFilename)}</td>
                             <td>${thisFile.RemoveDate}</td>
                             <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">${applocale.getString("button/details","Details")}</button></td>
                             <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">${applocale.getString("button/restore", "Restore")}</button></td>
@@ -208,7 +209,7 @@
                                 var thisFile = data[i];
                                 var filedata = encodeURIComponent(JSON.stringify(thisFile));
                                 $("#trashList").append(`<tr>
-                                    <td>${thisFile.OriginalFilename}</td>
+                                    <td>${escapeHTML(thisFile.OriginalFilename)}</td>
                                     <td>${thisFile.RemoveDate}</td>
                                     <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">${applocale.getString("button/details","Details")}</button></td>
                                     <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">${applocale.getString("button/restore", "Restore")}</button></td>
@@ -282,9 +283,7 @@
                             <td>
                                 ${displayKey}
                             </td>
-                            <td>
-                                ${value}
-                            </td>
+                            <td>${escapeHTML(value)}</td>
                         </tr>`);
                 }
                 

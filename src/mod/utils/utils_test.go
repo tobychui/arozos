@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -45,6 +46,18 @@ func TestSendErrorResponse(t *testing.T) {
 
 	if w.Header().Get("Content-Type") != "application/json" {
 		t.Error("Content-Type header should be set to 'application/json'")
+	}
+
+	// Quotes and backslashes in filesystem errors must not break the JSON body
+	w = httptest.NewRecorder()
+	SendErrorResponse(w, `cannot open "50% off.mp3"`)
+
+	var decoded map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &decoded); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	if decoded["error"] != `cannot open "50% off.mp3"` {
+		t.Errorf("unexpected error message: %q", decoded["error"])
 	}
 }
 
@@ -469,36 +482,90 @@ func TestTemplateApply(t *testing.T) {
 	}
 }
 
-// --- FilenameIsWebSafe ---
+// --- ValidateFilename ---
 
-func TestFilenameIsWebSafe(t *testing.T) {
-	safeNames := []string{
+func TestValidateFilename(t *testing.T) {
+	validNames := []string{
 		"myfile.txt",
 		"image-001.png",
-		"document_v2.pdf",
 		"report 2024.docx",
-	}
-	for _, name := range safeNames {
-		if !FilenameIsWebSafe(name) {
-			t.Errorf("expected %q to be web-safe", name)
-		}
-	}
-
-	unsafeNames := []string{
-		"file/with/slashes.txt",
-		"back\\slash.txt",
+		"50% off.mp3",
+		"a+b.txt",
+		"a#b&c.txt",
 		"query?param=1",
-		"percent%20encoded",
 		"wild*card",
 		"colon:name",
 		"pipe|name",
 		`quote"name`,
 		"less<than",
 		"greater>than",
+		"trailing.dot.",
+		"日本語のファイル.txt",
 	}
-	for _, name := range unsafeNames {
-		if FilenameIsWebSafe(name) {
-			t.Errorf("expected %q to be NOT web-safe", name)
+	for _, name := range validNames {
+		if err := ValidateFilename(name); err != nil {
+			t.Errorf("expected %q to be valid, got %v", name, err)
+		}
+	}
+
+	invalidNames := []string{
+		"",
+		".",
+		"..",
+		".. ",
+		"...",
+		". ",
+		"file/with/slashes.txt",
+		`back\slash.txt`,
+		"line\nbreak.txt",
+		"tab\tname.txt",
+		"nul\x00name.txt",
+		"delete\x7fname.txt",
+	}
+	for _, name := range invalidNames {
+		if err := ValidateFilename(name); err == nil {
+			t.Errorf("expected %q to be invalid", name)
+		}
+	}
+}
+
+// --- ValidateRelativePath ---
+
+func TestValidateRelativePath(t *testing.T) {
+	validPaths := map[string]string{
+		"file.txt":              "file.txt",
+		"folder/file.txt":       "folder/file.txt",
+		"50% off/file+name.txt": "50% off/file+name.txt",
+		`folder\file.txt`:       "folder/file.txt",
+	}
+	for input, expected := range validPaths {
+		got, err := ValidateRelativePath(input)
+		if err != nil {
+			t.Errorf("expected %q to be valid, got %v", input, err)
+			continue
+		}
+		if got != expected {
+			t.Errorf("expected %q to normalize to %q, got %q", input, expected, got)
+		}
+	}
+
+	invalidPaths := []string{
+		"",
+		"/absolute/evil.txt",
+		"../evil.txt",
+		"folder/../../evil.txt",
+		"folder//file.txt",
+		"./file.txt",
+		"folder/.. /evil.txt",
+		"folder/.../evil.txt",
+		"folder/.",
+		`..\evil.txt`,
+		"//server/share/evil.txt",
+		"folder/a\nb.txt",
+	}
+	for _, path := range invalidPaths {
+		if _, err := ValidateRelativePath(path); err == nil {
+			t.Errorf("expected %q to be invalid", path)
 		}
 	}
 }

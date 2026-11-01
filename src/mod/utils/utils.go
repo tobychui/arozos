@@ -3,11 +3,13 @@ package utils
 import (
 	"bufio"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -34,8 +36,9 @@ func SendJSONResponse(w http.ResponseWriter, json string) {
 }
 
 func SendErrorResponse(w http.ResponseWriter, errMsg string) {
+	payload, _ := json.Marshal(map[string]string{"error": errMsg})
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte("{\"error\":\"" + errMsg + "\"}"))
+	w.Write(payload)
 }
 
 func SendOK(w http.ResponseWriter) {
@@ -230,12 +233,61 @@ func TemplateApply(templateString string, data map[string]string) string {
 	return string(content)
 }
 
-func FilenameIsWebSafe(filename string) bool {
-	unsafeChars := []string{"/", "\\", "?", "%", "*", ":", "|", "\"", "<", ">"}
-	for _, char := range unsafeChars {
-		if strings.Contains(filename, char) {
-			return false
+// ValidateFilename checks that a user supplied file or folder name is safe to
+// use as a single path element. Characters that are only special to URLs or
+// HTML (%, ?, &, #, spaces and quotes) are valid on the supported file systems
+// and are deliberately allowed; the API handles their encoding. Names that
+// could escape the containing directory or that no supported file system
+// accepts are rejected here.
+func ValidateFilename(filename string) error {
+	if filename == "" {
+		return errors.New("filename cannot be empty")
+	}
+	if filename == "." || filename == ".." {
+		return errors.New("filename cannot be . or ..")
+	}
+	//Windows strips trailing spaces and dots from path components, which can
+	//turn names like ".. " into "..". Reject those traversal-like variants.
+	if trimmed := strings.TrimRight(filename, " ."); trimmed == "" || trimmed == "." || trimmed == ".." {
+		return errors.New("filename cannot be . or ..")
+	}
+	if strings.ContainsAny(filename, `/\`) {
+		return errors.New("filename cannot contain path separators")
+	}
+	for _, r := range filename {
+		if r == 0 || r < 0x20 || r == 0x7f {
+			return errors.New("filename cannot contain control characters")
 		}
 	}
-	return true
+	return nil
+}
+
+// ValidateRelativePath checks a relative path made of one or more filename
+// segments, as produced by browsers for directory uploads. It rejects absolute
+// paths, dot segments, empty segments and segments that ValidateFilename
+// rejects, and returns the path with forward slashes.
+func ValidateRelativePath(relativePath string) (string, error) {
+	//Browsers use forward slashes, but a crafted request may use backslashes.
+	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
+	if relativePath == "" {
+		return "", errors.New("path cannot be empty")
+	}
+	if strings.HasPrefix(relativePath, "/") || filepath.IsAbs(relativePath) || filepath.VolumeName(relativePath) != "" {
+		return "", errors.New("path must be relative")
+	}
+
+	segments := strings.Split(relativePath, "/")
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", errors.New("path contains invalid segments")
+		}
+		if filepath.VolumeName(segment) != "" {
+			return "", errors.New("path contains invalid segments")
+		}
+		if err := ValidateFilename(segment); err != nil {
+			return "", err
+		}
+	}
+
+	return strings.Join(segments, "/"), nil
 }

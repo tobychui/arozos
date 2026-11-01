@@ -184,25 +184,15 @@ function fileObjectAttributes(d){
     let modAttr = ` modtime="${d.modTime}"`;
     //dragstart / drop / dragover / dblclick are delegated on #folderView by
     //bindFileListDelegates(), so rows carry no inline handlers.
-    /*
-        Dotfiles are dimmed so they read as "shown because you asked", not as
-        ordinary content. Decided from the name rather than a server flag: the
-        listing carries no hidden field, and a leading dot is the same rule the
-        server filters on.
-
-        A data attribute rather than a class: every caller below already writes
-        its own class attribute, and a second one on the same element is
-        discarded by the parser rather than merged.
-    */
     let hiddenAttr = d.filename.charAt(0) == "." ? ` data-hidden="true"` : "";
-    return `draggable="true" fileID="${d.fileID}" filename="${d.filename}"` +
-           ` filepath="${d.filepath}" type="${d.type}"${sizeAttrs}${modAttr}${hiddenAttr}`;
+    return `draggable="true" fileID="${d.fileID}" filename="${FileThumb.escapeHTML(d.filename)}"` +
+           ` filepath="${FileThumb.escapeHTML(d.filepath)}" type="${d.type}"${sizeAttrs}${modAttr}${hiddenAttr}`;
 }
 
 function renderListItem(d){
     return `<div class="fileObject item" ${fileObjectAttributes(d)}>
                 <span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span>
-                <span class="filename">${d.displayName}</span>
+                <span class="filename">${FileThumb.escapeHTML(d.displayName)}</span>
                 ${d.shareIcon}
             </div>`;
 }
@@ -214,11 +204,11 @@ function renderGridItem(d){
 
     return `<div class="fileObject card" ${fileObjectAttributes(d)}>
                 <div class="image">
-                    <img draggable="false" src="${d.imagePath}">
+                    <img draggable="false" src="${FileThumb.escapeHTML(d.imagePath)}">
                     <div class="shareOverlay ${d.isShared ? "visible" : ""}">${d.shareIcon}</div>
                 </div>
                 <div class="content">
-                    <div class="header normal object" title="${d.filename}"><span class="filename">${shown}</span></div>
+                    <div class="header normal object" title="${FileThumb.escapeHTML(d.filename)}"><span class="filename">${FileThumb.escapeHTML(shown)}</span></div>
                     ${meta}
                 </div>
             </div>`;
@@ -233,9 +223,9 @@ function renderDetailsRow(d){
 
     //Cells follow the user's column order (columns.js)
     let cells = {
-        name: `<td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${d.displayName}</span>${sharedMark}</span></td>`,
+        name: `<td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${FileThumb.escapeHTML(d.displayName)}</span>${sharedMark}</span></td>`,
         date: `<td class="fmColDate light-text">${d.modTimeText}</td>`,
-        type: `<td class="fmColType light-text">${typeName}</td>`,
+        type: `<td class="fmColType light-text">${FileThumb.escapeHTML(typeName)}</td>`,
         size: `<td class="fmColSize light-text">${size}</td>`
     };
 
