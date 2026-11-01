@@ -203,14 +203,14 @@ $.ajax({
                     ${applocale.getString("sidebar/properties/mimetype", "MIME Type")}
                 </td>
                 <td>
-                    ${data.MimeType}
+                    ${FileThumb.escapeHTML(data.MimeType)}
                 </td>
             </tr><tr>
                 <td style="${styleOverwrite}">
                     ${applocale.getString("sidebar/properties/owner", "Owner")}
                 </td>
                 <td>
-                    ${data.Owner}
+                    ${FileThumb.escapeHTML(data.Owner)}
                 </td>
             </tr><tr>
                 <td style="${styleOverwrite}">
@@ -224,14 +224,14 @@ $.ajax({
                     ${applocale.getString("sidebar/properties/storepath", "Storage Path")}
                 </td>
                 <td style="word-break: break-all;">
-                    ${data.StoragePath}
+                    ${FileThumb.escapeHTML(data.StoragePath)}
                 </td>
             </tr><tr>
                 <td style="${styleOverwrite}">
                     ${applocale.getString("sidebar/properties/vpath", "Virtualized Path")}
                 </td>
                 <td style="word-break: break-all;">
-                    ${data.VirtualPath}
+                    ${FileThumb.escapeHTML(data.VirtualPath)}
                 </td>
             </tr>`);
 

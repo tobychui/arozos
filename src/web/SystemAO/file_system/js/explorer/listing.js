@@ -180,7 +180,7 @@ function requestDirectoryListing(path, callback, selectedFiles, currentScrollTop
             $.ajax({
                 url: "../../system/file_system/listDir",
                 method: "POST",
-                data: {dir: safeDecodePath(path), sort: sortMode,
+                data: {dir: path, sort: sortMode,
                        showHidden: showHiddenFiles ? "true" : "false"},
                 success: function(data){
                     //Parse the filelist into global variable

@@ -12,7 +12,6 @@ import (
 	"math"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -493,6 +492,14 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//A low-memory upload always targets a single file name. Reject separators
+	//and dot segments so the write cannot escape the selected directory.
+	if err := utils.ValidateFilename(filename); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - Invalid filename given"))
+		return
+	}
+
 	//Get upload target directory
 	uploadTarget, err := utils.GetPara(r, "path")
 	if uploadTarget == "" || err != nil {
@@ -501,21 +508,15 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Unescape the upload target path
-	unescapedPath, err := url.PathUnescape(uploadTarget)
-	if err != nil {
-		unescapedPath = uploadTarget
-	}
-
 	//Check if the user can write to this folder
-	if !userinfo.CanWrite(unescapedPath) {
+	if !userinfo.CanWrite(uploadTarget) {
 		//No permission
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Access Denied"))
 		return
 	}
 
-	fsh, subpath, err := GetFSHandlerSubpathFromVpath(unescapedPath)
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath(uploadTarget)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Path translation failed"))
@@ -832,21 +833,12 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//Try to decode the location if possible
-	decodedUploadLocation, err := url.PathUnescape(targetUploadLocation)
-	if err != nil {
-		decodedUploadLocation = targetUploadLocation
-	}
-
-	//Do not allow % sign in filename. Replace all with underscore
-	decodedUploadLocation = strings.ReplaceAll(decodedUploadLocation, "%", "_")
-
 	//Merge the file. Merge file location must be on local machine
-	mergeFileLocation := decodedUploadLocation
+	mergeFileLocation := targetUploadLocation
 	var out arozfs.File
 	if fsh.RequireBuffer {
 		//The merge file location must be local buffer
-		mergeFileLocation = getFsBufferFilepath(decodedUploadLocation, false)
+		mergeFileLocation = getFsBufferFilepath(targetUploadLocation, false)
 		out, err = os.OpenFile(mergeFileLocation, os.O_CREATE|os.O_WRONLY, 0755)
 	} else {
 		//The merge file location can be local or remote that support OpenFile.
@@ -930,7 +922,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = fsh.FileSystemAbstraction.WriteStream(decodedUploadLocation, f, 0775)
+		err = fsh.FileSystemAbstraction.WriteStream(targetUploadLocation, f, 0775)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to write to file system: "+fsh.UUID+" with error "+err.Error(), err)
 			c.WriteMessage(1, []byte(`{"error":"Failed to upload to remote file system"}`))
@@ -944,10 +936,10 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Log the upload filename
-	//systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+filepath.Base(decodedUploadLocation), nil)
+	systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+filepath.Base(targetUploadLocation), nil)
 
 	//Set owner of the new uploaded file
-	userinfo.SetOwnerOfFile(fsh, unescapedPath)
+	userinfo.SetOwnerOfFile(fsh, uploadTarget)
 
 	//Return complete signal
 	c.WriteMessage(1, []byte("OK"))
@@ -1047,6 +1039,14 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	//Reject absolute paths, traversal segments and separators that could
+	//escape the upload target. Directory uploads keep their relative layout.
+	storeFilename, err = utils.ValidateRelativePath(storeFilename)
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid filename: "+err.Error())
+		return
+	}
+
 	destFilepath := arozfs.ToSlash(filepath.Join(realUploadPath, storeFilename))
 	//fmt.Println(destFilepath, realUploadPath, storeFilename)
 	if !targetFs.FileExists(filepath.Dir(destFilepath)) {
@@ -1069,9 +1069,6 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, "User Storage Quota Exceeded")
 		return
 	}
-
-	//Do not allow % sign in filename. Replace all with underscore
-	destFilepath = strings.ReplaceAll(destFilepath, "%", "_")
 
 	//Move the file to destination file location
 	if *enable_asyncFileUpload {
@@ -1130,8 +1127,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Loop through all files are see if there are duplication during copy and paste
 	sourceFiles := []string{}
-	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
-	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	err = json.Unmarshal([]byte(vsrcFiles), &sourceFiles)
 	if err != nil {
 		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
@@ -1853,9 +1849,9 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//Check if the filename contains web-unsafe characters
-		if !utils.FilenameIsWebSafe(filename) {
-			utils.SendErrorResponse(w, "Filename contains illegal characters")
+		//Validate the filename before using it as a single path element
+		if err := utils.ValidateFilename(filename); err != nil {
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -2122,8 +2118,7 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 
 	//Decode the source file list
 	var sourceFiles []string
-	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
-	err := json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	err := json.Unmarshal([]byte(vsrcFiles), &sourceFiles)
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "File operation source file JSON parse error", err)
 		return nil, "", errors.New("Source file JSON parse error.")
@@ -2140,10 +2135,6 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 	}
 	sourceFiles = tmp
 	vdestFile = strings.ReplaceAll(vdestFile, "{{plug_sign}}", "+")
-
-	//Decode the target position
-	escapedVdest := system_fs_specialURIDecode(vdestFile)
-	vdestFile = escapedVdest
 
 	if vdestFile == "" {
 		return nil, "", errors.New("Undefined dest location")
@@ -2462,9 +2453,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 	//As the user can pass in multiple source files at the same time, parse sourceFiles from json string
 	var sourceFiles []string
-	//This line is required in order to allow passing of special charaters
-	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
-	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	err = json.Unmarshal([]byte(vsrcFiles), &sourceFiles)
 	if err != nil {
 		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
@@ -2473,7 +2462,6 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	//Check if new filenames are also valid. If yes, translate it into string array
 	var newFilenames []string
 	if vnfilenames != "" {
-		vnfilenames, _ := url.QueryUnescape(vnfilenames)
 		err = json.Unmarshal([]byte(vnfilenames), &newFilenames)
 		if err != nil {
 			utils.SendErrorResponse(w, "Unable to parse JSON for new filenames")
@@ -2599,11 +2587,11 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				thisFilename := filepath.Base(newFilenames[i])
+				thisFilename := newFilenames[i]
 
-				//Check if the new filename contains web-unsafe characters
-				if !utils.FilenameIsWebSafe(thisFilename) {
-					utils.SendErrorResponse(w, "Filename contains illegal characters")
+				//Validate the new filename before using it as a single path element
+				if err := utils.ValidateFilename(thisFilename); err != nil {
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
 				//Check if the name already exists. If yes, return false
@@ -3097,22 +3085,6 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 	You can also pass in normal path for globing if you are not sure.
 */
 
-func system_fs_specialURIDecode(inputPath string) string {
-	inputPath = strings.ReplaceAll(inputPath, "+", "{{plus_sign}}")
-	inputPath, _ = url.QueryUnescape(inputPath)
-	inputPath = strings.ReplaceAll(inputPath, "{{plus_sign}}", "+")
-	return inputPath
-}
-
-/*
-func system_fs_specialURIEncode(inputPath string) string {
-	inputPath = strings.ReplaceAll(inputPath, " ", "{{space_sign}}")
-	inputPath, _ = url.QueryUnescape(inputPath)
-	inputPath = strings.ReplaceAll(inputPath, "{{space_sign}}", "%20")
-	return inputPath
-}
-*/
-
 /*
 The parent folder of a virtual path, as shown in the properties dialog.
 
@@ -3420,11 +3392,6 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		isHidden, _ := hidden.IsHidden(f.Name(), false)
 		if showHidden != "true" && isHidden {
 			//Skipping hidden files
-			continue
-		}
-
-		//Check if this file contains invalid characters
-		if !utils.FilenameIsWebSafe(f.Name()) {
 			continue
 		}
 

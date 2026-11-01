@@ -24,6 +24,12 @@
         return resultname
     }
 
+    //Escape a value for use inside a single-quoted inline event handler.
+    //encodeURIComponent leaves apostrophes alone, so encode those too.
+    function encodeInlineValue(value){
+        return encodeURIComponent(value).replace(/'/g, "%27");
+    }
+
     function getExtFromPath(path){
         if (path.includes(".") == false){
             return "";
@@ -55,23 +61,6 @@ function uuidv4() {
         var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
-}
-
-/*
-    decodeURIComponent for paths, which may or may not arrive encoded.
-
-    A path the user typed is taken as it is, and a literal "%" in it - a
-    mistyped "%share%", or a folder named "50%off" - is not an escape:
-    decodeURIComponent throws on those, which used to stop the listing
-    halfway with the loader still spinning. Only a path that decodes cleanly
-    is decoded.
-*/
-function safeDecodePath(path){
-    try {
-        return decodeURIComponent(path);
-    } catch (e){
-        return path;
-    }
 }
 
 //Handle keydown of enter on certain input boxes

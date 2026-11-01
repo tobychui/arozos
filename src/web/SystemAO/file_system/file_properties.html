@@ -625,7 +625,7 @@
                 var dirname = files[0].split("/");
                 var basename = dirname.pop();
                 var accessPath = dirname.join("/") + "/" + (relpath == "" ? basename : relpath);
-                window.open("../../media/download?file=" + accessPath);
+                window.open("../../media/download?file=" + encodeURIComponent(accessPath));
             }
 
             function createSnapshot(){

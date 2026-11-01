@@ -194,7 +194,7 @@ function updatePathDisplay(path){
             '<span class="fmSpecialRootIcon">' + (FSIcons[driveView.icon] || "") + '</span><span>' +
             applocale.getString(driveView.labelKey, driveView.labelFallback) + '</span></div>');
     }else{
-        $(".pathDisplay").append(`<div class="section selectable" onclick="event.stopImmediatePropagation(); rootDir();"><i class="folder icon"></i> ${vdID}</div>`);
+        $(".pathDisplay").append(`<div class="section selectable" onclick="event.stopImmediatePropagation(); rootDir();"><i class="folder icon"></i> ${FileThumb.escapeHTML(vdID)}</div>`);
     }
     $(".pathDisplay").append(`<div class="divider">/</div>`);
     let domPathChunks = [];
@@ -206,7 +206,7 @@ function updatePathDisplay(path){
         if (i < pathInfo.length - 1){
             pathHighlight = pathInfo[i + 1];
         }
-        domPathChunks.push(`<div class="section selectable" onclick="event.stopImmediatePropagation(); listDirectoryAndHighlight('${thisPath}', '${pathHighlight}');">${shortenLongFoldername(thisname, 20)}</div>`);
+        domPathChunks.push(`<div class="section selectable" onclick="event.stopImmediatePropagation(); listDirectoryAndHighlight(decodeURIComponent('${encodeInlineValue(thisPath)}'), decodeURIComponent('${encodeInlineValue(pathHighlight)}'));">${FileThumb.escapeHTML(shortenLongFoldername(thisname, 20))}</div>`);
     }
 
     let fullpath = domPathChunks.join(`<div class="divider">/</div>`);

@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -102,9 +102,6 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	targetfile, _ := utils.GetPara(r, "file")
-	//GetPara has already decoded the query once. Decode again for clients that
-	//double encode, but keep a literal "+" (QueryUnescape would turn it into a space)
-	targetfile = filesystem.DecodeURI(targetfile)
 	if targetfile == "" {
 		return nil, "", "", errors.New("Missing paramter 'file'")
 	}
@@ -234,14 +231,15 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 
 	//Serve the file
 	if downloadMode {
-		escapedRealFilepath, err := url.PathUnescape(realFilepath)
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
-		}
-		filename := filepath.Base(escapedRealFilepath)
+		filename := filepath.Base(realFilepath)
 
-		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+		//Format the filename as a MIME parameter so quotes, CR/LF or non-ASCII
+		//characters cannot break or inject into the Content-Disposition header.
+		disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
+		if disposition == "" {
+			disposition = "attachment"
+		}
+		w.Header().Set("Content-Disposition", disposition)
 		w.Header().Set("Content-Type", compatibility.BrowserCompatibilityOverrideContentType(r.UserAgent(), filename, r.Header.Get("Content-Type")))
 		if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
 			//Stream it directly from remote
@@ -254,7 +252,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 			io.Copy(w, remoteStream)
 			remoteStream.Close()
 		} else {
-			http.ServeFile(w, r, escapedRealFilepath)
+			http.ServeFile(w, r, realFilepath)
 		}
 
 	} else {

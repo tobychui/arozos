@@ -10,6 +10,7 @@
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
         <script type="text/javascript" src="../../script/clipboard.min.js"></script>
+        <script type="text/javascript" src="shared/escape.js"></script>
         <style>
             .backgroundIcon{
                 position: fixed;
@@ -90,7 +91,7 @@
                         if (!entry.CanAccess){
                             openShareButton = "";
                         }
-                        let openButton = `<button title="Open in File Manager" path="${entry.FileVirtualPath}" isfolder="${entry.IsFolder}" onclick="openThis(this);" class="ui icon basic button"><i class="folder open icon"></i></button>`;
+                        let openButton = `<button title="Open in File Manager" path="${escapeHTML(entry.FileVirtualPath)}" isfolder="${entry.IsFolder}" onclick="openThis(this);" class="ui icon basic button"><i class="folder open icon"></i></button>`;
                         if (!entry.CanOpenInFileManager){
                             openButton = "";
                         }
@@ -104,8 +105,8 @@
                                 <td>
                                     <h4 class="ui header">
                                         <div class="content">
-                                            <span>${filename} </span>
-                                            <div class="sub header">${applocale.getString("item/creator", "Creator: ")} ${entry.Owner} / ${applocale.getString("item/perm", "Permission: ")} ${entry.Permission} / <span class="linkCopier" style="cursor:pointer; color: #3452eb;" title="Copy Link" data-clipboard-text="${window.location.protocol + '//' + window.location.hostname + ":" + port + "/share/" + entry.UUID}"><i class="linkify icon"></i></span>
+                                            <span>${escapeHTML(filename)} </span>
+                                            <div class="sub header">${applocale.getString("item/creator", "Creator: ")} ${escapeHTML(entry.Owner)} / ${applocale.getString("item/perm", "Permission: ")} ${escapeHTML(entry.Permission)} / <span class="linkCopier" style="cursor:pointer; color: #3452eb;" title="Copy Link" data-clipboard-text="${window.location.protocol + '//' + window.location.hostname + ":" + port + "/share/" + entry.UUID}"><i class="linkify icon"></i></span>
                                         </div>
                                     </h4>
                                 </td>
