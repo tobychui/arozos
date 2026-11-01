@@ -30,6 +30,7 @@ its folder.
 | `js/player.js`, `js/physics.js` | Movement, collisions, survival stats. |
 | `js/ui.js`, `js/icons.js` | HUD, inventory / workbench / furnace / chest / creative screens, icon sheet. |
 | `js/chat.js`, `js/commands.js` | Chat line and slash commands. |
+| `js/worldedit.js`, `js/wecommands.js`, `js/weexpr.js` | WorldEdit: edit sessions with undo, selection, clipboard, region and shape operations; the `//` commands; the expression language of `//deform` and `//generate`. |
 | `js/mobs.js` | Animals (models, spawning, AI, combat, drops) and bow arrows. |
 | `js/textures.js` | Procedural pixel art for every tile, crack overlays and isometric icons. |
 | `js/audio.js` | Web Audio synthesised sounds. |
@@ -67,7 +68,15 @@ its folder.
   half speed when dry), scaled by `tickSpeed / 3`. Crops need light 9 from
   the sky or a lamp / torch, but grow at night too.
 - Liquids share one `liquidTick` (`LIQUID` table: water renews and flows 7,
-  lava flows 3 and slower). Lava touching water becomes obsidian (source) or
+  lava flows 3 and slower). Meta 0 is a source, 1-7 a flowing level, 8
+  falling liquid (liquid above it); `waterHeight` in `shapes.js` turns that
+  into a surface height. `world.liquidFlow` gives the way liquid runs, as a
+  unit vector toward lower neighbours, strongly over an edge where it falls
+  into the block below the neighbour. The mesher (`liquidFaces`) draws the
+  surface from corner heights shared with the neighbouring cells - the
+  weighted average of the liquid around each corner, open cells pulling it
+  down, 1 under liquid above - so levels join into slopes without gaps;
+  sides are drawn only toward cells that are not that liquid. Lava touching water becomes obsidian (source) or
   cobblestone. Fire is a scheduled tick that burns `FLAME_BURN` blocks and
   jumps to air beside `FLAME_CATCH` blocks unless `fireSpread` is off. Lava
   lights burnable things up to three blocks above or beside it
@@ -127,6 +136,104 @@ menu): `/give`, `/tp` (`~` relative, y optional), `/time`, `/weather`,
 `/spawnpoint`, `/tickspeed`, `/firespread` and `/gamerule randomTickSpeed |
 doFireTick`.
 
+## WorldEdit
+
+Building commands typed with two slashes, modelled on the well known
+server plugin: Settings > WorldEdit Commands (Creative), off by default.
+They work in creative mode only and do not need the cheats option.
+`//help` lists them by group, `//help <command>` explains one, and the
+pause menu's Commands screen lists them all. While it is on (in creative)
+item tooltips in the inventory and creative palette end in the item's id,
+e.g. `Dirt (3)`, for typing into patterns and `/give`.
+
+- **Selection** (a cuboid, drawn as an amber box seen faintly through
+  terrain; the first corner red, the second blue): `//wand` gives a wooden
+  axe that sets the first corner on left click and the second on right
+  click (the block under the crosshair, or up to 128 blocks away) instead
+  of mining or placing; `//toggleeditwand` turns that off. `//pos1`,
+  `//pos2` (where you stand or `x,y,z`, `~` allowed), `//hpos1`, `//hpos2`,
+  `//sel` / `//desel`, `//size`, `//count <mask>`, `//distr`, `//expand`
+  (`vert` for full height), `//contract`, `//shift`, `//outset`, `//inset`,
+  `//chunk`.
+- **Region**: `//set`, `//replace [from] <to>`, `//overlay`, `//walls`,
+  `//outline` (`//faces`), `//center`, `//smooth [n] [mask]`,
+  `//deform [-r|-o] <expr>`, `//regen`, `//hollow [thickness] [pattern]`,
+  `//move [n] [dir] [leave] [-s -a -e -m mask]`,
+  `//stack [n] [dir | x,y,z] [-s -a -e -r -m mask]`, `//naturalize`,
+  `//line <pattern> [thickness] [-h]`, `//generate [-h -r -o -c] <pattern> <expr>`.
+- **Shapes** around you: `//sphere`, `//hsphere` (radii `r` or
+  `rx,ry,rz`, `-r` raised), `//cyl`, `//hcyl`, `//pyramid`, `//hpyramid`.
+- **Clipboard**: `//copy [-e] [-m mask]`, `//cut [leave] [-e] [-m mask]`,
+  `//paste [-a -s -o -e]`, `//rotate <y> [x] [z]` (90 degree steps, y
+  clockwise seen from above), `//flip [dir]`, `//clearclipboard`. The
+  clipboard is relative to the block you stood on when copying; `-e` takes
+  carts, boats and animals along.
+- **History**: `//undo [n]`, `//redo [n]`, `//clearhistory` (25 edits or
+  12 million changed blocks are kept).
+- **Around you**: `//fill`, `//drain`, `//removeabove`, `//removebelow`,
+  `//removenear`, `//replacenear`, `//extinguish`; `//limit [n]` caps one
+  edit (default 1,000,000 blocks, up to 8,000,000).
+- **Navigation** (one slash): `/jumpto` (`/j`) onto the block in sight up
+  to 128 blocks away, landing on the first spot with room to stand from
+  it up (so a wall lands you on top); `/thru` through the wall, floor or
+  ceiling you look at within reach, up to 12 blocks thick - walls at your
+  own height, down a floor to the ground of the room below, up a ceiling
+  onto the roof; `/ascend` and `/descend [levels]` to the next floor;
+  `/up <n>`, onto a glass block if there is nothing under you. The
+  **compass** is the navigation tool: left click jumps, right click passes
+  through the block under the crosshair (within reach) or, with none in
+  reach, jumps. Like the wand it neither mines nor places while WorldEdit
+  is active.
+
+Patterns: `stone`, `stone,dirt` (even mix), `30%dirt,70%grass_block`,
+`name:meta`, a block id, `hand`. Masks: block lists, `!` in front negates
+the list, `#existing`, `#solid`, `#liquid`, `#natural`. Directions: `me`
+(where you look, up / down past 67.5 degrees), `back`, `left`, `right`,
+`up`, `down`, `north` (-Z), `south`, `east` (+X), `west`. Expressions
+(`weexpr.js`, compiled to closures, never `eval`): `x y z`, assignments
+(`= += -= *= /= %= ^=`), `?:`, `|| && == != < <= > >=`, `+ - * / % ^`,
+maths functions, `random`, `randint` and `perlin(seed, x, y, z, freq,
+octaves, persistence)`; true means above 0.
+
+How edits work (`worldedit.js`):
+
+- An `EditSession` writes into the chunk arrays directly instead of
+  `world.setBlock`, which would drop chest contents, reshape rails and run
+  physics. Every change is logged compactly (chunk number, cell index, old
+  and new id and meta in typed arrays) with tile entity before / after
+  pairs, so undo replays the log backwards and returns the record redo
+  replays again. History is not saved with the world, and undo refuses
+  when part of an edit has been unloaded.
+- The first 2048 changes are relit cell by cell like `setBlock`. Past that
+  the session relights in bulk when it finishes: every lit chunk touched
+  or next to a touched one has its light cleared and `lightChunk` run
+  again, then the light of the lit chunks just outside flows back in.
+  Light reaches 15 blocks, less than a chunk, so nothing further out can
+  change; a test against relighting every loaded chunk from scratch found
+  no differing cell. A 1,000,000 block `//set` takes about 0.2 s.
+- Placed blocks get no physics of their own (pasted sand floats), but
+  unchanged blocks next to the edit get `neighborChanged`, so water flows
+  into a hole and sand above it falls. Liquids on the edge of the edit,
+  fire and every spark part are scheduled, so pasted circuits settle.
+- Tile entities: a block replaced by the same kind keeps its container,
+  copies carry cloned chests, furnaces and signs (sign `ver` is bumped so
+  the text is redrawn), other replacements lose them without dropping.
+  Crop, door power, button and retimer bookkeeping is cleared per cell.
+- Rotating and flipping turn block meta with the same 3 x 3 matrix as the
+  positions (`transformMeta`): face metas (torches, ladders, levers,
+  buttons, pistons, wall signs, furnaces, chests), horizontal facings
+  (stairs incl. upside down on a vertical flip, gates, retimers, beds,
+  doors incl. the hinge side under a mirror), standing sign angles, slabs
+  and rail shapes. A facing that cannot exist after an x / z rotation (a
+  stair on its side, a torch under a ceiling) keeps its meta.
+- `//smooth` blurs the column heights with a radius 5, sigma 1 gaussian and
+  stretches or squashes each column keeping its top block; the default
+  ground is solid blocks other than logs, leaves and cactus. `//hollow`
+  floods inward from the selection's faces through non-solid blocks and
+  counts the selection's own edge as outside, so a box drawn tightly round
+  a solid object still leaves a shell. `//regen` generates fresh chunks
+  with the world's `TerrainGen` and copies the selected cells.
+
 ## Wool and dyes
 
 Sixteen coloured wools (`WOOL_COLORS` in `blocks.js`: red, orange, yellow,
@@ -179,9 +286,13 @@ powers the wire beside it, the block under it and whatever touches it.
 
 Doors react to power too: when power arrives at either half the door
 opens, when it goes the door shuts, and in between it can still be opened
-by hand (`world.doorPowered` remembers which doors are held by power; it is
-not saved, so after loading a door just follows the next change). A double
-door shares its power: either door powered opens both.
+by hand (`world.doorPowered` remembers which doors and trapdoors are held
+by power and is saved as `doorPowered`, so a door opened by a lever still
+shuts when the lever goes off after a reload; saves from before that adopt
+each open door or trapdoor that is powered when its chunk loads, through
+`world.doorAdopt`). A double
+door shares its power: either door powered opens both. Trapdoors work the
+same way, each on its own.
 
 Retimers (two spark torches and a spark dust over three stone) repeat a
 signal one way, in the direction the player faced when placing them, after
@@ -259,7 +370,20 @@ it (one in creative) and drop the boat; lava burns it up.
 
 `js/boats.js`: a boat looks for the top of the water column it is in
 (`surface`) and springs toward 0.14 below it (`DRAFT`), so one placed under
-water rises; off water it falls. Its collision box is square and 0.98 wide
+water rises; off water it falls. Water is looked for under the middle of
+the hull and near its four corners (`columnAt`, `PROBES`): the middle
+decides waterfalls and lava, otherwise the highest surface found holds the
+boat up, and a boat resting on a rim with no water under its middle slips
+off toward the corners that are over water. In a waterfall - falling water
+(meta 8) with water or air under it, or water draining into such falling
+water - it is carried down at 7 blocks/s instead of rising up the column;
+falling water lying on the bottom of a pool or pit does not count, or a
+boat floating over it would flip between rising and sinking. Floating, it
+moves relative to the water: the current (`Boats.current`, 2.5 blocks/s,
+the average of `world.liquidFlow` over the columns under the hull, or out
+from under a waterfall that lands where it floats) carries an empty boat
+along, and rowing adds to it, so upstream is about 4.5 blocks/s against
+9.5 downstream. Its collision box is square and 0.98 wide
 (the hull turns, the box does not), so it fits a one block canal; sideways
 speed is damped hard, like a keel. Walking into an empty boat nudges it,
 boats bump into each other, and they are saved with the world (`boats` in
@@ -297,6 +421,27 @@ Settings > Realistic Graphics. `js/realistic.js` with `render.js`:
   `Renderer.objectLight` gives them a brightness that matches this lighting.
 - Turning the mode off disposes every target. It needs float render targets
   (`EXT_color_buffer_float`); without them the setting stays off.
+
+## Trapdoors
+
+Six planks in two rows make two trapdoors (`B.TRAPDOOR`, id 100). A
+trapdoor is a 3 px hatch (`trapdoorBox` in `shapes.js`, also used for
+collision, selection and meshing): closed it lies in the bottom or top
+half of its block, open it stands against its hinge side like a closed
+door panel. Meta bits 0-1 are the hinge side (HDIR), bit 2 open, bit 3 top
+half. Placed on the side of a block it hinges on that block, in the half
+that was clicked; placed on top of or under a block it hinges on the far
+side, so it swings open away from you. Right click (or power) opens it. Its
+tile has four open panes that are alpha tested, and WorldEdit turns its
+hinge with the clipboard (a vertical flip moves it to the other half).
+
+## Compass
+
+Four iron ingots around a spark dust. The held compass is drawn from one
+of 16 tiles (`compass_0` to `compass_15`, `Game.compassStep`) so its red
+needle points at the world spawn relative to where you look; it spins
+while you stand on the spawn. The inventory icon always points up. With
+WorldEdit active it is also the navigation tool (see WorldEdit).
 
 ## Stairs
 

@@ -10,6 +10,19 @@
 import { B, SHAPE, SOLID, HDIR, isOpaqueAt } from "./blocks.js";
 
 const FULL = [0, 0, 0, 1, 1, 1];
+
+//Height of a liquid's surface in its block: sources and falling liquid
+//(meta 0 and 8) nearly fill it, flowing levels 1-7 step down, and liquid
+//above fills it to the top
+export function waterHeight(meta, waterAbove) {
+    if (waterAbove) {
+        return 1;
+    }
+    if (meta === 0 || meta === 8) {
+        return 0.875;
+    }
+    return Math.max(0.125, (8 - meta) / 9);
+}
 const NONE = [];
 
 //Direction of a face index (0:+x 1:-x 2:+y 3:-y 4:+z 5:-z)
@@ -188,6 +201,17 @@ export function doorBox(meta) {
     return DOOR_PANEL[meta & 4 ? (f + (meta & 16 ? 3 : 1)) & 3 : f];
 }
 
+//Trapdoor meta: bits 0-1 the hinge side, bit 2 open, bit 3 top half.
+//Closed it lies flat in the bottom (or top) of the block; open it stands
+//against the hinge side like a closed door panel.
+export const TRAPDOOR_OPEN = 4, TRAPDOOR_TOP = 8;
+export function trapdoorBox(meta) {
+    if (meta & TRAPDOOR_OPEN) {
+        return DOOR_PANEL[meta & 3];
+    }
+    return meta & TRAPDOOR_TOP ? [0, 1 - DOOR_T, 0, 1, 1, 1] : [0, 0, 0, 1, DOOR_T, 1];
+}
+
 //The side (HDIR index) a door's hinge is on
 export function doorHinge(meta) {
     return (meta & 3) + (meta & 16 ? 3 : 1) & 3;
@@ -247,6 +271,8 @@ export function collisionBoxes(id, meta, world, x, y, z) {
             return [[0, 0, 0, 1, 0.9375, 1]];
         case "door":
             return [doorBox(meta)];
+        case "trapdoor":
+            return [trapdoorBox(meta)];
         case "fence":
             return fenceBoxes(world, x, y, z, 1.5);
         case "gate":
@@ -311,6 +337,8 @@ export function selectionBox(id, meta, world, x, y, z) {
             return [0, 0, 0, 1, 0.9375, 1];
         case "door":
             return doorBox(meta);
+        case "trapdoor":
+            return trapdoorBox(meta);
         case "fence": {
             //One box around the post and its arms
             const boxes = fenceBoxes(world, x, y, z, 1);

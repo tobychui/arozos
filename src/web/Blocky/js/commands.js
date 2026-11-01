@@ -7,12 +7,18 @@
 
     Coordinates accept ~ for "where I am" and ~n for an offset, so
     "/tp ~ ~10 ~" lifts you ten blocks.
+
+    The WorldEdit commands (//set, //copy, ...) live in wecommands.js and
+    are merged in here; they need creative mode and Settings > WorldEdit
+    instead of the cheats option.
 */
 
 import { ITEMS, BLOCKS, B, itemName } from "./blocks.js";
 import { DIFFICULTY } from "./player.js";
 import { maxStack } from "./inventory.js";
 import { WORLD_H } from "./world.js";
+import { WE_COMMANDS } from "./wecommands.js";
+import { EditError, blockNames, DIRECTION_WORDS } from "./worldedit.js";
 
 class CommandError extends Error {}
 
@@ -179,7 +185,8 @@ export const COMMANDS = {
                 }
                 return [`${c.usage} - ${c.desc}`];
             }
-            return ["Commands: " + Object.keys(COMMANDS).map((k) => "/" + k).join(", "), "Type /help <command> for details."];
+            return ["Commands: " + Object.keys(COMMANDS).filter((k) => !COMMANDS[k].we).map((k) => "/" + k).join(", "),
+                "Type /help <command> for details, //help for the WorldEdit commands (creative)."];
         }
     },
     give: {
@@ -441,6 +448,8 @@ export const COMMANDS = {
     }
 };
 
+Object.assign(COMMANDS, WE_COMMANDS);
+
 //Run one chat line; returns [{ text, kind }]
 export function runCommand(game, line) {
     const text = line.trim();
@@ -458,20 +467,27 @@ export function runCommand(game, line) {
     if (cmd.cheat && !game.meta.cheats) {
         return [{ text: "Cheats are off in this world. Turn them on in the pause menu to use /" + name.toLowerCase() + ".", kind: "error" }];
     }
+    if (cmd.we && !game.settings.worldEdit) {
+        return [{ text: "WorldEdit is off. Turn it on in Settings to use /" + name.toLowerCase() + ".", kind: "error" }];
+    }
+    if (cmd.we && !game.creative) {
+        return [{ text: "WorldEdit commands work in creative mode only.", kind: "error" }];
+    }
     try {
         return cmd.run(game, args).map((t) => ({ text: t, kind: "ok" }));
     } catch (e) {
-        if (e instanceof CommandError) {
+        if (e instanceof CommandError || e instanceof EditError) {
             return [{ text: e.message, kind: "error" }];
         }
         throw e;
     }
 }
 
-//Tab completion of the last word: command names, then item names
+//Tab completion of the last word: command names, then item names. In a
+//WorldEdit pattern or mask the part after the last , % or ! is completed.
 export function complete(line) {
     const parts = line.split(" ");
-    const last = parts[parts.length - 1];
+    let last = parts[parts.length - 1], head = "";
     let pool;
     if (parts.length === 1) {
         if (!last.startsWith("/")) {
@@ -496,6 +512,23 @@ export function complete(line) {
             pool = parts.length === 2 ? ["randomTickSpeed", "doFireTick"] : ["true", "false"];
         } else if (cmd === "tickspeed") {
             pool = ["3", "30", "300"];
+        } else if (COMMANDS[cmd] && COMMANDS[cmd].we) {
+            const words = parts.slice(1, -1).filter((w) => !w.startsWith("-"));
+            const kind = (COMMANDS[cmd].hint || [])[words.length];
+            const m = /^(.*[,%!])([^,%!]*)$/.exec(last);
+            if (m && kind !== "dir") {
+                head = m[1];
+                last = m[2];
+            }
+            if (cmd === "/help") {
+                pool = Object.keys(COMMANDS).filter((k) => COMMANDS[k].we).map((k) => k.slice(1));
+            } else if (kind === "dir") {
+                pool = DIRECTION_WORDS;
+            } else if (kind === "pattern" || kind === "mask") {
+                pool = [...blockNames().keys()].concat(kind === "mask" ? ["#existing", "#solid", "#liquid", "#natural"] : ["hand"]);
+            } else {
+                pool = [];
+            }
         } else {
             pool = [...names().keys()];
         }
@@ -512,6 +545,6 @@ export function complete(line) {
             pre = pre.slice(0, -1);
         }
     }
-    parts[parts.length - 1] = options.length === 1 ? options[0] + " " : pre;
+    parts[parts.length - 1] = head + (options.length === 1 ? options[0] + " " : pre);
     return { line: parts.join(" "), options };
 }

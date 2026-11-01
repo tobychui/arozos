@@ -527,6 +527,11 @@ export class UI {
         }
         const it = ITEMS[id];
         let text = itemName(id);
+        //With WorldEdit on, the id to type in //set, //replace and /give
+        const game = this.app.game;
+        if (game && game.we.active) {
+            text += ` (${id})`;
+        }
         if (it && it.food) {
             text += ` (restores ${it.food.hunger / 2} food)`;
         }

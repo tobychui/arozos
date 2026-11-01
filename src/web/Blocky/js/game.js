@@ -17,6 +17,7 @@ import { Mobs } from "./mobs.js";
 import { Carts } from "./carts.js";
 import { Boats } from "./boats.js";
 import { Signs } from "./signs.js";
+import { WorldEdit } from "./worldedit.js";
 import { World, WORLD_H } from "./world.js";
 import { BIOME, BIOME_NAMES } from "./worldgen.js";
 import { Player, DIFFICULTY } from "./player.js";
@@ -81,6 +82,8 @@ export class Game {
         this.wasInWater = false;
         this.pickupSoundAt = 0;
         this.hit = null;
+        //Selection, clipboard and history of the WorldEdit commands (not saved)
+        this.we = new WorldEdit(this);
     }
 
     get settings() {
@@ -102,7 +105,7 @@ export class Game {
             onPowerSound: (x, y, z, id, out) => {
                 if (id === B.PISTON || id === B.STICKY_PISTON) {
                     this.sound.play("piston", { out });
-                } else if (id === B.DOOR) {
+                } else if (id === B.DOOR || id === B.TRAPDOOR) {
                     this.sound.block("place", "wood");
                 } else {
                     this.sound.play("click");
@@ -216,6 +219,7 @@ export class Game {
         this.carts.clear();
         this.boats.clear();
         this.signs.clear();
+        this.renderer.setRegion(null);
         this.renderer.detachWorld();
         this.renderer.setHeldItem(0);
         this.sound.setRain(0, false);
@@ -312,6 +316,8 @@ export class Game {
             input.consumeLook();
         }
 
+        this.we.update();
+
         //Streaming
         const R = this.settings.renderDistance;
         this.world.stream(pcx, pcz, R, now + 7);
@@ -352,7 +358,11 @@ export class Game {
         this.swing = Math.min(1, this.swing + dt * 4);
         //A drawn bow shows its string pulled back with an arrow on it
         const pull = held === I.BOW && this.bowDraw > 0 ? Math.min(1, this.bowDraw) : 0;
-        r.setHeldItem(held, pull > 0 ? (pull < 0.35 ? "bow_pull_0" : pull < 0.75 ? "bow_pull_1" : "bow_pull_2") : null);
+        let heldTile = pull > 0 ? (pull < 0.35 ? "bow_pull_0" : pull < 0.75 ? "bow_pull_1" : "bow_pull_2") : null;
+        if (held === I.COMPASS) {
+            heldTile = "compass_" + this.compassStep();
+        }
+        r.setHeldItem(held, heldTile);
         const ex = Math.floor(p.x), ey = Math.floor(p.eyeY), ez = Math.floor(p.z);
         //A torch or other glowing thing in hand lights the area
         const glow = p.dead ? 0 : held === I.LAVA_BUCKET ? 15 : held > 0 && held < 256 ? LIGHT_EMIT[held] : 0;
@@ -626,6 +636,32 @@ export class Game {
         }
         this.touchUse = false;
 
+        //The WorldEdit wand marks the selection's corners instead of mining or placing
+        if (this.we.wandHeld()) {
+            for (const n of [1, 2]) {
+                if (input.clicked.has(n === 1 ? 0 : 2)) {
+                    this.swing = 0;
+                    this.we.wandClick(n, hit);
+                }
+            }
+            this.breaking = null;
+            r.setCrack(null, 0);
+            return;
+        }
+        //The WorldEdit compass: left click jumps to the block in sight, right
+        //click passes through the wall within reach (or jumps when none is)
+        if (this.we.compassHeld()) {
+            for (const right of [false, true]) {
+                if (input.clicked.has(right ? 2 : 0)) {
+                    this.swing = 0;
+                    this.we.compassClick(right, hit);
+                }
+            }
+            this.breaking = null;
+            r.setCrack(null, 0);
+            return;
+        }
+
         //Fighting
         this.attackCd = Math.max(0, (this.attackCd || 0) - dt);
         if (aimMob && (input.clicked.has(0) || (this.touchBreak && this.attackCd === 0))) {
@@ -770,6 +806,19 @@ export class Game {
                 this.useItem(hit);
             }
         }
+    }
+
+    //Where the compass needle points: sixteenths of a turn clockwise from
+    //straight ahead to the world spawn (it spins while standing on it)
+    compassStep() {
+        const p = this.player;
+        const dx = this.spawn.x - p.x, dz = this.spawn.z - p.z;
+        if (dx * dx + dz * dz < 1) {
+            return Math.floor(performance.now() / 90) % 16;
+        }
+        const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
+        const ahead = dx * fx + dz * fz, right = dx * -fz + dz * fx;
+        return ((Math.round(Math.atan2(right, ahead) / (Math.PI / 8)) % 16) + 16) % 16;
     }
 
     attackMob(m) {
@@ -1292,6 +1341,16 @@ export class Game {
             meta = face;
         } else if (bid === B.FENCE_GATE) {
             meta = facingFromYaw(p.yaw);
+        } else if (bid === B.TRAPDOOR) {
+            //On the side of a block it hinges on that block, in the half
+            //clicked; on top of (or under) a block it hinges on the far
+            //side, so it swings open away from you
+            if (face === 2 || face === 3) {
+                meta = facingFromYaw(p.yaw) | (face === 3 ? 8 : 0);
+            } else {
+                const n = FACE_DIR[face];
+                meta = HDIR.findIndex((h) => h[0] === -n[0] && h[1] === -n[2]) | (hit.point[1] - hit.y > 0.5 ? 8 : 0);
+            }
         } else if (SHAPE[bid] === "stairs") {
             //The steps climb away from the player; placed under a block or
             //on the upper half of a side they hang upside down
@@ -1435,6 +1494,9 @@ export class Game {
             this.sound.play("click");
         } else if (kind === "gate") {
             w.setBlock(hit.x, hit.y, hit.z, B.FENCE_GATE, hit.meta ^ 4, false);
+            this.sound.block("place", "wood");
+        } else if (kind === "trapdoor") {
+            w.setBlock(hit.x, hit.y, hit.z, B.TRAPDOOR, hit.meta ^ 4, false);
             this.sound.block("place", "wood");
         } else if (kind === "bed") {
             this.trySleep(hit);

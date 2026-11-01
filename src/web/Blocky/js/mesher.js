@@ -15,13 +15,15 @@
     colour (tint x shade x occlusion) (3).
 */
 
-import { B, OPAQUE, SHAPE, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR, FLAME_CATCH } from "./blocks.js";
+import { B, OPAQUE, SHAPE, SOLID, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR, FLAME_CATCH } from "./blocks.js";
 import { WORLD_H } from "./worldgen.js";
 import {
-    FACE_DIR, doorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
+    FACE_DIR, doorBox, trapdoorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
     signAngle, SIGN_BOARD, SIGN_POST, SIGN_WALL_BOARD,
-    PISTON_BASE, HEAD_PLATE, HEAD_ROD, stairShape, stairBoxes
+    PISTON_BASE, HEAD_PLATE, HEAD_ROD, stairShape, stairBoxes, waterHeight
 } from "./shapes.js";
+
+export { waterHeight };
 
 const P = 18;
 const P2 = P * P;
@@ -267,6 +269,14 @@ export function meshSection(world, chunk, sy, opts) {
                 } else if (shape === "door") {
                     const b = doorBox(meta);
                     boxFaces(solidBuf, p, x, y, z, id, meta, b[0], b[1], b[2], b[3], b[4], b[5], (f, np) => (f === 2 || f === 3) && pOpq[np] === 1);
+                } else if (shape === "trapdoor") {
+                    //Faces flush with an opaque neighbour are hidden
+                    const b = trapdoorBox(meta);
+                    boxFaces(solidBuf, p, x, y, z, id, meta, b[0], b[1], b[2], b[3], b[4], b[5], (f, np) => {
+                        const axis = FACE_AXIS[f];
+                        const flush = FACE_SIGN[f] > 0 ? b[axis + 3] >= 1 : b[axis] <= 0;
+                        return flush && pOpq[np] === 1;
+                    });
                 } else if (shape === "fence") {
                     fence(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "gate") {
@@ -899,19 +909,38 @@ function ladder(buf, p, x, y, z, id, meta) {
     buf.backQuad();
 }
 
-export function waterHeight(meta, waterAbove) {
-    if (waterAbove) {
-        return 1;
+//Surface height at a corner of a liquid column: the average of the cells
+//of that liquid around the corner (sources and falling liquid weigh ten
+//times more), open cells such as air pulling it down to the floor, solid
+//ones left out, and 1 when any of them has liquid above. Neighbouring
+//cells share their corners, so the surface runs on as a slope from one
+//level to the next instead of steps with gaps between them.
+function liquidCorner(id, x, y, z, cx, cz) {
+    let total = 0, count = 0;
+    for (let dz = cz - 1; dz <= cz; dz++) {
+        for (let dx = cx - 1; dx <= cx; dx++) {
+            const q = pi(x + dx, y, z + dz);
+            const n = pBlk[q];
+            if (n === id) {
+                if (pBlk[q + P2] === id) {
+                    return 1;
+                }
+                const m = pMeta[q];
+                const weight = m === 0 || m === 8 ? 10 : 1;
+                total += waterHeight(m, false) * weight;
+                count += weight;
+            } else if (!SOLID[n]) {
+                count++;
+            }
+        }
     }
-    if (meta === 0 || meta === 8) {
-        return 0.875;
-    }
-    return Math.max(0.125, (8 - meta) / 9);
+    return count ? total / count : 0;
 }
 
 function liquidFaces(buf, p, x, y, z, id, meta) {
-    const above = pBlk[p + P2] === id;
-    const h = waterHeight(meta, above);
+    //Corner heights, indexed x + 2 * z; only worked out when a face shows,
+    //since most liquid (deep water) has none
+    let hc = null;
     const layer = blockFaceLayer(id, 2, meta);
     for (let f = 0; f < 6; f++) {
         const np = p + FACE_OFF[f];
@@ -922,14 +951,17 @@ function liquidFaces(buf, p, x, y, z, id, meta) {
         if (f !== 2 && pOpq[np]) {
             continue;
         }
-        if (f === 2 && pOpq[np] && h >= 1) {
+        if (!hc) {
+            hc = [liquidCorner(id, x, y, z, 0, 0), liquidCorner(id, x, y, z, 1, 0), liquidCorner(id, x, y, z, 0, 1), liquidCorner(id, x, y, z, 1, 1)];
+        }
+        if (f === 2 && pOpq[np] && hc[0] >= 1 && hc[1] >= 1 && hc[2] >= 1 && hc[3] >= 1) {
             continue;
         }
         const lp = pOpq[np] ? p : np;
         const ls = (pLight[lp] >> 4) / 15, lb = (pLight[lp] & 15) / 15;
         const s = FACE_SHADE[f];
         for (const c of FACE_VERTS[f]) {
-            const vx = c[0], vy = c[1] ? h : 0, vz = c[2];
+            const vx = c[0], vy = c[1] ? hc[c[0] + c[2] * 2] : 0, vz = c[2];
             const uv = faceUV(f, vx, vy, vz);
             buf.vert(x + vx, y + vy, z + vz, uv[0], uv[1], layer, ls, lb, s, s, s);
         }
@@ -968,11 +1000,11 @@ export function itemGeometry(id) {
     const blockId = it && it.block;
     const shape = blockId ? SHAPE[blockId] : null;
     const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "stairs" || shape === "cactus" || shape === "farmland" ||
-        shape === "piston" || shape === "plate" || shape === "retimer");
+        shape === "piston" || shape === "plate" || shape === "retimer" || shape === "trapdoor");
     if (cubeLike) {
         const def = BLOCKS[blockId];
         const meta = def.orient ? 4 : 0;
-        const top = shape === "slab" ? 0.5 : shape === "plate" ? 1 / 16 : shape === "retimer" ? 2 / 16 : 1;
+        const top = shape === "slab" ? 0.5 : shape === "plate" ? 1 / 16 : shape === "retimer" ? 2 / 16 : shape === "trapdoor" ? 3 / 16 : 1;
         const inset = shape === "cactus" ? 1 / 16 : 0;
         const boxes = shape === "stairs" ? STAIR_ITEM_BOXES : [[inset, 0, inset, 1 - inset, top, 1 - inset]];
         const tintC = def.tint === "foliage" ? [0.48, 0.86, 0.32] : def.tint === "grass" ? [0.62, 1.0, 0.43] : null;

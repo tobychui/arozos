@@ -781,6 +781,49 @@ function paintDoor(t, upper, mirror = false, edge = false) {
     }
 }
 
+//Trapdoor: a framed wooden hatch with four open panes (alpha tested)
+function paintTrapdoor(t) {
+    const wood = [168, 126, 72], dark = [104, 74, 40];
+    t.fill(wood, 6);
+    for (let i = 0; i < 16; i++) {
+        for (const e of [0, 15]) {
+            t.set(i, e, t.vary(dark, 4));
+            t.set(e, i, t.vary(dark, 4));
+        }
+    }
+    for (let y = 3; y < 13; y++) {
+        for (let x = 3; x < 13; x++) {
+            const bar = x === 3 || x === 12 || y === 3 || y === 12 || x === 7 || x === 8 || y === 7 || y === 8;
+            if (bar) {
+                t.set(x, y, t.vary(dark, 4));
+            } else {
+                t.set(x, y, [0, 0, 0], 0);
+            }
+        }
+    }
+}
+
+//Compass: a metal case and a dial whose needle (red end) points `step`
+//sixteenths of a turn clockwise from the top of the tile
+function paintCompass(t, step) {
+    t.clear();
+    const c = 7.5, a = step * Math.PI / 8;
+    t.shape((x, y) => (x - 8) ** 2 + (y - 8) ** 2 <= 7.3 ** 2, () => t.vary([128, 130, 138], 6));
+    t.shape((x, y) => (x - 8) ** 2 + (y - 8) ** 2 <= 5.4 ** 2, () => t.vary([226, 220, 196], 5));
+    //Tick marks at the four points of the dial
+    for (const [dx, dy] of [[0, -5], [5, 0], [0, 5], [-5, 0]]) {
+        t.set(c + 0.5 + dx * 0.9, c + 0.5 + dy * 0.9, [150, 146, 128]);
+    }
+    const sx = Math.sin(a), sy = -Math.cos(a);
+    for (let r = 0; r <= 3.4; r += 0.25) {
+        t.set(c + 0.5 - sx * r, c + 0.5 - sy * r, [70, 74, 84]);
+    }
+    for (let r = 0; r <= 4.6; r += 0.25) {
+        t.set(c + 0.5 + sx * r, c + 0.5 + sy * r, r < 0.8 ? [70, 74, 84] : [214, 40, 34]);
+    }
+    t.outline(0.6);
+}
+
 function paintBedTop(t, head) {
     t.fill([186, 40, 40], 8);
     for (let y = 0; y < 16; y++) {
@@ -1814,8 +1857,13 @@ Object.assign(PAINTERS, {
     minecart: (t) => paintMinecart(t, null),
     chest_minecart: (t) => paintMinecart(t, "chest"),
     furnace_minecart: (t) => paintMinecart(t, "furnace"),
-    boat_item: paintBoatItem
+    boat_item: paintBoatItem,
+    trapdoor: paintTrapdoor,
+    compass: (t) => paintCompass(t, 0)
 });
+for (let s = 0; s < 16; s++) {
+    PAINTERS["compass_" + s] = (t) => paintCompass(t, s);
+}
 
 //Coloured wool blocks and the dyes that make them (colours as in blocks.js)
 const COLORS = [

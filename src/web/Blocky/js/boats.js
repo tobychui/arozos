@@ -3,7 +3,8 @@
 
     Wooden boats. A boat floats on water (it rises to the surface of the
     water it is in and bobs there), slides slowly on land and falls through
-    the air. Right click to sit in it; W / S row forward and back, A / D
+    the air. Flowing water carries it along and a waterfall takes it down.
+    Right click to sit in it; W / S row forward and back, A / D
     turn the boat (and your view with it), Shift gets out onto the nearest
     dry spot. Two hits break a boat (one in creative) and drop it as an item.
     Walking into an empty boat nudges it along. Boats bump into each other,
@@ -11,7 +12,7 @@
 */
 
 import * as THREE from "three";
-import { B, I, BLOCKS } from "./blocks.js";
+import { B, I, BLOCKS, SOLID } from "./blocks.js";
 import { moveAxis } from "./physics.js";
 import { waterHeight } from "./mesher.js";
 
@@ -26,6 +27,13 @@ const THRUST = 7, BACK_THRUST = 3, MAX_FWD = 7, MAX_BACK = 2.5;
 const LAND_THRUST = 1.5, LAND_MAX = 1.2;
 //Turning speed (radians / s)
 const TURN = 2.2;
+//Flowing water carries a boat at this speed (blocks / s); rowing works
+//relative to the water, so upstream is that much slower
+const CURRENT = 2.5;
+//How fast a waterfall takes a boat down
+const FALL_SPEED = 7;
+//Where the hull looks for water besides its middle: near its four corners
+const PROBES = [[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]];
 //Hull size (model space, bow toward -z like the player's view)
 const LEN = 1.375, WID = 0.875;
 
@@ -252,24 +260,101 @@ export class Boats {
 
     /* ---------------- per frame ---------------- */
 
-    //Top of the water the boat is in (null when it is not on water) and
-    //whether that is lava
-    surface(b) {
+    //The water in one column under the boat, near its hull: the top of the
+    //surface there and that block, whether it is lava, and `falling` when
+    //it is a waterfall - falling water (meta 8) with water or air under it,
+    //or water draining into such falling water. Falling water lying on the
+    //bottom of a pool or pit is not a waterfall.
+    columnAt(b, bx, bz) {
         const w = this.game.world;
-        const bx = Math.floor(b.x), bz = Math.floor(b.z);
         for (const by of [Math.floor(b.y + DRAFT + 0.05), Math.floor(b.y + DRAFT + 0.05) - 1]) {
             const id = w.getBlock(bx, by, bz);
             if (id !== B.WATER && id !== B.LAVA) {
                 continue;
             }
-            //Under water: rise to the top of the column
+            const lava = id === B.LAVA;
+            const falls = (y) => w.getBlock(bx, y, bz) === id && w.getMeta(bx, y, bz) === 8 &&
+                (w.getBlock(bx, y - 1, bz) === id || !SOLID[w.getBlock(bx, y - 1, bz)]);
+            if (falls(by) || falls(by - 1)) {
+                return { falling: true, lava };
+            }
+            //Under water: rise to the top of the column, but not up into a
+            //waterfall pouring onto it
             let top = by;
-            while (top - by < 8 && w.getBlock(bx, top + 1, bz) === id) {
+            while (top - by < 8 && w.getBlock(bx, top + 1, bz) === id && !falls(top + 1)) {
                 top++;
             }
-            return { y: top + waterHeight(w.getMeta(bx, top, bz), false), lava: id === B.LAVA };
+            return { y: top + waterHeight(w.getMeta(bx, top, bz), false), lava, cell: [bx, top, bz] };
         }
         return null;
+    }
+
+    //The water the boat is in (null when it is not on water). The middle of
+    //the hull decides waterfalls and lava; otherwise the highest surface
+    //under the middle or a corner holds it up, so a boat resting on a rim
+    //over water still floats, and `cells` lists every column of that surface
+    //under the hull for the current
+    surface(b) {
+        const mid = this.columnAt(b, Math.floor(b.x), Math.floor(b.z));
+        if (mid && (mid.falling || mid.lava)) {
+            return mid;
+        }
+        const found = mid ? [mid] : [];
+        //Without water under the middle (resting on a rim), the hull slips
+        //off toward the corners that are over water
+        let sx = 0, sz = 0;
+        for (const [ox, oz] of PROBES) {
+            const s = this.columnAt(b, Math.floor(b.x + ox), Math.floor(b.z + oz));
+            if (s && !s.falling && !s.lava) {
+                found.push(s);
+                sx += ox;
+                sz += oz;
+            }
+        }
+        if (!found.length) {
+            return null;
+        }
+        const best = found.reduce((a, c) => (c.y > a.y ? c : a));
+        best.slip = !mid && Math.hypot(sx, sz) > 0.01 ? [sx / Math.hypot(sx, sz), sz / Math.hypot(sx, sz)] : null;
+        const seen = new Set();
+        best.cells = found.filter((c) => {
+            const k = c.cell.join(",");
+            if (seen.has(k) || best.y - c.y > 0.3) {
+                return false;
+            }
+            seen.add(k);
+            return true;
+        }).map((c) => c.cell);
+        return best;
+    }
+
+    //Velocity of the water a floating boat is in: the current under its
+    //hull, or out from under a waterfall that lands where it floats
+    current(b, s) {
+        const w = this.game.world;
+        let fx = 0, fz = 0;
+        for (const [x, y, z] of s.cells) {
+            const f = w.liquidFlow(x, y, z);
+            fx += f[0];
+            fz += f[1];
+        }
+        fx /= s.cells.length;
+        fz /= s.cells.length;
+        if (s.slip) {
+            return [(fx + s.slip[0]) * CURRENT, (fz + s.slip[1]) * CURRENT];
+        }
+        const [x, y, z] = s.cell;
+        if (Math.hypot(fx, fz) < 0.05 && w.getBlock(x, y + 1, z) === w.getBlock(x, y, z)) {
+            let dx = b.x - (x + 0.5), dz = b.z - (z + 0.5);
+            let l = Math.hypot(dx, dz);
+            if (l < 0.05) {
+                dx = -Math.sin(b.yaw);
+                dz = -Math.cos(b.yaw);
+                l = 1;
+            }
+            return [dx / l * CURRENT, dz / l * CURRENT];
+        }
+        return [fx * CURRENT, fz * CURRENT];
     }
 
     //input: the rider's movement input (forward, strafe, sneak)
@@ -307,18 +392,25 @@ export class Boats {
             return;
         }
         b.inWater = !!s;
-        //Float: spring toward the surface, damped; otherwise fall
-        if (s) {
+        //Float: spring toward the surface, damped; go down a waterfall at
+        //its speed; otherwise fall. cw: the water's own velocity.
+        let cw = [0, 0];
+        if (s && s.falling) {
+            b.vy = Math.max(b.vy - 30 * h, -FALL_SPEED);
+        } else if (s) {
             b.vy += ((s.y - DRAFT) - b.y) * 40 * h;
             b.vy *= Math.exp(-6 * h);
+            cw = this.current(b, s);
         } else {
             b.vy -= 28 * h;
             b.vy = Math.max(b.vy, -40);
         }
-        //Rowing and turning
+        //Rowing and turning, relative to the water: an empty boat drifts
+        //with the current, and the keel damps sliding across it
         const fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw);
-        let along = b.vx * fx + b.vz * fz;
-        let side = b.vx * fz - b.vz * fx;
+        const rx = b.vx - cw[0], rz = b.vz - cw[1];
+        let along = rx * fx + rz * fz;
+        let side = rx * fz - rz * fx;
         const fwd = input ? input.forward : 0, turn = input ? input.strafe : 0;
         if (turn) {
             const d = turn * TURN * h * (b.inWater || !b.onGround ? 1 : 0.5);
@@ -338,8 +430,8 @@ export class Boats {
         }
         b.row = fwd;
         const nfx = -Math.sin(b.yaw), nfz = -Math.cos(b.yaw);
-        b.vx = nfx * along + nfz * side;
-        b.vz = nfz * along - nfx * side;
+        b.vx = cw[0] + nfx * along + nfz * side;
+        b.vz = cw[1] + nfz * along - nfx * side;
         //Move against the blocks
         const box = this.box(b);
         const dy = b.vy * h;

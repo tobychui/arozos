@@ -38,6 +38,8 @@ const DEFAULT_SETTINGS = {
     showFps: false,
     animalVolume: 0.8,
     realistic: false,
+    //WorldEdit commands (//set, //copy ...) and the wand in creative mode
+    worldEdit: false,
     //ArozOS folder screenshots (F2) are saved into
     screenshotDir: "user:/Photo/Blocky"
 };
@@ -634,8 +636,23 @@ class App {
     }
 
     showCommands() {
-        $("cmdlist").innerHTML = Object.values(COMMANDS).map((c) =>
-            `<div><code>${escapeHtml(c.usage)}</code><span>${escapeHtml(c.desc)}${c.cheat ? "" : " (always allowed)"}</span></div>`).join("");
+        const row = (c, note) => `<div><code>${escapeHtml(c.usage)}</code><span>${escapeHtml(c.desc)}${note}</span></div>`;
+        const plain = Object.values(COMMANDS).filter((c) => !c.we).map((c) => row(c, c.cheat ? "" : " (always allowed)"));
+        const groups = new Map();
+        for (const c of Object.values(COMMANDS)) {
+            if (c.we && !c.alias) {
+                groups.set(c.group, (groups.get(c.group) || []).concat(row(c, "")));
+            }
+        }
+        const on = this.settings.worldEdit;
+        const we = [`<h3>WorldEdit</h3><p class="cmdnote">Creative mode only, ${on ? "switched on" : "switched off"} in Settings.
+            Hold the wand (//wand, a wooden axe) and left / right click two corners, then e.g. <code>//set stone</code>,
+            <code>//copy</code> and <code>//paste</code>, <code>//undo</code>. Patterns: <code>stone</code>,
+            <code>30%dirt,70%grass_block</code>; masks: <code>stone,dirt</code>, <code>!air</code>, <code>#existing</code>.</p>`];
+        for (const [g, rows] of groups) {
+            we.push(`<h4>${escapeHtml(g)}</h4>`, ...rows);
+        }
+        $("cmdlist").innerHTML = plain.join("") + we.join("");
         show("cmdhelp");
     }
 
@@ -690,7 +707,8 @@ class App {
         const toggles = [
             ["setLeaves", "fancyLeaves", "Fancy Leaves"], ["setClouds", "clouds", "Clouds"],
             ["setBob", "viewBobbing", "View Bobbing"], ["setInvert", "invertY", "Invert Mouse"],
-            ["setFps", "showFps", "Show FPS"], ["setReal", "realistic", "Realistic Graphics"]
+            ["setFps", "showFps", "Show FPS"], ["setReal", "realistic", "Realistic Graphics"],
+            ["setWE", "worldEdit", "WorldEdit Commands (Creative)"]
         ];
         this.syncSettingsForm = () => {
             for (const [id, key, fmt] of ranges) {

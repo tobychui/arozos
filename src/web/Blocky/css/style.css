@@ -493,6 +493,24 @@ body {
     margin-top: 2px;
 }
 
+.cmdlist h3 {
+    margin: 14px 0 0;
+}
+
+.cmdlist h4 {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.cmdlist .cmdnote {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
 /* Chat line and log */
 #chat {
     position: fixed;

@@ -684,6 +684,54 @@ export class Renderer {
         this.crack.visible = false;
         this.crack.renderOrder = 14;
         this.scene.add(this.crack);
+        this.buildRegion();
+    }
+
+    //The WorldEdit selection: a box drawn solid where it can be seen and
+    //faintly through terrain, and the two corner blocks in their colours
+    buildRegion() {
+        const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+        const lines = (color, opacity, depthTest, order) => {
+            const l = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthTest, depthWrite: false }));
+            l.visible = false;
+            l.renderOrder = order;
+            l.frustumCulled = false;
+            this.scene.add(l);
+            return l;
+        };
+        this.region = {
+            box: lines(0xffc23a, 0.95, true, 16),
+            ghost: lines(0xffc23a, 0.28, false, 17),
+            p1: lines(0xff5a46, 1, false, 18),
+            p2: lines(0x4aa6ff, 1, false, 18)
+        };
+    }
+
+    setRegion(sel) {
+        const R = this.region;
+        const e = 0.02;
+        const fit = (obj, x0, y0, z0, x1, y1, z1, pad) => {
+            obj.visible = true;
+            obj.position.set((x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2, (z0 + z1 + 1) / 2);
+            obj.scale.set(x1 - x0 + 1 + pad, y1 - y0 + 1 + pad, z1 - z0 + 1 + pad);
+        };
+        for (const k of ["box", "ghost", "p1", "p2"]) {
+            R[k].visible = false;
+        }
+        if (!sel) {
+            return;
+        }
+        if (sel.box) {
+            const b = sel.box;
+            fit(R.box, b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, e * 2);
+            fit(R.ghost, b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, e * 2);
+        }
+        for (const k of ["p1", "p2"]) {
+            const p = sel[k];
+            if (p) {
+                fit(R[k], p[0], p[1], p[2], p[0], p[1], p[2], e * 4);
+            }
+        }
     }
 
     setSelection(hit) {

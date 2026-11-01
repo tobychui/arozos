@@ -42,7 +42,7 @@ export function buildIcons(tex) {
             right: tileCanvas(blockFaceLayer(bid, 0, meta))
         };
         const shape = SHAPE[bid];
-        const opts = { height: shape === "slab" ? 8 : shape === "plate" ? 2 : shape === "retimer" ? 3 : 16 };
+        const opts = { height: shape === "slab" ? 8 : shape === "plate" ? 2 : shape === "retimer" || shape === "trapdoor" ? 3 : 16 };
         if (def.tint === "grass") {
             opts.topTint = GRASS_TINT;
         } else if (def.tint === "foliage") {

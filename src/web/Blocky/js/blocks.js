@@ -26,7 +26,7 @@ export const B = {
     PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86, PLATE_WOOD: 87, PLATE_STONE: 88,
     RETIMER: 89, RETIMER_ON: 90, SIGN: 91, WALL_SIGN: 92, IRON_BARS: 93,
     PLANK_STAIRS: 94, COBBLE_STAIRS: 95, STONE_STAIRS: 96, STONE_BRICK_STAIRS: 97, BRICK_STAIRS: 98,
-    SANDSTONE_STAIRS: 99
+    SANDSTONE_STAIRS: 99, TRAPDOOR: 100
 };
 
 //Wool and dye colours: key, name, colour
@@ -47,7 +47,7 @@ export const I = {
     COOKED_MUTTON: 279, BOW: 305, ARROW: 306, RAW_CHICKEN: 307, COOKED_CHICKEN: 308, FEATHER: 309,
     STRING: 310, BONE: 311, BONE_MEAL: 312,
     DYE: 313, //313-328: dyes, in WOOL_COLORS order
-    SPARK_DUST: 329, MINECART: 330, CHEST_MINECART: 331, FURNACE_MINECART: 332, BOAT: 333
+    SPARK_DUST: 329, MINECART: 330, CHEST_MINECART: 331, FURNACE_MINECART: 332, BOAT: 333, COMPASS: 334
 };
 
 export const dyeId = (key) => I.DYE + WOOL_COLORS.findIndex((c) => c[0] === key);
@@ -229,6 +229,10 @@ def(B.OBSIDIAN, "Obsidian", { tex: "obsidian", hardness: 35, tool: "pickaxe", ti
 def(B.DOOR, "Door", { tex: "door_lower", shape: "door", opaque: false, lightOpacity: 0, hardness: 3, tool: "axe", sound: "wood", noItem: true, interact: "door", support: "door", drops: () => [[I.DOOR, 1]] });
 def(B.FENCE, "Fence", { tex: "planks", shape: "fence", opaque: false, lightOpacity: 0, hardness: 2, tool: "axe", sound: "wood" });
 def(B.FENCE_GATE, "Fence Gate", { tex: "planks", shape: "gate", opaque: false, lightOpacity: 0, hardness: 2, tool: "axe", sound: "wood", interact: "gate" });
+//Trapdoor: a 3 px panel lying in the bottom or top of its block, standing
+//up against its hinge side when open. Meta (shapes.js trapdoorBox): bits
+//0-1 hinge side (HDIR), bit 2 open, bit 3 in the top half.
+def(B.TRAPDOOR, "Trapdoor", { tex: "trapdoor", shape: "trapdoor", opaque: false, lightOpacity: 0, hardness: 3, tool: "axe", sound: "wood", interact: "trapdoor" });
 def(B.BED, "Bed", { tex: { top: "bed_foot_top", bottom: "planks", side: "bed_side" }, shape: "bed", opaque: false, lightOpacity: 0, hardness: 0.2, sound: "cloth", noItem: true, interact: "bed", drops: () => [[I.BED, 1]] });
 
 //Fill the gaps so every id lookup returns something sane
@@ -262,7 +266,7 @@ export const FLAME_CATCH = new Uint8Array(256);
 export const FLAME_BURN = new Uint8Array(256);
 for (const [id, c, b] of [
     [B.PLANKS, 5, 20], [B.PLANK_SLAB, 5, 20], [B.PLANK_STAIRS, 5, 20], [B.PLATE_WOOD, 5, 20], [B.SIGN, 5, 20], [B.WALL_SIGN, 5, 20], [B.LOG, 5, 5], [B.LEAVES, 30, 60], [B.WORKBENCH, 5, 20],
-    [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.BED, 5, 20],
+    [B.CHEST, 5, 20], [B.FENCE, 5, 20], [B.FENCE_GATE, 5, 20], [B.DOOR, 5, 20], [B.TRAPDOOR, 5, 20], [B.BED, 5, 20],
     [B.LADDER, 5, 20], [B.TALL_GRASS, 60, 100], [B.FLOWER_YELLOW, 60, 100], [B.FLOWER_RED, 60, 100],
     [B.DEAD_BUSH, 60, 100], [B.SAPLING, 60, 100], [B.WHEAT, 60, 100], [B.WOOL, 30, 60],
     ...WOOL_COLORS.map((c, i) => [B.WOOL_COLOR + i, 30, 60]), [B.BLUE_FLOWER, 60, 100]
@@ -431,6 +435,9 @@ item(I.MINECART, "Minecart", { icon: { flat: "minecart" }, stack: 1, cart: "cart
 item(I.CHEST_MINECART, "Chest Minecart", { icon: { flat: "chest_minecart" }, stack: 1, cart: "chest" });
 item(I.FURNACE_MINECART, "Furnace Minecart", { icon: { flat: "furnace_minecart" }, stack: 1, cart: "furnace" });
 item(I.BOAT, "Boat", { icon: { flat: "boat_item" }, stack: 1, boat: true, fuel: 400 });
+//Its needle points to the world spawn (the held compass turns, game.js);
+//with WorldEdit on it is also the navigation tool (worldedit.js)
+item(I.COMPASS, "Compass", { icon: { flat: "compass" } });
 
 //Fuel for blocks (ticks at 20 ticks per second; one smelt takes 200 ticks)
 ITEMS[B.LOG].fuel = 300;
@@ -443,6 +450,7 @@ ITEMS[B.CHEST].fuel = 300;
 ITEMS[B.LADDER].fuel = 300;
 ITEMS[B.FENCE].fuel = 300;
 ITEMS[B.FENCE_GATE].fuel = 300;
+ITEMS[B.TRAPDOOR].fuel = 300;
 ITEMS[B.REEDS].block = B.REEDS;
 
 export const TOOL_STATS = [
@@ -653,6 +661,7 @@ shaped(I.MINECART, 1, ["I.I", "III"], { I: I.IRON_INGOT }, "Spark");
 shapeless(I.CHEST_MINECART, 1, [I.MINECART, B.CHEST], "Spark");
 shapeless(I.FURNACE_MINECART, 1, [I.MINECART, B.FURNACE], "Spark");
 shapeless(I.FLINT_AND_STEEL, 1, [I.IRON_INGOT, I.FLINT], "Tools");
+shaped(I.COMPASS, 1, [".I.", "IDI", ".I."], { I: I.IRON_INGOT, D: I.SPARK_DUST }, "Tools");
 
 shaped(I.BOWL, 4, ["P.P", ".P."], { P: B.PLANKS }, "Food");
 shaped(I.BOAT, 1, ["P.P", "PPP"], { P: B.PLANKS }, "Tools");
@@ -675,6 +684,7 @@ for (const [stairs, material] of [[B.PLANK_STAIRS, B.PLANKS], [B.COBBLE_STAIRS, 
 }
 shaped(B.LAMP, 1, [".G.", "GTG", ".G."], { G: B.GLASS, T: B.TORCH });
 shaped(I.DOOR, 3, ["PP", "PP", "PP"], { P: B.PLANKS });
+shaped(B.TRAPDOOR, 2, ["PPP", "PPP"], { P: B.PLANKS });
 shaped(B.FENCE, 3, ["PSP", "PSP"], { P: B.PLANKS, S: I.STICK });
 shaped(B.FENCE_GATE, 1, ["SPS", "SPS"], { P: B.PLANKS, S: I.STICK });
 shaped(I.BED, 1, ["WWW", "PPP"], { W: I.WHEAT, P: B.PLANKS });
@@ -784,7 +794,7 @@ export function creativeGroups() {
         B.COBBLE_SLAB, B.SANDSTONE_SLAB, B.PLANK_STAIRS, B.COBBLE_STAIRS, B.STONE_STAIRS, B.STONE_BRICK_STAIRS,
         B.BRICK_STAIRS, B.SANDSTONE_STAIRS, B.IRON_BLOCK, B.GOLD_BLOCK, B.CRYSTAL_BLOCK, B.COAL_ORE, B.IRON_ORE,
         B.GOLD_ORE, B.CRYSTAL_ORE, B.OBSIDIAN, B.LADDER, B.TORCH, B.WORKBENCH, B.FURNACE, B.CHEST,
-        B.FENCE, B.FENCE_GATE, I.DOOR, I.BED, B.GLASS_PANE, B.IRON_BARS, B.SIGN, B.WOOL];
+        B.FENCE, B.FENCE_GATE, I.DOOR, B.TRAPDOOR, I.BED, B.GLASS_PANE, B.IRON_BARS, B.SIGN, B.WOOL];
     for (let i = 0; i < WOOL_COLORS.length; i++) {
         building.push(B.WOOL_COLOR + i);
     }
@@ -799,7 +809,7 @@ export function creativeGroups() {
     for (let mi = 0; mi < 5; mi++) {
         tools.push(swordId(mi));
     }
-    tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL, I.BOAT);
+    tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL, I.BOAT, I.COMPASS);
     const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.SPARK_LAMP,
         B.PISTON, B.STICKY_PISTON, B.RAIL, B.POWERED_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,

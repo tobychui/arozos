@@ -23,7 +23,7 @@ import {
 } from "./blocks.js";
 import { TerrainGen, WORLD_H, SEA, idx, BIOME } from "./worldgen.js";
 import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32, hash3 } from "./util.js";
-import { FACE_DIR, doorHinge } from "./shapes.js";
+import { FACE_DIR, doorHinge, waterHeight } from "./shapes.js";
 import { POWER, powerTick, powerChanged, railPlaced, pressButton, pressPlate } from "./power.js";
 
 export const SECTIONS = WORLD_H / 16;
@@ -103,8 +103,12 @@ export class World {
         this.powerBusy = false;
         this.pistonMoving = false;
         this.buttonDue = new Map();
-        //Doors held open by power (lower half positions)
+        //Doors and trapdoors held open by power (a door's lower half), saved
         this.doorPowered = new Set();
+        //Saves from before doorPowered was kept: open doors and trapdoors to
+        //check once after loading (power.js adopts the powered ones)
+        this.adoptDoors = false;
+        this.doorAdopt = new Set();
         //Retimer output changes on their way: key -> { due, on }
         this.retimerDue = new Map();
         this.railPreferX = false;
@@ -244,6 +248,10 @@ export class World {
             const id = c.blocks[i];
             if (id === B.WHEAT) {
                 c.crops.add(i);
+            } else if (this.adoptDoors && (c.meta[i] & 4) && (id === B.TRAPDOOR || (id === B.DOOR && !(c.meta[i] & 8)))) {
+                const x = bx + (i >> 11), y = i & 127, z = bz + ((i >> 7) & 15);
+                this.doorAdopt.add(x + "," + y + "," + z);
+                this.schedule(x, y, z, 5 + Math.floor(this.rng() * 30));
             } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0) || (id === B.BUTTON && (c.meta[i] & 8)) ||
                 ((id === B.PLATE_WOOD || id === B.PLATE_STONE) && (c.meta[i] & 1)) || id === B.RETIMER || id === B.RETIMER_ON) {
                 this.schedule(bx + (i >> 11), i & 127, bz + ((i >> 7) & 15), 5 + Math.floor(this.rng() * 30));
@@ -1073,6 +1081,37 @@ export class World {
         }
     }
 
+    //The way the liquid at (x, y, z) runs, as a unit [dx, dz] ([0, 0] for
+    //still liquid): toward lower neighbours, and strongly over an edge
+    //where it falls into the block below the neighbour
+    liquidFlow(x, y, z) {
+        const id = this.getBlock(x, y, z);
+        if (id !== B.WATER && id !== B.LAVA) {
+            return [0, 0];
+        }
+        const own = waterHeight(this.getMeta(x, y, z), false);
+        let fx = 0, fz = 0;
+        for (let d = 0; d < 18; d += 3) {
+            if (DIRS[d + 1] !== 0) {
+                continue;
+            }
+            const dx = DIRS[d], dz = DIRS[d + 2];
+            const nid = this.getBlock(x + dx, y, z + dz);
+            let nh;
+            if (nid === id) {
+                nh = waterHeight(this.getMeta(x + dx, y, z + dz), false);
+            } else if (!SOLID[nid] && nid !== B.WATER && nid !== B.LAVA && this.getBlock(x + dx, y - 1, z + dz) === id) {
+                nh = waterHeight(this.getMeta(x + dx, y - 1, z + dz), false) - 1;
+            } else {
+                continue;
+            }
+            fx += dx * (own - nh);
+            fz += dz * (own - nh);
+        }
+        const l = Math.hypot(fx, fz);
+        return l > 1e-6 ? [fx / l, fz / l] : [0, 0];
+    }
+
     /* ---------------- fire ---------------- */
 
     //Highest catch chance of the blocks around a position
@@ -1630,7 +1669,7 @@ export class World {
         for (const [k, v] of this.cropProgress) {
             crops[k] = Math.round(v);
         }
-        return { chunks, tileEntities, rules: Object.assign({}, this.rules), crops };
+        return { chunks, tileEntities, rules: Object.assign({}, this.rules), crops, doorPowered: [...this.doorPowered] };
     }
 
     load(data) {
@@ -1643,6 +1682,10 @@ export class World {
         }
         this.rules = Object.assign({}, DEFAULT_RULES, (data && data.rules) || {});
         this.cropProgress = new Map(Object.entries((data && data.crops) || {}));
+        const held = data && data.doorPowered;
+        this.doorPowered = new Set(Array.isArray(held) ? held : []);
+        this.adoptDoors = !!(data && data.chunks) && !Array.isArray(held);
+        this.doorAdopt.clear();
         this.tileEntities.clear();
         if (data && data.tileEntities) {
             for (const k of Object.keys(data.tileEntities)) {

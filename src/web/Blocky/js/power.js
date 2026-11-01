@@ -26,7 +26,7 @@ for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK, B.PLATE_WOOD,
     POWER[id] |= 2;
 }
 for (const id of [B.SPARK_LAMP, B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.POWERED_RAIL, B.BUTTON,
-    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.RETIMER, B.RETIMER_ON]) {
+    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.TRAPDOOR, B.RETIMER, B.RETIMER_ON]) {
     POWER[id] |= 4;
 }
 //Plain rails react too: a junction is a switch (railSwitch)
@@ -694,6 +694,12 @@ export function powerTick(w, x, y, z, id, meta, sound) {
             const partner = w.doorPartner(x, ly, z);
             const doors = partner ? [[x, z], [partner[0], partner[2]]] : [[x, z]];
             const powered = doors.some(([dx, dz]) => isPowered(w, dx, ly, dz) || isPowered(w, dx, ly + 1, dz));
+            //An open door from an older save: held by power if powered now
+            for (const [dx, dz] of doors) {
+                if (w.doorAdopt.delete(dx + "," + ly + "," + dz) && powered) {
+                    w.doorPowered.add(dx + "," + ly + "," + dz);
+                }
+            }
             const key = x + "," + ly + "," + z;
             if (powered === w.doorPowered.has(key)) {
                 break;
@@ -707,6 +713,28 @@ export function powerTick(w, x, y, z, id, meta, sound) {
             }
             if (((w.getMeta(x, ly, z) & 4) !== 0) !== powered) {
                 w.setDoorOpen(x, ly, z, powered);
+                sound(powered);
+            }
+            break;
+        }
+        case B.TRAPDOOR: {
+            //Like a door: opens when power arrives, shuts when it goes, and
+            //can still be worked by hand in between
+            const powered = isPowered(w, x, y, z);
+            const key = x + "," + y + "," + z;
+            if (w.doorAdopt.delete(key) && powered) {
+                w.doorPowered.add(key);
+            }
+            if (powered === w.doorPowered.has(key)) {
+                break;
+            }
+            if (powered) {
+                w.doorPowered.add(key);
+            } else {
+                w.doorPowered.delete(key);
+            }
+            if (((meta & 4) !== 0) !== powered) {
+                w.setBlock(x, y, z, B.TRAPDOOR, meta ^ 4, false);
                 sound(powered);
             }
             break;
