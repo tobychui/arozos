@@ -18,9 +18,9 @@
 import { B, OPAQUE, SHAPE, SOLID, BLOCKS, blockFaceLayer, layerOfTile, ITEMS, HDIR, FLAME_CATCH } from "./blocks.js";
 import { WORLD_H } from "./worldgen.js";
 import {
-    FACE_DIR, doorBox, trapdoorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, BUTTON_BOX, BUTTON_PRESSED,
+    FACE_DIR, doorBox, trapdoorBox, gateAlongZ, fenceLinks, rotatePoint, paneLinks, LEVER_BASE, buttonBox,
     signAngle, SIGN_BOARD, SIGN_POST, SIGN_WALL_BOARD,
-    PISTON_BASE, HEAD_PLATE, HEAD_ROD, stairShape, stairBoxes, waterHeight
+    PISTON_BASE, HEAD_PLATE, HEAD_ROD, stairShape, stairBoxes, waterHeight, feederBoxes
 } from "./shapes.js";
 
 export { waterHeight };
@@ -305,6 +305,15 @@ export function meshSection(world, chunk, sy, opts) {
                     pistonHead(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "rail") {
                     rail(solidBuf, p, x, y, z, id, meta);
+                } else if (shape === "feeder") {
+                    //Faces flush with an opaque neighbour are hidden
+                    for (const b of feederBoxes(meta)) {
+                        boxFaces(solidBuf, p, x, y, z, id, meta, b[0], b[1], b[2], b[3], b[4], b[5], (f, np) => {
+                            const axis = FACE_AXIS[f];
+                            const flush = FACE_SIGN[f] > 0 ? b[axis + 3] >= 1 : b[axis] <= 0;
+                            return flush && pOpq[np] === 1;
+                        });
+                    }
                 }
             }
         }
@@ -587,16 +596,16 @@ for (let face = 0; face < 6; face++) {
 }
 
 //A box modelled facing up, turned to `face`. layerFn(f) picks the texture
-//by canonical face; lean tilts the top along z (lever handles); faces on
-//the block boundary are skipped against opaque neighbours.
-function turnedBox(buf, p, x, y, z, b, face, layerFn, lean = 0) {
+//by canonical face; lean / leanX tilt the top along z / x (lever handles);
+//faces on the block boundary are skipped against opaque neighbours.
+function turnedBox(buf, p, x, y, z, b, face, layerFn, lean = 0, leanX = 0) {
     const mins = [b[0], b[1], b[2]], maxs = [b[3], b[4], b[5]];
     for (let f = 0; f < 6; f++) {
         const wf = TURNED_FACE[face][f];
         const axis = FACE_AXIS[f];
         const onEdge = FACE_SIGN[f] > 0 ? maxs[axis] >= 1 : mins[axis] <= 0;
         const np = p + FACE_OFF[wf];
-        if (onEdge && !lean && pOpq[np]) {
+        if (onEdge && !lean && !leanX && pOpq[np]) {
             continue;
         }
         //Opaque parts (pistons) hold no light themselves: light each face
@@ -612,7 +621,7 @@ function turnedBox(buf, p, x, y, z, b, face, layerFn, lean = 0) {
             if (lean) {
                 vz += (vy - b[1]) * lean;
             }
-            const q = rotatePoint(face, vx, vy, vz);
+            const q = rotatePoint(face, leanX ? vx + (vy - b[1]) * leanX : vx, vy, vz);
             buf.vert(x + q[0], y + q[1], z + q[2], uv[0], uv[1], layer, ls, lb, s, s, s);
         }
         buf.quad(false);
@@ -671,7 +680,7 @@ function ironBars(buf, p, x, y, z, id, meta, links) {
 }
 
 const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
-    B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_BLOCK, B.POWERED_RAIL]);
+    B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_BLOCK, B.POWERED_RAIL, B.DETECTOR_RAIL]);
 
 function flatQuad(buf, x0, z0, x1, z1, yy, layer, ls, lb, r, g, b) {
     buf.vert(x0, yy, z1, 0, 0, layer, ls, lb, r, g, b);
@@ -778,13 +787,21 @@ function sign(buf, p, x, y, z, id, meta) {
 function lever(buf, p, x, y, z, id, meta) {
     const face = meta & 7;
     const stone = blockFaceLayer(id, 2, meta), wood = layerOfTile("planks");
-    turnedBox(buf, p, x, y, z, LEVER_BASE, face, () => stone);
-    turnedBox(buf, p, x, y, z, [7 * U, 1 * U, 7 * U, 9 * U, 10 * U, 9 * U], face, () => wood, meta & 8 ? 0.55 : -0.55);
+    //On a wall the handle always swings up and down (on: down); the turn
+    //onto an x facing wall maps the model's z to world z, so those lean
+    //(and lay the base out) along the model's x instead
+    const tilt = meta & 8 ? 0.55 : -0.55;
+    const sideways = face === 0 || face === 1;
+    const lean = sideways ? 0 : face === 5 ? -tilt : tilt;
+    const leanX = face === 0 ? tilt : face === 1 ? -tilt : 0;
+    const base = sideways ? [LEVER_BASE[2], LEVER_BASE[1], LEVER_BASE[0], LEVER_BASE[5], LEVER_BASE[4], LEVER_BASE[3]] : LEVER_BASE;
+    turnedBox(buf, p, x, y, z, base, face, () => stone);
+    turnedBox(buf, p, x, y, z, [7 * U, 1 * U, 7 * U, 9 * U, 10 * U, 9 * U], face, () => wood, lean, leanX);
 }
 
 function button(buf, p, x, y, z, id, meta) {
     const layer = blockFaceLayer(id, 2, meta);
-    turnedBox(buf, p, x, y, z, meta & 8 ? BUTTON_PRESSED : BUTTON_BOX, meta & 7, () => layer);
+    turnedBox(buf, p, x, y, z, buttonBox(meta), meta & 7, () => layer);
 }
 
 function piston(buf, p, x, y, z, id, meta) {
@@ -803,7 +820,7 @@ function pistonHead(buf, p, x, y, z, id, meta) {
 //Rail shapes: 0 NS, 1 EW, 2-5 rising toward +x, -x, +z, -z, 6-9 curves SE, SW, NW, NE
 const RAIL_UV_FACING = [3, 0, 0, 0, 3, 3, 3, 0, 1, 2];
 function rail(buf, p, x, y, z, id, meta) {
-    const shape = id === B.POWERED_RAIL ? meta & 7 : meta & 15;
+    const shape = id === B.RAIL ? meta & 15 : meta & 7;
     const layer = blockFaceLayer(id, 2, meta);
     const [ls, lb] = selfLight(p);
     const rise = (vx, vz) => (shape === 2 ? vx : shape === 3 ? 1 - vx : shape === 4 ? vz : shape === 5 ? 1 - vz : 0);
@@ -990,6 +1007,11 @@ export function cardGeometry(tile) {
 //on the -x half
 export const STAIR_ITEM_BOXES = [[0, 0, 0, 1, 0.5, 1], [0, 0.5, 0, 0.5, 1, 1]];
 
+//A feeder (feeding down) in the hand and as an icon, back to front for
+//the icon's painter: spout, body, bowl floor, far walls, near walls
+const FB = feederBoxes(3);
+export const FEEDER_ITEM_BOXES = [FB[6], FB[5], FB[0], FB[1], FB[3], FB[2], FB[4]];
+
 //Geometry for held items and dropped items, centred on the origin.
 //Blocks are unit cubes (slabs half height, stairs two boxes), everything
 //else a flat card.
@@ -1000,13 +1022,13 @@ export function itemGeometry(id) {
     const blockId = it && it.block;
     const shape = blockId ? SHAPE[blockId] : null;
     const cubeLike = blockId && (shape === "cube" || shape === "slab" || shape === "stairs" || shape === "cactus" || shape === "farmland" ||
-        shape === "piston" || shape === "plate" || shape === "retimer" || shape === "trapdoor");
+        shape === "piston" || shape === "plate" || shape === "retimer" || shape === "trapdoor" || shape === "feeder");
     if (cubeLike) {
         const def = BLOCKS[blockId];
         const meta = def.orient ? 4 : 0;
         const top = shape === "slab" ? 0.5 : shape === "plate" ? 1 / 16 : shape === "retimer" ? 2 / 16 : shape === "trapdoor" ? 3 / 16 : 1;
         const inset = shape === "cactus" ? 1 / 16 : 0;
-        const boxes = shape === "stairs" ? STAIR_ITEM_BOXES : [[inset, 0, inset, 1 - inset, top, 1 - inset]];
+        const boxes = shape === "stairs" ? STAIR_ITEM_BOXES : shape === "feeder" ? FEEDER_ITEM_BOXES : [[inset, 0, inset, 1 - inset, top, 1 - inset]];
         const tintC = def.tint === "foliage" ? [0.48, 0.86, 0.32] : def.tint === "grass" ? [0.62, 1.0, 0.43] : null;
         for (let i = 0; i < boxes.length; i++) {
             const bx = boxes[i];

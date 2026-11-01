@@ -18,7 +18,8 @@ import { Carts } from "./carts.js";
 import { Boats } from "./boats.js";
 import { Signs } from "./signs.js";
 import { WorldEdit } from "./worldedit.js";
-import { World, WORLD_H } from "./world.js";
+import { Machines } from "./machines.js";
+import { World, WORLD_H, TE_KINDS } from "./world.js";
 import { BIOME, BIOME_NAMES } from "./worldgen.js";
 import { Player, DIFFICULTY } from "./player.js";
 import { Inventory } from "./inventory.js";
@@ -36,6 +37,7 @@ const DEATH_TEXT = {
     drown: "You drowned",
     starve: "You starved to death",
     cactus: "You were pricked to death by a cactus",
+    arrow: "You were shot by a dispenser",
     lightning: "You were struck by lightning",
     suffocate: "You suffocated in a wall",
     lava: "You tried to swim in lava",
@@ -112,6 +114,7 @@ export class Game {
                 }
             },
             onPistonPush: (cells, d) => this.pistonPush(cells, d),
+            onDispense: (x, y, z, face) => this.machines.dispense(x, y, z, face),
             onFizz: (x, y, z) => {
                 this.sound.play("fizz");
                 this.renderer.spawnParticles(x + 0.5, y + 1, z + 0.5, [200, 200, 200], 12, 0.4, 2);
@@ -122,6 +125,7 @@ export class Game {
         this.mobs = new Mobs(this);
         this.carts = new Carts(this);
         this.boats = new Boats(this);
+        this.machines = new Machines(this);
         this.signs = new Signs(this);
         this.riding = null;
         this.boat = null;
@@ -521,6 +525,7 @@ export class Game {
         const p = this.player;
         this.world.tick(Math.floor(p.x / 16), Math.floor(p.z / 16));
         this.pressPlates();
+        this.machines.tick();
         p.tick();
         const w = this.weather;
         w.timer--;
@@ -536,7 +541,8 @@ export class Game {
                 w.timer = 6000 + Math.floor(this.rng() * 14000);
             }
         }
-        if (this.ui.isOpen() && this.ui.screen.kind === "furnace" && this.ticks % 2 === 0) {
+        //Containers change while open (furnaces burn, feeders move items)
+        if (this.ui.isOpen() && this.ui.screen.te && this.ui.screen.te.slots && this.ticks % 2 === 0) {
             this.ui.renderScreen(false);
         }
     }
@@ -1111,9 +1117,11 @@ export class Game {
             return;
         }
         if (it.cart) {
-            if (rawHit.id === B.RAIL || rawHit.id === B.POWERED_RAIL) {
+            if (SHAPE[rawHit.id] === "rail") {
+                //Lined up with the rail, facing the way the player looks
                 const [cx, cy, cz] = this.carts.railSeat(rawHit.x, rawHit.y, rawHit.z);
-                this.carts.spawn(it.cart, cx, cy, cz);
+                const yaw = this.carts.railYaw(rawHit.x, rawHit.y, rawHit.z, -Math.sin(this.player.yaw), -Math.cos(this.player.yaw));
+                this.carts.spawn(it.cart, cx, cy, cz, { yaw });
                 this.sound.block("place", "metal");
                 this.swing = 0;
                 if (!this.creative) {
@@ -1313,8 +1321,12 @@ export class Game {
         }
         if (bid === B.LEVER || bid === B.BUTTON) {
             meta = face;
-        } else if (bid === B.PISTON || bid === B.STICKY_PISTON) {
-            //The pushing face looks back at the player
+        } else if (bid === B.FEEDER) {
+            //The spout feeds into the block clicked (down when clicked from
+            //above or below)
+            meta = face === 2 || face === 3 ? 3 : face ^ 1;
+        } else if (bid === B.PISTON || bid === B.STICKY_PISTON || bid === B.DISPENSER) {
+            //The pushing (or shooting) face looks back at the player
             const [, , , lx, ly, lz] = this.eyeRay();
             const ax = Math.abs(lx), ay = Math.abs(ly), az = Math.abs(lz);
             if (ay >= ax && ay >= az) {
@@ -1339,7 +1351,7 @@ export class Game {
         } else if (bid === B.RETIMER) {
             //Signal runs away from the player
             meta = facingFromYaw(p.yaw);
-        } else if (bid === B.RAIL || bid === B.POWERED_RAIL) {
+        } else if (SHAPE[bid] === "rail") {
             meta = Math.abs(Math.sin(p.yaw)) > Math.abs(Math.cos(p.yaw)) ? 1 : 0;
             w.railPreferX = meta === 1;
             w.railAim = face === 2 ? [hit.point[0] - x - 0.5, hit.point[2] - z - 0.5] : null;
@@ -1465,10 +1477,8 @@ export class Game {
         if (!w.setBlock(x, y, z, bid, meta)) {
             return;
         }
-        if (bid === B.FURNACE) {
-            w.createTileEntity(x, y, z, "furnace");
-        } else if (bid === B.CHEST) {
-            w.createTileEntity(x, y, z, "chest");
+        if (TE_KINDS.has(BLOCKS[bid].interact)) {
+            w.createTileEntity(x, y, z, BLOCKS[bid].interact);
         } else if (bid === B.SIGN || bid === B.WALL_SIGN) {
             //Write on it straight away
             this.openScreen("sign", Signs.create(w, x, y, z));

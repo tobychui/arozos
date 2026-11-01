@@ -652,7 +652,8 @@ export class Mobs {
 
     /* ---------------- arrows ---------------- */
 
-    shootArrow(x, y, z, vx, vy, vz, damage) {
+    //hitsPlayer: a dispenser's arrow, which hurts the player too
+    shootArrow(x, y, z, vx, vy, vz, damage, hitsPlayer = false) {
         const mesh = new THREE.Group();
         const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.6), new THREE.MeshBasicMaterial({ color: 0x8c6a3c }));
         const head = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.1), new THREE.MeshBasicMaterial({ color: 0x5c5c64 }));
@@ -661,7 +662,7 @@ export class Mobs {
         fletch.position.z = 0.26;
         mesh.add(shaft, head, fletch);
         this.renderer.scene.add(mesh);
-        this.arrows.push({ x, y, z, vx, vy, vz, damage, mesh, stuck: false, life: 60 });
+        this.arrows.push({ x, y, z, vx, vy, vz, damage, mesh, stuck: false, life: 60, hitsPlayer });
     }
 
     updateArrows(dt) {
@@ -684,6 +685,13 @@ export class Mobs {
                             this.damage(m, Math.round(a.damage * Math.min(1, speed / 40)), [a.x - a.vx, a.z - a.vz]);
                             remove = true;
                             break;
+                        }
+                    }
+                    if (!remove && a.hitsPlayer && !p.dead) {
+                        const b = p.box();
+                        if (a.x > b[0] - 0.1 && a.x < b[3] + 0.1 && a.y > b[1] && a.y < b[4] + 0.1 && a.z > b[2] - 0.1 && a.z < b[5] + 0.1) {
+                            p.hurt(Math.max(1, Math.round(a.damage * Math.min(1, speed / 40))), "arrow");
+                            remove = true;
                         }
                     }
                     const id = w.getBlock(Math.floor(a.x), Math.floor(a.y), Math.floor(a.z));

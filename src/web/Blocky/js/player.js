@@ -444,10 +444,11 @@ export class Player {
         } else {
             this.air = Math.min(15, this.air + dt * 5);
         }
-        //Cactus prickles; a block in your head (fallen sand) suffocates
+        //Cactus prickles (slowly: half a heart a second); a block in your
+        //head (fallen sand) suffocates
         this.cactusTimer = Math.max(0, this.cactusTimer - dt);
         if (this.cactusTimer === 0 && this.touching(B.CACTUS)) {
-            this.cactusTimer = 0.5;
+            this.cactusTimer = 1;
             this.hurt(1, "cactus");
         }
         //Fire and lava: damage while touching, then you keep burning a while

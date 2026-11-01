@@ -24,6 +24,7 @@ its folder.
 | `js/power.js` | Spark circuits: power sources, wire levels, torches, lamps, pistons, rail shapes. |
 | `js/carts.js` | Minecarts (plain, chest, furnace) following rails. |
 | `js/boats.js` | Boats: floating, rowing, steering, riding. |
+| `js/machines.js` | Feeders (moving items between containers, carts and the ground) and dispensers. |
 | `js/dynlight.js` | Light from a glowing item held in hand. |
 | `js/signs.js` | The text on signs: canvas planes in front of the boards. |
 | `js/blocks.js` | Block / item registry, mining rules, shaped recipes and the grid matcher, smelting. |
@@ -275,7 +276,11 @@ gets a 5 blocks/s shove. Parts react
 through scheduled ticks two game ticks later. `POWER` flags each block: 1
 wire, 2 source, 4 reacts, 8 rail. Lever and button meta is the face they are
 attached to plus bit 8 for on / pressed; a pressed button's release time is
-kept in `world.buttonDue`, so other updates cannot let it go early.
+kept in `world.buttonDue`, so other updates cannot let it go early. A
+lever on a wall always swings up and down, up when off and down when on
+(`lever` in mesher.js leans the handle along the model axis that the
+wall's turn maps to world y). A wall button is always 6 px wide and 4 px
+tall (`buttonBox` in shapes.js swaps its x and z on walls facing x).
 
 Pressure plates (two planks or two stone in a row) lie on a solid block,
 or on the same flat tops a torch stands on (top slab, upside down stairs,
@@ -342,7 +347,8 @@ first branch when powered and straightens again after. Meta bit 16 marks a
 switched rail, bit 32 one that was straight before; the shape stays in
 bits 0-3, which everything else reads with `& 15`. Powered rails
 (on a powered block or next to a source; power runs along up to 8 connected
-powered rails) speed carts up. Unpowered ones are brakes. How far a cart
+powered rails, up and down slopes too: `railChainPowered` follows each
+rail's height) speed carts up. Unpowered ones are brakes. How far a cart
 rolls depends on its load (`Carts.loadOf`, `LOAD_*` in `carts.js`): reaching
 full speed (8) it cruises for a while, then slows at a steady rate; brakes
 are a much stronger steady deceleration that also holds it on a slope or
@@ -362,6 +368,15 @@ first slope block and rolls back, the ridden one just makes it past it
 | Chest cart, full | 40 | 0 | 1 |
 
 A chest cart in between is interpolated by how many stacks fill its slots.
+
+Detector rails (`B.DETECTOR_RAIL` 101; iron, a stone plate and spark dust,
+I.I / IPI / IDI makes 6) run straight like powered rails (shape in bits
+0-2, `railShapeOf` / `isRail` in blocks.js). A cart on one calls
+`pressDetector` every step: meta bit 8 goes on and the release time is
+kept 20 ticks ahead in `world.buttonDue`, so it switches off a second
+after the last cart leaves, and a parked cart holds it on. While on it is
+a source like a pressed plate: it powers the wire, lamps, pistons and
+powered rails beside it and the block it lies on.
 `js/carts.js`:
 place a cart on a rail; right click to ride (Shift gets out), a chest cart
 to open its 27 slots, a furnace cart with fuel to drive it away from you
@@ -372,13 +387,70 @@ block (a buffer) but rolls on into open space: off the rails it keeps its
 speed through the air and falls (`c.air`), a block in its way stops it
 sideways but not its fall, on the ground it scrapes to a stop
 (`GROUND_DRAG` and `GROUND_STOP`: 1.25 blocks from full speed), and it lands
-back on any rail it comes down onto. A player walking into a cart on an
+back on any rail it comes down onto. Landing, it turns to run along that rail at
+once (`landed` in `step`), keeping its speed across the ground: the way it
+moves along it, else the way it faced, else, square across the rail,
+turned to its right. Dropped straight down it only turns. A powered rail
+starts a still cart only away from a wall at one end; otherwise the cart
+stays until something pushes it - the player or an animal walking into it
+(`HALF` + the animal's half width). A cart placed on a rail lines up with
+it, facing the way the player looks (`railYaw`). A player walking into a cart on an
 unpowered powered rail pushes it at a slow pace (`BRAKE_PUSH`, 1.5
 blocks/s, also up a slope); the cart holds them back to that pace, so they
 lean on it instead of walking through. The model tilts
 with the slope it is on (`pose`, from the rail direction kept by `step`).
 Two hits break a cart (one in creative); a cart takes the click over the
 rail under it, whose box can stick out in front of a cart sitting in a dip.
+
+A cart touching a cactus (its box within 0.02 of the cactus's inset box,
+`touchingBlock` in physics.js) breaks into its item: in practice a cart
+running into a cactus at the end of a track, never one passing a cactus
+beside the track (0.07 apart). `breakOnCactus` drops the item, and a chest
+cart's contents, in the middle of the block the cart was in, clear of the
+cactus, which destroys any dropped item touching it (its top included)
+like lava and fire do. Touching a cactus hurts the player half a heart a
+second.
+
+## Feeders and dispensers
+
+`js/machines.js`, ticked from `Game.tick` (20 a second); both keep their
+items in tile entities (`TE_SLOTS` in world.js: feeder 5, dispenser 9)
+that drop when the block is broken, so pistons cannot move them.
+
+Feeder (`B.FEEDER` 102; I.I / ICI / .I. with a chest): a funnel, meta the
+face its spout feeds out of (down, or the side of the block clicked when
+placing). Every 8 ticks (2.5 items a second) it moves one item out of the
+spout and one in from the block on top; dropped items in its bowl or the
+block space above go in at once. Power (`isPowered`) stops it. It reaches
+chests, dispensers and other feeders (any slot), furnaces (from above
+into the smelting slot, only things that smelt; from a side into the fuel
+slot, only fuel; from below out of the output slot) and chest carts: one
+in the block the spout points into (a feeder over a rail) or in the block
+above (a rail laid on the feeder, which counts as solid ground for rails,
+wire and the like). Carts are served while moving too, as long as they are
+in that block.
+
+Dispenser (`B.DISPENSER` 103; CCC / CBC / CDC, cobblestone, a bow, spark
+dust): faces any way (placed like a piston, front looking back at the
+player), meta bit 8 while powered. Each time power arrives (`powerTick`
+calls `world.onDispense`) it takes a random filled slot and
+- shoots an arrow (22 blocks/s; dispensed arrows hurt the player too,
+  `hitsPlayer` in mobs.js)
+- sets a cart on a rail in front (or one block lower), turned along the
+  rail away from the dispenser; at the end of a powered rail the
+  dispenser is the wall the rail launches it from
+- floats a boat on water in front, raised to the water's surface, or on
+  water just below the space in front
+- pours a water or lava bucket into the space in front, keeping the empty
+  bucket, and fills an empty bucket from a source in front
+- throws anything else out as a dropped item (5 blocks/s)
+With nothing to dispense it just clicks.
+
+A cart recycler: a track ending in a cactus, its last rail laid on a
+feeder that feeds down into a dispenser facing a track below. The cart
+breaks on the cactus, its item drops onto the last rail, the feeder takes
+it into the dispenser, and power on the dispenser sets it on the track
+again.
 
 ## Boats
 

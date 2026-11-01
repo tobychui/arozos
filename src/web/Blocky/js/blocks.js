@@ -26,7 +26,7 @@ export const B = {
     PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86, PLATE_WOOD: 87, PLATE_STONE: 88,
     RETIMER: 89, RETIMER_ON: 90, SIGN: 91, WALL_SIGN: 92, IRON_BARS: 93,
     PLANK_STAIRS: 94, COBBLE_STAIRS: 95, STONE_STAIRS: 96, STONE_BRICK_STAIRS: 97, BRICK_STAIRS: 98,
-    SANDSTONE_STAIRS: 99, TRAPDOOR: 100
+    SANDSTONE_STAIRS: 99, TRAPDOOR: 100, DETECTOR_RAIL: 101, FEEDER: 102, DISPENSER: 103
 };
 
 //Wool and dye colours: key, name, colour
@@ -213,6 +213,14 @@ def(B.STICKY_PISTON, "Sticky Piston", { tex: { side: "piston_side", top: "piston
 def(B.PISTON_HEAD, "Piston Head", { tex: { side: "piston_side", top: "piston_top" }, shape: "pistonhead", opaque: false, lightOpacity: 0, hardness: 0.5, noItem: true, drops: () => [] });
 def(B.RAIL, "Rail", { tex: "rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
 def(B.POWERED_RAIL, "Powered Rail", { tex: "powered_rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
+//Detector rail: meta 8 while a cart is on it (and a second after), when it
+//is a spark source like a pressed plate
+def(B.DETECTOR_RAIL, "Detector Rail", { tex: "detector_rail", shape: "rail", solid: false, opaque: false, lightOpacity: 0, hardness: 0.7, sound: "metal", support: "solid", cutout: true });
+//Feeder: a funnel that moves items (5 slots, see machines.js); meta is the
+//face it feeds out of (3 down, or a side)
+def(B.FEEDER, "Feeder", { tex: { top: "feeder_top", side: "feeder_side", bottom: "feeder_side" }, shape: "feeder", opaque: false, lightOpacity: 0, hardness: 3, tool: "pickaxe", sound: "metal", interact: "feeder" });
+//Dispenser: meta 0-5 the face it shoots out of, bit 8 while powered
+def(B.DISPENSER, "Dispenser", { tex: { top: "furnace_top", bottom: "furnace_top", side: "furnace_side", front: "dispenser_front" }, hardness: 3.5, tool: "pickaxe", tier: 1, interact: "dispenser" });
 def(B.SPARK_BLOCK, "Block of Spark", { tex: "spark_block", hardness: 5, tool: "pickaxe", tier: 1, sound: "metal" });
 //Pressure plates: meta 1 while pressed. Anything presses a wooden one;
 //only players and animals press a stone one.
@@ -274,6 +282,12 @@ for (const [id, c, b] of [
     FLAME_CATCH[id] = c;
     FLAME_BURN[id] = b;
 }
+
+//Rails: plain rails take 10 shapes (meta bits 0-3, curves included);
+//powered and detector rails run straight (bits 0-2) and keep bit 8 for
+//their on state
+export const isRail = (id) => id === B.RAIL || id === B.POWERED_RAIL || id === B.DETECTOR_RAIL;
+export const railShapeOf = (id, meta) => (id === B.RAIL ? Math.min(9, meta & 15) : meta & 7);
 
 //A slab with meta 2 is a double slab: a full opaque cube
 export function isOpaqueAt(id, meta) {
@@ -348,11 +362,18 @@ export function blockFaceLayer(id, face, meta) {
     if (id === B.POWERED_RAIL) {
         return tileLayer.get(meta & 8 ? "powered_rail_on" : "powered_rail");
     }
+    if (id === B.DETECTOR_RAIL) {
+        return tileLayer.get(meta & 8 ? "detector_rail_on" : "detector_rail");
+    }
     if (id === B.RAIL) {
         return tileLayer.get((meta & 15) >= 6 ? "rail_curve" : "rail");
     }
     if (id === B.BED && face === 2) {
         return tileLayer.get(meta & 4 ? "bed_head_top" : "bed_foot_top");
+    }
+    if (id === B.DISPENSER) {
+        const f = meta & 7;
+        return face === f ? tileLayer.get(f === 2 || f === 3 ? "dispenser_front_v" : "dispenser_front") : fl[face];
     }
     if (id === B.WORKBENCH) {
         return (face === 4 || face === 5) ? fl[6] : fl[face];
@@ -379,7 +400,7 @@ const FLAT_BLOCK_ICONS = {
     [B.REEDS]: "reeds", [B.DEAD_BUSH]: "dead_bush", [B.LADDER]: "ladder",
     [B.FENCE]: "fence_item", [B.FENCE_GATE]: "gate_item", [B.BLUE_FLOWER]: "blue_flower",
     [B.GLASS_PANE]: "glass", [B.SPARK_TORCH]: "spark_torch_on", [B.LEVER]: "lever_item",
-    [B.BUTTON]: "button_item", [B.RAIL]: "rail", [B.POWERED_RAIL]: "powered_rail",
+    [B.BUTTON]: "button_item", [B.RAIL]: "rail", [B.POWERED_RAIL]: "powered_rail", [B.DETECTOR_RAIL]: "detector_rail",
     [B.SIGN]: "sign_item", [B.IRON_BARS]: "iron_bars"
 };
 
@@ -657,6 +678,9 @@ shaped(B.SPARK_BLOCK, 1, ["DDD", "DDD", "DDD"], { D: I.SPARK_DUST }, "Spark");
 shapeless(I.SPARK_DUST, 9, [B.SPARK_BLOCK], "Spark");
 shaped(B.RAIL, 16, ["I.I", "ISI", "I.I"], { I: I.IRON_INGOT, S: I.STICK }, "Spark");
 shaped(B.POWERED_RAIL, 6, ["G.G", "GSG", "GDG"], { G: I.GOLD_INGOT, S: I.STICK, D: I.SPARK_DUST }, "Spark");
+shaped(B.DETECTOR_RAIL, 6, ["I.I", "IPI", "IDI"], { I: I.IRON_INGOT, P: B.PLATE_STONE, D: I.SPARK_DUST }, "Spark");
+shaped(B.FEEDER, 1, ["I.I", "ICI", ".I."], { I: I.IRON_INGOT, C: B.CHEST }, "Spark");
+shaped(B.DISPENSER, 1, ["CCC", "CBC", "CDC"], { C: B.COBBLE, B: I.BOW, D: I.SPARK_DUST }, "Spark");
 shaped(I.MINECART, 1, ["I.I", "III"], { I: I.IRON_INGOT }, "Spark");
 shapeless(I.CHEST_MINECART, 1, [I.MINECART, B.CHEST], "Spark");
 shapeless(I.FURNACE_MINECART, 1, [I.MINECART, B.FURNACE], "Spark");
@@ -811,7 +835,7 @@ export function creativeGroups() {
     }
     tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL, I.BOAT, I.COMPASS);
     const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.SPARK_LAMP,
-        B.PISTON, B.STICKY_PISTON, B.RAIL, B.POWERED_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
+        B.PISTON, B.STICKY_PISTON, B.DISPENSER, B.FEEDER, B.RAIL, B.POWERED_RAIL, B.DETECTOR_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,
         I.WHEAT, I.BOWL, I.APPLE, I.BREAD, I.STEW, I.RAW_MEAT, I.COOKED_MEAT, I.RAW_MUTTON,
         I.COOKED_MUTTON, I.RAW_CHICKEN, I.COOKED_CHICKEN, I.FEATHER, I.STRING, I.BONE, I.BONE_MEAL];

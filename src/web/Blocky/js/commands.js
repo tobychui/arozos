@@ -16,7 +16,7 @@
 import { ITEMS, BLOCKS, B, itemName } from "./blocks.js";
 import { DIFFICULTY } from "./player.js";
 import { maxStack } from "./inventory.js";
-import { WORLD_H } from "./world.js";
+import { WORLD_H, TE_KINDS } from "./world.js";
 import { WE_COMMANDS } from "./wecommands.js";
 import { EditError, blockNames, DIRECTION_WORDS } from "./worldedit.js";
 
@@ -350,8 +350,8 @@ export const COMMANDS = {
             if (id === B.WATER) {
                 game.world.schedule(x, y, z, 5);
             }
-            if (id === B.FURNACE || id === B.CHEST) {
-                game.world.createTileEntity(x, y, z, id === B.FURNACE ? "furnace" : "chest");
+            if (BLOCKS[id].interact && TE_KINDS.has(BLOCKS[id].interact)) {
+                game.world.createTileEntity(x, y, z, BLOCKS[id].interact);
             }
             return [`Placed ${id === B.AIR ? "air" : BLOCKS[id].name} at ${x}, ${y}, ${z}`];
         }

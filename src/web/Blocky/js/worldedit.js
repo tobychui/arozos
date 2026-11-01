@@ -25,7 +25,7 @@
 */
 
 import { B, I, BLOCKS, SHAPE, SOLID, HDIR, toolId, facingFromYaw } from "./blocks.js";
-import { Chunk, WORLD_H } from "./world.js";
+import { Chunk, WORLD_H, TE_SLOTS } from "./world.js";
 import { FACE_DIR, doorHinge, selectionBox } from "./shapes.js";
 import { POWER } from "./power.js";
 import { chunkKey, clamp } from "./util.js";
@@ -58,11 +58,13 @@ export const plural = (n, word) => `${fmt(n)} ${word}${n === 1 ? "" : "s"}`;
 const TE_TYPE = new Array(256).fill(null);
 TE_TYPE[B.FURNACE] = TE_TYPE[B.FURNACE_LIT] = "furnace";
 TE_TYPE[B.CHEST] = "chest";
+TE_TYPE[B.DISPENSER] = "dispenser";
+TE_TYPE[B.FEEDER] = "feeder";
 TE_TYPE[B.SIGN] = TE_TYPE[B.WALL_SIGN] = "sign";
 
 //Blocks whose position may be a key in the world's power maps
 const KEYED = new Uint8Array(256);
-for (const id of [B.DOOR, B.TRAPDOOR, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON]) {
+for (const id of [B.DOOR, B.TRAPDOOR, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON, B.DETECTOR_RAIL]) {
     KEYED[id] = 1;
 }
 
@@ -73,8 +75,8 @@ function defaultTE(type) {
     if (type === "furnace") {
         return { type, slots: [null, null, null], burn: 0, burnMax: 0, cook: 0 };
     }
-    if (type === "chest") {
-        return { type, slots: new Array(27).fill(null) };
+    if (TE_SLOTS[type]) {
+        return { type, slots: new Array(TE_SLOTS[type]).fill(null) };
     }
     return { type, lines: ["", "", "", ""], ver: 0 };
 }
@@ -638,9 +640,11 @@ export function flipMatrix(dir) {
 }
 
 //Meta kinds: a face index in bits 0-2 (1: any face, 2: sides only, 3: not
-//hanging from a ceiling), or a horizontal facing (HDIR) in bits 0-1
+//hanging from a ceiling, 4: never up - a feeder's spout), or a horizontal
+//facing (HDIR) in bits 0-1
 const FACE_KIND = new Uint8Array(256);
-for (const id of [B.LEVER, B.BUTTON, B.PISTON, B.STICKY_PISTON, B.PISTON_HEAD]) {
+FACE_KIND[B.FEEDER] = 4;
+for (const id of [B.LEVER, B.BUTTON, B.PISTON, B.STICKY_PISTON, B.PISTON_HEAD, B.DISPENSER]) {
     FACE_KIND[id] = 1;
 }
 for (const id of [B.LADDER, B.WALL_SIGN, B.FURNACE, B.FURNACE_LIT, B.CHEST]) {
@@ -675,7 +679,7 @@ export function transformMeta(id, meta, M) {
             return meta;
         }
         const nf = faceIndex(mul(M, ...FACE_DIR[f]));
-        if (nf < 0 || (fk === 2 && (nf === 2 || nf === 3)) || (fk === 3 && nf === 3)) {
+        if (nf < 0 || (fk === 2 && (nf === 2 || nf === 3)) || (fk === 3 && nf === 3) || (fk === 4 && nf === 2)) {
             return meta;
         }
         return (meta & ~7) | nf;
@@ -722,11 +726,11 @@ export function transformMeta(id, meta, M) {
         const step = Math.round(Math.atan2(v[0], v[2]) / (Math.PI / 8));
         return (meta & ~15) | (((step % 16) + 16) % 16);
     }
-    if (id === B.RAIL || id === B.POWERED_RAIL) {
+    if (SHAPE[id] === "rail") {
         if (!yStays) {
             return meta;
         }
-        const bits = id === B.POWERED_RAIL ? 7 : 15;
+        const bits = id === B.RAIL ? 15 : 7;
         const shape = meta & bits, keep = meta & ~bits;
         const turn = (k) => {
             const v = mul(M, FLAT[k][0], 0, FLAT[k][1]);

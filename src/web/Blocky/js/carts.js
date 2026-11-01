@@ -14,8 +14,8 @@
 */
 
 import * as THREE from "three";
-import { B, I, BLOCKS, ITEMS, isOpaqueAt, fuelTicks } from "./blocks.js";
-import { moveAxis } from "./physics.js";
+import { B, I, BLOCKS, ITEMS, isOpaqueAt, fuelTicks, isRail, railShapeOf } from "./blocks.js";
+import { moveAxis, touchingBlock } from "./physics.js";
 
 //Two exits of each rail shape, block local (0 NS, 1 EW, 2-5 rising +x -x +z -z, 6-9 curves SE SW NW NE)
 const RAIL_EXITS = [
@@ -83,9 +83,9 @@ export class Carts {
         //a little below the flat rail that follows it
         for (const by of [fy, fy - 1, fy + 1]) {
             const id = w.getBlock(bx, by, bz);
-            if (id === B.RAIL || id === B.POWERED_RAIL) {
+            if (isRail(id)) {
                 const m = w.getMeta(bx, by, bz);
-                return { id, bx, by, bz, shape: id === B.POWERED_RAIL ? m & 7 : Math.min(9, m & 15), powered: (m & 8) !== 0 };
+                return { id, bx, by, bz, shape: railShapeOf(id, m), powered: (m & 8) !== 0 };
             }
         }
         return null;
@@ -150,6 +150,19 @@ export class Carts {
         this.renderer.scene.add(group);
         this.renderer.castShadows(group);
         return { group, mats: [metal, dark], cargo };
+    }
+
+    //Yaw for a cart on the rail at (bx, by, bz): along the rail, the way
+    //closer to the heading (hx, hz)
+    railYaw(bx, by, bz, hx, hz) {
+        const r = this.railAt(bx + 0.5, by + 0.1, bz + 0.5);
+        if (!r) {
+            return Math.atan2(hx, hz);
+        }
+        const [a, b] = RAIL_EXITS[r.shape];
+        const dx = b[0] - a[0], dz = b[2] - a[2];
+        const dir = hx * dx + hz * dz < 0 ? -1 : 1;
+        return Math.atan2(dx * dir, dz * dir);
     }
 
     spawn(kind, x, y, z, data = {}) {
@@ -229,22 +242,33 @@ export class Carts {
         }
     }
 
-    breakCart(c, drop) {
+    //at: where the items drop and how they fly ({ x, y, z, vel }), else
+    //from the cart, scattered
+    breakCart(c, drop, at = null) {
         const g = this.game;
         if (c.rider) {
             this.dismount();
         }
         if (drop) {
-            g.entities.spawnItem(c.x, c.y + 0.5, c.z, CART_ITEM[c.kind], 1);
+            const [x, y, z] = at ? [at.x, at.y, at.z] : [c.x, c.y + 0.5, c.z];
+            const vel = () => (at ? at.vel.slice() : null);
+            g.entities.spawnItem(x, y, z, CART_ITEM[c.kind], 1, 0, vel());
             for (const s of c.slots || []) {
                 if (s) {
-                    g.entities.spawnItem(c.x, c.y + 0.5, c.z, s.id, s.count, s.dmg || 0);
+                    g.entities.spawnItem(x, y, z, s.id, s.count, s.dmg || 0, vel());
                 }
             }
         }
         g.sound.block("break", "metal");
         this.disposeCart(c);
         this.list.splice(this.list.indexOf(c), 1);
+    }
+
+    //The items drop in the middle of the block the cart was in (on the
+    //rail beside the cactus), clear of the cactus so it does not destroy
+    //them as well, and where a feeder under that rail takes them in
+    breakOnCactus(c) {
+        this.breakCart(c, true, { x: Math.floor(c.x) + 0.5, y: c.y + 0.3, z: Math.floor(c.z) + 0.5, vel: [0, 1, 0] });
     }
 
     //Right click: ride, open the chest, or fuel the furnace
@@ -321,6 +345,12 @@ export class Carts {
                 c.hitCd = Math.max(0, c.hitCd - h);
                 this.step(c, h, input);
             }
+            //A cart running into a cactus breaks into its item
+            for (const c of this.list.slice()) {
+                if (touchingBlock(g.world, this.box(c), B.CACTUS, 0.02)) {
+                    this.breakOnCactus(c);
+                }
+            }
             this.collide();
         }
         for (const c of this.list) {
@@ -334,6 +364,7 @@ export class Carts {
             return;
         }
         let r = this.railAt(c.x, c.y, c.z);
+        let landed = false;
         if (r && c.air) {
             //Off the rails it only lands on a rail it has come down onto
             if (c.vy > 0.01 || c.y > r.by + 0.55 || c.y < r.by - 0.2) {
@@ -341,6 +372,7 @@ export class Carts {
             } else {
                 c.air = false;
                 c.vy = 0;
+                landed = true;
             }
         }
         if (!r) {
@@ -377,6 +409,9 @@ export class Carts {
             c.z = (box[2] + box[5]) / 2;
             return;
         }
+        if (r.id === B.DETECTOR_RAIL) {
+            w.pressDetector(r.bx, r.by, r.bz);
+        }
         const [a, b] = RAIL_EXITS[r.shape];
         const ax = r.bx + a[0], ay = r.by + a[1], az = r.bz + a[2];
         let dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
@@ -403,6 +438,19 @@ export class Carts {
                 s = enter * speed;
             }
         }
+        if (landed) {
+            //Come down onto a rail, it turns to run along it at once,
+            //keeping the speed it had across the ground: the way it is
+            //moving along it, else the way it faced, else (square across
+            //the rail) turned to its right. Dropped straight down it only
+            //turns, and stays put.
+            const hx = Math.sin(c.yaw), hz = Math.cos(c.yaw);
+            const face = hx * dx + hz * dz;
+            const dir = Math.abs(s) > 0.05 ? Math.sign(s) : Math.abs(face) > 0.1 ? Math.sign(face) : Math.sign(hx * dz - hz * dx) || 1;
+            const flat = Math.hypot(c.vx, c.vz);
+            s = flat > 0.05 ? dir * flat : 0;
+            c.yaw = Math.atan2(dx * dir, dz * dir);
+        }
         //Downhill pull
         s -= 12 * dy * h;
         const [coast, roll, brake, boost] = this.loadOf(c);
@@ -416,6 +464,7 @@ export class Carts {
                     } else if (solidAt(r.bx + b[0] + dx * 0.5, r.bz + b[2] + dz * 0.5)) {
                         s = -2;
                     }
+                    //(no wall: a still cart stays until something pushes it)
                 } else {
                     s += Math.sign(s) * boost * h;
                 }
@@ -507,8 +556,22 @@ export class Carts {
         if (Math.abs(s) > 0.02) {
             c.yaw = Math.atan2(dx * Math.sign(s), dz * Math.sign(s));
         }
-        //Lift the rider's step: a player walking into a cart gives it a nudge
+        //A player or an animal walking into a cart gives it a nudge
         const p = g.player;
+        for (const m of g.mobs.list) {
+            const reach = m.def.w / 2 + HALF;
+            if (Math.abs(m.x - c.x) < reach && Math.abs(m.z - c.z) < reach && m.y < c.y + 0.7 && m.y + m.def.h > c.y) {
+                const ex = c.x - m.x, ez = c.z - m.z, l = Math.hypot(ex, ez) || 1;
+                const dot = (ex / l) * dx + (ez / l) * dz;
+                if (r.id === B.POWERED_RAIL && !r.powered) {
+                    c.shove = Math.sign(dot);
+                } else {
+                    const push = dot * 3 * h;
+                    c.vx += dx * push;
+                    c.vz += dz * push;
+                }
+            }
+        }
         if (!c.rider && !p.dead && Math.abs(p.x - c.x) < 0.8 && Math.abs(p.z - c.z) < 0.8 && p.y < c.y + 0.7 && p.y + 1.8 > c.y) {
             const ex = c.x - p.x, ez = c.z - p.z, l = Math.hypot(ex, ez) || 1;
             const dot = (ex / l) * dx + (ez / l) * dz;

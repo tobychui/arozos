@@ -11,6 +11,27 @@ import { collisionBoxes } from "./shapes.js";
 
 const FULL = [0, 0, 0, 1, 1, 1];
 
+//The block [x, y, z] of kind `id` whose collision boxes come within e of
+//`box` (touching it), or null
+export function touchingBlock(world, box, id, e) {
+    for (let x = Math.floor(box[0] - e); x <= Math.floor(box[3] + e); x++) {
+        for (let z = Math.floor(box[2] - e); z <= Math.floor(box[5] + e); z++) {
+            for (let y = Math.floor(box[1] - e); y <= Math.floor(box[4] + e); y++) {
+                if (world.getBlock(x, y, z) !== id) {
+                    continue;
+                }
+                for (const b of collisionBoxes(id, world.getMeta(x, y, z), world, x, y, z)) {
+                    if (box[0] - e < x + b[3] && box[3] + e > x + b[0] && box[1] - e < y + b[4] && box[4] + e > y + b[1] &&
+                        box[2] - e < z + b[5] && box[5] + e > z + b[2]) {
+                        return [x, y, z];
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
 //Collect world boxes overlapping [min, max]
 export function gatherBoxes(world, minX, minY, minZ, maxX, maxY, maxZ, out) {
     out.length = 0;

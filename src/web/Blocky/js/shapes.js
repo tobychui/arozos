@@ -53,6 +53,15 @@ const U = 1 / 16;
 export const LEVER_BASE = [5 * U, 0, 4 * U, 11 * U, 3 * U, 12 * U];
 export const BUTTON_BOX = [5 * U, 0, 6 * U, 11 * U, 2 * U, 10 * U];
 export const BUTTON_PRESSED = [5 * U, 0, 6 * U, 11 * U, 1 * U, 10 * U];
+
+//A button in model space (facing up) for meta: on a wall it is always 6 px
+//wide and 4 px tall. The turn onto a wall facing x maps the model's x to
+//world y, so there its x and z swap.
+export function buttonBox(meta) {
+    const b = meta & 8 ? BUTTON_PRESSED : BUTTON_BOX;
+    const f = meta & 7;
+    return f === 0 || f === 1 ? [b[2], b[1], b[0], b[5], b[4], b[3]] : b;
+}
 export const PISTON_BASE = [0, 0, 0, 1, 12 * U, 1];
 export const HEAD_PLATE = [0, 12 * U, 0, 1, 1, 1];
 export const HEAD_ROD = [6 * U, -4 * U, 6 * U, 10 * U, 12 * U, 10 * U];
@@ -253,11 +262,32 @@ function fenceBoxes(world, x, y, z, top) {
     return out;
 }
 
+//Feeder: a bowl (floor and four rim walls), a narrower body and a spout
+//toward the face it feeds out of (meta 3 down, else a side)
+const FEEDER_BOWL = [
+    [0, 10 * U, 0, 1, 11 * U, 1],
+    [0, 11 * U, 0, 2 * U, 1, 1], [14 * U, 11 * U, 0, 1, 1, 1],
+    [2 * U, 11 * U, 0, 14 * U, 1, 2 * U], [2 * U, 11 * U, 14 * U, 14 * U, 1, 1],
+    [4 * U, 4 * U, 4 * U, 12 * U, 10 * U, 12 * U]
+];
+const FEEDER_SPOUT = {
+    3: [6 * U, 0, 6 * U, 10 * U, 4 * U, 10 * U],
+    0: [12 * U, 4 * U, 6 * U, 1, 8 * U, 10 * U],
+    1: [0, 4 * U, 6 * U, 4 * U, 8 * U, 10 * U],
+    4: [6 * U, 4 * U, 12 * U, 10 * U, 8 * U, 1],
+    5: [6 * U, 4 * U, 0, 10 * U, 8 * U, 4 * U]
+};
+export function feederBoxes(meta) {
+    return FEEDER_BOWL.concat([FEEDER_SPOUT[meta & 7] || FEEDER_SPOUT[3]]);
+}
+
 export function collisionBoxes(id, meta, world, x, y, z) {
     if (!SOLID[id]) {
         return NONE;
     }
     switch (SHAPE[id]) {
+        case "feeder":
+            return feederBoxes(meta);
         case "slab":
             if (meta === 2) {
                 return [FULL];
@@ -364,7 +394,7 @@ export function selectionBox(id, meta, world, x, y, z) {
         case "lever":
             return rotateBox(meta & 7, [4 * U, 0, 4 * U, 12 * U, 9 * U, 12 * U]);
         case "button":
-            return rotateBox(meta & 7, BUTTON_BOX);
+            return rotateBox(meta & 7, buttonBox(meta & 7));
         case "sign": {
             if (id !== B.WALL_SIGN) {
                 return [0.25, 0, 0.25, 0.75, 1, 0.75];

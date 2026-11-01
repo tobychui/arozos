@@ -374,6 +374,14 @@ export class UI {
                     cs += this.slotHtml("te:" + i);
                 }
                 html = `<div class="scr-col"><h3>Chest</h3><div class="slots grid9">${cs}</div>${this.invSection("Inventory")}</div>`;
+            } else if (s.kind === "dispenser" || s.kind === "feeder") {
+                const n = s.te.slots.length;
+                let cs = "";
+                for (let i = 0; i < n; i++) {
+                    cs += this.slotHtml("te:" + i);
+                }
+                const title = s.kind === "dispenser" ? "Dispenser" : "Feeder";
+                html = `<div class="scr-col"><h3>${title}</h3><div class="slots machine n${n}">${cs}</div>${this.invSection("Inventory")}</div>`;
             } else {
                 const bench = s.kind === "workbench";
                 let cells = "";
@@ -852,8 +860,8 @@ export class UI {
         let targets;
         if (ref.startsWith("te:") || ref.startsWith("craft:")) {
             targets = range("inv:", 9, 36).concat(range("inv:", 0, 9));
-        } else if (kind === "chest") {
-            targets = range("te:", 0, 27);
+        } else if (kind === "chest" || kind === "dispenser" || kind === "feeder") {
+            targets = range("te:", 0, this.screen.te.slots.length);
         } else if (kind === "furnace" && SMELTING.has(s.id)) {
             targets = ["te:0"];
         } else if (kind === "furnace" && fuelTicks(s.id) > 0) {

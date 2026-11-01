@@ -943,6 +943,20 @@ body.screen-open #crosshair {
     margin-top: 8px;
 }
 
+/* Dispenser (3 x 3) and feeder (a row of 5), centred over the inventory */
+.slots.machine {
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.slots.machine.n9 {
+    grid-template-columns: repeat(3, 44px);
+}
+
+.slots.machine.n5 {
+    grid-template-columns: repeat(5, 44px);
+}
+
 .slot:hover {
     border-color: #9aa1ab;
 }
@@ -1401,6 +1415,14 @@ body.screen-open #crosshair {
 
     .slots {
         grid-template-columns: repeat(9, 34px);
+    }
+
+    .slots.machine.n9 {
+        grid-template-columns: repeat(3, 34px);
+    }
+
+    .slots.machine.n5 {
+        grid-template-columns: repeat(5, 34px);
     }
 
     .scr-col.creative {

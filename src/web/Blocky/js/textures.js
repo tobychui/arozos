@@ -1326,6 +1326,53 @@ function paintRail(t, kind) {
             t.set(8, y, kind === "on" ? [255, 90, 70] : [106, 30, 24]);
         }
     }
+    if (kind === "detector" || kind === "detector_on") {
+        //A stone sensor plate between the rails with a spark lens in it
+        t.rect(5, 4, 6, 8, [128, 128, 132], 8);
+        t.rect(5, 4, 6, 1, [156, 156, 160]);
+        t.rect(5, 11, 6, 1, [92, 92, 96]);
+        const on = kind === "detector_on";
+        t.rect(7, 6, 2, 4, on ? [255, 52, 40] : [96, 24, 20]);
+        t.set(7, 6, on ? [255, 140, 110] : [120, 36, 30]);
+    }
+}
+
+//Feeder: dark iron plates; the top shows the rim around a darker bowl
+function paintFeeder(t, top) {
+    t.clear();
+    t.rect(0, 0, 16, 16, [70, 72, 78], 10);
+    for (let i = 0; i < 16; i++) {
+        t.set(i, 0, [96, 98, 104]);
+        t.set(0, i, [96, 98, 104]);
+        t.set(i, 15, [44, 46, 50]);
+        t.set(15, i, [44, 46, 50]);
+    }
+    if (top) {
+        t.rect(2, 2, 12, 12, [38, 40, 44], 6);
+        for (let k = 4; k < 13; k += 4) {
+            t.rect(k, 2, 1, 12, [28, 29, 32]);
+            t.rect(2, k, 12, 1, [28, 29, 32]);
+        }
+    } else {
+        for (const y of [5, 10]) {
+            t.rect(1, y, 14, 1, [54, 56, 60]);
+        }
+    }
+}
+
+//Dispenser front: the furnace's stone with a dark round mouth (the
+//vertical one, facing up or down, has a stone rim all round)
+function paintDispenserFront(t, vertical) {
+    paintFurnaceSide(t);
+    const c = 7.5, r = vertical ? 4.2 : 4.6;
+    for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+            const d = Math.hypot(x - c, y - (vertical ? c : 8.5));
+            if (d < r) {
+                t.set(x, y, d < r - 1.2 ? [22, 22, 24] : [52, 52, 56]);
+            }
+        }
+    }
 }
 
 function paintLeverItem(t) {
@@ -1845,6 +1892,12 @@ Object.assign(PAINTERS, {
     rail_curve: (t) => paintRail(t, "curve"),
     powered_rail: (t) => paintRail(t, "powered"),
     powered_rail_on: (t) => paintRail(t, "on"),
+    detector_rail: (t) => paintRail(t, "detector"),
+    detector_rail_on: (t) => paintRail(t, "detector_on"),
+    feeder_side: (t) => paintFeeder(t, false),
+    feeder_top: (t) => paintFeeder(t, true),
+    dispenser_front: (t) => paintDispenserFront(t, false),
+    dispenser_front_v: (t) => paintDispenserFront(t, true),
     lever_item: paintLeverItem,
     button_item: paintButtonItem,
     iron_bars: paintIronBars,

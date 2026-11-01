@@ -24,7 +24,7 @@ import {
 import { TerrainGen, WORLD_H, SEA, idx, BIOME } from "./worldgen.js";
 import { chunkKey, rleEncode, rleDecode, bytesToBase64, base64ToBytes, mulberry32, hash3 } from "./util.js";
 import { FACE_DIR, doorHinge, waterHeight } from "./shapes.js";
-import { POWER, powerTick, powerChanged, railPlaced, pressButton, pressPlate } from "./power.js";
+import { POWER, powerTick, powerChanged, railPlaced, pressButton, pressPlate, pressDetector } from "./power.js";
 
 export const SECTIONS = WORLD_H / 16;
 
@@ -50,6 +50,11 @@ function flatTop(id, meta) {
 }
 
 const DIRS = [1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1];
+
+//Slots of the container tile entities other than the furnace's three
+export const TE_SLOTS = { chest: 27, dispenser: 9, feeder: 5 };
+//Blocks whose `interact` names one of these keep their items in a tile entity
+export const TE_KINDS = new Set(["furnace", "chest", "dispenser", "feeder"]);
 
 //Liquid behaviour: ticks between updates, level lost per block, last level
 const LIQUID = {
@@ -106,6 +111,7 @@ export class World {
         this.onFizz = opts.onFizz || null;
         this.onPowerSound = opts.onPowerSound || null;
         this.onPistonPush = opts.onPistonPush || null;
+        this.onDispense = opts.onDispense || null;
         this.powerBusy = false;
         this.pistonMoving = false;
         this.buttonDue = new Map();
@@ -261,7 +267,8 @@ export class World {
                 this.doorAdopt.add(x + "," + y + "," + z);
                 this.schedule(x, y, z, 5 + Math.floor(this.rng() * 30));
             } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0) || (id === B.BUTTON && (c.meta[i] & 8)) ||
-                ((id === B.PLATE_WOOD || id === B.PLATE_STONE) && (c.meta[i] & 1)) || id === B.RETIMER || id === B.RETIMER_ON) {
+                ((id === B.PLATE_WOOD || id === B.PLATE_STONE) && (c.meta[i] & 1)) || (id === B.DETECTOR_RAIL && (c.meta[i] & 8)) ||
+                id === B.RETIMER || id === B.RETIMER_ON) {
                 this.schedule(bx + (i >> 11), i & 127, bz + ((i >> 7) & 15), 5 + Math.floor(this.rng() * 30));
             }
         }
@@ -670,7 +677,7 @@ export class World {
             if ((oldId === B.LOG || oldId === B.LEAVES) && id !== B.LOG) {
                 this.scheduleLeafChecks(x, y, z);
             }
-            if (oldId === B.FURNACE || oldId === B.FURNACE_LIT || oldId === B.CHEST) {
+            if (oldId === B.FURNACE || oldId === B.FURNACE_LIT || oldId === B.CHEST || oldId === B.FEEDER || oldId === B.DISPENSER) {
                 if (id !== B.FURNACE && id !== B.FURNACE_LIT) {
                     this.dropTileEntity(x, y, z);
                 }
@@ -787,7 +794,8 @@ export class World {
             case "soil":
                 return below === B.GRASS || below === B.DIRT || below === B.FARMLAND;
             case "solid":
-                return isOpaqueAt(below, belowMeta);
+                //(a feeder's flat rim holds rails, wire and the like too)
+                return isOpaqueAt(below, belowMeta) || below === B.FEEDER;
             case "plate":
                 return isOpaqueAt(below, belowMeta) || flatTop(below, belowMeta);
             case "sand":
@@ -901,6 +909,10 @@ export class World {
                 }
             }
         }
+    }
+
+    pressDetector(x, y, z) {
+        return pressDetector(this, x, y, z);
     }
 
     pressPlate(x, y, z) {
@@ -1529,7 +1541,7 @@ export class World {
     createTileEntity(x, y, z, type) {
         const te = type === "furnace"
             ? { type, slots: [null, null, null], burn: 0, burnMax: 0, cook: 0 }
-            : { type, slots: new Array(27).fill(null) };
+            : { type, slots: new Array(TE_SLOTS[type] || 27).fill(null) };
         this.tileEntities.set(this.teKey(x, y, z), te);
         return te;
     }

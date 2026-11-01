@@ -3,11 +3,12 @@
 
     Dropped items (small spinning blocks or flat sprites that the player
     picks up) and falling blocks (sand and gravel that lost their support).
-    There are no creatures in Blocky.
+    Lava, fire and cactus destroy dropped items (a cactus on touch, top
+    included).
 */
 
 import { B, BLOCKS } from "./blocks.js";
-import { moveAxis } from "./physics.js";
+import { moveAxis, touchingBlock } from "./physics.js";
 
 export const ITEM_HALF = 0.125;
 const DESPAWN = 300;
@@ -118,6 +119,11 @@ export class Entities {
                 e.x = (box[0] + box[3]) / 2;
                 e.y = (box[1] + box[4]) / 2;
                 e.z = (box[2] + box[5]) / 2;
+                if (touchingBlock(world, box, B.CACTUS, 0.02)) {
+                    r.disposeItemMesh(e.mesh);
+                    this.items.splice(i, 1);
+                    continue;
+                }
             }
             e.spin += dt * 1.6;
             const bob = Math.sin(e.age * 2.5) * 0.06 + 0.1;

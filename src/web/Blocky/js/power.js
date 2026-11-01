@@ -16,28 +16,33 @@
       so torch loops make clocks instead of hanging the game
 */
 
-import { B, BLOCKS, isOpaqueAt, HDIR } from "./blocks.js";
+import { B, BLOCKS, isOpaqueAt, HDIR, railShapeOf } from "./blocks.js";
 import { FACE_DIR } from "./shapes.js";
 
 //1 wire, 2 source, 4 reacts, 8 rail
 export const POWER = new Uint8Array(256);
 POWER[B.SPARK_WIRE] = 1;
-for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER_ON]) {
+for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER_ON, B.DETECTOR_RAIL]) {
     POWER[id] |= 2;
 }
 for (const id of [B.SPARK_LAMP, B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.POWERED_RAIL, B.BUTTON,
-    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.TRAPDOOR, B.RETIMER, B.RETIMER_ON]) {
+    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.TRAPDOOR, B.RETIMER, B.RETIMER_ON, B.DETECTOR_RAIL, B.DISPENSER]) {
     POWER[id] |= 4;
 }
 //Plain rails react too: a junction is a switch (railSwitch)
 POWER[B.RAIL] |= 8 | 4;
 POWER[B.POWERED_RAIL] |= 8;
+POWER[B.DETECTOR_RAIL] |= 8;
 
 const SIDES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const FLAT = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 const isPlate = (id) => id === B.PLATE_WOOD || id === B.PLATE_STONE;
+//Rails that cannot curve
+const straightRail = (id) => id === B.POWERED_RAIL || id === B.DETECTOR_RAIL;
+//A plate or detector rail pressed now (they power the block under them)
+const pressedOn = (id, meta) => (isPlate(id) && (meta & 1) !== 0) || (id === B.DETECTOR_RAIL && (meta & 8) !== 0);
 
 //The block a retimer sends its signal into
 function retimerFront(meta, x, y, z) {
@@ -60,8 +65,8 @@ function sourceOn(id, meta) {
     if (id === B.LEVER || id === B.BUTTON) {
         return (meta & 8) !== 0;
     }
-    if (isPlate(id)) {
-        return (meta & 1) !== 0;
+    if (isPlate(id) || id === B.DETECTOR_RAIL) {
+        return pressedOn(id, meta);
     }
     return id === B.SPARK_TORCH || id === B.SPARK_BLOCK;
 }
@@ -80,8 +85,8 @@ export function blockPoweredBySource(w, x, y, z) {
             return true;
         }
     }
-    //A pressed plate powers the block it lies on
-    if (isPlate(w.getBlock(x, y + 1, z)) && (w.getMeta(x, y + 1, z) & 1)) {
+    //A pressed plate or detector rail powers the block it lies on
+    if (pressedOn(w.getBlock(x, y + 1, z), w.getMeta(x, y + 1, z))) {
         return true;
     }
     return w.getBlock(x, y - 1, z) === B.SPARK_TORCH;
@@ -202,7 +207,7 @@ function scheduleParts(w, x, y, z) {
                     continue;
                 }
                 const id = w.getBlock(x + dx, y + dy, z + dz);
-                if ((POWER[id] & 4) && id !== B.BUTTON && !isPlate(id)) {
+                if ((POWER[id] & 4) && id !== B.BUTTON && !isPlate(id) && id !== B.DETECTOR_RAIL) {
                     w.schedule(x + dx, y + dy, z + dz, 2);
                 }
             }
@@ -237,7 +242,7 @@ const FRAGILE = new Set(["cross", "crop", "torch", "wire", "lever", "button", "l
 
 function movable(id, meta) {
     if (id === B.BEDROCK || id === B.OBSIDIAN || id === B.PISTON_HEAD || id === B.FURNACE || id === B.FURNACE_LIT ||
-        id === B.CHEST || id === B.DOOR || id === B.BED || BLOCKS[id].hardness < 0) {
+        id === B.CHEST || id === B.DISPENSER || id === B.FEEDER || id === B.DOOR || id === B.BED || BLOCKS[id].hardness < 0) {
         return false;
     }
     if ((id === B.PISTON || id === B.STICKY_PISTON) && (meta & 8)) {
@@ -326,7 +331,7 @@ const RAIL_ENDS = [[2, 3], [0, 1], [0, 1], [0, 1], [2, 3], [2, 3], [2, 0], [2, 1
 
 function railEnds(w, x, y, z) {
     const id = w.getBlock(x, y, z), m = w.getMeta(x, y, z);
-    return RAIL_ENDS[id === B.POWERED_RAIL ? m & 7 : Math.min(9, m & 15)] || RAIL_ENDS[0];
+    return RAIL_ENDS[railShapeOf(id, m)] || RAIL_ENDS[0];
 }
 
 //The rail beside (x, y, z) on side k (level, one up or one down)
@@ -383,7 +388,7 @@ export function shapeRail(w, x, y, z, preferX, aim) {
     const id = w.getBlock(x, y, z);
     const cands = railCandidates(w, x, y, z);
     let links = cands.map((c) => [c.k, c.dy]);
-    if (cands.length > 2 || (cands.length === 2 && id === B.POWERED_RAIL && (cands[0].k ^ 1) !== cands[1].k)) {
+    if (cands.length > 2 || (cands.length === 2 && straightRail(id) && (cands[0].k ^ 1) !== cands[1].k)) {
         //Best pair: rails leading in count most. Then a plain rail where
         //three or four tracks meet curves (a switch, see railSwitch) toward
         //the side clicked, else south-east like MC; a powered rail, which
@@ -393,7 +398,7 @@ export function shapeRail(w, x, y, z, preferX, aim) {
         for (let i = 0; i < cands.length; i++) {
             for (let j = i + 1; j < cands.length; j++) {
                 const a = cands[i], b = cands[j], straight = (a.k ^ 1) === b.k;
-                if (!straight && id === B.POWERED_RAIL) {
+                if (!straight && straightRail(id)) {
                     continue;
                 }
                 const toward = straight ? 0 : (FLAT[a.k][0] + FLAT[b.k][0]) * ax + (FLAT[a.k][1] + FLAT[b.k][1]) * az;
@@ -407,7 +412,7 @@ export function shapeRail(w, x, y, z, preferX, aim) {
         if (best) {
             links = best.map((c) => [c.k, c.dy]);
         } else {
-            //A powered rail with only bends on offer: run toward one of them
+            //A straight-only rail with only bends on offer: run toward one of them
             const c = cands.find((v) => v.back) || cands[0];
             links = [[c.k, c.dy]];
         }
@@ -436,8 +441,8 @@ export function shapeRail(w, x, y, z, preferX, aim) {
         return;
     }
     const meta = w.getMeta(x, y, z);
-    const keep = id === B.POWERED_RAIL ? meta & 8 : 0;
-    if ((id === B.POWERED_RAIL ? meta & 7 : meta) !== shape) {
+    const keep = straightRail(id) ? meta & 8 : 0;
+    if ((straightRail(id) ? meta & 7 : meta) !== shape) {
         w.setBlock(x, y, z, id, shape | keep, false);
     }
 }
@@ -483,7 +488,7 @@ function openUTurn(w, x, y, z) {
 //A new rail: shape it, then let the neighbours it leads into turn toward
 //it, unless they are already joined at both ends
 export function railPlaced(w, x, y, z, preferX, aim) {
-    if (w.getBlock(x, y, z) === B.RAIL || w.getBlock(x, y, z) === B.POWERED_RAIL) {
+    if (POWER[w.getBlock(x, y, z)] & 8) {
         openUTurn(w, x, y, z);
     }
     shapeRail(w, x, y, z, preferX, aim);
@@ -541,17 +546,21 @@ export function railAxis(shape) {
     return shape === 1 || shape === 2 || shape === 3 ? [1, 0] : [0, 1];
 }
 
+//Follows the line both ways from the rail before, so a chain climbing a
+//slope keeps going (each rail one up or down from the last)
 function railChainPowered(w, x, y, z, shape) {
     const [ax, az] = railAxis(shape);
     for (const s of [1, -1]) {
+        let cy = y;
         for (let k = 1; k <= 8; k++) {
             let found = false;
             for (const dy of [0, 1, -1]) {
-                const px = x + ax * k * s, py = y + dy, pz = z + az * k * s;
+                const px = x + ax * k * s, py = cy + dy, pz = z + az * k * s;
                 if (w.getBlock(px, py, pz) === B.POWERED_RAIL) {
                     if (isPowered(w, px, py, pz)) {
                         return true;
                     }
+                    cy = py;
                     found = true;
                     break;
                 }
@@ -572,6 +581,19 @@ export function pressButton(w, x, y, z, meta) {
     w.setBlock(x, y, z, B.BUTTON, (meta & 7) | 8);
     w.buttonDue.set(x + "," + y + "," + z, w.tickCount + 20);
     w.schedule(x, y, z, 20);
+}
+
+//A cart is on a detector rail: switch it on, and keep it on for 20 ticks
+//after the last cart has left. True when it just switched on.
+export function pressDetector(w, x, y, z) {
+    w.buttonDue.set(x + "," + y + "," + z, w.tickCount + 20);
+    const m = w.getMeta(x, y, z);
+    if (m & 8) {
+        return false;
+    }
+    w.setBlock(x, y, z, B.DETECTOR_RAIL, m | 8);
+    w.schedule(x, y, z, 20);
+    return true;
 }
 
 //Something is on a plate: press it, and keep it down for 20 ticks after
@@ -724,6 +746,17 @@ export function powerTick(w, x, y, z, id, meta, sound) {
             }
             break;
         }
+        case B.DISPENSER: {
+            //Fires once each time power arrives (bit 8 remembers it is on)
+            const powered = isPowered(w, x, y, z);
+            if (powered !== ((meta & 8) !== 0)) {
+                w.setBlock(x, y, z, B.DISPENSER, (meta & 7) | (powered ? 8 : 0), false);
+                if (powered && w.onDispense) {
+                    w.onDispense(x, y, z, meta & 7);
+                }
+            }
+            break;
+        }
         case B.TRAPDOOR: {
             //Like a door: opens when power arrives, shuts when it goes, and
             //can still be worked by hand in between
@@ -747,11 +780,28 @@ export function powerTick(w, x, y, z, id, meta, sound) {
             break;
         }
         case B.RAIL:
-        case B.POWERED_RAIL: {
+        case B.POWERED_RAIL:
+        case B.DETECTOR_RAIL: {
             if (railLinks(w, x, y, z).length < 2) {
                 //Keep to the axis it lies on now
                 const m = w.getMeta(x, y, z);
-                shapeRail(w, x, y, z, railAxis(id === B.POWERED_RAIL ? m & 7 : m & 15)[0] === 1);
+                shapeRail(w, x, y, z, railAxis(railShapeOf(id, m))[0] === 1);
+            }
+            if (id === B.DETECTOR_RAIL) {
+                //Off once no cart has been on it for 20 ticks
+                const m = w.getMeta(x, y, z);
+                const key = x + "," + y + "," + z;
+                const due = w.buttonDue.get(key);
+                if (!(m & 8)) {
+                    break;
+                }
+                if (due > w.tickCount) {
+                    w.schedule(x, y, z, due - w.tickCount);
+                    break;
+                }
+                w.buttonDue.delete(key);
+                w.setBlock(x, y, z, B.DETECTOR_RAIL, m & 7);
+                break;
             }
             if (id === B.RAIL) {
                 railSwitch(w, x, y, z);
