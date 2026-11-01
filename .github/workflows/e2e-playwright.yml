@@ -23,23 +23,40 @@ permissions:
 jobs:
   playwright:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: test/e2e/playwright
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Branches that do not ship the Cine Studio test harness (for example
+      # v3.0.5, where the test directory was removed) must skip instead of
+      # failing because the working directory does not exist.
+      - name: Check for E2E harness
+        id: harness
+        run: |
+          if [ -f test/e2e/playwright/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping E2E: test/e2e/playwright is not present on this branch."
+          fi
+
       - name: Set up Node.js
+        if: steps.harness.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Install dependencies
+        if: steps.harness.outputs.exists == 'true'
+        working-directory: test/e2e/playwright
         run: npm install --no-audit --no-fund
 
       - name: Install Playwright Chromium (with OS deps)
+        if: steps.harness.outputs.exists == 'true'
+        working-directory: test/e2e/playwright
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
+        if: steps.harness.outputs.exists == 'true'
+        working-directory: test/e2e/playwright
         run: npm test
