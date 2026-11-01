@@ -1,0 +1,10 @@
+{
+  "image": "characters.png",
+  "rows": [
+    { "y0": 0, "y1": 0.375, "kind": "portrait", "ids": ["akari", "shizuku", "tomoe", "minamo"] },
+    { "y0": 0.375, "y1": 0.75, "kind": "portrait", "ids": ["kohaku", "itoha", "seira", "yoruka"] },
+    { "y0": 0.75, "y1": 1, "kind": "chibi", "ids": ["akari", "shizuku", "tomoe", "minamo", "kohaku", "itoha", "seira", "yoruka"] }
+  ],
+  "flipPortrait": ["tomoe", "minamo", "kohaku", "itoha", "seira", "yoruka"],
+  "flipChibi": []
+}

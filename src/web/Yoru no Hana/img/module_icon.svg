@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+    <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#120a36"/>
+            <stop offset="1" stop-color="#3a1a58"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#fff8e0" stop-opacity="0.55"/>
+            <stop offset="1" stop-color="#fff8e0" stop-opacity="0"/>
+        </radialGradient>
+    </defs>
+    <rect x="2" y="2" width="60" height="60" rx="13" fill="url(#sky)"/>
+    <!-- moon -->
+    <circle cx="24" cy="22" r="17" fill="url(#glow)"/>
+    <circle cx="24" cy="22" r="11" fill="#fbf4dc"/>
+    <circle cx="20" cy="19" r="2.4" fill="#e6dcc0"/>
+    <circle cx="27" cy="25" r="1.8" fill="#e6dcc0"/>
+    <!-- stars -->
+    <circle cx="48" cy="12" r="1.1" fill="#ffffff"/>
+    <circle cx="54" cy="22" r="0.8" fill="#ffffff"/>
+    <circle cx="10" cy="40" r="0.8" fill="#ffffff"/>
+    <!-- night flower: petals fanning upward -->
+    <g fill="#f6f8ff" stroke="#b8a8e8" stroke-width="0.6">
+        <path d="M32 50 C27 42 18 37 9 37 C15 43 24 49 32 50 Z"/>
+        <path d="M32 50 C37 42 46 37 55 37 C49 43 40 49 32 50 Z"/>
+        <path d="M32 50 C25 40 20 31 15 26 C17 36 24 46 32 50 Z"/>
+        <path d="M32 50 C39 40 44 31 49 26 C47 36 40 46 32 50 Z"/>
+        <path d="M32 50 C28 39 27 30 26 22 C30 30 32 41 32 50 Z"/>
+        <path d="M32 50 C36 39 37 30 38 22 C34 30 32 41 32 50 Z"/>
+        <path d="M32 50 C30 38 31 27 32 18 C33 27 34 38 32 50 Z"/>
+    </g>
+    <g fill="#ff9fc0">
+        <path d="M32 50 C27 53 22 56 18 57 C22 53 27 51 32 50 Z"/>
+        <path d="M32 50 C37 53 42 56 46 57 C42 53 37 51 32 50 Z"/>
+    </g>
+    <circle cx="32" cy="46" r="2.2" fill="#f2eea8"/>
+    <!-- a festival lantern drifting up -->
+    <rect x="48.5" y="40" width="7" height="9" rx="3" fill="#ff5a3c"/>
+    <rect x="50" y="42" width="4" height="5" rx="1.5" fill="#ffd890"/>
+    <rect x="49.5" y="38.8" width="5" height="1.4" fill="#2a1410"/>
+    <rect x="49.5" y="48.8" width="5" height="1.4" fill="#2a1410"/>
+</svg>

@@ -1,0 +1,25 @@
+/*
+    Yoru no Hana (夜の花)
+
+    A vertical bullet hell shooter: two heroines climb Mount Hoshigase
+    through six stages on the festival night that refuses to end, facing
+    the spirits who want it to last forever. Bullets, backgrounds, music
+    and sound are all generated in code; character art comes from an
+    optional sprite sheet in assets/ (see README.md) with drawn fallbacks.
+*/
+
+var moduleLaunchInfo = {
+    Name: "Yoru no Hana",
+    Desc: "A bullet hell shooter with a storyline, six stages and named boss cards",
+    Group: "Games",
+    IconPath: "Yoru no Hana/img/module_icon.svg",
+    Version: "1.1",
+    StartDir: "Yoru no Hana/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Yoru no Hana/index.html",
+    SupportEmb: false,
+    InitFWSize: [1000, 780],
+    SupportedExt: []
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));

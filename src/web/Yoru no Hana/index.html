@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Yoru no Hana</title>
+<link rel="icon" href="img/module_icon.svg">
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; }
+  body {
+    background:#06051a;
+    background-image:
+      radial-gradient(ellipse at 50% 120%, #2a1747 0%, #120c2e 45%, #06051a 80%),
+      repeating-linear-gradient(45deg, #ffffff05 0 2px, transparent 2px 14px);
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+    font-family:"Segoe UI", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color:#e8e2ff;
+  }
+  #screen { display:block; outline:none; box-shadow:0 0 48px #000c; background:#000; }
+  #boot {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:8px; pointer-events:none;
+    font-size:14px; letter-spacing:.2em; color:#bfb4f0;
+  }
+  #boot.hide { display:none; }
+  #boot .t { font-family:"Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif; font-size:42px; letter-spacing:.3em; color:#fff; }
+  #boot .err { max-width:520px; text-align:center; letter-spacing:0; color:#ff9a9a; }
+</style>
+</head>
+<body>
+<canvas id="screen" tabindex="0"></canvas>
+<div id="boot"><div class="t">夜の花</div><div>LOADING</div></div>
+<script src="../script/jquery.min.js"></script>
+<script src="../script/ao_module.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
