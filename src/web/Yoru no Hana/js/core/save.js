@@ -16,6 +16,17 @@ export const DEFAULT_SETTINGS = {
   hitbox: 'focus',
   renderScale: 1,
   touchSensitivity: 1.2,
+  lang: 'auto',
+};
+
+/** The debug menu's switches (ui/cheats.js). */
+export const DEFAULT_CHEATS = {
+  invincible: false,
+  lives: false,
+  bombs: false,
+  power: false,
+  hitbox: false,
+  speed: 1,
 };
 
 function blank() {
@@ -27,6 +38,7 @@ function blank() {
     endings: {},
     music: {},
     name: '',
+    cheats: { ...DEFAULT_CHEATS },
   };
 }
 
@@ -43,6 +55,7 @@ export class Save {
       const p = JSON.parse(raw);
       for (const k of Object.keys(d)) if (p[k] !== undefined) d[k] = p[k];
       d.settings = { ...DEFAULT_SETTINGS, ...(p.settings || {}) };
+      d.cheats = { ...DEFAULT_CHEATS, ...(p.cheats || {}) };
       return d;
     } catch {
       return blank();
@@ -145,8 +158,10 @@ export class Save {
 
   reset() {
     const s = this.data.settings;
+    const c = this.data.cheats;
     this.data = blank();
     this.data.settings = s;
+    this.data.cheats = c;
     this.write();
   }
 }

@@ -137,14 +137,26 @@ export const CAST = {
   },
 };
 
+// `sub` is the secondary name line under `name`: the Japanese name while
+// the game is in English, the romanised name once a translation renames the
+// cast (data/locale.js). The drawn fallback portraits always use `jp`.
+for (const c of Object.values(CAST)) c.sub = c.jp;
+
 export const PLAYERS = ['akari', 'shizuku'];
 export const BOSSES = ['tomoe', 'minamo', 'kohaku', 'itoha', 'seira', 'yoruka'];
 /** Order of the characters in the sprite sheet (portraits row by row, then chibis). */
 export const SHEET_ORDER = ['akari', 'shizuku', 'tomoe', 'minamo', 'kohaku', 'itoha', 'seira', 'yoruka'];
 
+/**
+ * Difficulties. Besides d() in the stage scripts, each one tunes the whole
+ * run: bulletSpeed scales how far enemy bullets travel per frame (shapes
+ * stay the same, they just open more slowly), bossHp scales boss health,
+ * extraLives is added to the Starting Lives setting, bombs is the stock
+ * after every life, deathBomb the frames a hit can still be cancelled.
+ */
 export const DIFFICULTIES = [
-  { id: 'easy', name: 'Bud', jp: '蕾', desc: 'For first steps into the night. Slower, sparser bullets.' },
-  { id: 'normal', name: 'Bloom', jp: '花', desc: 'The festival as it was meant to be played.' },
-  { id: 'hard', name: 'Full Bloom', jp: '満開', desc: 'For those who have seen the dawn once already.' },
-  { id: 'lunatic', name: 'Midnight', jp: '真夜中', desc: 'The night at its deepest. Not recommended for anyone.' },
+  { id: 'easy', name: 'Bud', jp: '蕾', desc: 'For first steps into the night. Slower, sparser bullets, an extra life and more bombs.', bulletSpeed: 0.78, bossHp: 0.75, extraLives: 1, bombs: 4, deathBomb: 18 },
+  { id: 'normal', name: 'Bloom', jp: '花', desc: 'The festival as it was meant to be played.', bulletSpeed: 1, bossHp: 1, extraLives: 0, bombs: 3, deathBomb: 9 },
+  { id: 'hard', name: 'Full Bloom', jp: '満開', desc: 'For those who have seen the dawn once already.', bulletSpeed: 1, bossHp: 1, extraLives: 0, bombs: 3, deathBomb: 9 },
+  { id: 'lunatic', name: 'Midnight', jp: '真夜中', desc: 'The night at its deepest. Not recommended for anyone.', bulletSpeed: 1, bossHp: 1, extraLives: 0, bombs: 3, deathBomb: 9 },
 ];

@@ -4,18 +4,22 @@
  *
  * Modes: 'story' plays stages 1-6 with dialogue and ends in an ending;
  * 'practice' plays one stage; 'card' replays one boss card with one life and
- * no bombs. The scene that owns the game (ui/scenes.js) listens to
+ * no bombs; 'talk' (the debug menu's story viewer) only plays a stage's boss
+ * dialogue. The scene that owns the game (ui/scenes.js) listens to
  * `onEvent(name, data)` for game over, stage clears and the end of a run.
+ *
+ * Debug menu cheats (ui/cheats.js) are read through cheat(name); a run that
+ * used one is `cheated` and keeps no score or card captures.
  *
  * Boss attacks are "cards": a nonspell has only hp and a timer; a named card
  * is declared with a cut-in and pays a bonus if it is cleared without
  * dying or bombing (a capture).
  */
-import { clamp, fmtInt } from '../core/util.js';
+import { TAU, clamp, fmtInt } from '../core/util.js';
 import { PF } from '../core/view.js';
 import { Rng } from '../core/rng.js';
 import { Task, TaskList } from '../core/task.js';
-import { BulletSystem } from './bullets.js';
+import { BulletSystem, GRAZE_R } from './bullets.js';
 import { LaserSystem } from './lasers.js';
 import { ItemSystem, POC_Y } from './items.js';
 import { FX } from './fx.js';
@@ -59,8 +63,8 @@ export class Game {
     const stage = opts.stage || 1;
     this.score = 0;
     this.hiScore = app.save.hiScore(this.charId, this.diff.id);
-    this.lives = this.mode === 'card' ? 0 : clamp(s.startLives | 0, 1, 8) - 1;
-    this.bombs = this.mode === 'card' ? 0 : 3;
+    this.lives = this.mode === 'card' ? 0 : this.startingLives();
+    this.bombs = this.mode === 'card' ? 0 : this.diff.bombs;
     this.lifePieces = 0;
     this.bombPieces = 0;
     this.power = this.mode === 'story' ? 1 : this.mode === 'card' ? MAX_POWER : clamp(1 + (stage - 1) * 0.6, 1, MAX_POWER);
@@ -70,7 +74,7 @@ export class Game {
     this.bombsUsed = 0;
     this.frame = 0;
     this.stageNo = stage;
-    this.noShoot = false;
+    this.noShoot = this.mode === 'talk';
     this.dialog = null;
     this.banners = [];
     this.cardInfo = null;
@@ -83,12 +87,27 @@ export class Game {
     this.bossTitle = null;
     this.cutin = null;
     this.godMode = false;
+    this.cheated = this.mode === 'talk' || !!opts.cheatStart;
     bind(this);
     this.startStage(stage);
   }
 
   sfx(name) {
     this.app.sfx.play(name);
+  }
+
+  /** A debug menu switch (save.data.cheats). */
+  cheat(name) {
+    return this.app.save.data.cheats[name];
+  }
+
+  get hasBomb() {
+    return this.bombs > 0 || !!this.cheat('bombs');
+  }
+
+  /** Extra lives at the start of a run and after a continue (the setting counts the current life). */
+  startingLives() {
+    return clamp((this.app.save.settings.startLives | 0) - 1 + this.diff.extraLives, 0, 8);
   }
 
   music(id) {
@@ -115,6 +134,10 @@ export class Game {
   *stageFlow() {
     if (this.mode === 'card') {
       yield* this.cardPractice();
+      return;
+    }
+    if (this.mode === 'talk') {
+      yield* this.talkFlow();
       return;
     }
     yield 40;
@@ -152,6 +175,32 @@ export class Game {
     yield 60;
     this.state = 'done';
     this.onEvent('cardDone', { captured: res === 'captured' });
+  }
+
+  /** The story viewer: the boss arrives, both of her dialogues play, nothing is fought. */
+  *talkFlow() {
+    const def = this.stage.boss;
+    yield 30;
+    const b = new Boss(this, def);
+    this.boss = b;
+    b.x = def.fromX ?? PF.w / 2;
+    b.y = -50;
+    b.moveTo(PF.w / 2, def.y0 ?? 112, 70, 'out');
+    yield 75;
+    yield* this.talk('pre');
+    this.noShoot = true;
+    yield 40;
+    this.sfx('bossDie');
+    this.fx.explode(b.x, b.y, b.color, true);
+    this.fx.flash('#ffffff', 0.6);
+    b.visible = false;
+    yield 90;
+    this.boss = null;
+    yield* this.talk('post');
+    this.noShoot = true;
+    yield 40;
+    this.state = 'done';
+    this.onEvent('talkDone', {});
   }
 
   *bossFight(def, o = {}) {
@@ -197,7 +246,7 @@ export class Game {
 
   *runCard(b, card, idx, def) {
     const id = card.id || def.id + ':' + idx;
-    b.maxHp = b.hp = card.hp * BOSS_HP_SCALE;
+    b.maxHp = b.hp = card.hp * BOSS_HP_SCALE * this.diff.bossHp;
     b.card = card;
     b.fighting = true;
     const T = Math.round(card.time * 60);
@@ -237,7 +286,8 @@ export class Game {
     if (card.name) {
       const got = this.capture && result === 'kill';
       this._lastCapture = got;
-      this.app.save.recordCard(id, this.charId, this.diff.id, got);
+      // a cheated run still marks the card as seen, but never as captured
+      this.app.save.recordCard(id, this.charId, this.diff.id, got && !this.cheated);
       if (got) {
         const bonus = this.currentBonus();
         this.score += bonus;
@@ -404,12 +454,12 @@ export class Game {
         vy: -4 - this.rng.next() * 2,
       });
     }
-    this.lives--;
+    if (!this.cheat('lives')) this.lives--;
     if (this.lives < 0) {
       this.lives = -1;
       this.gameOverT = 50;
     } else {
-      this.bombs = Math.max(this.bombs, 3);
+      this.bombs = Math.max(this.bombs, this.diff.bombs);
     }
   }
 
@@ -417,8 +467,8 @@ export class Game {
   continueRun() {
     this.continues++;
     this.score = this.continues;
-    this.lives = clamp(this.app.save.settings.startLives | 0, 1, 8) - 1;
-    this.bombs = 3;
+    this.lives = this.startingLives();
+    this.bombs = this.diff.bombs;
     this.power = Math.max(this.power, 2);
     this.state = 'play';
     this.player.state = 'respawn';
@@ -431,6 +481,9 @@ export class Game {
   // ---------------------------------------------------------------- update --
   update(input) {
     if (this.state !== 'play') return;
+    const c = this.app.save.data.cheats;
+    if (c.invincible || c.lives || c.bombs || c.power || c.speed < 1) this.cheated = true;
+    if (c.power) this.power = MAX_POWER;
     this.frame++;
     this.stageFrame++;
     if (this.gameOverT) {
@@ -490,7 +543,9 @@ export class Game {
     this.lasers.render(ctx, art, px);
     this.bullets.render(ctx, art, px);
     this.fx.render(ctx, art, px, 'over');
-    this.player.renderHitbox(ctx, px, this.app.save.settings.hitbox === 'always');
+    const debugBoxes = !!this.cheat('hitbox');
+    if (debugBoxes) this.renderHitboxes(ctx, px);
+    this.player.renderHitbox(ctx, px, debugBoxes || this.app.save.settings.hitbox === 'always');
     PF.x = 32;
     PF.y = 16;
     drawFieldOverlay(ctx, this, px);
@@ -502,6 +557,127 @@ export class Game {
       ctx.globalAlpha = 1;
     }
     ctx.restore();
+  }
+
+  // --------------------------------------------------- debug menu tools --
+  /** The debug menu's hitbox view: what kills (magenta), what can be shot (yellow), grazes (cyan). */
+  renderHitboxes(ctx, px) {
+    ctx.setTransform(px, 0, 0, px, PF.x * px, PF.y * px);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,60,230,0.95)';
+    ctx.beginPath();
+    for (const b of this.bullets.list) {
+      if (b.dead || b.hidden || b.harmless) continue;
+      const r = b.r * b.scale;
+      ctx.moveTo(b.x + r, b.y);
+      ctx.arc(b.x, b.y, r, 0, TAU);
+    }
+    // touching an enemy or a fighting boss is as deadly as a bullet
+    for (const e of this.enemies) {
+      ctx.moveTo(e.x + e.r * 0.6, e.y);
+      ctx.arc(e.x, e.y, e.r * 0.6, 0, TAU);
+    }
+    const b = this.boss;
+    if (b && b.fighting && b.visible) {
+      ctx.moveTo(b.x + 14, b.y);
+      ctx.arc(b.x, b.y, 14, 0, TAU);
+    }
+    // filled as well: a bare outline vanishes inside a bullet's white core
+    ctx.fillStyle = 'rgba(255,40,220,0.55)';
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,230,90,0.8)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    for (const e of this.targets()) {
+      ctx.moveTo(e.x + e.r, e.y);
+      ctx.arc(e.x, e.y, e.r, 0, TAU);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const l of this.lasers.list) {
+      const k = LaserSystem.k(l);
+      if (k < 0.6) continue;
+      const c = Math.cos(l.a) * px;
+      const s = Math.sin(l.a) * px;
+      const hw = l.w * 0.32 * k;
+      ctx.setTransform(c, s, -s, c, (PF.x + l.x) * px, (PF.y + l.y) * px);
+      ctx.strokeStyle = 'rgba(255,60,230,0.95)';
+      ctx.strokeRect(0, -hw, l.len, hw * 2);
+    }
+    const p = this.player;
+    if (p.state !== 'dead') {
+      ctx.setTransform(px, 0, 0, px, (PF.x + p.x) * px, (PF.y + p.y) * px);
+      ctx.strokeStyle = 'rgba(120,240,255,0.7)';
+      ctx.beginPath();
+      ctx.arc(0, 0, GRAZE_R, 0, TAU);
+      ctx.stroke();
+    }
+  }
+
+  /** Remove everything from the field, so a skip leaves nothing behind. */
+  clearField() {
+    this.tasks.clear();
+    for (const e of this.enemies) {
+      e.dead = true;
+      e.silent = true;
+    }
+    this.enemies = [];
+    this.boss = null;
+    this.dialog = null;
+    this.noShoot = false;
+    this.cardInfo = null;
+    this.cardBg = null;
+    this.cutin = null;
+    this.bossTitle = null;
+    this.bossMusicOn = false;
+    this.lasers.clear();
+    this.bullets.cancel({ items: false, force: true });
+  }
+
+  /** Replace the stage script with `flow` (a generator) after clearing the field. */
+  restartStageFlow(flow) {
+    this.cheated = true;
+    this.stageTask.kill();
+    this.clearField();
+    this.stageTask = new Task(flow);
+  }
+
+  skipToBoss() {
+    if (this.mode === 'card' || this.mode === 'talk' || this.state !== 'play') return false;
+    if (this.boss && !this.boss.def.midboss) return false;
+    const g = this;
+    this.restartStageFlow((function* () {
+      yield 30;
+      yield* g.bossFight(g.stage.boss, { dialog: 'pre', post: 'post' });
+      yield* g.stageClear();
+    })());
+    return true;
+  }
+
+  skipStage() {
+    if (this.mode === 'card' || this.mode === 'talk' || this.state !== 'play') return false;
+    this.restartStageFlow(this.stageClear());
+    return true;
+  }
+
+  /** End the running boss card as if it was beaten (or survived). */
+  clearCard() {
+    const b = this.boss;
+    if (!b || !b.fighting || !b.card || this.state !== 'play') return false;
+    this.cheated = true;
+    if (b.card.survival) this.cardTimer = 1;
+    else b.hp = 0;
+    return true;
+  }
+
+  refill() {
+    if (this.mode === 'talk' || this.state !== 'play') return false;
+    this.cheated = true;
+    this.lives = 8;
+    this.bombs = 8;
+    this.power = MAX_POWER;
+    return true;
   }
 }
 

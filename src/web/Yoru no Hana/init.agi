@@ -13,7 +13,7 @@ var moduleLaunchInfo = {
     Desc: "A bullet hell shooter with a storyline, six stages and named boss cards",
     Group: "Games",
     IconPath: "Yoru no Hana/img/module_icon.svg",
-    Version: "1.1",
+    Version: "1.2",
     StartDir: "Yoru no Hana/index.html",
     SupportFW: true,
     LaunchFWDir: "Yoru no Hana/index.html",

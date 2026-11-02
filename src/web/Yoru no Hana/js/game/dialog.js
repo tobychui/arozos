@@ -9,6 +9,8 @@
 import { PF } from '../core/view.js';
 import { CAST } from '../data/characters.js';
 import { rgba, FONT_DISPLAY, FONT_SERIF } from '../core/util.js';
+import { typeRate } from '../core/i18n.js';
+import { wrapSpans } from '../ui/widgets.js';
 
 export class Dialog {
   constructor(G, lines) {
@@ -49,7 +51,7 @@ export class Dialog {
     this.t++;
     this.fadeL = Math.min(1, this.fadeL + 0.08);
     if (this.right) this.fadeR = Math.min(1, this.fadeR + 0.08);
-    const full = this.t * 1.4 >= this.line.text.length;
+    const full = this.t * typeRate(1.4) >= this.line.text.length;
     if (input.held('skip')) {
       if (this.t % 4 === 0) this.next();
       return;
@@ -120,21 +122,17 @@ export class Dialog {
     ctx.textBaseline = 'middle';
     ctx.fillText(name, nx + nw / 2, by, nw - 10);
     // text
-    const shown = l.text.slice(0, Math.floor(this.t * 1.4));
+    const shown = Math.floor(this.t * typeRate(1.4));
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.font = `13.5px ${FONT_SERIF}`;
     ctx.fillStyle = '#f4f0ff';
-    const lines = wrap(ctx, l.text, bw - 28);
     let y = by + 16;
-    let used = 0;
-    for (const ln of lines) {
-      const part = shown.slice(used, used + ln.length);
-      ctx.fillText(part, bx + 14, y);
-      used += ln.length;
+    for (const [a, e] of wrapSpans(ctx, l.text, bw - 28)) {
+      if (shown > a) ctx.fillText(l.text.slice(a, Math.min(e, shown)), bx + 14, y);
       y += 18;
     }
-    if (shown.length >= l.text.length && Math.floor(this.t / 20) % 2 === 0) {
+    if (shown >= l.text.length && Math.floor(this.t / 20) % 2 === 0) {
       ctx.fillStyle = rgba(c.color, 1);
       ctx.beginPath();
       ctx.moveTo(bx + bw - 18, by + bh - 14);
@@ -143,23 +141,4 @@ export class Dialog {
       ctx.fill();
     }
   }
-}
-
-/** Word wrap that keeps the source characters (so typing stays in sync). */
-export function wrap(ctx, text, width) {
-  const out = [];
-  const words = text.split(/(\s+)/);
-  let cur = '';
-  for (const w of words) {
-    if (ctx.measureText(cur + w).width > width && cur.trim()) {
-      out.push(cur);
-      cur = w.trimStart() === w ? w : w;
-      if (/^\s+$/.test(cur)) {
-        out[out.length - 1] += cur;
-        cur = '';
-      }
-    } else cur += w;
-  }
-  if (cur) out.push(cur);
-  return out;
 }

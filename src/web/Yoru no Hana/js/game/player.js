@@ -63,7 +63,7 @@ export class Player {
   }
 
   canBeHit() {
-    return this.state === 'alive' && this.invuln <= 0 && this.bombT <= 0 && !this.G.godMode;
+    return this.state === 'alive' && this.invuln <= 0 && this.bombT <= 0 && !this.G.godMode && !this.G.cheat('invincible');
   }
 
   get optionCount() {
@@ -73,7 +73,7 @@ export class Player {
   hit() {
     if (!this.canBeHit()) return;
     this.state = 'hit';
-    this.timer = this.G.D === 0 ? 12 : 9;
+    this.timer = this.G.diff.deathBomb;
     this.G.sfx('playerDie');
     this.G.fx.burst(this.x, this.y, '#ffffff', 50, 12);
   }
@@ -90,7 +90,7 @@ export class Player {
 
   bomb() {
     const G = this.G;
-    G.bombs--;
+    if (!G.cheat('bombs')) G.bombs--;
     G.onBomb();
     G.sfx('bomb');
     G.fx.flash(G.cast.color, 0.45);
@@ -138,7 +138,7 @@ export class Player {
       return;
     }
     if (this.state === 'hit') {
-      if (input.pressed('bomb') && G.bombs > 0 && !G.noShoot) {
+      if (input.pressed('bomb') && G.hasBomb && !G.noShoot) {
         this.state = 'alive';
         this.bomb();
       } else if (--this.timer <= 0) {
@@ -177,7 +177,7 @@ export class Player {
     const firing = (input.held('shoot') || input.touch.active) && !G.noShoot && this.state === 'alive';
     if (firing) this.fire();
     else this.beams.length = 0;
-    if (input.pressed('bomb') && this.state === 'alive' && G.bombs > 0 && this.bombT <= 0 && !G.noShoot) this.bomb();
+    if (input.pressed('bomb') && this.state === 'alive' && G.hasBomb && this.bombT <= 0 && !G.noShoot) this.bomb();
 
     this.updateShots();
     this.updateBomb();

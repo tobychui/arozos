@@ -1,8 +1,8 @@
 /**
  * Boot and the app shell: services shared by every screen (view, input,
- * audio, saves, art), scene switching with a fade, and the ArozOS window
- * hooks. Scenes implement update() and render(ctx, px), plus optional
- * enter() / exit().
+ * audio, saves, art, language), scene switching with a fade, the F3 debug
+ * menu and the ArozOS window hooks. Scenes implement update() and
+ * render(ctx, px), plus optional enter() / exit().
  */
 import { View } from './core/view.js';
 import { Input } from './core/input.js';
@@ -21,6 +21,10 @@ import {
   MusicRoomScene, GalleryScene, SettingsScene, HowToScene,
 } from './ui/scenes.js';
 import { STAGES } from './stages/index.js';
+import { CheatMenu } from './ui/cheats.js';
+import { resolveLang, setUiStrings } from './core/i18n.js';
+import { applyDataLocale } from './data/locale.js';
+import { setUiFont } from './core/util.js';
 
 const SCENES = {
   title: (app, o) => new TitleScene(app, o && o.start),
@@ -51,6 +55,10 @@ class App {
     this.backdrop = new Backdrop(this.titleArt);
     this.scene = null;
     this.fade = null;
+    this.cheatMenu = null;
+    this.lang = null;
+    this._langSeq = 0;
+    this._locales = {};
     this.autoPause = false;
     this.inDesktop = typeof ao_module_virtualDesktop !== 'undefined' && !!ao_module_virtualDesktop;
     this.loop = new Loop(() => this.update(), () => this.render());
@@ -71,6 +79,44 @@ class App {
     const s = this.save.settings;
     this.audio.setVolumes({ master: s.master, music: s.music, sfx: s.sfx });
     if (this.view.renderScale !== s.renderScale) this.view.setRenderScale(s.renderScale);
+    this.applyLanguage();
+  }
+
+  /**
+   * Switch to the language the setting stands for: locale/<id>.json is
+   * fetched once and laid over the English data. A file that fails to load
+   * leaves the current language in place.
+   */
+  async applyLanguage() {
+    const id = resolveLang(this.save.settings.lang);
+    if (id === this.lang) return;
+    const seq = ++this._langSeq;
+    let table = {};
+    if (id !== 'en-us') {
+      if (!this._locales[id]) {
+        this._locales[id] = fetch(`locale/${id}.json`).then((r) => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+      }
+      try {
+        table = await this._locales[id];
+      } catch (err) {
+        delete this._locales[id];
+        console.warn('[Yoru no Hana] language failed to load:', id, err);
+        if (this.lang === null) this.applyTable('en-us', {});
+        return;
+      }
+    }
+    if (seq === this._langSeq) this.applyTable(id, table);
+  }
+
+  applyTable(id, table) {
+    this.lang = id;
+    setUiStrings(id, table.ui);
+    applyDataLocale(table);
+    setUiFont(id);
+    document.documentElement.lang = id;
   }
 
   playMusic(id, restart = false) {
@@ -95,10 +141,10 @@ class App {
     if (scene.enter) scene.enter();
   }
 
-  /** Offer the name entry screen when a story run made the top ten. */
+  /** Offer the name entry screen when a story run made the top ten (never after cheats). */
   offerScore(g, then, stageOverride) {
     const rank = this.save.rankFor(g.charId, g.diff.id, g.score);
-    if (rank < 0 || g.score <= 0) {
+    if (rank < 0 || g.score <= 0 || g.cheated) {
       then();
       return;
     }
@@ -125,7 +171,14 @@ class App {
 
   update() {
     this.input.update();
-    if (this.fade) {
+    if (this.input.pressed('debug')) {
+      // F3: the debug menu, over any screen (which waits until it closes)
+      this.cheatMenu = this.cheatMenu ? null : new CheatMenu(this);
+      this.sfx.play(this.cheatMenu ? 'pause' : 'back');
+      this.input.consume();
+    } else if (this.cheatMenu) {
+      this.cheatMenu.update();
+    } else if (this.fade) {
       const f = this.fade;
       f.t++;
       if (!f.swapped && f.t >= f.n) {
@@ -155,6 +208,7 @@ class App {
       ctx.fillRect(0, 0, this.view.canvas.width, this.view.canvas.height);
       ctx.globalAlpha = 1;
     }
+    if (this.cheatMenu) this.cheatMenu.render(ctx, px);
   }
 }
 
@@ -197,6 +251,7 @@ async function boot() {
     }),
     app.charArt.load('assets/'),
     app.titleArt.load('assets/'),
+    app.applyLanguage(),
   ]);
   if (!STAGES.length) throw new Error('no stages');
   document.getElementById('boot').classList.add('hide');

@@ -24,6 +24,7 @@ title screen can likewise use an optional painting and logo image.
 | X / K | Bomb (also cancels a hit within a few frames: death-bomb) |
 | Esc / P | Pause |
 | Ctrl (hold) | Skip dialogue |
+| F3 | Debug menu (below) |
 
 Gamepads use the standard mapping (A shoot, B bomb, X/RB focus, Start
 pause). On touch screens the heroine follows the finger's motion and fires
@@ -35,21 +36,68 @@ life, no bombs). Difficulties: Bud, Bloom, Full Bloom, Midnight. Each
 heroine has a good ending (no continues) and a bad one (continued), then
 credits and name entry for the top 10 of each heroine and difficulty.
 
-Saves (settings, scores, stage progress, card history, endings, music room)
-live in `localStorage` under `yorunohana.v1`.
+Bud is the beginner difficulty and is preselected on a first visit. Besides
+the sparser patterns of `d()`, each entry of `DIFFICULTIES`
+(`js/data/characters.js`) tunes the whole run: Bud moves enemy bullets at
+78% of their distance per frame (patterns keep their shape, they just open
+more slowly), gives bosses 75% of their health, one extra life, 4 bombs per
+life and an 18-frame death-bomb window (9 on the others).
+
+Saves (settings, scores, stage progress, card history, endings, music room,
+debug menu switches) live in `localStorage` under `yorunohana.v1`.
+
+### Debug menu (F3)
+
+F3 opens an overlay on any screen; the screen underneath waits while it is
+open. It holds:
+
+- **Cheats**, kept in the save until switched off: invincible, infinite
+  lives, infinite bombs, full power, show hitboxes (magenta: what kills,
+  dashed yellow: what your shots hit, cyan: graze range) and game speed
+  (0.25x - 4x).
+- **This run**: skip to the boss, clear the current card, skip the stage,
+  refill lives / bombs / power.
+- **Story check**: pick a heroine, difficulty and stage, then play the story
+  from that stage, watch that stage's boss dialogue (no fighting; it offers
+  the next stage's dialogue, and the ending after stage 6), read the
+  prologue, either ending, or watch the credits.
+- **Unlocks**: every practice stage, every card for Card Practice, the whole
+  music room, or everything.
+
+A run that used a cheat (other than the hitbox view), a run action, or that
+started past stage 1 from the menu is marked `cheated`: the HUD says so, it
+offers no name entry and records no card captures (cards still count as
+seen). Endings are still recorded.
+
+### Languages
+
+English, Japanese (`ja-jp`) and Traditional Chinese (`zh-tw`). Settings >
+Language defaults to *System*, which follows the ArozOS system language
+(System Settings, `localStorage` `global_language`) and else the browser;
+`zh-*` codes use Traditional Chinese.
+
+English lives in the code. A translation is `locale/<id>.json`: `ui` maps
+English interface strings (with `{name}` placeholders) to translated ones
+for `t()` (`js/core/i18n.js`), and the other tables (cast, difficulties,
+shots, stages, cards by id, songs, story, manual) are laid over the English
+data in place by `js/data/locale.js`, which documents the layout. Dialogue
+lines are matched by index, so a translated stage must keep the same number
+of lines. Japanese and Chinese text wraps between any two characters with
+basic kinsoku (`wrapSpans` in `js/ui/widgets.js`). After changing any
+translation, rebuild the font subsets (see Fonts).
 
 ## Files
 
 | File | What it does |
 |---|---|
 | `init.agi` | Registers the module (group `Games`, float window). |
-| `js/main.js` | Boot, app shell, scene switching with fades, ArozOS window hooks. |
-| `js/core/` | `view` (640x480 logical frame, device-pixel scaling), `input` (keyboard, gamepad, mouse, touch as actions), `loop` (fixed 60 Hz), `task` (coroutines), `rng`, `save`, `util`. |
+| `js/main.js` | Boot, app shell, scene switching with fades, language loading, the F3 menu, ArozOS window hooks. |
+| `js/core/` | `view` (640x480 logical frame, device-pixel scaling), `input` (keyboard, gamepad, mouse, touch as actions), `loop` (fixed 60 Hz), `task` (coroutines), `rng`, `save`, `util`, `i18n` (languages, `t()`). |
 | `js/audio/` | `audio` (Web Audio graph, reverb), `sfx` (synthesised cues), `music` (sequencer + instruments), `songs` (the soundtrack as chords + melodies). |
 | `js/gfx/art.js` | Bullet, shot and item sprites, cached at device resolution. |
 | `js/gfx/enemyart.js` | Procedural small enemies (wisps, lanterns, cranes, moths, ...). |
 | `js/gfx/charart.js` | Sprite sheet loader and slicer, drawn chibi / portrait fallbacks. |
-| `js/gfx/titleart.js` | Optional title painting and logo image. |
+| `js/gfx/titleart.js` | Optional title painting, logo, credits roll and ending paintings. |
 | `js/gfx/backgrounds.js` | Mode 7 style stage backgrounds and the named-card backdrop. |
 | `js/game/game.js` | One run: update / render order, scoring, deaths, card lifecycle, stage flow. |
 | `js/game/bullets.js`, `lasers.js`, `items.js`, `fx.js` | Enemy bullets (pooled, graze, cancel), lasers, items, particles. |
@@ -60,7 +108,10 @@ live in `localStorage` under `yorunohana.v1`.
 | `js/stages/s1.js` ... `s6.js` | Waves, midboss and boss cards of each stage; `common.js` has shared enemy behaviours. |
 | `js/data/characters.js` | Cast (names, colours, looks, profiles), difficulties. |
 | `js/data/story.js` | Prologue, every dialogue, endings, credits. |
-| `js/ui/` | `title` (title screen + menu backdrop), `scenes` (every other screen), `hud` (frame, sidebar, playfield overlays), `widgets` (canvas menus). |
+| `js/data/manual.js` | The How to Play pages. |
+| `js/data/locale.js` | Lays a translation over the English data. |
+| `locale/ja-jp.json`, `locale/zh-tw.json` | The translations (see Languages). |
+| `js/ui/` | `title` (title screen + menu backdrop), `scenes` (every other screen), `hud` (frame, sidebar, playfield overlays), `widgets` (canvas menus, text wrapping), `cheats` (the F3 debug menu). |
 | `assets/sheet.json` | Layout of the optional sprite sheet. |
 | `assets/fonts/` | Bundled fonts and their OFL licences (see Fonts). |
 | `assets/unused/` | Font files and archives the game does not load; safe to delete. |
@@ -91,7 +142,8 @@ live in `localStorage` under `yorunohana.v1`.
   `yoruApp.open('game', {mode:'card', diff:1, char:'akari', stage:4,
   card:{midboss:false, index:1}})`, then `yoruApp.update()` in a loop
   (`window.yoru` is the running game, `yoru.godMode = true` makes the
-  heroine invulnerable).
+  heroine invulnerable). The F3 menu's story viewer is
+  `yoruApp.open('game', {mode:'talk', diff:0, char:'shizuku', stage:2})`.
 
 ## Fonts
 
@@ -109,17 +161,20 @@ but tiring for paragraphs, so dialogue, story pages and descriptions use
 Shippori Mincho's Latin. In `FONT_DISPLAY` Cinzel comes first and Mincho
 second, so a string like `Bloom 花` draws each script in its own font.
 
-Shippori Mincho is 8.6 MB per weight, so the game ships subsets (about 80
+Shippori Mincho is 8.6 MB per weight, so the game ships subsets (about 310
 KB each): Basic Latin, Latin-1, punctuation, CJK symbols, kana, full-width
-forms and every kanji that appears in `js/` and `index.html`. **After adding
-new kanji to the game, rebuild the subsets** (needs `pip install fonttools
-brotli` and the full fonts, currently in `assets/unused/ShipporiMincho/`):
+forms and every kanji that appears in `js/`, `locale/` and `index.html`,
+which covers the Traditional Chinese translation too (Shippori Mincho has
+nearly every common Traditional character; it draws them in Japanese
+forms). **After adding new kanji or changing a translation, rebuild the
+subsets** (needs `pip install fonttools brotli` and the full fonts,
+currently in `assets/unused/ShipporiMincho/`):
 
 ```python
 # run from src/web/Yoru no Hana
 import glob, io
 from fontTools import subset
-text = ''.join(io.open(p, encoding='utf-8').read() for p in glob.glob('js/**/*.js', recursive=True) + ['index.html'])
+text = ''.join(io.open(p, encoding='utf-8').read() for p in glob.glob('js/**/*.js', recursive=True) + glob.glob('locale/*.json') + ['index.html'])
 ranges = [(0x20, 0x7E), (0xA0, 0xFF), (0x2010, 0x2027), (0x2030, 0x205E), (0x2190, 0x2193), (0x2423, 0x2423),
           (0x2669, 0x266C), (0x3000, 0x303F), (0x3040, 0x30FF), (0xFF01, 0xFF5E)]
 cps = {c for a, b in ranges for c in range(a, b + 1)} | {ord(c) for c in text if ord(c) >= 0x80}
@@ -135,9 +190,9 @@ weights, Shippori Mincho's Medium / SemiBold / ExtraBold and the full
 Regular / Bold) is not loaded by the game. Keep the full Regular and Bold
 only if you want to rebuild the subsets without downloading them again.
 
-## Title screen art
+## Title screen and credits art
 
-Two optional images replace the drawn title scene; each works alone.
+Optional images replace drawn or reused art; each works alone.
 
 - `assets/title.png` - an opaque 1536 x 1024 painting. It covers the 4:3
   frame (about 7% of the width is cropped from each side, plus a slow
@@ -149,8 +204,20 @@ Two optional images replace the drawn title scene; each works alone.
   artwork and fitted into a 300 x 128 box at the top right of the title
   screen and into the sidebar during play. The game draws the English
   subtitle "The Night That Would Not End" under it itself.
+- `assets/roll.png` - an opaque 1536 x 1024 dawn painting behind the
+  credits roll after a good ending (without it the roll reuses the title
+  painting). It is cropped and drifts like the title painting, lightly
+  dimmed, with the lanterns and petals drawn over it. The credit lines
+  scroll up a column centred at about 71% of the image width and covering
+  roughly its right half, so that half should stay calm and fairly dark.
+- `assets/ending1.png` ... `ending4.png` - an opaque 1536 x 1024 painting
+  behind the pages of that ending (No. 1 / 2 are Akari's good / bad
+  endings, No. 3 / 4 Shizuku's); without one the pages use the title
+  painting. It is cropped and drifts like the title painting and is dimmed
+  to about 40%. The page text is a centred column about 60% of the width,
+  so the centre of the image should stay low in contrast.
 
-Hard-reload after adding either file.
+Hard-reload after adding any of them.
 
 ### Prompt for the title painting
 
@@ -217,6 +284,241 @@ Hard-reload after adding either file.
 > the image width with generous empty space around it. Crisp clean edges
 > suitable for cutting out, designed to read clearly on a dark night sky.
 > The kanji must be correct; 夜 means night and 花 means flower.
+
+### Prompt for the credits painting
+
+> Create ONE illustration, landscape, exactly 1536 x 1024 pixels, as a
+> finished full-bleed background painting for the end credits of a Japanese
+> bullet-hell game. No text, no letters, no logo, no signature, no border,
+> no frame, no user interface.
+>
+> Style: high quality anime background art, like the ending illustration of
+> a Japanese doujin game: painterly, soft glowing light, cinematic depth,
+> fine detail, gentle and bittersweet. It must match a companion painting
+> of the same place at midnight (deep indigo and violet night, silver
+> moonlight, warm orange paper lanterns), but this is the first dawn after
+> a night that lasted far too long. Palette: the deep indigo of the
+> departing night at the top, fading through soft violet and rose to a
+> pale peach and gold sunrise glow low on the horizon; small warm orange
+> lantern lights as accents. Keep the image fairly dim overall (no large
+> pure white or bright yellow areas) so white text stays readable on top.
+>
+> Scene: sunrise over a mirror-still mountain lake in Japan, seen from a
+> grassy shore at the foot of a sacred mountain.
+> - On the left, the dark silhouette of a tall forested mountain with an
+>   old stone stairway and a red torii gate halfway up; at its summit, a
+>   small garden of white night-blooming flowers (queen of the night,
+>   Epiphyllum oxypetalum) closing their long slender petals in the first
+>   light.
+> - Dozens of glowing paper lanterns rising slowly from the lake and the
+>   mountainside into the paling sky, getting smaller as they go, as if
+>   spirits are finally going home. They thin out toward the right.
+> - A pale full moon setting low on the far left, half faded into the dawn.
+> - On the lake, left of centre, a small old wooden ferry boat with a
+>   single paper lantern on a pole, a long trail of white petals drifting
+>   behind it on the water.
+> - In the bottom left foreground, on the shore, two small girls seen from
+>   behind, sitting side by side and watching the sunrise: one with a short
+>   crimson-red bob and a side ponytail in a red yukata, with an unlit red
+>   paper lantern beside her; one with long straight silver-blue hair in an
+>   indigo yukata, a round bronze hand mirror in her lap. They are small in
+>   the frame; no faces visible.
+> - Next to them, a small clay flowerpot holding one tiny green bud.
+> - A few white petals drift in the air.
+>
+> Composition (important): the game crops about 110 px from the left and
+> right edges, so keep everything important inside the central area. Put
+> the mountain, the moon, the boat, the girls and most of the lanterns in
+> the left 50% of the image. Keep the right 50% calm and fairly dark: open
+> dawn sky with fading stars at the top, a soft gradient down to a low
+> sunrise glow on a distant mountain ridge, and its calm reflection on the
+> lake, with no bright objects and no figures there, because the credits
+> text scrolls over that half. The sunrise glow on the horizon should be
+> soft and gentle, not a bright sun disc.
+
+### Prompt for ending No. 1 (Akari, good ending: "A Light That Goes Out")
+
+> Create ONE illustration, landscape, exactly 1536 x 1024 pixels, as a
+> finished full-bleed background painting shown behind the ending text of a
+> Japanese bullet-hell game. No text, no letters, no logo, no signature, no
+> border, no frame, no user interface.
+>
+> Style: high quality anime background art, like the ending illustration of
+> a Japanese doujin game: painterly, soft glowing light, cinematic depth,
+> fine detail. It must match two companion paintings of the same world
+> (a lakeside festival town under a sacred mountain, paper lanterns, a
+> white night-blooming flower on the summit) in the same art style.
+> Palette: the first sunrise after an endless night: deep indigo fading to
+> rose, peach and soft gold at the horizon, warm orange lantern light,
+> fresh green. Hopeful, warm and a little teary.
+>
+> Scene: the summit garden of the mountain at dawn.
+> - A giant white night-blooming flower (queen of the night, Epiphyllum
+>   oxypetalum) in the lower right, its long slender white petals folding
+>   closed in the first golden sunlight, pale pink sepals, a faint soft
+>   glow fading away. Smaller white blossoms around it, also closing.
+> - In the lower left, a teenage girl seen from behind and slightly from
+>   the side, kneeling on the stone path and looking up at the sky: short
+>   crimson-red bob with a side ponytail tied with a red-and-white cord,
+>   red short yukata dress with a small orange lantern pattern and an
+>   orange obi, a small red paper lantern on a bamboo stick lying unlit
+>   beside her. Her face is not visible.
+> - Between her hands on the ground, among the flower's roots, a single
+>   tiny new green bud, tightly closed, catching the light.
+> - In the sky above, many paper lanterns drifting up and away into the
+>   paling dawn, small and soft; one of them, higher than all the others,
+>   is lopsided, a little too red, with a crooked white crane painted on
+>   its side.
+> - Far below at the bottom edge, a hint of the lakeside town with its
+>   lanterns going out one by one, and the lake catching the sunrise.
+> - A few white petals drifting in the air.
+>
+> Composition (important): the game crops about 110 px from the left and
+> right edges and draws white story text in a column over the middle 60%
+> of the image. Keep the centre of the image low in contrast and free of
+> small bright details (soft sky, soft light, out-of-focus areas); place
+> the main subjects in the lower third and toward the left and right
+> edges, still inside the cropped area. Keep the whole image moderately
+> dark: no large pure white or bright yellow areas.
+
+### Prompt for ending No. 2 (Akari, bad ending: "Morning, Somehow")
+
+> Create ONE illustration, landscape, exactly 1536 x 1024 pixels, as a
+> finished full-bleed background painting shown behind the ending text of a
+> Japanese bullet-hell game. No text, no letters, no logo, no signature, no
+> border, no frame, no user interface.
+>
+> Style: high quality anime background art, like the ending illustration of
+> a Japanese doujin game: painterly, soft glowing light, cinematic depth,
+> fine detail. It must match two companion paintings of the same world
+> (a lakeside festival town under a sacred mountain, paper lanterns, a
+> white night-blooming flower on the summit) in the same art style.
+> Palette: muted and quiet: dusty warm grey, faded sepia and soft brown,
+> pale washed-out late-morning daylight, almost no saturated colour. It
+> should feel like waking up from a dream you cannot remember. Not scary,
+> not dark fantasy: melancholy and still.
+>
+> Scene: inside a small old Japanese paper-lantern shop in late morning,
+> the day after a summer festival.
+> - A wooden shop counter in the lower part of the image, with bamboo
+>   frames, paper, brushes and paste pots on it. A teenage girl asleep
+>   with her head on her folded arms on the counter, on the left side:
+>   short crimson-red bob with a side ponytail, red short yukata dress,
+>   seen from the side; her face mostly hidden in her arms.
+> - Above and behind her, rows of empty hooks and strings on the ceiling
+>   beams where many paper lanterns used to hang; every hook is empty.
+> - Hazy daylight and dust motes falling through a half-open shoji door
+>   or window on the right. Through it, far away and soft, the mountain
+>   summit under an ordinary pale sky, a thin wisp of cloud over it.
+> - On the counter near her hand, one single white flower petal, long and
+>   slender, the only bright thing in the room.
+> - The festival is over: a faded festival flyer on the wall, a crooked,
+>   unfinished lantern frame in the corner.
+>
+> Composition (important): the game crops about 110 px from the left and
+> right edges and draws white story text in a column over the middle 60%
+> of the image. Keep the centre of the image low in contrast and free of
+> small bright details (soft sky, soft light, out-of-focus areas); place
+> the main subjects in the lower third and toward the left and right
+> edges, still inside the cropped area. Keep the whole image moderately
+> dark: no large pure white or bright yellow areas.
+
+### Prompt for ending No. 3 (Shizuku, good ending: "The Last Passenger of the Night")
+
+> Create ONE illustration, landscape, exactly 1536 x 1024 pixels, as a
+> finished full-bleed background painting shown behind the ending text of a
+> Japanese bullet-hell game. No text, no letters, no logo, no signature, no
+> border, no frame, no user interface.
+>
+> Style: high quality anime background art, like the ending illustration of
+> a Japanese doujin game: painterly, soft glowing light, cinematic depth,
+> fine detail. It must match two companion paintings of the same world
+> (a lakeside festival town under a sacred mountain, paper lanterns, a
+> white night-blooming flower on the summit) in the same art style.
+> Palette: a cool, luminous sunrise over water: deep night blue at the top
+> fading through soft violet to pale rose and silver-pink at the horizon,
+> mirror reflections on a still lake, a few warm orange lantern lights.
+> Serene, tender and quietly sad.
+>
+> Scene: the middle of a mirror-still mountain lake at the moment of
+> sunrise.
+> - In the lower left, an old wooden ferry boat gliding across the water,
+>   a single paper lantern on a pole at its bow, a long trail of white
+>   petals floating behind it.
+> - Standing at the stern and rowing with a long oar, a calm teenage
+>   ferry keeper seen from behind and slightly from the side: long straight
+>   silver-blue hair with a blunt hime cut and a small water-drop hairpin,
+>   indigo yukata with a white wave (seigaiha) pattern at the hem, a light
+>   blue obi, a round bronze hand mirror tucked in her obi. Her face is not
+>   visible.
+> - Sitting in the boat, a few faint, softly glowing translucent spirit
+>   passengers: a little boy holding a paper windmill, an old man in a
+>   craftsman's apron, a woman holding the ferry keeper's sleeve. They are
+>   gentle and peaceful, not scary.
+> - At the front of the boat, an ethereal young woman, the spirit of the
+>   queen of the night flower, gazing at the sunrise with wide astonished
+>   eyes, seen in profile: very long flowing white hair with pale gold
+>   tips, a small glowing crescent-moon tiara, a white gown of long slender
+>   petals with pale pink sepals. The edges of her gown are already
+>   loosening into white petals that drift onto the water.
+> - On the right, on a far grassy bank, small in the distance: a girl in a
+>   dark navy scholar's coat with round glasses and a single long braid,
+>   holding a notebook, waiting, a scarf cradled in her hands with a tiny
+>   green bud in it.
+> - The sun just touching the horizon behind distant mountains, its
+>   reflection a long soft path of light across the lake; a pale setting
+>   moon fading in the upper left.
+>
+> Composition (important): the game crops about 110 px from the left and
+> right edges and draws white story text in a column over the middle 60%
+> of the image. Keep the centre of the image low in contrast and free of
+> small bright details (soft sky, soft light, out-of-focus areas); place
+> the main subjects in the lower third and toward the left and right
+> edges, still inside the cropped area. Keep the whole image moderately
+> dark: no large pure white or bright yellow areas.
+
+### Prompt for ending No. 4 (Shizuku, bad ending: "An Empty Crossing")
+
+> Create ONE illustration, landscape, exactly 1536 x 1024 pixels, as a
+> finished full-bleed background painting shown behind the ending text of a
+> Japanese bullet-hell game. No text, no letters, no logo, no signature, no
+> border, no frame, no user interface.
+>
+> Style: high quality anime background art, like the ending illustration of
+> a Japanese doujin game: painterly, soft glowing light, cinematic depth,
+> fine detail. It must match two companion paintings of the same world
+> (a lakeside festival town under a sacred mountain, paper lanterns, a
+> white night-blooming flower on the summit) in the same art style.
+> Palette: muted and quiet: grey-blue, slate and pale silver, a flat
+> overcast early-morning light with a little cold mist, almost no warm
+> colour. Lonely and still, like a crossing that was missed. Not scary,
+> not dark fantasy.
+>
+> Scene: early morning on a wide mountain lake, an ordinary grey dawn.
+> - In the lower left, a small old wooden ferry boat drifting alone on
+>   flat water, its oars pulled in and resting inside the boat, the paper
+>   lantern on its pole unlit.
+> - Sitting in the boat, a teenage ferry keeper seen from behind and
+>   slightly from the side, looking back toward the shore: long straight
+>   silver-blue hair with a blunt hime cut and a small water-drop hairpin,
+>   indigo yukata with a white wave (seigaiha) pattern at the hem, a light
+>   blue obi, a round bronze hand mirror lying in her lap. Her face is not
+>   visible.
+> - On the right, in the distance, an empty wooden pier with a few
+>   lanterns hanging dark, and nobody waiting on it.
+> - Low mist on the water, the dark shape of the mountain soft in the
+>   background, the lake reflecting an ordinary pale morning sky with thin
+>   moving clouds.
+> - A single white flower petal floating on the water near the boat, the
+>   only bright thing in the image.
+>
+> Composition (important): the game crops about 110 px from the left and
+> right edges and draws white story text in a column over the middle 60%
+> of the image. Keep the centre of the image low in contrast and free of
+> small bright details (soft sky, soft light, out-of-focus areas); place
+> the main subjects in the lower third and toward the left and right
+> edges, still inside the cropped area. Keep the whole image moderately
+> dark: no large pure white or bright yellow areas.
 
 ## Character sprite sheet
 

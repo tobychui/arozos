@@ -67,21 +67,75 @@ export function paragraph(ctx, str, x, y, width, o = {}) {
   return y;
 }
 
+// Line breaking: Latin text breaks at spaces, Japanese and Chinese between
+// any two characters, except that closing punctuation and small kana never
+// start a line and opening brackets never end one (kinsoku).
+const NO_START = new Set('、。，．・：；？！ー…‥」』）］｝〉》】〕’”ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ々〜～!),.:;?'.split(''));
+const NO_END = new Set('「『（［｛〈《【〔‘“('.split(''));
+const SPACE = /\s/;
+
+function isCJK(ch) {
+  const c = ch.charCodeAt(0);
+  return (c >= 0x2e80 && c <= 0x9fff) || (c >= 0xf900 && c <= 0xfaff) || (c >= 0xff00 && c <= 0xffef);
+}
+
+// wrapping runs every frame for every paragraph on screen: remember results
+const spanCache = new Map();
+
+/**
+ * Wrap `str` to `width` in the context's current font. Returns [start, end]
+ * index pairs into `str`, one per line (break spaces excluded), so callers
+ * that type text out can reveal it by source index.
+ */
+export function wrapSpans(ctx, str, width) {
+  str = String(str);
+  const key = ctx.font + '|' + width + '|' + str;
+  const hit = spanCache.get(key);
+  if (hit) return hit;
+  const out = [];
+  let base = 0;
+  for (const para of str.split('\n')) {
+    const n = para.length;
+    // indices where a new line may start
+    const breaks = [];
+    for (let i = 1; i < n; i++) {
+      const a = para[i - 1];
+      const b = para[i];
+      if (SPACE.test(b)) continue;
+      if (SPACE.test(a)) breaks.push(i);
+      else if ((isCJK(a) || isCJK(b)) && !NO_START.has(b) && !NO_END.has(a)) breaks.push(i);
+    }
+    breaks.push(n);
+    let start = 0;
+    let fit = -1;
+    const endOf = (p) => {
+      let e = p;
+      while (e > start && SPACE.test(para[e - 1])) e--;
+      return e;
+    };
+    for (let k = 0; k < breaks.length; k++) {
+      const p = breaks[k];
+      if (ctx.measureText(para.slice(start, endOf(p))).width > width && fit > start) {
+        out.push([base + start, base + endOf(fit)]);
+        start = fit;
+        fit = -1;
+        k--; // measure this break again on the new line
+        continue;
+      }
+      fit = p;
+    }
+    out.push([base + start, base + endOf(n)]);
+    base += n + 1;
+  }
+  if (spanCache.size > 600) spanCache.clear();
+  spanCache.set(key, out);
+  return out;
+}
+
 /** Wrap text to a width (in the context's current font), returning lines. */
 export function wrapLines(ctx, str, width) {
-  const out = [];
-  for (const para of String(str).split('\n')) {
-    let cur = '';
-    for (const w of para.split(' ')) {
-      const t = cur ? cur + ' ' + w : w;
-      if (ctx.measureText(t).width > width && cur) {
-        out.push(cur);
-        cur = w;
-      } else cur = t;
-    }
-    out.push(cur);
-  }
-  return out;
+  str = String(str);
+  return wrapSpans(ctx, str, width).map(([a, b]) => str.slice(a, b));
 }
 
 export function panel(ctx, x, y, w, h, color = '#b090ff', alpha = 0.8) {
@@ -95,7 +149,8 @@ export function panel(ctx, x, y, w, h, color = '#b090ff', alpha = 0.8) {
 }
 
 /**
- * items: [{label, sub?, disabled?, value?() , left?(), right?(), action?}]
+ * items: [{label, sub?, disabled?, value?() , left?(), right?(), action?}];
+ * label may be a function, called on every draw.
  * update() returns the chosen item, 'cancel', or null.
  */
 export class Menu {
@@ -210,7 +265,8 @@ export class Menu {
         room = width - Math.min(ctx.measureText(v).width, vo.maxWidth) - 14;
         text(ctx, v, x + width, yy, vo);
       }
-      text(ctx, it.label, align === 'center' ? x : x + wob, yy, { size, display: true, bold: sel, color, align, maxWidth: room, glow: sel ? o.color || '#c0a0ff' : null });
+      const label = typeof it.label === 'function' ? it.label() : it.label;
+      text(ctx, label, align === 'center' ? x : x + wob, yy, { size, display: true, bold: sel, color, align, maxWidth: room, glow: sel ? o.color || '#c0a0ff' : null });
     });
   }
 }

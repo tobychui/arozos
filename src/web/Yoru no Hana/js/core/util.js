@@ -63,11 +63,21 @@ export function fmtInt(n) {
 
 // Bundled fonts (assets/fonts, loaded in main.js) come first; a missing
 // glyph falls through to the next family, so Japanese inside a Cinzel
-// string is drawn in Shippori Mincho.
-const MINCHO_FALLBACK = '"Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", "MS PMincho", serif';
+// string is drawn in Shippori Mincho. The Mincho subset also holds every
+// character of the translations (locale/), Traditional Chinese included.
+const MINCHO_FALLBACK = '"Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", "MS PMincho", "Noto Serif TC", "PMingLiU", serif';
 /** Headings, menus, names, numbers: Cinzel for Latin, Shippori Mincho for Japanese. */
 export const FONT_DISPLAY = `"YnH Cinzel", "YnH Mincho", ${MINCHO_FALLBACK}`;
 /** Running text (dialogue, story pages, descriptions): Shippori Mincho. */
 export const FONT_SERIF = `"YnH Mincho", ${MINCHO_FALLBACK}`;
-/** Small hints and key labels. */
-export const FONT_UI = '"Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", sans-serif';
+
+const UI_FONTS = {
+  'ja-jp': '"Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif',
+  'zh-tw': '"Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Hiragino Sans", sans-serif',
+};
+/** Small hints and key labels: the system sans serif, picked for the language (a live binding). */
+export let FONT_UI = UI_FONTS['ja-jp'];
+
+export function setUiFont(lang) {
+  FONT_UI = UI_FONTS[lang] || UI_FONTS['ja-jp'];
+}

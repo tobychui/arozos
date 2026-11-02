@@ -190,14 +190,15 @@ const TEX = {
       const x = r() * w;
       const y = r() * h;
       if (x > w * 0.4 && x < w * 0.6) continue;
+      // muted blue-grey rather than white, so ground blossoms never pass for petal bullets
       for (let k = 0; k < 5; k++) {
         const a = (k * TAU) / 5;
-        g.fillStyle = '#f4fbff';
+        g.fillStyle = 'rgba(150,160,206,0.55)';
         g.beginPath();
         g.ellipse(x + Math.cos(a) * 3.5, y + Math.sin(a) * 3.5, 3.6, 1.8, a, 0, TAU);
         g.fill();
       }
-      g.fillStyle = '#e8f0a0';
+      g.fillStyle = 'rgba(200,206,150,0.5)';
       g.beginPath();
       g.arc(x, y, 1.5, 0, TAU);
       g.fill();
@@ -460,13 +461,14 @@ class StageBackground {
         ctx.lineTo(p.x + Math.sin(this.t * 0.02 + p.x) * 3, p.y);
         ctx.stroke();
       } else if (p.petal) {
+        // stage 6 rains white and pink petal bullets, so background petals are
+        // a dim periwinkle, out of focus, with no core and no edge
+        const spr = petalSprite(this.G.art);
+        const k = p.s / 6;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
-        ctx.fillStyle = 'rgba(246,248,255,0.75)';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, p.s, p.s * 0.4, 0, 0, TAU);
-        ctx.fill();
+        ctx.drawImage(spr.img, (-spr.w / 2) * k, (-spr.h / 2) * k, spr.w * k, spr.h * k);
         ctx.restore();
       } else if (p.streak) {
         ctx.strokeStyle = 'rgba(220,235,255,0.22)';
@@ -487,6 +489,21 @@ class StageBackground {
       }
     }
   }
+}
+
+/** A soft background petal (6 units long at k = 1): the colour fades out to its edge. */
+function petalSprite(art) {
+  return art.sprite('bg:petal', 20, 10, (g) => {
+    g.scale(1, 0.42);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 9);
+    gr.addColorStop(0, 'rgba(140,148,214,0.42)');
+    gr.addColorStop(0.6, 'rgba(126,134,204,0.22)');
+    gr.addColorStop(1, 'rgba(110,118,196,0)');
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(0, 0, 9, 0, TAU);
+    g.fill();
+  });
 }
 
 function propSprite(art, kind, v) {

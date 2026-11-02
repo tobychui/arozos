@@ -22,9 +22,10 @@ const KEYMAP = {
   skip: ['ControlLeft', 'ControlRight'],
   confirm: ['KeyZ', 'Enter', 'NumpadEnter', 'Space', 'KeyJ'],
   cancel: ['KeyX', 'Escape', 'Backspace', 'KeyK'],
+  debug: ['F3'],
 };
 const ACTIONS = Object.keys(KEYMAP);
-const BLOCK = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab', 'Backspace']);
+const BLOCK = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab', 'Backspace', 'F3']);
 
 export class Input {
   constructor(view) {

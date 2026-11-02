@@ -6,7 +6,7 @@
  */
 import { W, H, PF } from '../core/view.js';
 import { TAU, rgba, mix, fmtScore, fmtInt, clamp, FONT_SERIF } from '../core/util.js';
-import { Menu, text, wrapLines, wrapText, paragraph, panel } from './widgets.js';
+import { Menu, text, wrapSpans, wrapText, paragraph, panel } from './widgets.js';
 import { drawFrame, drawHud } from './hud.js';
 import { Game } from '../game/game.js';
 import { CAST, PLAYERS, SHEET_ORDER, DIFFICULTIES } from '../data/characters.js';
@@ -15,6 +15,11 @@ import { STAGES } from '../stages/index.js';
 import { PROLOGUE, PROLOGUE_CHAR, ENDINGS, CREDITS } from '../data/story.js';
 import { SONGS } from '../audio/songs.js';
 import { DEFAULT_SETTINGS } from '../core/save.js';
+import { MANUAL } from '../data/manual.js';
+import { t, typeRate, LANGS, langName, systemLang } from '../core/i18n.js';
+
+/** Overlay titles and subtitles: English strings translated when drawn, or functions. */
+const str = (v) => (typeof v === 'function' ? v() : t(v || ''));
 
 // ------------------------------------------------------------------ select --
 export class SelectScene {
@@ -23,7 +28,7 @@ export class SelectScene {
     this.mode = mode;
     this.step = 'diff';
     this.t = 0;
-    this.diff = app.lastDiff ?? 1;
+    this.diff = app.lastDiff ?? 0; // first visit: the beginner difficulty
     this.char = app.lastChar ?? 0;
     this.diffMenu = new Menu(DIFFICULTIES.map((dd, i) => ({ label: dd.name, i })), { start: this.diff });
   }
@@ -37,7 +42,7 @@ export class SelectScene {
   buildStageMenu() {
     const charId = PLAYERS[this.char];
     const reached = this.app.save.reached(charId, this.diffId);
-    this.stageMenu = new Menu(STAGES.map((s, i) => ({ label: `Stage ${s.no}  ${s.jp}`, sub: s.name, i, disabled: i + 1 > reached })), { start: 0 });
+    this.stageMenu = new Menu(STAGES.map((s, i) => ({ label: `${t('Stage {n}', { n: s.no })}  ${s.jp}`, sub: s.name, i, disabled: i + 1 > reached })), { start: 0 });
   }
 
   buildCardMenu() {
@@ -68,7 +73,7 @@ export class SelectScene {
     if (this.mode === 'story') {
       app.open('story', {
         pages: [...PROLOGUE, PROLOGUE_CHAR[opts.char]],
-        heading: 'Prologue',
+        heading: t('Prologue'),
         tint: CAST[opts.char].color,
         music: 'title',
         then: () => app.open('game', opts),
@@ -140,9 +145,9 @@ export class SelectScene {
     const app = this.app;
     app.backdrop.render(ctx, px, 0.55);
     ctx.setTransform(px, 0, 0, px, 0, 0);
-    const heading = { story: 'Start', practice: 'Practice Start', card: 'Card Practice' }[this.mode];
+    const heading = t({ story: 'Start', practice: 'Practice Start', card: 'Card Practice' }[this.mode]);
     text(ctx, heading, 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff', maxWidth: W - 48 });
-    const hint = (str) => text(ctx, str, 24, 58, { size: 12, serif: true, color: '#b8a8e0', maxWidth: W - 48 });
+    const hint = (s) => text(ctx, t(s), 24, 58, { size: 12, serif: true, color: '#b8a8e0', maxWidth: W - 48 });
     if (this.step === 'diff') {
       hint('Choose the depth of the night');
       const cols = ['#7fe08a', '#7fc8ff', '#ffb04a', '#ff5a8a'];
@@ -176,12 +181,12 @@ export class SelectScene {
         const sh = SHOTS[id];
         const py = 326;
         panel(ctx, cx - 150, py, 300, 120, c.color, sel ? 0.88 : 0.5);
-        text(ctx, c.jp, cx + 136, py + 24, { size: 13, serif: true, align: 'right', color: rgba(c.color, 1), maxWidth: 84 });
+        text(ctx, c.sub, cx + 136, py + 24, { size: 13, serif: true, align: 'right', color: rgba(c.color, 1), maxWidth: 84 });
         text(ctx, c.name, cx - 136, py + 24, { size: 17, display: true, bold: true, color: sel ? '#ffffff' : '#a090c0', maxWidth: 182 });
         text(ctx, c.title, cx - 136, py + 42, { size: 11.5, serif: true, color: '#d8c8f0', maxWidth: 272 });
-        text(ctx, `Shot: ${sh.shotName}`, cx - 136, py + 62, { size: 11.5, serif: true, bold: true, color: '#ffffff', maxWidth: 272 });
+        text(ctx, t('Shot: {name}', { name: sh.shotName }), cx - 136, py + 62, { size: 11.5, serif: true, bold: true, color: '#ffffff', maxWidth: 272 });
         paragraph(ctx, sh.shotDesc, cx - 136, py + 77, 272, { size: 11, serif: true, color: '#c0b4e0', maxLines: 2, lineHeight: 13 });
-        text(ctx, `Bomb: 「${sh.bombName}」`, cx - 136, py + 110, { size: 11.5, serif: true, bold: true, color: '#ffe0a0', maxWidth: 272 });
+        text(ctx, t('Bomb: 「{name}」', { name: sh.bombName }), cx - 136, py + 110, { size: 11.5, serif: true, bold: true, color: '#ffe0a0', maxWidth: 272 });
         ctx.globalAlpha = 1;
       });
     } else if (this.step === 'stage') {
@@ -202,12 +207,12 @@ export class SelectScene {
       view.rects.forEach((r, k) => (m.rects[k + this.cardScroll] = r));
       view.items.forEach((it, k) => {
         const y = 96 + k * 27;
-        text(ctx, `St.${it.stage}`, 22, y, { size: 11, color: '#8a7ab0' });
+        text(ctx, t('St.{n}', { n: it.stage }), 22, y, { size: 11, color: '#8a7ab0', maxWidth: 46 });
         text(ctx, `${it.stat[0]}/${it.stat[1]}`, W - 18, y, { size: 11, align: 'right', color: '#c0b0e0', maxWidth: 40 });
       });
-      if (!m.items.some((it) => !it.disabled)) text(ctx, 'No cards seen yet. Play Start or Practice first!', W / 2, 250, { size: 14, serif: true, align: 'center', color: '#ffd0a0', maxWidth: W - 60 });
+      if (!m.items.some((it) => !it.disabled)) text(ctx, t('No cards seen yet. Play Start or Practice first!'), W / 2, 250, { size: 14, serif: true, align: 'center', color: '#ffd0a0', maxWidth: W - 60 });
     }
-    text(ctx, 'Z / Enter: choose    X / Esc: back', W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0' });
+    text(ctx, t('Z / Enter: choose    X / Esc: back'), W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0', maxWidth: W - 32 });
   }
 }
 
@@ -242,10 +247,10 @@ export class GameScene {
       kind: 'pause',
       title: 'Paused',
       menu: new Menu([
-        { label: 'Resume', action: () => this.resume() },
-        { label: this.opts.mode === 'story' ? 'Restart from Stage 1' : 'Retry', action: () => app.open('game', this.opts, { fade: 20 }) },
-        { label: 'Settings', action: () => (this.settings = new SettingsPanel(app, () => (this.settings = null))) },
-        { label: 'Quit to Title', action: () => this.quit() },
+        { label: () => t('Resume'), action: () => this.resume() },
+        { label: () => t(this.opts.mode === 'story' ? 'Restart from Stage 1' : 'Retry'), action: () => app.open('game', this.opts, { fade: 20 }) },
+        { label: () => t('Settings'), action: () => (this.settings = new SettingsPanel(app, () => (this.settings = null))) },
+        { label: () => t('Quit to Title'), action: () => this.quit() },
       ]),
     };
   }
@@ -269,33 +274,39 @@ export class GameScene {
     if (name === 'gameover') {
       app.music.duck(true);
       const items = [];
-      if (this.opts.mode === 'story') items.push({ label: `Continue  (${g.continues} used)`, action: () => { g.continueRun(); this.resume(); } });
-      else items.push({ label: 'Retry', action: () => app.open('game', this.opts, { fade: 20 }) });
-      items.push({ label: 'Quit to Title', action: () => this.quit() });
+      if (this.opts.mode === 'story') items.push({ label: () => t('Continue  ({n} used)', { n: g.continues }), action: () => { g.continueRun(); this.resume(); } });
+      else items.push({ label: () => t('Retry'), action: () => app.open('game', this.opts, { fade: 20 }) });
+      items.push({ label: () => t('Quit to Title'), action: () => this.quit() });
       this.overlay = { kind: 'gameover', title: 'Game Over', sub: this.opts.mode === 'story' ? 'Continuing resets your score and leads to a different ending.' : '', menu: new Menu(items), noCancel: true };
     } else if (name === 'ending') {
-      const key = `${g.charId}/${data.good ? 'good' : 'bad'}`;
       app.save.markEnding(g.charId, data.good ? 'good' : 'bad');
-      const e = ENDINGS[key];
       const afterScore = () => app.open('title');
       const afterStory = () => {
         if (data.good) app.open('credits', { then: () => app.offerScore(g, afterScore, 7) });
         else app.offerScore(g, afterScore, 7);
       };
-      app.open('story', { pages: e.pages, heading: `Ending No. ${e.no}`, footer: `「${e.title}」`, hint: e.hint, tint: e.tint, music: 'ending', then: afterStory });
+      openEnding(app, g.charId, data.good, afterStory);
     } else if (name === 'practiceDone' || name === 'cardDone') {
       const ok = name === 'practiceDone' || data.captured;
       this.overlay = {
         kind: 'result',
         title: name === 'practiceDone' ? 'Practice Clear' : data.captured ? 'Card Captured!' : 'Card Failed',
-        sub: name === 'practiceDone' ? 'Score ' + fmtInt(g.score) : '',
+        sub: name === 'practiceDone' ? () => t('Score {n}', { n: fmtInt(g.score) }) : '',
         good: ok,
         menu: new Menu([
-          { label: 'Retry', action: () => app.open('game', this.opts, { fade: 20 }) },
-          { label: name === 'cardDone' ? 'Choose Another Card' : 'Quit to Title', action: () => (name === 'cardDone' ? app.open('select', { mode: 'card' }) : app.open('title')) },
+          { label: () => t('Retry'), action: () => app.open('game', this.opts, { fade: 20 }) },
+          { label: () => t(name === 'cardDone' ? 'Choose Another Card' : 'Quit to Title'), action: () => (name === 'cardDone' ? app.open('select', { mode: 'card' }) : app.open('title')) },
         ]),
         noCancel: true,
       };
+    } else if (name === 'talkDone') {
+      // the debug menu's story viewer: go on to the next stage's dialogue, or to the ending
+      const o = this.opts;
+      const items = [{ label: () => t('Watch Again'), action: () => app.open('game', o, { fade: 20 }) }];
+      if (o.stage < STAGES.length) items.push({ label: () => t('Next Stage'), action: () => app.open('game', { ...o, stage: o.stage + 1 }, { fade: 20 }) });
+      else items.push({ label: () => t('Read the Ending'), action: () => openEnding(app, o.char, true, () => app.open('title')) });
+      items.push({ label: () => t('Quit to Title'), action: () => app.open('title') });
+      this.overlay = { kind: 'result', title: 'Dialogue Finished', sub: () => `${CAST[o.char].name}  ·  ${t('Stage {n}', { n: o.stage })}`, menu: new Menu(items), noCancel: true };
     }
   }
 
@@ -319,7 +330,26 @@ export class GameScene {
       inp.consume();
       return;
     }
-    this.game.update(inp);
+    this.stepGame(inp);
+  }
+
+  /** One frame of play at the debug menu's game speed. */
+  stepGame(inp) {
+    const speed = this.app.save.data.cheats.speed || 1;
+    if (speed < 1) {
+      // slow motion: skip frames, but never drop a press
+      this.slow = (this.slow || 0) + speed;
+      const press = inp.pressed('shoot') || inp.pressed('bomb') || inp.pressed('confirm') || inp.mouse.clicked;
+      if (this.slow < 1 && !press) return;
+      this.slow = Math.max(0, this.slow - 1);
+      this.game.update(inp);
+      return;
+    }
+    for (let i = 0; i < speed; i++) {
+      if (i) inp.consume(); // a press counts once, not once per step
+      this.game.update(inp);
+      if (this.overlay || this.game.state !== 'play') break;
+    }
   }
 
   render(ctx, px) {
@@ -333,8 +363,8 @@ export class GameScene {
       ctx.fillRect(PF.x, PF.y, PF.w, PF.h);
       const o = this.overlay;
       const cx = PF.x + PF.w / 2;
-      text(ctx, o.title, cx, 160, { size: 28, display: true, bold: true, align: 'center', color: o.kind === 'gameover' ? '#ff9ab0' : '#ffffff', glow: o.good ? '#ffd080' : '#9070ff', maxWidth: PF.w - 30 });
-      if (o.sub) paragraph(ctx, o.sub, cx, 186, 300, { size: 12, serif: true, align: 'center', color: '#d0c4f0', maxLines: 3, lineHeight: 15 });
+      text(ctx, str(o.title), cx, 160, { size: 28, display: true, bold: true, align: 'center', color: o.kind === 'gameover' ? '#ff9ab0' : '#ffffff', glow: o.good ? '#ffd080' : '#9070ff', maxWidth: PF.w - 30 });
+      if (o.sub) paragraph(ctx, str(o.sub), cx, 186, 300, { size: 12, serif: true, align: 'center', color: '#d0c4f0', maxLines: 3, lineHeight: 15 });
       o.menu.render(ctx, cx, 240, { gap: 30, size: 16, width: 280, align: 'center' });
     }
     if (this.settings) this.settings.render(ctx, px);
@@ -361,7 +391,7 @@ export class StoryScene {
     this.t++;
     app.backdrop.update();
     const page = this.o.pages[this.i];
-    const full = this.t * 1.2 >= (page ? page.length : 0);
+    const full = this.t * typeRate(1.2) >= (page ? page.length : 0);
     const adv = inp.pressed('confirm') || inp.pressed('shoot') || inp.mouse.clicked;
     if (inp.held('skip') && this.t % 6 === 0) this.next();
     else if (adv) {
@@ -394,7 +424,8 @@ export class StoryScene {
 
   render(ctx, px) {
     const app = this.app;
-    app.backdrop.render(ctx, px, 0.72);
+    // an ending's own painting (assets/ending<n>.png) is dimmed less than the title painting
+    app.backdrop.render(ctx, px, this.o.art ? 0.6 : 0.72, this.o.art);
     ctx.setTransform(px, 0, 0, px, 0, 0);
     const tint = this.o.tint || '#a080ff';
     const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 420);
@@ -411,19 +442,16 @@ export class StoryScene {
       ctx.globalAlpha = 1;
     } else {
       const page = this.o.pages[this.i];
-      const shown = page.slice(0, Math.floor(this.t * 1.2));
+      const shown = Math.floor(this.t * typeRate(1.2));
       ctx.font = `17px ${FONT_SERIF}`;
-      const lines = wrapLines(ctx, page, 480);
-      let used = 0;
-      const y0 = H / 2 - (lines.length * 30) / 2 + 10;
-      lines.forEach((ln, k) => {
-        const part = shown.slice(used, used + ln.length);
-        used += ln.length + 1;
-        text(ctx, part, W / 2 - 240, y0 + k * 30, { size: 17, serif: true, color: '#f4eeff' });
+      const spans = wrapSpans(ctx, page, 480);
+      const y0 = H / 2 - (spans.length * 30) / 2 + 10;
+      spans.forEach(([a, e], k) => {
+        if (shown > a) text(ctx, page.slice(a, Math.min(e, shown)), W / 2 - 240, y0 + k * 30, { size: 17, serif: true, color: '#f4eeff' });
       });
       text(ctx, `${this.i + 1} / ${this.o.pages.length}`, W / 2, H - 50, { size: 11, align: 'center', color: '#8a7ab0' });
     }
-    text(ctx, 'Z: next    Ctrl: skip', W - 16, H - 14, { size: 11, align: 'right', color: '#6a5a90' });
+    text(ctx, t('Z: next    Ctrl: skip'), W - 16, H - 14, { size: 11, align: 'right', color: '#6a5a90', maxWidth: W - 32 });
   }
 }
 
@@ -454,7 +482,9 @@ export class CreditsScene {
   }
 
   render(ctx, px) {
-    this.app.backdrop.render(ctx, px, 0.3);
+    // assets/roll.png (a dawn painting, calm on the right) needs less dimming than the title painting
+    const art = this.app.titleArt.credits;
+    this.app.backdrop.render(ctx, px, art ? 0.18 : 0.3, art);
     ctx.setTransform(px, 0, 0, px, 0, 0);
     CREDITS.forEach(([a, b], i) => {
       const y = H + 40 + i * 70 - this.t * 0.6;
@@ -547,15 +577,15 @@ export class NameEntryScene {
     this.app.backdrop.render(ctx, px, 0.7);
     ctx.setTransform(px, 0, 0, px, 0, 0);
     const o = this.o;
-    text(ctx, 'New High Score', W / 2, 70, { size: 26, display: true, bold: true, align: 'center', glow: '#ffd080', maxWidth: W - 60 });
-    text(ctx, `${CAST[o.char].name}  ·  ${DIFFICULTIES.find((dd) => dd.id === o.diff).name}  ·  rank ${o.rank + 1}`, W / 2, 98, { size: 13, serif: true, align: 'center', color: '#d8c8f0', maxWidth: W - 60 });
+    text(ctx, t('New High Score'), W / 2, 70, { size: 26, display: true, bold: true, align: 'center', glow: '#ffd080', maxWidth: W - 60 });
+    text(ctx, `${CAST[o.char].name}  ·  ${DIFFICULTIES.find((dd) => dd.id === o.diff).name}  ·  ${t('rank {n}', { n: o.rank + 1 })}`, W / 2, 98, { size: 13, serif: true, align: 'center', color: '#d8c8f0', maxWidth: W - 60 });
     text(ctx, fmtScore(o.score), W / 2, 134, { size: 24, display: true, bold: true, align: 'center', color: '#ffe68a' });
     panel(ctx, W / 2 - 120, 152, 240, 40, '#ffd080');
     const cursor = Math.floor(this.t / 20) % 2 ? '_' : ' ';
     text(ctx, this.name + (this.name.length < 8 ? cursor : ''), W / 2, 180, { size: 22, bold: true, align: 'center' });
     this.rects = [];
     const c = this.cols;
-    const all = [...NAME_CHARS, 'Del', 'End'];
+    const all = [...NAME_CHARS, t('Del'), t('End')];
     all.forEach((ch, k) => {
       const col = k % c;
       const row = Math.floor(k / c);
@@ -570,7 +600,7 @@ export class NameEntryScene {
       }
       text(ctx, ch === ' ' ? '␣' : ch, wide ? x + 10 : x, y, { size: 15, align: 'center', bold: sel, color: sel ? '#ffffff' : '#b8a8e0' });
     });
-    text(ctx, 'Type a name, or pick letters with the arrows and Z. Enter to finish.', W / 2, H - 20, { size: 11, align: 'center', color: '#8a7ab0' });
+    text(ctx, t('Type a name, or pick letters with the arrows and Z. Enter to finish.'), W / 2, H - 20, { size: 11, align: 'center', color: '#8a7ab0', maxWidth: W - 32 });
   }
 }
 
@@ -614,7 +644,7 @@ export class ScoresScene {
     const charId = PLAYERS[Math.floor(this.page / DIFFICULTIES.length)];
     const dd = DIFFICULTIES[this.page % DIFFICULTIES.length];
     const c = CAST[charId];
-    text(ctx, 'Scores', 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
+    text(ctx, t('Scores'), 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
     text(ctx, `‹  ${c.name}  ·  ${dd.name} ${dd.jp}  ›`, W / 2, 72, { size: 16, display: true, bold: true, align: 'center', color: mix(c.color, '#ffffff', 0.4), maxWidth: W - 80 });
     const list = app.save.scores(charId, dd.id);
     for (let i = 0; i < 10; i++) {
@@ -624,11 +654,11 @@ export class ScoresScene {
       text(ctx, e ? e.name : '--------', 110, y, { size: 15, color: e ? '#ffffff' : '#5a4a7a', maxWidth: 130 });
       text(ctx, e ? fmtScore(e.score) : fmtScore(0), 400, y, { size: 15, display: true, bold: true, align: 'right', color: e ? '#ffe68a' : '#5a4a7a', maxWidth: 150 });
       if (e) {
-        text(ctx, e.stage > STAGES.length ? 'All Clear' : `Stage ${e.stage}`, 418, y, { size: 12, display: true, color: '#c8b8f0', maxWidth: 100 });
+        text(ctx, e.stage > STAGES.length ? t('All Clear') : t('Stage {n}', { n: e.stage }), 418, y, { size: 12, display: true, color: '#c8b8f0', maxWidth: 100 });
         text(ctx, (e.cont ? `${e.cont}C  ` : '') + (e.date || ''), 528, y, { size: 11, color: '#8a7ab0', maxWidth: 96 });
       }
     }
-    text(ctx, '← → change page    X: back', W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0' });
+    text(ctx, t('← → change page    X: back'), W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0', maxWidth: W - 32 });
   }
 }
 
@@ -659,7 +689,7 @@ export class MusicRoomScene {
     const app = this.app;
     app.backdrop.render(ctx, px, 0.7);
     ctx.setTransform(px, 0, 0, px, 0, 0);
-    text(ctx, 'Music Room', 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
+    text(ctx, t('Music Room'), 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
     this.menu.render(ctx, 50, 76, { gap: 21, size: 13, width: 310 });
     this.menu.items.forEach((it, i) => {
       if (it.song.id === this.playing) text(ctx, '♪', 30, 76 + i * 21, { size: 13, color: '#ffd080' });
@@ -671,9 +701,9 @@ export class MusicRoomScene {
       text(ctx, `${s.bpm} BPM`, 404, 138, { size: 10, color: '#a898d0' });
       paragraph(ctx, s.comment, 404, 160, 204, { size: 12.5, serif: true, color: '#e0d6ff', maxLines: 11, lineHeight: 18 });
     } else {
-      text(ctx, 'Not heard yet.', 404, 102, { size: 13, serif: true, color: '#8a7ab0' });
+      text(ctx, t('Not heard yet.'), 404, 102, { size: 13, serif: true, color: '#8a7ab0' });
     }
-    text(ctx, 'Z: play    X: back', W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0' });
+    text(ctx, t('Z: play    X: back'), W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0', maxWidth: W - 32 });
   }
 }
 
@@ -728,12 +758,12 @@ export class GalleryScene {
     ctx.globalAlpha = a;
     ctx.drawImage(spr.img, -spr.w / 2, -spr.h / 2, spr.w, spr.h);
     ctx.setTransform(px, 0, 0, px, 0, 0);
-    text(ctx, 'Characters', 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
+    text(ctx, t('Characters'), 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
     const x = 330;
     const tw = W - x - 18;
     text(ctx, c.title, x, 92, { size: 12.5, serif: true, color: rgba(c.accent, 1), maxWidth: tw });
     text(ctx, c.name, x, 122, { size: 26, display: true, bold: true, glow: c.color, maxWidth: tw });
-    text(ctx, c.jp, x, 146, { size: 15, serif: true, color: rgba(c.color, 1), maxWidth: tw });
+    text(ctx, c.sub, x, 146, { size: 15, serif: true, color: rgba(c.color, 1), maxWidth: tw });
     // the profile shrinks a little if it would run into the footer
     let size = 12.5;
     const fits = (sz) => c.profile.reduce((n, para) => n + wrapText(ctx, para, tw, { serif: true, size: sz }).length * sz * 1.38 + 8, 0) <= H - 84 - 176; // keep clear of the sprite in the corner
@@ -746,8 +776,10 @@ export class GalleryScene {
     ctx.setTransform(px, 0, 0, px, 0, 0);
     ctx.globalAlpha = 1;
     const cs = app.charArt;
-    const sheetMsg = cs.status === 'ok' ? `Sprite sheet: ${cs.has('portrait', id) ? 'portrait' : 'drawn portrait'}, ${cs.has('chibi', id) ? 'sprite' : 'drawn sprite'}` : 'Sprite sheet: none (drawn art). See README.md to add assets/characters.png';
-    text(ctx, sheetMsg, 24, H - 14, { size: 10, color: '#7a6aa0' });
+    const sheetMsg = cs.status === 'ok'
+      ? t('Sprite sheet: {a}, {b}', { a: t(cs.has('portrait', id) ? 'portrait' : 'drawn portrait'), b: t(cs.has('chibi', id) ? 'sprite' : 'drawn sprite') })
+      : t('Sprite sheet: none (drawn art). See README.md to add assets/characters.png');
+    text(ctx, sheetMsg, 24, H - 14, { size: 10, color: '#7a6aa0', maxWidth: W - 130 });
     text(ctx, `${this.i + 1} / ${SHEET_ORDER.length}   ← →`, W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0' });
   }
 }
@@ -763,18 +795,25 @@ export class SettingsPanel {
       app.applySettings();
     };
     const vol = (k, label) => ({
-      label,
+      label: () => t(label),
       value: () => Math.round(s()[k] * 100) + '%',
       left: () => set(k, clamp(Math.round((s()[k] - 0.1) * 10) / 10, 0, 1)),
       right: () => set(k, clamp(Math.round((s()[k] + 0.1) * 10) / 10, 0, 1)),
     });
     const cycle = (k, label, opts, names) => ({
-      label,
-      value: () => names[Math.max(0, opts.indexOf(s()[k]))],
+      label: () => t(label),
+      value: () => t(names[Math.max(0, opts.indexOf(s()[k]))]),
       left: () => set(k, opts[(opts.indexOf(s()[k]) - 1 + opts.length) % opts.length]),
       right: () => set(k, opts[(opts.indexOf(s()[k]) + 1) % opts.length]),
     });
+    // 'auto' follows the ArozOS system language; languages are named in their own script
+    const langs = ['auto', ...LANGS.map((l) => l.id)];
+    const lang = {
+      ...cycle('lang', 'Language', langs, langs),
+      value: () => (s().lang === 'auto' || !langs.includes(s().lang) ? `${t('System')} (${langName(systemLang())})` : langName(s().lang)),
+    };
     this.menu = new Menu([
+      lang,
       vol('master', 'Master Volume'),
       vol('music', 'Music Volume'),
       vol('sfx', 'Sound Volume'),
@@ -784,9 +823,9 @@ export class SettingsPanel {
       cycle('bgDetail', 'Background Detail', ['high', 'low'], ['High', 'Low']),
       cycle('renderScale', 'Render Resolution', [1, 0.75, 0.5], ['100%', '75%', '50%']),
       cycle('touchSensitivity', 'Touch Sensitivity', [0.8, 1, 1.2, 1.5, 2], ['0.8x', '1.0x', '1.2x', '1.5x', '2.0x']),
-      { label: 'Reset Settings', action: () => { Object.assign(app.save.data.settings, DEFAULT_SETTINGS); app.save.write(); app.applySettings(); } },
-      { label: 'Erase Scores and Progress', action: () => (this.confirm = new Menu([{ label: 'No, keep them', action: () => (this.confirm = null) }, { label: 'Yes, erase everything', action: () => { app.save.reset(); this.confirm = null; } }])) },
-      { label: 'Back', action: () => this.onClose() },
+      { label: () => t('Reset Settings'), action: () => { Object.assign(app.save.data.settings, DEFAULT_SETTINGS); app.save.write(); app.applySettings(); } },
+      { label: () => t('Erase Scores and Progress'), action: () => (this.confirm = new Menu([{ label: () => t('No, keep them'), action: () => (this.confirm = null) }, { label: () => t('Yes, erase everything'), action: () => { app.save.reset(); this.confirm = null; } }])) },
+      { label: () => t('Back'), action: () => this.onClose() },
     ]);
     this.confirm = null;
   }
@@ -808,14 +847,14 @@ export class SettingsPanel {
     ctx.setTransform(px, 0, 0, px, 0, 0);
     ctx.fillStyle = 'rgba(6,3,20,0.82)';
     ctx.fillRect(0, 0, W, H);
-    text(ctx, 'Settings', W / 2, 54, { size: 24, display: true, bold: true, align: 'center', glow: '#9070ff' });
-    this.menu.render(ctx, W / 2 - 170, 100, { gap: 28, size: 15, width: 340 });
+    text(ctx, t('Settings'), W / 2, 54, { size: 24, display: true, bold: true, align: 'center', glow: '#9070ff' });
+    this.menu.render(ctx, W / 2 - 170, 96, { gap: 27, size: 15, width: 340 });
     if (this.confirm) {
       panel(ctx, W / 2 - 160, 170, 320, 140, '#ff7a9a', 0.95);
-      text(ctx, 'Erase all scores, progress and card history?', W / 2, 205, { size: 13, serif: true, align: 'center', color: '#ffd0d8', maxWidth: 296 });
+      text(ctx, t('Erase all scores, progress and card history?'), W / 2, 205, { size: 13, serif: true, align: 'center', color: '#ffd0d8', maxWidth: 296 });
       this.confirm.render(ctx, W / 2, 248, { gap: 28, size: 15, width: 220, align: 'center' });
     }
-    text(ctx, '← → change    Z: choose    X: back', W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0' });
+    text(ctx, t('← → change    Z: choose    X: back'), W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0', maxWidth: W - 32 });
   }
 }
 
@@ -837,42 +876,6 @@ export class SettingsScene {
 }
 
 // ------------------------------------------------------------------ manual --
-const MANUAL = [
-  {
-    title: 'Controls',
-    lines: [
-      ['Move', 'Arrow keys  (or W A S D)'],
-      ['Shoot', 'Z  (or J / Space) - hold'],
-      ['Focus', 'Shift  (or L) - slow movement, shows your hitbox'],
-      ['Bomb', 'X  (or K)'],
-      ['Pause', 'Esc  (or P)'],
-      ['Skip dialogue', 'Hold Ctrl'],
-      ['Gamepad', 'D-pad / stick, A shoot, B bomb, X or RB focus, Start pause'],
-      ['Touch', 'Drag anywhere on the playfield to move (she follows your finger\'s motion) - she fires while you touch. Buttons appear in the sidebar.'],
-    ],
-  },
-  {
-    title: 'The Basics',
-    lines: [
-      ['Hitbox', 'Only the small dot at the centre of your heroine can be hit. Focus to see it. Bullets that brush past her count as a Graze, worth score and point value.'],
-      ['Power', 'Red P items raise power from 1.00 to 4.00. Each full point adds one option (lantern or mirror). Losing a life drops one point.'],
-      ['Points', 'Blue 点 items are worth more the higher you catch them. Above the collection line near the top of the screen, every item flies to you at full value.'],
-      ['Bombs', 'A bomb clears bullets and makes you invulnerable for a while. Bombing within a moment of being hit cancels the hit (a death-bomb).'],
-      ['Pieces', 'Pink blossoms are life pieces, green leaves bomb pieces. Three of a kind make a whole one.'],
-    ],
-  },
-  {
-    title: 'Cards',
-    lines: [
-      ['Hanafuda cards', 'Bosses fight with named attacks called cards. When one is declared her portrait sweeps across the screen and its name appears in the corner.'],
-      ['Capture', 'Clear a card without being hit or bombing to capture it and earn its bonus. The bonus shrinks as the timer runs down.'],
-      ['Rewards', 'Every capture also gives a bomb piece; capturing a boss\'s last card gives a life piece.'],
-      ['Card Practice', 'Every card you have seen can be replayed from the title menu with one life and no bombs.'],
-      ['Endings', 'Each heroine has a good ending for clearing all six stages without continuing, and another for those who continued.'],
-    ],
-  },
-];
-
 export class HowToScene {
   constructor(app) {
     this.app = app;
@@ -906,7 +909,7 @@ export class HowToScene {
     this.app.backdrop.render(ctx, px, 0.78);
     ctx.setTransform(px, 0, 0, px, 0, 0);
     const p = MANUAL[this.page];
-    text(ctx, 'How to Play', 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
+    text(ctx, t('How to Play'), 24, 36, { size: 22, display: true, bold: true, color: '#e8dcff', glow: '#9070ff' });
     text(ctx, p.title, W / 2, 74, { size: 18, display: true, bold: true, align: 'center', color: '#ffe0b0' });
     // shrink the page text until every entry fits above the footer
     let size = 12.5;
@@ -917,7 +920,14 @@ export class HowToScene {
       text(ctx, k, 32, y, { size: 13, display: true, bold: true, color: '#d8c0ff', maxWidth: 128 });
       y = paragraph(ctx, v, 172, y, 430, { size, serif: true, color: '#ece6ff', lineHeight: Math.round(size * 1.36) }) + 9;
     }
-    text(ctx, `${this.page + 1} / ${MANUAL.length}   ← → page    X: back`, W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0' });
+    text(ctx, `${this.page + 1} / ${MANUAL.length}   ${t('← → page    X: back')}`, W - 16, H - 14, { size: 11, align: 'right', color: '#7a6aa0', maxWidth: W - 32 });
     void TAU;
   }
+}
+
+/** Show one ending's pages (after a run, and the debug menu's story viewer). */
+export function openEnding(app, char, good, then) {
+  const e = ENDINGS[`${char}/${good ? 'good' : 'bad'}`];
+  const art = app.titleArt.endings[e.no] || null;
+  app.open('story', { pages: e.pages, heading: t('Ending No. {n}', { n: e.no }), footer: `「${e.title}」`, hint: e.hint, tint: e.tint, music: 'ending', art, then });
 }

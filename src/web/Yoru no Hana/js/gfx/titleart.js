@@ -1,9 +1,12 @@
 /**
- * Optional title screen art, both generated outside the game (prompts in
- * README.md) and both optional:
+ * Optional art, generated outside the game (prompts in README.md), each
+ * optional:
  *   assets/title.png       an opaque painting shown behind every menu
  *   assets/logo.png        the 夜の花 logo, ideally on transparency
- * Missing files simply leave the drawn backdrop and the text logo in place.
+ *   assets/roll.png        an opaque dawn painting behind the credits roll
+ *   assets/ending<n>.png   an opaque painting behind the pages of ending n (1-4)
+ * Missing files simply leave the drawn backdrop, the text logo and (for the
+ * credits and endings) the title painting in place.
  */
 import { loadImage, trimToContent } from './charart.js';
 
@@ -11,15 +14,23 @@ export class TitleArt {
   constructor() {
     this.bg = null;
     this.logo = null;
+    this.credits = null;
+    this.endings = {};
   }
 
   async load(base = 'assets/') {
     const stamp = '?v=' + Date.now();
-    const [bg, logo] = await Promise.all([
+    const [bg, logo, credits, ...endings] = await Promise.all([
       loadImage(base + 'title.png' + stamp).catch(() => null),
       loadImage(base + 'logo.png' + stamp).catch(() => null),
+      loadImage(base + 'roll.png' + stamp).catch(() => null),
+      ...[1, 2, 3, 4].map((n) => loadImage(base + `ending${n}.png` + stamp).catch(() => null)),
     ]);
     this.bg = bg;
+    this.credits = credits;
+    endings.forEach((img, i) => {
+      if (img) this.endings[i + 1] = img;
+    });
     if (logo) {
       try {
         this.logo = trimToContent(logo);

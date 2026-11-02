@@ -20,7 +20,7 @@ export const PROLOGUE_CHAR = {
 const A = 'akari';
 const S = 'shizuku';
 
-const DIALOGUE = {
+export const DIALOGUE = {
   akari: {
     1: {
       pre: [
@@ -301,10 +301,8 @@ export const ENDINGS = {
 export const CREDITS = [
   ['Yoru no Hana', '夜の花'],
   ['A bullet hell for ArozOS', ''],
-  ['Story, stages and danmaku', 'written in code'],
-  ['Music and sound', 'synthesised live with Web Audio'],
-  ['Backgrounds and bullets', 'drawn procedurally'],
-  ['Cast', 'Akari · Shizuku · Tomoe · Minamo · Kohaku · Itoha · Seira · Yoruka'],
+  ['Characters', 'Akari · Shizuku · Tomoe · Minamo · Kohaku · Itoha · Seira · Yoruka'],
+  ['© 2026', 'Released under the AGPL license'],
   ['', ''],
   ['Thank you for playing', 'See you next summer'],
 ];

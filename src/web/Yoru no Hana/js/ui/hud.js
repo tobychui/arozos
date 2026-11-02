@@ -8,6 +8,7 @@ import { TAU, rgba, fmtScore, fmtInt, FONT_DISPLAY, FONT_SERIF, FONT_UI, clamp, 
 import { CAST } from '../data/characters.js';
 import { flowerIcon } from '../gfx/art.js';
 import { SONGS } from '../audio/songs.js';
+import { t } from '../core/i18n.js';
 
 let frameCache = null;
 let frameCachePx = 0;
@@ -104,6 +105,10 @@ export function drawHud(ctx, G, px, input, fps) {
   ctx.fill();
   ctx.fillStyle = dcol;
   fitText(ctx, `${G.diff.name}  ${G.diff.jp}`, (x0 + x1) / 2, 38, x1 - x0 - 60, 'bold ', 13, FONT_DISPLAY);
+  if (G.cheated) {
+    ctx.fillStyle = '#ff8ac8';
+    fitText(ctx, t(G.mode === 'talk' ? 'Story viewer' : 'Cheats used - no score'), (x0 + x1) / 2, 57, x1 - x0, '', 9.5, FONT_UI);
+  }
 
   const label = (y, text) => {
     ctx.textAlign = 'left';
@@ -115,12 +120,12 @@ export function drawHud(ctx, G, px, input, fps) {
     ctx.fillStyle = color;
     fitText(ctx, text, x1, y, x1 - x0 - 72, 'bold ', 14, FONT_DISPLAY);
   };
-  label(72, 'HiScore');
+  label(72, t('HiScore'));
   value(72, fmtScore(Math.max(G.hiScore, G.score)), '#c8c0e8');
-  label(92, 'Score');
+  label(92, t('Score'));
   value(92, fmtScore(G.score));
 
-  label(124, 'Player');
+  label(124, t('Player'));
   for (let i = 0; i < 8; i++) {
     ctx.setTransform(px, 0, 0, px, (x0 + 62 + i * 15) * px, 120 * px);
     ctx.globalAlpha = i < G.lives ? 1 : 0.18;
@@ -131,9 +136,9 @@ export function drawHud(ctx, G, px, input, fps) {
   ctx.font = `10px ${FONT_UI}`;
   ctx.textAlign = 'right';
   ctx.fillStyle = '#e8a8c8';
-  ctx.fillText(`pieces ${G.lifePieces}/3`, x1, 137);
+  ctx.fillText(t('pieces {n}/3', { n: G.lifePieces }), x1, 137);
 
-  label(156, 'Bomb');
+  label(156, t('Bomb'));
   for (let i = 0; i < 8; i++) {
     ctx.setTransform(px, 0, 0, px, (x0 + 62 + i * 15) * px, 152 * px);
     ctx.globalAlpha = i < G.bombs ? 1 : 0.18;
@@ -155,19 +160,19 @@ export function drawHud(ctx, G, px, input, fps) {
   ctx.font = `10px ${FONT_UI}`;
   ctx.textAlign = 'right';
   ctx.fillStyle = '#a8e8b8';
-  ctx.fillText(`pieces ${G.bombPieces}/3`, x1, 169);
+  ctx.fillText(t('pieces {n}/3', { n: G.bombPieces }), x1, 169);
 
-  label(196, 'Power');
+  label(196, t('Power'));
   value(196, G.power >= 4 ? 'MAX' : `${G.power.toFixed(2)} / 4.00`, G.power >= 4 ? '#ffd86a' : '#ff8a9a');
-  label(216, 'Value');
+  label(216, t('Value'));
   value(216, fmtInt(G.pointValue), '#8ab0ff');
-  label(236, 'Graze');
+  label(236, t('Graze'));
   value(236, fmtInt(G.grazeCount), '#e0e0ff');
 
   ctx.textAlign = 'left';
   ctx.fillStyle = '#9a8ac8';
   const st = G.stage;
-  fitText(ctx, `Stage ${st.no}  ${st.jp}`, x0, 266, x1 - x0, '', 11.5, FONT_DISPLAY);
+  fitText(ctx, `${t('Stage {n}', { n: st.no })}  ${st.jp}`, x0, 266, x1 - x0, '', 11.5, FONT_DISPLAY);
   ctx.fillStyle = rgba(G.cast.color, 0.9);
   fitText(ctx, `${G.cast.name}  ·  ${G.player.def.shotName}`, x0, 282, x1 - x0, '', 11, FONT_SERIF);
 
@@ -187,9 +192,9 @@ export function drawHud(ctx, G, px, input, fps) {
       ctx.fillText(text, x + w / 2, y + h / 2 + 5);
       input.touchButtons.push({ x, y, w, h, action });
     };
-    btn(x0, 300, 88, 50, 'Bomb', 'bomb', input.held('bomb'));
-    btn(x0 + 96, 300, 88, 50, 'Focus', 'focus', input.held('focus'));
-    btn(x0, 358, 184, 30, 'Pause', 'pause', false);
+    btn(x0, 300, 88, 50, t('Bomb'), 'bomb', input.held('bomb'));
+    btn(x0 + 96, 300, 88, 50, t('Focus'), 'focus', input.held('focus'));
+    btn(x0, 358, 184, 30, t('Pause'), 'pause', false);
   }
 
   // boss position marker under the playfield
@@ -275,19 +280,19 @@ export function drawFieldOverlay(ctx, G, px) {
     fitText(ctx, ci.name, R - 6, y, nameMax, 'bold ', 12, FONT_DISPLAY);
     ctx.shadowBlur = 0;
     ctx.fillStyle = G.capture ? '#ffe68a' : '#a0a0b0';
-    const bonus = G.capture ? fmtInt(G.currentBonus()) : 'Failed';
-    fitText(ctx, `Bonus ${bonus}    History ${ci.hist[0]}/${ci.hist[1]}`, R - 6, y + 13, nameMax, '', 9, FONT_UI);
+    const bonus = G.capture ? fmtInt(G.currentBonus()) : t('Failed');
+    fitText(ctx, t('Bonus {v}    History {a}/{b}', { v: bonus, a: ci.hist[0], b: ci.hist[1] }), R - 6, y + 13, nameMax, '', 9, FONT_UI);
   }
 
   // cut-in portrait
   if (G.cutin) {
-    const t = G.cutin.t;
+    const ct = G.cutin.t;
     const spr = G.charArt.portrait(G.cutin.char, 300);
-    const k = t / 110;
+    const k = ct / 110;
     const x = R + spr.w * 0.2 - k * (PF.w + spr.w * 0.6);
     const y = T + PF.h * 0.42 + (k - 0.5) * 80;
     ctx.setTransform(px, 0, 0, px, x * px, y * px);
-    ctx.globalAlpha = Math.min(1, Math.min(t, 110 - t) / 20) * 0.75;
+    ctx.globalAlpha = Math.min(1, Math.min(ct, 110 - ct) / 20) * 0.75;
     ctx.drawImage(spr.img, -spr.w / 2, -spr.h / 2, spr.w, spr.h);
     ctx.globalAlpha = 1;
     ctx.setTransform(px, 0, 0, px, 0, 0);
@@ -295,9 +300,9 @@ export function drawFieldOverlay(ctx, G, px) {
 
   // boss name card
   if (G.bossTitle) {
-    const t = G.bossTitle.t;
+    const bt = G.bossTitle.t;
     const c = CAST[G.bossTitle.char];
-    const a = Math.min(1, t / 20) * Math.min(1, (200 - t) / 30);
+    const a = Math.min(1, bt / 20) * Math.min(1, (200 - bt) / 30);
     ctx.globalAlpha = a;
     ctx.textAlign = 'left';
     ctx.fillStyle = rgba(c.accent, 1);
@@ -308,7 +313,7 @@ export function drawFieldOverlay(ctx, G, px) {
     fitText(ctx, c.name, L + 24 + (1 - a) * 30, T + 88, PF.w - 48, 'bold ', 22, FONT_DISPLAY);
     ctx.shadowBlur = 0;
     ctx.fillStyle = rgba(c.color, 1);
-    fitText(ctx, c.jp, L + 26 + (1 - a) * 40, T + 106, PF.w - 48, '', 13, FONT_SERIF);
+    fitText(ctx, c.sub, L + 26 + (1 - a) * 40, T + 106, PF.w - 48, '', 13, FONT_SERIF);
     ctx.globalAlpha = 1;
   }
 
@@ -319,8 +324,8 @@ export function drawFieldOverlay(ctx, G, px) {
 }
 
 function drawBanner(ctx, G, bn, px) {
-  const t = bn.t;
-  const a = Math.min(1, t / 25) * Math.min(1, (bn.life - t) / 30);
+  const age = bn.t;
+  const a = Math.min(1, age / 25) * Math.min(1, (bn.life - age) / 30);
   const cx = PF.x + PF.w / 2;
   ctx.setTransform(px, 0, 0, px, 0, 0);
   ctx.globalAlpha = a;
@@ -332,7 +337,7 @@ function drawBanner(ctx, G, bn, px) {
       const y = PF.y + 150;
       const max = PF.w - 24;
       ctx.fillStyle = '#d8c8ff';
-      fitText(ctx, `Stage ${st.no}`, cx, y - 36, max, 'bold ', 13, FONT_DISPLAY);
+      fitText(ctx, t('Stage {n}', { n: st.no }), cx, y - 36, max, 'bold ', 13, FONT_DISPLAY);
       ctx.fillStyle = '#ffffff';
       ctx.shadowBlur = 10 * px;
       fitText(ctx, st.jp, cx, y + (1 - a) * 10, max, 'bold ', 34, FONT_SERIF);
@@ -342,8 +347,8 @@ function drawBanner(ctx, G, bn, px) {
       ctx.fillStyle = '#c8b8f0';
       fitText(ctx, st.sub, cx, y + 46, max, '', 12, FONT_SERIF);
       const song = SONGS.find((s) => s.id === st.music);
-      if (song && t > 40) {
-        ctx.globalAlpha = a * Math.min(1, (t - 40) / 20);
+      if (song && age > 40) {
+        ctx.globalAlpha = a * Math.min(1, (age - 40) / 20);
         ctx.textAlign = 'right';
         ctx.fillStyle = '#ffffff';
         fitText(ctx, 'BGM  ' + song.title, PF.x + PF.w - 8, PF.y + PF.h - 10, PF.w - 16, '', 11, FONT_SERIF);
@@ -353,15 +358,15 @@ function drawBanner(ctx, G, bn, px) {
     case 'clear':
       ctx.fillStyle = '#ffffff';
       ctx.shadowBlur = 8 * px;
-      fitText(ctx, 'Stage Clear', cx, PF.y + 170, PF.w - 24, 'bold ', 26, FONT_DISPLAY);
+      fitText(ctx, t('Stage Clear'), cx, PF.y + 170, PF.w - 24, 'bold ', 26, FONT_DISPLAY);
       ctx.shadowBlur = 0;
       ctx.fillStyle = '#ffe68a';
-      fitText(ctx, 'Bonus  ' + fmtInt(bn.bonus), cx, PF.y + 200, PF.w - 24, 'bold ', 15, FONT_DISPLAY);
+      fitText(ctx, t('Bonus  {n}', { n: fmtInt(bn.bonus) }), cx, PF.y + 200, PF.w - 24, 'bold ', 15, FONT_DISPLAY);
       break;
     case 'bonus':
       ctx.fillStyle = bn.value ? '#ffe68a' : '#b0b0c0';
       ctx.shadowBlur = 6 * px;
-      fitText(ctx, bn.text + (bn.value ? '!!' : ''), cx, PF.y + 120, PF.w - 24, 'bold ', 18, FONT_DISPLAY);
+      fitText(ctx, t(bn.text) + (bn.value ? '!!' : ''), cx, PF.y + 120, PF.w - 24, 'bold ', 18, FONT_DISPLAY);
       ctx.shadowBlur = 0;
       if (bn.value) {
         ctx.fillStyle = '#ffffff';
@@ -371,7 +376,7 @@ function drawBanner(ctx, G, bn, px) {
     case 'note':
       ctx.fillStyle = '#ffffff';
       ctx.shadowBlur = 6 * px;
-      fitText(ctx, bn.text, cx, PF.y + 260 - t * 0.2, PF.w - 24, 'bold ', 15, FONT_DISPLAY);
+      fitText(ctx, t(bn.text), cx, PF.y + 260 - bn.t * 0.2, PF.w - 24, 'bold ', 15, FONT_DISPLAY);
       ctx.shadowBlur = 0;
       break;
     default:

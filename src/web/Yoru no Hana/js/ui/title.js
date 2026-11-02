@@ -8,6 +8,7 @@
 import { W, H } from '../core/view.js';
 import { TAU, rgba, FONT_DISPLAY } from '../core/util.js';
 import { Menu, text } from './widgets.js';
+import { t } from '../core/i18n.js';
 
 export class Backdrop {
   constructor(art = null) {
@@ -36,9 +37,11 @@ export class Backdrop {
     this.petals = this.petals.filter((p) => p.y < H + 10 && p.x > -20);
   }
 
-  render(ctx, px, dim = 0) {
+  /** `painting` replaces the title painting (the credits roll passes its own). */
+  render(ctx, px, dim = 0, painting = null) {
     ctx.setTransform(px, 0, 0, px, 0, 0);
-    if (this.art && this.art.bg) this.drawPainting(ctx);
+    const img = painting || (this.art && this.art.bg);
+    if (img) this.drawPainting(ctx, img);
     else this.drawScene(ctx);
     this.drawDrifters(ctx);
     if (dim) {
@@ -48,8 +51,7 @@ export class Backdrop {
   }
 
   /** The painting, covering the frame, drifting slowly so it feels alive. */
-  drawPainting(ctx) {
-    const img = this.art.bg;
+  drawPainting(ctx, img) {
     const cover = Math.max(W / img.naturalWidth, H / img.naturalHeight);
     const s = cover * (1.05 + Math.sin(this.t * 0.0012) * 0.02);
     const dw = img.naturalWidth * s;
@@ -168,7 +170,7 @@ export class Backdrop {
 }
 
 /** The title logo; returns the y where the menu may start. */
-export function drawLogo(ctx, x, y, t, art = null) {
+export function drawLogo(ctx, x, y, time, art = null) {
   ctx.save();
   ctx.translate(x, y);
   let sub = 50;
@@ -182,11 +184,11 @@ export function drawLogo(ctx, x, y, t, art = null) {
     ctx.fillStyle = '#f0e6ff';
     ctx.fillText('Y o r u   n o   H a n a', 0, 30, 300);
   }
-  ctx.globalAlpha = 0.6 + Math.sin(t * 0.03) * 0.15;
+  ctx.globalAlpha = 0.6 + Math.sin(time * 0.03) * 0.15;
   ctx.font = `12px ${FONT_DISPLAY}`;
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffd8a8';
-  ctx.fillText('The Night That Would Not End', 0, sub, 300);
+  ctx.fillText(t('The Night That Would Not End'), 0, sub, 300);
   ctx.restore();
   return y + sub + 30;
 }
@@ -198,16 +200,16 @@ export class TitleScene {
     this.pressed = !!app.audio.ctx;
     const go = (name, o) => () => app.open(name, o);
     const items = [
-      { label: 'Start', action: go('select', { mode: 'story' }) },
-      { label: 'Practice Start', action: go('select', { mode: 'practice' }) },
-      { label: 'Card Practice', action: go('select', { mode: 'card' }) },
-      { label: 'Scores', action: go('scores') },
-      { label: 'Music Room', action: go('music') },
-      { label: 'Characters', action: go('gallery') },
-      { label: 'Settings', action: go('settings') },
-      { label: 'How to Play', action: go('howto') },
+      { label: () => t('Start'), action: go('select', { mode: 'story' }) },
+      { label: () => t('Practice Start'), action: go('select', { mode: 'practice' }) },
+      { label: () => t('Card Practice'), action: go('select', { mode: 'card' }) },
+      { label: () => t('Scores'), action: go('scores') },
+      { label: () => t('Music Room'), action: go('music') },
+      { label: () => t('Characters'), action: go('gallery') },
+      { label: () => t('Settings'), action: go('settings') },
+      { label: () => t('How to Play'), action: go('howto') },
     ];
-    if (app.inDesktop) items.push({ label: 'Quit', action: () => app.quit() });
+    if (app.inDesktop) items.push({ label: () => t('Quit'), action: () => app.quit() });
     this.menu = new Menu(items, { start });
   }
 
@@ -252,7 +254,7 @@ export class TitleScene {
     drawLogo(ctx, 470, 96, this.t, app.titleArt);
     if (!this.pressed) {
       ctx.globalAlpha = 0.5 + 0.5 * Math.sin(this.t * 0.08);
-      text(ctx, app.input.usedTouch ? 'Tap to begin' : 'Press Z or Enter', 470, 330, { size: 16, display: true, align: 'center', color: '#ffe8c0', maxWidth: 300 });
+      text(ctx, t(app.input.usedTouch ? 'Tap to begin' : 'Press Z or Enter'), 470, 330, { size: 16, display: true, align: 'center', color: '#ffe8c0', maxWidth: 300 });
       ctx.globalAlpha = 1;
     } else {
       const mt = Math.min(1, this.t / 30);
@@ -260,6 +262,6 @@ export class TitleScene {
       this.menu.render(ctx, 400, menuY, { gap: Math.min(27, (H - 24 - menuY) / this.menu.items.length), size: 17, width: 200 });
       ctx.globalAlpha = 1;
     }
-    text(ctx, 'v1.1', W - 8, H - 8, { size: 10, align: 'right', color: '#6a5a90' });
+    text(ctx, 'v1.2', W - 8, H - 8, { size: 10, align: 'right', color: '#6a5a90' });
   }
 }

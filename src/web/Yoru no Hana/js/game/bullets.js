@@ -11,7 +11,7 @@
 import { BTYPES, COLORS } from '../gfx/art.js';
 import { PF } from '../core/view.js';
 
-const GRAZE_R = 15;
+export const GRAZE_R = 15;
 
 export class BulletSystem {
   constructor(G) {
@@ -94,6 +94,8 @@ export class BulletSystem {
     const px = p.x;
     const py = p.y;
     const pr = p.hitR;
+    // difficulty bullet speed: every displacement is scaled, so a pattern keeps its shape
+    const k = G.diff.bulletSpeed || 1;
     const l = this.list;
     let anyDead = false;
     for (let i = 0; i < l.length; i++) {
@@ -120,15 +122,15 @@ export class BulletSystem {
             b.vy *= b.vMax / v;
           }
         }
-        b.x += b.vx;
-        b.y += b.vy;
+        b.x += b.vx * k;
+        b.y += b.vy * k;
       } else {
         b.s += b.acc;
         if (b.s < b.sMin) b.s = b.sMin;
         else if (b.s > b.sMax) b.s = b.sMax;
         b.a += b.w;
-        b.x += Math.cos(b.a) * b.s;
-        b.y += Math.sin(b.a) * b.s;
+        b.x += Math.cos(b.a) * b.s * k;
+        b.y += Math.sin(b.a) * b.s * k;
       }
       if (b.def.spin) b.spinA += b.def.spin;
       const m = b.margin;
