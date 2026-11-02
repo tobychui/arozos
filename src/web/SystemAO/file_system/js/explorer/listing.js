@@ -165,6 +165,15 @@ function listDirectory(path, callback=undefined, recordUndo=true){
     path, and render whichever comes back - the files, or why there are none.
 */
 function requestDirectoryListing(path, callback, selectedFiles, currentScrollTop){
+    //With a view mode kept per folder, the folder's own one has to be in
+    //place before anything is drawn (viewmode.js)
+    if (folderViewModePending(path)){
+        loadFolderViewMode(path, function(){
+            requestDirectoryListing(path, callback, selectedFiles, currentScrollTop);
+        });
+        return;
+    }
+
     //Get sort mode from server side
     let loadStartPath = currentPath;
     $.ajax({

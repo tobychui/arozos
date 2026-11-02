@@ -1,0 +1,394 @@
+<style>
+#fmsRoot {
+    font-family: var(--ss-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+    color: var(--ss-text);
+}
+
+/* The size limit is three controls; let them drop under the label when narrow */
+#fmsRoot .fms-wrap { flex-wrap: wrap; }
+#fmsRoot .fms-wrap .ss-control { flex-wrap: wrap; justify-content: flex-end; }
+
+/* Spelled out: the unit input only dims through its own opacity */
+#fmsRoot .ss-unit-input.disabled,
+#fmsRoot .ss-select:disabled { opacity: 0.5; cursor: not-allowed; }
+#fmsRoot .ss-unit-input.disabled input { cursor: not-allowed; }
+</style>
+
+<div id="fmsRoot">
+    <div class="ss-page-desc" locale="fms/desc">How the File Manager looks and behaves for your account. Changes are saved as you make them.</div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M8 1.7v12.6"/><path d="M8 1.7a6.3 6.3 0 0 1 0 12.6z" fill="currentColor"/></svg>
+            <span locale="fms/appearance">Appearance</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="fms/theme">Theme</div>
+                    <div class="ss-row-desc" locale="fms/theme/desc">Shared with the desktop and the other system apps.</div>
+                </div>
+                <div class="ss-segmented" id="fmsTheme">
+                    <button type="button" data-value="whiteTheme" locale="fms/theme/light">Light</button>
+                    <button type="button" data-value="darkTheme" locale="fms/theme/dark">Dark</button>
+                </div>
+            </div>
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="fms/toolbar">Operation toolbar</div>
+                    <div class="ss-row-desc" locale="fms/toolbar/desc">Show the classic row of file operation buttons above the file list. Not shown on phones.</div>
+                </div>
+                <label class="ss-switch">
+                    <input type="checkbox" id="fmsToolbar">
+                    <span class="ss-track"></span>
+                </label>
+            </div>
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="fms/hidden">Show hidden files</div>
+                    <div class="ss-row-desc" locale="fms/hidden/desc">List files and folders whose names start with a dot.</div>
+                </div>
+                <label class="ss-switch">
+                    <input type="checkbox" id="fmsHidden">
+                    <span class="ss-track"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+            <span locale="fms/view">View</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="fms/startview">Opening view</div>
+                    <div class="ss-row-desc" id="fmsStartViewDesc"></div>
+                </div>
+                <select class="ss-select" id="fmsStartView">
+                    <option value="last" locale="fms/startview/last">Last used</option>
+                    <option value="grid" locale="fms/startview/grid">Grid</option>
+                    <option value="list" locale="fms/startview/list">List</option>
+                    <option value="details" locale="fms/startview/details">Details</option>
+                    <option value="folder" locale="fms/startview/folder">Per folder</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.5V2.5M4.8 5.7L8 2.5l3.2 3.2"/><path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/></svg>
+            <span locale="fms/uploads">Uploads</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="fms/autoclose">Close the upload list when done</div>
+                    <div class="ss-row-desc" locale="fms/autoclose/desc">Clears the list a moment after the last task finishes. A failed task keeps it open so you can retry it.</div>
+                </div>
+                <label class="ss-switch">
+                    <input type="checkbox" id="fmsAutoClose">
+                    <span class="ss-track"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4"/></svg>
+            <span locale="fms/trash">Trash Bin</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="ts/retention/title">Automatic Removal</div>
+                    <div class="ss-row-desc" locale="ts/retention/desc">Files in the trash bin are permanently removed once they are older than this. Turn it off to keep them until you empty the bin yourself.</div>
+                </div>
+                <select class="ss-select" id="fmsRetention"></select>
+            </div>
+            <div class="ss-row fms-wrap">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="ts/quota/title">Trash Bin Size Limit</div>
+                    <div class="ss-row-desc"><span locale="ts/quota/desc">When the limit is reached, deleting a file will ask you whether to empty the bin first, delete the file outright, or cancel.</span> <span id="fmsUsage"></span></div>
+                </div>
+                <div class="ss-control">
+                    <select class="ss-select" id="fmsQuotaMode">
+                        <option value="unlimited" locale="ts/quota/unlimited">No limit</option>
+                        <option value="limited" locale="ts/quota/limited">Limit to</option>
+                    </select>
+                    <div class="ss-unit-input" id="fmsQuotaBox">
+                        <input type="number" id="fmsQuotaValue" min="1" step="1" value="5">
+                    </div>
+                    <select class="ss-select" id="fmsQuotaUnit">
+                        <option value="1048576">MB</option>
+                        <option value="1073741824" selected>GB</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    /*
+        File Manager settings.
+
+        Everything here is a per user preference the File Manager already
+        reads (file_explorer/* in the preference store, see ui.js in
+        file_system/js/explorer), except the trash bin values, which have
+        their own endpoint. Each control saves on change.
+
+        A File Manager that is already open reads its preferences on start
+        only, so every write is also announced through localStorage
+        (file_explorer/settingsChanged); its storage listener applies it.
+    */
+    /*
+        Own locale instance rather than the shared global one: this page is
+        loaded as a fragment into System Settings, which keeps its own strings
+        on the global applocale and re-reads them whenever the nav redraws.
+        Initialising the global here would replace them.
+    */
+    var fmsLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
+        init: function (f, cb) { cb(); },
+        translate: function () {},
+        getString: function (k, fallback) { return fallback; }
+    };
+
+    function fmsStr(key, fallback) {
+        return (fmsLocale && fmsLocale.getString) ? fmsLocale.getString(key, fallback) : fallback;
+    }
+
+    var PREF_URL = "../../system/file_system/preference";
+    var TRASH_URL = "../../system/file_system/trashSettings";
+    var START_VIEW_MODES = ["last", "grid", "list", "details", "folder"];
+
+    function fmsSaved() {
+        if (typeof msgbox === "function") msgbox(fmsStr("ts/saved", "Saved"), true, 1500);
+    }
+
+    function fmsFailed(message) {
+        if (typeof msgbox === "function") msgbox(message || fmsStr("ts/savefailed", "Could not save"), false);
+    }
+
+    //Resolves with the stored string, or null when the key was never set
+    function fmsReadPref(key, cb) {
+        $.get(PREF_URL, { key: key }, function (data) {
+            cb(typeof data === "string" ? data : null);
+        }).fail(function () { cb(null); });
+    }
+
+    function fmsWritePref(key, value, done) {
+        $.get(PREF_URL, { key: key, value: value }, function (data) {
+            if (data != null && data.error !== undefined) {
+                fmsFailed();
+                return;
+            }
+            try {
+                localStorage.setItem("file_explorer/settingsChanged",
+                    JSON.stringify({ key: key, value: value, ts: Date.now() }));
+            } catch (e) {}
+            fmsSaved();
+            if (done) done();
+        }).fail(function () { fmsFailed(); });
+    }
+
+    /*
+        Theme
+
+        The File Manager's dark theme is the system theme, so this is the
+        same switch as the desktop's: set it, then let the desktop re-theme
+        itself and every open window (or, in a standalone tab, broadcast it
+        the way ao_module does).
+    */
+    function fmsShowTheme(isDark) {
+        $("#fmsTheme button").each(function () {
+            $(this).toggleClass("active", ($(this).attr("data-value") === "darkTheme") === isDark);
+        });
+    }
+
+    function fmsSetTheme(isDark) {
+        var pref = isDark ? "darkTheme" : "whiteTheme";
+        fmsShowTheme(isDark);
+        fmsWritePref("file_explorer/theme", pref, function () {
+            var desktop = null;
+            try {
+                if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop &&
+                    typeof parent.initTheme === "function") {
+                    desktop = parent;
+                }
+            } catch (e) {}
+            if (desktop != null) {
+                desktop.initTheme(pref);
+            } else if (typeof _ao_theme_broadcast === "function") {
+                _ao_theme_broadcast(isDark ? "dark" : "light");
+            }
+        });
+    }
+
+    //Opening view
+    function fmsShowStartViewDesc() {
+        var mode = $("#fmsStartView").val();
+        var fallback = {
+            last: "Opens in the view you used last.",
+            grid: "Always opens in the grid view, whichever view you used last.",
+            list: "Always opens in the list view, whichever view you used last.",
+            details: "Always opens in the details view, whichever view you used last.",
+            folder: "Every folder opens in the view you last used in it, the way it keeps its sort order. New folders use the view you chose last."
+        };
+        $("#fmsStartViewDesc").text(fmsStr("fms/startview/desc/" + mode, fallback[mode]));
+    }
+
+    function fmsLoadPreferences() {
+        fmsReadPref("file_explorer/theme", function (v) {
+            fmsShowTheme(v === "darkTheme");
+        });
+        //Shown unless turned off, as in the File Manager
+        fmsReadPref("file_explorer/oprbar", function (v) {
+            $("#fmsToolbar").prop("checked", v !== "false");
+        });
+        fmsReadPref("file_explorer/showHidden", function (v) {
+            $("#fmsHidden").prop("checked", v === "true");
+        });
+        fmsReadPref("file_explorer/startView", function (v) {
+            $("#fmsStartView").val(START_VIEW_MODES.indexOf(v) >= 0 ? v : "last");
+            fmsShowStartViewDesc();
+        });
+        fmsReadPref("file_explorer/uploadAutoClose", function (v) {
+            $("#fmsAutoClose").prop("checked", v === "true");
+        });
+    }
+
+    /*
+        Trash bin
+
+        Both values treat zero as "no limit" - which is also what an account
+        that has never set them reads back, so the behaviour before these
+        settings existed is preserved.
+    */
+    var TRASH_RETENTION_CHOICES = [0, 7, 14, 30, 60, 90, 180, 365];
+
+    function fmsBuildRetentionOptions() {
+        var sel = document.getElementById("fmsRetention");
+        sel.innerHTML = "";
+        TRASH_RETENTION_CHOICES.forEach(function (days) {
+            var opt = document.createElement("option");
+            opt.value = String(days);
+            opt.textContent = days === 0
+                ? fmsStr("ts/retention/off", "Never remove automatically")
+                : fmsStr("ts/retention/days", "%d days").replace("%d", days);
+            sel.appendChild(opt);
+        });
+    }
+
+    function fmsFormatBytes(bytes) {
+        if (!(bytes > 0)) return "0 B";
+        var units = ["B", "KB", "MB", "GB", "TB"];
+        var i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+        return (bytes / Math.pow(1024, i)).toFixed(1) + " " + units[i];
+    }
+
+    function fmsSyncQuotaInputs() {
+        var limited = $("#fmsQuotaMode").val() === "limited";
+        $("#fmsQuotaValue").prop("disabled", !limited);
+        $("#fmsQuotaUnit").prop("disabled", !limited);
+        $("#fmsQuotaBox").toggleClass("disabled", !limited);
+    }
+
+    function fmsLoadTrash() {
+        $.get(TRASH_URL, function (data) {
+            if (data == null || data.error !== undefined) {
+                return;
+            }
+            $("#fmsRetention").val(String(data.RetentionDays || 0));
+
+            if (data.QuotaBytes > 0) {
+                $("#fmsQuotaMode").val("limited");
+                //Show whole GB where it divides evenly, otherwise fall back to MB
+                if (data.QuotaBytes % 1073741824 === 0) {
+                    $("#fmsQuotaUnit").val("1073741824");
+                    $("#fmsQuotaValue").val(data.QuotaBytes / 1073741824);
+                } else {
+                    $("#fmsQuotaUnit").val("1048576");
+                    $("#fmsQuotaValue").val(Math.max(1, Math.round(data.QuotaBytes / 1048576)));
+                }
+            } else {
+                $("#fmsQuotaMode").val("unlimited");
+            }
+            fmsSyncQuotaInputs();
+
+            $("#fmsUsage").text(fmsStr("ts/quota/inuse", "Currently using %s").replace("%s", fmsFormatBytes(data.UsedBytes)));
+        });
+    }
+
+    function fmsSaveTrash() {
+        var quotaBytes = 0;
+        $("#fmsQuotaBox").removeClass("invalid");
+        if ($("#fmsQuotaMode").val() === "limited") {
+            var amount = parseFloat($("#fmsQuotaValue").val());
+            var unit = parseInt($("#fmsQuotaUnit").val());
+            if (!(amount > 0)) {
+                $("#fmsQuotaBox").addClass("invalid");
+                fmsFailed(fmsStr("ts/invalid", "Enter a size larger than zero"));
+                return;
+            }
+            quotaBytes = Math.round(amount * unit);
+        }
+
+        $.post(TRASH_URL, {
+            retentionDays: $("#fmsRetention").val(),
+            quotaBytes: String(quotaBytes)
+        }, function (data) {
+            if (data != null && data.error !== undefined) {
+                fmsFailed(data.error);
+                return;
+            }
+            fmsSaved();
+        }).fail(function () { fmsFailed(); });
+    }
+
+    /* Boot */
+    $("#fmsTheme").on("click", "button", function () {
+        var wantDark = $(this).attr("data-value") === "darkTheme";
+        if ($(this).hasClass("active")) return;
+        fmsSetTheme(wantDark);
+    });
+    $("#fmsToolbar").on("change", function () {
+        fmsWritePref("file_explorer/oprbar", this.checked ? "true" : "false");
+    });
+    $("#fmsHidden").on("change", function () {
+        fmsWritePref("file_explorer/showHidden", this.checked ? "true" : "false");
+    });
+    $("#fmsStartView").on("change", function () {
+        fmsShowStartViewDesc();
+        fmsWritePref("file_explorer/startView", $(this).val());
+    });
+    $("#fmsAutoClose").on("change", function () {
+        fmsWritePref("file_explorer/uploadAutoClose", this.checked ? "true" : "false");
+    });
+    $("#fmsRetention").on("change", fmsSaveTrash);
+    $("#fmsQuotaMode").on("change", function () {
+        fmsSyncQuotaInputs();
+        fmsSaveTrash();
+    });
+    $("#fmsQuotaValue, #fmsQuotaUnit").on("change", fmsSaveTrash);
+
+    //The desktop or another window may flip the theme while this page is open
+    window.detailPageThemeCallback = function (isDark) {
+        fmsShowTheme(isDark);
+    };
+
+    fmsLocale.init("../locale/disk/filemanager.json", function () {
+        fmsBuildRetentionOptions();
+        fmsLocale.translate();
+        fmsShowStartViewDesc();
+        fmsSyncQuotaInputs();
+        fmsLoadPreferences();
+        fmsLoadTrash();
+    });
+})();
+</script>

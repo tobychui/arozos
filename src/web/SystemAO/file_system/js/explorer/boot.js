@@ -44,6 +44,11 @@ $(document).ready(function(){
             updateHiddenFilesToggle();
         });
 
+        //The transfer panel may clear itself once every task is done
+        loadPreference("file_explorer/uploadAutoClose", function(value){
+            uploadAutoClose = (value === "true");
+        });
+
         //Restore the details view's column order and widths
         loadDetailsColumns();
 

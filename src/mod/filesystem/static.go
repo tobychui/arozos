@@ -11,6 +11,7 @@ import (
 	"mime"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -98,24 +99,31 @@ func MatchingFileSystem(fsa *FileSystemHandler, fsb *FileSystemHandler) bool {
 	return fsa.Filesystem == fsb.Filesystem
 }
 
-// Get the ID part of a virtual path, return ID, subpath and error
+/*
+Get the ID part of a virtual path, return ID, subpath and error
+
+The ID is split off before the subpath is cleaned. Cleaning the whole path
+read "user:.." as one ordinary element, so "user:../bob/notes.txt" kept its
+".." and every caller joined it onto the requesting user's home folder. A
+subpath that climbs above its root is now refused with
+arozfs.ErrPathEscapesRoot.
+*/
 func GetIDFromVirtualPath(vpath string) (string, string, error) {
 	if !strings.Contains(vpath, ":") {
 		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
 	}
 
-	//Clean up the virutal path
-	vpath = arozfs.ToSlash(filepath.Clean(vpath))
-
-	tmp := strings.Split(vpath, ":")
-	vdID := tmp[0]
-	if strings.HasPrefix(vdID, "./") {
-		//For newer go version where Clean return with ./ prefix
-		vdID = strings.TrimPrefix(vdID, "./")
+	vdID, subpath, _ := strings.Cut(arozfs.ToSlash(vpath), ":")
+	//Older code passed paths through filepath.Clean, which prefixes "./"
+	vdID = strings.TrimPrefix(vdID, "./")
+	if arozfs.SubpathEscapesRoot(subpath) {
+		return "", "", arozfs.ErrPathEscapesRoot
 	}
-	pathSlice := tmp[1:]
-	path := strings.Join(pathSlice, ":")
-	return vdID, path, nil
+	if subpath != "" {
+		//A bare root ("user:/") still gives an empty subpath, as before
+		subpath = strings.TrimSuffix(path.Clean(subpath), "/")
+	}
+	return vdID, subpath, nil
 }
 
 func GetFileDataFromPath(fsh *FileSystemHandler, vpath string, realpath string, sizeRounding int) FileData {

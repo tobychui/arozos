@@ -41,6 +41,18 @@ const FM_MAIN_MIN_WIDTH = 320;      //the file list never shrinks past this
 let sideBarShown = true; //Indicate if sidebar is shown
 let currentTheme = "whiteTheme"; //Default theme
 let viewMode = "list"; //Viewmode, support {list, grid, detail}
+/*
+    How the view mode is picked when the File Manager opens (System Settings >
+    File Manager, stored as file_explorer/startView):
+        last    - the view used last (file_explorer/listmode), the default
+        grid / list / details - always that view
+        folder  - every folder in the view last used in it (fs-viewpref)
+*/
+const FM_VIEW_MODES = ["grid", "list", "details"];
+const FM_START_VIEW_MODES = ["last", "grid", "list", "details", "folder"];
+let startViewMode = "last";
+let lastUsedViewMode = "list";       //Last view picked anywhere; what a folder without its own falls back to
+let viewModeFolder = null;           //Folder whose own view mode is on screen, in "folder" start mode
 let sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall, mostRecent, leastRecent}
 let currentPath = "user:/"
 let showOprBar = true;               //Classic file operation toolbar, persisted server side
@@ -133,6 +145,10 @@ let uploadPanelCollapsed = false;
 //Panel minimized to the compact card (ring + total only) in the same corner
 let uploadPanelCompact = false;
 const MAX_FINISHED_UPLOAD_ROWS = 60; //Trim completed rows past this to keep mass uploads responsive
+//Clear the panel once every task has finished (file_explorer/uploadAutoClose)
+let uploadAutoClose = false;
+let uploadAutoCloseTimer = null;
+const UPLOAD_AUTOCLOSE_DELAY_MS = 2000; //Long enough to see the last task turn green
 
 /*
     The task list follows the transfer that is currently in flight, so a long

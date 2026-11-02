@@ -93,8 +93,11 @@ func (u *User) GetInterfaceModules() []string {
 
 // Check if the user has access to this virthal filepath
 func (u *User) GetPathAccessPermission(vpath string) string {
-	fsid, _, err := getIDFromVirtualPath(filepath.ToSlash(vpath))
-	if err != nil {
+	fsid, subpath, err := getIDFromVirtualPath(filepath.ToSlash(vpath))
+	if err != nil || arozfs.SubpathEscapesRoot(subpath) {
+		//Everything below decides by the storage pool alone, so a subpath
+		//that climbs out of the pool or the user's home ("user:../bob")
+		//must be denied here
 		return arozfs.FsDenied
 	}
 	topAccessRightStoragePool, err := u.GetHighestAccessRightStoragePool(fsid)

@@ -541,6 +541,7 @@ function updateUploadFileCount(){
     updateUploadSummary();
     trimFinishedUploadRows();
     applyUploadPanelVisibility();
+    scheduleUploadAutoClose();
 
     //Fired from here rather than from setUploadTaskProgress: this runs when a
     //task is added or changes state, which is exactly when the active row moves
@@ -706,6 +707,39 @@ function clearCompletedUploads(){
         $(this).remove();
     });
     updateUploadFileCount();
+}
+
+/*
+    Auto close (System Settings > File Manager > Uploads). Once every task has
+    finished the list clears itself after a short pause, as "Clear completed"
+    would. Any change to the list restarts the wait. A failed task keeps the
+    panel open, since clearing it would throw away its Retry.
+*/
+function scheduleUploadAutoClose(){
+    clearTimeout(uploadAutoCloseTimer);
+    uploadAutoCloseTimer = null;
+    if (!uploadAutoClose || !allUploadTasksDone()){
+        return;
+    }
+    uploadAutoCloseTimer = setTimeout(function(){
+        uploadAutoCloseTimer = null;
+        if (uploadAutoClose && allUploadTasksDone()){
+            clearCompletedUploads();
+        }
+    }, UPLOAD_AUTOCLOSE_DELAY_MS);
+}
+
+function allUploadTasksDone(){
+    if (uploadTaskInfo.size == 0){
+        return false;
+    }
+    let allDone = true;
+    uploadTaskInfo.forEach(function(info){
+        if (info.state != "done"){
+            allDone = false;
+        }
+    });
+    return allDone;
 }
 
 function cancelAllUploads(){

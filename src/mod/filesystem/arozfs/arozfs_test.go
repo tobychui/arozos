@@ -463,3 +463,125 @@ func TestClean_Empty(t *testing.T) {
 		t.Errorf("Clean(\"\") = %q, want %q", got, ".")
 	}
 }
+
+// --- Traversal out of a storage root or a user's home ---
+
+func TestSubpathEscapesRoot(t *testing.T) {
+	tests := []struct {
+		subpath string
+		want    bool
+	}{
+		{"", false},
+		{"/", false},
+		{"/Desktop/notes.txt", false},
+		{"Desktop/notes.txt", false},
+		{"/Desktop/../Music", false},
+		{"/Desktop/./a/../..", false},
+		{"/a..b/c...d", false},
+		{"..", true},
+		{"/..", true},
+		{"../bob/secret.txt", true},
+		{"/Desktop/../../bob", true},
+		{"..\\bob\\secret.txt", true},
+		{"/Desktop\\..\\..\\bob", true},
+		{"/.. /bob", true},
+		{"/.../bob", true},
+		{"/ /bob", true},
+	}
+
+	for _, tt := range tests {
+		if got := SubpathEscapesRoot(tt.subpath); got != tt.want {
+			t.Errorf("SubpathEscapesRoot(%q) = %v, want %v", tt.subpath, got, tt.want)
+		}
+	}
+}
+
+func TestCleanSubpath(t *testing.T) {
+	tests := []struct {
+		subpath string
+		want    string
+	}{
+		{"", "/"},
+		{".", "/"},
+		{"/", "/"},
+		{"Desktop", "/Desktop"},
+		{"/Desktop/", "/Desktop"},
+		{"//Desktop///a.txt", "/Desktop/a.txt"},
+		{"\\Desktop\\a.txt", "/Desktop/a.txt"},
+		{"/Desktop/../Music", "/Music"},
+	}
+
+	for _, tt := range tests {
+		got, err := CleanSubpath(tt.subpath)
+		if err != nil {
+			t.Errorf("CleanSubpath(%q) unexpected error: %v", tt.subpath, err)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("CleanSubpath(%q) = %q, want %q", tt.subpath, got, tt.want)
+		}
+	}
+
+	if _, err := CleanSubpath("/Desktop/../../bob"); !errors.Is(err, ErrPathEscapesRoot) {
+		t.Errorf("CleanSubpath escaping the root: error = %v, want %v", err, ErrPathEscapesRoot)
+	}
+}
+
+func TestGenericVirtualPathToRealPathTranslator_KeepsUserInHome(t *testing.T) {
+	tests := []struct {
+		subpath string
+		want    string
+	}{
+		{"user:/", "users/alice"},
+		{"user:", "users/alice"},
+		{"/", "users/alice"},
+		{"user:/Desktop/notes.txt", "users/alice/Desktop/notes.txt"},
+		{"user:/Desktop/../Music/a.mp3", "users/alice/Music/a.mp3"},
+		{"/Desktop/notes.txt", "users/alice/Desktop/notes.txt"},
+		{"./user:/Desktop", "users/alice/Desktop"},
+	}
+
+	for _, tt := range tests {
+		got, err := GenericVirtualPathToRealPathTranslator("user", "user", tt.subpath, "alice")
+		if err != nil {
+			t.Errorf("translate(%q) unexpected error: %v", tt.subpath, err)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("translate(%q) = %q, want %q", tt.subpath, got, tt.want)
+		}
+	}
+}
+
+/*
+The traversal reported against v2.025: "user:" glued to ".." made one
+element filepath.Clean left alone, so alice's "user:../bob/secret.txt"
+resolved to users/bob/secret.txt.
+*/
+func TestGenericVirtualPathToRealPathTranslator_RejectsTraversal(t *testing.T) {
+	for _, hierarchy := range []string{"user", "public"} {
+		for _, subpath := range []string{
+			"user:../bob/secret.txt",
+			"user:..",
+			"user:/../bob",
+			"user:/Desktop/../../bob/secret.txt",
+			"user:..\\bob\\secret.txt",
+			"../bob/secret.txt",
+			"/../../system/ao.db",
+			"user:/.. /bob",
+		} {
+			got, err := GenericVirtualPathToRealPathTranslator("user", hierarchy, subpath, "alice")
+			if !errors.Is(err, ErrPathEscapesRoot) {
+				t.Errorf("[%s] translate(%q) = %q, %v; want %v", hierarchy, subpath, got, err, ErrPathEscapesRoot)
+			}
+		}
+	}
+}
+
+func TestGenericVirtualPathToRealPathTranslator_RejectsUnsafeUsername(t *testing.T) {
+	for _, username := range []string{"", ".", "..", "../bob", "a/b", "a\\b"} {
+		if got, err := GenericVirtualPathToRealPathTranslator("user", "user", "/Desktop", username); err == nil {
+			t.Errorf("translate for username %q = %q, want an error", username, got)
+		}
+	}
+}

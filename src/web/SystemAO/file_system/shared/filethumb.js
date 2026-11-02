@@ -7,7 +7,9 @@
     glyph drawing, thumbnail streaming and default-opener lookup all live here
     instead of being duplicated per app.
 
-    Everything is exposed on the global FileThumb object.
+    Everything is exposed on the global FileThumb object. Load
+    shared/escape.js before this file: FileThumb.escapeHTML and every glyph
+    builder use the escapeHTML it defines.
 
         FileThumb.getExt("a.tar.gz")            -> "gz"
         FileThumb.smallGlyph(name, isDir)       -> markup for list rows

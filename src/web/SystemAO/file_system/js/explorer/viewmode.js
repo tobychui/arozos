@@ -11,9 +11,19 @@
     function changeViewMode(object){
         var targetMode = $(object).attr("mode");
         viewMode = targetMode;
+        lastUsedViewMode = targetMode;
         refreshList(undefined, true);
         updateViewmodeButtons();
         setPreference("file_explorer/listmode",targetMode)
+        if (startViewMode == "folder"){
+            //Kept for this folder, the way its sort order is
+            viewModeFolder = currentPath;
+            $.ajax({
+                url: "../../system/file_system/viewMode",
+                method: "POST",
+                data: {opr: "set", folder: currentPath, mode: targetMode}
+            });
+        }
     }
 
     //Toggle properties view
@@ -83,19 +93,113 @@ function updateViewmodeButtons(){
         });
     }
 
+    /*
+        Pick the view mode the File Manager opens in, from the opening view
+        setting (startViewMode in state.js) and the view used last. Both are
+        asked for at once; the listing waits for the two answers.
+    */
     function loadListModeFromDB(callback = undefined){
-            //Get list mode from storage
-            loadPreference("file_explorer/listmode",function(data){
-            if (data != "" && data.error === undefined){
-                viewMode = data;
-                updateViewmodeButtons();
+        let startView = null;
+        let listMode = null;
+        let pending = 2;
+        let done = function(){
+            pending--;
+            if (pending > 0){
+                return;
             }
+            startViewMode = FM_START_VIEW_MODES.includes(startView) ? startView : "last";
+            if (FM_VIEW_MODES.includes(listMode)){
+                lastUsedViewMode = listMode;
+            }
+            if (FM_VIEW_MODES.includes(startViewMode)){
+                viewMode = startViewMode;
+            }else if (FM_VIEW_MODES.includes(listMode)){
+                //"last", and the fallback of "folder" before a folder is listed
+                viewMode = listMode;
+            }
+            updateViewmodeButtons();
 
             if (callback !== undefined){
                 callback();
             }
+        };
+        loadPreference("file_explorer/startView", function(data){
+            startView = (typeof data == "string") ? data : null;
+            done();
+        });
+        loadPreference("file_explorer/listmode", function(data){
+            listMode = (typeof data == "string") ? data : null;
+            done();
         });
     }
+
+    /*
+        "Per folder" opening view: a folder opens in the view last used in it,
+        or in the view picked last when it has none of its own. Only fetched
+        when the folder changes, so refreshing a folder keeps the view on
+        screen, and not during a search, which always lists.
+    */
+    function folderViewModePending(path){
+        return startViewMode == "folder" && !searchMode && path != viewModeFolder;
+    }
+
+    function loadFolderViewMode(path, callback){
+        viewModeFolder = path;
+        $.ajax({
+            url: "../../system/file_system/viewMode",
+            method: "POST",
+            data: {opr: "get", folder: path},
+            success: function(data){
+                if (currentPath != path){
+                    return;
+                }
+                let mode = FM_VIEW_MODES.includes(data) ? data : lastUsedViewMode;
+                if (mode != viewMode){
+                    viewMode = mode;
+                    updateViewmodeButtons();
+                }
+            },
+            complete: function(){
+                //Another folder was opened meanwhile; its own listing takes over
+                if (currentPath == path){
+                    callback();
+                }
+            }
+        });
+    }
+
+    /*
+        System Settings > File Manager announces every preference it writes
+        under file_explorer/settingsChanged. A File Manager reads these on
+        start only, so an open one applies them here.
+    */
+    function applyChangedSetting(key, value){
+        if (key == "file_explorer/oprbar"){
+            showOprBar = (value !== "false");
+            applyOprBarVisibility();
+        }else if (key == "file_explorer/showHidden"){
+            showHiddenFiles = (value === "true");
+            updateHiddenFilesToggle();
+            refreshList(undefined, true);
+        }else if (key == "file_explorer/startView"){
+            startViewMode = FM_START_VIEW_MODES.includes(value) ? value : "last";
+            //The view on screen stays until another folder is opened
+            viewModeFolder = currentPath;
+        }else if (key == "file_explorer/uploadAutoClose"){
+            uploadAutoClose = (value === "true");
+            scheduleUploadAutoClose();
+        }
+    }
+
+    window.addEventListener("storage", function(event){
+        if (event.key != "file_explorer/settingsChanged" || event.newValue == null){
+            return;
+        }
+        try {
+            let change = JSON.parse(event.newValue);
+            applyChangedSetting(change.key, change.value);
+        } catch (e) {}
+    });
 
 /*
     Show or hide dotfiles.

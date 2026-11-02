@@ -396,8 +396,9 @@
                 jobEnded();
             }
         }
+        //The server decodes the query exactly once, so encode the name once too
         var url = socketBase() + "/system/file_system/lowmemUpload?filename=" +
-            encodeURIComponent(encodeURIComponent(job.file.name)) + "&path=" + encodeURIComponent(job.dir);
+            encodeURIComponent(job.file.name) + "&path=" + encodeURIComponent(job.dir);
         var ctl = ChunkUpload.start({
             url: url,
             file: job.file,

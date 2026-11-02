@@ -503,3 +503,41 @@ func TestLocalFS_VirtualPathToRealPath_Error(t *testing.T) {
 	// May or may not error depending on translator — just ensure no panic
 	_ = err
 }
+
+// One user must not reach another user's home through a ".." in the
+// virtual path ("user:../bob/secret.txt" requested by alice).
+func TestLocalFS_VirtualPathStaysInUserHome(t *testing.T) {
+	root := t.TempDir()
+	lfs := NewLocalFileSystemAbstraction("user", root, "user", false)
+	aliceHome := filepath.Join(root, "users", "alice")
+
+	rpath, err := lfs.VirtualPathToRealPath("user:/Desktop/notes.txt", "alice")
+	if err != nil {
+		t.Fatalf("VirtualPathToRealPath unexpected error: %v", err)
+	}
+	if want := filepath.Join(aliceHome, "Desktop", "notes.txt"); rpath != want {
+		t.Errorf("VirtualPathToRealPath = %q, want %q", rpath, want)
+	}
+
+	for _, vpath := range []string{
+		"user:../bob/secret.txt",
+		"user:/../bob/secret.txt",
+		"user:/Desktop/../../bob/secret.txt",
+		"user:..\\bob\\secret.txt",
+	} {
+		if rpath, err := lfs.VirtualPathToRealPath(vpath, "alice"); err == nil {
+			t.Errorf("VirtualPathToRealPath(%q) = %q, want an error", vpath, rpath)
+		}
+	}
+}
+
+func TestLocalFS_VirtualPathStaysInPublicRoot(t *testing.T) {
+	root := t.TempDir()
+	lfs := NewLocalFileSystemAbstraction("pub", root, "public", false)
+
+	for _, vpath := range []string{"pub:../outside.txt", "pub:/../outside.txt", "pub:/a/../../outside.txt"} {
+		if rpath, err := lfs.VirtualPathToRealPath(vpath, "alice"); err == nil {
+			t.Errorf("VirtualPathToRealPath(%q) = %q, want an error", vpath, rpath)
+		}
+	}
+}

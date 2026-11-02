@@ -169,6 +169,7 @@ func FileSystemInit() {
 
 	//Directory specific config
 	router.HandleFunc("/system/file_system/sortMode", system_fs_handleFolderSortModePreference)
+	router.HandleFunc("/system/file_system/viewMode", system_fs_handleFolderViewModePreference)
 
 	//Register the module
 	moduleHandler.RegisterModule(module.ModuleInfo{
@@ -231,6 +232,13 @@ func FileSystemInit() {
 		panic(err)
 	}
 
+	//Per folder view mode, used when the user keeps a view mode for each folder
+	err = sysdb.NewTable("fs-viewpref")
+	if err != nil {
+		systemWideLogger.PrintAndLog("File System", "Failed to create table for file system", err)
+		panic(err)
+	}
+
 	//Create a RenderHandler for caching thumbnails
 	thumbRenderHandler = metadata.NewRenderHandler()
 
@@ -282,13 +290,14 @@ func FileSystemInit() {
 		the arozos file system when no one is using the system
 	*/
 
-	//Trash bin retention and size limit, per user
+	//File Manager preferences (theme, toolbar, view mode, uploads) and the
+	//trash bin retention and size limit, per user
 	registerSetting(settingModule{
 		Name:     "File Manager",
-		Desc:     "Trash Bin Retention and Size",
+		Desc:     "File Manager Preferences and Trash Bin",
 		IconPath: "SystemAO/file_system/trashbin_img/small_icon.png",
 		Group:    "Disk",
-		StartDir: "SystemAO/disk/filemanager/trashsettings.html",
+		StartDir: "SystemAO/disk/filemanager/settings.html",
 	})
 
 	//Clear tmp folder if files is placed here too long
@@ -343,6 +352,11 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 
 	//Check if case sensitive is enabled
 	casesensitve, _ := utils.PostPara(r, "casesensitive")
+
+	if !userinfo.CanRead(vpath) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
 
 	vrootID, _, err := filesystem.GetIDFromVirtualPath(vpath)
 	var targetFSH *filesystem.FileSystemHandler = nil
@@ -1133,16 +1147,34 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !userinfo.CanRead(vdestFile) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
+
 	destFsh, destSubpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 	if err != nil {
 		utils.SendErrorResponse(w, "Operation Valid Failed: "+err.Error())
 		return
 	}
 
-	rdestFile, _ := destFsh.FileSystemAbstraction.VirtualPathToRealPath(destSubpath, userinfo.Username)
+	rdestFile, err := destFsh.FileSystemAbstraction.VirtualPathToRealPath(destSubpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, "Operation Valid Failed: "+err.Error())
+		return
+	}
 	for _, file := range sourceFiles {
-		srcFsh, srcSubpath, _ := GetFSHandlerSubpathFromVpath(string(file))
-		rsrcFile, _ := srcFsh.FileSystemAbstraction.VirtualPathToRealPath(srcSubpath, userinfo.Username)
+		if !userinfo.CanRead(file) {
+			continue
+		}
+		srcFsh, srcSubpath, err := GetFSHandlerSubpathFromVpath(file)
+		if err != nil {
+			continue
+		}
+		rsrcFile, err := srcFsh.FileSystemAbstraction.VirtualPathToRealPath(srcSubpath, userinfo.Username)
+		if err != nil {
+			continue
+		}
 		if destFsh.FileSystemAbstraction.FileExists(filepath.Join(rdestFile, filepath.Base(rsrcFile))) {
 			//File exists already.
 			vpath, _ := srcFsh.FileSystemAbstraction.RealPathToVirtualPath(rsrcFile, userinfo.Username)
@@ -2189,6 +2221,16 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		return
 	}
 
+	//Sources are looked up among every loaded storage, so the user's own
+	//access is checked here: every operation reads them, and a move also
+	//removes them
+	for _, vsrc := range sourceFiles {
+		if !userinfo.CanRead(vsrc) || (operation == "move" && !userinfo.CanWrite(vsrc)) {
+			failTask(filepath.Base(vsrc), "Access Denied")
+			return
+		}
+	}
+
 	//A copy of a file shared with the user needs its owner to allow downloads
 	if operation == "copy" || operation == "zip" {
 		if err := sharedDriveCopyDenied(userinfo, sourceFiles); err != nil {
@@ -2481,19 +2523,36 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		//Zip operation. Parse the real filepath list
 		rsrcFiles := []string{}
 		srcFshs := []*filesystem.FileSystemHandler{}
+		//Handlers are looked up among every loaded storage, so the user's
+		//own access has to be checked for each path
+		if !userinfo.CanWrite(vdestFile) {
+			utils.SendErrorResponse(w, "Access Denied")
+			return
+		}
 		destFsh, subpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 		if err != nil {
 			utils.SendErrorResponse(w, "Unable to resolve zip destination path")
 			return
 		}
 		destFshAbs := destFsh.FileSystemAbstraction
-		rdestFile, _ := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+		rdestFile, err := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+		if err != nil {
+			utils.SendErrorResponse(w, "Unable to resolve zip destination path")
+			return
+		}
 		for _, vsrcFile := range sourceFiles {
+			if !userinfo.CanRead(vsrcFile) {
+				utils.SendErrorResponse(w, "Access Denied")
+				return
+			}
 			vsrcFsh, vsrcSubpath, err := GetFSHandlerSubpathFromVpath(vsrcFile)
 			if err != nil {
 				continue
 			}
-			rsrcFile, _ := vsrcFsh.FileSystemAbstraction.VirtualPathToRealPath(vsrcSubpath, userinfo.Username)
+			rsrcFile, err := vsrcFsh.FileSystemAbstraction.VirtualPathToRealPath(vsrcSubpath, userinfo.Username)
+			if err != nil {
+				continue
+			}
 			if vsrcFsh.FileSystemAbstraction.FileExists(rsrcFile) {
 				//Push directly its local path to list
 				rsrcFiles = append(rsrcFiles, rsrcFile)
@@ -2542,13 +2601,23 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//For operations that is handled file by file
 		for i, vsrcFile := range sourceFiles {
+			//The checks below cover writing; these operations also read the
+			//source, which may sit on a storage the user cannot open
+			if (operation == "copy" || operation == "move" || operation == "unzip") && !userinfo.CanRead(vsrcFile) {
+				utils.SendErrorResponse(w, "Access Denied")
+				return
+			}
+
 			//Convert the virtual path to realpath on disk
 			srcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrcFile)
 			if err != nil {
 				continue
 			}
 			srcFshAbs := srcFsh.FileSystemAbstraction
-			rsrcFile, _ := srcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+			rsrcFile, err := srcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+			if err != nil {
+				continue
+			}
 
 			destFsh, destSubpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 			var destFshAbs filesystem.FileSystemAbstraction = nil
@@ -3132,7 +3201,16 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vrootID, subpath, _ := filesystem.GetIDFromVirtualPath(vpath)
+	if !userinfo.CanRead(vpath) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
+
+	vrootID, subpath, err := filesystem.GetIDFromVirtualPath(vpath)
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid path given")
+		return
+	}
 	fsh, err := GetFsHandlerByUUID(vrootID)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -3336,6 +3414,13 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		currentDir = currentDir + "/"
 	}
 
+	//The handler below is looked up among every loaded storage, not only
+	//the ones this user may open
+	if !userinfo.CanRead(currentDir) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
+
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(currentDir)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -3469,6 +3554,11 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !userinfo.CanRead(currentDir) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
+
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(currentDir)
 	if err != nil {
 		utils.SendErrorResponse(w, "Unable to resolve target directory")
@@ -3575,6 +3665,10 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	realSourcePaths := []string{}
 	sourceFshs := []*filesystem.FileSystemHandler{}
 	for _, vpath := range virtualSourcePaths {
+		if !userinfo.CanRead(vpath) {
+			utils.SendErrorResponse(w, "Permission denied: "+vpath)
+			return
+		}
 		thisSrcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vpath)
 		if err != nil {
 			utils.SendErrorResponse(w, "Unable to resolve file: "+vpath)
@@ -3597,7 +3691,11 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	var filename string = ""
 	if vdest != "" {
 		//Given target virtual dest
-		destFsh, subpath, err = GetFSHandlerSubpathFromVpath(rdest)
+		if !userinfo.CanWrite(vdest) {
+			utils.SendErrorResponse(w, "Permission denied")
+			return
+		}
+		destFsh, subpath, err = GetFSHandlerSubpathFromVpath(vdest)
 		if err != nil {
 			utils.SendErrorResponse(w, err.Error())
 			return
@@ -3611,7 +3709,11 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	rdest, _ = destFsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	rdest, err = destFsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid dest location")
+		return
+	}
 	destFshAbs := destFsh.FileSystemAbstraction
 	zipOutput := rdest
 	zipDestFsh := destFsh
@@ -3745,14 +3847,19 @@ func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(path)
 	if err != nil {
-		if err != nil {
-			utils.SendErrorResponse(w, "Invalid path given")
-			return
-		}
+		utils.SendErrorResponse(w, "Invalid path given")
+		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
 
 	opr, _ := utils.PostPara(r, "opr")
+
+	//Listing the history reads the file, deleting or restoring a version
+	//changes it
+	if (opr == "" && !userinfo.CanRead(path)) || (opr != "" && !userinfo.CanWrite(path)) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
 
 	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
@@ -3842,10 +3949,19 @@ func system_fs_clearVersionHistories() {
 
 // Handle cache rendering with websocket pipeline
 func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
-	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
 	vpath, err := utils.GetPara(r, "folder")
 	if err != nil {
 		utils.SendErrorResponse(w, "Invalid folder paramter")
+		return
+	}
+
+	if !userinfo.CanRead(vpath) {
+		utils.SendErrorResponse(w, "Permission denied")
 		return
 	}
 
@@ -3854,7 +3970,11 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, "Unable to resolve target directory")
 		return
 	}
-	rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, "Unable to resolve target directory")
+		return
+	}
 
 	//Get folder sort mode
 	sortMode := "default"
@@ -3869,7 +3989,11 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 
 // Handle loading of one thumbnail
 func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
-	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
 	vpath, err := utils.GetPara(r, "vpath")
 	if err != nil {
 		utils.SendErrorResponse(w, "vpath not defined")
@@ -3878,6 +4002,14 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 
 	byteMode, _ := utils.GetPara(r, "bytes")
 	isByteMode := byteMode == "true"
+	if !userinfo.CanRead(vpath) {
+		if isByteMode {
+			http.NotFound(w, r)
+			return
+		}
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(vpath)
 	if err != nil {
 		if isByteMode {
@@ -3920,10 +4052,19 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 
 // Handle file thumbnail caching
 func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
-	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
 	vfolderpath, err := utils.GetPara(r, "folder")
 	if err != nil {
 		utils.SendErrorResponse(w, "folder not defined")
+		return
+	}
+
+	if !userinfo.CanRead(vfolderpath) {
+		utils.SendErrorResponse(w, "Permission denied")
 		return
 	}
 
@@ -3986,6 +4127,58 @@ func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// View modes the File Manager can draw a folder in
+var validFolderViewModes = []string{"grid", "list", "details"}
+
+/*
+Handle the get and set of the view mode of a particular folder.
+
+Only used when the user chose to keep a view mode for each folder (File
+Manager settings, file_explorer/startView = "folder"). A folder that was
+never given one reads back as an empty string, and the File Manager then
+uses the view mode chosen last.
+*/
+func system_fs_handleFolderViewModePreference(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+	folder, err := utils.PostPara(r, "folder")
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid folder given")
+		return
+	}
+
+	opr, _ := utils.PostPara(r, "opr")
+	key := userinfo.Username + "/" + arozfs.Clean(folder)
+
+	if opr == "" || opr == "get" {
+		viewMode := ""
+		if sysdb.KeyExists("fs-viewpref", key) {
+			sysdb.Read("fs-viewpref", key, &viewMode)
+		}
+
+		js, err := json.Marshal(viewMode)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		utils.SendJSONResponse(w, string(js))
+	} else if opr == "set" {
+		viewMode, err := utils.PostPara(r, "mode")
+		if err != nil || !utils.StringInArray(validFolderViewModes, viewMode) {
+			utils.SendErrorResponse(w, "Not supported view mode")
+			return
+		}
+
+		sysdb.Write("fs-viewpref", key, viewMode)
+		utils.SendOK(w)
+	} else {
+		utils.SendErrorResponse(w, "Invalid opr mode")
+	}
+}
+
 // Handle setting and loading of file permission on Linux
 func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 	file, err := utils.PostPara(r, "file")
@@ -4001,6 +4194,12 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	newMode, _ := utils.PostPara(r, "mode")
+	if (newMode == "" && !userinfo.CanRead(file)) || (newMode != "" && !userinfo.CanWrite(file)) {
+		utils.SendErrorResponse(w, "Permission Denied")
+		return
+	}
+
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(file)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
@@ -4012,7 +4211,6 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	newMode, _ := utils.PostPara(r, "mode")
 	if newMode == "" {
 		//Read the file mode
 

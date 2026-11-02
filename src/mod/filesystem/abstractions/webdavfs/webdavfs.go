@@ -119,19 +119,9 @@ func (e WebDAVFileSystem) Stat(filename string) (os.FileInfo, error) {
 }
 
 func (e WebDAVFileSystem) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	subpath = filterFilepath(filepath.ToSlash(filepath.Clean(subpath)))
-	if strings.HasPrefix(subpath, e.UUID+":") {
-		//This is full virtual path. Trim the uuid and correct the subpath
-		subpath = strings.TrimPrefix(subpath, e.UUID+":")
-	}
-
-	if e.Hierarchy == "user" {
-		return filepath.ToSlash(filepath.Clean(filepath.Join("users", username, subpath))), nil
-	} else if e.Hierarchy == "public" {
-		return filepath.ToSlash(filepath.Clean(subpath)), nil
-	}
-	return "", errors.New("unsupported filesystem hierarchy")
-
+	//The generic translator refuses subpaths that climb out of the remote
+	//root or the user's home ("user:../bob")
+	return arozfs.GenericVirtualPathToRealPathTranslator(e.UUID, e.Hierarchy, subpath, username)
 }
 func (e WebDAVFileSystem) RealPathToVirtualPath(rpath string, username string) (string, error) {
 	rpath = filterFilepath(filepath.ToSlash(filepath.Clean(rpath)))

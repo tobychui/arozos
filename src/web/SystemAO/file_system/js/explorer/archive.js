@@ -26,7 +26,7 @@ function zipFile(){
         dest: currentPath,
         overwriteMode: "overwrite",
         callbackWindowID: ao_module_windowID,
-        callbackFunction: `callRefresh("${currentPath}")`
+        callbackFunction: `callRefresh(${JSON.stringify(currentPath)})`
     });
 }
 
@@ -59,7 +59,7 @@ function unzipHere(){
         dest: currentPath,
         overwriteMode: "overwrite",
         callbackWindowID: ao_module_windowID,
-        callbackFunction: `callRefresh("${currentPath}")`
+        callbackFunction: `callRefresh(${JSON.stringify(currentPath)})`
     });
 }
 

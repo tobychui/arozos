@@ -110,24 +110,75 @@ func GetSupportedFileSystemTypes() []string {
 	Standard file system abstraction translate function
 */
 
-// Generic virtual path to real path translator
-func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (string, error) {
-	subpath = ToSlash(filepath.Clean(strings.TrimSpace(subpath)))
-	subpath = strings.TrimPrefix(subpath, "./")
+/*
+SubpathEscapesRoot reports whether the subpath of a virtual path (the part
+after "vdID:") climbs above the root of its storage with ".." elements, as
+"../bob/notes.txt" or "/Desktop/../../bob" do.
 
-	if subpath == "." || subpath == "" {
-		subpath = "/"
+Elements made only of dots and spaces other than "." and ".." (".. ", "...")
+are refused as well: Windows strips trailing dots and spaces from a path
+element, so it may read them as the parent folder. utils.ValidateFilename
+refuses the same names, so no file created through ArozOS carries one.
+*/
+func SubpathEscapesRoot(subpath string) bool {
+	depth := 0
+	for _, element := range strings.Split(ToSlash(subpath), "/") {
+		switch element {
+		case "", ".":
+			continue
+		case "..":
+			depth--
+			if depth < 0 {
+				return true
+			}
+		default:
+			if strings.TrimRight(element, " .") == "" {
+				return true
+			}
+			depth++
+		}
 	}
+	return false
+}
 
-	if strings.HasPrefix(subpath, uuid+":") {
-		//This is full virtual path. Trim the uuid and correct the subpath
-		subpath = strings.TrimPrefix(subpath, uuid+":")
+/*
+CleanSubpath normalises the subpath of a virtual path into a slash separated
+path rooted at "/", so joining it onto a storage or home folder can never
+leave that folder. A subpath that tries to climb above its root returns
+ErrPathEscapesRoot instead of being clamped to it.
+*/
+func CleanSubpath(subpath string) (string, error) {
+	subpath = ToSlash(strings.TrimSpace(subpath))
+	if SubpathEscapesRoot(subpath) {
+		return "", ErrPathEscapesRoot
+	}
+	return path.Clean("/" + subpath), nil
+}
+
+/*
+Generic virtual path to real path translator
+
+The "uuid:" prefix of a full virtual path is cut off before anything is
+cleaned. Cleaning the whole path first read "user:.." as one ordinary element,
+so "user:../bob/notes.txt" kept its ".." and resolved into bob's home.
+*/
+func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (string, error) {
+	subpath = strings.TrimPrefix(ToSlash(strings.TrimSpace(subpath)), "./")
+	subpath = strings.TrimPrefix(subpath, uuid+":")
+	subpath, err := CleanSubpath(subpath)
+	if err != nil {
+		return "", err
 	}
 
 	if hierarchy == "user" {
-		return ToSlash(filepath.Clean(filepath.Join("users", username, subpath))), nil
+		//The username is a path element of its own; one that is not a plain
+		//name would move the home folder somewhere else
+		if username == "" || username == "." || username == ".." || strings.ContainsAny(username, "/\\") {
+			return "", ErrVpathResolveFailed
+		}
+		return path.Join("users", username, subpath), nil
 	} else if hierarchy == "public" {
-		return ToSlash(filepath.Clean(subpath)), nil
+		return subpath, nil
 	}
 	return "", errors.New("unsupported filesystem hierarchy")
 }

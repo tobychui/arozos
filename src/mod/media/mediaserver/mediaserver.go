@@ -94,7 +94,10 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 		return nil, "", "", errors.New("User not logged in")
 	}
 
-	userinfo, _ := s.options.UserHandler.GetUserInfoFromUsername(username)
+	userinfo, err := s.options.UserHandler.GetUserInfoFromUsername(username)
+	if err != nil {
+		return nil, "", "", errors.New("User not found")
+	}
 
 	//Validate url valid
 	if strings.Count(r.URL.String(), "?") > 1 {
@@ -104,6 +107,12 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 	targetfile, _ := utils.GetPara(r, "file")
 	if targetfile == "" {
 		return nil, "", "", errors.New("Missing paramter 'file'")
+	}
+
+	//The resolver looks among every loaded storage, not only the ones this
+	//user may open
+	if !userinfo.CanRead(targetfile) {
+		return nil, "", "", errors.New("Permission denied")
 	}
 
 	//Translate the virtual directory to realpath
