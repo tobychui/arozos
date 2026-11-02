@@ -7640,7 +7640,7 @@
                 };
 
                 ChunkUpload.start({
-                    url: protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode,
+                    url: protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + encodeURIComponent(uploadDir) + hugeFileMode,
                     file: file,
                     chunkSize: uploadFileChunkSize,
                     windowSize: uploadWindowSize,

@@ -195,19 +195,13 @@ func (a ServerMessageBlockFileSystemAbstraction) Close() error {
 */
 
 func (a ServerMessageBlockFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	if strings.HasPrefix(subpath, a.UUID+":") {
-		//This is full virtual path. Trim the uuid and correct the subpath
-		subpath = strings.TrimPrefix(subpath, a.UUID+":")
+	//The generic translator refuses subpaths that climb out of the share
+	//root or the user's home ("user:../bob")
+	rpath, err := arozfs.GenericVirtualPathToRealPathTranslator(a.UUID, a.Hierarchy, subpath, username)
+	if err != nil {
+		return "", err
 	}
-	subpath = a.filterFilepath(subpath)
-
-	if a.Hierarchy == "user" {
-		return toWinPath(filepath.ToSlash(filepath.Clean(filepath.Join(a.fsaRoot, "users", username, subpath)))), nil
-	} else if a.Hierarchy == "public" {
-		return toWinPath(filepath.ToSlash(filepath.Clean(filepath.Join(a.fsaRoot, subpath)))), nil
-	}
-
-	return "", arozfs.ErrVpathResolveFailed
+	return toWinPath(filepath.ToSlash(filepath.Clean(filepath.Join(a.fsaRoot, rpath)))), nil
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {

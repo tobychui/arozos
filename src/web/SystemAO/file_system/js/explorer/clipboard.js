@@ -161,14 +161,15 @@ function paste(redirectPasteTarget="", nocheck=false){
                         });
                         
                     }else{
-                        //Pass the request to the system wide file operation dialog
+                        //Pass the request to the system wide file operation dialog.
+                        //It eval()s callbackFunction, so the path goes in as a JS literal.
                         ao_module_startFileOperation({
                             opr: "move",
                             src: fileList,
                             dest: targetDir,
                             overwriteMode: overwriteMode,
                             callbackWindowID: ao_module_windowID,
-                            callbackFunction: `callRefresh("${targetDir}")`
+                            callbackFunction: `callRefresh(${JSON.stringify(targetDir)})`
                         });
                         hideAllPopupWindows();
                     }
@@ -215,7 +216,7 @@ function paste(redirectPasteTarget="", nocheck=false){
                             dest: targetDir,
                             overwriteMode: overwriteMode,
                             callbackWindowID: ao_module_windowID,
-                            callbackFunction: `callRefresh("${targetDir}")`
+                            callbackFunction: `callRefresh(${JSON.stringify(targetDir)})`
                         });
                         hideAllPopupWindows();
                     }
