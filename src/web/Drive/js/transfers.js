@@ -397,7 +397,7 @@
             }
         }
         var url = socketBase() + "/system/file_system/lowmemUpload?filename=" +
-            encodeURIComponent(encodeURIComponent(job.file.name)) + "&path=" + encodeURIComponent(job.dir);
+            encodeURIComponent(job.file.name) + "&path=" + encodeURIComponent(job.dir);
         var ctl = ChunkUpload.start({
             url: url,
             file: job.file,
