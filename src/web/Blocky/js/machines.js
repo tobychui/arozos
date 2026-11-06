@@ -116,6 +116,23 @@ export class Machines {
         return cart ? { kind: "cart", slots: cart.slots } : null;
     }
 
+    //How full the storage at (x, y, z) is, as a spark level: 0 empty, 1 with
+    //anything in it, 15 full (stacks at their limit in every slot). -1 when
+    //there is no storage there.
+    fillLevel(x, y, z) {
+        const to = this.containerAt(x, y, z);
+        if (!to) {
+            return -1;
+        }
+        let filled = 0;
+        for (const s of to.slots) {
+            if (s) {
+                filled += s.count / maxStack(s.id);
+            }
+        }
+        return filled > 0 ? 1 + Math.floor(filled / to.slots.length * 14) : 0;
+    }
+
     //One item out of the spout (face: 3 down, else a side)
     feedOut(te, x, y, z, face) {
         const d = FACE_DIR[face];

@@ -112,6 +112,7 @@ export class World {
         this.onPowerSound = opts.onPowerSound || null;
         this.onPistonPush = opts.onPistonPush || null;
         this.onDispense = opts.onDispense || null;
+        this.storageLevel = opts.storageLevel || null;
         this.powerBusy = false;
         this.pistonMoving = false;
         this.buttonDue = new Map();
@@ -268,7 +269,7 @@ export class World {
                 this.schedule(x, y, z, 5 + Math.floor(this.rng() * 30));
             } else if (id === B.FIRE || ((id === B.WATER || id === B.LAVA) && c.meta[i] !== 0) || (id === B.BUTTON && (c.meta[i] & 8)) ||
                 ((id === B.PLATE_WOOD || id === B.PLATE_STONE) && (c.meta[i] & 1)) || (id === B.DETECTOR_RAIL && (c.meta[i] & 8)) ||
-                id === B.RETIMER || id === B.RETIMER_ON) {
+                id === B.RETIMER || id === B.RETIMER_ON || id === B.OPAMP) {
                 this.schedule(bx + (i >> 11), i & 127, bz + ((i >> 7) & 15), 5 + Math.floor(this.rng() * 30));
             }
         }

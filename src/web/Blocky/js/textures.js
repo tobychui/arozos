@@ -1400,6 +1400,29 @@ function paintRetimerTop(t, on) {
     }
 }
 
+//OpAmp top: smooth stone with an amplifier triangle pointing to the top of
+//the tile (the way it faces), two input lines and an output line
+function paintOpAmpTop(t, on) {
+    paintSmoothStone(t, false);
+    const line = on ? [255, 52, 40] : [104, 26, 22];
+    for (let y = 4; y <= 11; y++) {
+        const half = Math.round((y - 3) * 0.62);
+        t.set(7 - half, y, line);
+        t.set(8 + half, y, line);
+    }
+    for (let x = 2; x <= 13; x++) {
+        t.set(x, 12, line);
+    }
+    for (let y = 13; y < 16; y++) {
+        t.set(5, y, line);
+        t.set(10, y, line);
+    }
+    for (let y = 0; y < 4; y++) {
+        t.set(7, y, line);
+        t.set(8, y, line);
+    }
+}
+
 //Iron bars: four bars with a band near the top and bottom, see-through
 function paintIronBars(t) {
     t.clear();
@@ -1905,6 +1928,8 @@ Object.assign(PAINTERS, {
     sign_item: paintSignItem,
     retimer_top: (t) => paintRetimerTop(t, false),
     retimer_top_on: (t) => paintRetimerTop(t, true),
+    opamp_top: (t) => paintOpAmpTop(t, false),
+    opamp_top_on: (t) => paintOpAmpTop(t, true),
     retimer_pin_off: (t) => t.fill([92, 24, 20], 10),
     retimer_pin_on: (t) => t.fill([255, 60, 44], 14),
     minecart: (t) => paintMinecart(t, null),

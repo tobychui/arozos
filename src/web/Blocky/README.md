@@ -21,7 +21,7 @@ its folder.
 | `js/mesher.js` | Section meshing (smooth light + ambient occlusion) and item models. |
 | `js/render.js` | three.js scene, terrain shader, sky, clouds, rain, lightning, selection, particles, held item. |
 | `js/realistic.js` | Realistic graphics pipeline: shadow map, sea reflection, terrain lighting chunk, HDR post passes. |
-| `js/power.js` | Spark circuits: power sources, wire levels, torches, lamps, pistons, rail shapes. |
+| `js/power.js` | Spark circuits: power sources, wire levels, torches, lamps, pistons, OpAmps, rail shapes. |
 | `js/carts.js` | Minecarts (plain, chest, furnace) following rails. |
 | `js/boats.js` | Boats: floating, rowing, steering, riding. |
 | `js/machines.js` | Feeders (moving items between containers, carts and the ground) and dispensers. |
@@ -317,6 +317,28 @@ nothing at its sides. Wire is drawn joining a retimer only at its back and
 front; a wire beside it neither branches into its side nor runs on into it
 (`wire` in `mesher.js`). Changes on their way wait in `world.retimerDue`, so a
 pulse shorter than the delay is stretched to it.
+
+OpAmps (three spark torches round an iron ingot over three stone) are the
+one part with an output level of its own. `B.OPAMP`, one id, placed like a
+retimer: meta bits 0-1 facing (`HDIR`), bit 2 subtract mode, bits 3-6 output
+level, which the top tile and the input pins light up from. Inputs, read
+in `opampTick` two ticks after anything near changes:
+- back: a storage block (chest, dispenser, feeder, furnace or a chest cart
+  on a rail there) gives its fill level (`Machines.fillLevel` through
+  `world.storageLevel`: 0 empty, 1 with anything in it, 15 with every slot
+  at its stack limit). Otherwise wire gives its level, a source or retimer
+  15, a powered solid block the level powering it (`blockLevel`).
+- sides: the stronger of the two; wire, sources, retimers and OpAmps
+  pointing in, but not through solid blocks.
+
+Right click switches the mode. Compare (front pin low) sends the back level
+on unless the side level is higher, then 0; subtract (front pin up and lit)
+sends back minus side. With nothing at the sides both just pass the back
+level on. The output goes to the block in front only: wire takes it as its
+level, a solid block passes that level on (not 15, so wire touching it gets
+it too; `opampsInto`), and the binary parts count anything above 0.
+Inventories change in too many ways to report, so an OpAmp with storage or
+a rail behind it looks again every `OPAMP_POLL` ticks by rescheduling itself.
 
 ## Rails and carts
 

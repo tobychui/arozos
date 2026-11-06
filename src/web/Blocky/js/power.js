@@ -5,7 +5,9 @@
     blocks of spark), spark wire that carries a level 0-15 losing one per
     block, and the parts that react: spark lamps, pistons, powered rails and
     torches (which switch off when the block they hang on is powered, so they
-    work as inverters). Also lays out rail shapes.
+    work as inverters). OpAmps give out a level of their own, read from the
+    signals around them or from how full a storage block is. Also lays out
+    rail shapes.
 
     Rules, kept simple:
     - a source powers the wire, lamps, pistons and rails right next to it,
@@ -22,11 +24,11 @@ import { FACE_DIR } from "./shapes.js";
 //1 wire, 2 source, 4 reacts, 8 rail
 export const POWER = new Uint8Array(256);
 POWER[B.SPARK_WIRE] = 1;
-for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER_ON, B.DETECTOR_RAIL]) {
+for (const id of [B.LEVER, B.BUTTON, B.SPARK_TORCH, B.SPARK_BLOCK, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER_ON, B.DETECTOR_RAIL, B.OPAMP]) {
     POWER[id] |= 2;
 }
 for (const id of [B.SPARK_LAMP, B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.POWERED_RAIL, B.BUTTON,
-    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.TRAPDOOR, B.RETIMER, B.RETIMER_ON, B.DETECTOR_RAIL, B.DISPENSER]) {
+    B.PLATE_WOOD, B.PLATE_STONE, B.DOOR, B.TRAPDOOR, B.RETIMER, B.RETIMER_ON, B.DETECTOR_RAIL, B.DISPENSER, B.OPAMP]) {
     POWER[id] |= 4;
 }
 //Plain rails react too: a junction is a switch (railSwitch)
@@ -36,6 +38,10 @@ POWER[B.DETECTOR_RAIL] |= 8;
 
 const SIDES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const FLAT = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+//Ticks between two looks at the storage behind an OpAmp: its contents change
+//in too many ways (the player, feeders, furnaces, carts) to be told about it
+const OPAMP_POLL = 4;
 
 const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 const isPlate = (id) => id === B.PLATE_WOOD || id === B.PLATE_STONE;
@@ -53,6 +59,24 @@ function retimerFront(meta, x, y, z) {
 //Is the block at n a lit retimer pointing at t?
 function retimerInto(w, nx, ny, nz, t) {
     return w.getBlock(nx, ny, nz) === B.RETIMER_ON && same(retimerFront(w.getMeta(nx, ny, nz), nx, ny, nz), t);
+}
+
+//The level an OpAmp at n sends into t (0 unless it is one, pointing at t)
+function opampInto(w, nx, ny, nz, t) {
+    if (w.getBlock(nx, ny, nz) !== B.OPAMP) {
+        return 0;
+    }
+    const m = w.getMeta(nx, ny, nz);
+    return same(retimerFront(m, nx, ny, nz), t) ? (m >> 3) & 15 : 0;
+}
+
+//The strongest OpAmp pointing into the solid block at (x, y, z)
+function opampsInto(w, x, y, z) {
+    let best = 0;
+    for (const [dx, dz] of FLAT) {
+        best = Math.max(best, opampInto(w, x + dx, y, z + dz, [x, y, z]));
+    }
+    return best;
 }
 
 //Block a lever, button or torch hangs on
@@ -92,20 +116,24 @@ export function blockPoweredBySource(w, x, y, z) {
     return w.getBlock(x, y - 1, z) === B.SPARK_TORCH;
 }
 
-//A solid block powered at all: by a source, or by powered wire touching it
-export function blockPowered(w, x, y, z) {
+//The level a solid block is powered at: 15 by a source, else that of the
+//OpAmp pointing into it or of the wire touching it
+function blockLevel(w, x, y, z) {
     if (blockPoweredBySource(w, x, y, z)) {
-        return true;
+        return 15;
     }
+    let best = opampsInto(w, x, y, z);
     for (const [dx, dy, dz] of SIDES) {
-        if (dy === -1) {
-            continue;
-        }
-        if (w.getBlock(x + dx, y + dy, z + dz) === B.SPARK_WIRE && w.getMeta(x + dx, y + dy, z + dz) > 0) {
-            return true;
+        if (dy !== -1 && w.getBlock(x + dx, y + dy, z + dz) === B.SPARK_WIRE) {
+            best = Math.max(best, w.getMeta(x + dx, y + dy, z + dz));
         }
     }
-    return false;
+    return best;
+}
+
+//A solid block powered at all
+export function blockPowered(w, x, y, z) {
+    return blockLevel(w, x, y, z) > 0;
 }
 
 //Does a lamp / piston / rail at (x, y, z) receive power?
@@ -121,6 +149,12 @@ export function isPowered(w, x, y, z) {
         }
         if (id === B.RETIMER_ON) {
             if (retimerInto(w, nx, ny, nz, [x, y, z])) {
+                return true;
+            }
+            continue;
+        }
+        if (id === B.OPAMP) {
+            if (opampInto(w, nx, ny, nz, [x, y, z]) > 0) {
                 return true;
             }
             continue;
@@ -149,6 +183,10 @@ function wireTarget(w, x, y, z) {
         }
         if (isOpaqueAt(id, m) && blockPoweredBySource(w, nx, ny, nz)) {
             return 15;
+        }
+        best = Math.max(best, opampInto(w, nx, ny, nz, [x, y, z]));
+        if (isOpaqueAt(id, m)) {
+            best = Math.max(best, opampsInto(w, nx, ny, nz));
         }
     }
     const coveredAbove = isOpaqueAt(w.getBlock(x, y + 1, z), w.getMeta(x, y + 1, z));
@@ -620,10 +658,49 @@ function retimerInput(w, x, y, z, meta) {
     if (id === B.RETIMER_ON) {
         return retimerInto(w, bx, y, bz, [x, y, z]);
     }
+    if (id === B.OPAMP) {
+        return opampInto(w, bx, y, bz, [x, y, z]) > 0;
+    }
     if (sourceOn(id, m)) {
         return true;
     }
     return isOpaqueAt(id, m) && blockPowered(w, bx, y, bz);
+}
+
+//The level the block at n gives the OpAmp at t. solid: a powered solid block
+//counts too (the back input does, the sides only take signals directly).
+function opampInput(w, nx, ny, nz, t, solid) {
+    const id = w.getBlock(nx, ny, nz), m = w.getMeta(nx, ny, nz);
+    if (id === B.SPARK_WIRE) {
+        return m;
+    }
+    if (id === B.RETIMER_ON) {
+        return retimerInto(w, nx, ny, nz, t) ? 15 : 0;
+    }
+    if (id === B.OPAMP) {
+        return opampInto(w, nx, ny, nz, t);
+    }
+    if (sourceOn(id, m)) {
+        return 15;
+    }
+    return solid && isOpaqueAt(id, m) ? blockLevel(w, nx, ny, nz) : 0;
+}
+
+//One look at an OpAmp's inputs: sets its output and keeps watching a storage
+//block, or a rail a chest cart may come along, behind it
+function opampTick(w, x, y, z, meta) {
+    const d = HDIR[meta & 3], t = [x, y, z];
+    const bx = x - d[0], bz = z - d[1];
+    const stored = w.storageLevel ? w.storageLevel(bx, y, bz) : -1;
+    const back = stored >= 0 ? stored : opampInput(w, bx, y, bz, t, true);
+    const side = Math.max(opampInput(w, x + d[1], y, z - d[0], t, false), opampInput(w, x - d[1], y, z + d[0], t, false));
+    const level = meta & 4 ? Math.max(0, back - side) : back >= side ? back : 0;
+    if (level !== ((meta >> 3) & 15)) {
+        w.setBlock(x, y, z, B.OPAMP, (meta & 7) | (level << 3));
+    }
+    if (stored >= 0 || (POWER[w.getBlock(bx, y, bz)] & 8)) {
+        w.schedule(x, y, z, OPAMP_POLL);
+    }
 }
 
 export function powerTick(w, x, y, z, id, meta, sound) {
@@ -712,6 +789,9 @@ export function powerTick(w, x, y, z, id, meta, sound) {
             }
             break;
         }
+        case B.OPAMP:
+            opampTick(w, x, y, z, meta);
+            break;
         case B.DOOR: {
             //A door opens when power arrives and shuts when it goes; in
             //between it can still be opened by hand

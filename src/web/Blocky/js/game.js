@@ -115,6 +115,7 @@ export class Game {
             },
             onPistonPush: (cells, d) => this.pistonPush(cells, d),
             onDispense: (x, y, z, face) => this.machines.dispense(x, y, z, face),
+            storageLevel: (x, y, z) => this.machines.fillLevel(x, y, z),
             onFizz: (x, y, z) => {
                 this.sound.play("fizz");
                 this.renderer.spawnParticles(x + 0.5, y + 1, z + 0.5, [200, 200, 200], 12, 0.4, 2);
@@ -1349,7 +1350,7 @@ export class Game {
                 bid = B.WALL_SIGN;
                 meta = face;
             }
-        } else if (bid === B.RETIMER) {
+        } else if (bid === B.RETIMER || bid === B.OPAMP) {
             //Signal runs away from the player
             meta = facingFromYaw(p.yaw);
         } else if (SHAPE[bid] === "rail") {
@@ -1516,6 +1517,10 @@ export class Game {
             //Next delay: 1 to 4 steps of 2 ticks
             const steps = (((hit.meta >> 2) & 3) + 1) % 4;
             w.setBlock(hit.x, hit.y, hit.z, hit.id, (hit.meta & 3) | (steps << 2));
+            this.sound.play("click");
+        } else if (kind === "opamp") {
+            //Compare or subtract
+            w.setBlock(hit.x, hit.y, hit.z, B.OPAMP, hit.meta ^ 4);
             this.sound.play("click");
         } else if (kind === "gate") {
             w.setBlock(hit.x, hit.y, hit.z, B.FENCE_GATE, hit.meta ^ 4, false);

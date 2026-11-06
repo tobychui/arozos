@@ -296,7 +296,7 @@ export function meshSection(world, chunk, sy, opts) {
                 } else if (shape === "sign") {
                     sign(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "retimer") {
-                    retimer(solidBuf, p, x, y, z, id, meta);
+                    (id === B.OPAMP ? opamp : retimer)(solidBuf, p, x, y, z, id, meta);
                 } else if (shape === "plate") {
                     boxFaces(solidBuf, p, x, y, z, id, meta, U, 0, U, 15 * U, meta & 1 ? U / 2 : U, 15 * U, (f, np) => f === 3 && pOpq[np] === 1);
                 } else if (shape === "piston") {
@@ -679,7 +679,7 @@ function ironBars(buf, p, x, y, z, id, meta, links) {
     }
 }
 
-const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
+const WIRE_LINKS = new Set([B.SPARK_WIRE, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.RETIMER_ON, B.OPAMP, B.SPARK_TORCH, B.SPARK_TORCH_OFF, B.SPARK_LAMP,
     B.SPARK_LAMP_ON, B.PISTON, B.STICKY_PISTON, B.SPARK_BLOCK, B.POWERED_RAIL, B.DETECTOR_RAIL]);
 
 function flatQuad(buf, x0, z0, x1, z1, yy, layer, ls, lb, r, g, b) {
@@ -748,6 +748,21 @@ function retimer(buf, p, x, y, z, id, meta) {
     for (const s of [0.78, 0.55 - 0.1 * ((meta >> 2) & 3)]) {
         const cx = 0.5 + d[0] * (s - 0.5), cz = 0.5 + d[1] * (s - 0.5);
         turnedBox(buf, p, x, y, z, [cx - U, 2 * U, cz - U, cx + U, 7 * U, cz + U], 2, () => pin);
+    }
+}
+
+//OpAmp: a thin slab with its symbol turned to the facing, a pin on each of
+//the two inputs (lit while it gives a signal) and one on the output, which
+//stands up and lights in subtract mode
+function opamp(buf, p, x, y, z, id, meta) {
+    const f = meta & 3, d = HDIR[f];
+    boxFaces(buf, p, x, y, z, id, meta, 0, 0, 0, 1, 2 * U, 1, (ff, np) => ff === 3 && pOpq[np] === 1, f);
+    const on = layerOfTile("retimer_pin_on"), off = layerOfTile("retimer_pin_off");
+    const sub = (meta & 4) !== 0;
+    const pins = [[-0.34, -0.17, (meta >> 3) & 15 ? on : off, 7], [-0.34, 0.17, (meta >> 3) & 15 ? on : off, 7], [0.34, 0, sub ? on : off, sub ? 7 : 4]];
+    for (const [along, across, layer, top] of pins) {
+        const cx = 0.5 + d[0] * along - d[1] * across, cz = 0.5 + d[1] * along + d[0] * across;
+        turnedBox(buf, p, x, y, z, [cx - U, 2 * U, cz - U, cx + U, top * U, cz + U], 2, () => layer);
     }
 }
 

@@ -655,7 +655,7 @@ for (const id of [B.TORCH, B.SPARK_TORCH, B.SPARK_TORCH_OFF]) {
 }
 const HDIR_KIND = new Uint8Array(256);
 for (let id = 0; id < 256; id++) {
-    if (SHAPE[id] === "stairs" || [B.FENCE_GATE, B.RETIMER, B.RETIMER_ON, B.BED, B.DOOR, B.TRAPDOOR].includes(id)) {
+    if (SHAPE[id] === "stairs" || [B.FENCE_GATE, B.RETIMER, B.RETIMER_ON, B.OPAMP, B.BED, B.DOOR, B.TRAPDOOR].includes(id)) {
         HDIR_KIND[id] = 1;
     }
 }

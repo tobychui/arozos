@@ -26,7 +26,8 @@ export const B = {
     PISTON_HEAD: 83, RAIL: 84, POWERED_RAIL: 85, SPARK_BLOCK: 86, PLATE_WOOD: 87, PLATE_STONE: 88,
     RETIMER: 89, RETIMER_ON: 90, SIGN: 91, WALL_SIGN: 92, IRON_BARS: 93,
     PLANK_STAIRS: 94, COBBLE_STAIRS: 95, STONE_STAIRS: 96, STONE_BRICK_STAIRS: 97, BRICK_STAIRS: 98,
-    SANDSTONE_STAIRS: 99, TRAPDOOR: 100, DETECTOR_RAIL: 101, FEEDER: 102, DISPENSER: 103
+    SANDSTONE_STAIRS: 99, TRAPDOOR: 100, DETECTOR_RAIL: 101, FEEDER: 102, DISPENSER: 103,
+    OPAMP: 104
 };
 
 //Wool and dye colours: key, name, colour
@@ -231,6 +232,10 @@ def(B.PLATE_STONE, "Stone Pressure Plate", { tex: "stone", shape: "plate", solid
 const RETIMER_DEF = { shape: "retimer", solid: false, opaque: false, lightOpacity: 0, hardness: 0, sound: "stone", support: "solid", interact: "retimer" };
 def(B.RETIMER, "Retimer", Object.assign({ tex: { top: "retimer_top", side: "slab_side", bottom: "slab_top" } }, RETIMER_DEF));
 def(B.RETIMER_ON, "Retimer", Object.assign({ tex: { top: "retimer_top_on", side: "slab_side", bottom: "slab_top" }, noItem: true, drops: () => [[B.RETIMER, 1]] }, RETIMER_DEF));
+//OpAmp: sends out the level at its back (a signal, or how full the storage
+//there is) unless a side input beats it, or minus the sides in subtract mode.
+//Meta: bits 0-1 facing (HDIR), bit 2 subtract mode, bits 3-6 output level.
+def(B.OPAMP, "OpAmp", Object.assign({}, RETIMER_DEF, { tex: { top: "opamp_top", side: "slab_side", bottom: "slab_top" }, interact: "opamp" }));
 def(B.FIRE, "Fire", { tex: "fire", shape: "fire", solid: false, opaque: false, lightOpacity: 0, light: 15, hardness: 0, replaceable: true, noItem: true, sound: "fire", drops: () => [] });
 def(B.LAVA, "Lava", { tex: "lava", shape: "liquid", solid: false, opaque: false, lightOpacity: 15, light: 15, hardness: -1, replaceable: true, noItem: true, targetable: false, sound: "lava" });
 def(B.OBSIDIAN, "Obsidian", { tex: "obsidian", hardness: 35, tool: "pickaxe", tier: 4 });
@@ -325,6 +330,9 @@ export function layerOfTile(name) {
 //Texture layer of a block face, taking meta into account
 export function blockFaceLayer(id, face, meta) {
     const fl = faceLayers[id];
+    if (id === B.OPAMP && face === 2 && (meta >> 3) & 15) {
+        return tileLayer.get("opamp_top_on");
+    }
     if (id === B.WHEAT) {
         return tileLayer.get("wheat_" + Math.min(7, meta));
     }
@@ -671,6 +679,7 @@ shapeless(B.BUTTON, 1, [B.STONE], "Spark");
 shaped(B.PLATE_WOOD, 1, ["PP"], { P: B.PLANKS }, "Spark");
 shaped(B.PLATE_STONE, 1, ["SS"], { S: B.STONE }, "Spark");
 shaped(B.RETIMER, 1, ["TDT", "SSS"], { T: B.SPARK_TORCH, D: I.SPARK_DUST, S: B.STONE }, "Spark");
+shaped(B.OPAMP, 1, [".T.", "TIT", "SSS"], { T: B.SPARK_TORCH, I: I.IRON_INGOT, S: B.STONE }, "Spark");
 shaped(B.SPARK_LAMP, 1, [".D.", "DLD", ".D."], { D: I.SPARK_DUST, L: B.LAMP }, "Spark");
 shaped(B.PISTON, 1, ["PPP", "CIC", "CDC"], { P: B.PLANKS, C: B.COBBLE, I: I.IRON_INGOT, D: I.SPARK_DUST }, "Spark");
 shapeless(B.STICKY_PISTON, 1, [B.PISTON, I.CLAY_BALL], "Spark");
@@ -834,7 +843,7 @@ export function creativeGroups() {
         tools.push(swordId(mi));
     }
     tools.push(I.BOW, I.ARROW, I.BUCKET, I.WATER_BUCKET, I.LAVA_BUCKET, I.FLINT_AND_STEEL, I.BOAT, I.COMPASS);
-    const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.SPARK_LAMP,
+    const spark = [B.SPARK_ORE, I.SPARK_DUST, B.SPARK_BLOCK, B.SPARK_TORCH, B.LEVER, B.BUTTON, B.PLATE_WOOD, B.PLATE_STONE, B.RETIMER, B.OPAMP, B.SPARK_LAMP,
         B.PISTON, B.STICKY_PISTON, B.DISPENSER, B.FEEDER, B.RAIL, B.POWERED_RAIL, B.DETECTOR_RAIL, I.MINECART, I.CHEST_MINECART, I.FURNACE_MINECART];
     const items = [I.STICK, I.COAL, I.IRON_INGOT, I.GOLD_INGOT, I.CRYSTAL, I.FLINT, I.CLAY_BALL, I.BRICK,
         I.WHEAT, I.BOWL, I.APPLE, I.BREAD, I.STEW, I.RAW_MEAT, I.COOKED_MEAT, I.RAW_MUTTON,
