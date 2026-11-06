@@ -768,6 +768,7 @@ export class Renderer {
         this.pCol = new Float32Array(this.pMax * 3);
         this.pVel = new Float32Array(this.pMax * 3);
         this.pLife = new Float32Array(this.pMax);
+        this.pGrav = new Float32Array(this.pMax);
         this.pCount = 0;
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.BufferAttribute(this.pPos, 3));
@@ -777,7 +778,8 @@ export class Renderer {
         this.scene.add(this.particles);
     }
 
-    spawnParticles(x, y, z, color, count, spread = 0.45, speed = 3, brightness = 1) {
+    //gravity: blocks / s^2 downward; below zero the particles rise (flames, smoke)
+    spawnParticles(x, y, z, color, count, spread = 0.45, speed = 3, brightness = 1, gravity = 16) {
         for (let i = 0; i < count; i++) {
             if (this.pCount >= this.pMax) {
                 return;
@@ -794,6 +796,7 @@ export class Renderer {
             this.pCol[k * 3 + 1] = color[1] * v;
             this.pCol[k * 3 + 2] = color[2] * v;
             this.pLife[k] = 0.5 + Math.random() * 0.6;
+            this.pGrav[k] = gravity;
         }
     }
 
@@ -804,6 +807,7 @@ export class Renderer {
             if (this.pLife[i] <= 0) {
                 n--;
                 this.pLife[i] = this.pLife[n];
+                this.pGrav[i] = this.pGrav[n];
                 for (let a = 0; a < 3; a++) {
                     this.pPos[i * 3 + a] = this.pPos[n * 3 + a];
                     this.pVel[i * 3 + a] = this.pVel[n * 3 + a];
@@ -812,7 +816,7 @@ export class Renderer {
                 i--;
                 continue;
             }
-            this.pVel[i * 3 + 1] -= 16 * dt;
+            this.pVel[i * 3 + 1] -= this.pGrav[i] * dt;
             const nx = this.pPos[i * 3] + this.pVel[i * 3] * dt;
             const ny = this.pPos[i * 3 + 1] + this.pVel[i * 3 + 1] * dt;
             const nz = this.pPos[i * 3 + 2] + this.pVel[i * 3 + 2] * dt;
@@ -866,6 +870,26 @@ export class Renderer {
         mesh.userData.cube = entry.cube;
         mesh.layers.enable(1);
         return mesh;
+    }
+
+    //Two crossed sheets of the fire tile around a burning item, always bright.
+    //Goes away with disposeItemMesh.
+    makeFlameMesh() {
+        const entry = this.cardGeometry("fire");
+        const mat = this.terrainMaterial({ alphaTest: 0.3, override: true });
+        const mesh = new THREE.Mesh(entry.geometry, mat);
+        const cross = new THREE.Mesh(entry.geometry, mat);
+        cross.rotation.y = Math.PI / 2;
+        mesh.add(cross);
+        mesh.layers.enable(1);
+        cross.layers.enable(1);
+        this.setMeshBrightness(mesh, 1);
+        return mesh;
+    }
+
+    //A fixed brightness instead of the light around it
+    setMeshBrightness(mesh, v) {
+        mesh.material.uniforms.uLightOverride.value.set(2, v, 0);
     }
 
     setMeshLight(mesh, sky, blk) {

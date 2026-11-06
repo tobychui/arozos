@@ -281,8 +281,42 @@ export class Sound {
             case "fizz":
                 this.noiseBurst("highpass", 4000, 0.5, 0.3, 0.2);
                 break;
+            case "incinerate":
+                this.incinerate(opts.dur || 1.4, opts.distance || 0);
+                break;
             default:
                 break;
+        }
+    }
+
+    //Something burning up: a soft whoomph, a hiss that swells and dies with
+    //the flame and fat crackling on top. Fades out by 28 blocks.
+    incinerate(dur, distance) {
+        const near = Math.max(0, 1 - distance / 28);
+        if (near <= 0) {
+            return;
+        }
+        const ctx = this.ctx, t = ctx.currentTime;
+        this.noiseBurst("lowpass", 320, 0.7, 0.45, 0.5 * near, 0, this.brown);
+        const src = ctx.createBufferSource();
+        src.buffer = this.noise;
+        src.loop = true;
+        const f = ctx.createBiquadFilter();
+        f.type = "highpass";
+        f.Q.value = 0.6;
+        f.frequency.setValueAtTime(2200, t);
+        f.frequency.exponentialRampToValueAtTime(5200, t + dur);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.2 * near, t + 0.12);
+        g.gain.setValueAtTime(0.2 * near, t + dur * 0.45);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        src.connect(f).connect(g).connect(this.master);
+        src.start(t, Math.random() * 1.5);
+        src.stop(t + dur + 0.05);
+        for (let i = 0; i < 12; i++) {
+            const when = Math.random() * dur * 0.9;
+            this.noiseBurst("bandpass", 1800 + Math.random() * 3200, 3, 0.02 + Math.random() * 0.03, (0.12 + Math.random() * 0.2) * near, when);
         }
     }
 

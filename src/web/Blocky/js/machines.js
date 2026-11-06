@@ -15,7 +15,10 @@
       the block above it (a rail laid on the feeder), moving or not
 
     A dispenser (9 slots) fires once each time power arrives (power.js
-    calls world.onDispense): it picks a random filled slot and
+    calls world.onDispense). With storage right in front (a chest, a chest
+    cart, another dispenser or a feeder, not a furnace) it moves one item
+    into it, any kind of item, and keeps it when the storage is full.
+    Otherwise it picks a random filled slot and
     - shoots an arrow
     - sets a cart on a rail in front of it (or one block lower), turned
       along the rail away from it
@@ -165,7 +168,7 @@ export class Machines {
         const mine = range(te.slots.length);
         for (let i = items.length - 1; i >= 0; i--) {
             const e = items[i];
-            if (e.x < x || e.x >= x + 1 || e.z < z || e.z >= z + 1 || e.y < y + 10 / 16 || e.y >= y + 2) {
+            if (e.burn !== undefined || e.x < x || e.x >= x + 1 || e.z < z || e.z >= z + 1 || e.y < y + 10 / 16 || e.y >= y + 2) {
                 continue;
             }
             let n = e.count;
@@ -183,6 +186,26 @@ export class Machines {
 
     /* ---------------- dispensers ---------------- */
 
+    //One item into the storage in front, from a random slot that fits.
+    //True when there is storage there, whether or not anything fitted.
+    passOn(te, full, x, y, z) {
+        const to = this.containerAt(x, y, z);
+        if (!to || to.kind === "furnace") {
+            return false;
+        }
+        const all = range(to.slots.length);
+        const start = Math.floor(Math.random() * full.length);
+        for (let k = 0; k < full.length; k++) {
+            const i = full[(start + k) % full.length];
+            if (insertOne(to.slots, all, te.slots[i])) {
+                takeOne(te.slots, i);
+                break;
+            }
+        }
+        this.game.sound.play("click");
+        return true;
+    }
+
     dispense(x, y, z, face) {
         const g = this.game, w = g.world;
         const te = w.getTileEntity(x, y, z) || w.createTileEntity(x, y, z, "dispenser");
@@ -191,10 +214,13 @@ export class Machines {
             g.sound.play("click");
             return;
         }
-        const i = full[Math.floor(Math.random() * full.length)];
-        const s = te.slots[i];
         const d = FACE_DIR[face];
         const fx = x + d[0], fy = y + d[1], fz = z + d[2];
+        if (this.passOn(te, full, fx, fy, fz)) {
+            return;
+        }
+        const i = full[Math.floor(Math.random() * full.length)];
+        const s = te.slots[i];
         const front = w.getBlock(fx, fy, fz);
         //Just outside the mouth
         const ox = x + 0.5 + d[0] * 0.7, oy = y + 0.5 + d[1] * 0.7 - (d[1] === 0 ? 0.15 : 0), oz = z + 0.5 + d[2] * 0.7;

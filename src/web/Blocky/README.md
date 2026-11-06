@@ -407,9 +407,22 @@ A cart touching a cactus (its box within 0.02 of the cactus's inset box,
 running into a cactus at the end of a track, never one passing a cactus
 beside the track (0.07 apart). `breakOnCactus` drops the item, and a chest
 cart's contents, in the middle of the block the cart was in, clear of the
-cactus, which destroys any dropped item touching it (its top included)
-like lava and fire do. Touching a cactus hurts the player half a heart a
-second.
+cactus, which destroys any dropped item touching it (its top included).
+Touching a cactus hurts the player half a heart a second.
+
+A cart whose middle reaches lava (`inLava`, also a cart lava flows over) is
+wrecked by `breakInLava`, in creative too, and a rider is put out first.
+Its item and a chest cart's contents are thrown up from the middle of the
+block, in an arc that lands in that same block and out of the player's
+reach until then (`LAVA_NO_PICKUP`), so they fall back in and burn up.
+
+A dropped item in lava or fire burns up over `BURN_TIME` (1.4 s,
+`Entities.startBurn` / `burnStep`): it stops, sinks slowly, shrinks and chars
+under two crossed sheets of the fire tile (`Renderer.makeFlameMesh`) with
+embers and smoke, while the `incinerate` sound plays (hiss and crackle in
+audio.js, one per `BURN_SOUND_GAP` so a chest load is not deafening). A
+burning item can no longer be picked up or collected by a feeder. It is not
+saved as burning: on load it simply starts again.
 
 ## Feeders and dispensers
 
@@ -433,7 +446,14 @@ in that block.
 Dispenser (`B.DISPENSER` 103; CCC / CBC / CDC, cobblestone, a bow, spark
 dust): faces any way (placed like a piston, front looking back at the
 player), meta bit 8 while powered. Each time power arrives (`powerTick`
-calls `world.onDispense`) it takes a random filled slot and
+calls `world.onDispense`) it acts on what is in front. Storage there (a
+chest, a chest cart in that block, another dispenser or a feeder) gets one
+item, of any kind, from a random slot that fits (`passOn`); when it is full
+the item stays and the dispenser just clicks. A furnace does not count (only
+feeders fill one) and neither do crafting tables and the like, so a dispenser
+in front of those throws as usual. A column of dispensers facing up with a
+torch tower beside it, toggled on and off, lifts items one block at a time.
+With no storage in front it takes a random filled slot and
 - shoots an arrow (22 blocks/s; dispensed arrows hurt the player too,
   `hitsPlayer` in mobs.js)
 - sets a cart on a rail in front (or one block lower), turned along the

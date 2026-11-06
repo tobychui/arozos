@@ -289,7 +289,8 @@ export class Game {
             }
             this.handlePlayerEvents();
             this.updateInteraction(dt);
-            this.entities.update(dt, this.world, p, this.inventory, (id, count) => this.onPickup(id, count));
+            this.entities.update(dt, this.world, p, this.inventory, (id, count) => this.onPickup(id, count),
+                (e, dur) => this.sound.play("incinerate", { dur, distance: Math.hypot(e.x - p.x, e.y - p.y, e.z - p.z) }));
             this.mobs.update(dt);
             this.carts.update(dt, this.riding ? this.movementInput() : null);
             if (this.riding) {

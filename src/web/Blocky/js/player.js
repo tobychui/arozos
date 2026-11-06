@@ -31,6 +31,8 @@ export const DIFFICULTY = [
 ];
 
 const HALF_W = 0.3, HEIGHT = 1.8, EYE = 1.62, STEP = 0.6;
+//Lava kills from full health on the 7th hit, just under 4 seconds in
+const LAVA_DAMAGE = 3, LAVA_INTERVAL = 0.6;
 
 export class Player {
     constructor(world) {
@@ -456,8 +458,8 @@ export class Player {
         if (this.inLava) {
             this.burnTime = 8;
             if (this.fireTimer === 0) {
-                this.fireTimer = 0.5;
-                this.hurt(4, "lava");
+                this.fireTimer = LAVA_INTERVAL;
+                this.hurt(LAVA_DAMAGE, "lava");
             }
         } else if (this.touching(B.FIRE)) {
             this.burnTime = Math.max(this.burnTime, 4);

@@ -10,7 +10,8 @@
     Kinds: "cart" (right click to ride, W pushes, Shift to get out), "chest"
     (right click for 27 slots of storage) and "furnace" (right click with
     fuel to drive it away from you while the fuel lasts). Carts are saved
-    with the world.
+    with the world. Lava wrecks a cart: its item and load are thrown up out
+    of the lava, fall back in and burn up.
 */
 
 import * as THREE from "three";
@@ -57,6 +58,9 @@ const SOME_STACKS = 5;
 //Pace of a cart a player pushes along an unpowered powered rail
 const BRAKE_PUSH = 1.5;
 const HALF = 0.49;
+//How long the items of a cart wrecked in lava stay out of the player's
+//reach: longer than they fly, so they always go back in
+const LAVA_NO_PICKUP = 2;
 //Off the rails on the ground: speed falls by GROUND_DRAG per second
 //(exponential) plus a steady GROUND_STOP, so it comes to a real stop
 const GROUND_DRAG = 5;
@@ -242,8 +246,8 @@ export class Carts {
         }
     }
 
-    //at: where the items drop and how they fly ({ x, y, z, vel }), else
-    //from the cart, scattered
+    //at: where the items drop, how each flies and how long it cannot be
+    //picked up ({ x, y, z, vel(), delay }), else from the cart, scattered
     breakCart(c, drop, at = null) {
         const g = this.game;
         if (c.rider) {
@@ -251,11 +255,12 @@ export class Carts {
         }
         if (drop) {
             const [x, y, z] = at ? [at.x, at.y, at.z] : [c.x, c.y + 0.5, c.z];
-            const vel = () => (at ? at.vel.slice() : null);
-            g.entities.spawnItem(x, y, z, CART_ITEM[c.kind], 1, 0, vel());
+            const vel = () => (at ? at.vel() : null);
+            const delay = at ? at.delay : undefined;
+            g.entities.spawnItem(x, y, z, CART_ITEM[c.kind], 1, 0, vel(), delay);
             for (const s of c.slots || []) {
                 if (s) {
-                    g.entities.spawnItem(x, y, z, s.id, s.count, s.dmg || 0, vel());
+                    g.entities.spawnItem(x, y, z, s.id, s.count, s.dmg || 0, vel(), delay);
                 }
             }
         }
@@ -268,7 +273,34 @@ export class Carts {
     //rail beside the cactus), clear of the cactus so it does not destroy
     //them as well, and where a feeder under that rail takes them in
     breakOnCactus(c) {
-        this.breakCart(c, true, { x: Math.floor(c.x) + 0.5, y: c.y + 0.3, z: Math.floor(c.z) + 0.5, vel: [0, 1, 0] });
+        this.breakCart(c, true, { x: Math.floor(c.x) + 0.5, y: c.y + 0.3, z: Math.floor(c.z) + 0.5, vel: () => [0, 1, 0] });
+    }
+
+    inLava(c) {
+        return this.game.world.getBlock(Math.floor(c.x), Math.floor(c.y + 0.1), Math.floor(c.z)) === B.LAVA;
+    }
+
+    //The items are thrown straight up from the middle of the block, in a
+    //small enough arc to come down in the same block of lava. Under a roof,
+    //or deep in a lava fall, they burn where the cart was.
+    breakInLava(c) {
+        const g = this.game, w = g.world;
+        const x = Math.floor(c.x), z = Math.floor(c.z);
+        const cell = Math.floor(c.y + 0.1);
+        let top = cell;
+        while (top < cell + 2 && w.getBlock(x, top + 1, z) === B.LAVA) {
+            top++;
+        }
+        const above = w.getBlock(x, top + 1, z);
+        const open = above !== B.LAVA && !BLOCKS[above].solid;
+        const y = open ? top + 1.15 : c.y + 0.5;
+        g.renderer.spawnParticles(x + 0.5, top + 1, z + 0.5, [255, 120, 30], 24, 0.4, 4);
+        g.renderer.spawnParticles(x + 0.5, top + 1, z + 0.5, [255, 190, 70], 12, 0.35, 1.5, 1, -6);
+        g.sound.play("fizz");
+        this.breakCart(c, true, {
+            x: x + 0.5, y, z: z + 0.5, delay: LAVA_NO_PICKUP,
+            vel: () => [(Math.random() - 0.5) * 1.2, 5.5 + Math.random() * 2, (Math.random() - 0.5) * 1.2]
+        });
     }
 
     //Right click: ride, open the chest, or fuel the furnace
@@ -345,10 +377,13 @@ export class Carts {
                 c.hitCd = Math.max(0, c.hitCd - h);
                 this.step(c, h, input);
             }
-            //A cart running into a cactus breaks into its item
+            //A cart running into a cactus breaks into its item, one in lava
+            //is wrecked
             for (const c of this.list.slice()) {
                 if (touchingBlock(g.world, this.box(c), B.CACTUS, 0.02)) {
                     this.breakOnCactus(c);
+                } else if (this.inLava(c)) {
+                    this.breakInLava(c);
                 }
             }
             this.collide();

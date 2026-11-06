@@ -3,26 +3,41 @@
 
     Dropped items (small spinning blocks or flat sprites that the player
     picks up) and falling blocks (sand and gravel that lost their support).
-    Lava, fire and cactus destroy dropped items (a cactus on touch, top
-    included).
+    A cactus destroys dropped items on touch (top included). Lava and fire
+    burn them up: the item stops, sinks and chars under a flame for BURN_TIME
+    seconds, out of reach of the player and of feeders, and is gone.
 */
 
 import { B, BLOCKS } from "./blocks.js";
 import { moveAxis, touchingBlock } from "./physics.js";
+import { waterHeight } from "./shapes.js";
 
 export const ITEM_HALF = 0.125;
 const DESPAWN = 300;
+//How long an item takes to burn up, how fast it sinks meanwhile, and the
+//least time between two burn sounds (a chest cart's load lands all at once)
+const BURN_TIME = 1.4;
+const BURN_SINK = 0.2;
+const BURN_SOUND_GAP = 0.15;
 
 export class Entities {
     constructor(renderer) {
         this.renderer = renderer;
         this.items = [];
         this.falling = [];
+        this.burnSoundCd = 0;
+    }
+
+    disposeItem(e) {
+        this.renderer.disposeItemMesh(e.mesh);
+        if (e.flame) {
+            this.renderer.disposeItemMesh(e.flame);
+        }
     }
 
     clear() {
         for (const e of this.items) {
-            this.renderer.disposeItemMesh(e.mesh);
+            this.disposeItem(e);
         }
         for (const e of this.falling) {
             this.renderer.disposeItemMesh(e.mesh);
@@ -33,8 +48,7 @@ export class Entities {
 
     spawnItem(x, y, z, id, count, dmg = 0, vel = null, pickupDelay = 0.5) {
         if (this.items.length > 300) {
-            const old = this.items.shift();
-            this.renderer.disposeItemMesh(old.mesh);
+            this.disposeItem(this.items.shift());
         }
         const mesh = this.renderer.makeItemMesh(id);
         mesh.scale.setScalar(mesh.userData.cube ? 0.25 : 0.42);
@@ -53,15 +67,83 @@ export class Entities {
         this.falling.push({ x: x + 0.5, y: y, z: z + 0.5, vy: 0, id, meta, mesh, age: 0 });
     }
 
-    update(dt, world, player, inventory, onPickup) {
+    //An item has just come to lava or fire
+    startBurn(e, here, world, onBurn) {
         const r = this.renderer;
+        const x = Math.floor(e.x), y = Math.floor(e.y), z = Math.floor(e.z);
+        e.burn = 0;
+        e.vx = e.vy = e.vz = 0;
+        e.spark = 0;
+        e.size = e.mesh.scale.x;
+        //The flame stands on the lava's surface, or where the item is in a fire
+        e.burnY = here === B.LAVA ? y + waterHeight(world.getMeta(x, y, z), world.getBlock(x, y + 1, z) === B.LAVA) : e.y - ITEM_HALF;
+        e.flame = r.makeFlameMesh();
+        e.flame.rotation.y = Math.random() * Math.PI;
+        r.scene.add(e.flame);
+        r.spawnParticles(e.x, e.burnY + 0.05, e.z, [255, 130, 40], 8, 0.1, 2.5);
+        if (this.burnSoundCd <= 0 && onBurn) {
+            this.burnSoundCd = BURN_SOUND_GAP;
+            onBurn(e, BURN_TIME);
+        }
+    }
+
+    //One frame of burning. Returns true once the item has burnt up.
+    burnStep(e, dt, world) {
+        const r = this.renderer;
+        e.burn += dt;
+        const k = e.burn / BURN_TIME;
+        if (k >= 1) {
+            r.spawnParticles(e.x, e.burnY + 0.15, e.z, [70, 70, 74], 7, 0.12, 0.9, 1, -3);
+            r.spawnParticles(e.x, e.burnY + 0.1, e.z, [255, 170, 60], 5, 0.1, 2);
+            return true;
+        }
+        const sunk = e.y - BURN_SINK * dt;
+        if (!BLOCKS[world.getBlock(Math.floor(e.x), Math.floor(sunk - ITEM_HALF), Math.floor(e.z))].solid) {
+            e.y = sunk;
+        }
+        e.spin += dt * 0.8;
+        e.mesh.position.set(e.x, e.y + 0.04, e.z);
+        e.mesh.rotation.y = e.spin;
+        e.mesh.scale.setScalar(e.size * (1 - 0.55 * k));
+        r.setMeshBrightness(e.mesh, 1 - 0.88 * k);
+        //Flares up, then dies down with the last of the item
+        const f = Math.max(0.01, Math.min(1, k * 5, (1 - k) * 4));
+        e.flame.scale.set(0.62 * f, 0.8 * f, 0.62 * f);
+        e.flame.position.set(e.x, e.burnY + 0.37 * f, e.z);
+        e.spark -= dt;
+        if (e.spark <= 0) {
+            e.spark = 0.07;
+            const hot = Math.random() < 0.5 ? [255, 190, 70] : [255, 100, 25];
+            r.spawnParticles(e.x, e.burnY + 0.12, e.z, hot, 2, 0.13, 1.1, 1, -6);
+            if (k > 0.4) {
+                r.spawnParticles(e.x, e.burnY + 0.35, e.z, [60, 60, 64], 1, 0.1, 0.8, 1, -3);
+            }
+        }
+        return false;
+    }
+
+    //onBurn(item, seconds): an item has started to burn (not called for
+    //every item of a batch landing together)
+    update(dt, world, player, inventory, onPickup, onBurn) {
+        const r = this.renderer;
+        this.burnSoundCd = Math.max(0, this.burnSoundCd - dt);
         for (let i = this.items.length - 1; i >= 0; i--) {
             const e = this.items[i];
             e.age += dt;
             const here = world.getBlock(Math.floor(e.x), Math.floor(e.y), Math.floor(e.z));
-            if (e.age > DESPAWN || here === B.LAVA || here === B.FIRE) {
-                r.disposeItemMesh(e.mesh);
+            if (e.age > DESPAWN) {
+                this.disposeItem(e);
                 this.items.splice(i, 1);
+                continue;
+            }
+            if (e.burn === undefined && (here === B.LAVA || here === B.FIRE)) {
+                this.startBurn(e, here, world, onBurn);
+            }
+            if (e.burn !== undefined) {
+                if (this.burnStep(e, dt, world)) {
+                    this.disposeItem(e);
+                    this.items.splice(i, 1);
+                }
                 continue;
             }
             //Attraction to the player
