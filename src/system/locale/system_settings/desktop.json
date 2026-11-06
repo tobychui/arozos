@@ -108,7 +108,14 @@
                 "fnt/script/thai": "泰文",
                 "fnt/script/kana": "日文假名",
                 "fnt/script/han": "漢字",
-                "fnt/script/hangul": "韓文字母"
+                "fnt/script/hangul": "韓文字母",
+                "ast/desc": "讓桌面更容易閱讀的輔助功能，變更會即時儲存。",
+                "ast/windows": "視窗",
+                "ast/titles": "清晰的視窗標題",
+                "ast/titles/desc": "在視窗標題文字周圍加上深色外框，在淺色桌布、視窗與主題色彩上依然清晰易讀。",
+                "ast/preview": "視窗標題",
+                "ast/saved": "已儲存",
+                "ast/savefailed": "無法儲存"
             },
             "titles": {},
             "placeholder": {}
@@ -219,7 +226,14 @@
                 "fnt/script/thai": "泰文",
                 "fnt/script/kana": "日文假名",
                 "fnt/script/han": "漢字",
-                "fnt/script/hangul": "韓文字母"
+                "fnt/script/hangul": "韓文字母",
+                "ast/desc": "讓桌面更容易閱讀的輔助功能，變更會即時儲存。",
+                "ast/windows": "視窗",
+                "ast/titles": "清晰的視窗標題",
+                "ast/titles/desc": "在視窗標題文字周圍加上深色外框，在淺色桌布、視窗與主題色彩上依然清晰易讀。",
+                "ast/preview": "視窗標題",
+                "ast/saved": "已儲存",
+                "ast/savefailed": "無法儲存"
             },
             "titles": {},
             "placeholder": {}
@@ -330,7 +344,14 @@
                 "fnt/script/thai": "泰文",
                 "fnt/script/kana": "日文假名",
                 "fnt/script/han": "汉字",
-                "fnt/script/hangul": "韩文字母"
+                "fnt/script/hangul": "韩文字母",
+                "ast/desc": "让桌面更易于阅读的辅助功能，更改会立即保存。",
+                "ast/windows": "窗口",
+                "ast/titles": "清晰的窗口标题",
+                "ast/titles/desc": "在窗口标题文字周围添加深色描边，使其在浅色壁纸、窗口和主题颜色上依然清晰可读。",
+                "ast/preview": "窗口标题",
+                "ast/saved": "已保存",
+                "ast/savefailed": "无法保存"
             },
             "titles": {},
             "placeholder": {}
@@ -441,7 +462,14 @@
                 "fnt/script/thai": "Thai",
                 "fnt/script/kana": "Japanese kana",
                 "fnt/script/han": "Chinese characters",
-                "fnt/script/hangul": "Hangul"
+                "fnt/script/hangul": "Hangul",
+                "ast/desc": "Aids that make the desktop easier to read. Changes are saved as you make them.",
+                "ast/windows": "Windows",
+                "ast/titles": "Readable window titles",
+                "ast/titles/desc": "Draw a dark outline around window titles so they stay readable over light wallpapers, windows and theme colours.",
+                "ast/preview": "Window title",
+                "ast/saved": "Saved",
+                "ast/savefailed": "Could not save"
             },
             "titles": {},
             "placeholder": {}
@@ -552,7 +580,14 @@
                 "fnt/script/thai": "Thai",
                 "fnt/script/kana": "Japanese kana",
                 "fnt/script/han": "Chinese characters",
-                "fnt/script/hangul": "Hangul"
+                "fnt/script/hangul": "Hangul",
+                "ast/desc": "Aids that make the desktop easier to read. Changes are saved as you make them.",
+                "ast/windows": "Windows",
+                "ast/titles": "Readable window titles",
+                "ast/titles/desc": "Draw a dark outline around window titles so they stay readable over light wallpapers, windows and theme colours.",
+                "ast/preview": "Window title",
+                "ast/saved": "Saved",
+                "ast/savefailed": "Could not save"
             },
             "titles": {},
             "placeholder": {}
@@ -663,7 +698,14 @@
                 "fnt/script/thai": "タイ文字",
                 "fnt/script/kana": "かな",
                 "fnt/script/han": "漢字",
-                "fnt/script/hangul": "ハングル"
+                "fnt/script/hangul": "ハングル",
+                "ast/desc": "デスクトップを読みやすくする補助機能です。変更はすぐに保存されます。",
+                "ast/windows": "ウィンドウ",
+                "ast/titles": "読みやすいウィンドウタイトル",
+                "ast/titles/desc": "ウィンドウタイトルの文字に濃い縁取りを付け、明るい壁紙やウィンドウ、テーマカラーの上でも読みやすくします。",
+                "ast/preview": "ウィンドウタイトル",
+                "ast/saved": "保存しました",
+                "ast/savefailed": "保存できませんでした"
             },
             "titles": {},
             "placeholder": {}
@@ -774,7 +816,14 @@
                 "fnt/script/thai": "타이 문자",
                 "fnt/script/kana": "가나",
                 "fnt/script/han": "한자",
-                "fnt/script/hangul": "한글"
+                "fnt/script/hangul": "한글",
+                "ast/desc": "데스크톱을 더 읽기 쉽게 만드는 보조 기능입니다. 변경 사항은 바로 저장됩니다.",
+                "ast/windows": "창",
+                "ast/titles": "읽기 쉬운 창 제목",
+                "ast/titles/desc": "창 제목 글자 주위에 어두운 윤곽을 그려 밝은 배경 화면, 창, 테마 색상 위에서도 잘 보이게 합니다.",
+                "ast/preview": "창 제목",
+                "ast/saved": "저장됨",
+                "ast/savefailed": "저장할 수 없습니다"
             },
             "titles": {},
             "placeholder": {}

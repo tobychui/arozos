@@ -254,3 +254,27 @@ body.darkTheme .ui.header .sub.header{
 .fwdragger {
     --text-outline-color: rgba(36, 36, 36, 0.75);
 }
+
+/*
+    Assistive access: readable window titles
+
+    Off by default; System Settings > Desktop & Themes > Assistive Access
+    puts assistiveTitles on the desktop body. A dark glow keeps the white
+    title readable over light wallpapers and pale theme colours.
+
+    The glow needs room inside the title's overflow clip, so the box gets
+    padding and moves back by the same amount: the text stays where it was
+    and is not cut earlier (box-sizing is border-box under Semantic UI).
+    Windows that asked for the white title bar keep their dark text.
+*/
+body.assistiveTitles .floatWindow:not(.white) .controls .title{
+    left:30.5px;
+    top:0px;
+    padding: 5px 10px;
+    max-width: calc(100% - 120px);
+}
+
+body.assistiveTitles .floatWindow:not(.white) .fwdragger {
+    --text-outline-color: rgba(36, 36, 36, 0.9);
+    text-shadow: 0 0 10px var(--text-outline-color), 0px 0px 4px var(--text-outline-color), 0px 0px 2px var(--text-outline-color);
+}

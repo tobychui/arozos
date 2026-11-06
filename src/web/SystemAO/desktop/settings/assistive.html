@@ -1,0 +1,211 @@
+<!-- Assistive Access settings: loaded into SystemAO/system_setting/index.html as a fragment -->
+<style>
+#astRoot {
+    font-family: var(--ss-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+    color: var(--ss-text);
+}
+
+/*
+    The preview draws a piece of the desktop, not of this page, so it keeps
+    the desktop's own colours in light and dark mode: a light window behind
+    a translucent title bar, the case the option is for. The bar colour is
+    replaced by the user's theme colour when one is set.
+*/
+#astRoot .ast-preview-row { display: block; min-height: 0; padding: 12px 14px 14px; }
+#astRoot .ast-preview {
+    position: relative;
+    max-width: 380px;
+    height: 74px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #ffffff 0%, #eef1f4 55%, #dfe5ea 100%);
+    border: 1px solid var(--ss-border);
+}
+#astRoot .ast-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background-color: rgba(26, 26, 26, 0.3);
+}
+#astRoot .ast-icon {
+    position: absolute;
+    top: 6px;
+    left: 12.5px;
+    width: 18px;
+    height: 18px;
+    color: #ffffff;
+}
+#astRoot .ast-title {
+    position: absolute;
+    top: 0;
+    left: 30.5px;
+    max-width: calc(100% - 50px);
+    padding: 5px 10px;
+    box-sizing: border-box;
+    font-size: 14px;
+    line-height: 20px;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Same values as the desktop rule in script/ao.css (the title only, not the icon) */
+#astRoot .ast-preview.on .ast-title {
+    --text-outline-color: rgba(36, 36, 36, 0.9);
+    text-shadow: 0 0 10px var(--text-outline-color), 0px 0px 4px var(--text-outline-color), 0px 0px 2px var(--text-outline-color);
+}
+#astRoot .ast-lines {
+    position: absolute;
+    top: 42px;
+    left: 14px;
+    right: 14px;
+}
+#astRoot .ast-lines span {
+    display: block;
+    height: 6px;
+    margin-bottom: 7px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.08);
+}
+#astRoot .ast-lines span:nth-child(2) { width: 62%; }
+</style>
+
+<div id="astRoot">
+    <div class="ss-page-desc" locale="ast/desc">Aids that make the desktop easier to read. Changes are saved as you make them.</div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.5"/><path d="M1.8 5.8h12.4"/><path d="M4.2 4.15h.01M6.2 4.15h.01"/></svg>
+            <span locale="ast/windows">Windows</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="ast/titles">Readable window titles</div>
+                    <div class="ss-row-desc" locale="ast/titles/desc">Draw a dark outline around window titles so they stay readable over light wallpapers, windows and theme colours.</div>
+                </div>
+                <label class="ss-switch">
+                    <input type="checkbox" id="astTitles">
+                    <span class="ss-track"></span>
+                </label>
+            </div>
+            <div class="ss-row ast-preview-row">
+                <div class="ast-preview" id="astPreview" aria-hidden="true">
+                    <div class="ast-bar" id="astPreviewBar">
+                        <svg class="ast-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2.5" y="2.5" width="13" height="13" rx="2.5"/><path d="M6 9h6M9 6v6" stroke-linecap="round"/></svg>
+                        <span class="ast-title" locale="ast/preview">Window title</span>
+                    </div>
+                    <div class="ast-lines"><span></span><span></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    /*
+        Assistive Access settings.
+
+        Readable window titles is the desktop preference "assistive-titles"
+        ("true" when on; removed when off, so an account that never opened
+        this page keeps the plain titles). The desktop reads it on start and
+        toggles body.assistiveTitles, which the title rules in script/ao.css
+        are keyed on.
+
+        A desktop that is already open is told at once: directly through
+        setAssistiveTitles when this page runs inside it, and through
+        localStorage (desktop/assistiveChanged) for a desktop in another tab.
+    */
+    /*
+        Own locale instance rather than the shared global one: this page is
+        loaded as a fragment into System Settings, which keeps its own strings
+        on the global applocale.
+    */
+    var astLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
+        init: function (f, cb) { cb(); },
+        translate: function () {},
+        getString: function (k, fallback) { return fallback; }
+    };
+
+    function astStr(key, fallback) {
+        return (astLocale && astLocale.getString) ? astLocale.getString(key, fallback) : fallback;
+    }
+
+    var PREF_URL = "../../system/desktop/preference";
+    var TITLES_PREF = "assistive-titles";
+
+    function astReadPref(key, cb) {
+        $.ajax({ url: PREF_URL, method: "POST", data: { preference: key },
+            success: function (d) { cb(typeof d === "string" ? d : ""); },
+            error: function () { cb(""); } });
+    }
+
+    function astWritePref(key, enabled, done) {
+        var data = enabled ? { preference: key, value: "true" } : { preference: key, remove: "true" };
+        $.ajax({ url: PREF_URL, method: "POST", data: data,
+            success: function (d) {
+                if (d != null && d.error !== undefined) {
+                    done(false);
+                    return;
+                }
+                done(true);
+            },
+            error: function () { done(false); } });
+    }
+
+    function astTellDesktop(enabled) {
+        try {
+            if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop &&
+                typeof parent.setAssistiveTitles === "function") {
+                parent.setAssistiveTitles(enabled);
+            }
+        } catch (e) {}
+        try {
+            localStorage.setItem("desktop/assistiveChanged",
+                JSON.stringify({ key: TITLES_PREF, value: enabled ? "true" : "false", ts: Date.now() }));
+        } catch (e) {}
+    }
+
+    function astShowTitles(enabled) {
+        $("#astTitles").prop("checked", enabled);
+        $("#astPreview").toggleClass("on", enabled);
+    }
+
+    //The preview bar takes the window colour the desktop uses (theme colour at 25 %)
+    function astApplyThemeColor() {
+        astReadPref("themecolor", function (hex) {
+            if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) return;
+            var c = hex.substring(1).split("");
+            if (c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            c = parseInt(c.join(""), 16);
+            $("#astPreviewBar").css("background-color",
+                "rgba(" + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(",") + ",0.25)");
+        });
+    }
+
+    $("#astTitles").on("change", function () {
+        var enabled = this.checked;
+        astShowTitles(enabled);
+        astWritePref(TITLES_PREF, enabled, function (ok) {
+            if (!ok) {
+                astShowTitles(!enabled);
+                if (typeof msgbox === "function") msgbox(astStr("ast/savefailed", "Could not save"), false);
+                return;
+            }
+            astTellDesktop(enabled);
+            if (typeof msgbox === "function") msgbox(astStr("ast/saved", "Saved"), true, 1500);
+        });
+    });
+
+    astLocale.init("../locale/system_settings/desktop.json", function () {
+        astLocale.translate();
+        astApplyThemeColor();
+        astReadPref(TITLES_PREF, function (v) {
+            astShowTitles(v === "true");
+        });
+    });
+})();
+</script>

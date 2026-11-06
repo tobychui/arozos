@@ -1643,6 +1643,7 @@
             initModuleList();
             initDesktopIconPreference()
             initUserDefinedThemeColor();
+            initAssistiveAccess();
             hookFloatWindowEvents();
             hookLaunchMenuEvents();
             initTheme();
@@ -7905,6 +7906,44 @@
                         setThemeColor(data);
                     }
                 }
+            });
+        }
+
+        /*
+            Assistive access (System Settings > Desktop & Themes > Assistive Access)
+
+            Readable window titles: a body class that ao.css keys the title
+            glow on. Off unless the user turned it on. The settings page calls
+            setAssistiveTitles directly when it runs inside this desktop, and
+            announces every write on localStorage so a desktop in another tab
+            follows too.
+        */
+        const ASSISTIVE_TITLES_PREF = "assistive-titles";
+
+        function setAssistiveTitles(enabled){
+            $("body").toggleClass("assistiveTitles", enabled === true);
+        }
+
+        function initAssistiveAccess(){
+            $.ajax({
+                url: "system/desktop/preference",
+                data: {preference: ASSISTIVE_TITLES_PREF},
+                method: "POST",
+                success: function(data){
+                    setAssistiveTitles(data === "true");
+                }
+            });
+
+            window.addEventListener("storage", function(e){
+                if (e.key !== "desktop/assistiveChanged" || !e.newValue){
+                    return;
+                }
+                try {
+                    let change = JSON.parse(e.newValue);
+                    if (change.key === ASSISTIVE_TITLES_PREF){
+                        setAssistiveTitles(change.value === "true");
+                    }
+                } catch (err) {}
             });
         }
 
