@@ -637,8 +637,11 @@ the HTML interface (hotbar, chat) is not part of it.
 
 ## Creative palette
 
-Clicking a held stack onto the item grid, or dragging a stack from a slot
-and letting go over it, deletes the stack like the bin does.
+Clicking an item in the grid takes one on the cursor, and each further click
+on it one more; Shift click takes a whole stack on the cursor. Clicking a held
+stack of anything else onto the item grid, or dragging a stack from a slot and
+letting go over it, deletes the stack like the bin does, and so does Shift
+clicking a hotbar slot.
 
 ## Pick block
 

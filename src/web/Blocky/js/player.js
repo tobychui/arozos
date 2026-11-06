@@ -46,6 +46,8 @@ export class Player {
         this.onLadder = false;
         this.flying = false;
         this.sneaking = false;
+        //Shift is down, also while flying (where it sinks instead of sneaks)
+        this.shiftHeld = false;
         this.sprinting = false;
         this.horizontalHit = false;
         this.fallDistance = 0;
@@ -135,7 +137,8 @@ export class Player {
         if (!this.creative) {
             this.flying = false;
         }
-        this.sneaking = !!input.sneak && !this.flying;
+        this.shiftHeld = !!input.sneak;
+        this.sneaking = this.shiftHeld && !this.flying;
         const canSprint = this.creative || this.food > 6 || this.difficulty === 0;
         if (input.sprint && input.forward > 0 && !this.sneaking && canSprint) {
             this.sprinting = true;

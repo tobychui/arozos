@@ -197,8 +197,10 @@ export class UI {
                 this.dragging = !!this.cursor;
                 return;
             }
-            //Creative: whatever is held and clicked onto the palette is gone
-            if (this.cursor && e.target.closest(".palette")) {
+            //Creative: whatever is held and clicked onto the palette is gone,
+            //unless it is the item clicked, which takes one more
+            const onPal = e.target.closest(".pal");
+            if (this.cursor && e.target.closest(".palette") && !(onPal && Number(onPal.dataset.id) === this.cursor.id)) {
                 e.preventDefault();
                 this.cursor = null;
                 this.after();
@@ -844,8 +846,13 @@ export class UI {
 
     quickMove(ref) {
         const s = this.getStack(ref);
-        //Creative only shows the hotbar, so there is nowhere to move things to
-        if (!s || this.screen.kind === "creative") {
+        if (!s) {
+            return;
+        }
+        //Creative only shows the hotbar, so there is nowhere to move things
+        //to: the stack is deleted instead
+        if (this.screen.kind === "creative") {
+            this.setStack(ref, null);
             return;
         }
         const range = (p, a, b) => {
@@ -878,16 +885,10 @@ export class UI {
         }
     }
 
+    //One on the cursor (one more each click), Shift a whole stack on the cursor
     paletteClick(id, button, shift) {
-        if (this.cursor && button === 0 && this.cursor.id !== id) {
-            this.cursor = null;
-        } else if (shift) {
-            this.game.inventory.add(id, maxStack(id));
-        } else if (this.cursor && this.cursor.id === id && button === 0) {
-            this.cursor.count = Math.min(maxStack(id), this.cursor.count + 1);
-        } else {
-            this.cursor = { id, count: button === 2 ? 1 : maxStack(id), dmg: 0 };
-        }
+        const held = this.cursor ? this.cursor.count : 0;
+        this.cursor = { id, count: shift ? maxStack(id) : Math.min(maxStack(id), held + 1), dmg: 0 };
         this.after();
     }
 

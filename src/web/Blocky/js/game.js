@@ -782,7 +782,7 @@ export class Game {
         }
 
         //Bow: hold to draw, let go to shoot
-        const useBlock = rightClick && hit && BLOCKS[hit.id].interact && !p.sneaking;
+        const useBlock = rightClick && hit && BLOCKS[hit.id].interact && !p.shiftHeld;
         if (held && held.id === I.BOW && !useBlock) {
             if (rightDown) {
                 if (this.creative || this.inventory.count(I.ARROW) > 0) {
@@ -797,7 +797,7 @@ export class Game {
         this.bowDraw = 0;
 
         //Eating
-        if (rightDown && heldDef && heldDef.food && !this.creative && p.food < 20 && !(hit && BLOCKS[hit.id].interact && !p.sneaking)) {
+        if (rightDown && heldDef && heldDef.food && !this.creative && p.food < 20 && !(hit && BLOCKS[hit.id].interact && !p.shiftHeld)) {
             this.eatT += dt;
             this.eatSound -= dt;
             if (this.eatSound <= 0) {
@@ -1018,7 +1018,7 @@ export class Game {
         const p = this.player, inv = this.inventory, w = this.world;
         const held = inv.held;
         const it = held && ITEMS[held.id];
-        if (rawHit && BLOCKS[rawHit.id].interact && !p.sneaking) {
+        if (rawHit && BLOCKS[rawHit.id].interact && !p.shiftHeld) {
             this.interactBlock(rawHit);
             return;
         }
