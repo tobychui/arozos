@@ -365,6 +365,40 @@ per pool "other permission" and bridging a drive into another pool.
 - **After a rule change** call `driveAccessChanged()`: it clears the per user
   quota managers and updates the Samba shares.
 
+## What the built-in SMB server is
+
+A pure Go SMB 2.1 to 3.1.1 server, so Windows Explorer can open ArozOS drives
+with no Samba install. It is experimental and off by default: an admin turns it
+on in System Settings > File Servers, and each user then sets their own SMB
+password there. The design and its state are in
+[`src/mod/storage/SMB_PROPOSAL.md`](src/mod/storage/SMB_PROPOSAL.md); read it,
+especially section 13, before changing protocol behaviour.
+
+- **Where it lives:** [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/):
+  `wire` (messages), `crypt` (signing), `auth` (SPNEGO and NTLMv2), `rpc` (`IPC$`:
+  srvsvc, lsarpc, dssetup, wkssvc), `state` (share modes and locks across all clients),
+  the core, and `aroz`, the only package that imports ArozOS code, in the same
+  split as `sftpserver.Access`. The file server entry, settings and endpoints are in
+  [`src/mod/fileservers/servers/smbserv/`](src/mod/fileservers/servers/smbserv/),
+  wired in [`src/smbserver.go`](src/smbserver.go).
+- **Rules that are easy to break:** never grant an oplock or lease before breaks
+  exist, it is silent corruption. Ask `CanRead` / `CanWrite` on every operation,
+  not once at connect. Every request on a session must be signed. Interim
+  `STATUS_PENDING` responses stay unsigned. Grant credits as charge plus request
+  minus one: Windows only asks for what a read costs, so repaying exactly that
+  holds it to one read in flight (`TestWindowsStyleCopyPipelines`).
+- **Passwords:** NTLM needs the NT hash, which cannot come from the stored login
+  hash, so SMB has its own password per user, sealed in the system database with
+  a key in `system/smb/` (`aroz/credentials.go`). Changing or revoking it drops
+  that user's live sessions.
+- **Debugging:** `-smb_capture <folder>` writes a pcap and a trace log with no
+  root. Windows sends a login derived from the signed in user's real password on
+  its own, so captures blank every NTLM response: keep it that way, and never
+  commit a raw capture.
+- **Testing:** real clients count most. `go test ./mod/storage/smbserver/...`
+  runs `go-smb2`, `smbclient`, `rpcclient` and Wireshark where installed. Windows
+  cannot host it on 445, so test from a Windows client against another machine.
+
 ## What Container Apps are
 
 **Container Apps** publish a web server running on another port (usually a
@@ -695,6 +729,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/prouter/`](src/mod/prouter/) — permission/auth router (rule 4).
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
 - [`src/mod/storage/access/`](src/mod/storage/access/) — drive access lists (see "Who can use a drive").
+- [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/) — the built-in SMB server (see "What the built-in SMB server is").
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
 - [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/office/`](src/mod/office/) — converters behind the `office` AGI library and the Office suite ([`src/web/Office/`](src/web/Office/), read its `README.md` first): one package per format — `docx` / `xlsx` / `pptx` and `odf` import and export, import-only `doc` / `xls` / `ppt` for Office 97-2003 (converted to OOXML), `pdf`; the map is in [`doc.go`](src/mod/office/doc.go).

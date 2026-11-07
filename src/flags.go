@@ -59,6 +59,7 @@ var show_version = flag.Bool("version", false, "Show system build version")
 var host_name = flag.String("hostname", "My ArOZ", "Default name for this host")
 var system_uuid = flag.String("uuid", "", "System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.")
 var disable_subservices = flag.Bool("disable_subservice", false, "Disable subservices completely")
+var smb_capture = flag.String("smb_capture", "", "Write a debug capture and trace log of the SMB server to this folder. Holds file names, for an admin only")
 var disable_cluster = flag.Bool("disable_cluster", false, "Disable the cluster features (joining, the cluster:/ drive, cluster jobs and their settings pages)")
 
 // Flags related to Networking

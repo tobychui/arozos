@@ -1,0 +1,215 @@
+<!--
+    Connection help of the built in SMB server, and where a user turns it on
+    for their own account. Loaded into services.html for every user.
+-->
+<style>
+    #smb-user .smb-state { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 12.5px; color: var(--ss-text); }
+    #smb-user .smb-section { margin-top: 16px; font-size: 13px; font-weight: 600; color: var(--ss-text); }
+    #smb-user .smb-hint { margin: 4px 0 10px; font-size: 11.5px; line-height: 1.5; color: var(--ss-text-3); }
+    #smb-user .smb-shares { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    #smb-user .smb-shares td { padding: 6px 0; border-bottom: 1px solid var(--ss-border); color: var(--ss-text); }
+    #smb-user .smb-shares tr:last-child td { border-bottom: none; }
+    #smb-user .smb-addr { font-family: var(--ss-mono); font-size: 11.5px; word-break: break-all; }
+    #smb-user .smb-copy-cell { width: 1%; padding-left: 10px; text-align: right; }
+    #smb-user .ui.form { max-width: 420px; font-size: 13px; }
+    #smb-user .ui.form .field { margin-bottom: 10px; }
+    #smb-user .ui.form .field > label { font-size: 12.5px; font-weight: 600; color: var(--ss-text); }
+    #smb-user .smb-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    #smb-user .smb-result { margin-top: 10px; font-size: 12.5px; min-height: 1.4em; }
+    #smb-user .smb-result.good { color: var(--ss-success); }
+    #smb-user .smb-result.bad { color: var(--ss-danger); }
+    #smb-user [hidden] { display: none !important; }
+</style>
+
+<div id="smb-user">
+    <div class="ui basic yellow message">
+        <h4 class="ui header">
+            <i class="yellow folder icon"></i>
+            <div class="content" locale="smb/intro_title">Open your ArozOS drives in File Explorer</div>
+        </h4>
+        <p locale="smb/intro">Each drive appears as a network share. In Windows, type an address below into the File Explorer address bar. On a Mac, choose Go, then Connect to Server, in Finder.</p>
+        <small locale="smb/experimental">This server is new and experimental. Keep a backup of anything you cannot afford to lose.</small>
+    </div>
+
+    <div class="smb-state" id="smb-state"><i class="spinner loading icon"></i></div>
+    <div class="smb-hint" id="smb-port-note" hidden></div>
+
+    <table class="smb-shares" id="smb-shares" hidden><tbody></tbody></table>
+
+    <div class="smb-section" id="smb-form-title" locale="smb/set_title">Set your SMB password</div>
+    <div class="smb-hint" locale="smb/set_desc">Windows cannot sign in with your ArozOS password, so SMB has a password of its own. Make it different from your login: SMB stores it in a weaker form.</div>
+
+    <form class="ui form" id="smb-form" autocomplete="off">
+        <div class="field">
+            <label locale="smb/login_password">Your ArozOS login password</label>
+            <input type="password" id="smb-login" autocomplete="current-password">
+        </div>
+        <div class="field">
+            <label locale="smb/new_password">New SMB password</label>
+            <div class="ui action input">
+                <input type="password" id="smb-new" autocomplete="new-password">
+                <button type="button" class="ui button" id="smb-generate" locale="smb/generate">Generate</button>
+            </div>
+        </div>
+        <div class="field">
+            <label locale="smb/repeat_password">Repeat the SMB password</label>
+            <input type="password" id="smb-repeat" autocomplete="new-password">
+        </div>
+        <div class="smb-hint" id="smb-generated" locale="smb/generated" hidden>Save this password now, it is not shown again.</div>
+        <div class="smb-buttons">
+            <button type="submit" class="ui black button" id="smb-save"><i class="check icon"></i> <span id="smb-save-label" locale="smb/enable">Enable SMB on my account</span></button>
+            <button type="button" class="ui basic button" id="smb-disable" hidden><i class="red times icon"></i> <span locale="smb/disable">Disable SMB on my account</span></button>
+        </div>
+        <div class="smb-result" id="smb-result" role="status"></div>
+    </form>
+</div>
+
+<script>
+(function () {
+    var MIN_LENGTH = 8;
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('smb/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name]; });
+    }
+
+    var activated = false;
+
+    function result(text, good) {
+        $('#smb-result').text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+
+    function state(icon, text) {
+        $('#smb-state').empty().append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
+    }
+
+    function shareAddress(name) {
+        return '\\\\' + window.location.hostname + '\\' + name;
+    }
+
+    function renderShares(status) {
+        var $body = $('#smb-shares tbody').empty();
+        status.Shares.forEach(function (share) {
+            var address = shareAddress(share.Name);
+            var $row = $('<tr></tr>');
+            $row.append($('<td></td>').text(share.Comment || share.Name));
+            $row.append($('<td class="smb-addr"></td>').text(address));
+            $row.append($('<td class="smb-copy-cell"></td>').append(
+                $('<button type="button" class="ss-btn fs-copy"></button>').text(t('copy', 'Copy')).attr('data-clipboard-text', address)
+            ));
+            $body.append($row);
+        });
+        $('#smb-shares').prop('hidden', status.Shares.length === 0);
+    }
+
+    function refresh() {
+        $.get('../../system/storage/smb/status', function (status) {
+            if (!status || status.error !== undefined) {
+                state('red exclamation circle', status && status.error ? status.error : t('load_failed', 'The status could not be loaded.'));
+                return;
+            }
+            activated = status.Activated;
+            if (!status.Running) {
+                state('grey power off', t('state_off', 'The SMB server is not running. An administrator can turn it on in the server list.'));
+            } else if (activated) {
+                state('green check circle', fill(t('state_on', 'SMB is on for your account. Sign in as {user} with your SMB password.'), { user: status.Username }));
+            } else {
+                state('yellow info circle', t('state_inactive', 'SMB is not on for your account yet. Set a password below to turn it on.'));
+            }
+            $('#smb-port-note').prop('hidden', status.Port === 445).text(
+                fill(t('port_note', 'This server uses port {port}, which File Explorer cannot reach. On Windows 11 24H2 or newer, connect from an administrator prompt with NET USE and /TCPPORT:{port}.'), { port: status.Port })
+            );
+            renderShares(status);
+            $('#smb-save-label').text(activated ? t('change', 'Change SMB password') : t('enable', 'Enable SMB on my account'));
+            $('#smb-disable').prop('hidden', !activated);
+        }).fail(function () {
+            state('red exclamation circle', t('load_failed', 'The status could not be loaded.'));
+        });
+    }
+
+    function clearPasswords() {
+        $('#smb-login, #smb-new, #smb-repeat').val('').attr('type', 'password');
+        $('#smb-generated').prop('hidden', true);
+    }
+
+    function generate() {
+        //No lookalike characters: this gets typed into a Windows sign in box
+        var alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        var limit = 256 - (256 % alphabet.length);
+        var out = '';
+        var random = new Uint8Array(64);
+        window.crypto.getRandomValues(random);
+        for (var i = 0; i < random.length && out.length < 16; i++) {
+            if (random[i] < limit) out += alphabet[random[i] % alphabet.length];
+        }
+        $('#smb-new, #smb-repeat').val(out).attr('type', 'text');
+        $('#smb-generated').prop('hidden', false);
+    }
+
+    function save(event) {
+        event.preventDefault();
+        var login = $('#smb-login').val();
+        var password = $('#smb-new').val();
+        if (!login) return result(t('need_login', 'Enter your ArozOS login password.'), false);
+        if (password.length < MIN_LENGTH) return result(fill(t('too_short', 'The SMB password must be at least {count} characters.'), { count: MIN_LENGTH }), false);
+        if (password !== $('#smb-repeat').val()) return result(t('mismatch', 'The two SMB passwords are different.'), false);
+
+        $('#smb-save').addClass('loading disabled');
+        $.ajax({
+            url: '../../system/storage/smb/activate',
+            method: 'POST',
+            data: { password: login, smbpassword: password },
+            success: function (data) {
+                if (data && data.error !== undefined) return result(data.error, false);
+                clearPasswords();
+                result(t('saved', 'Your SMB password is saved.'), true);
+                refresh();
+            },
+            error: function (xhr) {
+                if (xhr.status === 401 || xhr.status === 403) return result(t('wrong_login', 'Your ArozOS login password is not correct.'), false);
+                result(t('failed', 'The request failed.'), false);
+            },
+            complete: function () { $('#smb-save').removeClass('loading disabled'); }
+        });
+    }
+
+    function disable() {
+        ssConfirm({
+            title: t('disable', 'Disable SMB on my account'),
+            text: t('disable_confirm', 'Anything connected with this account will be disconnected, and you will need to set a password to use SMB again.'),
+            confirmLabel: t('disable_button', 'Disable'),
+            danger: true
+        }, function () {
+            $.post('../../system/storage/smb/deactivate', function (data) {
+                if (data && data.error !== undefined) return result(data.error, false);
+                clearPasswords();
+                result(t('disabled_done', 'SMB is off for your account.'), true);
+                refresh();
+            });
+        });
+    }
+
+    function start() {
+        $('#smb-form').on('submit', save);
+        $('#smb-generate').on('click', generate);
+        $('#smb-disable').on('click', disable);
+        //The switch in the server list belongs to the host page, so its effect
+        //is only known here by asking again
+        $('#fs-list').off('.smbuser').on('change.smbuser', 'input', function () {
+            setTimeout(function () { if ($('#smb-user').length) refresh(); }, 700);
+        });
+        refresh();
+    }
+
+    if (L) {
+        L.init('../locale/system_settings/fileservers.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+})();
+</script>

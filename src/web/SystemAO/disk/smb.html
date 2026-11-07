@@ -1,0 +1,222 @@
+<!--
+    Settings of the built in SMB server. Loaded into services.html for admins.
+-->
+<style>
+    #smb-admin .smb-hint { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.5; color: var(--ss-text-3); }
+    #smb-admin .smb-note { margin-bottom: 14px; font-size: 12.5px; line-height: 1.55; color: var(--ss-text-2, var(--ss-text)); }
+    #smb-admin .smb-error { display: flex; gap: 8px; margin-bottom: 14px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5;
+        color: var(--ss-danger); background: var(--ss-danger-soft); border-radius: var(--ss-radius-sm); }
+    #smb-admin .smb-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    #smb-admin .smb-table th { padding: 4px 8px 4px 0; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ss-text-3); border-bottom: 1px solid var(--ss-border); }
+    #smb-admin .smb-table td { padding: 6px 8px 6px 0; color: var(--ss-text); border-bottom: 1px solid var(--ss-border); overflow-wrap: anywhere; }
+    #smb-admin .smb-table tr:last-child td { border-bottom: none; }
+    #smb-admin .smb-empty { padding: 6px 0; font-size: 12.5px; color: var(--ss-text-3); }
+    #smb-admin .smb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    #smb-admin .smb-head h4 { margin: 0; }
+    #smb-admin .smb-result { font-size: 12.5px; min-height: 1.4em; margin-top: 8px; }
+    #smb-admin .smb-result.good { color: var(--ss-success); }
+    #smb-admin .smb-result.bad { color: var(--ss-danger); }
+    #smb-admin [hidden] { display: none !important; }
+</style>
+
+<div id="smb-admin">
+    <div class="smb-error" id="smb-config-error" hidden><i class="exclamation circle icon"></i><span></span></div>
+    <div class="smb-note" locale="smb/admin_note">After turning the server on, every user who wants SMB, you included, sets their own SMB password in the Connect section above. Nobody can connect until they have.</div>
+
+    <form class="ui form" id="smb-config">
+        <div class="field">
+            <label locale="smb/port">Listening port</label>
+            <div class="ui input"><input id="smb-port" type="number" min="1" max="65535" placeholder="445"></div>
+            <small locale="smb/port_hint">File Explorer can only use port 445. Any other port needs Windows 11 24H2 or newer and a command to connect.</small>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="smb-public" type="checkbox">
+                <label locale="smb/public">Allow connections from public addresses</label>
+                <small locale="smb/public_hint">Leave this off to keep SMB on private networks. Port 445 should never be reachable from the internet.</small>
+            </div>
+        </div>
+        <button class="ui black button" type="submit" id="smb-apply" locale="smb/save">Save Changes</button>
+        <div class="smb-result" id="smb-config-result" role="status"></div>
+    </form>
+
+    <div class="ui divider"></div>
+
+    <div class="smb-head">
+        <h4 locale="smb/clients">Connected clients</h4>
+        <button type="button" class="ss-btn" id="smb-refresh" locale="smb/refresh">Refresh</button>
+    </div>
+    <div class="smb-empty" id="smb-no-clients" locale="smb/no_clients" hidden>Nobody is connected.</div>
+    <table class="smb-table" id="smb-clients" hidden>
+        <thead><tr>
+            <th locale="smb/col_user">User</th>
+            <th locale="smb/col_address">Address</th>
+            <th locale="smb/col_dialect">Version</th>
+            <th locale="smb/col_since">Connected since</th>
+            <th locale="smb/col_open">Open files</th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="ui divider"></div>
+
+    <div class="smb-head"><h4 locale="smb/users">Users with SMB on</h4></div>
+    <div class="smb-empty" id="smb-no-users" locale="smb/no_users" hidden>No user has turned SMB on yet.</div>
+    <table class="smb-table" id="smb-users" hidden>
+        <thead><tr>
+            <th locale="smb/col_user">User</th>
+            <th locale="smb/col_changed">Password set</th>
+            <th></th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="smb-import-box" hidden>
+        <div class="ui divider"></div>
+        <button type="button" class="ui basic button" id="smb-import"><i class="download icon"></i> <span locale="smb/import">Import passwords from Samba</span></button>
+        <small class="smb-hint" locale="smb/import_hint">Users who already have a Samba password can keep it. Anyone with an SMB password here keeps that one.</small>
+        <div class="smb-result" id="smb-import-result" role="status"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('smb/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name]; });
+    }
+    function when(seconds) {
+        return seconds ? new Date(seconds * 1000).toLocaleString() : '';
+    }
+    function message($target, text, good) {
+        $target.text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+
+    function loadConfig() {
+        $.get('../../system/storage/smb/config', function (config) {
+            if (!config || config.error !== undefined) return;
+            $('#smb-port').val(config.Port);
+            $('#smb-public').prop('checked', config.AllowPublic);
+            //Known failures have a translation, and anything else is shown as it came
+            var reason = config.LastError || '';
+            if (config.LastErrorKey) reason = fill(t('error_' + config.LastErrorKey, reason), { port: config.Port });
+            $('#smb-config-error').prop('hidden', !reason).find('span').text(reason);
+            $('#smb-import-box').prop('hidden', !config.CanImport);
+        });
+    }
+
+    function row(cells) {
+        var $row = $('<tr></tr>');
+        cells.forEach(function (cell) { $row.append($('<td></td>').append(cell)); });
+        return $row;
+    }
+
+    function loadClients() {
+        $.get('../../system/storage/smb/clients', function (clients) {
+            if (!$.isArray(clients)) return;
+            var $body = $('#smb-clients tbody').empty();
+            clients.forEach(function (c) {
+                $body.append(row([
+                    document.createTextNode(c.Username),
+                    document.createTextNode(c.Address),
+                    document.createTextNode(c.Dialect),
+                    document.createTextNode(when(c.Connected)),
+                    document.createTextNode(String(c.OpenFiles))
+                ]));
+            });
+            $('#smb-clients').prop('hidden', clients.length === 0);
+            $('#smb-no-clients').prop('hidden', clients.length !== 0);
+        });
+    }
+
+    function loadUsers() {
+        $.get('../../system/storage/smb/users', function (users) {
+            if (!$.isArray(users)) return;
+            var $body = $('#smb-users tbody').empty();
+            users.forEach(function (u) {
+                var $revoke = $('<button type="button" class="ss-btn"></button>').text(t('revoke', 'Revoke'));
+                $revoke.on('click', function () { revoke(u.Username); });
+                $body.append(row([document.createTextNode(u.Username), document.createTextNode(when(u.Changed)), $revoke]));
+            });
+            $('#smb-users').prop('hidden', users.length === 0);
+            $('#smb-no-users').prop('hidden', users.length !== 0);
+        });
+    }
+
+    function revoke(username) {
+        ssConfirm({
+            title: t('revoke', 'Revoke'),
+            text: fill(t('revoke_confirm', 'Remove SMB access for {user}? They are disconnected now, and need to set a new password to use SMB again.'), { user: username }),
+            confirmLabel: t('revoke', 'Revoke'),
+            danger: true
+        }, function () {
+            $.post('../../system/storage/smb/revoke', { username: username }, function (data) {
+                if (data && data.error !== undefined) return ssAlert(data.error);
+                loadUsers();
+                loadClients();
+            });
+        });
+    }
+
+    function save(event) {
+        event.preventDefault();
+        var $result = $('#smb-config-result');
+        $('#smb-apply').addClass('loading disabled');
+        $.ajax({
+            url: '../../system/storage/smb/config',
+            method: 'POST',
+            data: { port: $('#smb-port').val(), public: $('#smb-public').is(':checked') ? 'true' : 'false' },
+            success: function (data) {
+                if (data && data.error !== undefined) {
+                    message($result, data.error, false);
+                } else {
+                    message($result, t('applied', 'Settings saved. Connected clients were disconnected and will reconnect by themselves.'), true);
+                }
+                loadConfig();
+                loadClients();
+            },
+            error: function () { message($result, t('failed', 'The request failed.'), false); },
+            complete: function () { $('#smb-apply').removeClass('loading disabled'); }
+        });
+    }
+
+    function importHashes() {
+        var $result = $('#smb-import-result');
+        $.post('../../system/storage/smb/import', function (data) {
+            if (data && data.error !== undefined) return message($result, data.error, false);
+            message($result, fill(t('imported', '{count} passwords imported.'), { count: data }), true);
+            loadUsers();
+        });
+    }
+
+    function start() {
+        $('#smb-config').on('submit', save);
+        $('#smb-refresh').on('click', function () { loadClients(); loadUsers(); });
+        $('#smb-import').on('click', importHashes);
+        $('#smb-admin .ui.checkbox').checkbox();
+        //A switch that failed to start the server is explained here
+        $('#fs-list').off('.smbadmin').on('change.smbadmin', 'input', function () {
+            setTimeout(function () {
+                if (!$('#smb-admin').length) return;
+                loadConfig();
+                loadClients();
+            }, 700);
+        });
+        loadConfig();
+        loadClients();
+        loadUsers();
+    }
+
+    if (L) {
+        L.init('../locale/system_settings/fileservers.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+})();
+</script>

@@ -179,3 +179,17 @@ func TestReadListSurvivesRewritingAShare(t *testing.T) {
 		t.Fatalf("read list after removing bob = %v", got)
 	}
 }
+
+func TestParsePdbeditHashes(t *testing.T) {
+	output := "alice:1000:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:8846F7EAEE8FB117AD06BDD830B7586C:[U          ]:LCT-69100000:\n" +
+		"nopass:1001:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:NO PASSWORDXXXXXXXXXXXXXXXXXXXXX:[NU         ]:LCT-00000000:\n" +
+		"locked:1002:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:[DU         ]:LCT-00000000:\n" +
+		"not a valid line\n\n"
+	got := parsePdbeditHashes(output)
+	if len(got) != 1 {
+		t.Fatalf("parsed %d entries: %v", len(got), got)
+	}
+	if want := []byte{0x88, 0x46, 0xF7, 0xEA}; string(got["alice"][:4]) != string(want) {
+		t.Errorf("hash = %x", got["alice"])
+	}
+}

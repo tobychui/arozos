@@ -2,6 +2,7 @@ package samba
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -153,4 +154,33 @@ func (s *ShareManager) ListSambaUsersInfo() ([]UserInfo, error) {
 	}
 
 	return usersInfo, nil
+}
+
+// ListNTHashes returns the NT hash of every Samba user, so that the built in
+// SMB server can take them over without asking anyone for a new password.
+func (s *ShareManager) ListNTHashes() (map[string][]byte, error) {
+	out, err := exec.Command("sudo", "pdbedit", "-Lw").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute pdbedit command: %v", err)
+	}
+	return parsePdbeditHashes(string(out)), nil
+}
+
+// parsePdbeditHashes reads the smbpasswd format of pdbedit -Lw:
+// name:uid:LM hash:NT hash:[flags]:LCT-time:
+func parsePdbeditHashes(output string) map[string][]byte {
+	results := map[string][]byte{}
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Split(strings.TrimSpace(line), ":")
+		if len(fields) < 4 || fields[0] == "" {
+			continue
+		}
+		//An account with no password has X characters or NO PASSWORD here
+		hash, err := hex.DecodeString(fields[3])
+		if err != nil || len(hash) != 16 {
+			continue
+		}
+		results[fields[0]] = hash
+	}
+	return results
 }
