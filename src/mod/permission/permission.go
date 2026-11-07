@@ -27,6 +27,7 @@ type PermissionGroup struct {
 type PermissionHandler struct {
 	database         *db.Database
 	PermissionGroups []*PermissionGroup
+	OnGroupRemoved   func(groupName string) //Called after a group is removed, can be nil
 }
 
 func NewPermissionHandler(database *db.Database) (*PermissionHandler, error) {

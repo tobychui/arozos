@@ -233,6 +233,10 @@ func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
 		req.MinCores = n
 	}
 	if ds := strings.TrimSpace(r.PostFormValue("dataset")); ds != "" {
+		if err := clusterDatasetAllowed(u.Username, ds); err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
 		req.Dataset = ds
 	}
 	if n, err := utils.PostInt(r, "partition"); err == nil {

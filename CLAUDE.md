@@ -328,6 +328,43 @@ virtual drive, `share:/`, shown in the File Manager sidebar as *Shared with me*
   `driveViewAllows` / `driveViewBlocks` first, using
   `/system/file_system/share/sharedWithMe`.
 
+## Who can use a drive
+
+Every drive (File System Handler) has one **access list**: a level per
+permission group plus a **default access** level, set on the Storage Pools page
+([`poolList.html`](src/web/SystemAO/storage/poolList.html)). A pool is only where
+a drive is configured; its group is the drive's *home group*. This replaced the
+per pool "other permission" and bridging a drive into another pool.
+
+- **Where it lives:** the rules, the calculation and the rule file in
+  [`src/mod/storage/access/`](src/mod/storage/access/); wiring in
+  [`src/storage.access.go`](src/storage.access.go), endpoints
+  (`/system/storage/drives`, `/system/storage/access`, `.../access/explain`) in
+  [`src/storage.pool.go`](src/storage.pool.go). `User.GetAllFileSystemHandler`
+  and `GetPathAccessPermission` ([`src/mod/user/`](src/mod/user/)) are the only
+  two places that ask, and both walk every pool, not just the user's groups.
+- **How a level is decided, first match wins:** `user:/` and `tmp:/` are open to
+  everyone; home group members get read write; admins get read write on the
+  system pool (built-in drives included); then the highest row of the user's
+  groups, which may be None; then the default access. A read only drive caps it at
+  Read. Defaults (`access.DefaultRule`) keep the old behaviour: system pool
+  open, group pools closed, so a drive with no saved rule needs no entry.
+- **Rules are stored** in `system/storage.access.json` (not in `system/storage/`,
+  whose files are named after groups). A file that cannot be read closes every
+  drive to non admins rather than reopening them. The rule of `cluster:/` is a
+  replicated cluster setting instead, because all members serve the same files.
+- **Drive ids are global:** a rule and every path lookup find a drive by id
+  alone. New drives are checked against all pools. Old duplicates are only
+  flagged, since renaming would break paths; a rule then applies to all of them.
+- **Writing to a drive must check `CanWrite`.** A user can now see a drive they
+  may only read, so a write that skips the check is a bypass, not a harmless
+  shortcut. `GetFSHandlerSubpathFromVpath` and `GetFsHandlerByUUID` search every
+  pool, so anything using them must call `CanRead` / `CanWrite` itself. SFTP and
+  WebDAV write straight to the drive and ask per operation; Samba keeps its own
+  copy of the outcome in smb.conf, updated by `SyncDriveAccess`.
+- **After a rule change** call `driveAccessChanged()`: it clears the per user
+  quota managers and updates the Samba shares.
+
 ## What Container Apps are
 
 **Container Apps** publish a web server running on another port (usually a
@@ -657,6 +694,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/info/logger/`](src/mod/info/logger/) — the system logger (rule 1).
 - [`src/mod/prouter/`](src/mod/prouter/) — permission/auth router (rule 4).
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
+- [`src/mod/storage/access/`](src/mod/storage/access/) — drive access lists (see "Who can use a drive").
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
 - [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/office/`](src/mod/office/) — converters behind the `office` AGI library and the Office suite ([`src/web/Office/`](src/web/Office/), read its `README.md` first): one package per format — `docx` / `xlsx` / `pptx` and `odf` import and export, import-only `doc` / `xls` / `ppt` for Office 97-2003 (converted to OOXML), `pdf`; the map is in [`doc.go`](src/mod/office/doc.go).

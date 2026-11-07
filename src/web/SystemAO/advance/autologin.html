@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.css">
         <script type="application/javascript" src="../../script/jquery.min.js"></script>
+        <script type="application/javascript" src="../../script/ssdialog.js"></script>
         <script type="application/javascript" src="../../script/clipboard.min.js"></script>
         <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
         <style>
@@ -193,12 +194,12 @@
             });
 
             function deleteToken(object){
-                if (confirm("This token will be removed permanently. Confirm?")){
+                ssConfirm({ text: "This token will be removed permanently. Confirm?", danger: true }, function () {
                     var token = $(object).attr("token");
                     $.get("../../system/autologin/delete?token=" + token, function(data){
                         updateTokenList(currentSelectedUsername);
                     });
-                }
+                });
               
                 
             }
@@ -207,7 +208,7 @@
                 $("#userlist").html("");
                 $.get("../../system/users/list", function(data){
                     if (data.error !== undefined){
-                        alert(data.error);
+                        ssAlert(data.error);
                     }else{
                         for (var i = 0; i < data.length; i++){
                             let userinfo = data[i];

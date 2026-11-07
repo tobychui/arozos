@@ -834,7 +834,8 @@ calls costs N lock cycles and N fsyncs, while one transaction costs one of each.
 
 ### `sqlite.open(vpath)` → db
 Opens (or creates) a SQLite database file at the given virtual path.
-Throws a `SQLiteError` on failure.
+Throws a `SQLiteError` on failure. A user who may only read the drive gets a
+read only connection, and cannot create a database there.
 
 ```javascript
 requirelib("sqlite");

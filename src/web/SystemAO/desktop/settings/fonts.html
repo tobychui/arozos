@@ -270,7 +270,7 @@
     function cssFamily(name) { return '"' + String(name).replace(/["\\]/g, '') + '"'; }
     function alive() { return document.body.contains(root); }
     function toast(text, ok) {
-        if (typeof msgbox === 'function') { msgbox(text, ok !== false, ok === false ? 6000 : 3000); } else { alert(text); }
+        if (typeof msgbox === 'function') { msgbox(text, ok !== false, ok === false ? 6000 : 3000); } else { ssAlert(text); }
     }
     function bytes(n) {
         if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
@@ -492,13 +492,14 @@
 
     $('#fnt-grid').on('click', '.fnt-remove', function () {
         var name = $(this).closest('.fnt-card').attr('data-family');
-        if (!confirm(fmt(t('remove-confirm', 'Remove {0} from this system? Pages using it switch to the next font in their list.'), name))) return;
-        $.post('../../system/fonts/delete', { family: name }, function (d) {
-            if (d && d.error) { toast(d.error, false); return; }
-            toast(fmt(t('removed', 'Removed {0}'), name), true);
-            loadPreviewFonts();
-            load(function () { if (typeof window.ssRefreshFont === 'function') window.ssRefreshFont(); });
-        }).fail(function () { toast(t('remove-failed', 'The font could not be removed.'), false); });
+        ssConfirm({ text: fmt(t('remove-confirm', 'Remove {0} from this system? Pages using it switch to the next font in their list.'), name), danger: true }, function () {
+            $.post('../../system/fonts/delete', { family: name }, function (d) {
+                if (d && d.error) { toast(d.error, false); return; }
+                toast(fmt(t('removed', 'Removed {0}'), name), true);
+                loadPreviewFonts();
+                load(function () { if (typeof window.ssRefreshFont === 'function') window.ssRefreshFont(); });
+            }).fail(function () { toast(t('remove-failed', 'The font could not be removed.'), false); });
+        });
     });
 
     /* ── Upload ── */

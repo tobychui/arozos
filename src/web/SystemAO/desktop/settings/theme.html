@@ -199,7 +199,7 @@
             $("#thm-color-grid").on("click", ".color-swatch", function () {
                 var hex = $(this).attr("data-hex");
                 thmWritePreference("themecolor", hex, function (resp) {
-                    if (resp && resp.error) { alert(resp.error); return; }
+                    if (resp && resp.error) { ssAlert(resp.error); return; }
                     thmCancelRestore = true;
                     thmTickSelected();
                     if (ao_module_virtualDesktop) parent.setThemeColor(hex);

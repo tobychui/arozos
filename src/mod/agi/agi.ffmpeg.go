@@ -74,6 +74,10 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		//Rewrite the vpath if it is relative
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
+		if !u.CanRead(vinput) || !u.CanWrite(voutput) {
+			g.RaiseError(errors.New("Permission Denied"))
+			return otto.FalseValue()
+		}
 
 		//Translate the virtual path to realpath for the input file
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
@@ -175,6 +179,10 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
+		if !u.CanRead(vinput) || !u.CanWrite(voutput) {
+			g.RaiseError(errors.New("Permission Denied"))
+			return otto.FalseValue()
+		}
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
@@ -264,6 +272,10 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
+		if !u.CanRead(vinput) || !u.CanWrite(voutput) {
+			g.RaiseError(errors.New("Permission Denied"))
+			return otto.FalseValue()
+		}
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
@@ -357,6 +369,10 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
+		if !u.CanRead(vinput) || !u.CanWrite(voutput) {
+			g.RaiseError(errors.New("Permission Denied"))
+			return otto.FalseValue()
+		}
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
@@ -438,6 +454,10 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
+		if !u.CanRead(vinput) || !u.CanWrite(voutput) {
+			g.RaiseError(errors.New("Permission Denied"))
+			return otto.FalseValue()
+		}
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {

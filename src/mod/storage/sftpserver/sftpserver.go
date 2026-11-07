@@ -147,7 +147,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 					}(requests)
 
 					//Create a virtual SSH Server that contains all this user's fsh
-					root := GetNewSFTPRoot(userinfo.Username, userinfo.GetAllFileSystemHandler())
+					root := GetNewSFTPRoot(userinfo.Username, userinfo)
 					server := sftp.NewRequestServer(channel, root)
 
 					//Create a channel for kicking the user off

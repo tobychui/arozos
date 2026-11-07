@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>OAuth / OIDC</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -530,7 +531,7 @@ function oaToast(msg, ok) {
         if (typeof parent !== 'undefined' && typeof parent.msgbox === 'function') { parent.msgbox(msg, ok); return; }
         if (typeof msgbox === 'function') { msgbox(msg, ok); return; }
     } catch(e) {}
-    alert(msg);
+    ssAlert(msg);
 }
 
 /* ── Init ── */

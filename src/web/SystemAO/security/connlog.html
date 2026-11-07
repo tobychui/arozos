@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/ssdialog.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <style>
         #sys-setting-page { padding: 20px; }
@@ -99,7 +100,7 @@
                     var currentMonthTable = getCurrentMonthTable();
                     var currentMontHTableExists = false;
                     if (data.error){
-                        alert(data.error);
+                        ssAlert(data.error);
                     }else{
                         $("#recordTables").html("");
                         data.forEach(tableName => {

@@ -2,13 +2,12 @@ package user
 
 import (
 	//"log"
-	"errors"
 	"path/filepath"
 	"strings"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	permission "imuslab.com/arozos/mod/permission"
-	storage "imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/storage/access"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -95,37 +94,35 @@ func (u *User) GetInterfaceModules() []string {
 func (u *User) GetPathAccessPermission(vpath string) string {
 	fsid, subpath, err := getIDFromVirtualPath(filepath.ToSlash(vpath))
 	if err != nil || arozfs.SubpathEscapesRoot(subpath) {
-		//Everything below decides by the storage pool alone, so a subpath
-		//that climbs out of the pool or the user's home ("user:../bob")
-		//must be denied here
+		//Everything below decides by the drive alone, so a subpath that climbs
+		//out of the drive or the user's home ("user:../bob") must be denied here
 		return arozfs.FsDenied
 	}
-	topAccessRightStoragePool, err := u.GetHighestAccessRightStoragePool(fsid)
-	if err != nil {
+	decision, found := u.ExplainDriveAccess(fsid)
+	if !found {
 		return arozfs.FsDenied
 	}
-	if topAccessRightStoragePool.Owner == u.Username {
-		//This user own this storage pool. CHeck if the fs itself is readonly
-		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
-		if fsHandler.ReadOnly {
-			return arozfs.FsReadOnly
+	return decision.Level
+}
+
+// ExplainDriveAccess works out what this user may do on a drive and why. found
+// is false if no pool holds a drive with this id. A drive id used by two pools
+// gives the higher of the two.
+func (u *User) ExplainDriveAccess(uuid string) (decision access.Decision, found bool) {
+	subject := u.accessSubject()
+	for _, dp := range u.drivePools() {
+		for _, store := range dp.pool.Storages {
+			if store.UUID != uuid {
+				continue
+			}
+			thisDecision := u.explainDrive(store, dp.home, subject)
+			if !found || access.Higher(decision.Level, thisDecision.Level) != decision.Level {
+				decision = thisDecision
+			}
+			found = true
 		}
-		return arozfs.FsReadWrite
-	} else if topAccessRightStoragePool.Owner == "system" {
-		//System storage pool. Allow both read and write if the system handler is readwrite
-		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
-		if fsHandler.ReadOnly {
-			return arozfs.FsReadOnly
-		}
-		return arozfs.FsReadWrite
-	} else {
-		//This user do not own this storage pool. Use the pools' config
-		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
-		if fsHandler.ReadOnly {
-			return arozfs.FsReadOnly
-		}
-		return topAccessRightStoragePool.OtherPermission
 	}
+	return decision, found
 }
 
 // Helper function for checking permission
@@ -145,52 +142,6 @@ func (u *User) CanWrite(vpath string) bool {
 	} else {
 		return false
 	}
-}
-
-// Get the highest access right to the given fs uuid
-func (u *User) GetHighestAccessRightStoragePool(fsUUID string) (*storage.StoragePool, error) {
-	//List all storage pool that have access to this fsUUID
-	matchingStoragePool := []*storage.StoragePool{}
-	for _, h := range u.HomeDirectories.Storages {
-		if h.UUID == fsUUID {
-			//User Home directory contain access to this fsUUID
-			matchingStoragePool = append(matchingStoragePool, u.HomeDirectories)
-		}
-	}
-
-	//Look for other permission groups this user is in
-	for _, pg := range u.PermissionGroup {
-		for _, h := range pg.StoragePool.Storages {
-			if h.UUID == fsUUID {
-				//User Home directory contain access to this fsUUID
-				matchingStoragePool = append(matchingStoragePool, u.HomeDirectories)
-			}
-		}
-
-	}
-
-	//Check the highest priority in the list
-	if len(matchingStoragePool) == 0 {
-		return &storage.StoragePool{}, errors.New("no access to this filesystem was found")
-	}
-
-	currentTopStoragePool := matchingStoragePool[0]
-	for _, storagePool := range matchingStoragePool {
-		if storagePool.Owner == u.Username {
-			//Owner of this ppol. Return this
-			return storagePool, nil
-		} else if storagePool.Owner == "system" {
-			//System storage pool. Everyone can read write to this.
-			return storagePool, nil
-		} else {
-			//Compare the priority. Replace the top one if the current one has higher priority
-			if storagePool.HasHigherOrEqualPermissionThan(currentTopStoragePool) {
-				currentTopStoragePool = storagePool
-			}
-		}
-	}
-
-	return currentTopStoragePool, nil
 }
 
 func (u *User) GetUserPermissionGroup() []*permission.PermissionGroup {

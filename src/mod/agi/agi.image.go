@@ -135,6 +135,11 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			return otto.FalseValue()
 		}
 
+		if !u.CanRead(vsrc) || !u.CanWrite(vdest) {
+			g.RaiseError(errors.New("Permission Denied"))
+			return otto.FalseValue()
+		}
+
 		//Convert the virtual paths to real paths
 		srcfsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
 		if err != nil {
@@ -356,6 +361,11 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		height, err := call.Argument(5).ToInteger()
 		if err != nil {
 			g.RaiseError(errors.New("Image height not defined"))
+			return otto.FalseValue()
+		}
+
+		if !u.CanRead(vsrc) || !u.CanWrite(vdest) {
+			g.RaiseError(errors.New("Permission Denied"))
 			return otto.FalseValue()
 		}
 
@@ -612,6 +622,11 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		vdest, err := call.Argument(1).ToString()
 		if err != nil {
 			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		if !u.CanRead(vsrc) || !u.CanWrite(vdest) {
+			g.RaiseError(errors.New("Permission Denied"))
 			return otto.FalseValue()
 		}
 

@@ -237,11 +237,13 @@
         bindState(body, { open: pickFile });
     }
 
-    //HEAD on the media URL gives the size and date without reading the file
+    //HEAD on the media URL gives the size and date without reading the file.
+    //no-cache makes the browser ask the server, the answer has to describe the
+    //file on disk and not what it remembers of an older one with the same name.
     function stat(it) {
         var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
         var timer = setTimeout(function () { if (ctl) { ctl.abort(); } }, 4000);
-        return fetch(mediaURL(it.path), { method: "HEAD", credentials: "same-origin", signal: ctl ? ctl.signal : undefined }).then(function (r) {
+        return fetch(mediaURL(it.path), { method: "HEAD", cache: "no-cache", credentials: "same-origin", signal: ctl ? ctl.signal : undefined }).then(function (r) {
             clearTimeout(timer);
             if (!r.ok) {
                 return;
@@ -254,7 +256,17 @@
             if (!isNaN(mod)) {
                 it.mtime = Math.floor(mod / 1000);
             }
+            it.version = r.headers.get("etag") || (r.headers.get("last-modified") + "/" + len);
         }).catch(function () { clearTimeout(timer); });
+    }
+
+    //pdf.js reads big files in parts: the first request can come out of the
+    //browser cache while the ranges always come from the server, so an
+    //overwritten file would mix old and new bytes. The address carries the
+    //version, which the server ignores, so nothing stored for an older version
+    //can answer. Without a known version the file is simply read afresh.
+    function versionedURL(it) {
+        return mediaURL(it.path) + "&v=" + encodeURIComponent(it.version || Date.now());
     }
 
     function mount(file) {
@@ -285,7 +297,7 @@
             tools: root.querySelector('[data-slot="tools"]'),
             root: root,
             memory: memory,
-            url: absolute(mediaURL(it.path)),
+            url: absolute(versionedURL(it)),
             hasPrev: false,
             hasNext: false,
             go: function () { },

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Group List</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
     <style>
@@ -779,35 +780,35 @@ function grConfirmDelete(btn) {
     var confirmMsg = grLocale
         ? grLocale.getString('group/del-confirm-msg', 'Delete group "' + groupname + '"? This cannot be undone.').replace('{group}', groupname)
         : 'Delete group "' + groupname + '"? This cannot be undone.';
-    if (!confirm(confirmMsg)) return;
-
-    $(btn).addClass('loading');
-    $.ajax({
-        url: '../../system/permission/delgroupwithhandling',
-        method: 'POST',
-        data: {
-            groupname:   groupname,
-            action:      action,
-            targetgroup: targetgroup
-        },
-        success: function(data) {
-            $(btn).removeClass('loading');
-            if (data && data.error !== undefined) {
-                showGrToast(data.error, true);
-                return;
+    ssConfirm({ text: confirmMsg, danger: true }, function () {
+        $(btn).addClass('loading');
+        $.ajax({
+            url: '../../system/permission/delgroupwithhandling',
+            method: 'POST',
+            data: {
+                groupname:   groupname,
+                action:      action,
+                targetgroup: targetgroup
+            },
+            success: function(data) {
+                $(btn).removeClass('loading');
+                if (data && data.error !== undefined) {
+                    showGrToast(data.error, true);
+                    return;
+                }
+                closeDeletePanel();
+                var msg = grLocale ? grLocale.getString('group/del-success', 'Group deleted successfully.') : 'Group deleted successfully.';
+                showGrToast(msg, false);
+                loadGroupList();
+            },
+            error: function(xhr) {
+                $(btn).removeClass('loading');
+                var msg = xhr.status === 403
+                    ? (grLocale ? grLocale.getString('group/del-forbidden', 'Access denied.') : 'Access denied.')
+                    : (grLocale ? grLocale.getString('group/del-error', 'Failed to delete group.') : 'Failed to delete group.');
+                showGrToast(msg, true);
             }
-            closeDeletePanel();
-            var msg = grLocale ? grLocale.getString('group/del-success', 'Group deleted successfully.') : 'Group deleted successfully.';
-            showGrToast(msg, false);
-            loadGroupList();
-        },
-        error: function(xhr) {
-            $(btn).removeClass('loading');
-            var msg = xhr.status === 403
-                ? (grLocale ? grLocale.getString('group/del-forbidden', 'Access denied.') : 'Access denied.')
-                : (grLocale ? grLocale.getString('group/del-error', 'Failed to delete group.') : 'Failed to delete group.');
-            showGrToast(msg, true);
-        }
+        });
     });
 }
 

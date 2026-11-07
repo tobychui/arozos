@@ -6,6 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="../../script/semantic/semantic.css">
         <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/ssdialog.js"></script>
         <script src="../../script/semantic/semantic.js"></script>
         <!-- applocale must be loaded before the inline script so NewAppLocale() is defined -->
         <script src="../../script/applocale.js"></script>
@@ -265,26 +266,26 @@
                 var confirmWarning = loc("agi_runtime/confirm_warning",
                     "The VM will be terminated immediately and the request will return HTTP 503. Any unsaved state will be lost.");
 
-                if (!confirm(confirmTitle + "\n\n" + scriptName + "\n\n" + confirmWarning)) return;
-
-                $.ajax({
-                    url:    "../../system/ajgi/runtime/stop",
-                    method: "POST",
-                    data:   { execid: execID },
-                    success: function(data) {
-                        if (data && data.error) {
-                            showToast(loc("agi_runtime/toast_error_prefix", "Error: ") + data.error, "red");
-                        } else {
-                            showToast(loc("agi_runtime/toast_success",
-                                "VM force-stopped successfully."), "green");
-                            setTimeout(loadRuntimes, 800);
+                ssConfirm({ text: confirmTitle + "\n\n" + scriptName + "\n\n" + confirmWarning, danger: true }, function () {
+                    $.ajax({
+                        url:    "../../system/ajgi/runtime/stop",
+                        method: "POST",
+                        data:   { execid: execID },
+                        success: function(data) {
+                            if (data && data.error) {
+                                showToast(loc("agi_runtime/toast_error_prefix", "Error: ") + data.error, "red");
+                            } else {
+                                showToast(loc("agi_runtime/toast_success",
+                                    "VM force-stopped successfully."), "green");
+                                setTimeout(loadRuntimes, 800);
+                            }
+                        },
+                        error: function(xhr) {
+                            var msg = loc("agi_runtime/req_failed", "Request failed");
+                            try { msg = JSON.parse(xhr.responseText).error || msg; } catch(_) {}
+                            showToast(loc("agi_runtime/toast_error_prefix", "Error: ") + msg, "red");
                         }
-                    },
-                    error: function(xhr) {
-                        var msg = loc("agi_runtime/req_failed", "Request failed");
-                        try { msg = JSON.parse(xhr.responseText).error || msg; } catch(_) {}
-                        showToast(loc("agi_runtime/toast_error_prefix", "Error: ") + msg, "red");
-                    }
+                    });
                 });
             }
 

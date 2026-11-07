@@ -14,6 +14,7 @@ import (
 	quota "imuslab.com/arozos/mod/quota"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	storage "imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/storage/access"
 )
 
 var (
@@ -39,6 +40,7 @@ type UserHandler struct {
 	phandler        *permission.PermissionHandler
 	basePool        *storage.StoragePool
 	shareEntryTable **shareEntry.ShareEntryTable
+	driveRules      access.Source //The access lists of the drives; without one every drive has its default
 }
 
 // Initiate a new user handler
@@ -72,6 +74,21 @@ func (u *UserHandler) GetDatabase() *db.Database {
 
 func (u *UserHandler) UpdateStoragePool(newpool *storage.StoragePool) {
 	u.basePool = newpool
+}
+
+// SetDriveRules sets where the access lists of the drives are read from
+func (u *UserHandler) SetDriveRules(rules access.Source) {
+	u.driveRules = rules
+}
+
+// ResetQuotaManagers drops the quota manager of every user. Each one keeps the
+// drive list of its user from when it was created, so they are rebuilt after
+// a change of who may use which drive.
+func (u *UserHandler) ResetQuotaManagers() {
+	quotaManagerBuffer.Range(func(key, value interface{}) bool {
+		quotaManagerBuffer.Delete(key)
+		return true
+	})
 }
 
 // Get User object from username

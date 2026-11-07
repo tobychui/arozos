@@ -236,6 +236,18 @@ registerSpecialView(SHARE_VPATH, {
     empty: renderSharedEmpty
 });
 
+/*
+    An admin can hide this drive from a user's groups (System Settings, Storage
+    Pools). The sidebar may be drawn before or after the answer arrives, so both
+    the registration and any entry already there are taken care of.
+*/
+$.get("../../system/file_system/share/sharedDriveVisible", function(visible){
+    if (visible === false){
+        getSpecialView(SHARE_VPATH).sidebar = false;
+        $('.fmSpecialSideItem[filepath="' + SHARE_VPATH + '"]').remove();
+    }
+});
+
 
 /*
     Reachable from outside this file: inline on* attributes in the markup,

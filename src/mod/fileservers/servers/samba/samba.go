@@ -30,6 +30,7 @@ type ShareConfig struct {
 	Name       string
 	Path       string
 	ValidUsers []string
+	ReadList   []string //Valid users who may only read, whatever ReadOnly says
 	ReadOnly   bool
 	Browseable bool
 	GuestOk    bool
@@ -92,6 +93,8 @@ func (s *ShareManager) ReadSambaShares() ([]ShareConfig, error) {
 				currentShare.Path = value
 			case "valid users":
 				currentShare.ValidUsers = strings.Fields(value)
+			case "read list":
+				currentShare.ReadList = strings.Fields(value)
 			case "read only":
 				currentShare.ReadOnly = (value == "yes")
 			case "browseable":
@@ -263,7 +266,7 @@ func (s *ShareManager) RemoveSambaShareConfig(shareName string) error {
 	}
 
 	// Replace the original smb.conf file with the temporary file
-	if err := os.Rename(tmpFile.Name(), "/etc/samba/smb.conf"); err != nil {
+	if err := os.Rename(tmpFile.Name(), s.SambaConfigPath); err != nil {
 		return err
 	}
 
@@ -388,6 +391,14 @@ func (s *ShareManager) RemoveUserFromSambaShare(shareName, username string) erro
 		}
 	}
 	targetShare.ValidUsers = newShareValidUsers
+
+	newShareReadList := []string{}
+	for _, readUser := range targetShare.ReadList {
+		if !strings.EqualFold(readUser, username) {
+			newShareReadList = append(newShareReadList, readUser)
+		}
+	}
+	targetShare.ReadList = newShareReadList
 
 	//Create the share
 	err = s.CreateNewSambaShare(targetShare)

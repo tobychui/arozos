@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/permission"
-	"imuslab.com/arozos/mod/storage/bridge"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	storage "imuslab.com/arozos/mod/storage"
@@ -22,8 +20,7 @@ var (
 	baseStoragePool *storage.StoragePool //base storage pool, all user can access these virtual roots
 	//fsHandlers      []*fs.FileSystemHandler //All File system handlers. All opened handles must be registered in here
 	//storagePools    []*storage.StoragePool  //All Storage pool opened
-	bridgeManager              *bridge.Record //Manager to handle bridged FSH
-	storageHeartbeatTickerChan chan bool      //Channel to stop the storage heartbeat ticker
+	storageHeartbeatTickerChan chan bool //Channel to stop the storage heartbeat ticker
 )
 
 func StorageInit() {
@@ -37,11 +34,6 @@ func StorageInit() {
 	if err != nil {
 		panic(err)
 	}
-
-	//Create a brdige record manager
-	bm := bridge.NewBridgeRecord("system/bridge.json")
-	bridgeManager = bm
-
 }
 
 func LoadBaseStoragePool() error {
@@ -119,9 +111,11 @@ func LoadBaseStoragePool() error {
 		return err
 	}
 
-	//Update the storage pool permission to readwrite
-	sp.OtherPermission = arozfs.FsReadWrite
 	baseStoragePool = sp
+
+	//A reload lands here too and cluster:/ is not in any config, so put it
+	//back. During boot the cluster is not up yet and this changes nothing.
+	clusterSyncDrive()
 
 	return nil
 }
@@ -148,6 +142,11 @@ func storageHeartbeatTickerInit() {
 func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 	allFsh := GetAllLoadedFsh()
 	for _, thisFsh := range allFsh {
+		if isClusterOrShareDrive(thisFsh) {
+			//Built by code and followed by its own subsystem. There are no
+			//start options to reconnect it from
+			continue
+		}
 		err := thisFsh.FileSystemAbstraction.Heartbeat()
 		if err != nil {
 			systemWideLogger.PrintAndLog("System", "[Storage] File System Abstraction from "+thisFsh.Name+" report an error: "+err.Error(), nil)
@@ -238,9 +237,6 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 			return errors.New("Failed to create storage pool for " + pg.Name)
 		}
 
-		//Set other permission to denied by default
-		sp.OtherPermission = arozfs.FsDenied
-
 		//Assign storage pool to group
 		pg.StoragePool = sp
 
@@ -253,7 +249,6 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 			systemWideLogger.PrintAndLog("Storage", "Failed to create empty storage pool for group: "+pg.Name, err)
 		}
 		pg.StoragePool = sp
-		pg.StoragePool.OtherPermission = arozfs.FsDenied
 	}
 
 	return nil

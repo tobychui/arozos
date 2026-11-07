@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>LDAP Login</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -563,7 +564,7 @@ function laToast(msg, ok) {
             return;
         }
     } catch(e) {}
-    alert(msg);
+    ssAlert(msg);
 }
 </script>
 </body>

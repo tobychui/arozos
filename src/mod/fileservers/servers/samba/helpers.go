@@ -18,6 +18,9 @@ func convertShareConfigToString(share *ShareConfig) string {
 	if len(share.ValidUsers) > 0 {
 		builder.WriteString(fmt.Sprintf("    valid users = %s\n", strings.Join(share.ValidUsers, " ")))
 	}
+	if len(share.ReadList) > 0 {
+		builder.WriteString(fmt.Sprintf("    read list = %s\n", strings.Join(share.ReadList, " ")))
+	}
 	builder.WriteString(fmt.Sprintf("    read only = %s\n", boolToYesNo(share.ReadOnly)))
 	builder.WriteString(fmt.Sprintf("    browseable = %s\n", boolToYesNo(share.Browseable)))
 	builder.WriteString(fmt.Sprintf("    guest ok = %s\n", boolToYesNo(share.GuestOk)))

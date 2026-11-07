@@ -2,7 +2,9 @@ package user
 
 import (
 	fs "imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/utils"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/storage/access"
 )
 
 /*
@@ -52,32 +54,78 @@ func (u *User) GetRootFSHFromVpathInUserScope(vpath string) *fs.FileSystemHandle
 	return nil
 }
 
-func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
-	results := []*fs.FileSystemHandler{}
-	uuids := []string{}
-	//Get all FileSystem Handler from this user's Home Directory (aka base directory)
-	for _, store := range u.HomeDirectories.Storages {
-		if !store.Closed {
-			//Only return opened file system handlers
-			results = append(results, store)
-			uuids = append(uuids, store.UUID)
-		}
+// drivePool is a storage pool a user may reach a drive through. home is the
+// permission group the pool belongs to, empty for the system pool.
+type drivePool struct {
+	home string
+	pool *storage.StoragePool
+}
 
+// drivePools lists every pool: the system pool, the user's own groups, then
+// all other groups, whose drives a user reaches through a row of the drive's
+// access list. The order matters only for a drive id used by two pools,
+// where the first one wins the same way it always did.
+func (u *User) drivePools() []drivePool {
+	pools := []drivePool{}
+	if u.HomeDirectories != nil {
+		pools = append(pools, drivePool{pool: u.HomeDirectories})
 	}
 
-	//Get all the FileSystem handler that is accessable by this user
+	listed := map[string]bool{}
 	for _, pg := range u.PermissionGroup {
-		//For each permission group that this user is in
-		for _, store := range pg.StoragePool.Storages {
-			//Get each of the storage of this permission group is assigned to
-			if !utils.StringInArray(uuids, store.UUID) {
-				if !store.Closed {
-					//Only return opened file system handlers
-					results = append(results, store)
-					uuids = append(uuids, store.UUID)
-				}
+		listed[pg.Name] = true
+		if pg.StoragePool != nil {
+			pools = append(pools, drivePool{home: pg.Name, pool: pg.StoragePool})
+		}
+	}
 
+	if u.parent != nil && u.parent.phandler != nil {
+		for _, pg := range u.parent.phandler.PermissionGroups {
+			if !listed[pg.Name] && pg.StoragePool != nil {
+				pools = append(pools, drivePool{home: pg.Name, pool: pg.StoragePool})
 			}
+		}
+	}
+	return pools
+}
+
+// accessSubject describes this user to the access rules
+func (u *User) accessSubject() access.Subject {
+	return access.Subject{Groups: u.GetUserPermissionGroupNames(), IsAdmin: u.IsAdmin()}
+}
+
+// driveRule returns the access list of a drive
+func (u *User) driveRule(uuid string, home string) access.Rule {
+	if u.parent != nil && u.parent.driveRules != nil {
+		if rule, ok := u.parent.driveRules.Rule(uuid); ok {
+			return rule
+		}
+	}
+	return access.DefaultRule(uuid, home)
+}
+
+// explainDrive works out what this user may do on one drive of one pool
+func (u *User) explainDrive(fsh *fs.FileSystemHandler, home string, subject access.Subject) access.Decision {
+	drive := access.Drive{UUID: fsh.UUID, HomeGroup: home, ReadOnly: fsh.ReadOnly}
+	return access.Explain(drive, subject, u.driveRule(fsh.UUID, home))
+}
+
+// GetAllFileSystemHandler lists the opened drives this user may use, whichever
+// pool they are configured in
+func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
+	results := []*fs.FileSystemHandler{}
+	listed := map[string]bool{}
+	subject := u.accessSubject()
+	for _, dp := range u.drivePools() {
+		for _, store := range dp.pool.Storages {
+			if store.Closed || listed[store.UUID] {
+				continue
+			}
+			if u.explainDrive(store, dp.home, subject).Level == arozfs.FsDenied {
+				continue
+			}
+			results = append(results, store)
+			listed[store.UUID] = true
 		}
 	}
 

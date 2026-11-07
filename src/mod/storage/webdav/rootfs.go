@@ -29,10 +29,10 @@ type RootFsWebDAVAdapter struct {
 // NewRootFsWebDAVAdapter builds the virtual root over the given storages.
 // It is built per request, so newly mounted or closed storages show up
 // immediately.
-func NewRootFsWebDAVAdapter(fshs []*filesystem.FileSystemHandler, username string) *RootFsWebDAVAdapter {
+func NewRootFsWebDAVAdapter(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) *RootFsWebDAVAdapter {
 	adapters := map[string]*FshWebDAVAdapter{}
 	for _, fsh := range fshs {
-		adapters[fsh.UUID] = NewFshWebDAVAdapter(fsh, username)
+		adapters[fsh.UUID] = NewFshWebDAVAdapter(fsh, username, canWrite)
 	}
 	return &RootFsWebDAVAdapter{
 		fshs:     fshs,
@@ -158,6 +158,12 @@ func (a *RootFsWebDAVAdapter) Rename(ctx context.Context, oldName, newName strin
 	}
 
 	//Cross fsh move. Copy everything over, then remove the source
+	if err := srcAdapter.checkWrite(srcPath); err != nil {
+		return err
+	}
+	if err := destAdapter.checkWrite(destPath); err != nil {
+		return err
+	}
 	realSrc, err := srcAdapter.requestPathToRealPath(srcPath)
 	if err != nil {
 		return err

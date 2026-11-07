@@ -170,6 +170,9 @@ func (c *clusterProvider) SubmitJob(owner string, name string, scriptVpath strin
 	if clusterJobs == nil {
 		return nil, errors.New("cluster jobs not available")
 	}
+	if err := clusterDatasetAllowed(owner, strings.TrimSpace(dataset)); err != nil {
+		return nil, err
+	}
 	source, err := clusterReadScript(owner, scriptVpath)
 	if err != nil {
 		return nil, err
@@ -279,8 +282,9 @@ func (b *clusterBackend) Write(p string, r io.Reader, owner string) error {
 }
 func (b *clusterBackend) Ready() bool { return b.s.Ready() }
 
-// clusterMountDrive attaches the cluster:/ drive to the base storage pool so
-// every user sees it, and clusterUnmountDrive removes it again.
+// clusterMountDrive attaches the cluster:/ drive to the base storage pool, and
+// clusterUnmountDrive removes it again. Who sees it is up to its access list,
+// see storage.access.go.
 // clusterDriveWanted reports whether cluster:/ should be visible: this node
 // is in a cluster and the cluster has at least one volume to keep files in.
 // Without either, the drive is left out of File Manager and every other part
@@ -376,7 +380,7 @@ func clusterMountDrive() {
 		systemWideLogger.PrintAndLog("Cluster", "Unable to mount cluster drive: "+err.Error(), err)
 		return
 	}
-	systemWideLogger.PrintAndLog("Cluster", "cluster:/ mounted for all users", nil)
+	systemWideLogger.PrintAndLog("Cluster", "cluster:/ mounted", nil)
 	go clusterRemoveThumbnailFolders()
 }
 
@@ -571,6 +575,8 @@ func clusterStartAgent() {
 				clusterMetadata.OnChange = func(kind string, payload []byte) {
 					if kind == metadata.KindVolume {
 						go clusterSyncDrive()
+					} else if kind == metadata.KindSetting {
+						go clusterSettingChanged(payload)
 					}
 				}
 				clusterSyncDrive()

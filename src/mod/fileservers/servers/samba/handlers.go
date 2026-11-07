@@ -364,68 +364,11 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 	}
 
 	//Create the user root share folders
-	for _, fsh := range userInfo.GetAllAccessibleFileSystemHandler() {
-		if fsh.IsNetworkDrive() {
-			//Samba can only work with drives locally hosted on this server
-			//Skip network drives
-			continue
-		}
-
-		fshID := fsh.UUID
-		fshSharePath := fsh.Path
-		if fsh.RequierUserIsolation() {
-			//User seperated storage. Only mount the user one
-			fshID = userInfo.Username + "_" + fsh.UUID
-			fshSharePath = filepath.Join(fsh.Path, "/users/", userInfo.Username+"/")
-		}
-
-		fshID = sanitizeShareName(fshID)
-
-		//Check if the share already exists
-		shareExists, err := s.ShareExists(fshID)
-		if err != nil {
-			continue
-		}
-
-		if !shareExists {
-			//Try to create the share
-			fshShareAbsolutePath, err := filepath.Abs(fshSharePath)
-			if err != nil {
-				logger.PrintAndLog("Samba", "[Samba] Unable to generate share config for path: "+fshSharePath, nil)
-				continue
-			}
-
-			//Check if that folder exists
-			if !utils.FileExists(fshShareAbsolutePath) {
-				//Folder not exists. Continue
-				logger.PrintAndLog("Samba", "[Samba] Path not exists for file system handler: "+fshSharePath, nil)
-				continue
-			}
-
-			//Ok! Create the share with this username
-			err = s.CreateNewSambaShare(&ShareConfig{
-				Name:       fshID,
-				Path:       fshShareAbsolutePath,
-				ValidUsers: []string{userInfo.Username},
-				ReadOnly:   false,
-				Browseable: !fsh.RequierUserIsolation(),
-				GuestOk:    false,
-			})
-
-			if err != nil {
-				logger.PrintAndLog("Samba", "[Samba] Failed to create share: "+err.Error(), nil)
-				utils.SendErrorResponse(w, err.Error())
-				return
-			}
-		} else {
-			//Share exists. Add this user to such share
-			err = s.AddUserToSambaShare(fshID, userInfo.Username)
-			if err != nil {
-				logger.PrintAndLog("Samba", "[Samba] Failed to add user "+userInfo.Username+" to share "+fshID+": "+err.Error(), nil)
-				utils.SendErrorResponse(w, err.Error())
-				return
-			}
-		}
+	err = s.syncUserShares(userInfo)
+	if err != nil {
+		logger.PrintAndLog("Samba", "[Samba] Failed to create shares for "+userInfo.Username+": "+err.Error(), nil)
+		utils.SendErrorResponse(w, err.Error())
+		return
 	}
 
 	err = restartSmbd()

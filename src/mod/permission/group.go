@@ -57,4 +57,7 @@ func (gp *PermissionGroup) Remove() {
 	db.Delete("permission", "quota/"+gp.Name)
 	db.Delete("permission", "interfaceModule/"+gp.Name)
 
+	if gp.parent.OnGroupRemoved != nil {
+		gp.parent.OnGroupRemoved(gp.Name)
+	}
 }

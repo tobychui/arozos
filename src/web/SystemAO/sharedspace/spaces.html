@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <!-- ao_module is provided by the parent frame; ao_module.js is not needed standalone -->
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <title>Shared Spaces</title>
     <style>
     /* Scoped to #ss-root: this page is loaded into the System Settings document */
@@ -233,9 +234,10 @@
                 row.append($("<td>").text(formatBytes(space.diskusage)));
                 row.append($("<td>").text(new Date(space.createdat * 1000).toLocaleString()));
                 var deleteBtn = $('<button class="btn danger mini">Delete</button>').on("click", function () {
-                    if (!confirm('Delete the space "' + space.name + '" and all its content?')) return;
-                    $.post("/system/sharedspace/admin/delete", { spaceid: space.spaceid }, function () {
-                        loadSpaces();
+                    ssConfirm({ text: 'Delete the space "' + space.name + '" and all its content?', danger: true }, function () {
+                        $.post("/system/sharedspace/admin/delete", { spaceid: space.spaceid }, function () {
+                            loadSpaces();
+                        });
                     });
                 });
                 row.append($("<td>").append(deleteBtn));

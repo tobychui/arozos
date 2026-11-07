@@ -6,6 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../../script/ssdialog.js"></script>
         <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../../script/ao_module.js"></script>
         <style>
@@ -581,7 +582,7 @@
                     },
                     success: function(data){
                         if (data.error != undefined){
-                            alert(data.error);
+                            ssAlert(data.error);
                         }else{
                             //Done
                             exitToParentWindow(data);
@@ -589,7 +590,7 @@
 
                     },
                     error: function(){
-                        alert("Error occured when requesting create RAID endpoint");
+                        ssAlert("Error occured when requesting create RAID endpoint");
                     }
                 })
             }

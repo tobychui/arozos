@@ -1418,13 +1418,12 @@
             /*  Theme                                                              */
             /* ------------------------------------------------------------------ */
             /*
-                The ArozOS system theme preference (file_explorer/theme) wins when it
-                is set. With no stored preference the dialog follows the operating
-                system setting instead. Live switches - the desktop start menu toggle,
-                or another tab flipping the theme - arrive via ao_module_onThemeChanged.
+                The dialog follows the ArozOS system theme preference
+                (file_explorer/theme), which the backend answers with the default
+                theme when the user has not picked one. Live switches - the desktop
+                start menu toggle, or another tab flipping the theme - arrive via
+                ao_module_onThemeChanged.
             */
-            var hasStoredThemePreference = false;
-
             function applyTheme(theme){
                 var isDark = (theme == "dark" || theme == "darkTheme");
                 $("body").toggleClass("darkTheme", isDark);
@@ -1433,49 +1432,17 @@
                 // ao_module_setWindowTheme(isDark ? "dark" : "white");
             }
 
-            function osPrefersDark(){
-                return window.matchMedia != undefined && window.matchMedia("(prefers-color-scheme: dark)").matches;
-            }
-
             function initTheme(){
-                //Paint from the OS setting first so there is no light flash while
-                //the stored preference is still being fetched
-                applyTheme(osPrefersDark() ? "dark" : "light");
+                //Light until the preference arrives, as that is the system default
+                applyTheme("light");
 
                 if (typeof ao_module_getSystemThemeColor == "function"){
-                    ao_module_getSystemThemeColor(function(pref){
-                        if (pref == "darkTheme" || pref == "whiteTheme"){
-                            hasStoredThemePreference = true;
-                            applyTheme(pref == "darkTheme" ? "dark" : "light");
-                        }else{
-                            //Key not found, stay on the operating system setting
-                            hasStoredThemePreference = false;
-                        }
-                    });
+                    ao_module_getSystemThemeColor(applyTheme);
                 }
 
                 //Desktop start menu toggle and cross-tab switches
                 if (typeof ao_module_onThemeChanged == "function"){
-                    ao_module_onThemeChanged(function(theme){
-                        hasStoredThemePreference = true;
-                        applyTheme(theme);
-                    });
-                }
-
-                //Only follow the OS while the user has not pinned a theme in ArozOS
-                if (window.matchMedia != undefined){
-                    var query = window.matchMedia("(prefers-color-scheme: dark)");
-                    var onOSThemeChange = function(event){
-                        if (!hasStoredThemePreference){
-                            applyTheme(event.matches ? "dark" : "light");
-                        }
-                    };
-                    if (query.addEventListener != undefined){
-                        query.addEventListener("change", onOSThemeChange);
-                    }else if (query.addListener != undefined){
-                        //Safari below 14 and older WebKit builds
-                        query.addListener(onOSThemeChange);
-                    }
+                    ao_module_onThemeChanged(applyTheme);
                 }
             }
 

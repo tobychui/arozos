@@ -238,6 +238,16 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	//A remote file system pays a round trip for the stat and its streaming
+	//branches below cannot answer a conditional request anyway
+	var fileInfo os.FileInfo
+	if !targetFsh.RequireBuffer {
+		if info, err := targetFshAbs.Stat(realFilepath); err == nil {
+			fileInfo = info
+		}
+	}
+	utils.SetRevalidationHeaders(w, fileInfo)
+
 	//Serve the file
 	if downloadMode {
 		filename := filepath.Base(realFilepath)

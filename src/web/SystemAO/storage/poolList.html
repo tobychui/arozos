@@ -1,474 +1,1365 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <title>Storage Pool Manager</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <style>
-        #sys-setting-page { padding: 20px; }
-        .svg-icon {
-            display: inline-flex;
-            align-self: center;
-        }.svg-icon svg {
-            height:1em;
-            width:1em;
-        }
-        .clickable{
-            cursor: pointer;
-            transition: opacity 0.1s ease-in-out;
-        }
-        .clickable:hover{
-            opacity: 0.6;
-        }
-        .storagepool.active{
-            background-color: var(--ss-surface-2) !important;
-        }
+<style>
+#spRoot {
+    font-family: var(--ss-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+    color: var(--ss-text);
+}
 
-        .reloadpoolBtn{
-            position: absolute;
-            right: 0.4em;
-            top: 0.8em;
-        }
+#spActions { display: flex; align-items: center; gap: 8px; }
 
-        .statusTextWrapper{
-            text-align: right;
-            width: 100%;
-            overflow: hidden;
-            position: absolute;
-            bottom: 0px;
-            right: 0px;
-            height: 3rem;
-            display: flex;
-            justify-content: end;
-        }
-        .statusText{
-            opacity: 0.1;
-            font-weight: lighter;
-            font-size: 2em;
-            align-self:flex-end;
-            margin-bottom: 0.2em;
-            margin-right: 0.2em;
-            pointer-events: none;
-            user-select: none;
-        }
-        
-    </style>
-</head>
-<body>
-    <div class="ui container" id="sys-setting-page">
-        <div class="ss-page-desc">Manage system and permission group storage pools</div>
-        <div id="ok" class="ui basic modal">
-            <div class="ui icon header">
-                <i class="green checkmark icon"></i>
-                Storage Pool Reloaded
-            </div>
-            <div class="content" align="center">
-                <p>Storage Pool has successfully reloaded.</p>
-            </div>
-            <div class="actions">
-                <div class="ui green ok inverted button">
-                <i class="checkmark icon"></i>
-                OK
+/* Drive rows */
+#spRoot #spDriveSections { margin-bottom: 18px; }
+#spRoot #spDriveSections .ss-card { overflow: visible; } /* The drive menu reaches past the card */
+#spRoot .sp-drive {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ss-border);
+}
+#spRoot .sp-drive:last-child { border-bottom: none; }
+#spRoot .sp-drive-icon { width: 30px; height: 30px; flex-shrink: 0; }
+#spRoot .sp-drive-main { flex: 1; min-width: 0; }
+#spRoot .sp-drive-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+#spRoot .sp-id {
+    font-family: var(--ss-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--ss-text-2);
+}
+#spRoot .sp-drive-who {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--ss-text-2);
+    overflow-wrap: anywhere;
+}
+#spRoot .sp-drive-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* A drive that is not serving files. Its actions stay as they are */
+#spRoot .sp-drive.inactive .sp-drive-icon { filter: grayscale(1); opacity: 0.55; }
+#spRoot .sp-drive.inactive .sp-drive-title,
+#spRoot .sp-drive.inactive .sp-id,
+#spRoot .sp-drive.inactive .sp-drive-who { color: var(--ss-muted); }
+#spRoot .sp-drive.inactive .ss-badge { background: var(--ss-surface-3); color: var(--ss-text-2); }
+#spRoot .sp-fixed { font-size: 12px; color: var(--ss-muted); }
+#spRoot .sp-link {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--ss-link);
+    cursor: pointer;
+}
+#spRoot .sp-link:hover { text-decoration: underline; }
+
+/* The menu of a drive */
+#spRoot .sp-menu-wrap { position: relative; }
+#spRoot .sp-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 20;
+    display: none;
+    min-width: 130px;
+    padding: 4px;
+    background: var(--ss-surface);
+    border: 1px solid var(--ss-border-strong);
+    border-radius: var(--ss-radius-sm);
+    box-shadow: var(--ss-shadow-pop);
+}
+#spRoot .sp-menu.open { display: block; }
+#spRoot .sp-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 5px;
+    background: none;
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    color: var(--ss-text);
+    cursor: pointer;
+}
+#spRoot .sp-menu button:hover { background: var(--ss-hover); }
+#spRoot .sp-menu button.danger { color: var(--ss-danger); }
+
+/* Who can access */
+#spAccessView { container-type: inline-size; }
+#spRoot .sp-matrix-wrap { overflow-x: auto; }
+#spRoot .sp-matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+#spRoot .sp-matrix th,
+#spRoot .sp-matrix td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--ss-border);
+    text-align: left;
+    white-space: nowrap;
+}
+#spRoot .sp-matrix tr:last-child th,
+#spRoot .sp-matrix tr:last-child td { border-bottom: none; }
+#spRoot .sp-matrix thead th { font-weight: 600; color: var(--ss-text-2); }
+#spRoot .sp-matrix tbody th {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--ss-surface);
+    font-weight: 600;
+}
+#spRoot .sp-matrix .sp-id { display: block; }
+#spRoot .sp-matrix tr.inactive th,
+#spRoot .sp-matrix tr.inactive .sp-id,
+#spRoot .sp-rule-row.inactive > span:first-child,
+#spRoot .sp-rule-row.inactive .sp-id { color: var(--ss-muted); }
+#spRoot .sp-level { min-width: 118px; }
+#spRoot .sp-level.inherit { color: var(--ss-muted); }
+#spRoot .sp-locked { color: var(--ss-text-2); }
+#spRoot .sp-locked small { display: block; font-size: 11px; color: var(--ss-muted); }
+#spRoot .sp-narrow { display: none; }
+@container (max-width: 640px) {
+    #spRoot .sp-wide { display: none; }
+    #spRoot .sp-narrow { display: block; }
+}
+
+/* Check a user */
+#spRoot .sp-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; }
+#spRoot .sp-check .ss-input { width: 170px; }
+#spRoot .sp-check-result { padding: 0 14px 10px; font-size: 12.5px; color: var(--ss-text-2); }
+#spRoot .sp-check-result:empty { display: none; }
+
+/* The panel for adding, editing and the access list of one drive */
+#spPanelBack {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: none;
+    background: rgba(0, 0, 0, 0.32);
+}
+#spPanelBack.open { display: block; }
+#spPanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    width: min(500px, 100%);
+    background: var(--ss-bg);
+    box-shadow: var(--ss-shadow-pop);
+}
+#spRoot .sp-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--ss-border);
+}
+#spRoot .sp-panel-title { font-size: 15px; font-weight: 600; }
+#spRoot .sp-panel-sub { margin-top: 2px; font-size: 12px; color: var(--ss-text-2); }
+#spRoot .sp-panel-body { flex: 1; min-height: 0; padding: 14px 18px; overflow-y: auto; }
+#spRoot .sp-panel-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--ss-border);
+}
+#spRoot .sp-panel-foot .sp-grow { flex: 1; }
+#spRoot .sp-close {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    font-size: 17px;
+    line-height: 1;
+    color: var(--ss-text-2);
+    cursor: pointer;
+}
+#spRoot .sp-close:hover { background: var(--ss-hover); }
+
+/* Step one */
+#spRoot .sp-choice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--ss-border-strong);
+    border-radius: var(--ss-radius);
+    background: var(--ss-surface);
+    font: inherit;
+    text-align: left;
+    color: var(--ss-text);
+    cursor: pointer;
+}
+#spRoot .sp-choice:hover { border-color: var(--ss-accent); }
+#spRoot .sp-choice img { width: 30px; height: 30px; flex-shrink: 0; }
+#spRoot .sp-choice b { display: block; font-size: 13px; font-weight: 600; }
+#spRoot .sp-choice span { display: block; margin-top: 1px; font-size: 12px; color: var(--ss-text-2); }
+
+/* Form fields */
+#spRoot .sp-field { margin-bottom: 12px; }
+#spRoot .sp-field label,
+#spRoot .sp-field-label { display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 600; }
+#spRoot .sp-field .ss-input,
+#spRoot .sp-field .ss-select { width: 100%; }
+#spRoot .sp-hint { margin-top: 3px; font-size: 11.5px; color: var(--ss-text-2); }
+#spRoot .sp-error { margin-top: 3px; font-size: 11.5px; color: var(--ss-danger); }
+#spRoot .sp-error:empty { display: none; }
+#spRoot .sp-inline { display: flex; gap: 6px; }
+#spRoot .sp-inline .ss-input { flex: 1; min-width: 0; }
+#spRoot .sp-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+#spRoot .sp-switch-row b { display: block; font-size: 12.5px; font-weight: 600; }
+#spRoot .sp-switch-row span.sp-hint { display: block; }
+#spRoot .sp-rule-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--ss-border);
+    font-size: 12.5px;
+}
+#spRoot .sp-rule-row:last-child { border-bottom: none; }
+#spRoot .sp-rule-row > span:first-child { font-weight: 600; overflow-wrap: anywhere; }
+#spRoot .sp-note-block { margin-bottom: 12px; }
+#spRoot .sp-panel-error {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: var(--ss-radius-sm);
+    background: var(--ss-danger-soft);
+    font-size: 12px;
+    color: var(--ss-danger);
+}
+#spRoot .sp-panel-error:empty { display: none; }
+#spRoot .sp-test-result { font-size: 12px; color: var(--ss-text-2); }
+#spRoot .sp-test-result.ok { color: var(--ss-success); }
+#spRoot .sp-test-result.bad { color: var(--ss-danger); }
+#spRoot .sp-partition {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 7px 10px;
+    border: 1px solid var(--ss-border);
+    border-radius: var(--ss-radius-sm);
+    background: var(--ss-surface);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    color: var(--ss-text);
+    cursor: pointer;
+}
+#spRoot .sp-partition:hover { border-color: var(--ss-accent); }
+#spRoot .sp-disk-name { margin-top: 8px; font-size: 12px; font-weight: 600; }
+
+#spRoot .sp-banner { margin-bottom: 12px; }
+#spRoot .sp-banner.bad { color: var(--ss-danger); }
+</style>
+
+<div id="spRoot">
+    <div class="ss-page-desc" locale="sp/desc">Manage where files are stored and who can use them.</div>
+
+    <div id="spActions" data-ss-page-actions>
+        <div class="ss-segmented" id="spViewSwitch">
+            <button type="button" class="active" data-view="drives" locale="sp/view/drives">Drives</button>
+            <button type="button" data-view="access" locale="sp/view/access">Who can access</button>
+        </div>
+        <button type="button" class="ss-btn primary" id="spAddDrive" locale="sp/add">Add drive</button>
+    </div>
+
+    <div id="spBanners"></div>
+
+    <div id="spDrivesView">
+        <div id="spDriveSections"><div class="ss-card"><div class="ss-empty" locale="sp/loading">Loading</div></div></div>
+
+        <div class="ss-section">
+            <div class="ss-section-title" locale="sp/advanced">Advanced</div>
+            <div class="ss-card">
+                <div class="ss-row">
+                    <div class="ss-row-text">
+                        <div class="ss-row-label" locale="sp/reload">Reload storage pools</div>
+                        <div class="ss-row-desc" locale="sp/reload/desc">Closes and reopens drives from the config files. Only needed after editing those files by hand. Open files on these drives are interrupted.</div>
+                    </div>
+                    <div class="ss-control">
+                        <select class="ss-select" id="spReloadPool"></select>
+                        <button type="button" class="ss-btn danger-outline" id="spReload" locale="sp/reload/button">Reload</button>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="ui stackable grid">
-            <div class="six wide column" style="border-right: 1px solid #e0e0e0;">
-                <div id="poolNameList">
+    </div>
 
-                </div>
-                <div class="ui divider"></div>
-                <div style="width: 100%;" align="center">
-                    <button title="Reload All Storage Pools" onclick="reloadAllStoragePool();" class="circular basic red large ui icon button">
-                        <i class="red refresh icon"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="ten wide column">
-                <div id="disklist">
-
-                </div>
-                <div class="ui divider"></div>
-                <div style="width: 100%;" align="center">
-                    <button onclick="newFsh();" title="Add Storage" class="circular basic large ui icon button">
-                        <i class="add icon"></i>
-                    </button>
-                    <button onclick="bridgeFsh();" title="Bridge Storage" class="circular basic blue large ui icon button">
-                        <i class="linkify icon"></i>
-                    </button>
+    <div id="spAccessView" style="display:none;">
+        <div class="ss-section">
+            <div class="ss-card">
+                <div class="sp-wide sp-matrix-wrap" id="spMatrix"></div>
+                <div class="sp-narrow">
+                    <div class="ss-row">
+                        <div class="ss-row-text"><div class="ss-row-label" locale="sp/narrow/group">Group</div></div>
+                        <div class="ss-control"><select class="ss-select" id="spNarrowGroup"></select></div>
+                    </div>
+                    <div id="spNarrowList"></div>
                 </div>
             </div>
         </div>
-    <script>
-        var selectedStoragePool = "system";
-        var storagePoolList = [];
-        //Create all elements
-        $(".ui.dropdown").dropdown();
+        <div class="ss-note sp-note-block"><span locale="sp/access/how">A group set to Use default gets the Default access level. If a user's groups have different levels, the highest one applies. Changes are saved as you make them.</span></div>
 
-        //Render the poollist
-        loadStoragePoolList();
+        <div class="ss-section">
+            <div class="ss-section-title" locale="sp/check">Check a user</div>
+            <div class="ss-card">
+                <div class="sp-check">
+                    <input type="text" class="ss-input" id="spCheckUser" placeholder="Username">
+                    <select class="ss-select" id="spCheckDrive"></select>
+                    <button type="button" class="ss-btn" id="spCheckButton" locale="sp/check/button">Check</button>
+                </div>
+                <div class="sp-check-result" id="spCheckResult"></div>
+            </div>
+        </div>
+    </div>
 
-        function loadStoragePoolList(){
-            $("#poolList").html("");
-            $.get("../../system/storage/pool/list", function(data){
-                if (data.error !== undefined){
-                    $("#poolList").html("<p>" + data.error + "</p>");
-                }else{
-                    $("#poolNameList").html(``);
-                    storagePoolList = data;
-                    data.forEach(storagePool => {
-                       $("#poolNameList").append(` <div class="ui clickable storagepool segment" uuid="${storagePool.Owner}" onclick="loadThisPoolDetails('${storagePool.Owner}');">
-                        <h4 class="ui header storagepool">
-                            <img src="../../img/system/cluster.svg">
-                            <div class="content">
-                            ${storagePool.Owner}
-                                <div class="sub header">
-                                    Other's Permission: ${storagePool.OtherPermission}
-                                </div>
-                            </div>
-                        </h4>
-                        <button title="Reload Storage Pool" onclick="reloadStoagePool('${storagePool.Owner}', event);" class="circular tiny basic ui icon button reloadpoolBtn">
-                            <i class="green refresh icon"></i>
-                        </button>
-                        </div>`);
-                    });
-                }
+    <div id="spPanelBack">
+        <div id="spPanel" role="dialog" aria-modal="true" aria-labelledby="spPanelTitle">
+            <div class="sp-panel-head">
+                <div>
+                    <div class="sp-panel-title" id="spPanelTitle"></div>
+                    <div class="sp-panel-sub" id="spPanelSub"></div>
+                </div>
+                <button type="button" class="sp-close" id="spPanelClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="sp-panel-body" id="spPanelBody"></div>
+            <div class="sp-panel-foot" id="spPanelFoot"></div>
+        </div>
+    </div>
+</div>
 
-                loadThisPoolDetails(selectedStoragePool);
-            }); 
+<script>
+(function () {
+    /*
+        Storage Pools
+
+        Lists every drive of this host and who may use it. The server works out
+        each drive's state and rule (/system/storage/drives), this page only
+        shows them. A drive's access list holds a level per permission group
+        plus a default access level; see mod/storage/access.
+
+        Own locale instance rather than the shared global one, see the File
+        Manager settings page for why.
+    */
+    var spLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
+        init: function (f, cb) { cb(); },
+        translate: function () {},
+        getString: function (k, fallback) { return fallback; }
+    };
+
+    function T(key, fallback) {
+        return (spLocale && spLocale.getString) ? spLocale.getString(key, fallback) : fallback;
+    }
+
+    function fill(text, values) {
+        Object.keys(values).forEach(function (name) {
+            text = text.split("{" + name + "}").join(values[name]);
+        });
+        return text;
+    }
+
+    function esc(value) {
+        return String(value === undefined || value === null ? "" : value)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function notify(text, ok) {
+        if (typeof msgbox === "function") {
+            msgbox(esc(text), ok !== false);
         }
+    }
 
-        function loadThisPoolDetails(owner){
-            selectedStoragePool = owner;
-            var targetStoragePool = undefined;
-            for (var i = 0; i < storagePoolList.length; i++){
-                let thisStoragePool = storagePoolList[i];
-                if (thisStoragePool.Owner == owner){
-                    targetStoragePool = thisStoragePool;
-                    break;
-                }
+    var URLS = {
+        drives: "../../system/storage/drives",
+        access: "../../system/storage/access",
+        explain: "../../system/storage/access/explain",
+        edit: "../../system/storage/pool/edit",
+        test: "../../system/storage/pool/test",
+        toggle: "../../system/storage/pool/toggle",
+        remove: "../../system/storage/pool/removeHandler",
+        reload: "../../system/storage/pool/reload",
+        devices: "../../system/disk/diskmg/devices"
+    };
+
+    var SYSTEM_POOL = "system";
+    var RELOAD_ALL = "1eb201a3-d0f6-6630-5e6d-2f40480115c5";
+    var NEW_DRIVE = "__new__"; //Stands for the drive being added, which has no id yet
+    var INHERIT = "inherit";   //A group with no row: it follows the default access
+    var ID_FORMAT = /^[A-Za-z0-9_-]+$/;
+    var LOCAL_FILESYSTEMS = ["ext4", "ext3", "ext2", "ntfs", "vfat", "fat"];
+    var NETWORK_FILESYSTEMS = ["smb", "webdav", "ftp", "sftp", "s3"];
+
+    var groups = [];
+    var drives = [];
+    var panelDriveId = null; //The drive whose access list the panel shows
+    var wizard = null;       //The add or edit drive form, when open
+
+    /* Names and levels */
+
+    function levelName(drive, level) {
+        if (drive.uuid === "share") {
+            return level === "denied" ? T("sp/level/hidden", "Hidden") : T("sp/level/visible", "Visible");
+        }
+        if (level === "readwrite") return T("sp/level/readwrite", "Read & write");
+        if (level === "readonly") return T("sp/level/read", "Read");
+        return T("sp/level/none", "None");
+    }
+
+    function levelsOf(drive) {
+        if (drive.uuid === "share") return ["denied", "readonly"];
+        return drive.readOnly ? ["denied", "readonly"] : ["denied", "readonly", "readwrite"];
+    }
+
+    function topLevelOf(drive) {
+        return (drive.readOnly || drive.uuid === "share") ? "readonly" : "readwrite";
+    }
+
+    function driveName(drive) {
+        if (drive.uuid === "user") return T("sp/name/user", "Home folders");
+        if (drive.uuid === "tmp") return T("sp/name/tmp", "Temporary files");
+        if (drive.uuid === "share") return T("sp/name/share", "Shared with me");
+        if (drive.uuid === "cluster") return T("sp/name/cluster", "Cluster");
+        return drive.name;
+    }
+
+    function typeName(drive) {
+        var names = { smb: "SMB", webdav: "WebDAV", ftp: "FTP", sftp: "SFTP", s3: "S3" };
+        if (names[drive.filesystem]) return names[drive.filesystem];
+        return (drive.kind === "configured") ? T("sp/type/local", "Local") : "";
+    }
+
+    function stateBadge(drive) {
+        var states = {
+            online: ["success", T("sp/state/online", "Online")],
+            stopped: ["warning", T("sp/state/stopped", "Stopped")],
+            offline: ["danger", T("sp/state/offline", "Offline")],
+            removed: ["danger", T("sp/state/removed", "Removed")],
+            notactive: ["", T("sp/state/notactive", "Not active")]
+        };
+        var state = states[drive.state] || ["", drive.state];
+        return '<span class="ss-badge ' + state[0] + '">' + esc(state[1]) + "</span>";
+    }
+
+    function iconOf(drive) {
+        if (drive.state === "offline" || drive.state === "notactive") return "drive-notfound.svg";
+        if (drive.kind === "fixed") return "drive.svg";
+        return drive.hierarchy === "public" ? "drive-public.svg" : "drive-virtual.svg";
+    }
+
+    // Stopped, offline and the like: a drive that is not serving files right now
+    function isInactive(drive) {
+        return drive.state !== "online";
+    }
+
+    function homeGroupOf(drive) {
+        return drive.pool === SYSTEM_POOL ? "" : drive.pool;
+    }
+
+    // Why a group cannot be set on a drive, or "" when it can
+    function lockOf(drive, group) {
+        if (drive.pool === group.name) return "home";
+        if (group.isAdmin && drive.pool === SYSTEM_POOL) return "admin";
+        return "";
+    }
+
+    function ruleRows(drive) {
+        return drive.rule.groups || {};
+    }
+
+    // Who can use a drive, in one line
+    function summaryOf(drive) {
+        if (drive.kind === "fixed") {
+            return fill(T("sp/who/everyone", "Everyone: {level}"), { level: levelName(drive, "readwrite") });
+        }
+        var parts = [];
+        var home = homeGroupOf(drive);
+        if (home !== "") {
+            parts.push(fill(T("sp/who/home", "{group} (home group)"), { group: home }));
+        }
+        var rows = ruleRows(drive);
+        Object.keys(rows).sort().forEach(function (group) {
+            parts.push(group + ": " + levelName(drive, rows[group]));
+        });
+        if (drive.rule.other !== "denied") {
+            parts.unshift(fill(T("sp/who/everyone", "Everyone: {level}"), { level: levelName(drive, drive.rule.other) }));
+        }
+        if (parts.length === 0) {
+            return T("sp/who/admins", "Admins only");
+        }
+        return parts.join(", ");
+    }
+
+    /* The list of drives */
+
+    function loadDrives() {
+        return $.get(URLS.drives, function (data) {
+            if (data && data.error !== undefined) {
+                $("#spDriveSections").html('<div class="ss-card"><div class="ss-empty">' + esc(data.error) + "</div></div>");
+                return;
             }
-
-           
-            $(".storagepool.active").removeClass("active");
-            $(".storagepool").each(function(){
-                if ($(this).attr("uuid") == owner){
-                    $(this).addClass("active");
-                }
-            })
-        
-
-            $("#disklist").html("");
-            var storages = targetStoragePool.Storages;
-            storages.forEach(function(storage){
-                var color = "#8adb9d";
-                var isReserved = false;
-                var driveIcon = "drive-virtual.svg";
-                var statusText = "Online";
-                var statusClass = ""
-                if (storage.UUID == "tmp" || storage.UUID == "user"){
-                    isReserved = true;
-                    color = "#fade8e";
-                    statusClass = "online"
-                }else if (storage.Closed == true){
-                    color = "#7d7d7d";
-                    statusText = "Stopped"
-                    statusClass = "stopped"
-                }
-
-                if (storage.Hierarchy == "public"){
-                    driveIcon = "drive-public.svg";
-                }else if (isReserved){
-                    driveIcon = "drive.svg";
-                }
-                var editButtons = `<button onclick="editFsh('${storage.UUID}','${owner}');" title="Edit Virtual Disk" onclick="" class="circular tiny basic ui icon button editButton">
-                    <i class="edit icon"></i>
-                </button>
-                <button onclick="toggleFsh('${storage.UUID}','${owner}');" title="Toggle Virtual Disk IO" onclick="" class="circular tiny basic ui icon button shutdownButton">
-                    <i class="power icon"></i>
-                </button>
-                <button onclick="removeFsh('${storage.UUID}','${owner}');" title="Remove Virtual Disk" onclick="" class="circular tiny basic ui icon button removeFshButton">
-                    <i class="red remove icon"></i>
-                </button>`;
-                $("#disklist").append(`<div class="ui vdisk segment ${statusClass}" uuid="${storage.UUID}" style="border-left: 3px solid ${color};">
-                    <h4 class="ui header storagepool">
-                        <img src="../../img/system/${driveIcon}">
-                        <div class="content">
-                            ${storage.Name} (${storage.UUID}:/)
-                            <div class="sub header" style="margin-top: 0.4em;">
-                                <div class="ui list">
-                                    <div class="item">Mount Point: ${storage.Path}</div>
-                                    <div class="item">Hierarchy: ${storage.Hierarchy}</div>
-                                    <div class="item">ReadOnly: ${storage.ReadOnly}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </h4>
-                    <div class="fshbuttons" style="position: absolute; top: 0.8em; right: 0.8em;">
-                        ${isReserved?`<span style="color: #c9c9c9; pointer-events: none; user-select: none;">System Reserved</span>`:editButtons}
-                    </div>
-                    <div class="statusTextWrapper">
-                        <div class="statusText">
-                            ${statusText}
-                        </div>
-                    </div>
-                    
-                </div>`);
-            });
-
-            if (storages.length == 0){
-                $("#disklist").append(`<div class="ui segment nostorage" style="border-left: 3px solid #303030;">
-                    <h4 class="ui header storagepool">
-                        <img src="../../img/system/drive-notfound.svg">
-                        <div class="content">
-                            No Storage
-                            <div class="sub header" style="margin-top: 0.4em;">
-                                No storage found under this Storage Pool
-                            </div>
-                        </div>
-                    </h4>
-                `);
+            groups = data.groups || [];
+            drives = data.drives || [];
+            renderBanners(data.ruleError);
+            renderDrives();
+            renderMatrix();
+            renderNarrow();
+            renderReloadPools();
+            renderCheckDrives();
+            if (panelDriveId !== null) {
+                renderAccessPanel();
             }
+        });
+    }
 
-            $.get("../../system/storage/pool/listraw?target=" + owner, function(data){
-                if (data.error == undefined){
-                    data.forEach(function(storage){
-                        console.log(storage);
-                        let thisStorageUUID = storage.uuid;
-                        let matchingDiskFound = false;
-                        $(".vdisk").each(function(){
-                            if ($(this).attr("uuid") == thisStorageUUID && !$(this).hasClass("stopped")){
-                                $(this).addClass("online");
-                                $(this).find(".statusText").text("Online");
-                                matchingDiskFound = true;
-                            }else if ($(this).hasClass("stopped")){
-                                //Found but it has been shutted
-                                matchingDiskFound = true;
-                            }
-                        });
+    function findDrive(uuid) {
+        if (uuid === NEW_DRIVE) return wizard.drive;
+        for (var i = 0; i < drives.length; i++) {
+            if (drives[i].uuid === uuid) return drives[i];
+        }
+        return null;
+    }
 
-                        if (!matchingDiskFound){
-                            //Add offline disk record to the list
-                            $("#disklist").append(`<div class="ui vdisk segment offline" uuid="${storage.uuid}" style="border-left: 3px solid #3e3a39;">
-                                <h4 class="ui header storagepool">
-                                    <img src="../../img/system/drive-notfound.svg">
-                                    <div class="content">
-                                        ${storage.name} (${storage.uuid}:/)
-                                        <div class="sub header" style="margin-top: 0.4em;">
-                                            <div class="ui list">
-                                                <div class="item">Mount Point: ${storage.path}</div>
-                                                <div class="item">Hierarchy: ${storage.hierarchy}</div>
-                                                <div class="item">ReadOnly: ${storage.access=="readonly"}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </h4>
-                                <div class="fshbuttons" style="position: absolute; top: 0.8em; right: 0.8em;">
-                                    <button title="Edit Virtual Disk" onclick="editFsh('${storage.uuid}','${selectedStoragePool}');" class="circular tiny basic ui icon button">
-                                        <i class="edit icon"></i>
-                                    </button>
-                                    <button onclick="removeFsh('${storage.uuid}','${selectedStoragePool}');" title="Remove Virtual Disk" onclick="" class="circular tiny basic ui icon button removeFshButton">
-                                        <i class="red remove icon"></i>
-                                    </button>
-                                </div>
-                                <div class="statusTextWrapper">
-                                    <div class="statusText">
-                                        Offline
-                                    </div>
-                                </div>
-                            </div>`);
-                        }
-                    });
+    function renderBanners(ruleError) {
+        var html = "";
+        if (ruleError) {
+            html += '<div class="ss-note sp-banner bad"><span>' +
+                esc(fill(T("sp/rule/unreadable", "The access rules could not be read ({reason}), so every drive is closed to everyone but admins until the file is repaired."), { reason: ruleError })) +
+                "</span></div>";
+        }
+        var duplicates = {};
+        drives.forEach(function (drive) {
+            if (drive.duplicate) duplicates[drive.uuid] = true;
+        });
+        var ids = Object.keys(duplicates);
+        if (ids.length > 0) {
+            html += '<div class="ss-note sp-banner"><span>' +
+                esc(fill(T("sp/duplicate/note", "These drive ids are used by more than one pool: {ids}. An access list applies to every drive of that id, so give each drive its own id."), { ids: ids.join(", ") })) +
+                "</span></div>";
+        }
+        $("#spBanners").html(html);
+    }
 
-                    $('.vdisk').each(function(){
-                        if (!$(this).hasClass("online") && !$(this).hasClass("offline") && !$(this).hasClass("stopped")){
-                            //This pool record not exists in json file, check if this is bridged
-                            var fshid = $(this).attr("uuid");
-                            let thisFsh = $(this);
-                            $.ajax({
-                                url: "../../system/storage/pool/checkBridge",
-                                data: {base: selectedStoragePool, fsh: fshid},
-                                success: function(data){
-                                    if (data == true){
-                                        thisFsh.find(".shutdownButton").hide();
-                                        thisFsh.find(".editButton").hide();
-                                        thisFsh.css({
-                                            "border-left": "3px solid #e29eff",
-                                        });
-                                        thisFsh.find("img").attr('src', '../../img/system/drive-bridge.svg');
-                                        thisFsh.find(".statusText").text("Bridged");
-                                    }else{
-                                        thisFsh.find(".fshbuttons").hide();
-                                        thisFsh.css({
-                                            "border-left": "3px dotted #ff6666",
-                                        });
-                                        thisFsh.find(".statusText").text("Removed");
-                                    }
-                                }
-                            });
-                           
-                        }
-                    });
-                }
+    function driveRow(drive) {
+        var type = typeName(drive);
+        var title = '<span>' + esc(driveName(drive)) + '</span><span class="sp-id">' + esc(drive.uuid) + ":/</span>";
+        if (type !== "") title += '<span class="ss-badge">' + esc(type) + "</span>";
+        title += stateBadge(drive);
+        if (drive.duplicate) title += '<span class="ss-badge warning">' + esc(T("sp/duplicate/badge", "Duplicate id")) + "</span>";
+        if (drive.readOnly && drive.uuid !== "share") title += '<span class="ss-badge">' + esc(T("sp/readonly/badge", "Read only")) + "</span>";
 
-                if ($(".vdisk").length > 0 && $(".nostorage").length > 0){
-                    $(".nostorage").remove();
-                }
-            });
+        var actions = "";
+        if (drive.kind === "fixed") {
+            actions = '<span class="sp-fixed">' + esc(T("sp/fixed", "Fixed")) + "</span>";
+        } else {
+            actions = '<button type="button" class="ss-btn" data-action="access" data-uuid="' + esc(drive.uuid) + '">' + esc(T("sp/access", "Access")) + "</button>";
+        }
+        if (drive.kind === "configured") {
+            var live = drive.state === "online" || drive.state === "stopped";
+            actions += '<div class="sp-menu-wrap">' +
+                '<button type="button" class="ss-btn" data-action="menu" aria-label="' + esc(T("sp/more", "More")) + '">...</button>' +
+                '<div class="sp-menu">' +
+                '<button type="button" data-action="edit" data-uuid="' + esc(drive.uuid) + '" data-pool="' + esc(drive.pool) + '">' + esc(T("sp/edit", "Edit")) + "</button>" +
+                (live ? '<button type="button" data-action="toggle" data-uuid="' + esc(drive.uuid) + '" data-pool="' + esc(drive.pool) + '" title="' + esc(T("sp/stop/hint", "Lasts until the next restart or pool reload")) + '">' +
+                    esc(drive.state === "stopped" ? T("sp/start", "Start") : T("sp/stop", "Stop")) + "</button>" : "") +
+                '<button type="button" class="danger" data-action="remove" data-uuid="' + esc(drive.uuid) + '" data-pool="' + esc(drive.pool) + '">' + esc(T("sp/remove", "Remove")) + "</button>" +
+                "</div></div>";
         }
 
-        function editSelectedPool(){
-            if (selectedStoragePool == ""){
-                console.log("Pool not selected: ", selectedStoragePool)
-                return
+        var who = esc(summaryOf(drive));
+        if (drive.state === "notactive") {
+            who = esc(T("sp/cluster/inactive", "Appears once this node is in a cluster with a volume.")) +
+                ' <button type="button" class="sp-link" data-action="clustersettings">' + esc(T("sp/cluster/settings", "Cluster Settings")) + "</button>";
+        }
+
+        return '<div class="sp-drive' + (isInactive(drive) ? " inactive" : "") + '">' +
+            '<img class="sp-drive-icon" alt="" src="../../img/system/' + iconOf(drive) + '">' +
+            '<div class="sp-drive-main"><div class="sp-drive-title">' + title + '</div><div class="sp-drive-who">' + who + "</div></div>" +
+            '<div class="sp-drive-actions">' + actions + "</div></div>";
+    }
+
+    function section(title, rows) {
+        if (rows.length === 0) return "";
+        return '<div class="ss-section"><div class="ss-section-title">' + esc(title) + '</div><div class="ss-card">' + rows.map(driveRow).join("") + "</div></div>";
+    }
+
+    function renderDrives() {
+        var builtin = drives.filter(function (d) { return d.kind !== "configured"; });
+        var system = drives.filter(function (d) { return d.kind === "configured" && d.pool === SYSTEM_POOL; });
+        var html = section(T("sp/section/builtin", "Built-in"), builtin);
+        html += section(T("sp/section/system", "System pool"), system);
+        groups.forEach(function (group) {
+            var rows = drives.filter(function (d) { return d.kind === "configured" && d.pool === group.name; });
+            html += section(fill(T("sp/section/group", "Group pool: {group}"), { group: group.name }), rows);
+        });
+        $("#spDriveSections").html(html);
+    }
+
+    function renderReloadPools() {
+        var html = '<option value="' + RELOAD_ALL + '">' + esc(T("sp/reload/all", "All pools")) + "</option>" +
+            '<option value="' + SYSTEM_POOL + '">' + esc(T("sp/section/system", "System pool")) + "</option>";
+        groups.forEach(function (group) {
+            html += '<option value="' + esc(group.name) + '">' + esc(group.name) + "</option>";
+        });
+        var current = $("#spReloadPool").val();
+        $("#spReloadPool").html(html);
+        if (current) $("#spReloadPool").val(current);
+    }
+
+    /* Access levels: one control shared by the matrix, the phone list and the panel */
+
+    function accessDrives() {
+        return drives.filter(function (d) { return d.kind !== "fixed"; }).filter(function (drive, index, list) {
+            //A duplicate id has one access list, so it gets one row
+            return list.findIndex(function (other) { return other.uuid === drive.uuid; }) === index;
+        });
+    }
+
+    function lockedCell(drive, lock) {
+        var reason = lock === "home" ? T("sp/lock/home", "Home group") : T("sp/lock/admin", "Admin");
+        return '<span class="sp-locked">' + esc(levelName(drive, topLevelOf(drive))) + "<small>" + esc(reason) + "</small></span>";
+    }
+
+    // The control of one group, or of the default access when group is null
+    function levelControl(drive, group) {
+        if (group !== null) {
+            var lock = lockOf(drive, group);
+            if (lock !== "") return lockedCell(drive, lock);
+        }
+
+        var current = group === null ? drive.rule.other : ruleRows(drive)[group.name];
+        var inherits = group !== null && current === undefined;
+        if (current === "readwrite" && topLevelOf(drive) !== "readwrite") current = "readonly";
+
+        var options = "";
+        if (group !== null) {
+            options += '<option value="' + INHERIT + '"' + (inherits ? " selected" : "") + ">" + esc(T("sp/level/inherit", "Use default")) + "</option>";
+        }
+        levelsOf(drive).forEach(function (level) {
+            options += '<option value="' + level + '"' + (level === current ? " selected" : "") + ">" + esc(levelName(drive, level)) + "</option>";
+        });
+        return '<select class="ss-select sp-level' + (inherits ? " inherit" : "") + '"' +
+            ' data-uuid="' + esc(drive.uuid) + '" data-group="' + esc(group === null ? "" : group.name) + '"' +
+            (drive.ruleEditable ? "" : " disabled") +
+            ' aria-label="' + esc(driveName(drive) + ", " + (group === null ? T("sp/everyone", "Default access") : group.name)) + '">' + options + "</select>";
+    }
+
+    function renderMatrix() {
+        var list = accessDrives();
+        if (list.length === 0) {
+            $("#spMatrix").html('<div class="ss-empty">' + esc(T("sp/nodrives", "No drives to set access for yet.")) + "</div>");
+            return;
+        }
+        //The default leads: the groups read as exceptions to it, and it stays
+        //in view when there are more groups than fit
+        var html = '<table class="sp-matrix"><thead><tr><th scope="col">' + esc(T("sp/drive", "Drive")) + "</th>" +
+            '<th scope="col">' + esc(T("sp/everyone", "Default access")) + "</th>";
+        groups.forEach(function (group) {
+            html += '<th scope="col">' + esc(group.name) + "</th>";
+        });
+        html += "</tr></thead><tbody>";
+        list.forEach(function (drive) {
+            html += "<tr" + (isInactive(drive) ? ' class="inactive"' : "") + '><th scope="row">' + esc(driveName(drive)) + '<span class="sp-id">' + esc(drive.uuid) + ":/</span></th>" +
+                "<td>" + levelControl(drive, null) + "</td>";
+            groups.forEach(function (group) {
+                html += "<td>" + levelControl(drive, group) + "</td>";
+            });
+            html += "</tr>";
+        });
+        $("#spMatrix").html(html + "</tbody></table>");
+    }
+
+    function renderNarrow() {
+        var current = $("#spNarrowGroup").val();
+        var html = "";
+        groups.forEach(function (group) {
+            html += '<option value="' + esc(group.name) + '">' + esc(group.name) + "</option>";
+        });
+        html += '<option value="">' + esc(T("sp/everyone", "Default access")) + "</option>";
+        $("#spNarrowGroup").html(html);
+        if (current !== null && current !== undefined) $("#spNarrowGroup").val(current);
+        renderNarrowList();
+    }
+
+    function renderNarrowList() {
+        var name = $("#spNarrowGroup").val();
+        var group = null;
+        groups.forEach(function (g) {
+            if (g.name === name) group = g;
+        });
+        var html = "";
+        accessDrives().forEach(function (drive) {
+            html += '<div class="sp-rule-row' + (isInactive(drive) ? " inactive" : "") + '"><span>' + esc(driveName(drive)) + ' <span class="sp-id">' + esc(drive.uuid) + ":/</span></span>" + levelControl(drive, group) + "</div>";
+        });
+        $("#spNarrowList").html(html);
+    }
+
+    function changeLevel(select) {
+        var uuid = $(select).attr("data-uuid");
+        var groupName = $(select).attr("data-group");
+        var value = $(select).val();
+        var drive = findDrive(uuid);
+        if (drive === null) return;
+
+        var rule = { other: drive.rule.other, groups: $.extend({}, ruleRows(drive)) };
+        if (groupName === "") {
+            rule.other = value;
+        } else if (value === INHERIT) {
+            delete rule.groups[groupName];
+        } else {
+            rule.groups[groupName] = value;
+        }
+
+        if (uuid === NEW_DRIVE) {
+            drive.rule = rule;
+            renderWizard();
+            return;
+        }
+
+        $.post(URLS.access, { uuid: uuid, rule: JSON.stringify(rule) }, function (data) {
+            if (data && data.error !== undefined) {
+                notify(data.error, false);
+            } else {
+                notify(T("sp/saved", "Saved"));
             }
+            loadDrives();
+        }).fail(function () {
+            notify(T("sp/failed", "The server did not answer"), false);
+            loadDrives();
+        });
+    }
 
-            ao_module_newfw({
-                url:"SystemAO/storage/poolEditor.html#" + encodeURIComponent(selectedStoragePool),
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/icon.png",
-                title: "Edit Storage Pool",
-                callback: "finishCreateHandler",
-                parent: ao_module_windowID
+    /* Check a user */
+
+    function renderCheckDrives() {
+        var current = $("#spCheckDrive").val();
+        var html = "";
+        accessDrives().forEach(function (drive) {
+            html += '<option value="' + esc(drive.uuid) + '">' + esc(driveName(drive)) + " (" + esc(drive.uuid) + ":/)</option>";
+        });
+        $("#spCheckDrive").html(html);
+        if (current) $("#spCheckDrive").val(current);
+    }
+
+    function explainText(user, drive, decision) {
+        var values = { user: user, level: levelName(drive, decision.level), drive: drive.uuid + ":/", group: decision.group || "" };
+        var reasons = {
+            home: T("sp/why/home", "{user} has {level} on {drive}, as a member of its home group {group}."),
+            admin: T("sp/why/admin", "{user} has {level} on {drive}, as an admin."),
+            group: T("sp/why/group", "{user} has {level} on {drive}, from the row of group {group}."),
+            other: T("sp/why/other", "{user} has {level} on {drive}, from the default access.")
+        };
+        var text = fill(reasons[decision.reason] || reasons.other, values);
+        if (decision.capped) text += " " + T("sp/why/capped", "The drive itself is read only.");
+        return text;
+    }
+
+    function checkUser() {
+        var user = $("#spCheckUser").val().trim();
+        var uuid = $("#spCheckDrive").val();
+        if (user === "" || !uuid) return;
+        $.get(URLS.explain, { user: user, drive: uuid }, function (data) {
+            if (data && data.error !== undefined) {
+                $("#spCheckResult").text(data.error);
+                return;
+            }
+            $("#spCheckResult").text(explainText(user, findDrive(uuid), data));
+        });
+    }
+
+    /* The panel */
+
+    function openPanel() {
+        $("#spPanelBack").addClass("open");
+        focusPanel();
+    }
+
+    function focusPanel() {
+        $("#spPanelBody").find("input:not([readonly]), select, button").first().trigger("focus");
+    }
+
+    function closePanel() {
+        $("#spPanelBack").removeClass("open");
+        panelDriveId = null;
+        wizard = null;
+    }
+
+    function renderAccessPanel() {
+        var drive = findDrive(panelDriveId);
+        if (drive === null) {
+            closePanel();
+            return;
+        }
+        $("#spPanelTitle").text(fill(T("sp/panel/access", "Who can use {drive}"), { drive: drive.uuid + ":/" }));
+        $("#spPanelSub").text(driveName(drive));
+
+        var html = "";
+        if (!drive.ruleEditable) {
+            html += '<div class="ss-note sp-note-block"><span>' + esc(T("sp/cluster/noedit", "The access list of cluster:/ belongs to the cluster, so it can only be changed on a node that is in one.")) + "</span></div>";
+        } else if (drive.ruleReplicated) {
+            html += '<div class="ss-note sp-note-block"><span>' + esc(T("sp/cluster/replicated", "This list applies on every node of the cluster. Groups are matched by name.")) + "</span></div>";
+        }
+        html += '<div class="ss-card">' + accessRows(drive) + "</div>";
+        $("#spPanelBody").html(html);
+        $("#spPanelFoot").html('<button type="button" class="ss-btn" data-action="closepanel">' + esc(T("sp/done", "Done")) + "</button>");
+    }
+
+    function accessRows(drive) {
+        var html = '<div class="sp-rule-row"><span>' + esc(T("sp/everyone", "Default access")) + "</span>" + levelControl(drive, null) + "</div>";
+        groups.forEach(function (group) {
+            html += '<div class="sp-rule-row"><span>' + esc(group.name) + "</span>" + levelControl(drive, group) + "</div>";
+        });
+
+        //A rule of cluster:/ can name a group that only exists on other nodes
+        var known = groups.map(function (g) { return g.name; });
+        Object.keys(ruleRows(drive)).sort().forEach(function (name) {
+            if (known.indexOf(name) >= 0) return;
+            html += '<div class="sp-rule-row"><span>' + esc(name) + '<div class="sp-hint">' + esc(T("sp/group/missing", "This group does not exist on this node")) + "</div></span>" +
+                '<span class="sp-locked">' + esc(levelName(drive, ruleRows(drive)[name])) + "</span></div>";
+        });
+        return html;
+    }
+
+    function openAccessPanel(uuid) {
+        panelDriveId = uuid;
+        wizard = null;
+        renderAccessPanel();
+        openPanel();
+    }
+
+    /* Adding and editing a drive */
+
+    function newOption() {
+        return {
+            name: "", uuid: "", path: "", access: "readwrite", hierarchy: "public", automount: false,
+            filesystem: "", mountdev: "", mountpt: "", diskuuid: "", username: "", password: ""
+        };
+    }
+
+    function openAddDrive() {
+        panelDriveId = null;
+        wizard = {
+            mode: "new", step: 1, kind: "", pool: SYSTEM_POOL, idTouched: false, pathTouched: false,
+            option: newOption(), error: "", fieldErrors: {},
+            drive: { uuid: NEW_DRIVE, pool: SYSTEM_POOL, kind: "configured", ruleEditable: true, readOnly: false, rule: { other: "readwrite" } }
+        };
+        renderWizard();
+        openPanel();
+    }
+
+    function openEditDrive(uuid, pool) {
+        $.post(URLS.edit, { opr: "get", group: pool, uuid: uuid }, function (data) {
+            if (data && data.error !== undefined) {
+                notify(data.error, false);
+                return;
+            }
+            panelDriveId = null;
+            var option = $.extend(newOption(), data);
+            var kind = "folder";
+            if (NETWORK_FILESYSTEMS.indexOf(option.filesystem) >= 0) {
+                kind = "network";
+            } else if (option.automount || option.mountdev) {
+                kind = "disk";
+            }
+            wizard = {
+                mode: "edit", step: 2, kind: kind, pool: pool, idTouched: true, pathTouched: true,
+                option: option, error: "", fieldErrors: {}, drive: null
+            };
+            renderWizard();
+            openPanel();
+        });
+    }
+
+    function suggestId(name) {
+        return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    function field(name, label, value, options) {
+        options = options || {};
+        var error = wizard.fieldErrors[name] || "";
+        return '<div class="sp-field"><label for="spField_' + name + '">' + esc(label) + "</label>" +
+            '<input class="ss-input' + (error ? " invalid" : "") + '" id="spField_' + name + '" data-field="' + name + '"' +
+            ' type="' + (options.type || "text") + '" value="' + esc(value) + '"' +
+            (options.placeholder ? ' placeholder="' + esc(options.placeholder) + '"' : "") +
+            (options.readonly ? " readonly" : "") + ' autocomplete="off">' +
+            (options.hint ? '<div class="sp-hint">' + esc(options.hint) + "</div>" : "") +
+            '<div class="sp-error">' + esc(error) + "</div></div>";
+    }
+
+    function selectField(name, label, value, choices, hint) {
+        var options = "";
+        choices.forEach(function (choice) {
+            options += '<option value="' + esc(choice[0]) + '"' + (choice[0] === value ? " selected" : "") + ">" + esc(choice[1]) + "</option>";
+        });
+        return '<div class="sp-field"><label for="spField_' + name + '">' + esc(label) + "</label>" +
+            '<select class="ss-select" id="spField_' + name + '" data-field="' + name + '">' + options + "</select>" +
+            (hint ? '<div class="sp-hint">' + esc(hint) + "</div>" : "") + "</div>";
+    }
+
+    function switchField(name, label, hint, checked) {
+        return '<div class="sp-switch-row"><div><b>' + esc(label) + '</b><span class="sp-hint">' + esc(hint) + "</span></div>" +
+            '<label class="ss-switch"><input type="checkbox" data-field="' + name + '"' + (checked ? " checked" : "") + ' aria-label="' + esc(label) + '"><span class="ss-track"></span></label></div>';
+    }
+
+    function stepOne() {
+        function choice(kind, icon, title, text) {
+            return '<button type="button" class="sp-choice" data-action="kind" data-kind="' + kind + '">' +
+                '<img alt="" src="../../img/system/' + icon + '"><div><b>' + esc(title) + "</b><span>" + esc(text) + "</span></div></button>";
+        }
+        return choice("folder", "drive-virtual.svg", T("sp/kind/folder", "A folder on this server"), T("sp/kind/folder/desc", "Any folder this server can already reach."))
+            + choice("disk", "drive.svg", T("sp/kind/disk", "A physical disk"), T("sp/kind/disk/desc", "A partition that ArozOS mounts for you."))
+            + choice("network", "drive-public.svg", T("sp/kind/network", "A network drive"), T("sp/kind/network/desc", "SMB, WebDAV, FTP, SFTP or S3 storage on another machine."));
+    }
+
+    function networkHint(filesystem) {
+        var hints = {
+            smb: "192.168.1.10/share",
+            webdav: "https://example.com/dav",
+            ftp: "192.168.1.10:21/folder",
+            sftp: "192.168.1.10:22/folder",
+            s3: "s3.amazonaws.com/my-bucket"
+        };
+        return hints[filesystem] || "";
+    }
+
+    function stepDetails() {
+        var o = wizard.option;
+        var html = "";
+        html += field("name", T("sp/field/name", "Name"), o.name, { placeholder: T("sp/field/name/placeholder", "e.g. Photos") });
+        html += field("uuid", T("sp/field/id", "Drive ID"), o.uuid, {
+            readonly: wizard.mode === "edit",
+            hint: wizard.mode === "edit"
+                ? fill(T("sp/field/id/locked", "Files on this drive are at {path}. The id cannot be changed."), { path: o.uuid + ":/" })
+                : fill(T("sp/field/id/hint", "Files on this drive will be at {path}"), { path: (o.uuid || "id") + ":/" })
+        });
+
+        if (wizard.kind === "folder") {
+            html += field("path", T("sp/field/path", "Folder"), o.path, { placeholder: T("sp/field/path/placeholder", "e.g. /media/photos") });
+            html += testRow();
+        } else if (wizard.kind === "disk") {
+            html += '<div class="sp-field"><label for="spField_mountdev">' + esc(T("sp/field/device", "Device")) + "</label>" +
+                '<div class="sp-inline"><input class="ss-input" id="spField_mountdev" data-field="mountdev" value="' + esc(o.mountdev) + '" placeholder="/dev/sda1" autocomplete="off">' +
+                '<button type="button" class="ss-btn" data-action="devices">' + esc(T("sp/field/browse", "Browse")) + "</button></div>" +
+                '<div id="spDevices"></div></div>';
+            html += selectField("filesystem", T("sp/field/filesystem", "File system"), o.filesystem || "ext4", LOCAL_FILESYSTEMS.map(function (fsType) {
+                return [fsType, fsType.toUpperCase()];
+            }));
+            html += field("diskuuid", T("sp/field/partition", "Partition UUID"), o.diskuuid, { hint: T("sp/field/partition/hint", "Recommended for USB drives: it survives device renames across reboots.") });
+            html += field("mountpt", T("sp/field/mountpoint", "Mount point"), o.mountpt, { placeholder: "/media/photos" });
+            html += field("path", T("sp/field/diskpath", "Folder to use"), o.path, { hint: T("sp/field/diskpath/hint", "Usually the mount point.") });
+            html += switchField("automount", T("sp/field/automount", "Mount at startup"), T("sp/field/automount/hint", "ArozOS mounts the device when it starts."), o.automount);
+        } else if (wizard.kind === "network") {
+            var isS3 = o.filesystem === "s3";
+            html += selectField("filesystem", T("sp/field/protocol", "Protocol"), o.filesystem, [["smb", "SMB"], ["webdav", "WebDAV"], ["ftp", "FTP"], ["sftp", "SFTP"], ["s3", T("sp/field/s3", "S3 / S3-compatible")]]);
+            html += field("path", T("sp/field/server", "Server address"), o.path, {
+                placeholder: networkHint(o.filesystem),
+                hint: isS3 ? T("sp/field/s3/hint", "Add http:// in front for a server without SSL, such as a local MinIO.") : ""
             });
+            html += field("username", isS3 ? T("sp/field/accesskey", "Access key ID") : T("sp/field/username", "Username"), o.username);
+            html += field("password", isS3 ? T("sp/field/secretkey", "Secret access key") : T("sp/field/password", "Password"), o.password, {
+                type: "password",
+                hint: wizard.mode === "edit" ? T("sp/field/login/keep", "Leave both empty to keep the saved login.") : ""
+            });
+            html += testRow();
         }
 
-        function finishCreateHandler(state){
-            //Reload the list
-            loadStoragePoolList();
+        html += selectField("hierarchy", T("sp/field/layout", "Folder layout"), o.hierarchy, [
+            ["public", T("sp/field/layout/public", "One shared folder")],
+            ["user", T("sp/field/layout/user", "A private folder per user")]
+        ], o.hierarchy === "user"
+            ? T("sp/field/layout/user/hint", "Each user only sees their own folder on this drive.")
+            : T("sp/field/layout/public/hint", "Everyone who can use the drive sees the same files."));
+        html += switchField("readonly", T("sp/field/readonly", "Read only drive"), T("sp/field/readonly/hint", "Nobody can change files on this drive, whatever its access list says."), o.access === "readonly");
+        return html;
+    }
+
+    function testRow() {
+        return '<div class="sp-field sp-inline" style="align-items:center;">' +
+            '<button type="button" class="ss-btn" data-action="test">' + esc(T("sp/test", "Test")) + "</button>" +
+            '<span class="sp-test-result" id="spTestResult"></span></div>';
+    }
+
+    function stepAccess() {
+        var choices = [[SYSTEM_POOL, T("sp/field/pool/system", "System pool")]];
+        groups.forEach(function (group) {
+            choices.push([group.name, fill(T("sp/field/pool/group", "Group pool: {group}"), { group: group.name })]);
+        });
+        wizard.drive.pool = wizard.pool;
+        wizard.drive.readOnly = wizard.option.access === "readonly";
+        return selectField("pool", T("sp/field/pool", "Belongs to"), wizard.pool, choices, T("sp/field/pool/hint", "Members of a group always have full access to the drives of its pool."))
+            + '<div class="ss-card">' + accessRows(wizard.drive) + "</div>";
+    }
+
+    function renderWizard() {
+        if (wizard === null) return;
+        var isNew = wizard.mode === "new";
+        $("#spPanelTitle").text(isNew ? T("sp/panel/add", "Add drive") : fill(T("sp/panel/edit", "Edit {drive}"), { drive: wizard.option.uuid + ":/" }));
+        $("#spPanelSub").text(isNew ? fill(T("sp/panel/step", "Step {step} of 3"), { step: wizard.step }) : "");
+
+        var body = '<div class="sp-panel-error" id="spPanelError">' + esc(wizard.error) + "</div>";
+        var foot = "";
+        if (wizard.step === 1) {
+            body += stepOne();
+            foot = '<button type="button" class="ss-btn" data-action="closepanel">' + esc(T("sp/cancel", "Cancel")) + "</button>";
+        } else if (wizard.step === 2) {
+            body += stepDetails();
+            foot = (isNew ? '<button type="button" class="ss-btn" data-action="back">' + esc(T("sp/back", "Back")) + "</button>" : "") +
+                '<span class="sp-grow"></span>' +
+                '<button type="button" class="ss-btn" data-action="closepanel">' + esc(T("sp/cancel", "Cancel")) + "</button>" +
+                '<button type="button" class="ss-btn primary" data-action="next">' + esc(isNew ? T("sp/next", "Next") : T("sp/save", "Save")) + "</button>";
+        } else {
+            body += stepAccess();
+            foot = '<button type="button" class="ss-btn" data-action="back">' + esc(T("sp/back", "Back")) + "</button>" +
+                '<span class="sp-grow"></span>' +
+                '<button type="button" class="ss-btn" data-action="closepanel">' + esc(T("sp/cancel", "Cancel")) + "</button>" +
+                '<button type="button" class="ss-btn primary" data-action="save">' + esc(T("sp/add", "Add drive")) + "</button>";
+        }
+        $("#spPanelBody").html(body);
+        $("#spPanelFoot").html(foot);
+    }
+
+    function readField(input) {
+        var name = $(input).attr("data-field");
+        var o = wizard.option;
+        if (name === "readonly") {
+            o.access = input.checked ? "readonly" : "readwrite";
+        } else if (name === "automount") {
+            o.automount = input.checked;
+        } else if (name === "pool") {
+            wizard.pool = $(input).val();
+            wizard.drive.pool = wizard.pool;
+            wizard.drive.rule = { other: wizard.pool === SYSTEM_POOL ? "readwrite" : "denied" };
+            renderWizard();
+        } else {
+            o[name] = $(input).val();
         }
 
+        if (name === "name" && !wizard.idTouched) {
+            o.uuid = suggestId(o.name);
+            $("#spField_uuid").val(o.uuid);
+        } else if (name === "uuid") {
+            wizard.idTouched = true;
+        } else if (name === "mountpt" && !wizard.pathTouched) {
+            o.path = o.mountpt;
+            $("#spField_path").val(o.path);
+        } else if (name === "path") {
+            wizard.pathTouched = true;
+        }
 
-        function reloadAllStoragePool(){
-            if (confirm("THIS WILL CRASH THE SYSTEM IF YOUR CONFIG IS INVALID. CONFIRM?")){
-                    //OK. Reload storage pool for this pool
-                    $.ajax({
-                    url: "../../system/storage/pool/reload?pool=1eb201a3-d0f6-6630-5e6d-2f40480115c5",
-                    success: function(data){
-                        console.log(data);
-                        loadStoragePoolList();
-                        $("#ok").modal("show");
-                    },
-                    error: function(){
-                        loadStoragePoolList();
-                    }
+        if (name === "name" || name === "uuid") {
+            $("#spField_uuid").closest(".sp-field").find(".sp-hint").text(
+                fill(T("sp/field/id/hint", "Files on this drive will be at {path}"), { path: (o.uuid || "id") + ":/" }));
+        }
+        if (name === "filesystem" && wizard.kind === "network") {
+            renderWizard();
+        }
+        if (name === "hierarchy") {
+            renderWizard();
+        }
+    }
+
+    function checkDetails() {
+        var o = wizard.option;
+        var errors = {};
+        if (o.name.trim() === "") errors.name = T("sp/error/name", "Give the drive a name");
+        if (wizard.mode === "new" && !ID_FORMAT.test(o.uuid)) {
+            errors.uuid = T("sp/error/id", "Use only letters, numbers, - and _");
+        }
+        if (o.path.trim() === "") errors.path = T("sp/error/path", "This field is required");
+        if (wizard.kind === "disk" && o.automount && o.mountpt.trim() === "") {
+            errors.mountpt = T("sp/error/path", "This field is required");
+        }
+        wizard.fieldErrors = errors;
+        return Object.keys(errors).length === 0;
+    }
+
+    function configToSend() {
+        var o = $.extend({}, wizard.option);
+        if (wizard.kind === "folder") {
+            //The server fills in the file system of a plain folder
+            o.filesystem = "";
+            o.mountdev = "";
+            o.mountpt = "";
+            o.diskuuid = "";
+            o.automount = false;
+        } else if (wizard.kind === "disk" && !o.filesystem) {
+            o.filesystem = "ext4";
+        }
+        return JSON.stringify(o);
+    }
+
+    // Put a refusal from the server next to the field it is about
+    function showServerError(message) {
+        wizard.fieldErrors = {};
+        wizard.error = "";
+        if (/^Path not exists/.test(message)) {
+            wizard.fieldErrors.path = message;
+        } else if (/id|uuid/i.test(message) && wizard.mode === "new") {
+            wizard.fieldErrors.uuid = message;
+        } else {
+            wizard.error = message;
+        }
+        if (wizard.step === 3 && (wizard.fieldErrors.path || wizard.fieldErrors.uuid)) {
+            wizard.step = 2;
+        }
+        renderWizard();
+    }
+
+    function saveDrive() {
+        var payload = { opr: wizard.mode === "new" ? "new" : "set", group: wizard.pool, config: configToSend() };
+        if (wizard.mode === "edit") {
+            payload.uuid = wizard.option.uuid;
+        } else {
+            payload.access = JSON.stringify(wizard.drive.rule);
+        }
+        $("#spPanelFoot button").prop("disabled", true);
+        $.post(URLS.edit, payload, function (data) {
+            if (data && data.error !== undefined) {
+                showServerError(data.error);
+                return;
+            }
+            if (data && data.mounted === false) {
+                notify(fill(T("sp/saved/offline", "Saved, but the drive could not be mounted: {reason}"), { reason: data.reason || "" }), false);
+            } else {
+                notify(T("sp/saved/drive", "Drive saved"));
+            }
+            closePanel();
+            loadDrives();
+        }).fail(function () {
+            showServerError(T("sp/failed", "The server did not answer"));
+        });
+    }
+
+    function testDrive() {
+        var $result = $("#spTestResult");
+        $result.attr("class", "sp-test-result").text(T("sp/test/running", "Testing"));
+        $.post(URLS.test, { config: configToSend(), group: wizard.pool }, function (data) {
+            if (data && data.error !== undefined) {
+                $result.attr("class", "sp-test-result bad").text(data.error);
+            } else {
+                $result.attr("class", "sp-test-result ok").text(T("sp/test/ok", "Looks good"));
+            }
+        }).fail(function () {
+            $result.attr("class", "sp-test-result bad").text(T("sp/failed", "The server did not answer"));
+        });
+    }
+
+    /* The partition picker of a physical disk */
+
+    function sizeText(bytes) {
+        if (!bytes) return "0 B";
+        var units = ["B", "KB", "MB", "GB", "TB"];
+        var i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+        return Math.round(bytes / Math.pow(1024, i) * 10) / 10 + " " + units[i];
+    }
+
+    function listDevices() {
+        var $list = $("#spDevices").html('<div class="sp-hint">' + esc(T("sp/loading", "Loading")) + "</div>");
+        $.get(URLS.devices, function (data) {
+            if (!Array.isArray(data) || data.length === 0) {
+                $list.html('<div class="sp-hint">' + esc(data && data.error ? data.error : T("sp/devices/none", "No disks found")) + "</div>");
+                return;
+            }
+            var html = "";
+            data.forEach(function (disk) {
+                html += '<div class="sp-disk-name">' + esc(disk.name) + (disk.model ? " (" + esc(disk.model) + ")" : "") + ", " + sizeText(disk.size) + "</div>";
+                (disk.partitions || []).forEach(function (part) {
+                    html += '<button type="button" class="sp-partition" data-action="partition"' +
+                        ' data-dev="' + esc(part.devpath) + '" data-uuid="' + esc(part.uuid || "") + '" data-fs="' + esc(part.fstype || "") + '">' +
+                        esc(part.name) + ", " + sizeText(part.size) +
+                        (part.label ? ", " + esc(part.label) : "") + (part.fstype ? ", " + esc(part.fstype) : "") + "</button>";
                 });
-                
-            }
-        }
-
-        function bridgeFsh(){
-            let url = "SystemAO/storage/fshBridge.html#" + encodeURIComponent(JSON.stringify({group: selectedStoragePool}))
-            if (typeof(ao_module_newfw) == "undefined"){
-                window.open("../../" + url);
-                return
-            }
-            ao_module_newfw({
-                url: url,
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/bridge.svg",
-                title: "New File System Handler Bridging",
-                callback: "finishFshEdit",
-                parent: ao_module_windowID
             });
-        }
+            $list.html(html);
+        }).fail(function () {
+            $list.html('<div class="sp-hint">' + esc(T("sp/devices/failed", "Disks can only be listed when hardware management is on.")) + "</div>");
+        });
+    }
 
-        function editFsh(uuid, gpname){
-            if (typeof(ao_module_newfw) == "undefined"){
-                window.open("../../SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({uuid: uuid, group: gpname})));
-                return
-            }
-            ao_module_newfw({
-                url:"SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({uuid: uuid, group: gpname})),
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/fsh.svg",
-                title: "Edit File System Handler",
-                callback: "finishFshEdit",
-                parent: ao_module_windowID
-            });
-        }
+    function pickPartition(button) {
+        var o = wizard.option;
+        o.mountdev = $(button).attr("data-dev");
+        o.diskuuid = $(button).attr("data-uuid");
+        var fsType = String($(button).attr("data-fs")).toLowerCase();
+        var known = { "ntfs-3g": "ntfs", fat32: "vfat" };
+        fsType = known[fsType] || fsType;
+        if (LOCAL_FILESYSTEMS.indexOf(fsType) >= 0) o.filesystem = fsType;
+        renderWizard();
+    }
 
-        function newFsh(){
-            if (typeof(ao_module_newfw) == "undefined"){
-                window.open("../../SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({group: selectedStoragePool})));
-                return
-            }
-            ao_module_newfw({
-                url:"SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({group: selectedStoragePool})),
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/fsh.svg",
-                title: "New File System Handler",
-                callback: "finishFshEdit",
-                parent: ao_module_windowID
-            });
-        }
+    /* Actions */
 
-
-        function reloadStoagePool(owner, event){
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            if (confirm("Confirm reloading " + owner + " storage pool?")){
-                //OK. Reload storage pool for this pool
-                $.ajax({
-                    url: "../../system/storage/pool/reload",
-                    data: {pool: owner},
-                    success: function(data){
-                        console.log(data);
-                        loadStoragePoolList();
-                        $("#ok").modal("show");
-                    },
-                    error: function(){
-                        loadStoragePoolList();
-                    }
-                });
-            }
-        }
-
-        function toggleFsh(uuid, gpname){
-            $.ajax({
-                url: "../../system/storage/pool/toggle",
-                data: {"fsh":uuid, "group": gpname},
-                success: function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        loadStoragePoolList();
-                    }
-
+    function confirmRemove(uuid, pool) {
+        ssConfirm({
+            title: fill(T("sp/remove/title", "Remove {drive}?"), { drive: uuid + ":/" }),
+            text: T("sp/remove/text", "ArozOS stops using this drive. The files on it stay where they are."),
+            confirmLabel: T("sp/remove", "Remove"),
+            cancelLabel: T("sp/cancel", "Cancel"),
+            danger: true
+        }, function () {
+            $.post(URLS.remove, { uuid: uuid, group: pool }, function (data) {
+                if (data && data.error !== undefined) {
+                    notify(data.error, false);
                 }
-            })
-        }
+                loadDrives();
+            });
+        });
+    }
 
-
-        function removeFsh(uuid, group){
-            if (confirm("Confirm removing FSH: " + uuid + ":/ ?")){
-                $.ajax({
-                    url: "../../system/storage/pool/removeHandler",
-                    data: {uuid: uuid, group: group},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            //Remove succeed
-                            loadStoragePoolList();
-                        }
-                    }
-                });
+    function toggleDrive(uuid, pool) {
+        $.post(URLS.toggle, { fsh: uuid, group: pool }, function (data) {
+            if (data && data.error !== undefined) {
+                notify(data.error, false);
             }
-           
-        }
+            loadDrives();
+        });
+    }
 
-        window.finishFshEdit = function(){
-            loadStoragePoolList();
-        }
-    </script>
-</body>
+    function reloadPools() {
+        ssConfirm({
+            title: T("sp/reload/title", "Reload storage pools?"),
+            text: T("sp/reload/text", "Open files on these drives are interrupted, and a wrong config file can take drives offline."),
+            confirmLabel: T("sp/reload/button", "Reload"),
+            cancelLabel: T("sp/cancel", "Cancel"),
+            danger: true
+        }, function () {
+            $.post(URLS.reload, { pool: $("#spReloadPool").val() }, function (data) {
+                if (data && data.error !== undefined) {
+                    notify(data.error, false);
+                } else {
+                    notify(T("sp/reload/done", "Storage pools reloaded"));
+                }
+                loadDrives();
+            });
+        });
+    }
 
-</html>
+    function closeMenus() {
+        $("#spRoot .sp-menu.open").removeClass("open");
+    }
+
+    $("#spRoot").on("click", "[data-action]", function (event) {
+        var $target = $(this);
+        var action = $target.attr("data-action");
+        var uuid = $target.attr("data-uuid");
+        var pool = $target.attr("data-pool");
+
+        if (action === "menu") {
+            var $menu = $target.siblings(".sp-menu");
+            var wasOpen = $menu.hasClass("open");
+            closeMenus();
+            $menu.toggleClass("open", !wasOpen);
+            event.stopPropagation();
+            return;
+        }
+        closeMenus();
+
+        switch (action) {
+        case "access": openAccessPanel(uuid); break;
+        case "edit": openEditDrive(uuid, pool); break;
+        case "toggle": toggleDrive(uuid, pool); break;
+        case "remove": confirmRemove(uuid, pool); break;
+        case "closepanel": closePanel(); break;
+        case "clustersettings":
+            if (typeof openSubcat === "function") openSubcat({ Group: "Cluster", Name: "Cluster Settings" });
+            break;
+        case "kind":
+            wizard.kind = $target.attr("data-kind");
+            wizard.option.filesystem = wizard.kind === "network" ? "smb" : (wizard.kind === "disk" ? "ext4" : "");
+            wizard.step = 2;
+            renderWizard();
+            focusPanel();
+            break;
+        case "back":
+            wizard.error = "";
+            wizard.step = wizard.step - 1;
+            renderWizard();
+            focusPanel();
+            break;
+        case "next":
+            wizard.error = "";
+            if (!checkDetails()) {
+                renderWizard();
+            } else if (wizard.mode === "edit") {
+                saveDrive();
+            } else {
+                wizard.step = 3;
+                wizard.drive.rule = { other: wizard.pool === SYSTEM_POOL ? "readwrite" : "denied" };
+                renderWizard();
+                focusPanel();
+            }
+            break;
+        case "save": saveDrive(); break;
+        case "test": testDrive(); break;
+        case "devices": listDevices(); break;
+        case "partition": pickPartition(this); break;
+        }
+    });
+
+    $("#spRoot").on("change", ".sp-level", function () { changeLevel(this); });
+    $("#spRoot").on("input change", "[data-field]", function () {
+        if (wizard !== null) readField(this);
+    });
+
+    $("#spViewSwitch").on("click", "button", function () {
+        var view = $(this).attr("data-view");
+        $("#spViewSwitch button").removeClass("active");
+        $(this).addClass("active");
+        $("#spDrivesView").toggle(view === "drives");
+        $("#spAccessView").toggle(view === "access");
+    });
+
+    $("#spAddDrive").on("click", openAddDrive);
+    $("#spPanelClose").on("click", closePanel);
+    $("#spPanelBack").on("mousedown", function (event) {
+        if (event.target === this) closePanel();
+    });
+    $("#spReload").on("click", reloadPools);
+    $("#spNarrowGroup").on("change", renderNarrowList);
+    $("#spCheckButton").on("click", checkUser);
+    $("#spCheckUser").on("keydown", function (event) {
+        if (event.key === "Enter") checkUser();
+    });
+
+    function onDocumentClick(event) {
+        if ($(event.target).closest(".sp-menu-wrap").length === 0) closeMenus();
+    }
+
+    function onDocumentKey(event) {
+        if (event.key !== "Escape") return;
+        closeMenus();
+        if ($("#spPanelBack").hasClass("open")) closePanel();
+    }
+
+    $(document).on("click", onDocumentClick).on("keydown", onDocumentKey);
+    window.ssOnPageLeave = function () {
+        $(document).off("click", onDocumentClick).off("keydown", onDocumentKey);
+    };
+
+    spLocale.init("../locale/disk/storagepool.json", function () {
+        spLocale.translate();
+        $("#spCheckUser").attr("placeholder", T("sp/check/user", "Username"));
+        loadDrives();
+    });
+})();
+</script>

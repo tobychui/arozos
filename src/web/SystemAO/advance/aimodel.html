@@ -414,11 +414,12 @@
         }).fail(function(){ toast("Failed to load metrics.", false); });
     }
     function resetMetrics(){
-        if (!confirm("Reset all usage metrics to zero? This cannot be undone.")) return;
-        $.post(API + "metrics/reset", {}, function(r){
-            if (r && r.error){ toast("Error: " + r.error, false); return; }
-            toast("Metrics reset.", true); loadMetrics(); loadQuota();
-        }).fail(function(){ toast("Failed to reset metrics.", false); });
+        ssConfirm({ text: "Reset all usage metrics to zero? This cannot be undone.", danger: true }, function () {
+            $.post(API + "metrics/reset", {}, function(r){
+                if (r && r.error){ toast("Error: " + r.error, false); return; }
+                toast("Metrics reset.", true); loadMetrics(); loadQuota();
+            }).fail(function(){ toast("Failed to reset metrics.", false); });
+        });
     }
 
     /* ── Bind ── */

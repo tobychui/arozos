@@ -41,10 +41,10 @@
         Hosted apps take their theme from the account wide ArozOS preference
         (system/file_system/preference?key=file_explorer/theme), read with an
         async $.get. That reply can land after Drive pushed its own theme in
-        through desktopThemeChanged and flip the app back, or turn it dark
-        when the preference was never set. Inside Drive the preference reads
-        as Drive's theme instead: each jQuery of a hosted app gets a transport
-        that answers those reads locally, so no request goes out at all.
+        through desktopThemeChanged and flip the app back. Inside Drive the
+        preference reads as Drive's theme instead: each jQuery of a hosted app
+        gets a transport that answers those reads locally, so no request goes
+        out at all.
 
         The hook point is ao_module.js, which reads parent.isDesktopMode at
         its top: after the app loaded jQuery, before any app code runs. Pages

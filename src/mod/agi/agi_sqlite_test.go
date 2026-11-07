@@ -611,3 +611,47 @@ func TestSQLiteDriver_TableListViaSchemaQuery(t *testing.T) {
 		t.Errorf("expected 3 user tables, got %v", tables)
 	}
 }
+
+// A user who may only read a drive reaches its databases through this DSN, so
+// it must read everything and refuse every write.
+func TestSQLiteBuildReadOnlyDSN(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+	}{
+		{"plain name", "data.sqlite"},
+		{"space in the name", "my data.sqlite"},
+		{"percent in the name", "100%.sqlite"},
+		{"hash in the name", "a#b.sqlite"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), tt.file)
+			writer, err := sql.Open("sqlite", sqliteBuildDSN(path))
+			if err != nil {
+				t.Fatalf("open for writing: %v", err)
+			}
+			if _, err := writer.Exec(`CREATE TABLE t (name TEXT); INSERT INTO t VALUES ('alice')`); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+			if err := writer.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
+
+			reader, err := sql.Open("sqlite", sqliteBuildReadOnlyDSN(path))
+			if err != nil {
+				t.Fatalf("open read only: %v", err)
+			}
+			defer reader.Close()
+
+			var name string
+			if err := reader.QueryRow(`SELECT name FROM t`).Scan(&name); err != nil || name != "alice" {
+				t.Fatalf("read = %q, %v", name, err)
+			}
+			if _, err := reader.Exec(`INSERT INTO t VALUES ('mallory')`); err == nil {
+				t.Fatalf("a write went through a read only connection")
+			}
+		})
+	}
+}

@@ -1485,6 +1485,11 @@ func system_fs_trashRootsOf(userinfo *user.User) []*filesystem.FileSystemHandler
 			//Skip this fsh. Shared files are in their owner's trash, not ours
 			continue
 		}
+		if !userinfo.CanWrite(storage.UUID + ":/") {
+			//Nothing the user trashed is here, and emptying the trash would
+			//delete what others threw away on a drive they may only read
+			continue
+		}
 		roots = append(roots, storage)
 	}
 	return roots
@@ -2981,6 +2986,22 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
+// system_fs_defaultUserPreferences holds the value of preferences the system
+// decides on when the user has not set them, so every front-end agrees.
+var system_fs_defaultUserPreferences = map[string]string{
+	"file_explorer/theme": "whiteTheme",
+}
+
+// system_fs_userPreferenceOrDefault returns the stored value of a preference,
+// or its system default when nothing is stored. Preferences without a default
+// stay empty.
+func system_fs_userPreferenceOrDefault(key string, stored string) string {
+	if stored != "" {
+		return stored
+	}
+	return system_fs_defaultUserPreferences[key]
+}
+
 // Allow systems to store key value pairs in the database as preferences.
 func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 	username, err := authAgent.GetUserName(w, r)
@@ -2997,7 +3018,9 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 		//Get mode. Read the prefernece with given key
 		result := ""
 		err := sysdb.Read("fs", "pref/"+key+"/"+username, &result)
-		if err != nil {
+		//A key that was never set reads back empty, usually without an error
+		result = system_fs_userPreferenceOrDefault(key, result)
+		if err != nil && result == "" {
 			utils.SendJSONResponse(w, `{"error":"Key not found."}`)
 			return
 		}
@@ -4556,6 +4579,10 @@ func NewOngoingFileOperation(userinfo *user.User, operation string, sourceFiles 
 // the size is not worth what it costs to work out.
 // The size is 0 when it cannot be determined.
 func resolveFileOperationSourceInfo(userinfo *user.User, vsrc string, resolveSize bool) (int64, bool) {
+	if !userinfo.CanRead(vsrc) {
+		//The task is refused when it runs, but it is listed before that
+		return 0, false
+	}
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrc)
 	if err != nil {
 		return 0, false

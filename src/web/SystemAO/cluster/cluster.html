@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <title>Cluster Settings</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
     <script src="../cluster/cluster.common.js"></script>
@@ -420,10 +421,11 @@
         });
     }
     function removeVolume(id, name) {
-        if (!confirm(fmt(t('cluster/vol/confirmremove', 'Stop contributing "{0}"? Files stay on disk but copies only held there become unavailable.'), name))) return;
-        post('storage/volume/remove', { id: id }, function (err, r) {
-            if (fail('msg-storage', err, r)) return;
-            loadStorage();
+        ssConfirm({ text: fmt(t('cluster/vol/confirmremove', 'Stop contributing "{0}"? Files stay on disk but copies only held there become unavailable.'), name), danger: true }, function () {
+            post('storage/volume/remove', { id: id }, function (err, r) {
+                if (fail('msg-storage', err, r)) return;
+                loadStorage();
+            });
         });
     }
     function setVolumeRO(id, ro) {
@@ -450,11 +452,12 @@
         });
     }
     function evacuateVolume(id, name) {
-        if (!confirm(fmt(t('cluster/vol/confirmevac', 'Move every file off "{0}"? The volume becomes read only and is retired once all copies exist elsewhere.'), name))) return;
-        post('storage/volume/evacuate', { id: id }, function (err, r) {
-            if (fail('msg-storage', err, r)) return;
-            CL.showMsg('msg-storage', fmt(t('cluster/vol/evacstarted', 'Evacuation started: {0} files to move'), r.remaining), true);
-            loadStorage();
+        ssConfirm({ text: fmt(t('cluster/vol/confirmevac', 'Move every file off "{0}"? The volume becomes read only and is retired once all copies exist elsewhere.'), name), danger: true }, function () {
+            post('storage/volume/evacuate', { id: id }, function (err, r) {
+                if (fail('msg-storage', err, r)) return;
+                CL.showMsg('msg-storage', fmt(t('cluster/vol/evacstarted', 'Evacuation started: {0} files to move'), r.remaining), true);
+                loadStorage();
+            });
         });
     }
     function cancelEvacuate(id) {
@@ -589,11 +592,12 @@
         });
     }
     function leaveCluster() {
-        if (!confirm(t('cluster/confirmleave', 'Leave the cluster? Files and jobs on other nodes will no longer be reachable from here.'))) return;
-        post('leave', {}, function (err, r) {
-            if (fail('msg-member', err, r)) return;
-            document.getElementById('token-out').style.display = 'none';
-            loadStatus();
+        ssConfirm({ text: t('cluster/confirmleave', 'Leave the cluster? Files and jobs on other nodes will no longer be reachable from here.'), danger: true }, function () {
+            post('leave', {}, function (err, r) {
+                if (fail('msg-member', err, r)) return;
+                document.getElementById('token-out').style.display = 'none';
+                loadStatus();
+            });
         });
     }
     function newToken() {
@@ -631,10 +635,11 @@
         });
     }
     function removeNode(id, name) {
-        if (!confirm(fmt(t('cluster/confirmremove', 'Remove node "{0}"?'), name))) return;
-        post('node/remove', { id: id }, function (err, r) {
-            if (fail('msg-nodes', err, r)) return;
-            loadStatus();
+        ssConfirm({ text: fmt(t('cluster/confirmremove', 'Remove node "{0}"?'), name), danger: true }, function () {
+            post('node/remove', { id: id }, function (err, r) {
+                if (fail('msg-nodes', err, r)) return;
+                loadStatus();
+            });
         });
     }
 

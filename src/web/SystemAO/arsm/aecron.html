@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <title>Tasks Scheduler</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
     <script src="../arsm/js/moment.min.js"></script>
@@ -425,7 +426,7 @@
             data: { group: groupName, allow: allow ? "true" : "false" },
             error: function() {
                 checkbox.checked = !allow;
-                alert(t('aecron/js/error/groupperm', 'Failed to update group permission.'));
+                ssAlert(t('aecron/js/error/groupperm', 'Failed to update group permission.'));
             }
         });
     }

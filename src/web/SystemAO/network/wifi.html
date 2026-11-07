@@ -1004,11 +1004,12 @@ body.dark #ws-root {
     }
 
     function forget(n) {
-        if (!window.confirm(T('forget_confirm', 'Forget the saved network "{ssid}"?', { ssid: n.ESSID }))) return;
-        api('../../system/network/removeWifi', { ESSID: n.ESSID }).then(function (data) {
-            if (data.error !== undefined) { toast(T('forget_failed', 'Unable to forget network: {e}', { e: data.error })); return; }
-            toast(T('forgot', 'Forgot {ssid}', { ssid: n.ESSID }));
-            scan();
+        ssConfirm({ text: T('forget_confirm', 'Forget the saved network "{ssid}"?', { ssid: n.ESSID }), danger: true }, function () {
+            api('../../system/network/removeWifi', { ESSID: n.ESSID }).then(function (data) {
+                if (data.error !== undefined) { toast(T('forget_failed', 'Unable to forget network: {e}', { e: data.error })); return; }
+                toast(T('forgot', 'Forgot {ssid}', { ssid: n.ESSID }));
+                scan();
+            });
         });
     }
 

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Task Scheduler</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
     <script src="js/moment.min.js"></script>
@@ -666,11 +667,12 @@
     }
 
     function removeTask(name) {
-        if (!confirm(t('js/confirm/remove/pre', 'Remove task "') + name + t('js/confirm/remove/post', '"? This cannot be undone.'))) return;
-        $.post('../../system/arsm/aecron/remove', { name: name }, function(data) {
-            if (data && data.error) { alert(data.error); return; }
-            toast(t('js/toast/removed', 'Task removed.'));
-            loadRemove();
+        ssConfirm({ text: t('js/confirm/remove/pre', 'Remove task "') + name + t('js/confirm/remove/post', '"? This cannot be undone.'), danger: true }, function () {
+            $.post('../../system/arsm/aecron/remove', { name: name }, function(data) {
+                if (data && data.error) { ssAlert(data.error); return; }
+                toast(t('js/toast/removed', 'Task removed.'));
+                loadRemove();
+            });
         });
     }
 
@@ -731,15 +733,15 @@
         var interval   = parseFloat($('#intervalvalue').val()) * parseFloat($('#intervalunit').val());
         var base       = baseUnix($('#intervalbase').val());
 
-        if (!name) { alert(t('js/alert/noname', 'Task name is required.')); return; }
-        if (!scriptPath) { alert(t('js/alert/nopath', 'Script path is required.')); return; }
-        if (!interval || interval < 60) { alert(t('js/alert/interval', 'Interval must be at least 1 minute.')); return; }
+        if (!name) { ssAlert(t('js/alert/noname', 'Task name is required.')); return; }
+        if (!scriptPath) { ssAlert(t('js/alert/nopath', 'Script path is required.')); return; }
+        if (!interval || interval < 60) { ssAlert(t('js/alert/interval', 'Interval must be at least 1 minute.')); return; }
 
         $.post('../../system/arsm/aecron/add', {
             name: name, desc: desc, path: scriptPath,
             interval: interval, base: base
         }, function(data) {
-            if (data && data.error) { alert(data.error); return; }
+            if (data && data.error) { ssAlert(data.error); return; }
             $('#taskname').val('');
             $('#desc').val('');
             $('#scriptpath').val('');

@@ -17,12 +17,21 @@ import (
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 )
 
+// Access answers what the signed in user may do. It is asked on every
+// operation rather than once at login, so that a change of a drive's access
+// list reaches sessions that are already open. *user.User provides it.
+type Access interface {
+	GetAllFileSystemHandler() []*filesystem.FileSystemHandler
+	CanRead(vpath string) bool
+	CanWrite(vpath string) bool
+}
+
 // Root of the serving tree
 type root struct {
 	username       string
 	rootFile       *rootFolder
 	startDirectory string
-	fshs           []*filesystem.FileSystemHandler
+	access         Access
 }
 
 type rootFolder struct {
@@ -130,24 +139,36 @@ func (f *wrappedArozFile) WriteAt(b []byte, off int64) (int, error) {
 	return f.file.WriteAt(b, off)
 }
 
-func GetNewSFTPRoot(username string, accessibleFileSystemHandlers []*filesystem.FileSystemHandler) sftp.Handlers {
+func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
 	root := &root{
 		username:       username,
 		rootFile:       &rootFolder{name: "/", modtime: time.Now(), isdir: true},
 		startDirectory: "/",
-		fshs:           accessibleFileSystemHandlers,
+		access:         userAccess,
 	}
 	return sftp.Handlers{root, root, root, root}
 }
 
 func (fs *root) getFshFromID(fshID string) *filesystem.FileSystemHandler {
-	for _, thisFsh := range fs.fshs {
+	for _, thisFsh := range fs.access.GetAllFileSystemHandler() {
 		if thisFsh.UUID == fshID && !thisFsh.Closed {
 			return thisFsh
 		}
 	}
 
 	return nil
+}
+
+// getWritableFsh resolves a path the user is about to change
+func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, string, error) {
+	fsh, subpath, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
+	if err != nil {
+		return nil, "", err
+	}
+	if !fs.access.CanWrite(fsh.UUID + ":/" + subpath) {
+		return nil, "", os.ErrPermission
+	}
+	return fsh, rpath, nil
 }
 
 func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
@@ -157,7 +178,18 @@ func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 		return nil, os.ErrInvalid
 	}
 
-	return fs.OpenFile(r)
+	//Read only, or a user without write access could not read at all
+	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(r.Filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDONLY, 0775)
+	if err != nil {
+		return nil, err
+	}
+
+	return f, nil
 }
 
 func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
@@ -166,7 +198,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 		return nil, errors.New("ArozOS SFTP root is read only")
 	}
 
-	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(r.Filepath)
+	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +213,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 	//fmt.Println("Open File", r.Filepath)
-	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(r.Filepath)
+	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
 		return nil, err
 	}
@@ -231,11 +263,11 @@ func (fs *root) Filecmd(r *sftp.Request) error {
 }
 
 func (fs *root) rename(oldpath, newpath string) error {
-	oldFsh, _, realOldPath, err := fs.getFshAndSubpathFromSFTPPathname(oldpath)
+	oldFsh, realOldPath, err := fs.getWritableFsh(oldpath)
 	if err != nil {
 		return err
 	}
-	newFsh, _, realNewPath, err := fs.getFshAndSubpathFromSFTPPathname(newpath)
+	newFsh, realNewPath, err := fs.getWritableFsh(newpath)
 	if err != nil {
 		return err
 	}
@@ -275,7 +307,7 @@ func (fs *root) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 }
 
 func (fs *root) mkdir(pathname string) error {
-	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
+	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
 		return err
 	}
@@ -284,7 +316,7 @@ func (fs *root) mkdir(pathname string) error {
 }
 
 func (fs *root) rmdir(pathname string) error {
-	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
+	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
 		return err
 	}
@@ -302,7 +334,7 @@ func (fs *root) symlink(target, linkpath string) error {
 }
 
 func (fs *root) unlink(pathname string) error {
-	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
+	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
 		return err
 	}
@@ -358,7 +390,7 @@ func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
 	if cleanPath(pathname) == "/" {
 		//Handle special root listing
 		results := []os.FileInfo{}
-		for _, fsh := range fs.fshs {
+		for _, fsh := range fs.access.GetAllFileSystemHandler() {
 			results = append(results, NewVrootEmulatedDirEntry(fsh))
 		}
 		return results, nil
@@ -438,6 +470,9 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 
 	//Combined virtual path
 	vpath := vrootID + ":/" + subpath
+	if !fs.access.CanRead(vpath) {
+		return nil, "", "", os.ErrPermission
+	}
 
 	//Translate it realpath and get from fsh
 	fshAbs := fsh.FileSystemAbstraction

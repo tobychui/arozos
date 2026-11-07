@@ -751,8 +751,9 @@
         var mod = waMods[idx];
         if (!mod || !mod.Uninstallable) return;
         var _cmsg = waLocale.getString('addAndRemove/confirmRemove', 'Permanently remove "{name}"?\nThis cannot be undone.').replace('{name}', mod.Name);
-        if (!confirm(_cmsg)) return;
-        waDoDelete(mod.Name);
+        ssConfirm({ text: _cmsg, danger: true }, function () {
+            waDoDelete(mod.Name);
+        });
     };
 
     window.waDeleteCurrent = function () {
@@ -760,9 +761,10 @@
         var name = btn && btn.getAttribute('data-name');
         if (!name) return;
         var _cmsg = waLocale.getString('addAndRemove/confirmRemove', 'Permanently remove "{name}"?\nThis cannot be undone.').replace('{name}', name);
-        if (!confirm(_cmsg)) return;
-        btn.disabled = true;
-        waDoDelete(name);
+        ssConfirm({ text: _cmsg, danger: true }, function () {
+            btn.disabled = true;
+            waDoDelete(name);
+        });
     };
 
     function waDoDelete(name) {

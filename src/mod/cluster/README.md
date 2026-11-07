@@ -245,6 +245,12 @@ Admin API: `/system/cluster/meta/{status,ls,stat,policy/list,policy/set}`.
 
 ## Storage (ACS) and the `cluster:/` drive
 
+Who may use the drive is its access list on the Storage Pools settings page
+(see "Who can use a drive" in the root `CLAUDE.md`). That one list is a
+replicated setting (`storage.access.cluster`, `src/storage.access.go`), because
+every member serves the same files. Groups match by name, like everywhere else
+in the cluster. Job datasets are refused to users who cannot read the drive.
+
 Package `storage/` plus the file-system backend
 `mod/filesystem/abstractions/clusterfs`. When a node is in a cluster **and
 the cluster has at least one volume**, the core mounts a `Cluster` drive

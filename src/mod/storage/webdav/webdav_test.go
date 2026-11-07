@@ -611,7 +611,7 @@ func TestLockThenPut_AcrossRequests(t *testing.T) {
 	s := newTestServer()
 	fsh, dir := newLocalTestFsh(t, "user")
 	newHandler := func() *webdav.Handler {
-		return s.getRootFs([]*filesystem.FileSystemHandler{fsh}, "alice")
+		return s.getRootFs([]*filesystem.FileSystemHandler{fsh}, "alice", allowAllWrites)
 	}
 
 	lockBody := `<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>finder</D:owner></D:lockinfo>`

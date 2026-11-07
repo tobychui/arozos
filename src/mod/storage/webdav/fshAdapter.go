@@ -14,9 +14,15 @@ import (
 	"imuslab.com/arozos/mod/network/webdav"
 )
 
+// WriteChecker reports whether the user may change a virtual path. The adapters
+// write straight to the drive, past the checks of the file handlers, and a user
+// may well see a drive their groups can only read.
+type WriteChecker func(vpath string) bool
+
 type FshWebDAVAdapter struct {
 	fsh      *filesystem.FileSystemHandler
 	username string
+	canWrite WriteChecker
 }
 
 type BufferFsIoHandler struct {
@@ -113,18 +119,32 @@ func (b BufferFsIoHandler) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string) *FshWebDAVAdapter {
+func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, canWrite WriteChecker) *FshWebDAVAdapter {
 	return &FshWebDAVAdapter{
 		fsh,
 		username,
+		canWrite,
 	}
 }
 
-func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
+// requestPathToVpath merges a request path into the virtual path of this drive
+func (a *FshWebDAVAdapter) requestPathToVpath(name string) string {
 	if len(name) == 0 || name[0:1] != "/" {
 		name = "/" + name
 	}
-	fullVpath := a.fsh.UUID + ":" + name
+	return a.fsh.UUID + ":" + name
+}
+
+// checkWrite returns an error unless the user may change this request path
+func (a *FshWebDAVAdapter) checkWrite(name string) error {
+	if !a.canWrite(a.requestPathToVpath(name)) {
+		return os.ErrPermission
+	}
+	return nil
+}
+
+func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
+	fullVpath := a.requestPathToVpath(name)
 	realRequestPath, err := a.fsh.FileSystemAbstraction.VirtualPathToRealPath(fullVpath, a.username)
 	if err != nil {
 		return "", err
@@ -135,6 +155,9 @@ func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
 }
 
 func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+	if err := a.checkWrite(name); err != nil {
+		return err
+	}
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
 		return err
@@ -142,6 +165,12 @@ func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileM
 	return a.fsh.FileSystemAbstraction.Mkdir(realRequestPath, perm)
 }
 func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
+		if err := a.checkWrite(name); err != nil {
+			return nil, err
+		}
+	}
+
 	//The name come in as the relative path of the request vpath (e.g. user:/Video/test.mp4 will get requested as /Video/test.mp4)
 	//Merge it into a proper vpath and perform abstraction path translation
 	realRequestPath, err := a.requestPathToRealPath(name)
@@ -158,6 +187,9 @@ func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, 
 	}
 }
 func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
+	if err := a.checkWrite(name); err != nil {
+		return err
+	}
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
 		return err
@@ -165,6 +197,12 @@ func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
 	return a.fsh.FileSystemAbstraction.RemoveAll(realRequestPath)
 }
 func (a *FshWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
+	if err := a.checkWrite(oldName); err != nil {
+		return err
+	}
+	if err := a.checkWrite(newName); err != nil {
+		return err
+	}
 	realOldname, err := a.requestPathToRealPath(oldName)
 	if err != nil {
 		return err

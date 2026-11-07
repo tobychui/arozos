@@ -279,7 +279,7 @@
 
         //Delete the given smb share name
         function deleteSMBShare(smbShareName){
-            if (confirm("Confirm remove share " + smbShareName + " ?")){
+            ssConfirm({ text: "Confirm remove share " + smbShareName + " ?", danger: true }, function () {
                 $.ajax({
                     url: "../../system/storage/samba/remove",
                     method: "POST",
@@ -300,7 +300,7 @@
                         }
                     }
                 })
-            }
+            });
         }
 
 
@@ -383,7 +383,7 @@
 
         //Remove a samba user given the username
         function removeSambaUser(targetUsername){
-            if (confirm("Confirm remove samba user \"" + targetUsername + "\" ?")){
+            ssConfirm({ text: "Confirm remove samba user \"" + targetUsername + "\" ?", danger: true }, function () {
                 $.ajax({
                     url: "/system/storage/samba/delUser",
                     method: "POST",
@@ -401,7 +401,7 @@
                         initSambaUserList();
                     }
                 });
-            }
+            });
         }
 
         //Inline edit for samba users
@@ -463,25 +463,26 @@
         }
 
         function editSharePath(shareName, originalSharePath){
-            let newpath = prompt("New Share Path", originalSharePath);
-            if (newpath != null && newpath != "") {
-                $.ajax({
-                    url: "/system/storage/samba/editPath",
-                    method: "POST",
-                    data: {
-                        "name": shareName,
-                        "path": newpath
-                    },
-                    success: function(data){
-                        if (data.error != undefined){
-                            msgbox(data.error, false);
-                        }else{
-                            msgbox("Share path updated");
+            ssPrompt({ title: "New Share Path", value: originalSharePath }, function (newpath) {
+                if (newpath != null && newpath != "") {
+                    $.ajax({
+                        url: "/system/storage/samba/editPath",
+                        method: "POST",
+                        data: {
+                            "name": shareName,
+                            "path": newpath
+                        },
+                        success: function(data){
+                            if (data.error != undefined){
+                                msgbox(data.error, false);
+                            }else{
+                                msgbox("Share path updated");
+                            }
+                            //Clear share table
+                            initShareListTable();
                         }
-                        //Clear share table
-                        initShareListTable();
-                    }
-                });
-            }
+                    });
+                }
+            });
         }
 </script>

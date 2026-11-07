@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
     <style>
@@ -918,7 +919,7 @@
         $.get("/system/update/checksize?webpack=" + vendorUpdateWebpackURL + "&binary=" + vendorUpdateBinaryURL, function(data) {
             if (data.error != undefined) {
                 cancelUpdateStatus();
-                alert("Update failed: " + data.error);
+                ssAlert("Update failed: " + data.error);
             } else {
                 var total = data[0] + data[1];
                 $("#spaceEst").text(ao_module_utils.formatBytes(total, 2));
@@ -932,14 +933,14 @@
     function updateViaURL() {
         var bin  = $("#burl").val().trim();
         var pack = $("#wurl").val().trim();
-        if (!bin || !pack) { alert("Invalid or empty URL given"); return; }
+        if (!bin || !pack) { ssAlert("Invalid or empty URL given"); return; }
         useVendorUpdate = false;
         hideAllStatusIncPending();
         $("#checking").slideDown("fast");
         $.get("/system/update/checksize?webpack=" + pack + "&binary=" + bin, function(data) {
             if (data.error != undefined) {
                 cancelUpdateStatus();
-                alert("Update failed: " + data.error);
+                ssAlert("Update failed: " + data.error);
             } else {
                 var total = data[0] + data[1];
                 $("#spaceEst").text(ao_module_utils.formatBytes(total, 2));
@@ -961,7 +962,7 @@
             pack     = vendorUpdateWebpackURL;
             checksum = vendorUpdateCheckSumURL;
         }
-        if (!bin || !pack) { alert("Invalid or empty URL given"); return; }
+        if (!bin || !pack) { ssAlert("Invalid or empty URL given"); return; }
 
         hideAllStatusIncPending();
         $("#downloading").slideDown("fast");
@@ -1042,9 +1043,9 @@
 
     /* ── Restart ── */
     function restartArozOS() {
-        if (confirm(t("launcher/restartnow", "CONFIRM RESTART?"))) {
+        ssConfirm({ text: t("launcher/restartnow", "CONFIRM RESTART?"), danger: true }, function () {
             window.top.location.href = "../updates/updating.html";
-        }
+        });
     }
 
     function cancelUpdateStatus() {

@@ -110,11 +110,11 @@ func RunStartup() {
 	StorageInit()     //See storage.go
 
 	//5. Startup user and permission sytem
-	UserSystemInit()        //See user.go
-	permissionInit()        //Register permission interface after user
-	RegisterSystemInit()    //See register.go
-	GroupStoragePoolInit()  //Register permission groups's storage pool, require permissionInit()
-	BridgeStoragePoolInit() //Register the bridged storage pool based on mounted storage pools
+	UserSystemInit()       //See user.go
+	permissionInit()       //Register permission interface after user
+	RegisterSystemInit()   //See register.go
+	GroupStoragePoolInit() //Register permission groups's storage pool, require permissionInit()
+	DriveAccessInit()      //Open the drive access lists, require all storage pools to be loaded
 
 	//6. Start Modules and Package Manager
 	ModuleServiceInit() //Module Handler

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Public Registry</title>
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
     <style>
@@ -421,11 +422,11 @@ function initUserRegisterInfoList() {
 
 function clearUnregisteredUserInfo() {
     var msg = _loc ? _loc.getString('pubreg/confirm_clear', "Remove all unregistered users' information?") : "Remove all unregistered users' information?";
-    if (confirm(msg)) {
+    ssConfirm({ text: msg, danger: true }, function () {
         $.get('../../system/register/cleanUserRegisterInfo', function() {
             initUserRegisterInfoList();
         });
-    }
+    });
 }
 
 /* ── Toast ── */

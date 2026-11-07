@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -103,11 +104,21 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 			panic(vm.MakeCustomError("IOError", err.Error()))
 		}
 
-		if err := os.MkdirAll(filepath.Dir(rpath), 0755); err != nil {
-			panic(vm.MakeCustomError("IOError", err.Error()))
+		dsn := sqliteBuildDSN(rpath)
+		if u.CanWrite(vpath) {
+			if err := os.MkdirAll(filepath.Dir(rpath), 0755); err != nil {
+				panic(vm.MakeCustomError("IOError", err.Error()))
+			}
+		} else {
+			//The user may only read this drive, so a database that does not
+			//exist cannot be created and an existing one stays as it is
+			if _, err := os.Stat(rpath); err != nil {
+				panic(vm.MakeCustomError("PermissionDenied", "Path access denied: "+vpath))
+			}
+			dsn = sqliteBuildReadOnlyDSN(rpath)
 		}
 
-		db, err := sql.Open("sqlite", sqliteBuildDSN(rpath))
+		db, err := sql.Open("sqlite", dsn)
 		if err != nil {
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
@@ -423,6 +434,14 @@ func sqliteBuildDSN(rpath string) string {
 		"_txlock=immediate",
 	}
 	return rpath + "?" + strings.Join(pragmas, "&")
+}
+
+// sqliteBuildReadOnlyDSN opens a database that cannot be changed through this
+// connection. The driver only hands the query on to SQLite for a file: URI, and
+// the write oriented settings of sqliteBuildDSN would fail on such a connection.
+func sqliteBuildReadOnlyDSN(rpath string) string {
+	uri := url.URL{Path: filepath.ToSlash(rpath)}
+	return "file:" + uri.EscapedPath() + "?mode=ro&_pragma=busy_timeout(" + strconv.Itoa(sqliteBusyTimeoutMs) + ")"
 }
 
 // sqliteParseParams unmarshals a JSON array of query parameter values.

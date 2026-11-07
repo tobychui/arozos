@@ -309,6 +309,17 @@ type SharedItemInfo struct {
 	ShareUUID   string //The oldest share granting access, for its link page
 }
 
+// HandleSharedDriveVisible tells the File Manager whether to show the Shared
+// with me entry to this user
+func (s *Manager) HandleSharedDriveVisible(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+	utils.SendJSONResponse(w, strconv.FormatBool(userinfo.CanRead(SharedDriveUUID+":/")))
+}
+
 // HandleListSharedWithMe lists the root of the user's share:/ drive with
 // what each item allows, which the File Manager uses to offer only the file
 // operations that can work on it.
@@ -320,6 +331,11 @@ func (s *Manager) HandleListSharedWithMe(w http.ResponseWriter, r *http.Request)
 	}
 
 	results := []*SharedItemInfo{}
+	if !userinfo.CanRead(SharedDriveUUID + ":/") {
+		//Hidden from this user's groups. Their share links keep working
+		utils.SendJSONResponse(w, "[]")
+		return
+	}
 	for _, item := range s.Items(userinfo.Username) {
 		shareUUID := ""
 		if len(item.ShareIDs) > 0 {

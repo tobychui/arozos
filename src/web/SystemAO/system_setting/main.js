@@ -423,12 +423,12 @@ function loadContent(moduleInfo) {
 }
 
 /*
-    Many pages still include jQuery, Semantic UI, ao_module and applocale for
-    when they are opened on their own. Inside the shell those are already
+    Many pages still include jQuery, Semantic UI, ao_module, applocale and
+    ssdialog for when they are opened on their own. Inside the shell those are already
     loaded; running jquery.min.js again would replace the shell's jQuery with
     one that has no Semantic UI plugins and break every page opened after it.
 */
-var SHARED_SCRIPT = /<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/(jquery(\.min)?|semantic(\.min)?|ao_module|applocale)\.js["'][^>]*>\s*<\/script>/gi;
+var SHARED_SCRIPT = /<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/(jquery(\.min)?|semantic(\.min)?|ao_module|applocale|ssdialog)\.js["'][^>]*>\s*<\/script>/gi;
 var SHARED_STYLE = /<link\b[^>]*\bhref\s*=\s*["'][^"']*\/semantic(\.min)?\.css["'][^>]*>/gi;
 
 function stripSharedAssets(html) {

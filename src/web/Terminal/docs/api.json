@@ -655,7 +655,7 @@
         {
           "name": "sqlite.open",
           "sig": "sqlite.open(vpath)",
-          "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, transaction, and close methods. Throws SQLiteError on failure. Databases open in WAL mode with a 5s busy timeout, so concurrent requests queue for the write lock instead of failing. Any handle still open when the script ends (including on error or exit) is closed automatically.",
+          "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, transaction, and close methods. Throws SQLiteError on failure. Databases open in WAL mode with a 5s busy timeout, so concurrent requests queue for the write lock instead of failing. Any handle still open when the script ends (including on error or exit) is closed automatically. A user who may only read the drive gets a read only connection.",
           "ret": "object (db)",
           "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
         },

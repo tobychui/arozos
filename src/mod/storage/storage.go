@@ -18,19 +18,13 @@ import (
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 )
 
+// StoragePool is where the drives of the system or of one permission group are
+// configured. Who may use a drive is decided per drive, see mod/storage/access.
 type StoragePool struct {
-	Owner           string                  //Owner of the storage pool, also act as the resolver's username
-	OtherPermission string                  //Permissions on other users but not the owner
-	Storages        []*fs.FileSystemHandler //Storage pool accessable by this owner
+	Owner    string                  //"system" or the name of the permission group this pool belongs to
+	Storages []*fs.FileSystemHandler //The drives configured in this pool
 	//HyperBackupManager *hybridBackup.Manager   //HyperBackup Manager
 }
-
-/*
-	Permission Levels (From TOP to BOTTOM -> HIGHEST to LOWEST)
-	1. readwrite
-	2. readonly
-	3. denied
-*/
 
 // Create all the required folder structure if it didn't exists
 func init() {
@@ -47,9 +41,8 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 	}
 
 	return &StoragePool{
-		Owner:           owner,
-		OtherPermission: arozfs.FsReadOnly,
-		Storages:        storageHandlers,
+		Owner:    owner,
+		Storages: storageHandlers,
 	}, nil
 }
 
@@ -62,16 +55,6 @@ func (s *StoragePool) ContainDiskID(diskID string) bool {
 	}
 
 	return false
-}
-
-// Use to compare two StoragePool permissions leve
-func (s *StoragePool) HasHigherOrEqualPermissionThan(a *StoragePool) bool {
-	if s.OtherPermission == arozfs.FsReadOnly && a.OtherPermission == arozfs.FsReadWrite {
-		return false
-	} else if s.OtherPermission == arozfs.FsDenied && a.OtherPermission != arozfs.FsDenied {
-		return false
-	}
-	return true
 }
 
 // Get fsh from virtual path

@@ -7,6 +7,7 @@
 	<meta charset="UTF-8">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ssdialog.js"></script>
 	<script src="../../script/semantic/semantic.min.js"></script>
     
     <style>
@@ -96,7 +97,7 @@
         function updatePort(){
             var newPort = $("#listeningPort").val();
             if (isNaN(parseInt(newPort)) || parseInt(newPort) < 20 ){
-                alert("Invalid port number entered");
+                ssAlert("Invalid port number entered");
                 return
             }
 

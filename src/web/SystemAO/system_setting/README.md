@@ -32,8 +32,8 @@ the shell document.
   draw edge to edge go in `FLUSH_PAGES` and use `height: 100%`.
 - **Scope**: prefix every selector with the page root id. No global `*`,
   `body` or `html` rules. The shell removes `<script>` tags for jQuery,
-  Semantic UI, `ao_module.js` and `applocale.js` (and the Semantic UI
-  stylesheet) from a page before inserting it, because running jQuery again
+  Semantic UI, `ao_module.js`, `applocale.js` and `ssdialog.js` (and the
+  Semantic UI stylesheet) from a page before inserting it, because running jQuery again
   would drop the Semantic UI plugins for every later page.
 - **One function group, one white area**: a page with a single group puts
   it in one card (or one table), not a card inside a card; several groups
@@ -54,6 +54,10 @@ the shell document.
   - `window.detailPageThemeCallback = fn(isDark)` runs on a theme change;
     a page may also assign `window.desktopThemeChanged`, the shell keeps its
     own handler and calls the page's after it;
+  - `ssAlert`, `ssConfirm` and `ssPrompt` replace the browser's own `alert()`,
+    `confirm()` and `prompt()`, which pages must not use. They do not stop the
+    script, so what follows goes in the callback; see `web/script/ssdialog.js`.
+    A page that can also open as its own window includes that script;
   - `msgbox(text, ok, ms)` shows a toast; `openSubcat(moduleInfo)` opens
     another settings page.
 - **Locale**: the locale files are served from `src/system/locale` at

@@ -31,6 +31,8 @@ src/system/auth/authlog.db.lock
 src/system/neuralnet/predictions.jpg
 src/system/auth/authlog.db
 src/system/bridge.json
+src/system/bridge.json.migrated
+src/system/storage.access.json
 src/system/cron.json
 src/system/smtp_conf.json
 *.exe~

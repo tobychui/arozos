@@ -499,6 +499,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(arozfs.Base(targetFilepath)), "+", "%20"))
 					w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 					//http.ServeFile(w, r, targetFilepath)
+					setShareRevalidation(w, targetFsh, targetFilepath)
 
 					if targetFsh.RequireBuffer {
 						f, err := targetFshAbs.ReadStream(targetFilepath)
@@ -804,6 +805,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Disposition", "attachment; filename=\""+arozfs.Base(shareOption.FileVirtualPath)+"\"")
 				w.Header().Set("Content-Type", contentType)
 				w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(fileRuntimeAbsPath))))
+				setShareRevalidation(w, targetFsh, fileRuntimeAbsPath)
 
 				if filesystem.FileExists(fileRuntimeAbsPath) {
 					//This file exists in local file system. Serve it directly
@@ -988,12 +990,29 @@ func previewDisposition(filename string) string {
 	return mime.FormatMediaType("inline", map[string]string{"filename": filename})
 }
 
+// setShareRevalidation makes the browser check a shared file with the server
+// before reusing a stored copy, because the owner can overwrite it under the same
+// link. Each check also runs the share's access rules again, so a stored copy
+// cannot outlive a share that was removed. A file system that needs buffering
+// skips the stat: it costs a round trip and its streaming branches cannot answer
+// a conditional request anyway.
+func setShareRevalidation(w http.ResponseWriter, targetFsh *filesystem.FileSystemHandler, realPath string) {
+	var info fs.FileInfo
+	if !targetFsh.RequireBuffer {
+		if st, err := targetFsh.FileSystemAbstraction.Stat(realPath); err == nil {
+			info = st
+		}
+	}
+	utils.SetRevalidationHeaders(w, info)
+}
+
 // servePreview streams a shared file inline for in-browser viewing
 func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh *filesystem.FileSystemHandler, fileRuntimeAbsPath string) {
 	targetFshAbs := targetFsh.FileSystemAbstraction
 	contentType := mime.TypeByExtension(filepath.Ext(fileRuntimeAbsPath))
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	setShareRevalidation(w, targetFsh, fileRuntimeAbsPath)
 	// Name the file for cross-origin readers (e.g. the standalone
 	// Office web edition opening a shared .docx), which cannot see
 	// the download page. inline keeps in-browser previews working.

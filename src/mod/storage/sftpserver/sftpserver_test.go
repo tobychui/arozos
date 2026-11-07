@@ -136,7 +136,7 @@ func TestListerat_ListAt_Offset(t *testing.T) {
 
 // TestGetNewSFTPRoot ensures GetNewSFTPRoot returns a valid sftp.Handlers.
 func TestGetNewSFTPRoot(t *testing.T) {
-	handlers := GetNewSFTPRoot("alice", []*filesystem.FileSystemHandler{})
+	handlers := GetNewSFTPRoot("alice", &fakeAccess{})
 	// sftp.Handlers is a struct; assign to typed variable to confirm it compiled.
 	var _ sftp.Handlers = handlers
 }
