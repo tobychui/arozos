@@ -10,14 +10,15 @@ import (
 	"imuslab.com/arozos/mod/storage/smbserver/wire"
 )
 
-// Volume attributes reported in FileFsAttributeInformation. Named streams and
-// sparse files are left out on purpose, because they are not implemented.
+// Volume attributes reported in FileFsAttributeInformation. Named streams are
+// only claimed where the share keeps them; sparse files never are.
 const (
 	fsCaseSensitiveSearch uint32 = 0x00000001
 	fsCasePreservedNames  uint32 = 0x00000002
 	fsUnicodeOnDisk       uint32 = 0x00000004
 	fsPersistentACLs      uint32 = 0x00000008
 	fsObjectIDs           uint32 = 0x00010000
+	fsNamedStreams        uint32 = 0x00040000
 	fsReadOnlyVolume      uint32 = 0x00080000
 )
 
@@ -202,14 +203,14 @@ func (c *conn) queryFile(o *open, q *wire.QueryInfoRequest) *response {
 		w.U32(0)
 	case wire.FileStreamInformation:
 		variable = true
-		if !info.IsDir {
-			name := wire.EncodeUTF16("::$DATA")
-			w.U32(0)
-			w.U32(uint32(len(name)))
-			w.U64(uint64(info.Size))
-			w.U64(allocationOf(info.Size))
-			w.Bytes(name)
+		base, _, isStream := splitStreamPath(p)
+		baseInfo := info
+		if isStream {
+			if bi, err := share.Stat(base); err == nil {
+				baseInfo = bi
+			}
 		}
+		w.Bytes(streamInfo(share, base, baseInfo))
 	case wire.FileIdInformation:
 		w.U64(volumeSerial(share))
 		w.U64(fileNumber(share, p, info))
@@ -229,11 +230,16 @@ func (c *conn) queryFile(o *open, q *wire.QueryInfoRequest) *response {
 // wirePath turns a share path into the backslashed form Windows expects,
 // passing each name through the same mapping as a listing.
 func wirePath(p string) string {
-	parts := strings.Split(p, "/")
+	base, stream, isStream := splitStreamPath(p)
+	parts := strings.Split(base, "/")
 	for i, part := range parts {
 		parts[i] = toWireName(part)
 	}
-	return strings.Join(parts, `\`)
+	out := strings.Join(parts, `\`)
+	if isStream {
+		out += ":" + toWireName(stream)
+	}
+	return out
 }
 
 func queryFilesystem(o *open, q *wire.QueryInfoRequest) *response {
@@ -268,6 +274,9 @@ func queryFilesystem(o *open, q *wire.QueryInfoRequest) *response {
 		w.U32(0)
 	case wire.FileFsAttributeInformation:
 		flags := fsCaseSensitiveSearch | fsCasePreservedNames | fsUnicodeOnDisk | fsPersistentACLs | fsObjectIDs
+		if _, ok := share.(StreamShare); ok {
+			flags |= fsNamedStreams
+		}
 		if share.ReadOnly() {
 			flags |= fsReadOnlyVolume
 		}
@@ -518,8 +527,11 @@ func (c *conn) setDisposition(o *open, pending bool) uint32 {
 		if err != nil {
 			return statusOf(err)
 		}
-		if len(list) > 0 {
-			return wire.StatusDirectoryNotEmpty
+		for _, e := range list {
+			//ArozOS's own folder goes with the folder it is in
+			if !isInternal(e.Name) {
+				return wire.StatusDirectoryNotEmpty
+			}
 		}
 	}
 	if pending && !o.isDir {
@@ -536,6 +548,10 @@ func (c *conn) setRename(o *open, q *wire.SetInfoRequest) uint32 {
 	}
 	if o.access&wire.AccessDelete == 0 {
 		return wire.StatusAccessDenied
+	}
+	if isStreamPath(o.getPath()) {
+		//A stream moves with its file, never on its own
+		return wire.StatusInvalidParameter
 	}
 	replace := q.Data[0] != 0
 	if q.Class == wire.FileRenameInformationEx {

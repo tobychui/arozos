@@ -38,6 +38,20 @@
         </div>
         <div class="field">
             <div class="ui toggle checkbox">
+                <input id="smb-discover" type="checkbox">
+                <label locale="smb/discover">Show this server on the network</label>
+                <small locale="smb/discover_hint">Lists it in the Network view of Windows File Explorer (port 445 only) and in the macOS Finder sidebar.</small>
+            </div>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="smb-trash" type="checkbox">
+                <label locale="smb/trash">Deleted files go to the trash bin</label>
+                <small locale="smb/trash_hint">Files deleted over SMB can then be restored from the trash bin of the web desktop. Temporary files of Office and other programs are still deleted for good, and so is everything once a user's bin is full.</small>
+            </div>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
                 <input id="smb-encrypt" type="checkbox">
                 <label locale="smb/encrypt">Require encryption</label>
                 <small locale="smb/encrypt_hint">Encrypts everything sent over the network, file contents and names included. Clients that cannot encrypt, such as Windows 7 and older Linux and macOS versions, can no longer connect, and transfers get somewhat slower.</small>
@@ -114,6 +128,8 @@
             $('#smb-public').prop('checked', config.AllowPublic);
             $('#smb-stage-limit').val(config.StageLimitMB);
             $('#smb-encrypt').prop('checked', config.Encrypt);
+            $('#smb-discover').prop('checked', config.Discover);
+            $('#smb-trash').prop('checked', config.Trash);
             //Known failures have a translation, and anything else is shown as it came
             var reason = config.LastError || '';
             if (config.LastErrorKey) reason = fill(t('error_' + config.LastErrorKey, reason), { port: config.Port });
@@ -186,6 +202,8 @@
                 port: $('#smb-port').val(),
                 public: $('#smb-public').is(':checked') ? 'true' : 'false',
                 encrypt: $('#smb-encrypt').is(':checked') ? 'true' : 'false',
+                discover: $('#smb-discover').is(':checked') ? 'true' : 'false',
+                trash: $('#smb-trash').is(':checked') ? 'true' : 'false',
                 stagelimit: $('#smb-stage-limit').val()
             },
             success: function (data) {

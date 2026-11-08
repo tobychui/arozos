@@ -381,8 +381,11 @@ especially sections 13 and 14, before changing protocol behaviour.
   `durable.go`, `notify.go`, `copy.go` beside the command handlers), and `aroz`,
   the only package that imports ArozOS code, in the same split as
   `sftpserver.Access`; it stages files of WebDAV, FTP and S3 drives, which have
-  no random access (`aroz/staged.go`). The file server entry, settings and
-  endpoints are in
+  no random access (`aroz/staged.go`), keeps named streams in
+  `.metadata/.streams` and maps Previous Versions onto `.metadata/.localver`.
+  The Windows Network view announcement (WS-Discovery and LLMNR) is in
+  [`src/mod/network/wsd/`](src/mod/network/wsd/). `.metadata` is left out of SMB
+  listings on purpose. The file server entry, settings and endpoints are in
   [`src/mod/fileservers/servers/smbserv/`](src/mod/fileservers/servers/smbserv/),
   wired in [`src/smbserver.go`](src/smbserver.go).
 - **Rules that are easy to break:** a lease is a promise to break before
@@ -740,6 +743,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
 - [`src/mod/storage/access/`](src/mod/storage/access/) — drive access lists (see "Who can use a drive").
 - [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/) — the built-in SMB server (see "What the built-in SMB server is").
+- [`src/mod/network/wsd/`](src/mod/network/wsd/) — WS-Discovery and LLMNR responder that lists the built-in SMB server in the Windows Network view.
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
 - [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/office/`](src/mod/office/) — converters behind the `office` AGI library and the Office suite ([`src/web/Office/`](src/web/Office/), read its `README.md` first): one package per format — `docx` / `xlsx` / `pptx` and `odf` import and export, import-only `doc` / `xls` / `ppt` for Office 97-2003 (converted to OOXML), `pdf`; the map is in [`doc.go`](src/mod/office/doc.go).

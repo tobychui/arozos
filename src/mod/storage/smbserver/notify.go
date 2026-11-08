@@ -175,7 +175,8 @@ func (ws *watchers) close() {
 // changed reports a change this server made, to every watch it concerns.
 // kind is the filter bit the change matches.
 func (ws *watchers) changed(s Share, p string, action, kind uint32) {
-	if p == "" {
+	//A stream changing is no change to the folder listing
+	if p == "" || isStreamPath(p) {
 		return
 	}
 	ws.mu.Lock()
@@ -421,7 +422,9 @@ func (ws *watchers) pollFolder(key string, f *polledFolder) {
 	}
 	now := make(map[string]FileInfo, len(list))
 	for _, e := range list {
-		now[e.Name] = e
+		if !isInternal(e.Name) {
+			now[e.Name] = e
+		}
 	}
 
 	ws.mu.Lock()

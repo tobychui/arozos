@@ -59,6 +59,7 @@ func newRig(t *testing.T) *rig {
 	r.opt = &ManagerOption{
 		ServerName: "AROZTEST",
 		DeviceID:   "test-device",
+		NoWSD:      true, //Tests must not announce on the LAN
 		Sysdb:      db,
 		SecretDir:  filepath.Join(dir, "smb"),
 		CurrentUser: func(w http.ResponseWriter, req *http.Request) (string, error) {
@@ -635,5 +636,67 @@ func TestOnlyPortChangesDisconnect(t *testing.T) {
 	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(freePort(t))}}).Body.Bytes(), &res)
 	if !res.Restarted {
 		t.Error("a new port has to listen again")
+	}
+}
+
+func TestDiscoverySetting(t *testing.T) {
+	r := newRig(t)
+	if !r.m.discoverable() {
+		t.Error("the server must be discoverable by default")
+	}
+	port := freePort(t)
+	usePort(t, r, port)
+	if err := r.m.ServerToggle(true); err != nil {
+		t.Fatal(err)
+	}
+	r.m.mu.Lock()
+	running := r.m.announcer != nil
+	r.m.mu.Unlock()
+	if !running {
+		t.Error("a running server announces itself")
+	}
+	var res ConfigResult
+	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(port)}, "discover": {"false"}}).Body.Bytes(), &res)
+	if r.m.discoverable() || res.Restarted {
+		t.Errorf("discover = %v, restarted = %v: hiding the server must not disconnect anyone", r.m.discoverable(), res.Restarted)
+	}
+	r.m.mu.Lock()
+	running = r.m.announcer != nil
+	r.m.mu.Unlock()
+	if running {
+		t.Error("the announcement must stop")
+	}
+}
+
+func TestDiscoveryUUIDIsStable(t *testing.T) {
+	r := newRig(t)
+	a, b := r.m.discoveryUUID(), r.m.discoveryUUID()
+	if a != b || len(a) != 36 || a[14] != '5' {
+		t.Errorf("uuid %s, %s", a, b)
+	}
+	other := &Manager{opt: &ManagerOption{DeviceID: "another-device"}}
+	if other.discoveryUUID() == a {
+		t.Error("two installs must not share a device id")
+	}
+}
+
+func TestTrashSetting(t *testing.T) {
+	r := newRig(t)
+	if r.m.useTrash() {
+		t.Fatal("deletes are permanent by default")
+	}
+	r.opt.Trash = func(*filesystem.FileSystemHandler, string, string, string) error { return nil }
+	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}, "trash": {"true"}}))
+	if !r.m.useTrash() {
+		t.Error("the setting must stick")
+	}
+	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}}))
+	if r.m.useTrash() {
+		t.Error("an unticked box turns it off")
+	}
+	r.opt.Trash = nil
+	r.opt.Sysdb.Write(settingsTable, "trash", true)
+	if r.m.useTrash() {
+		t.Error("without a trash bin there is nothing to turn on")
 	}
 }

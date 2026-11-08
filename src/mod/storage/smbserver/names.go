@@ -93,18 +93,30 @@ func fromWireName(name string) string {
 
 // parsePath validates a path from the client and returns it share relative.
 // Stream syntax is resolved here, so nothing past this point sees a colon that
-// Windows meant as a separator.
+// Windows meant as a separator. A named stream is refused here; CREATE uses
+// parsePathStream, which allows them.
 func parsePath(name string) (string, uint32) {
-	if len(name) > maxPathLength {
+	rel, stream, status := parsePathStream(name)
+	if status == wire.StatusOK && stream != "" {
 		return "", wire.StatusObjectNameInvalid
 	}
+	return rel, status
+}
+
+// parsePathStream also returns the named stream of the last component, "" for
+// the file itself (":" and "::$DATA" name the file too).
+func parsePathStream(name string) (string, string, uint32) {
+	if len(name) > maxPathLength {
+		return "", "", wire.StatusObjectNameInvalid
+	}
 	if strings.IndexByte(name, 0) >= 0 {
-		return "", wire.StatusObjectNameInvalid
+		return "", "", wire.StatusObjectNameInvalid
 	}
 	name = strings.TrimPrefix(name, `\`)
 	if name == "" {
-		return "", wire.StatusOK
+		return "", "", wire.StatusOK
 	}
+	stream := ""
 
 	parts := strings.Split(name, `\`)
 	out := make([]string, 0, len(parts))
@@ -114,42 +126,58 @@ func parsePath(name string) (string, uint32) {
 			if i == len(parts)-1 {
 				continue
 			}
-			return "", wire.StatusObjectNameInvalid
+			return "", "", wire.StatusObjectNameInvalid
 		}
 
-		//The default data stream is the file itself. Any other stream is
-		//refused, which is also what tells a client to drop it from a copy.
+		//name:stream:type, where the type can only be the data type
 		if colon := strings.IndexByte(part, ':'); colon >= 0 {
 			if i != len(parts)-1 {
-				return "", wire.StatusObjectNameInvalid
+				return "", "", wire.StatusObjectNameInvalid
 			}
-			stream := strings.ToUpper(part[colon:])
-			if stream != "::$DATA" && stream != ":" {
-				return "", wire.StatusObjectNameInvalid
-			}
+			spec := part[colon+1:]
 			part = part[:colon]
+			streamName, kind := spec, ""
+			if j := strings.IndexByte(spec, ':'); j >= 0 {
+				streamName, kind = spec[:j], strings.ToUpper(spec[j+1:])
+			}
+			if kind != "" && kind != "$DATA" {
+				return "", "", wire.StatusObjectNameInvalid
+			}
+			if streamName != "" {
+				if strings.ContainsAny(streamName, `/\`) || len([]rune(streamName)) > maxNameComponent {
+					return "", "", wire.StatusObjectNameInvalid
+				}
+				for _, r := range streamName {
+					if unicode.IsControl(r) {
+						return "", "", wire.StatusObjectNameInvalid
+					}
+				}
+				//macOS sends the colons of extended attribute names in
+				//the private range, so they arrive as colons here
+				stream = fromWireName(streamName)
+			}
 			if part == "" {
 				continue
 			}
 		}
 
 		if part == "." || part == ".." {
-			return "", wire.StatusObjectPathSyntaxBad
+			return "", "", wire.StatusObjectPathSyntaxBad
 		}
 		if strings.ContainsAny(part, `<>"|?*/`) {
-			return "", wire.StatusObjectNameInvalid
+			return "", "", wire.StatusObjectNameInvalid
 		}
 		for _, r := range part {
 			if unicode.IsControl(r) {
-				return "", wire.StatusObjectNameInvalid
+				return "", "", wire.StatusObjectNameInvalid
 			}
 		}
 		if len([]rune(part)) > maxNameComponent {
-			return "", wire.StatusObjectNameInvalid
+			return "", "", wire.StatusObjectNameInvalid
 		}
 		out = append(out, fromWireName(part))
 	}
-	return strings.Join(out, "/"), wire.StatusOK
+	return strings.Join(out, "/"), stream, wire.StatusOK
 }
 
 func joinPath(dir, name string) string {
@@ -158,6 +186,11 @@ func joinPath(dir, name string) string {
 	}
 	return dir + "/" + name
 }
+
+// isInternal reports the folder ArozOS keeps its own data in. It is left out
+// of listings: clients that saw it would try to delete it with the folder it
+// is in, and be refused. Paths into it still work, for versions and streams.
+func isInternal(name string) bool { return name == protectedFolder }
 
 // isProtected reports a path inside a folder ArozOS keeps for itself.
 func isProtected(p string) bool {

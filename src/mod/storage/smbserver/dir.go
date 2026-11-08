@@ -91,7 +91,7 @@ func (o *open) loadDirectory(names *nameCache, pattern string) uint32 {
 		o.dirEntries = nil
 		if rel, st := parsePath(pattern); st == wire.StatusOK && rel != "" {
 			res, err := resolve(share, names, joinPath(dir, rel))
-			if err == nil && res.exists {
+			if err == nil && res.exists && !isInternal(baseName(res.path)) {
 				o.dirEntries = []dirEntry{{name: toWireName(baseName(res.path)), path: res.path, info: res.info}}
 			}
 		}
@@ -110,6 +110,9 @@ func (o *open) loadDirectory(names *nameCache, pattern string) uint32 {
 	entries := make([]dirEntry, 0, len(list)+2)
 	entries = append(entries, dirEntry{name: ".", path: dir, info: self}, dirEntry{name: "..", path: dirName(dir), info: self})
 	for _, info := range list {
+		if isInternal(info.Name) {
+			continue
+		}
 		entries = append(entries, dirEntry{name: toWireName(info.Name), path: joinPath(dir, info.Name), info: info})
 	}
 	o.dirEntries = entries

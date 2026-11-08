@@ -160,14 +160,19 @@ func (c *conn) handleCreate(r *request) *response {
 
 	var lq *leaseRequest
 	var dq *durableRequest
+	var warp time.Time
+	warped := false
 	for _, ctx := range q.Contexts {
 		switch ctx.Name {
 		case wire.ContextDurableRecon2:
 			return c.reconnectDurable(r, q, ctx.Data)
-		case wire.ContextDurableRecon, wire.ContextTimewarp:
-			//Version 1 durable handles are not granted, and there are no
-			//snapshots
+		case wire.ContextDurableRecon:
+			//Version 1 durable handles are not granted
 			return errorResponse(wire.StatusObjectNameNotFound)
+		case wire.ContextTimewarp:
+			if warp, warped = timewarp(ctx.Data); !warped {
+				return errorResponse(wire.StatusInvalidParameter)
+			}
 		case wire.ContextLease:
 			if q.OplockLevel == oplockLevelLease && c.leasing() {
 				var ok bool
@@ -192,15 +197,55 @@ func (c *conn) handleCreate(r *request) *response {
 		return errorResponse(wire.StatusInvalidParameter)
 	}
 
-	rel, status := parsePath(q.Name)
+	rel, stream, status := parsePathStream(q.Name)
 	if status != wire.StatusOK {
 		return errorResponse(status)
 	}
 
 	share := r.tree.share
+	if stream != "" {
+		if _, ok := share.(StreamShare); !ok {
+			//Also what tells a client to leave the stream out of a copy
+			return errorResponse(wire.StatusObjectNameInvalid)
+		}
+		if warped {
+			return errorResponse(wire.StatusObjectNameNotFound)
+		}
+	}
+	if stripped, at, ok := splitGMTToken(rel); ok {
+		rel, warp, warped = stripped, at, true
+	}
+	if warped {
+		//An earlier version: from here on it is a read only file in a
+		//protected folder, and never leased
+		snap, st := c.snapshotOf(share, rel, warp)
+		if st != wire.StatusOK {
+			return errorResponse(st)
+		}
+		rel, lq, dq = snap, nil, nil
+	}
 	res, err := resolve(share, c.srv.names, rel)
 	if err != nil {
 		return errorResponse(statusOf(err))
+	}
+	if stream != "" {
+		//A stream needs its file or folder; then it is a file of its own
+		if !res.exists {
+			if res.parentExists {
+				return errorResponse(wire.StatusObjectNameNotFound)
+			}
+			return errorResponse(wire.StatusObjectPathNotFound)
+		}
+		if q.Options&wire.OptionDirectory != 0 {
+			return errorResponse(wire.StatusNotADirectory)
+		}
+		sp := streamPath(res.path, stream)
+		res = resolved{path: sp, parentExists: true}
+		if info, err := share.Stat(sp); err == nil {
+			res.info, res.exists = info, true
+		} else if !isMissing(err) {
+			return errorResponse(statusOf(err))
+		}
 	}
 	if !share.CanRead(res.path) {
 		return errorResponse(wire.StatusAccessDenied)

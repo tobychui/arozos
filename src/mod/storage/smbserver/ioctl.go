@@ -39,7 +39,7 @@ func (c *conn) handleIoctl(r *request) *response {
 		//This server has no DFS namespace
 		return errorResponse(wire.StatusNotFound)
 	case wire.FsctlEnumerateSnapshots:
-		return ioctlResponse(q, make([]byte, 16), wire.StatusOK)
+		return c.enumerateSnapshots(r, q)
 	case wire.FsctlSrvRequestResumeKey:
 		return c.requestResumeKey(r, q)
 	case wire.FsctlSrvCopyChunk:

@@ -520,9 +520,15 @@ func TestEveryDirectoryClassLists(t *testing.T) {
 	}
 }
 
+// plainShare hides every optional ability of a share, such as streams.
+type plainShare struct{ Share }
+
 func TestStreamOpensAreRefusedCleanly(t *testing.T) {
 	h := newHarness(t)
 	os.WriteFile(filepath.Join(h.share.root, "sample.bin"), []byte("x"), 0644)
+	//A drive without streams; refusing the name tells Windows to drop the
+	//stream from a copy
+	h.backend.shares = []Share{plainShare{h.share}}
 	c := newRawClient(t, h)
 
 	o := createOpts{access: wire.FileReadData, share: shareAll, disposition: wire.DispositionOpen}
@@ -811,8 +817,8 @@ func TestFilesystemInfo(t *testing.T) {
 	data = r.body[8:]
 	flags := binary.LittleEndian.Uint32(data)
 	const namedStreams = 0x00040000
-	if flags&namedStreams != 0 {
-		t.Errorf("flags %x claim streams, which the server lacks", flags)
+	if flags&namedStreams == 0 {
+		t.Errorf("flags %x: the test drive keeps streams, so it must say so", flags)
 	}
 	if flags&fsObjectIDs == 0 {
 		t.Error("link tracking needs object ids")

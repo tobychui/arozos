@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"imuslab.com/arozos/mod/filesystem"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -43,8 +44,17 @@ type ManagerOption struct {
 	Sysdb      *database.Database
 	SecretDir  string //Where the credential key file lives
 	CaptureDir string //Debug capture, off when empty
-	StageDir   string //Local copies of files on cloud and remote drives
-	KeepDir    string //Copies whose upload failed, kept across restarts
+
+	//DisplayName is shown in the macOS Finder sidebar. AllowMDNS follows the
+	//-allow_mdns flag, and NoWSD keeps the Windows Network view out (tests)
+	DisplayName string
+	AllowMDNS   bool
+	NoWSD       bool
+
+	//Trash moves a deleted file into the trash bin, as aroz.Options.Trash
+	Trash    func(fsh *filesystem.FileSystemHandler, subpath, rpath, username string) error
+	StageDir string //Local copies of files on cloud and remote drives
+	KeepDir  string //Copies whose upload failed, kept across restarts
 
 	//CurrentUser returns who made a web request
 	CurrentUser func(w http.ResponseWriter, r *http.Request) (string, error)
@@ -77,6 +87,7 @@ type Manager struct {
 
 	mu           sync.Mutex
 	server       *smbserver.Server
+	announcer    *announcer
 	lastError    string
 	lastErrorKey string
 }
@@ -140,6 +151,17 @@ func (m *Manager) requireEncryption() bool {
 	return on
 }
 
+// useTrash sends deletes to the trash bin. Off by default, as with Samba and
+// as Windows expects of a network drive, where Explorer warns that a delete
+// is permanent.
+func (m *Manager) useTrash() bool {
+	on := false
+	if m.opt.Trash != nil && m.opt.Sysdb.KeyExists(settingsTable, "trash") {
+		m.opt.Sysdb.Read(settingsTable, "trash", &on)
+	}
+	return on
+}
+
 // DefaultStageLimitMB is the largest file of a cloud or remote drive served
 // until an admin changes it.
 const DefaultStageLimitMB = aroz.DefaultStageLimit >> 20
@@ -173,6 +195,8 @@ func (m *Manager) backend() (*aroz.Backend, error) {
 		StageDir:             m.opt.StageDir,
 		KeepDir:              m.opt.KeepDir,
 		StageLimit:           m.stageLimit,
+		UseTrash:             m.useTrash,
+		Trash:                m.opt.Trash,
 	})
 }
 
@@ -263,7 +287,20 @@ func (m *Manager) start() error {
 		return bindError(port, err)
 	}
 	m.server = server
+	m.announcer = m.announce(port)
 	return nil
+}
+
+// stopServer ends the server and its announcements. The caller holds m.mu.
+func (m *Manager) stopServer() error {
+	m.announcer.stop()
+	m.announcer = nil
+	if m.server == nil {
+		return nil
+	}
+	err := m.server.Close()
+	m.server = nil
+	return err
 }
 
 // ServerToggle implements fileservers.Server.
@@ -274,8 +311,7 @@ func (m *Manager) ServerToggle(enabled bool) error {
 		return nil
 	}
 	if !enabled {
-		err := m.server.Close()
-		m.server = nil
+		err := m.stopServer()
 		m.recordError(nil)
 		m.opt.Sysdb.Write(settingsTable, "enabled", false)
 		return err
@@ -314,10 +350,7 @@ func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
 func (m *Manager) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.server != nil {
-		m.server.Close()
-		m.server = nil
-	}
+	m.stopServer()
 }
 
 func (m *Manager) dropUser(username string) {
@@ -458,6 +491,8 @@ type AdminConfig struct {
 	Port         int
 	AllowPublic  bool
 	Encrypt      bool
+	Discover     bool
+	Trash        bool
 	StageLimitMB int64 //Zero is no limit
 	LastError    string
 	LastErrorKey string //Names the translation, empty for anything unexpected
@@ -474,6 +509,8 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		config.AllowPublic = m.allowPublic()
 		config.StageLimitMB = m.stageLimitMB()
 		config.Encrypt = m.requireEncryption()
+		config.Discover = m.discoverable()
+		config.Trash = m.useTrash()
 		config.CanImport = m.opt.SambaHashes != nil
 		sendJSON(w, config)
 		return
@@ -486,6 +523,8 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	public := postOnly(r, "public") == "true"
 	encrypt := postOnly(r, "encrypt") == "true"
+	discover := postOnly(r, "discover") != "false"
+	trash := postOnly(r, "trash") == "true"
 	stageLimit := m.stageLimitMB()
 	if v := postOnly(r, "stagelimit"); v != "" {
 		stageLimit, err = strconv.ParseInt(v, 10, 64)
@@ -503,15 +542,22 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	m.opt.Sysdb.Write(settingsTable, "encrypt", encrypt)
 	//Asked on every open, so it applies without listening again
 	m.opt.Sysdb.Write(settingsTable, "stagelimit", stageLimit)
+	oldDiscover := m.discoverable()
+	m.opt.Sysdb.Write(settingsTable, "discover", discover)
+	//Asked on every delete, like the size limit
+	m.opt.Sysdb.Write(settingsTable, "trash", trash)
 	if m.server == nil || (port == oldPort && public == oldPublic && encrypt == oldEncrypt) {
+		if m.server != nil && discover != oldDiscover {
+			m.announcer.stop()
+			m.announcer = m.announce(port)
+		}
 		sendJSON(w, ConfigResult{Restarted: false})
 		return
 	}
 
 	//Listening again is the only way to apply these. A port that fails puts
 	//the old settings back, so one typo cannot take the service away.
-	m.server.Close()
-	m.server = nil
+	m.stopServer()
 	if err := m.start(); err != nil {
 		m.opt.Sysdb.Write(settingsTable, "port", oldPort)
 		m.opt.Sysdb.Write(settingsTable, "public", oldPublic)

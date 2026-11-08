@@ -13,6 +13,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
@@ -74,7 +75,18 @@ type Options struct {
 	//asked on every open, so a change applies at once. Nil or zero is
 	//DefaultStageLimit, and a negative number has no limit.
 	StageLimit func() int64
+
+	//UseTrash reports whether deleted files go to the trash bin, asked on
+	//every delete. Trash moves one file there the way the File Manager does,
+	//and returns ErrTrashFull when the user's bin has no room left.
+	UseTrash func() bool
+	Trash    func(fsh *filesystem.FileSystemHandler, subpath, rpath, username string) error
 }
+
+// ErrTrashFull is what Trash returns when the bin is over its size limit. The
+// file is then deleted for good, as Samba's recycle module does, because an
+// SMB client cannot be asked what to do instead.
+var ErrTrashFull = errors.New("smbserver/aroz: the trash bin is full")
 
 // Backend implements smbserver.Backend.
 type Backend struct {
@@ -196,13 +208,14 @@ func (s *share) vpath(p string) string { return s.fsh.UUID + ":/" + p }
 // CanPoll lets watched folders of local drives be listed every few seconds.
 func (s *share) CanPoll() bool { return s.local }
 
-func (s *share) CanRead(p string) bool { return s.v.account.CanRead(s.vpath(p)) }
+func (s *share) CanRead(p string) bool { return s.v.account.CanRead(s.vpath(basePath(p))) }
 
-func (s *share) CanWrite(p string) bool { return s.v.account.CanWrite(s.vpath(p)) }
+func (s *share) CanWrite(p string) bool { return s.v.account.CanWrite(s.vpath(basePath(p))) }
 
 // real turns a share path into one for the abstraction, after making sure no
 // link along the way leads off the drive.
 func (s *share) real(p string) (string, error) {
+	p = sharePath(p)
 	rpath, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(p), s.v.username)
 	if err != nil {
 		return "", err
@@ -362,8 +375,13 @@ func (s *share) Open(p string, flag int) (smbserver.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	if flag&os.O_CREATE != 0 && basePath(p) != p {
+		if err := s.makeStreamDir(p); err != nil {
+			return nil, err
+		}
+	}
 	if s.fsh.RequireBuffer {
-		return openStaged(s.fsh, rpath, s.vpath(p), flag, s.stage())
+		return openStaged(s.fsh, rpath, s.vpath(sharePath(p)), flag, s.stage())
 	}
 	file, err := s.fsh.FileSystemAbstraction.OpenFile(rpath, flag, 0775)
 	if err != nil {
@@ -385,10 +403,32 @@ func (s *share) Remove(p string) error {
 	if err != nil {
 		return err
 	}
-	size := int64(0)
-	if s.tracksQuota() {
+	if s.wantsTrash(p) {
 		if fi, err := s.fsh.FileSystemAbstraction.Stat(rpath); err == nil && !fi.IsDir() {
-			size = fi.Size()
+			err := s.v.opt.Trash(s.fsh, "/"+p, rpath, s.v.username)
+			if err == nil {
+				//Still on the drive, so it still counts against the quota.
+				//Its streams are not restored with it.
+				s.dropStreams(p)
+				return nil
+			}
+			if !errors.Is(err, ErrTrashFull) {
+				return err
+			}
+			logger.PrintAndLog("SMB", "The trash bin of "+s.v.username+" is full, "+s.vpath(p)+" was deleted for good", nil)
+		}
+	}
+	size := int64(0)
+	fi, statErr := s.fsh.FileSystemAbstraction.Stat(rpath)
+	if s.tracksQuota() && statErr == nil && !fi.IsDir() {
+		size = fi.Size()
+	}
+	if statErr == nil && fi.IsDir() {
+		//The server checked the folder holds nothing else; its versions,
+		//thumbnails and streams go with it, as in the File Manager
+		internal := strings.TrimSuffix(rpath, "/") + "/.metadata"
+		if s.fsh.FileSystemAbstraction.FileExists(internal) {
+			s.fsh.FileSystemAbstraction.RemoveAll(internal)
 		}
 	}
 	if err := s.fsh.FileSystemAbstraction.Remove(rpath); err != nil {
@@ -396,6 +436,9 @@ func (s *share) Remove(p string) error {
 	}
 	if size > 0 {
 		s.v.quota.ReclaimSpace(size)
+	}
+	if basePath(p) == p {
+		s.dropStreams(p)
 	}
 	return nil
 }
@@ -421,6 +464,9 @@ func (s *share) Rename(oldPath, newPath string) error {
 	}
 	if replaced > 0 {
 		s.v.quota.ReclaimSpace(replaced)
+	}
+	if !strings.EqualFold(oldPath, newPath) {
+		s.moveStreams(oldPath, newPath)
 	}
 	return nil
 }

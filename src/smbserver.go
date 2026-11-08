@@ -12,6 +12,7 @@ import (
 	"imuslab.com/arozos/mod/disk/diskcapacity"
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/fileservers/servers/smbserv"
+	"imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/storage/smbserver/aroz"
 )
@@ -53,12 +54,15 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 	resolver := diskcapacity.NewCapacityResolver(userHandler)
 
 	option := &smbserv.ManagerOption{
-		ServerName: netbiosName(*host_name),
-		DNSName:    hostname,
-		DeviceID:   deviceUUID,
-		Sysdb:      sysdb,
-		SecretDir:  filepath.Join("system", "smb"),
-		CaptureDir: *smb_capture,
+		ServerName:  netbiosName(*host_name),
+		DNSName:     hostname,
+		DeviceID:    deviceUUID,
+		Sysdb:       sysdb,
+		SecretDir:   filepath.Join("system", "smb"),
+		CaptureDir:  *smb_capture,
+		DisplayName: *host_name,
+		AllowMDNS:   *allow_mdns,
+		Trash:       smbTrash,
 		//The tmp folder is emptied at every boot, which clears stale copies,
 		//so a copy whose upload failed is kept in system/ instead
 		StageDir: filepath.Join(*tmp_directory, "smb"),
@@ -151,4 +155,14 @@ func SMBServerShutdown() {
 	if SMBManager != nil {
 		SMBManager.Close()
 	}
+}
+
+// smbTrash moves a file deleted over SMB into the trash bin, as the File
+// Manager does, so it can be restored from there.
+func smbTrash(fsh *filesystem.FileSystemHandler, subpath, rpath, username string) error {
+	err := system_fs_moveToTrash(fsh, subpath, rpath, username)
+	if errors.Is(err, errTrashQuota) {
+		return aroz.ErrTrashFull
+	}
+	return err
 }

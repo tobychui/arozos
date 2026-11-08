@@ -2,7 +2,8 @@
 
 Status: Phases 1 to 5 are built on branch `v3.0.5_smb` and passed Windows 11
 24H2 sessions, smbclient, go-smb2 and the macOS client. Only the durable handle
-reconnect has not been exercised by Windows yet (section 14). Section 13 records what real
+reconnect has not been exercised by Windows yet (section 14). Phase 6 is built
+and passed smbclient, the macOS client and a Windows session (section 15). Section 13 records what real
 Windows sessions changed in this plan, section 14 what Phases 4 and 5 found.
 Surveyed 2026-11-07.
 
@@ -424,6 +425,8 @@ switch instead of a per share one, server side copy (`FSCTL_SRV_COPYCHUNK` and
 - macOS and iOS: named streams and the Apple extensions.
 - Previous Versions backed by `localversion`, and deletes into ArozOS trash.
 
+Built, except the Apple create context (`AAPL`): see section 15.
+
 ### Phase 7: after NTLM
 
 - Follow the Samba local KDC work, and evaluate IAKerb with a small built-in KDC.
@@ -598,6 +601,66 @@ The Windows 11 session of 2026-11-08 confirmed it on the real client:
 Throughput on the Mac's loopback with smbclient and a 300 MB file: about
 1.9 GB/s up and down, as Samba on the same machine; about 1.7 GB/s encrypted,
 Samba 1.5 to 1.7 GB/s.
+
+## 15. What Phase 6 built and found
+
+- **Network view.** `mod/network/wsd` answers WS-Discovery Probe and Resolve
+  on UDP 3702, says Hello and Bye, and serves the device metadata Windows asks
+  for on TCP 5357 (`AROZTEST/Workgroup:WORKGROUP`). Windows then opens
+  `\\AROZTEST`, which it can only find through LLMNR when no DNS server knows
+  the name, so the package also answers LLMNR (UDP 5355) for that one name. It
+  runs only on port 445, which is all the Network view knows, and never on a
+  Windows host, which announces itself. A port another program holds (wsdd,
+  systemd-resolved) is logged and left out. Checked with real multicast
+  queries on the Mac's LAN interface; the Network view itself still needs
+  Windows.
+- **macOS Finder.** `_smb._tcp` and `_device-info._tcp` (model `RackMac`, for
+  the icon) through zeroconf, which works beside mDNSResponder. Seen by
+  `dns-sd -B`. Follows `-allow_mdns`. Both announcements share one admin
+  switch, "Show this server on the network", on by default.
+- **Trash.** With "Deleted files go to the trash bin" on (off by default, as
+  with Samba and as Windows expects of a network drive), deleted files move
+  into the drive's `.trash` the way the File Manager does it, through one
+  shared `system_fs_moveToTrash`. Only files go there: Explorer deletes a
+  folder's content first, so files arrive one by one under their old folders,
+  and emptied folders are deleted for good, as Samba's recycle module does.
+  Office, LibreOffice, macOS and Explorer helper files (`~$*`, `*.tmp`, `._*`,
+  `Thumbs.db` and the like) skip the bin, and a full bin deletes for good,
+  because an SMB client cannot be asked what to do instead.
+- **Previous Versions.** The snapshots the File Manager takes
+  (`.metadata/.localver/<local time>/<file>`) are listed by
+  `FSCTL_SRV_ENUMERATE_SNAPSHOTS` as `@GMT` tokens and opened by the `TWrp`
+  create context or an `@GMT` path component, read only. The core only knows
+  the `SnapshotShare` interface; the layout is the backend's. smbclient read an
+  old version back by its token and was refused writing to it.
+- **Named streams.** Kept as files in `.metadata/.streams/<file>/`, escaped,
+  and moved or deleted with their file over SMB. The core passes a stream to
+  the backend as `path + NUL + name`, because a colon can be part of a file
+  name (mapped from the private range) or of a macOS attribute name. With
+  `FILE_NAMED_STREAMS` claimed, macOS stores its extended attributes, Finder
+  info and tags as streams and stops writing `._` files; `xattr -w`, `cp -p`
+  and `mv` kept them. Windows keeps `Zone.Identifier` on downloads. Changes
+  made through the File Manager leave streams behind.
+- **`.metadata` is left out of listings.** Once streams put it in many
+  folders, `rm -rf` and Explorer tried to delete it with its folder and were
+  refused, so the folder never emptied. It is now unlisted (paths into it
+  still work), a folder holding nothing else counts as empty, and it is
+  deleted with its folder.
+- **Left out: `AAPL`.** Named streams were what stopped the `._` files. The
+  rest of the Apple context, directory listings packed with Finder info and
+  resource fork sizes, server side copy of metadata and Time Machine, is
+  intricate, could only be checked against this Mac's client, and is not
+  needed for the goal. smbclient's `allinfo` stops at the 8.3 short name query,
+  which this server answers "not found" as NTFS does with short names off.
+
+A Windows session on 2026-11-08 confirmed it: `AROZTEST` showed up in the
+Network view and opened with a double click; the Previous Versions tab listed
+the snapshot, opened it and restored it; a file deleted in Explorer came back
+from the web desktop's trash bin; downloads copied into the share kept their
+`Zone.Identifier`; and a folder with files in it was deleted whole. Windows
+also asks `FSCTL_PIPE_WAIT` before opening named pipes, which this server
+refuses with `STATUS_INVALID_DEVICE_REQUEST`; nothing visible depends on it,
+and answering it is a small follow-up.
 
 ## Sources
 

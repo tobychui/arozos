@@ -26,13 +26,51 @@ type testShare struct {
 	changed   []string
 	openDelay time.Duration //Stands in for a slow remote drive
 	readDelay time.Duration
-	closeErr  error //What Close reports, like a failed staged upload
-	opened    int   //Files open right now
-	pending   int64 //Size the open file claims, like a staged copy; 0 is none
-	noPoll    bool  //Like a cloud drive, which cannot be listed often
+	closeErr  error                           //What Close reports, like a failed staged upload
+	opened    int                             //Files open right now
+	pending   int64                           //Size the open file claims, like a staged copy; 0 is none
+	noPoll    bool                            //Like a cloud drive, which cannot be listed often
+	versions  map[string]map[time.Time]string //Path, time, where that version is
 }
 
-func (s *testShare) full(p string) string { return filepath.Join(s.root, filepath.FromSlash(p)) }
+// Snapshots and SnapshotPath make the test drive keep versions.
+func (s *testShare) Snapshots(p string) []time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []time.Time{}
+	for t := range s.versions[p] {
+		out = append(out, t)
+	}
+	return out
+}
+
+func (s *testShare) SnapshotPath(p string, t time.Time) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, ok := s.versions[p][t.UTC()]
+	return v, ok
+}
+
+func (s *testShare) full(p string) string {
+	if base, stream, ok := splitStreamPath(p); ok {
+		return filepath.Join(s.root, ".streams", strings.ReplaceAll(base, "/", "_")+"~"+stream)
+	}
+	return filepath.Join(s.root, filepath.FromSlash(p))
+}
+
+// Streams makes the test drive keep named streams in a folder of its own.
+func (s *testShare) Streams(p string) []FileInfo {
+	prefix := strings.ReplaceAll(p, "/", "_") + "~"
+	entries, _ := os.ReadDir(filepath.Join(s.root, ".streams"))
+	out := []FileInfo{}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), prefix) {
+			fi, _ := e.Info()
+			out = append(out, FileInfo{Name: strings.TrimPrefix(e.Name(), prefix), Size: fi.Size()})
+		}
+	}
+	return out
+}
 
 func (s *testShare) Name() string    { return s.name }
 func (s *testShare) Comment() string { return "Test drive " + s.name }
@@ -89,6 +127,9 @@ func (s *testShare) Open(p string, flag int) (File, error) {
 	delay := s.openDelay
 	s.mu.Unlock()
 	time.Sleep(delay)
+	if isStreamPath(p) && flag&os.O_CREATE != 0 {
+		os.MkdirAll(filepath.Join(s.root, ".streams"), 0755)
+	}
 	f, err := os.OpenFile(s.full(p), flag, 0644)
 	if err != nil {
 		return nil, err
