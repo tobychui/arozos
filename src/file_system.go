@@ -1371,6 +1371,80 @@ func system_fs_unescapeTrashFolder(name string) string {
 	return name
 }
 
+var (
+	errAlreadyInTrash    = errors.New("already in the trash bin")
+	errTrashRoot         = errors.New("the root folder cannot be moved to the trash bin")
+	errTrashQuota        = errors.New("the trash bin is full")
+	errTrashIncompatible = errors.New("this file system cannot move files to the trash bin")
+)
+
+/*
+Move one item into the .trash folder of its root, where the trash bin finds
+it and can restore it. Used by the File Manager and the SMB server.
+
+	subpath is the item inside its root (/foo/bar.txt), rpath the same for the
+	file system abstraction.
+*/
+func system_fs_moveToTrash(fsh *filesystem.FileSystemHandler, subpath string, rpath string, username string) error {
+	fshAbs := fsh.FileSystemAbstraction
+	if system_fs_isInTrash(subpath) {
+		return errAlreadyInTrash
+	}
+	if system_fs_trashSubpathOf(subpath, 0) == "" {
+		return errTrashRoot
+	}
+
+	//Check if this file has any cached files. If yes, remove it
+	metadata.RemoveCache(fsh, rpath)
+
+	//Clear the cache folder if there is no files inside
+	fc, err := fshAbs.Glob(filepath.ToSlash(filepath.Dir(rpath)) + "/.metadata/.cache/*")
+	if len(fc) == 0 && err == nil {
+		fshAbs.Remove(filepath.ToSlash(filepath.Dir(rpath)) + "/.metadata/.cache/")
+	}
+
+	/*
+		Trash quota
+
+		Checked before the move, not after: once the file is inside
+		.trash it has already left the tree the user was looking at,
+		and undoing that cleanly is harder than refusing up front.
+	*/
+	userTrashQuota := system_fs_getTrashQuotaBytes(username)
+	if userTrashQuota > 0 {
+		incomingSize := system_fs_getTrashEntrySize(fsh, rpath)
+		if system_fs_getTrashUsage(username)+incomingSize > userTrashQuota {
+			return errTrashQuota
+		}
+	}
+
+	//Mirror the folders it was removed from inside the .trash folder of this root
+	removeTime := time.Now().Unix()
+	trashPath, err := fshAbs.VirtualPathToRealPath(system_fs_trashSubpathOf(subpath, removeTime), username)
+	for err == nil && fshAbs.FileExists(trashPath) {
+		//Another item of the same name was removed from there within this second
+		removeTime++
+		trashPath, err = fshAbs.VirtualPathToRealPath(system_fs_trashSubpathOf(subpath, removeTime), username)
+	}
+	trashRoot, rootErr := fshAbs.VirtualPathToRealPath(trashFolderSubpath, username)
+	if err != nil || rootErr != nil {
+		return errors.New("failed to move file to trash")
+	}
+	fshAbs.MkdirAll(path.Dir(filepath.ToSlash(trashPath)), 0755)
+	hidden.HideFile(trashRoot)
+	err = fshAbs.Rename(rpath, trashPath)
+	if err != nil {
+		//Do not leave the folders made for it behind
+		system_fs_pruneTrashParents(fsh, username, path.Dir(filepath.ToSlash(trashPath)))
+		if fsh.RequireBuffer {
+			return errTrashIncompatible
+		}
+		systemWideLogger.PrintAndLog("File System", "Failed to move file to trash. See log for more info.", err)
+		return err
+	}
+	return nil
+}
+
 // Check if a subpath is the .trash folder or anything inside it
 func system_fs_isInTrash(subpath string) bool {
 	cleaned := path.Clean("/" + filepath.ToSlash(subpath))
@@ -2853,65 +2927,19 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				if system_fs_isInTrash(subpath) {
-					utils.SendErrorResponse(w, "This item is already in the trash bin")
-					return
-				}
-				if system_fs_trashSubpathOf(subpath, 0) == "" {
-					utils.SendErrorResponse(w, "The root folder cannot be moved to the trash bin")
-					return
-				}
-
-				//Check if this file has any cached files. If yes, remove it
-				metadata.RemoveCache(srcFsh, rsrcFile)
-
-				//Clear the cache folder if there is no files inside
-				fc, err := srcFshAbs.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.cache/*")
-				if len(fc) == 0 && err == nil {
-					srcFshAbs.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.cache/")
-				}
-
-				/*
-					Trash quota
-
-					Checked before the move, not after: once the file is inside
-					.trash it has already left the tree the user was looking at,
-					and undoing that cleanly is harder than refusing up front.
-					The client recognises this error code and offers to empty
-					the bin, delete outright, or do nothing.
-				*/
-				userTrashQuota := system_fs_getTrashQuotaBytes(userinfo.Username)
-				if userTrashQuota > 0 {
-					incomingSize := system_fs_getTrashEntrySize(srcFsh, rsrcFile)
-					if system_fs_getTrashUsage(userinfo.Username)+incomingSize > userTrashQuota {
+				if err := system_fs_moveToTrash(srcFsh, subpath, rsrcFile, userinfo.Username); err != nil {
+					switch {
+					case errors.Is(err, errAlreadyInTrash):
+						utils.SendErrorResponse(w, "This item is already in the trash bin")
+					case errors.Is(err, errTrashRoot):
+						utils.SendErrorResponse(w, "The root folder cannot be moved to the trash bin")
+					case errors.Is(err, errTrashQuota):
+						//The client recognises this error code and offers to
+						//empty the bin, delete outright, or do nothing
 						utils.SendErrorResponse(w, "TRASH_QUOTA_EXCEEDED")
-						return
-					}
-				}
-
-				//Mirror the folders it was removed from inside the .trash folder of this root
-				removeTime := time.Now().Unix()
-				trashPath, err := srcFshAbs.VirtualPathToRealPath(system_fs_trashSubpathOf(subpath, removeTime), userinfo.Username)
-				for err == nil && srcFshAbs.FileExists(trashPath) {
-					//Another item of the same name was removed from there within this second
-					removeTime++
-					trashPath, err = srcFshAbs.VirtualPathToRealPath(system_fs_trashSubpathOf(subpath, removeTime), userinfo.Username)
-				}
-				trashRoot, rootErr := srcFshAbs.VirtualPathToRealPath(trashFolderSubpath, userinfo.Username)
-				if err != nil || rootErr != nil {
-					utils.SendErrorResponse(w, "Failed to move file to trash")
-					return
-				}
-				srcFshAbs.MkdirAll(path.Dir(filepath.ToSlash(trashPath)), 0755)
-				hidden.HideFile(trashRoot)
-				err = srcFshAbs.Rename(rsrcFile, trashPath)
-				if err != nil {
-					//Do not leave the folders made for it behind
-					system_fs_pruneTrashParents(srcFsh, userinfo.Username, path.Dir(filepath.ToSlash(trashPath)))
-					if srcFsh.RequireBuffer {
+					case errors.Is(err, errTrashIncompatible):
 						utils.SendErrorResponse(w, "Incompatible File System Type: Try SHIFT + DELETE to delete file permanently")
-					} else {
-						systemWideLogger.PrintAndLog("File System", "Failed to move file to trash. See log for more info.", err)
+					default:
 						utils.SendErrorResponse(w, "Failed to move file to trash")
 					}
 					return

@@ -488,10 +488,12 @@ func FileServerInit() {
 			ConnInstrPage:     "SystemAO/disk/instr/samba.html",
 			ConfigPage:        "SystemAO/disk/samba.html",
 			EnableCheck:       SambaShareManager.IsEnabled,
-			ToggleFunc:        SambaShareManager.ServerToggle,
+			ToggleFunc:        sambaToggle,
 			GetEndpoints:      SambaShareManager.GetEndpoints,
 		})
 	}
+
+	SMBServerInit(router, adminRouter) //See smbserver.go
 
 	router.HandleFunc("/system/network/server/list", NetworkHandleGetFileServerServiceList)
 	router.HandleFunc("/system/network/server/endpoints", NetworkHandleGetFileServerEndpoints)

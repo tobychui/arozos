@@ -42,6 +42,9 @@ func executeShutdownSequence() {
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down cluster agent", nil)
 	ClusterShutdown()
 
+	//Shutdown the SMB server before the drives it serves
+	SMBServerShutdown()
+
 	//Shutdown authAgent
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down auth gateway", nil)
 	authAgent.Close()

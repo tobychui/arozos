@@ -1,6 +1,11 @@
 # Built-in SMB server: proposal
 
-Status: proposal, nothing built. Surveyed 2026-11-07 on branch `v3.0.5`.
+Status: Phases 1 to 5 are built on branch `v3.0.5_smb` and passed Windows 11
+24H2 sessions, smbclient, go-smb2 and the macOS client. Only the durable handle
+reconnect has not been exercised by Windows yet (section 14). Phase 6 is built
+and passed smbclient, the macOS client and a Windows session (section 15). Section 13 records what real
+Windows sessions changed in this plan, section 14 what Phases 4 and 5 found.
+Surveyed 2026-11-07.
 
 ## 1. Verdict
 
@@ -26,10 +31,11 @@ Two limits cannot be engineered away:
    every standalone NAS, Samba included, so moving to a built-in server does
    not make it worse. See section 7.
 
-**How far the evidence goes:** nothing was prototyped. I read the source and
-documentation of these projects, but did not run them. The Windows results
-below are their own reports. This PC cannot run the test either (section 10).
-Phase 1 is therefore the real proof, and it ends in a go/no-go gate.
+**How far the evidence goes:** the survey read the source and documentation of
+these projects without running them, so the Windows results below are their own
+reports. Windows 11 24H2 has since been tested against Samba on the Mac host
+(section 13), and a real login from that session replays correctly through the
+new code. Windows against the built-in server is the Phase 1 gate.
 
 ## 2. What exists today
 
@@ -63,12 +69,15 @@ dialect with large reads and writes.
 | `VALIDATE_NEGOTIATE_INFO` | Downgrade check for 3.0 and 3.0.2 clients | Client drops the connection |
 | File and volume info classes | Explorer reads many; layouts must be exact | Odd errors, wrong sizes |
 | `IPC$` with srvsvc over DCE/RPC | How `\\host` lists its shares | Only full `\\host\share` paths work |
+| lsarpc and dssetup over DCE/RPC | The Security tab turns SIDs into names with them | Raw SIDs instead of names |
 | Security descriptors | The Properties dialog asks for them | Properties errors; can be synthesized |
+| `MxAc` and `QFid` create contexts | Windows asks on most opens, and `MxAc` is how it learns what the user may do | Wrong or missing menu items |
 | `CHANGE_NOTIFY` | Live refresh of open folders | Folders refresh less often, otherwise fine |
 | WS-Discovery | The Network view; NetBIOS browsing is gone | Not listed; typing the address still works |
 
 Not needed: SMB1, NetBIOS ports 137 to 139, multichannel, RDMA, DFS,
-compression, persistent handles, printers.
+compression, persistent handles, printers. Windows may still ask for a DFS
+referral, which is answered with `STATUS_NOT_FOUND`.
 
 ## 4. Survey of Go SMB servers
 
@@ -143,8 +152,9 @@ src/mod/storage/smbserver/
     wire/                headers, commands, info classes, status codes
     auth/                SPNEGO and NTLMv2 (Kerberos later)
     crypt/               key derivation, CMAC, GMAC, CCM, GCM, preauth hash
-    rpc/                 DCE/RPC and NDR for srvsvc and wkssvc
-    state/               sessions, trees, opens, share modes, locks, oplocks, notify
+    rpc/                 DCE/RPC and NDR for srvsvc, lsarpc and dssetup
+    state/               share modes, pending deletes, byte-range locks
+    capture.go           opt in pcap and trace log, works with no root on any host
     backend.go           the small interface the core calls
     aroz/                that interface over *user.User and FileSystemHandler
 src/mod/fileservers/servers/smbserv/   fileservers.Server glue, settings, activation
@@ -295,7 +305,7 @@ working on a local KDC with IAKerb, and that is the path to follow (Phase 7).
 | Linux as root (the installer's service) | Works | Full |
 | Linux without root | Needs `cap_net_bind_service`, or systemd `AmbientCapabilities` | Full |
 | Linux with Samba running | Taken by smbd | Only one can run; the settings page says why |
-| macOS | Needs File Sharing off | Full (not tested in this survey) |
+| macOS | Needs File Sharing off, and a normal user can bind it on all addresses but not on one | Full, tested |
 | Windows | **Held by the kernel** | Alternate port only: Windows 11 24H2+ or Server 2025 clients, mapped by an admin with `New-SmbMapping -TcpPort`; no `\\host` browsing |
 
 The server stays pure Go and builds for every Makefile target, with a
@@ -326,8 +336,8 @@ Phases 0 to 3 are the first usable release, at about 6 to 8 weeks.
 
 ### Phase 0: test rig and foundations
 
-- Set up a Linux host and Windows 10 and Windows 11 24H2+ clients (section 10).
-- Capture real sessions in Wireshark to use as codec fixtures.
+- Set up the Mac host and Windows 11 24H2 client (section 10).
+- Capture real sessions to use as codec fixtures.
 - Build the `wire` codec and NTLMv2 against the MS-NLMP test vectors.
 - Measure CMAC, GMAC and GCM speed on a Raspberry Pi class board.
 
@@ -340,12 +350,12 @@ Phases 0 to 3 are the first usable release, at about 6 to 8 weeks.
 - Compound requests, credits, multi-credit I/O, and a concurrent connection
   design with one writer goroutine.
 - Tree connect, create, close, read, query directory, query info, `IPC$`,
-  srvsvc and wkssvc, and `CHANGE_NOTIFY` that pends and cancels cleanly.
+  srvsvc, lsarpc and dssetup, and `CHANGE_NOTIFY` that pends and cancels cleanly.
 - Local drives and `share:/`, with passwords set by a temporary admin command.
 
-**Done when** both Windows clients, against a Linux host on port 445, list
-`\\host`, browse, open Properties, and copy out 10 GB with matching hashes, and
-a wrong password is refused and logged. **If this is not reached, revisit the
+**Done when** Windows 11 24H2, against a host on port 445, lists `\\host`,
+browses, opens Properties, and copies out 10 GB with matching hashes, and a wrong
+password is refused and logged. Windows 10 and a Linux host follow before release. **If this is not reached, revisit the
 fork fallback before going on.**
 
 ### Phase 2: writes that real applications trust
@@ -380,6 +390,17 @@ terminal use. The Samba wrapper stays available.
 **Done when** Explorer can read, edit and save on each drive type, and a failed
 upload is reported and loses no data.
 
+Built: WebDAV, FTP and S3 files are staged (`aroz/staged.go`): the download runs
+in the background and a read is answered as soon as its range arrived, writes
+wait for the whole copy, and the upload happens at CLOSE, whose status reports
+a failure. A failed upload's copy is moved to `system/smb/failed/`, because the
+tmp folder is emptied at boot. Admins set the largest staged file (System
+Settings > File Servers, 4096 MB by default, 0 for none). Any request still
+running after a second gets an interim `STATUS_PENDING`. SFTP and SMB drives
+have real file handles and need no staging. Verified against real WebDAV, FTP,
+SFTP and Samba servers; cluster and S3 only through a fake buffered drive. The
+optional cluster NTLM verify over ACN was left out.
+
 ### Phase 5: speed and resilience
 
 - Oplocks and leases, **with breaks working first**.
@@ -391,12 +412,20 @@ upload is reported and loses no data.
 **Done when** the TCP cut tests pass during a copy, encrypted sessions pass the
 Phase 2 set, and throughput is within an agreed range of Samba on the same box.
 
+Built: leases (V1 and V2, R/RH/RW/RWH, breaks that wait for the holder's answer
+for at most 35 seconds), durable handles V2 on top of handle caching leases,
+AES-128/256 GCM and CCM encryption with one server wide "require encryption"
+switch instead of a per share one, server side copy (`FSCTL_SRV_COPYCHUNK` and
+`_WRITE`) and `CHANGE_NOTIFY`. See section 14 for how each one behaves.
+
 ### Phase 6: reach and extras
 
 - WS-Discovery responder (UDP 3702, TCP 5357) for the Network view, and
   `_smb._tcp` through `mod/network/mdns`.
 - macOS and iOS: named streams and the Apple extensions.
 - Previous Versions backed by `localversion`, and deletes into ArozOS trash.
+
+Built, except the Apple create context (`AAPL`): see section 15.
 
 ### Phase 7: after NTLM
 
@@ -406,26 +435,37 @@ Phase 2 set, and throughput is within an agreed range of Samba on the same box.
 
 ## 10. Testing
 
-**This PC cannot test Explorer against a local server.** Windows owns 445 here,
-build 19045 has no alternate port client, and WSL has no distribution. Needed:
+**A Windows host cannot test Explorer against a local server**, because Windows
+owns 445, so development moved to a Mac. A normal user can hold port 445 there,
+and a Windows 11 24H2 laptop on the network reaches it, which is the strict
+client the signing defaults are about.
 
-- a Linux machine or VM with its own IP address, so that Explorer reaches a real
-  445. A Raspberry Pi, or a Hyper-V or VirtualBox guest on this PC, would do;
-- a Windows 11 24H2+ client as well as this Windows 10 one, because the signing
-  and guest defaults differ.
+The Mac differs from the main Linux target in ways a test has to allow for:
+
+- Its system disk ignores case, which hides the case folding code. Use a
+  case sensitive APFS volume as a test drive (`hdiutil` needs no root).
+- `tcpdump` needs root, so capture happens inside the server (`-smb_capture`).
+- `smbtorture` and the Linux `cifs` mount are not available, so they stay in CI.
+- Speed on small boards still needs a real board.
+
+Still needed before release: a Windows 10 client, a Linux host, and CI.
 
 | Layer | Tool | Runs |
 |---|---|---|
 | Unit | Go tests, MS-NLMP and signing vectors, fuzzing | Every push |
 | Integration | `hirochachacha/go-smb2`, already in `go.mod` | Every push |
-| Real clients | `smbclient` and a Linux `cifs` mount | CI |
+| Real clients | `smbclient`, `rpcclient` and the macOS kernel client, every dialect and signing algorithm; Wireshark as a second reader of the RPC replies | Every push where installed |
+| Real clients | A Linux `cifs` mount | CI |
 | Windows | `net use /TCPPORT` on a Windows Server 2025 runner, as softwarity does | CI |
 | Windows on 445 | Explorer, Office and `robocopy` against the Linux host | Each phase |
 | Conformance | `smbtorture`, Microsoft's MIT-licensed WindowsProtocolTestSuites | Phase 2 onward |
 | Resilience | Cut TCP during copies, large file hashes | Phase 5 |
 
-Also build a small logging proxy early. Windows reports defects as vague errors
-long after the cause, so a trace of each command and status saves a lot of time.
+Windows reports defects as vague errors long after the cause, so the server can
+write a pcap and a trace of each command and status (`capture.go`). It needs no
+root and works on every host. File contents are cut from it, and every NTLM
+AUTHENTICATE is blanked: Windows sends one derived from the signed in user's real
+password before it ever shows a login box, so a capture must never keep them.
 
 ## 11. Risks
 
@@ -442,14 +482,187 @@ long after the cause, so a trace of each command and status saves a lot of time.
 
 ## 12. Decisions needed
 
-1. **Approach:** write it in the tree (recommended), or fork a library?
+1. **Approach:** write it in the tree (recommended), or fork a library?  
+=> in tree
 2. **Passwords:** a dedicated SMB password (recommended), or reuse the login
    password and hook every password change?
+=> Ask the user for new password on SMB server enable on their account
 3. **Samba wrapper:** keep it until the built-in server has proven itself
    (recommended), or replace it at Phase 3?
+   => recommend method
 4. **Windows hosts:** accept alternate port only (recommended)?
+=> yes
 5. **First target:** Phases 0 to 3 as the first release (recommended)?
+=> yes, do it in one go
 6. **Test hardware:** which Linux box and Windows 11 24H2+ client can Phase 0 use?
+=> I have switched over to a mac machine, try it here?
+
+## 13. What a real Windows session showed
+
+A Windows 11 24H2 laptop (build 26100) used a Samba share on the Mac through a
+capture proxy, on 2026-11-07. It confirmed the opening with SMB1, the signing
+rules and the compound and `CHANGE_NOTIFY` behaviour, and added these:
+
+| Seen | Consequence |
+|---|---|
+| The Security tab calls lsarpc (`lsa_OpenPolicy3`, `lsa_LookupSids2`, `lsa_QueryInfoPolicy`) and dssetup, and `samr` for full names | Built lsarpc and dssetup. `samr` is left out: the tab still showed `alice (AROZTEST\alice)` without it |
+| Office opens `wkssvc`, though Explorer does not | Built `NetWkstaGetInfo` |
+| Identities in a descriptor need names and must stay stable | A machine SID and user SIDs are derived from the install's id, with nothing extra to store |
+| Most opens carry `MxAc`, `QFid`, lease and durable handle requests | `MxAc` and `QFid` are answered. Leases and durable handles were declined by omission until Phase 5 |
+| Directory class 81 is tried first, in a compound pair, then class 37 | `STATUS_INVALID_INFO_CLASS` for any class not implemented |
+| Object id calls come for shortcuts and recent files, whether a volume claims them or not | Answered with an id worked out from the file, nothing stored |
+| Windows asks for only the credits a read costs, and expects the server to add more | Credits follow Samba: what was spent plus the request minus one. Repaying only what was spent left one read in flight, 20 MiB/s on a 33 ms link |
+| Word writes through one handle and renames through another | A rename reaches every handle of the file |
+| `sample.bin:Zone.Identifier` is opened even with streams not advertised | Refused with `STATUS_OBJECT_NAME_INVALID` |
+| Interim `STATUS_PENDING` responses are unsigned, even inside a signed compound | Same here |
+| The login carries a `mechListMIC` and expects one back | Implemented, not skipped |
+
+Fixed against that capture before Windows ever touched the server: a replay of
+the real login through the new code verifies the NTLMv2 response, MIC and
+`mechListMIC`, produces a final token byte identical to Samba's, and derives a
+key that verifies every signed message of the session. All 752 Windows requests
+in it parse. The capture itself stays out of the repository: it holds the
+laptop's name and file contents.
+
+Open from the Windows tests: Word 2007 hung on closing a document it had saved
+(`AppHangB1`, 50 seconds of SMB silence, the document intact). Every request was
+answered and the connection stayed up, and an `.odt` retest worked, so it is
+treated as an old Word problem for now. `CHANGE_NOTIFY` requests did not
+complete then; since Phase 5 they do, and the 2026-11-08 session saved and
+closed a Word 2007 document with no hang.
+
+Users need System Settings access to reach the activation page, as with every
+file server. The `default` group of a fresh install does not have it.
+
+## 14. What Phases 4 and 5 built and found
+
+Tested on the Mac against real WebDAV (`x/net/webdav`), FTP (`ftpserverlib`),
+SFTP (`pkg/sftp`) and Samba servers mounted as ArozOS drives, and with
+smbclient 4.25, go-smb2 and the macOS SMB client as clients.
+
+| Found | Done |
+|---|---|
+| The WebDAV drive reported a missing file as a bare HTTP 404, so nothing could tell "not found" from a failure | `webdavfs` maps 404/410 to `fs.ErrNotExist` and 401/403 to `fs.ErrPermission` |
+| The FTP drive had no `Stat` at all, and `FileExists` and `IsDir` failed on servers without MLST | `ftpfs.Stat` uses MLST and falls back to listing the parent; 550 maps to not found |
+| `ftpfs.ReadStream` quit the FTP connection before the caller read the data | The connection now closes with the stream |
+| WebDAV and FTP cannot set file times, and Explorer sets them at the end of every copy | A time change those drives cannot make is accepted and ignored |
+| The CLOSE post query answered with the size from before a staged upload | It is asked after the close |
+| A CREATE cancelled after it went async still opened the file, and nobody would close it | The open is closed when its answer cannot be delivered |
+| A handle being written on a staged drive reported the drive's old size | `PendingFile` lets the handle report its own |
+| macOS asks for a resume key on the share root to learn whether server side copy exists | Any handle gets a key; copying from a folder fails later |
+| macOS asks for leases (RH and RWH) and durable handles on nearly every open | Granted on local drives; macOS answered breaks within milliseconds and reread data changed by another client or on disk |
+| macOS writes `._name` AppleDouble files for metadata, as with any server without named streams | Left as is; named streams are Phase 6 |
+| Homebrew Samba on macOS created folders with mode 000 for the SMB drive test | A test rig setting (`nt acl support = no`), not an ArozOS problem |
+
+How the Phase 5 parts behave:
+
+- **Leases** are only granted on drives the server can check often (local
+  ones), because changes made around the server, through the File Manager or
+  on the host, cannot be broken in advance. A validator compares the size and
+  time of every R-leased file every 3 seconds and breaks the lease when they
+  changed without this server doing it. W is only granted while nobody else
+  has the file open. Another open breaks W, and H when a cached handle's share
+  mode would refuse it; an overwrite breaks everything; a write breaks R;
+  rename and delete break H. Attribute-only opens break nothing, or Explorer
+  would break every lease it walks past. Breaks of W or H wait for the client's
+  answer (or the timeout); breaks of R alone do not wait.
+- **Durable handles** are granted only with an H lease. A connection that dies
+  keeps them for the requested timeout (60 seconds by default, 5 minutes at
+  most); logoff, revoked access and an open needing the lease close them.
+  `PreviousSessionId` drops a session the server had not noticed was dead.
+- **Encryption** is negotiated whenever the client offers it. With "require
+  encryption" on, clients without it are refused at login and plain requests
+  on an encrypted session get `STATUS_ACCESS_DENIED`. CCM is written in
+  `crypt/encrypt.go` and checked against NIST SP 800-38C and RFC 3610 vectors.
+  Captures keep the decrypted messages.
+- **CHANGE_NOTIFY** reports this server's own changes at once to every client
+  watching, and finds changes made around it by listing watched folders on
+  local drives every 3 seconds. Changes while no request waits are queued,
+  and too many become `STATUS_NOTIFY_ENUM_DIR`.
+- **Server side copy** follows the Windows server limits (256 chunks, 1 MiB
+  each, 16 MiB per request) and runs each chunk through the same access, lock
+  and quota checks as a READ and a WRITE.
+
+The Windows 11 session of 2026-11-08 confirmed it on the real client:
+
+- Copy and paste of a 500 MB file within a share used `FSCTL_SRV_COPYCHUNK`
+  (30 requests, nothing over the network) and finished at once. Windows first
+  tries `FSCTL_OFFLOAD_READ` and `FSCTL_QUERY_FILE_REGIONS`; both are refused
+  with `STATUS_INVALID_DEVICE_REQUEST` and it falls back by itself.
+- Explorer asked for RWH leases and durable handles on its opens and got them.
+- Files created, renamed and deleted from the File Manager showed up in an open
+  Explorer window without a refresh.
+- With "require encryption" on, Explorer reconnected by itself, negotiated
+  AES-128-GCM and copied the 500 MB file.
+- A 15 second Wi-Fi drop did not end the TCP connection, so the durable
+  reconnect path (`DH2C`) is still only tested by `lease_test.go`. Sleeping the
+  laptop for a few minutes with a document open would exercise it.
+
+Throughput on the Mac's loopback with smbclient and a 300 MB file: about
+1.9 GB/s up and down, as Samba on the same machine; about 1.7 GB/s encrypted,
+Samba 1.5 to 1.7 GB/s.
+
+## 15. What Phase 6 built and found
+
+- **Network view.** `mod/network/wsd` answers WS-Discovery Probe and Resolve
+  on UDP 3702, says Hello and Bye, and serves the device metadata Windows asks
+  for on TCP 5357 (`AROZTEST/Workgroup:WORKGROUP`). Windows then opens
+  `\\AROZTEST`, which it can only find through LLMNR when no DNS server knows
+  the name, so the package also answers LLMNR (UDP 5355) for that one name. It
+  runs only on port 445, which is all the Network view knows, and never on a
+  Windows host, which announces itself. A port another program holds (wsdd,
+  systemd-resolved) is logged and left out. Checked with real multicast
+  queries on the Mac's LAN interface; the Network view itself still needs
+  Windows.
+- **macOS Finder.** `_smb._tcp` and `_device-info._tcp` (model `RackMac`, for
+  the icon) through zeroconf, which works beside mDNSResponder. Seen by
+  `dns-sd -B`. Follows `-allow_mdns`. Both announcements share one admin
+  switch, "Show this server on the network", on by default.
+- **Trash.** With "Deleted files go to the trash bin" on (off by default, as
+  with Samba and as Windows expects of a network drive), deleted files move
+  into the drive's `.trash` the way the File Manager does it, through one
+  shared `system_fs_moveToTrash`. Only files go there: Explorer deletes a
+  folder's content first, so files arrive one by one under their old folders,
+  and emptied folders are deleted for good, as Samba's recycle module does.
+  Office, LibreOffice, macOS and Explorer helper files (`~$*`, `*.tmp`, `._*`,
+  `Thumbs.db` and the like) skip the bin, and a full bin deletes for good,
+  because an SMB client cannot be asked what to do instead.
+- **Previous Versions.** The snapshots the File Manager takes
+  (`.metadata/.localver/<local time>/<file>`) are listed by
+  `FSCTL_SRV_ENUMERATE_SNAPSHOTS` as `@GMT` tokens and opened by the `TWrp`
+  create context or an `@GMT` path component, read only. The core only knows
+  the `SnapshotShare` interface; the layout is the backend's. smbclient read an
+  old version back by its token and was refused writing to it.
+- **Named streams.** Kept as files in `.metadata/.streams/<file>/`, escaped,
+  and moved or deleted with their file over SMB. The drive root's own streams
+  live in `.metadata/.rootstreams/`, outside `.streams`, so no file name can
+  share them; a rename over a file drops the replaced file's streams. The core passes a stream to
+  the backend as `path + NUL + name`, because a colon can be part of a file
+  name (mapped from the private range) or of a macOS attribute name. With
+  `FILE_NAMED_STREAMS` claimed, macOS stores its extended attributes, Finder
+  info and tags as streams and stops writing `._` files; `xattr -w`, `cp -p`
+  and `mv` kept them. Windows keeps `Zone.Identifier` on downloads. Changes
+  made through the File Manager leave streams behind.
+- **`.metadata` is left out of listings.** Once streams put it in many
+  folders, `rm -rf` and Explorer tried to delete it with its folder and were
+  refused, so the folder never emptied. It is now unlisted (paths into it
+  still work), a folder holding nothing else counts as empty, and it is
+  deleted with its folder.
+- **Left out: `AAPL`.** Named streams were what stopped the `._` files. The
+  rest of the Apple context, directory listings packed with Finder info and
+  resource fork sizes, server side copy of metadata and Time Machine, is
+  intricate, could only be checked against this Mac's client, and is not
+  needed for the goal. smbclient's `allinfo` stops at the 8.3 short name query,
+  which this server answers "not found" as NTFS does with short names off.
+
+A Windows session on 2026-11-08 confirmed it: `AROZTEST` showed up in the
+Network view and opened with a double click; the Previous Versions tab listed
+the snapshot, opened it and restored it; a file deleted in Explorer came back
+from the web desktop's trash bin; downloads copied into the share kept their
+`Zone.Identifier`; and a folder with files in it was deleted whole. Windows
+also asks `FSCTL_PIPE_WAIT` before opening named pipes, which this server
+refuses with `STATUS_INVALID_DEVICE_REQUEST`; nothing visible depends on it,
+and answering it is a small follow-up.
 
 ## Sources
 
