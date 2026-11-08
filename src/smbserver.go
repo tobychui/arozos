@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 	"unicode"
@@ -47,6 +48,12 @@ func netbiosName(host string) string {
 // SMBServerInit sets up the manager, its endpoints and its list entry. It runs
 // after the Samba wrapper, which it has to share port 445 with.
 func SMBServerInit(router, adminRouter *prout.RouterDef) {
+	//Windows keeps port 445 for its own file sharing, and only Windows 11 24H2
+	//and newer clients can reach another port, so on a Windows host the
+	//server, its settings and its endpoints are left out altogether
+	if runtime.GOOS == "windows" {
+		return
+	}
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = *host_name

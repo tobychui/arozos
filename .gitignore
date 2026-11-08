@@ -63,3 +63,4 @@ src/system/git/
 src/system/mail/
 src/system/cluster/
 src/system/cluster.db
+src/system/smb/secret.key
