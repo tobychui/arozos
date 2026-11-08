@@ -1,8 +1,8 @@
 # Built-in SMB server: proposal
 
-Status: Phases 1 to 5 are built on branch `v3.0.5_smb`. Phases 1 and 2 passed a
-Windows 11 24H2 test; Phases 3 to 5 passed smbclient, go-smb2 and the macOS
-client on the Mac and still need a Windows session. Section 13 records what real
+Status: Phases 1 to 5 are built on branch `v3.0.5_smb` and passed Windows 11
+24H2 sessions, smbclient, go-smb2 and the macOS client. Only the durable handle
+reconnect has not been exercised by Windows yet (section 14). Section 13 records what real
 Windows sessions changed in this plan, section 14 what Phases 4 and 5 found.
 Surveyed 2026-11-07.
 
@@ -525,7 +525,8 @@ Open from the Windows tests: Word 2007 hung on closing a document it had saved
 (`AppHangB1`, 50 seconds of SMB silence, the document intact). Every request was
 answered and the connection stayed up, and an `.odt` retest worked, so it is
 treated as an old Word problem for now. `CHANGE_NOTIFY` requests did not
-complete then; since Phase 5 they do, so retest Word 2007 before digging.
+complete then; since Phase 5 they do, and the 2026-11-08 session saved and
+closed a Word 2007 document with no hang.
 
 Users need System Settings access to reach the activation page, as with every
 file server. The `default` group of a fresh install does not have it.
@@ -578,6 +579,21 @@ How the Phase 5 parts behave:
 - **Server side copy** follows the Windows server limits (256 chunks, 1 MiB
   each, 16 MiB per request) and runs each chunk through the same access, lock
   and quota checks as a READ and a WRITE.
+
+The Windows 11 session of 2026-11-08 confirmed it on the real client:
+
+- Copy and paste of a 500 MB file within a share used `FSCTL_SRV_COPYCHUNK`
+  (30 requests, nothing over the network) and finished at once. Windows first
+  tries `FSCTL_OFFLOAD_READ` and `FSCTL_QUERY_FILE_REGIONS`; both are refused
+  with `STATUS_INVALID_DEVICE_REQUEST` and it falls back by itself.
+- Explorer asked for RWH leases and durable handles on its opens and got them.
+- Files created, renamed and deleted from the File Manager showed up in an open
+  Explorer window without a refresh.
+- With "require encryption" on, Explorer reconnected by itself, negotiated
+  AES-128-GCM and copied the 500 MB file.
+- A 15 second Wi-Fi drop did not end the TCP connection, so the durable
+  reconnect path (`DH2C`) is still only tested by `lease_test.go`. Sleeping the
+  laptop for a few minutes with a document open would exercise it.
 
 Throughput on the Mac's loopback with smbclient and a 300 MB file: about
 1.9 GB/s up and down, as Samba on the same machine; about 1.7 GB/s encrypted,
