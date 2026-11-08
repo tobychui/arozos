@@ -62,6 +62,7 @@ type open struct {
 	createGUID     [16]byte
 	owner          string      //Who may take the handle back
 	detachTimer    *time.Timer //Guarded by the durable table
+	detachCount    uint64      //Guarded by the durable table, tells detaches apart
 }
 
 // getPath returns where the file is now. It lives in the shared table, so that

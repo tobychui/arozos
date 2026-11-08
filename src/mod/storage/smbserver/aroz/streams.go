@@ -16,24 +16,28 @@ import (
 
 		docs/report.docx:Zone.Identifier -> docs/.metadata/.streams/report.docx/Zone.Identifier
 		docs:AFP_AfpInfo                 -> .metadata/.streams/docs/AFP_AfpInfo
-		(the drive root):AFP_AfpInfo     -> .metadata/.streams/.root/AFP_AfpInfo
+		(the drive root):AFP_AfpInfo     -> .metadata/.rootstreams/AFP_AfpInfo
 
 	so they work on every drive type, need no extended attributes from the
 	file system, and live in the folder ArozOS keeps its own data in. Stream
 	names are escaped for the disk, as they may hold characters a file name
 	cannot. A file renamed or deleted over SMB takes its streams along;
 	changes made through the File Manager leave them behind.
+
+	The root has a folder of its own beside .streams, not a name inside it:
+	every name in .streams may be a real file's, so any name chosen for the
+	root there would be shared with a file of that name.
 */
 
 const (
 	streamFolder = ".metadata/.streams"
-	rootStreams  = ".root"
+	rootStreams  = ".metadata/.rootstreams"
 )
 
 // streamDir is where the streams of a file or folder are kept.
 func streamDir(base string) string {
 	if base == "" {
-		return joinShare(streamFolder, rootStreams)
+		return rootStreams
 	}
 	dir, name := path.Split(base)
 	return joinShare(dir, streamFolder, name)
@@ -132,22 +136,24 @@ func (s *share) dropStreams(p string) {
 	}
 }
 
-// moveStreams takes a renamed file's streams to its new name.
+// moveStreams takes a renamed file's streams to its new name. Whatever was
+// kept for the new name goes first, even when the file brings none: they
+// belong to the file the rename replaced, or to one deleted outside SMB.
 func (s *share) moveStreams(oldPath, newPath string) {
 	from, err := s.real(streamDir(oldPath))
 	if err != nil {
-		return
-	}
-	fsa := s.fsh.FileSystemAbstraction
-	if !fsa.FileExists(from) {
 		return
 	}
 	to, err := s.real(streamDir(newPath))
 	if err != nil {
 		return
 	}
+	fsa := s.fsh.FileSystemAbstraction
 	if fsa.FileExists(to) {
 		fsa.RemoveAll(to)
+	}
+	if !fsa.FileExists(from) {
+		return
 	}
 	if parent, err := s.real(path.Dir(streamDir(newPath))); err == nil {
 		fsa.MkdirAll(parent, 0775)

@@ -238,6 +238,44 @@ func TestServerSideCopyAcrossSessions(t *testing.T) {
 	}
 }
 
+// A copy on one connection can find its source just before the source's own
+// connection dies and detaches it, which leaves it without a session.
+func TestServerSideCopyFromADetachedSource(t *testing.T) {
+	h := leaseHarness(t)
+	os.WriteFile(filepath.Join(h.share.root, "src.bin"), []byte("0123456789"), 0644)
+	a := newRawClient(t, h)
+	src := leaseCreate(t, a, "src.bin", openAllShare, leaseV2(1, rwh, 0), durableV2(7, 0))
+	if src.status != 0 || !src.durable {
+		t.Fatalf("durable grant: %+v", src)
+	}
+	key := resumeKeyOf(t, a, src.id)
+	var k resumeKey
+	copy(k[:], key)
+	o := h.srv.resume.find(k)
+	if o == nil {
+		t.Fatal("no open behind the key")
+	}
+
+	//The moment between the lookup of the key and its drop by the detach
+	h.srv.durables.mu.Lock()
+	conn, sess := o.conn, o.sess
+	o.conn, o.sess = nil, nil
+	h.srv.durables.mu.Unlock()
+
+	b := newRawClient(t, h)
+	dst := mustCreate(t, b, "dst.bin", openRW)
+	if got := serverCopy(t, b, dst, wire.FsctlSrvCopyChunkWrite, key, []chunk{{0, 0, 10}}); got.status != wire.StatusObjectNameNotFound {
+		t.Errorf("copy from a detached source: %x", got.status)
+	}
+
+	h.srv.durables.mu.Lock()
+	o.conn, o.sess = conn, sess
+	h.srv.durables.mu.Unlock()
+	if got := serverCopy(t, b, dst, wire.FsctlSrvCopyChunkWrite, key, []chunk{{0, 0, 10}}); got.status != 0 {
+		t.Errorf("copy from the attached source: %x", got.status)
+	}
+}
+
 func TestResumeKeyOnAFolder(t *testing.T) {
 	h := newHarness(t)
 	c := newRawClient(t, h)

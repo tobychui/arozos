@@ -93,11 +93,34 @@ func (s *Server) detach(o *open) {
 	s.durables.mu.Lock()
 	o.conn = nil
 	o.sess = nil //Both under this lock, read together by connOf
+	o.detachCount++
+	detach := o.detachCount
 	o.detachTimer = time.AfterFunc(o.durableTimeout, func() {
+		if !s.expireDetached(o, detach) {
+			return
+		}
 		logger.PrintAndLog(logTitle, "Nobody came back for "+o.getPath()+", the durable handle was closed", nil)
 		s.closeOpen(o)
 	})
 	s.durables.mu.Unlock()
+}
+
+// expireDetached removes a durable open whose time ran out from the table,
+// so that no reconnect can find it any more. Stopping a timer does not stop a
+// callback that has already started, so the callback asks here first: false
+// means the client took the handle back in time, or it was detached again
+// since and that later timer decides.
+func (s *Server) expireDetached(o *open, detach uint64) bool {
+	s.durables.mu.Lock()
+	defer s.durables.mu.Unlock()
+	if o.conn != nil || o.detachCount != detach {
+		return false
+	}
+	if s.durables.opens[persistentID(o.id)] == o {
+		delete(s.durables.opens, persistentID(o.id))
+	}
+	o.detachTimer = nil
+	return true
 }
 
 // forgetDurable drops an open from the table as it closes.
@@ -120,6 +143,9 @@ func (s *Server) forgetDurable(o *open) {
 func (s *Server) purgeDurable(o *open) {
 	if o.durable {
 		logger.PrintAndLog(logTitle, "Closed the durable handle of "+o.getPath()+" while its client was away: another client needs the file", nil)
+		//Out of the table now, not when the close gets to it, so a client
+		//coming back meanwhile is refused instead of handed a closing file
+		s.forgetDurable(o)
 	}
 	go s.closeOpen(o)
 }
@@ -164,6 +190,8 @@ func (c *conn) reconnectDurable(r *request, q *wire.CreateRequest, data []byte) 
 		return errorResponse(status)
 	}
 	if o.detachTimer != nil {
+		//A callback that already started finds the handle attached in
+		//expireDetached and leaves it alone
 		o.detachTimer.Stop()
 		o.detachTimer = nil
 	}

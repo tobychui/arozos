@@ -573,6 +573,57 @@ func TestDurableHandleTimesOut(t *testing.T) {
 	}
 }
 
+// The timeout fires while a reconnect holds the table: Stop cannot cancel the
+// callback, which then runs after the handle was taken back.
+func TestExpiryThatLosesToAReconnect(t *testing.T) {
+	h := leaseHarness(t)
+	a := newRawClient(t, h)
+	got := leaseCreate(t, a, "doc.txt", openAllShare, leaseV2(1, rwh, 0), durableV2(7, 0))
+	a.call(wire.CmdWrite, writeBodyOf(got.id, 0, []byte("unsaved work")))
+	a.nc.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	h.srv.durables.mu.Lock()
+	o := h.srv.durables.opens[persistentID(got.id)]
+	var detach uint64
+	if o != nil {
+		detach = o.detachCount
+	}
+	h.srv.durables.mu.Unlock()
+	if o == nil {
+		t.Fatal("the durable open is not in the table")
+	}
+
+	back := newRawClient(t, h)
+	again := leaseCreate(t, back, "doc.txt", openAllShare, leaseV2(1, rwh, 0), durableReconnect(got.id, 7))
+	if again.status != 0 {
+		t.Fatalf("reconnect: %+v", again)
+	}
+	//The late callback
+	if h.srv.expireDetached(o, detach) {
+		t.Fatal("an expiry must not take a handle its client took back")
+	}
+	r := back.call(wire.CmdRead, readBodyOf(again.id, 0, 12))
+	if r.hdr.Status != 0 || string(r.body[16:28]) != "unsaved work" {
+		t.Errorf("read after the late expiry: %x", r.hdr.Status)
+	}
+
+	//A timer of an earlier detach must not close a later one early
+	back.nc.Close()
+	time.Sleep(100 * time.Millisecond)
+	if h.srv.expireDetached(o, detach) {
+		t.Error("a stale timer expired the handle")
+	}
+	if !h.srv.expireDetached(o, detach+1) {
+		t.Error("the current timer must expire the handle")
+	}
+	late := newRawClient(t, h)
+	if r := leaseCreate(t, late, "doc.txt", openAllShare, leaseV2(1, rwh, 0), durableReconnect(got.id, 7)); r.status != wire.StatusObjectNameNotFound {
+		t.Errorf("reconnect to an expired handle: %x", r.status)
+	}
+	h.srv.closeOpen(o)
+}
+
 func TestLogoffClosesDurableHandles(t *testing.T) {
 	h := leaseHarness(t)
 	a := newRawClient(t, h)

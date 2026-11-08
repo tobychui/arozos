@@ -356,24 +356,52 @@ func (n *ntlm) serverMIC(mechList []byte) []byte {
 	return mac(n.serverSign, n.serverSeal, n.flags&flagKeyExchange != 0, 0, mechList)
 }
 
+var authenticateSignature = []byte("NTLMSSP\x00\x03\x00\x00\x00")
+
+// HoldsAuthenticate reports whether a frame carries an AUTHENTICATE_MESSAGE,
+// so that a recorder only copies the frames it has to redact.
+func HoldsAuthenticate(frame []byte) bool {
+	return bytes.Contains(frame, authenticateSignature)
+}
+
 // RedactAuthenticate blanks everything a password could be attacked from in a
 // recorded AUTHENTICATE_MESSAGE, in place. Windows sends one for the signed
-// in user unprompted, so a capture must never keep them.
+// in user unprompted, so a capture must never keep them. Pass the whole
+// message: a cut one is blanked as far as it goes, but redacting before the
+// cut is what guarantees nothing is missed.
 func RedactAuthenticate(frame []byte) {
 	for {
-		at := bytes.Index(frame, []byte("NTLMSSP\x00\x03\x00\x00\x00"))
+		at := bytes.Index(frame, authenticateSignature)
 		if at < 0 {
 			return
 		}
 		msg := frame[at:]
 		for _, offset := range []int{12, 20, 52} {
-			if value, err := field(msg, offset); err == nil {
-				clear(value)
-			}
+			redactField(msg, offset)
 		}
 		if len(msg) >= 88 {
 			clear(msg[72:88])
+		} else if len(msg) > 72 {
+			clear(msg[72:])
 		}
 		frame = msg[8:]
 	}
+}
+
+// redactField blanks the field described at msg[at:], and the part msg holds
+// of one that runs past its end, so no half of a response survives.
+func redactField(msg []byte, at int) {
+	if at+8 > len(msg) {
+		return
+	}
+	length := int(binary.LittleEndian.Uint16(msg[at:]))
+	offset := int(binary.LittleEndian.Uint32(msg[at+4:]))
+	if length == 0 || offset < 0 || offset >= len(msg) {
+		return
+	}
+	end := offset + length
+	if end > len(msg) {
+		end = len(msg)
+	}
+	clear(msg[offset:end])
 }

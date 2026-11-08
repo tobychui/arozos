@@ -149,17 +149,21 @@ func (c *capture) packet(s *captureStream, dir int, flags byte, data []byte) {
 
 // record writes one frame. Inbound means client to server.
 func (c *capture) record(conn *conn, inbound bool, frame []byte) {
-	//A copy is taken before redaction, the live frame must stay intact
-	kept := frame
-	if len(frame) > captureLargeMsg && !c.full {
-		kept = frame[:captureCut]
+	//Redaction works on a copy, the live frame must stay intact. It reads
+	//the whole message before any cut: a response field crossing the cut
+	//would no longer parse and its kept half would reach the file.
+	source := frame
+	if inbound && len(frame) >= wire.HeaderSize && wire.IsSMB2(frame) && auth.HoldsAuthenticate(frame) {
+		source = append([]byte(nil), frame...)
+		auth.RedactAuthenticate(source)
+	}
+	kept := source
+	if len(source) > captureLargeMsg && !c.full {
+		kept = source[:captureCut]
 	}
 	data := make([]byte, 4+len(kept))
 	data[1], data[2], data[3] = byte(len(kept)>>16), byte(len(kept)>>8), byte(len(kept))
 	copy(data[4:], kept)
-	if inbound && len(frame) >= wire.HeaderSize && wire.IsSMB2(frame) {
-		auth.RedactAuthenticate(data)
-	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

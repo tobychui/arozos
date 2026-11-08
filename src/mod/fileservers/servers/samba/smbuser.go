@@ -172,7 +172,10 @@ func parsePdbeditHashes(output string) map[string][]byte {
 	results := map[string][]byte{}
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Split(strings.TrimSpace(line), ":")
-		if len(fields) < 4 || fields[0] == "" {
+		if len(fields) < 5 || fields[0] == "" {
+			continue
+		}
+		if !accountCanLogIn(fields[4]) {
 			continue
 		}
 		//An account with no password has X characters or NO PASSWORD here
@@ -183,4 +186,18 @@ func parsePdbeditHashes(output string) map[string][]byte {
 		results[fields[0]] = hash
 	}
 	return results
+}
+
+// accountCanLogIn reads the account flags of an smbpasswd line, such as
+// "[U          ]". Only a normal user account Samba would let log in is taken
+// over: a disabled (D) or locked (L) account keeps its hash, and must not
+// come back to life on the built in server, and machine or trust accounts
+// (W, S, I) are not people. A field that cannot be read counts as refused.
+func accountCanLogIn(flags string) bool {
+	flags = strings.TrimSpace(flags)
+	if len(flags) < 2 || flags[0] != '[' || flags[len(flags)-1] != ']' {
+		return false
+	}
+	flags = flags[1 : len(flags)-1]
+	return strings.ContainsRune(flags, 'U') && !strings.ContainsAny(flags, "DLWSI")
 }

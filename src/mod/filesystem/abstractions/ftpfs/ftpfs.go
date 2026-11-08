@@ -136,8 +136,44 @@ func (l FTPFSAbstraction) Mkdir(filename string, mode os.FileMode) error {
 
 	return nil
 }
+
+// errNotDir is what MkdirAll meets where a file stands in the way.
+var errNotDir = errors.New("not a directory")
+
+// MkdirAll makes a folder and any missing parents. FTP has no such command,
+// so each level is made in turn; a folder that is already there is fine, as
+// with os.MkdirAll.
 func (l FTPFSAbstraction) MkdirAll(filename string, mode os.FileMode) error {
-	return l.Mkdir(filename, mode)
+	filename = filterFilepath(filename)
+	c, err := l.makeConn()
+	if err != nil {
+		return err
+	}
+	defer c.Quit()
+	return l.mkdirAllWith(c, filename)
+}
+
+func (l FTPFSAbstraction) mkdirAllWith(c *ftp.ServerConn, dir string) error {
+	if dir == "/" || dir == "." || dir == "" {
+		return nil
+	}
+	if info, err := l.statWith(c, dir); err == nil {
+		if info.IsDir() {
+			return nil
+		}
+		return &fs.PathError{Op: "mkdir", Path: dir, Err: errNotDir}
+	}
+	if err := l.mkdirAllWith(c, path.Dir(dir)); err != nil {
+		return err
+	}
+	if err := c.MakeDir(dir); err != nil {
+		//Made by someone else in the meantime
+		if info, statErr := l.statWith(c, dir); statErr == nil && info.IsDir() {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 func (l FTPFSAbstraction) Name() string {
 	return ""
@@ -158,7 +194,7 @@ func (l FTPFSAbstraction) Remove(filename string) error {
 
 	err = c.Delete(filename)
 	if err != nil {
-		return classify("remove", filename, err)
+		return l.classify(c, "remove", filename, err)
 	}
 
 	return nil
@@ -202,35 +238,74 @@ func (l FTPFSAbstraction) statWith(c *ftp.ServerConn, filename string) (os.FileI
 		entry.Name = name
 		return NewFileInfoFromEntry(entry, nil, filename), nil
 	}
-	if isUnavailable(err) {
-		return nil, &fs.PathError{Op: "stat", Path: filename, Err: fs.ErrNotExist}
-	}
 	if filename == "/" {
 		return NewFileInfoFromEntry(&ftp.Entry{Name: "/", Type: ftp.EntryTypeFolder}, nil, filename), nil
 	}
+	//No MLST, or a 550 that may be a refusal as well as a missing file: the
+	//listing of the folder decides
 	entries, err := c.List(path.Dir(filename))
 	if err != nil {
-		return nil, classify("stat", filename, err)
+		if answered(err) && l.missing(c, path.Dir(filename)) {
+			return nil, notExist("stat", filename)
+		}
+		return nil, err
 	}
 	for _, e := range entries {
 		if e.Name == name {
 			return NewFileInfoFromEntry(e, nil, filename), nil
 		}
 	}
-	return nil, &fs.PathError{Op: "stat", Path: filename, Err: fs.ErrNotExist}
+	return nil, notExist("stat", filename)
 }
 
-// isUnavailable reports the 550 an FTP server answers for a missing file.
+// isUnavailable reports a 550. Servers answer it for a missing file, but
+// also for a refused permission and most other failures.
 func isUnavailable(err error) bool {
 	var te *textproto.Error
 	return errors.As(err, &te) && te.Code == ftp.StatusFileUnavailable
 }
 
-// classify turns a 550 into the error the rest of ArozOS checks for, so
-// os.IsNotExist and errors.Is work on this drive.
-func classify(op, filename string, err error) error {
-	if isUnavailable(err) {
-		return &fs.PathError{Op: op, Path: filename, Err: fs.ErrNotExist}
+// answered reports an error the server replied with, as opposed to a lost
+// connection, which says nothing about the path.
+func answered(err error) bool {
+	var te *textproto.Error
+	return errors.As(err, &te)
+}
+
+func notExist(op, filename string) error {
+	return &fs.PathError{Op: op, Path: filename, Err: fs.ErrNotExist}
+}
+
+// missing reports whether a path is confirmed absent: its folder lists
+// without it, or the folder is missing itself.
+func (l FTPFSAbstraction) missing(c *ftp.ServerConn, filename string) bool {
+	filename = path.Clean(filename)
+	if filename == "/" || filename == "." {
+		return false
+	}
+	parent := path.Dir(filename)
+	entries, err := c.List(parent)
+	if err != nil {
+		//Servers refuse to list a missing folder with 450 or 550, as they
+		//refuse an unreadable one: the folder above decides
+		return answered(err) && l.missing(c, parent)
+	}
+	name := path.Base(filename)
+	for _, e := range entries {
+		if e.Name == name {
+			return false
+		}
+	}
+	return true
+}
+
+// classify turns the refusal of a missing path into the error the rest of
+// ArozOS checks for, so os.IsNotExist and errors.Is work on this drive. A
+// refusal for a path that is there, such as a denied delete, stays as it was:
+// taken for absence, it would make a failed delete look done.
+func (l FTPFSAbstraction) classify(c *ftp.ServerConn, op, filename string, err error) error {
+	if answered(err) && l.missing(c, filename) {
+		return notExist(op, filename)
 	}
 	return err
 }
@@ -302,7 +377,7 @@ func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
 
 	r, err := c.Retr(filename)
 	if err != nil {
-		return []byte{}, classify("open", filename, err)
+		return []byte{}, l.classify(c, "open", filename, err)
 	}
 	defer r.Close()
 
@@ -318,7 +393,7 @@ func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 	defer c.Quit()
 	entries, err := c.List(filename)
 	if err != nil {
-		return results, classify("readdir", filename, err)
+		return results, l.classify(c, "readdir", filename, err)
 	}
 
 	for _, entry := range entries {
@@ -363,8 +438,9 @@ func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 		//transfer short
 		return &retrStream{resp: resp, conn: c}, nil
 	}
+	err = l.classify(c, "open", filename, lastErr)
 	c.Quit()
-	return nil, classify("open", filename, lastErr)
+	return nil, err
 }
 
 // retrStream is a download that ends its connection when it is closed.

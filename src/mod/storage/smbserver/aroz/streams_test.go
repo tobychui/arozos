@@ -75,9 +75,11 @@ func TestStreamsLiveBesideTheirFile(t *testing.T) {
 
 func TestFolderAndRootStreams(t *testing.T) {
 	cases := map[string]string{
-		"":           ".metadata/.streams/.root",
-		"docs":       ".metadata/.streams/docs",
-		"docs/a.txt": "docs/.metadata/.streams/a.txt",
+		"":             ".metadata/.rootstreams",
+		".root":        ".metadata/.streams/.root",
+		".rootstreams": ".metadata/.streams/.rootstreams",
+		"docs":         ".metadata/.streams/docs",
+		"docs/a.txt":   "docs/.metadata/.streams/a.txt",
 	}
 	for base, want := range cases {
 		if got := streamDir(base); got != want {
@@ -122,5 +124,96 @@ func TestFolderDeleteTakesItsMetadata(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "full", "keep.txt"), nil, 0644)
 	if err := s.Remove("full"); err == nil {
 		t.Error("a folder with files must not be removed")
+	}
+}
+
+func writeStream(t *testing.T, s smbserver.Share, p, content string) {
+	t.Helper()
+	f, err := s.Open(p, os.O_RDWR|os.O_CREATE)
+	if err != nil {
+		t.Fatalf("open %q: %v", p, err)
+	}
+	f.WriteAt([]byte(content), 0)
+	f.Close()
+}
+
+func readStream(t *testing.T, s smbserver.Share, p string) string {
+	t.Helper()
+	f, err := s.Open(p, os.O_RDONLY)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	got, _ := io.ReadAll(io.NewSectionReader(f.(io.ReaderAt), 0, 1000))
+	return string(got)
+}
+
+// A file named like the root's sidecar folder must not share its streams.
+func TestRootStreamsAreApartFromFiles(t *testing.T) {
+	s, root := versionShare(t)
+	streams := s.(smbserver.StreamShare)
+	for _, name := range []string{".root", ".rootstreams"} {
+		os.WriteFile(filepath.Join(root, name), nil, 0644)
+	}
+	writeStream(t, s, streamOf("", "AFP_AfpInfo"), "root info")
+	writeStream(t, s, streamOf(".root", "AFP_AfpInfo"), "file info")
+	writeStream(t, s, streamOf(".rootstreams", "AFP_AfpInfo"), "other info")
+
+	if got := readStream(t, s, streamOf("", "AFP_AfpInfo")); got != "root info" {
+		t.Errorf("root stream %q", got)
+	}
+	if got := readStream(t, s, streamOf(".root", "AFP_AfpInfo")); got != "file info" {
+		t.Errorf(".root stream %q", got)
+	}
+	if err := s.Remove(".root"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Remove(".rootstreams"); err != nil {
+		t.Fatal(err)
+	}
+	if len(streams.Streams("")) != 1 || readStream(t, s, streamOf("", "AFP_AfpInfo")) != "root info" {
+		t.Error("deleting a file took the root's streams")
+	}
+}
+
+// A rename over a file leaves the new file with the streams it brought, and
+// none of the file it replaced.
+func TestRenameOverAFileDropsItsStreams(t *testing.T) {
+	tests := []struct {
+		name       string
+		srcStreams map[string]string
+		want       map[string]string
+	}{
+		{"source has none", nil, map[string]string{}},
+		{"source has its own", map[string]string{"Zone.Identifier": "new zone"}, map[string]string{"Zone.Identifier": "new zone"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, root := versionShare(t)
+			streams := s.(smbserver.StreamShare)
+			os.WriteFile(filepath.Join(root, "new.txt"), []byte("new"), 0644)
+			os.WriteFile(filepath.Join(root, "old.txt"), []byte("old"), 0644)
+			writeStream(t, s, streamOf("old.txt", "AFP_Resource"), "old fork")
+			writeStream(t, s, streamOf("old.txt", "Zone.Identifier"), "old zone")
+			for name, content := range tt.srcStreams {
+				writeStream(t, s, streamOf("new.txt", name), content)
+			}
+
+			if err := s.Rename("new.txt", "old.txt"); err != nil {
+				t.Fatal(err)
+			}
+			got := map[string]string{}
+			for _, e := range streams.Streams("old.txt") {
+				got[e.Name] = readStream(t, s, streamOf("old.txt", e.Name))
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("streams after the rename %v, want %v", got, tt.want)
+			}
+			for name, content := range tt.want {
+				if got[name] != content {
+					t.Errorf("%s = %q, want %q", name, got[name], content)
+				}
+			}
+		})
 	}
 }

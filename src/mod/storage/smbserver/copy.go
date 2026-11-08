@@ -164,8 +164,14 @@ func (c *conn) copyChunks(r *request, q *wire.IoctlRequest, needRead bool) *resp
 	}
 
 	source := c.srv.resume.find(key)
-	if source == nil || source.sess.username != r.sess.username {
-		//Another user's key is treated as no key at all
+	if source == nil {
+		return errorResponse(wire.StatusObjectNameNotFound)
+	}
+	//The session is read under the durable table's lock: the source may be
+	//on another connection that is being detached right now
+	if _, owner := c.srv.connOf(source); owner == nil || owner.username != r.sess.username {
+		//Another user's key, or one whose handle waits for a lost client, is
+		//treated as no key at all
 		return errorResponse(wire.StatusObjectNameNotFound)
 	}
 	if source.access&wire.FileReadData == 0 {

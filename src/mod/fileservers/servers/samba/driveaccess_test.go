@@ -193,3 +193,31 @@ func TestParsePdbeditHashes(t *testing.T) {
 		t.Errorf("hash = %x", got["alice"])
 	}
 }
+
+// Samba keeps the hash of an account it refuses, so the flags decide.
+func TestParsePdbeditHashesSkipsRestrictedAccounts(t *testing.T) {
+	const hash = "8846F7EAEE8FB117AD06BDD830B7586C"
+	tests := []struct {
+		name  string
+		flags string
+		want  bool
+	}{
+		{"normal", "[U          ]", true},
+		{"noexpiry", "[UX         ]", true},
+		{"disabled", "[DU         ]", false},
+		{"locked", "[UL         ]", false},
+		{"disabledlocked", "[DUL        ]", false},
+		{"pc$", "[W          ]", false},
+		{"server$", "[S          ]", false},
+		{"trust$", "[I          ]", false},
+		{"noflags", "", false},
+		{"brokenflags", "U", false},
+	}
+	for _, tt := range tests {
+		line := tt.name + ":1000:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:" + hash + ":" + tt.flags + ":LCT-69100000:\n"
+		_, got := parsePdbeditHashes(line)[tt.name]
+		if got != tt.want {
+			t.Errorf("%s %q: imported = %v, want %v", tt.name, tt.flags, got, tt.want)
+		}
+	}
+}

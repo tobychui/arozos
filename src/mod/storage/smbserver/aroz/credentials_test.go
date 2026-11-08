@@ -147,6 +147,38 @@ func TestARecordCannotMoveToAnotherUser(t *testing.T) {
 	}
 }
 
+func TestARecordCannotBeRenamedInPlace(t *testing.T) {
+	c, db, _ := openStore(t)
+	c.Set("mallory", "mallory's password")
+	c.Set("admin", "the admin's password")
+
+	//The row stays under mallory's key, so its seal still opens, but the name
+	//the login becomes is changed to the admin's
+	var record storedCredential
+	db.Read(credentialTable, "mallory", &record)
+	record.Name = "admin"
+	if err := db.Write(credentialTable, "mallory", record); err != nil {
+		t.Fatal(err)
+	}
+	if name, _, ok := c.Lookup("mallory"); ok {
+		t.Errorf("a renamed row resolved to %q", name)
+	}
+	list, err := c.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Username != "admin" {
+		t.Errorf("a renamed row must not be listed: %v", list)
+	}
+
+	//A difference in case only is still the same account
+	record.Name = "Mallory"
+	db.Write(credentialTable, "mallory", record)
+	if name, _, ok := c.Lookup("MALLORY"); !ok || name != "Mallory" {
+		t.Errorf("lookup = %q %v", name, ok)
+	}
+}
+
 func TestKeyFileIsPrivateAndReused(t *testing.T) {
 	c, db, keyDir := openStore(t)
 	c.Set("alice", "pw")

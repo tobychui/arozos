@@ -634,7 +634,9 @@ Samba 1.5 to 1.7 GB/s.
   the `SnapshotShare` interface; the layout is the backend's. smbclient read an
   old version back by its token and was refused writing to it.
 - **Named streams.** Kept as files in `.metadata/.streams/<file>/`, escaped,
-  and moved or deleted with their file over SMB. The core passes a stream to
+  and moved or deleted with their file over SMB. The drive root's own streams
+  live in `.metadata/.rootstreams/`, outside `.streams`, so no file name can
+  share them; a rename over a file drops the replaced file's streams. The core passes a stream to
   the backend as `path + NUL + name`, because a colon can be part of a file
   name (mapped from the private range) or of a macOS attribute name. With
   `FILE_NAMED_STREAMS` claimed, macOS stores its extended attributes, Finder

@@ -143,6 +143,14 @@ type storedCredential struct {
 	Changed    int64
 }
 
+// belongsTo reports whether a row read under a key is that key's account.
+// The seal binds the secrets to the key, not to Name, and Name is the account
+// a login becomes: a row whose Name was edited to another user's would let
+// its owner's password open that user's session.
+func (r storedCredential) belongsTo(owner string) bool {
+	return r.Name != "" && credentialKey(r.Name) == owner
+}
+
 // CredentialDB keeps the SMB secrets of all users.
 type CredentialDB struct {
 	mu   sync.RWMutex
@@ -234,6 +242,9 @@ func (c *CredentialDB) Lookup(username string) (string, []byte, bool) {
 	if err := c.db.Read(credentialTable, owner, &record); err != nil {
 		return "", nil, false
 	}
+	if !record.belongsTo(owner) {
+		return "", nil, false
+	}
 	hash, err := c.seal.open(owner, record.NTHash)
 	if err != nil {
 		return "", nil, false
@@ -262,7 +273,7 @@ func (c *CredentialDB) List() ([]ActiveUser, error) {
 	out := make([]ActiveUser, 0, len(names))
 	for _, key := range names {
 		var record storedCredential
-		if err := c.db.Read(credentialTable, key, &record); err == nil {
+		if err := c.db.Read(credentialTable, key, &record); err == nil && record.belongsTo(key) {
 			out = append(out, ActiveUser{Username: record.Name, Changed: record.Changed})
 		}
 	}
