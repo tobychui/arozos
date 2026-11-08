@@ -571,7 +571,8 @@ How the Phase 5 parts behave:
   most); logoff, revoked access and an open needing the lease close them.
   `PreviousSessionId` drops a session the server had not noticed was dead.
 - **Encryption** is negotiated whenever the client offers it. With "require
-  encryption" on, clients without it are refused at login and plain requests
+  encryption" on (the default, which Windows 10 and 11 connect with out of
+  the box), clients without it are refused at login and plain requests
   on an encrypted session get `STATUS_ACCESS_DENIED`. CCM is written in
   `crypt/encrypt.go` and checked against NIST SP 800-38C and RFC 3610 vectors.
   Captures keep the decrypted messages.
@@ -618,8 +619,8 @@ Samba 1.5 to 1.7 GB/s.
   the icon) through zeroconf, which works beside mDNSResponder. Seen by
   `dns-sd -B`. Follows `-allow_mdns`. Both announcements share one admin
   switch, "Show this server on the network", on by default.
-- **Trash.** With "Deleted files go to the trash bin" on (off by default, as
-  with Samba and as Windows expects of a network drive), deleted files move
+- **Trash.** With "Deleted files go to the trash bin" on (the default, so a
+  delete from Explorer can be undone from the web desktop), deleted files move
   into the drive's `.trash` the way the File Manager does it, through one
   shared `system_fs_moveToTrash`. Only files go there: Explorer deletes a
   folder's content first, so files arrive one by one under their old folders,

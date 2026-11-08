@@ -141,22 +141,26 @@ func (m *Manager) allowPublic() bool {
 	return allow
 }
 
-// requireEncryption refuses clients that cannot encrypt. Off by default:
-// encryption costs speed, and SMB 2.1 clients could no longer connect.
+// requireEncryption refuses clients that cannot encrypt. On by default, the
+// setting Windows 10 and 11 connect with out of the box; turning it off lets
+// SMB 2.1 clients in at the cost of sending files in the clear.
 func (m *Manager) requireEncryption() bool {
-	on := false
+	on := true
 	if m.opt.Sysdb.KeyExists(settingsTable, "encrypt") {
 		m.opt.Sysdb.Read(settingsTable, "encrypt", &on)
 	}
 	return on
 }
 
-// useTrash sends deletes to the trash bin. Off by default, as with Samba and
-// as Windows expects of a network drive, where Explorer warns that a delete
-// is permanent.
+// useTrash sends deletes to the trash bin. On by default, so a delete from
+// Explorer can be undone from the web desktop, even though Explorer warns
+// that a delete on a network drive is permanent.
 func (m *Manager) useTrash() bool {
-	on := false
-	if m.opt.Trash != nil && m.opt.Sysdb.KeyExists(settingsTable, "trash") {
+	if m.opt.Trash == nil {
+		return false
+	}
+	on := true
+	if m.opt.Sysdb.KeyExists(settingsTable, "trash") {
 		m.opt.Sysdb.Read(settingsTable, "trash", &on)
 	}
 	return on
@@ -522,9 +526,10 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	public := postOnly(r, "public") == "true"
-	encrypt := postOnly(r, "encrypt") == "true"
+	//A form without a field keeps that setting's default (on)
+	encrypt := postOnly(r, "encrypt") != "false"
 	discover := postOnly(r, "discover") != "false"
-	trash := postOnly(r, "trash") == "true"
+	trash := postOnly(r, "trash") != "false"
 	stageLimit := m.stageLimitMB()
 	if v := postOnly(r, "stagelimit"); v != "" {
 		stageLimit, err = strconv.ParseInt(v, 10, 64)

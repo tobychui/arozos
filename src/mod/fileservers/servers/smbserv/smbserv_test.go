@@ -564,10 +564,15 @@ func TestEncryptionSetting(t *testing.T) {
 	if err := r.m.ServerToggle(true); err != nil {
 		t.Fatal(err)
 	}
-	if r.m.requireEncryption() {
-		t.Fatal("encryption must be optional by default")
+	if !r.m.requireEncryption() {
+		t.Fatal("encryption must be required by default")
 	}
 	var res ConfigResult
+	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(port)}, "encrypt": {"false"}}).Body.Bytes(), &res)
+	if r.m.requireEncryption() || !res.Restarted {
+		t.Errorf("encrypt = %v, restarted = %v", r.m.requireEncryption(), res.Restarted)
+	}
+	res = ConfigResult{}
 	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(port)}, "encrypt": {"true"}}).Body.Bytes(), &res)
 	if !r.m.requireEncryption() || !res.Restarted {
 		t.Errorf("encrypt = %v, restarted = %v", r.m.requireEncryption(), res.Restarted)
@@ -683,16 +688,23 @@ func TestDiscoveryUUIDIsStable(t *testing.T) {
 func TestTrashSetting(t *testing.T) {
 	r := newRig(t)
 	if r.m.useTrash() {
-		t.Fatal("deletes are permanent by default")
+		t.Fatal("without a trash bin deletes are permanent")
 	}
 	r.opt.Trash = func(*filesystem.FileSystemHandler, string, string, string) error { return nil }
+	if !r.m.useTrash() {
+		t.Fatal("deletes go to the trash bin by default")
+	}
+	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}, "trash": {"false"}}))
+	if r.m.useTrash() {
+		t.Error("an unticked box turns it off")
+	}
 	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}, "trash": {"true"}}))
 	if !r.m.useTrash() {
 		t.Error("the setting must stick")
 	}
 	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}}))
-	if r.m.useTrash() {
-		t.Error("an unticked box turns it off")
+	if !r.m.useTrash() {
+		t.Error("a form without the field keeps the default")
 	}
 	r.opt.Trash = nil
 	r.opt.Sysdb.Write(settingsTable, "trash", true)
