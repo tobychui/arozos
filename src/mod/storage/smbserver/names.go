@@ -344,6 +344,8 @@ func statusOf(err error) uint32 {
 	switch {
 	case err == nil:
 		return wire.StatusOK
+	case errors.Is(err, ErrFileTooLarge):
+		return wire.StatusFileTooLarge
 	case errors.Is(err, os.ErrNotExist):
 		return wire.StatusObjectNameNotFound
 	case isNotDirectory(err):

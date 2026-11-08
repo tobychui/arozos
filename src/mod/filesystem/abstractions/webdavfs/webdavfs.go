@@ -59,7 +59,8 @@ func (e WebDAVFileSystem) Chown(filename string, uid int, gid int) error {
 	return errors.New("filesystem type not supported")
 }
 func (e WebDAVFileSystem) Chtimes(filename string, atime time.Time, mtime time.Time) error {
-	return errors.New("filesystem type not supported")
+	//WebDAV has no standard way to set a modification time
+	return arozfs.ErrOperationNotSupported
 }
 func (e WebDAVFileSystem) Create(filename string) (arozfs.File, error) {
 	return nil, errors.New("filesystem type not supported")
@@ -87,7 +88,7 @@ func (e WebDAVFileSystem) OpenFile(filename string, flag int, perm os.FileMode) 
 }
 func (e WebDAVFileSystem) Remove(filename string) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
-	return e.c.Remove(filename)
+	return classify(e.c.Remove(filename))
 }
 func (e WebDAVFileSystem) RemoveAll(filename string) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
@@ -115,7 +116,28 @@ func (e WebDAVFileSystem) Rename(oldname, newname string) error {
 }
 func (e WebDAVFileSystem) Stat(filename string) (os.FileInfo, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
-	return e.c.Stat(filename)
+	info, err := e.c.Stat(filename)
+	return info, classify(err)
+}
+
+// classify turns the HTTP status gowebdav reports into the error the rest of
+// ArozOS checks for, so os.IsNotExist and errors.Is work on this drive.
+func classify(err error) error {
+	pe, ok := err.(*os.PathError)
+	if !ok {
+		return err
+	}
+	se, ok := pe.Err.(gowebdav.StatusError)
+	if !ok {
+		return err
+	}
+	switch se.Status {
+	case 404, 410:
+		return &os.PathError{Op: pe.Op, Path: pe.Path, Err: fs.ErrNotExist}
+	case 401, 403:
+		return &os.PathError{Op: pe.Op, Path: pe.Path, Err: fs.ErrPermission}
+	}
+	return err
 }
 
 func (e WebDAVFileSystem) VirtualPathToRealPath(subpath string, username string) (string, error) {
@@ -195,7 +217,7 @@ func (e WebDAVFileSystem) ReadFile(filename string) ([]byte, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	bytes, err := e.c.Read(filename)
 	if err != nil {
-		return []byte(""), err
+		return []byte(""), classify(err)
 	}
 	return bytes, nil
 }
@@ -204,7 +226,7 @@ func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	fis, err := e.c.ReadDir(filename)
 	if err != nil {
-		return []fs.DirEntry{}, err
+		return []fs.DirEntry{}, classify(err)
 	}
 
 	dirEntires := []fs.DirEntry{}
@@ -220,7 +242,8 @@ func (e WebDAVFileSystem) WriteStream(filename string, stream io.Reader, mode os
 }
 func (e WebDAVFileSystem) ReadStream(filename string) (io.ReadCloser, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
-	return e.c.ReadStream(filename)
+	rc, err := e.c.ReadStream(filename)
+	return rc, classify(err)
 }
 
 func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error {

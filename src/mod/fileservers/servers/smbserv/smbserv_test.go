@@ -555,3 +555,85 @@ func TestImport(t *testing.T) {
 		t.Error("a failure must be reported")
 	}
 }
+
+func TestEncryptionSetting(t *testing.T) {
+	r := newRig(t)
+	port := freePort(t)
+	usePort(t, r, port)
+	if err := r.m.ServerToggle(true); err != nil {
+		t.Fatal(err)
+	}
+	if r.m.requireEncryption() {
+		t.Fatal("encryption must be optional by default")
+	}
+	var res ConfigResult
+	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(port)}, "encrypt": {"true"}}).Body.Bytes(), &res)
+	if !r.m.requireEncryption() || !res.Restarted {
+		t.Errorf("encrypt = %v, restarted = %v", r.m.requireEncryption(), res.Restarted)
+	}
+
+	//A client that cannot encrypt is now refused, with the right password
+	nc, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nc.Close()
+	isOK(t, activate(r, "login", "a good password"))
+	d := &smb2.Dialer{
+		Negotiator: smb2.Negotiator{SpecifiedDialect: 0x0210},
+		Initiator:  &smb2.NTLMInitiator{User: "alice", Password: "a good password"},
+	}
+	if s, err := d.Dial(nc); err == nil {
+		s.Logoff()
+		t.Error("an SMB 2.1 client logged in to a server that requires encryption")
+	}
+}
+
+func TestStageLimitSetting(t *testing.T) {
+	r := newRig(t)
+	if got := r.m.stageLimit(); got != aroz.DefaultStageLimit {
+		t.Errorf("default = %d", got)
+	}
+	cases := []struct {
+		value string
+		ok    bool
+		want  int64
+	}{
+		{"100", true, 100 << 20},
+		{"0", true, -1}, //No limit
+		{"-5", false, -1},
+		{"lots", false, -1},
+	}
+	for _, c := range cases {
+		w := post(r.m.HandleConfig, url.Values{"port": {"1445"}, "stagelimit": {c.value}})
+		if (errorOf(w) == "") != c.ok {
+			t.Errorf("%s: response %s", c.value, w.Body.String())
+		}
+		if got := r.m.stageLimit(); got != c.want {
+			t.Errorf("%s: limit = %d, want %d", c.value, got, c.want)
+		}
+	}
+	//A form without the field leaves it alone
+	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}}))
+	if got := r.m.stageLimit(); got != -1 {
+		t.Errorf("limit = %d", got)
+	}
+}
+
+func TestOnlyPortChangesDisconnect(t *testing.T) {
+	r := newRig(t)
+	port := freePort(t)
+	usePort(t, r, port)
+	if err := r.m.ServerToggle(true); err != nil {
+		t.Fatal(err)
+	}
+	var res ConfigResult
+	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(port)}, "stagelimit": {"10"}}).Body.Bytes(), &res)
+	if res.Restarted {
+		t.Error("a new size limit must not disconnect anyone")
+	}
+	json.Unmarshal(post(r.m.HandleConfig, url.Values{"port": {strconv.Itoa(freePort(t))}}).Body.Bytes(), &res)
+	if !res.Restarted {
+		t.Error("a new port has to listen again")
+	}
+}

@@ -16,9 +16,10 @@ import (
 	"imuslab.com/arozos/mod/storage/smbserver/wire"
 )
 
-// serverCapabilities is everything advertised. Leasing stays off until breaks
-// exist, because a cache grant nobody can recall is silent data corruption.
-const serverCapabilities = wire.CapLargeMTU
+// baseCapabilities is what every connection is offered. Leasing stays off
+// until breaks exist, because a cache grant nobody can recall is silent data
+// corruption. Encryption is added per connection, when the client has it.
+const baseCapabilities = wire.CapLargeMTU
 
 // session is one login on a connection.
 type session struct {
@@ -30,11 +31,27 @@ type session struct {
 	valid    bool
 	since    time.Time
 	signer   *crypt.Signer
+	enc, dec *crypt.Cipher //Set when encryption was negotiated
+	encrypt  bool          //Every message must be encrypted
 	username string
 	view     UserView
 	trees    map[uint32]*tree
 	nextTree uint32
 	opens    map[wire.FileID]*open
+}
+
+// ciphers returns what the session encrypts and decrypts with, if anything.
+func (s *session) ciphers() (enc, dec *crypt.Cipher) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.enc, s.dec
+}
+
+// mustEncrypt reports whether unencrypted requests are refused.
+func (s *session) mustEncrypt() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.encrypt
 }
 
 func (s *session) isValid() bool {
@@ -93,7 +110,7 @@ func (c *conn) handleSMB1(frame []byte) error {
 	h := wire.Header{Command: wire.CmdNegotiate, Flags: wire.FlagResponse, Credits: 1}
 	msg := make([]byte, wire.HeaderSize)
 	h.Put(msg)
-	msg = append(msg, c.negotiateBody(wire.DialectWildcard, nil)...)
+	msg = append(msg, c.negotiateBody(wire.DialectWildcard, baseCapabilities, nil)...)
 	return c.sendLocked(msg)
 }
 
@@ -104,7 +121,7 @@ func (c *conn) sendLocked(msg []byte) error {
 	return c.send(frame)
 }
 
-func (c *conn) negotiateBody(dialect uint16, contexts [][]byte) []byte {
+func (c *conn) negotiateBody(dialect uint16, caps uint32, contexts [][]byte) []byte {
 	token := auth.NegotiateToken()
 	cfg := &c.srv.cfg
 
@@ -115,7 +132,7 @@ func (c *conn) negotiateBody(dialect uint16, contexts [][]byte) []byte {
 	w.U16(dialect)
 	w.U16(uint16(len(contexts)))
 	w.Bytes(cfg.GUID[:])
-	w.U32(serverCapabilities)
+	w.U32(caps)
 	w.U32(maxTransact)
 	w.U32(maxTransact)
 	w.U32(maxTransact)
@@ -190,6 +207,16 @@ func (c *conn) handleNegotiate(r *request) (*response, error) {
 
 	var contexts [][]byte
 	var after func(raw []byte)
+	caps := baseCapabilities
+	if !c.srv.cfg.NoLeases {
+		caps |= wire.CapLeasing
+	}
+	c.cipher = 0
+	if (dialect == wire.Dialect300 || dialect == wire.Dialect302) && q.Capabilities&wire.CapEncryption != 0 {
+		//3.0 has one cipher, and says so with a capability
+		caps |= wire.CapEncryption
+		c.cipher = crypt.CipherAES128CCM
+	}
 	if dialect == wire.Dialect311 {
 		sawSHA512 := false
 		for _, ctx := range q.Contexts {
@@ -234,6 +261,22 @@ func (c *conn) handleNegotiate(r *request) (*response, error) {
 			contexts = append(contexts, negotiateContext(wire.CtxSigning, w.B))
 		}
 
+		for _, ctx := range q.Contexts {
+			if ctx.Type != wire.CtxEncryption {
+				continue
+			}
+			ciphers, ok := wire.SigningAlgorithms(ctx.Data) //The same list layout
+			if !ok {
+				return errorResponse(wire.StatusInvalidParameter), nil
+			}
+			//Zero answers "none in common", and the session stays plain
+			c.cipher = pickCipher(ciphers)
+			w := wire.NewWriter(4)
+			w.U16(1)
+			w.U16(c.cipher)
+			contexts = append(contexts, negotiateContext(wire.CtxEncryption, w.B))
+		}
+
 		c.preauth = crypt.PreauthHash([64]byte{}, r.raw)
 		after = func(raw []byte) {
 			c.mu.Lock()
@@ -244,7 +287,21 @@ func (c *conn) handleNegotiate(r *request) (*response, error) {
 
 	c.dialect = dialect
 	c.negotiated = true
-	return &response{body: c.negotiateBody(dialect, contexts), after: after}, nil
+	c.serverCaps = caps
+	return &response{body: c.negotiateBody(dialect, caps, contexts), after: after}, nil
+}
+
+// pickCipher takes GCM over CCM, as it is much faster, and 128 bit keys over
+// 256, as Windows and Samba do by default.
+func pickCipher(offered []uint16) uint16 {
+	for _, want := range []uint16{crypt.CipherAES128GCM, crypt.CipherAES256GCM, crypt.CipherAES128CCM, crypt.CipherAES256CCM} {
+		for _, o := range offered {
+			if o == want {
+				return want
+			}
+		}
+	}
+	return 0
 }
 
 // pickSigning prefers GMAC, by far the fastest of the three.
@@ -305,7 +362,7 @@ func (c *conn) handleSessionSetup(r *request) (*response, error) {
 	if !done {
 		return &response{
 			status: wire.StatusMoreProcessingRequired,
-			body:   sessionSetupBody(token),
+			body:   sessionSetupBody(token, 0),
 			after: func(raw []byte) {
 				if dialect == wire.Dialect311 {
 					sess.preauth = crypt.PreauthHash(sess.preauth, raw)
@@ -322,16 +379,41 @@ func (c *conn) handleSessionSetup(r *request) (*response, error) {
 	}
 	c.mu.Lock()
 	algorithm := c.signAlgo
+	cipherID := c.cipher
 	c.mu.Unlock()
 	signer, err := crypt.NewSigner(algorithm, crypt.SigningKey(dialect, sessionKey, sess.preauth))
 	if err != nil {
 		return nil, err
+	}
+	var enc, dec *crypt.Cipher
+	if cipherID != 0 {
+		out, in := crypt.EncryptionKeys(dialect, cipherID, sessionKey, sess.preauth)
+		if enc, err = crypt.NewCipher(cipherID, out); err != nil {
+			return nil, err
+		}
+		if dec, err = crypt.NewCipher(cipherID, in); err != nil {
+			return nil, err
+		}
+	}
+	var flags uint16
+	if c.srv.cfg.RequireEncryption {
+		if enc == nil {
+			//SMB 2.1, or a client with encryption turned off
+			logger.PrintAndLog(logTitle, username+" from "+c.remote+" was refused: this server requires encryption, which the client does not offer", nil)
+			c.mu.Lock()
+			delete(c.sessions, sess.id)
+			c.mu.Unlock()
+			return errorResponse(wire.StatusAccessDenied), nil
+		}
+		flags |= wire.SessionFlagEncryptData
 	}
 
 	sess.mu.Lock()
 	sess.valid = true
 	sess.since = time.Now()
 	sess.signer = signer
+	sess.enc, sess.dec = enc, dec
+	sess.encrypt = flags&wire.SessionFlagEncryptData != 0
 	sess.username = username
 	sess.view = view
 	sess.mu.Unlock()
@@ -348,7 +430,10 @@ func (c *conn) handleSessionSetup(r *request) (*response, error) {
 
 	c.srv.cfg.Backend.AuthLog(username, c.nc.RemoteAddr().String(), true)
 	logger.PrintAndLog(logTitle, username+" logged in from "+c.remote, nil)
-	return &response{body: sessionSetupBody(token), signAs: sess}, nil
+	//A client back after a lost connection names the session it had, which
+	//this server may not have noticed is dead
+	c.dropPreviousSession(q.PreviousSessionID, username)
+	return &response{body: sessionSetupBody(token, flags), signAs: sess}, nil
 }
 
 // sessionFor finds or starts the session of a SESSION_SETUP. A nil session
@@ -425,10 +510,10 @@ func (c *conn) loginFailed(sess *session, err error) *response {
 	return errorResponse(status)
 }
 
-func sessionSetupBody(token []byte) []byte {
+func sessionSetupBody(token []byte, flags uint16) []byte {
 	w := wire.NewWriter(8 + len(token))
 	w.U16(9)
-	w.U16(0)
+	w.U16(flags)
 	w.U16(wire.HeaderSize + 8)
 	w.U16(uint16(len(token)))
 	w.Bytes(token)
@@ -440,7 +525,7 @@ func (c *conn) handleLogoff(r *request) *response {
 	c.mu.Lock()
 	delete(c.sessions, sess.id)
 	c.mu.Unlock()
-	sess.closeAllTrees(c)
+	sess.closeAllTrees(c, false)
 	return &response{body: []byte{4, 0, 0, 0}}
 }
 
@@ -503,7 +588,9 @@ func (c *conn) handleTreeDisconnect(r *request) *response {
 	return &response{body: []byte{4, 0, 0, 0}}
 }
 
-func (s *session) closeAllTrees(c *conn) {
+// closeAllTrees ends a session. keepDurable is for a connection that died:
+// its durable handles are kept for their client to take back.
+func (s *session) closeAllTrees(c *conn, keepDurable bool) {
 	s.mu.Lock()
 	list := make([]*open, 0, len(s.opens))
 	for _, o := range s.opens {
@@ -514,6 +601,11 @@ func (s *session) closeAllTrees(c *conn) {
 	s.valid = false
 	s.mu.Unlock()
 	for _, o := range list {
+		if keepDurable && o.durable {
+			c.srv.resume.drop(o)
+			c.srv.detach(o)
+			continue
+		}
 		c.closeOpen(o)
 	}
 }

@@ -2,10 +2,13 @@ package ftpfs
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"io/fs"
 	"math/rand"
+	"net/textproto"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -124,6 +127,10 @@ func (l FTPFSAbstraction) Mkdir(filename string, mode os.FileMode) error {
 
 	err = c.MakeDir(filename)
 	if err != nil {
+		//Servers answer 550 for a folder that exists, as for most failures
+		if _, statErr := l.statWith(c, filterFilepath(filename)); statErr == nil {
+			return &fs.PathError{Op: "mkdir", Path: filename, Err: fs.ErrExist}
+		}
 		return err
 	}
 
@@ -151,7 +158,7 @@ func (l FTPFSAbstraction) Remove(filename string) error {
 
 	err = c.Delete(filename)
 	if err != nil {
-		return err
+		return classify("remove", filename, err)
 	}
 
 	return nil
@@ -175,8 +182,57 @@ func (l FTPFSAbstraction) Rename(oldname, newname string) error {
 
 	return nil
 }
+
+// Stat looks a file up with MLST, or in the listing of its folder when the
+// server has no MLST.
 func (l FTPFSAbstraction) Stat(filename string) (os.FileInfo, error) {
-	return nil, arozfs.ErrNullOperation
+	filename = filterFilepath(filename)
+	c, err := l.makeConn()
+	if err != nil {
+		return nil, err
+	}
+	defer c.Quit()
+	return l.statWith(c, filename)
+}
+
+func (l FTPFSAbstraction) statWith(c *ftp.ServerConn, filename string) (os.FileInfo, error) {
+	name := path.Base(filename)
+	entry, err := c.GetEntry(filename)
+	if err == nil {
+		entry.Name = name
+		return NewFileInfoFromEntry(entry, nil, filename), nil
+	}
+	if isUnavailable(err) {
+		return nil, &fs.PathError{Op: "stat", Path: filename, Err: fs.ErrNotExist}
+	}
+	if filename == "/" {
+		return NewFileInfoFromEntry(&ftp.Entry{Name: "/", Type: ftp.EntryTypeFolder}, nil, filename), nil
+	}
+	entries, err := c.List(path.Dir(filename))
+	if err != nil {
+		return nil, classify("stat", filename, err)
+	}
+	for _, e := range entries {
+		if e.Name == name {
+			return NewFileInfoFromEntry(e, nil, filename), nil
+		}
+	}
+	return nil, &fs.PathError{Op: "stat", Path: filename, Err: fs.ErrNotExist}
+}
+
+// isUnavailable reports the 550 an FTP server answers for a missing file.
+func isUnavailable(err error) bool {
+	var te *textproto.Error
+	return errors.As(err, &te) && te.Code == ftp.StatusFileUnavailable
+}
+
+// classify turns a 550 into the error the rest of ArozOS checks for, so
+// os.IsNotExist and errors.Is work on this drive.
+func classify(op, filename string, err error) error {
+	if isUnavailable(err) {
+		return &fs.PathError{Op: op, Path: filename, Err: fs.ErrNotExist}
+	}
+	return err
 }
 func (l FTPFSAbstraction) Close() error {
 	time.Sleep(500 * time.Millisecond)
@@ -196,29 +252,13 @@ func (l FTPFSAbstraction) RealPathToVirtualPath(fullpath string, username string
 }
 
 func (l FTPFSAbstraction) FileExists(realpath string) bool {
-	realpath = filterFilepath(realpath)
-	c, err := l.makeConn()
-	if err != nil {
-		return false
-	}
-	_, err = c.GetEntry(realpath)
-	c.Quit()
+	_, err := l.Stat(realpath)
 	return err == nil
 }
 
 func (l FTPFSAbstraction) IsDir(realpath string) bool {
-	realpath = filterFilepath(realpath)
-	c, err := l.makeConn()
-	if err != nil {
-		return false
-	}
-	defer c.Quit()
-	entry, err := c.GetEntry(realpath)
-	if err != nil {
-		return false
-	}
-
-	return entry.Type == ftp.EntryTypeFolder
+	info, err := l.Stat(realpath)
+	return err == nil && info.IsDir()
 }
 
 func (l FTPFSAbstraction) Glob(realpathWildcard string) ([]string, error) {
@@ -226,31 +266,19 @@ func (l FTPFSAbstraction) Glob(realpathWildcard string) ([]string, error) {
 }
 
 func (l FTPFSAbstraction) GetFileSize(realpath string) int64 {
-	realpath = filterFilepath(realpath)
-	c, err := l.makeConn()
+	info, err := l.Stat(realpath)
 	if err != nil {
 		return 0
 	}
-	entry, err := c.GetEntry(realpath)
-	if err != nil {
-		return 0
-	}
-	return int64(entry.Size)
+	return info.Size()
 }
 
 func (l FTPFSAbstraction) GetModTime(realpath string) (int64, error) {
-	realpath = filterFilepath(realpath)
-	c, err := l.makeConn()
+	info, err := l.Stat(realpath)
 	if err != nil {
 		return 0, err
 	}
-	defer c.Quit()
-	entry, err := c.GetEntry(realpath)
-	if err != nil {
-		return 0, err
-	}
-
-	return entry.Time.Unix(), nil
+	return info.ModTime().Unix(), nil
 }
 
 func (l FTPFSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
@@ -274,7 +302,7 @@ func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
 
 	r, err := c.Retr(filename)
 	if err != nil {
-		return []byte{}, err
+		return []byte{}, classify("open", filename, err)
 	}
 	defer r.Close()
 
@@ -290,8 +318,7 @@ func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 	defer c.Quit()
 	entries, err := c.List(filename)
 	if err != nil {
-
-		return results, err
+		return results, classify("readdir", filename, err)
 	}
 
 	for _, entry := range entries {
@@ -317,26 +344,41 @@ func (l FTPFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer c.Quit()
 
 	retryCount := 0
-	succ := false
 	var lastErr error
-	for retryCount < 5 && !succ {
+	for retryCount < 5 {
 		resp, err := c.Retr(filename)
 		if err != nil {
 			lastErr = err
+			if isUnavailable(err) {
+				break
+			}
 			retryCount++
 			r := rand.Intn(500)
 			time.Sleep(time.Duration(r) * time.Microsecond)
 			continue
-		} else {
-			succ = true
-			return resp, nil
 		}
+		//The connection must outlive the read: quitting first cuts the
+		//transfer short
+		return &retrStream{resp: resp, conn: c}, nil
 	}
+	c.Quit()
+	return nil, classify("open", filename, lastErr)
+}
 
-	return nil, lastErr
+// retrStream is a download that ends its connection when it is closed.
+type retrStream struct {
+	resp *ftp.Response
+	conn *ftp.ServerConn
+}
+
+func (r *retrStream) Read(p []byte) (int, error) { return r.resp.Read(p) }
+
+func (r *retrStream) Close() error {
+	err := r.resp.Close()
+	r.conn.Quit()
+	return err
 }
 
 func (l FTPFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {

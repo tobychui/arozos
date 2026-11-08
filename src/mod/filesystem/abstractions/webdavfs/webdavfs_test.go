@@ -1,6 +1,13 @@
 package webdavfs
 
-import "testing"
+import (
+	"errors"
+	"io/fs"
+	"os"
+	"testing"
+
+	"github.com/studio-b12/gowebdav"
+)
 
 // Translation needs no connection, so the abstraction is built bare
 func TestVirtualPathToRealPath(t *testing.T) {
@@ -36,5 +43,40 @@ func TestVirtualPathToRealPath_RejectsTraversal(t *testing.T) {
 				t.Errorf("[%s] VirtualPathToRealPath(%q) = %q, want an error", hierarchy, vpath, got)
 			}
 		}
+	}
+}
+
+func TestClassifyMapsHTTPStatus(t *testing.T) {
+	status := func(code int) error {
+		return &os.PathError{Op: "PROPFIND", Path: "/a", Err: gowebdav.StatusError{Status: code}}
+	}
+	plain := errors.New("connection refused")
+	tests := []struct {
+		name     string
+		in       error
+		notExist bool
+		denied   bool
+	}{
+		{"404", status(404), true, false},
+		{"410", status(410), true, false},
+		{"403", status(403), false, true},
+		{"401", status(401), false, true},
+		{"500 stays", status(500), false, false},
+		{"other error stays", plain, false, false},
+	}
+	for _, tt := range tests {
+		got := classify(tt.in)
+		if errors.Is(got, fs.ErrNotExist) != tt.notExist || os.IsNotExist(got) != tt.notExist {
+			t.Errorf("%s: not exist = %v", tt.name, errors.Is(got, fs.ErrNotExist))
+		}
+		if errors.Is(got, fs.ErrPermission) != tt.denied {
+			t.Errorf("%s: denied = %v", tt.name, errors.Is(got, fs.ErrPermission))
+		}
+	}
+	if classify(plain) != plain {
+		t.Error("an error that is no HTTP status must be passed on as it is")
+	}
+	if classify(nil) != nil {
+		t.Error("nil must stay nil")
 	}
 }

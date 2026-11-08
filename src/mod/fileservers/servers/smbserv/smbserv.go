@@ -43,6 +43,8 @@ type ManagerOption struct {
 	Sysdb      *database.Database
 	SecretDir  string //Where the credential key file lives
 	CaptureDir string //Debug capture, off when empty
+	StageDir   string //Local copies of files on cloud and remote drives
+	KeepDir    string //Copies whose upload failed, kept across restarts
 
 	//CurrentUser returns who made a web request
 	CurrentUser func(w http.ResponseWriter, r *http.Request) (string, error)
@@ -128,6 +130,37 @@ func (m *Manager) allowPublic() bool {
 	return allow
 }
 
+// requireEncryption refuses clients that cannot encrypt. Off by default:
+// encryption costs speed, and SMB 2.1 clients could no longer connect.
+func (m *Manager) requireEncryption() bool {
+	on := false
+	if m.opt.Sysdb.KeyExists(settingsTable, "encrypt") {
+		m.opt.Sysdb.Read(settingsTable, "encrypt", &on)
+	}
+	return on
+}
+
+// DefaultStageLimitMB is the largest file of a cloud or remote drive served
+// until an admin changes it.
+const DefaultStageLimitMB = aroz.DefaultStageLimit >> 20
+
+// stageLimitMB is the setting as the page shows it. Zero means no limit.
+func (m *Manager) stageLimitMB() int64 {
+	mb := int64(DefaultStageLimitMB)
+	if m.opt.Sysdb.KeyExists(settingsTable, "stagelimit") {
+		m.opt.Sysdb.Read(settingsTable, "stagelimit", &mb)
+	}
+	return mb
+}
+
+func (m *Manager) stageLimit() int64 {
+	mb := m.stageLimitMB()
+	if mb <= 0 {
+		return -1
+	}
+	return mb << 20
+}
+
 func (m *Manager) backend() (*aroz.Backend, error) {
 	return aroz.New(aroz.Options{
 		Credentials:          m.creds,
@@ -137,6 +170,9 @@ func (m *Manager) backend() (*aroz.Backend, error) {
 		LogAuth:              m.opt.LogAuth,
 		FailureDelay:         m.failureDelay,
 		AllowPublicAddresses: m.allowPublic(),
+		StageDir:             m.opt.StageDir,
+		KeepDir:              m.opt.KeepDir,
+		StageLimit:           m.stageLimit,
 	})
 }
 
@@ -216,6 +252,8 @@ func (m *Manager) start() error {
 		GUID:       guid,
 		Backend:    backend,
 		CaptureDir: m.opt.CaptureDir,
+
+		RequireEncryption: m.requireEncryption(),
 	})
 	if err != nil {
 		return err
@@ -419,6 +457,8 @@ type AdminConfig struct {
 	Running      bool
 	Port         int
 	AllowPublic  bool
+	Encrypt      bool
+	StageLimitMB int64 //Zero is no limit
 	LastError    string
 	LastErrorKey string //Names the translation, empty for anything unexpected
 	CanImport    bool
@@ -432,6 +472,8 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		m.mu.Unlock()
 		config.Port = m.Port()
 		config.AllowPublic = m.allowPublic()
+		config.StageLimitMB = m.stageLimitMB()
+		config.Encrypt = m.requireEncryption()
 		config.CanImport = m.opt.SambaHashes != nil
 		sendJSON(w, config)
 		return
@@ -443,14 +485,26 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	public := postOnly(r, "public") == "true"
+	encrypt := postOnly(r, "encrypt") == "true"
+	stageLimit := m.stageLimitMB()
+	if v := postOnly(r, "stagelimit"); v != "" {
+		stageLimit, err = strconv.ParseInt(v, 10, 64)
+		if err != nil || stageLimit < 0 || stageLimit > 1<<30 {
+			utils.SendErrorResponse(w, "The file size limit must be a number of MB, or 0 for no limit")
+			return
+		}
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	oldPort, oldPublic := m.Port(), m.allowPublic()
+	oldPort, oldPublic, oldEncrypt := m.Port(), m.allowPublic(), m.requireEncryption()
 	m.opt.Sysdb.Write(settingsTable, "port", port)
 	m.opt.Sysdb.Write(settingsTable, "public", public)
-	if m.server == nil {
-		utils.SendOK(w)
+	m.opt.Sysdb.Write(settingsTable, "encrypt", encrypt)
+	//Asked on every open, so it applies without listening again
+	m.opt.Sysdb.Write(settingsTable, "stagelimit", stageLimit)
+	if m.server == nil || (port == oldPort && public == oldPublic && encrypt == oldEncrypt) {
+		sendJSON(w, ConfigResult{Restarted: false})
 		return
 	}
 
@@ -461,12 +515,18 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	if err := m.start(); err != nil {
 		m.opt.Sysdb.Write(settingsTable, "port", oldPort)
 		m.opt.Sysdb.Write(settingsTable, "public", oldPublic)
+		m.opt.Sysdb.Write(settingsTable, "encrypt", oldEncrypt)
 		m.recordError(m.start())
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	m.recordError(nil)
-	utils.SendOK(w)
+	sendJSON(w, ConfigResult{Restarted: true})
+}
+
+// ConfigResult says whether saving had to disconnect the clients.
+type ConfigResult struct {
+	Restarted bool
 }
 
 // HandleClients lists who is connected.

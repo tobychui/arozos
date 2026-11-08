@@ -1,8 +1,10 @@
 # Built-in SMB server: proposal
 
-Status: Phases 1 to 3 are built on branch `v3.0.5_smb`. Phases 1 and 2 passed a
-Windows 11 24H2 test, and Phase 3 still needs one. Section 13 records what real
-Windows sessions changed in this plan. Surveyed 2026-11-07.
+Status: Phases 1 to 5 are built on branch `v3.0.5_smb`. Phases 1 and 2 passed a
+Windows 11 24H2 test; Phases 3 to 5 passed smbclient, go-smb2 and the macOS
+client on the Mac and still need a Windows session. Section 13 records what real
+Windows sessions changed in this plan, section 14 what Phases 4 and 5 found.
+Surveyed 2026-11-07.
 
 ## 1. Verdict
 
@@ -387,6 +389,17 @@ terminal use. The Samba wrapper stays available.
 **Done when** Explorer can read, edit and save on each drive type, and a failed
 upload is reported and loses no data.
 
+Built: WebDAV, FTP and S3 files are staged (`aroz/staged.go`): the download runs
+in the background and a read is answered as soon as its range arrived, writes
+wait for the whole copy, and the upload happens at CLOSE, whose status reports
+a failure. A failed upload's copy is moved to `system/smb/failed/`, because the
+tmp folder is emptied at boot. Admins set the largest staged file (System
+Settings > File Servers, 4096 MB by default, 0 for none). Any request still
+running after a second gets an interim `STATUS_PENDING`. SFTP and SMB drives
+have real file handles and need no staging. Verified against real WebDAV, FTP,
+SFTP and Samba servers; cluster and S3 only through a fake buffered drive. The
+optional cluster NTLM verify over ACN was left out.
+
 ### Phase 5: speed and resilience
 
 - Oplocks and leases, **with breaks working first**.
@@ -397,6 +410,12 @@ upload is reported and loses no data.
 
 **Done when** the TCP cut tests pass during a copy, encrypted sessions pass the
 Phase 2 set, and throughput is within an agreed range of Samba on the same box.
+
+Built: leases (V1 and V2, R/RH/RW/RWH, breaks that wait for the holder's answer
+for at most 35 seconds), durable handles V2 on top of handle caching leases,
+AES-128/256 GCM and CCM encryption with one server wide "require encryption"
+switch instead of a per share one, server side copy (`FSCTL_SRV_COPYCHUNK` and
+`_WRITE`) and `CHANGE_NOTIFY`. See section 14 for how each one behaves.
 
 ### Phase 6: reach and extras
 
@@ -486,7 +505,7 @@ rules and the compound and `CHANGE_NOTIFY` behaviour, and added these:
 | The Security tab calls lsarpc (`lsa_OpenPolicy3`, `lsa_LookupSids2`, `lsa_QueryInfoPolicy`) and dssetup, and `samr` for full names | Built lsarpc and dssetup. `samr` is left out: the tab still showed `alice (AROZTEST\alice)` without it |
 | Office opens `wkssvc`, though Explorer does not | Built `NetWkstaGetInfo` |
 | Identities in a descriptor need names and must stay stable | A machine SID and user SIDs are derived from the install's id, with nothing extra to store |
-| Most opens carry `MxAc`, `QFid`, lease and durable handle requests | `MxAc` and `QFid` are answered, the others declined by omission |
+| Most opens carry `MxAc`, `QFid`, lease and durable handle requests | `MxAc` and `QFid` are answered. Leases and durable handles were declined by omission until Phase 5 |
 | Directory class 81 is tried first, in a compound pair, then class 37 | `STATUS_INVALID_INFO_CLASS` for any class not implemented |
 | Object id calls come for shortcuts and recent files, whether a volume claims them or not | Answered with an id worked out from the file, nothing stored |
 | Windows asks for only the credits a read costs, and expects the server to add more | Credits follow Samba: what was spent plus the request minus one. Repaying only what was spent left one read in flight, 20 MiB/s on a 33 ms link |
@@ -505,12 +524,64 @@ laptop's name and file contents.
 Open from the Windows tests: Word 2007 hung on closing a document it had saved
 (`AppHangB1`, 50 seconds of SMB silence, the document intact). Every request was
 answered and the connection stayed up, and an `.odt` retest worked, so it is
-treated as an old Word problem for now. If it returns with a current Office,
-check `CHANGE_NOTIFY` first: nothing completes one until Phase 5, and a thread
-blocked on a folder watch would hang its application in exactly this way.
+treated as an old Word problem for now. `CHANGE_NOTIFY` requests did not
+complete then; since Phase 5 they do, so retest Word 2007 before digging.
 
 Users need System Settings access to reach the activation page, as with every
 file server. The `default` group of a fresh install does not have it.
+
+## 14. What Phases 4 and 5 built and found
+
+Tested on the Mac against real WebDAV (`x/net/webdav`), FTP (`ftpserverlib`),
+SFTP (`pkg/sftp`) and Samba servers mounted as ArozOS drives, and with
+smbclient 4.25, go-smb2 and the macOS SMB client as clients.
+
+| Found | Done |
+|---|---|
+| The WebDAV drive reported a missing file as a bare HTTP 404, so nothing could tell "not found" from a failure | `webdavfs` maps 404/410 to `fs.ErrNotExist` and 401/403 to `fs.ErrPermission` |
+| The FTP drive had no `Stat` at all, and `FileExists` and `IsDir` failed on servers without MLST | `ftpfs.Stat` uses MLST and falls back to listing the parent; 550 maps to not found |
+| `ftpfs.ReadStream` quit the FTP connection before the caller read the data | The connection now closes with the stream |
+| WebDAV and FTP cannot set file times, and Explorer sets them at the end of every copy | A time change those drives cannot make is accepted and ignored |
+| The CLOSE post query answered with the size from before a staged upload | It is asked after the close |
+| A CREATE cancelled after it went async still opened the file, and nobody would close it | The open is closed when its answer cannot be delivered |
+| A handle being written on a staged drive reported the drive's old size | `PendingFile` lets the handle report its own |
+| macOS asks for a resume key on the share root to learn whether server side copy exists | Any handle gets a key; copying from a folder fails later |
+| macOS asks for leases (RH and RWH) and durable handles on nearly every open | Granted on local drives; macOS answered breaks within milliseconds and reread data changed by another client or on disk |
+| macOS writes `._name` AppleDouble files for metadata, as with any server without named streams | Left as is; named streams are Phase 6 |
+| Homebrew Samba on macOS created folders with mode 000 for the SMB drive test | A test rig setting (`nt acl support = no`), not an ArozOS problem |
+
+How the Phase 5 parts behave:
+
+- **Leases** are only granted on drives the server can check often (local
+  ones), because changes made around the server, through the File Manager or
+  on the host, cannot be broken in advance. A validator compares the size and
+  time of every R-leased file every 3 seconds and breaks the lease when they
+  changed without this server doing it. W is only granted while nobody else
+  has the file open. Another open breaks W, and H when a cached handle's share
+  mode would refuse it; an overwrite breaks everything; a write breaks R;
+  rename and delete break H. Attribute-only opens break nothing, or Explorer
+  would break every lease it walks past. Breaks of W or H wait for the client's
+  answer (or the timeout); breaks of R alone do not wait.
+- **Durable handles** are granted only with an H lease. A connection that dies
+  keeps them for the requested timeout (60 seconds by default, 5 minutes at
+  most); logoff, revoked access and an open needing the lease close them.
+  `PreviousSessionId` drops a session the server had not noticed was dead.
+- **Encryption** is negotiated whenever the client offers it. With "require
+  encryption" on, clients without it are refused at login and plain requests
+  on an encrypted session get `STATUS_ACCESS_DENIED`. CCM is written in
+  `crypt/encrypt.go` and checked against NIST SP 800-38C and RFC 3610 vectors.
+  Captures keep the decrypted messages.
+- **CHANGE_NOTIFY** reports this server's own changes at once to every client
+  watching, and finds changes made around it by listing watched folders on
+  local drives every 3 seconds. Changes while no request waits are queued,
+  and too many become `STATUS_NOTIFY_ENUM_DIR`.
+- **Server side copy** follows the Windows server limits (256 chunks, 1 MiB
+  each, 16 MiB per request) and runs each chunk through the same access, lock
+  and quota checks as a READ and a WRITE.
+
+Throughput on the Mac's loopback with smbclient and a 300 MB file: about
+1.9 GB/s up and down, as Samba on the same machine; about 1.7 GB/s encrypted,
+Samba 1.5 to 1.7 GB/s.
 
 ## Sources
 

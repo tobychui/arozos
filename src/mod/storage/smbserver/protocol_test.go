@@ -3,6 +3,7 @@ package smbserver
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1338,5 +1339,167 @@ func TestCaptureRedactsLogins(t *testing.T) {
 	offset := binary.LittleEndian.Uint32(msg[24:])
 	if !bytes.Equal(msg[offset:offset+uint32(length)], make([]byte, length)) {
 		t.Error("the NT response must never reach a capture")
+	}
+}
+
+// slowHarness answers anything slower than 50 ms with an interim response.
+func slowHarness(t *testing.T) *harness {
+	return newHarness(t, func(c *Config) { c.PendingAfter = 50 * time.Millisecond })
+}
+
+func TestSlowReadGoesAsync(t *testing.T) {
+	h := slowHarness(t)
+	os.WriteFile(filepath.Join(h.share.root, "f.txt"), []byte("hello world"), 0644)
+	c := newRawClient(t, h)
+	id := mustCreate(t, c, "f.txt", createOpts{access: wire.FileReadData, share: shareAll, disposition: wire.DispositionOpen})
+
+	h.share.mu.Lock()
+	h.share.readDelay = 300 * time.Millisecond
+	h.share.mu.Unlock()
+	msg := c.message(wire.CmdRead, readBodyOf(id, 0, 5), 0)
+	c.signer.Sign(msg)
+	c.writeFrame(msg)
+
+	interim := parseReplies(t, c.readFrame())[0]
+	if interim.hdr.Status != wire.StatusPending || interim.hdr.Flags&wire.FlagAsync == 0 {
+		t.Fatalf("interim: %+v", interim.hdr)
+	}
+	if interim.hdr.Flags&wire.FlagSigned != 0 {
+		t.Error("an interim response must not be signed")
+	}
+	if interim.hdr.Credits == 0 {
+		t.Error("the interim response grants the credits, the final one may not")
+	}
+	final := parseReplies(t, c.readFrame())[0]
+	if final.hdr.Status != 0 || final.hdr.AsyncID != interim.hdr.AsyncID {
+		t.Fatalf("final: %+v", final.hdr)
+	}
+	c.verify(final)
+	if got := string(final.body[16:21]); got != "hello" {
+		t.Errorf("data %q", got)
+	}
+}
+
+func TestFastRequestsStaySync(t *testing.T) {
+	h := slowHarness(t)
+	c := newRawClient(t, h)
+	msg := c.message(wire.CmdCreate, createBody("quick.txt", openRW), 0)
+	c.signer.Sign(msg)
+	c.writeFrame(msg)
+	r := parseReplies(t, c.readFrame())[0]
+	if r.hdr.Status != 0 || r.hdr.Flags&wire.FlagAsync != 0 {
+		t.Errorf("a quick create must be answered at once: %+v", r.hdr)
+	}
+}
+
+func TestOtherRequestsRunBesideASlowOne(t *testing.T) {
+	h := slowHarness(t)
+	os.WriteFile(filepath.Join(h.share.root, "f.txt"), []byte("x"), 0644)
+	c := newRawClient(t, h)
+	id := mustCreate(t, c, "f.txt", createOpts{access: wire.FileReadData, share: shareAll, disposition: wire.DispositionOpen})
+	h.share.mu.Lock()
+	h.share.readDelay = 500 * time.Millisecond
+	h.share.mu.Unlock()
+
+	slow := c.message(wire.CmdRead, readBodyOf(id, 0, 1), 0)
+	c.signer.Sign(slow)
+	c.writeFrame(slow)
+	if r := parseReplies(t, c.readFrame())[0]; r.hdr.Status != wire.StatusPending {
+		t.Fatalf("interim: %x", r.hdr.Status)
+	}
+
+	started := time.Now()
+	echo := c.message(wire.CmdEcho, []byte{4, 0, 0, 0}, 0)
+	c.signer.Sign(echo)
+	c.writeFrame(echo)
+	r := parseReplies(t, c.readFrame())[0]
+	if r.hdr.Command != wire.CmdEcho {
+		t.Fatalf("got command %d first", r.hdr.Command)
+	}
+	if took := time.Since(started); took > 300*time.Millisecond {
+		t.Errorf("echo waited %v behind a slow read", took)
+	}
+	if final := parseReplies(t, c.readFrame())[0]; final.hdr.Command != wire.CmdRead || final.hdr.Status != 0 {
+		t.Errorf("final: %+v", final.hdr)
+	}
+}
+
+func TestCancelledSlowCreateLeavesNoOpenFile(t *testing.T) {
+	h := slowHarness(t)
+	c := newRawClient(t, h)
+	h.share.mu.Lock()
+	h.share.openDelay = 300 * time.Millisecond
+	h.share.mu.Unlock()
+
+	msg := c.message(wire.CmdCreate, createBody("late.txt", openRW), 0)
+	mid := binary.LittleEndian.Uint64(msg[24:])
+	c.signer.Sign(msg)
+	c.writeFrame(msg)
+	interim := parseReplies(t, c.readFrame())[0]
+	if interim.hdr.Status != wire.StatusPending {
+		t.Fatalf("interim: %x", interim.hdr.Status)
+	}
+
+	h2 := wire.Header{Command: wire.CmdCancel, MessageID: mid, SessionID: c.session, Flags: wire.FlagAsync, AsyncID: interim.hdr.AsyncID}
+	cancel := make([]byte, wire.HeaderSize+4)
+	h2.Put(cancel)
+	cancel[wire.HeaderSize] = 4
+	c.signer.Sign(cancel)
+	c.writeFrame(cancel)
+	if final := parseReplies(t, c.readFrame())[0]; final.hdr.Status != wire.StatusCancelled {
+		t.Fatalf("final: %x", final.hdr.Status)
+	}
+
+	//The create goes on after the cancel, and the file appears
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(filepath.Join(h.share.root, "late.txt")); err == nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	for h.share.openCount() != 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if n := h.share.openCount(); n != 0 {
+		t.Errorf("%d files still open after the cancelled create", n)
+	}
+	//The session still works, and nothing about the open lingers
+	if _, st := c.create("late.txt", createOpts{access: wire.FileReadData | wire.FileWriteData, share: 0, disposition: wire.DispositionOpen}); st != 0 {
+		t.Errorf("an exclusive open after the cancel: %x", st)
+	}
+}
+
+func TestCloseReportsAFailedUpload(t *testing.T) {
+	h := newHarness(t)
+	c := newRawClient(t, h)
+	id := mustCreate(t, c, "doc.txt", openRW)
+	h.share.mu.Lock()
+	h.share.closeErr = errors.New("the remote refused the upload")
+	h.share.mu.Unlock()
+	if st := c.close(id); st == 0 {
+		t.Error("a close whose upload failed must not succeed")
+	}
+	h.share.mu.Lock()
+	h.share.closeErr = nil
+	h.share.mu.Unlock()
+	if st := c.close(id); st != wire.StatusFileClosed {
+		t.Errorf("the handle must be gone after the failed close: %x", st)
+	}
+}
+
+func TestAPendingFileReportsItsOwnSize(t *testing.T) {
+	h := newHarness(t)
+	c := newRawClient(t, h)
+	id := mustCreate(t, c, "staged.txt", openRW)
+	h.share.mu.Lock()
+	h.share.pending = 12345
+	h.share.mu.Unlock()
+	r := c.call(wire.CmdQueryInfo, queryInfoBody(id, wire.InfoFile, wire.FileStandardInformation, 0))
+	if r.hdr.Status != 0 {
+		t.Fatalf("query: %x", r.hdr.Status)
+	}
+	if eof := binary.LittleEndian.Uint64(r.body[8+8:]); eof != 12345 {
+		t.Errorf("end of file = %d, the handle must see what it wrote", eof)
 	}
 }

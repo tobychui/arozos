@@ -21,6 +21,10 @@ import (
 
 const logTitle = "SMB"
 
+// ErrFileTooLarge is what a backend returns for a file it will not stage. The
+// client is told STATUS_FILE_TOO_LARGE.
+var ErrFileTooLarge = errors.New("smbserver: the file is too large for this drive")
+
 // Limits. The read and write sizes match what Samba offers Windows.
 const (
 	maxTransact     = 8 << 20
@@ -35,6 +39,8 @@ const (
 
 	defaultLoginTimeout = 30 * time.Second
 	defaultLoginDelay   = 2 * time.Second
+	defaultPendingAfter = time.Second
+	defaultNotifyPoll   = 3 * time.Second
 	defaultMaxConns     = 256
 	defaultMaxPerIP     = 32
 )
@@ -54,8 +60,21 @@ type Config struct {
 
 	LoginTimeout time.Duration
 	LoginDelay   time.Duration //Added to a failed login
-	MaxConns     int
-	MaxPerIP     int
+	PendingAfter time.Duration //A request still running after this gets STATUS_PENDING
+	NotifyPoll   time.Duration //How often watched local folders are listed; negative is never
+
+	//NoLeases turns client caching off. LeaseBreakTimeout is how long a
+	//client has to answer a break, LeasePoll how often leased files on local
+	//drives are checked for changes made around the server
+	NoLeases          bool
+	LeaseBreakTimeout time.Duration
+	LeasePoll         time.Duration
+
+	//RequireEncryption refuses clients that cannot encrypt (SMB 2.1, and
+	//3.x clients with encryption off) and every unencrypted request
+	RequireEncryption bool
+	MaxConns          int
+	MaxPerIP          int
 }
 
 // Server is a running SMB server.
@@ -67,6 +86,10 @@ type Server struct {
 	machineSID wire.SID
 	startTime  time.Time
 	capture    *capture
+	resume     resumeKeys
+	watches    watchers
+	leases     leases
+	durables   durableTable
 
 	mu      sync.Mutex
 	conns   map[*conn]struct{}
@@ -108,6 +131,18 @@ func New(cfg Config) (*Server, error) {
 	if cfg.LoginDelay == 0 {
 		cfg.LoginDelay = defaultLoginDelay
 	}
+	if cfg.NotifyPoll == 0 {
+		cfg.NotifyPoll = defaultNotifyPoll
+	}
+	if cfg.LeaseBreakTimeout == 0 {
+		cfg.LeaseBreakTimeout = defaultLeaseBreakTimeout
+	}
+	if cfg.LeasePoll == 0 {
+		cfg.LeasePoll = defaultLeasePoll
+	}
+	if cfg.PendingAfter == 0 {
+		cfg.PendingAfter = defaultPendingAfter
+	}
 	if cfg.MaxConns == 0 {
 		cfg.MaxConns = defaultMaxConns
 	}
@@ -125,6 +160,7 @@ func New(cfg Config) (*Server, error) {
 		perIP:      map[string]int{},
 	}
 	s.fileSeq.Store(1000)
+	s.leases.init(s)
 
 	if cfg.CaptureDir != "" {
 		c, err := newCapture(cfg.CaptureDir, cfg.CaptureFull)
@@ -307,6 +343,9 @@ func (s *Server) DropUser(username string) int {
 	dropped := 0
 	for _, c := range conns {
 		if c.hasUser(username) {
+			//A user whose access was taken away does not come back for
+			//durable handles either
+			c.revoked.Store(true)
 			c.shutdown()
 			dropped++
 		}
@@ -329,6 +368,8 @@ func (s *Server) Close() error {
 		return nil
 	}
 	s.closed = true
+	s.watches.close()
+	s.leases.close()
 	list := make([]*conn, 0, len(s.conns))
 	for c := range s.conns {
 		list = append(list, c)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"strings"
+	"time"
 
 	"imuslab.com/arozos/mod/storage/smbserver/wire"
 )
@@ -139,6 +140,11 @@ func (c *conn) queryFile(o *open, q *wire.QueryInfoRequest) *response {
 		return errorResponse(statusOf(err))
 	}
 	info.Name = baseName(p)
+	if pf, ok := o.file.(PendingFile); ok {
+		if size, ok := pf.PendingSize(); ok {
+			info.Size = size
+		}
+	}
 
 	w := wire.NewWriter(128)
 	variable := false
@@ -447,6 +453,7 @@ func (c *conn) setBasic(o *open, data []byte) uint32 {
 	o.metaMu.Lock()
 	o.stickyMod = when
 	o.metaMu.Unlock()
+	c.srv.watches.changed(share, p, actionModified, notifyAttributes|notifyLastWrite)
 	return wire.StatusOK
 }
 
@@ -486,6 +493,7 @@ func (c *conn) setEndOfFile(o *open, data []byte, allocation bool) uint32 {
 	if growth := size - current; growth > 0 && !share.HaveSpace(growth) {
 		return wire.StatusDiskFull
 	}
+	c.srv.leases.breakForWrite(o.handle.Key(), o.lease)
 	if err := o.file.Truncate(size); err != nil {
 		return statusOf(err)
 	}
@@ -513,6 +521,10 @@ func (c *conn) setDisposition(o *open, pending bool) uint32 {
 		if len(list) > 0 {
 			return wire.StatusDirectoryNotEmpty
 		}
+	}
+	if pending && !o.isDir {
+		//Clients caching handles to the file close them, so it can go
+		c.breakHandles(o.handle.Key(), o.lease)
 	}
 	o.handle.SetDisposition(pending)
 	return wire.StatusOK
@@ -587,6 +599,15 @@ func (c *conn) setRename(o *open, q *wire.SetInfoRequest) uint32 {
 	}
 
 	newKey := fileKey(share, target)
+	oldKey := o.handle.Key()
+	if !o.isDir {
+		c.breakHandles(oldKey, o.lease)
+		if !sameFile && newKey != oldKey {
+			//Whoever caches the file being replaced loses it
+			waits := c.srv.leases.breakWhere(newKey, nil, func(*lease) uint32 { return 0 })
+			c.waitBreaks(waits, time.Now().Add(c.srv.cfg.LeaseBreakTimeout+time.Second))
+		}
+	}
 	if st := o.handle.CanRename(newKey); st != wire.StatusOK {
 		return st
 	}
@@ -594,7 +615,9 @@ func (c *conn) setRename(o *open, q *wire.SetInfoRequest) uint32 {
 		return statusOf(err)
 	}
 	o.handle.Rename(newKey, target)
+	c.srv.leases.renamed(oldKey, newKey, target)
 	c.srv.names.forget(share, dirName(source))
 	c.srv.names.forget(share, dirName(target))
+	c.srv.watches.renamed(share, source, target, o.isDir)
 	return wire.StatusOK
 }

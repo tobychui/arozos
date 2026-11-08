@@ -24,6 +24,12 @@ type testShare struct {
 	denyRead  map[string]bool
 	spaceLeft int64 //Negative means unlimited
 	changed   []string
+	openDelay time.Duration //Stands in for a slow remote drive
+	readDelay time.Duration
+	closeErr  error //What Close reports, like a failed staged upload
+	opened    int   //Files open right now
+	pending   int64 //Size the open file claims, like a staged copy; 0 is none
+	noPoll    bool  //Like a cloud drive, which cannot be listed often
 }
 
 func (s *testShare) full(p string) string { return filepath.Join(s.root, filepath.FromSlash(p)) }
@@ -32,6 +38,11 @@ func (s *testShare) Name() string    { return s.name }
 func (s *testShare) Comment() string { return "Test drive " + s.name }
 func (s *testShare) Key() string     { return s.root }
 func (s *testShare) ReadOnly() bool  { return s.readOnly }
+func (s *testShare) CanPoll() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.noPoll
+}
 
 func (s *testShare) CanRead(p string) bool {
 	s.mu.Lock()
@@ -74,7 +85,55 @@ func (s *testShare) ReadDir(p string) ([]FileInfo, error) {
 }
 
 func (s *testShare) Open(p string, flag int) (File, error) {
-	return os.OpenFile(s.full(p), flag, 0644)
+	s.mu.Lock()
+	delay := s.openDelay
+	s.mu.Unlock()
+	time.Sleep(delay)
+	f, err := os.OpenFile(s.full(p), flag, 0644)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.opened++
+	s.mu.Unlock()
+	return &testFile{File: f, share: s}, nil
+}
+
+func (s *testShare) openCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.opened
+}
+
+// testFile is a local file with the delays and failures of its share.
+type testFile struct {
+	*os.File
+	share *testShare
+}
+
+func (f *testFile) ReadAt(b []byte, off int64) (int, error) {
+	f.share.mu.Lock()
+	delay := f.share.readDelay
+	f.share.mu.Unlock()
+	time.Sleep(delay)
+	return f.File.ReadAt(b, off)
+}
+
+func (f *testFile) PendingSize() (int64, bool) {
+	f.share.mu.Lock()
+	defer f.share.mu.Unlock()
+	return f.share.pending, f.share.pending != 0
+}
+
+func (f *testFile) Close() error {
+	f.share.mu.Lock()
+	f.share.opened--
+	err := f.share.closeErr
+	f.share.mu.Unlock()
+	if cerr := f.File.Close(); cerr != nil {
+		return cerr
+	}
+	return err
 }
 func (s *testShare) Mkdir(p string) error                   { return os.Mkdir(s.full(p), 0755) }
 func (s *testShare) Remove(p string) error                  { return os.Remove(s.full(p)) }

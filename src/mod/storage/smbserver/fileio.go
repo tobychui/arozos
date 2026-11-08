@@ -128,6 +128,7 @@ func (c *conn) handleWrite(r *request) *response {
 		return errorResponse(wire.StatusDiskFull)
 	}
 
+	c.srv.leases.breakForWrite(o.handle.Key(), o.lease)
 	n, err := o.file.WriteAt(q.Data, int64(q.Offset))
 	if err != nil {
 		return errorResponse(statusOf(err))
@@ -284,12 +285,20 @@ func (c *conn) handleChangeNotify(r *request) *response {
 		return errorResponse(wire.StatusInvalidParameter)
 	}
 
-	//The request stays open until the folder closes or the client cancels it.
-	//Reporting changes comes later, Explorer refreshes what it does itself.
+	o.io.RLock()
+	if o.closed {
+		o.io.RUnlock()
+		return errorResponse(wire.StatusFileClosed)
+	}
+	w := c.startWatch(o, q)
+	o.io.RUnlock()
+	if res := w.ready(q.MaxOutput); res != nil {
+		return res
+	}
+	//The request stays open until something changes, the folder closes or
+	//the client cancels it
 	op := c.newAsync(r)
-	o.metaMu.Lock()
-	o.notifies = append(o.notifies, op)
-	o.metaMu.Unlock()
+	w.wait(op, q.MaxOutput)
 	return &response{status: wire.StatusPending, async: op}
 }
 
@@ -303,6 +312,7 @@ type asyncOp struct {
 	finished  chan struct{}
 	once      sync.Once
 	cancelled bool
+	encrypt   bool //The final response is sealed, as the request was
 }
 
 func (c *conn) newAsync(r *request) *asyncOp {
@@ -312,6 +322,7 @@ func (c *conn) newAsync(r *request) *asyncOp {
 		sess:     r.sess,
 		ready:    make(chan struct{}),
 		finished: make(chan struct{}),
+		encrypt:  r.encrypted || r.sess != nil && r.sess.mustEncrypt(),
 	}
 	c.pendMu.Lock()
 	c.pending[op.asyncID] = op
@@ -326,7 +337,17 @@ func (c *conn) newAsync(r *request) *asyncOp {
 
 // finishAsync sends the final response of an operation, once.
 func (c *conn) finishAsync(op *asyncOp, status uint32, body []byte) {
+	c.finishAsyncResponse(op, &response{status: status, body: body})
+}
+
+// finishAsyncResponse sends the final response of an operation, once. It
+// reports false when another response, such as a cancel, already went out.
+func (c *conn) finishAsyncResponse(op *asyncOp, res *response) bool {
+	sent := false
 	op.once.Do(func() {
+		sent = true
+		status := res.status
+		body := responseBody(res)
 		close(op.finished)
 		c.pendMu.Lock()
 		delete(c.pending, op.asyncID)
@@ -340,9 +361,6 @@ func (c *conn) finishAsync(op *asyncOp, status uint32, body []byte) {
 			return
 		}
 
-		if body == nil {
-			body = []byte{9, 0, 0, 0, 0, 0, 0, 0, 0}
-		}
 		h := wire.Header{
 			CreditCharge: op.hdr.CreditCharge,
 			Status:       status,
@@ -355,16 +373,23 @@ func (c *conn) finishAsync(op *asyncOp, status uint32, body []byte) {
 		msg := make([]byte, wire.HeaderSize+len(body))
 		h.Put(msg)
 		copy(msg[wire.HeaderSize:], body)
-		if op.sess.signer != nil {
-			op.sess.signer.Sign(msg)
+		var err error
+		if op.encrypt {
+			err = c.sendSealed(op.sess, msg)
+		} else {
+			if op.sess.signer != nil {
+				op.sess.signer.Sign(msg)
+			}
+			frame := make([]byte, 4+len(msg))
+			frame[1], frame[2], frame[3] = byte(len(msg)>>16), byte(len(msg)>>8), byte(len(msg))
+			copy(frame[4:], msg)
+			err = c.send(frame)
 		}
-		frame := make([]byte, 4+len(msg))
-		frame[1], frame[2], frame[3] = byte(len(msg)>>16), byte(len(msg)>>8), byte(len(msg))
-		copy(frame[4:], msg)
-		if err := c.send(frame); err != nil {
+		if err != nil {
 			logger.PrintAndLog(logTitle, "Could not finish a pending request", err)
 		}
 	})
+	return sent
 }
 
 func (c *conn) handleCancel(p *part) error {
@@ -374,7 +399,11 @@ func (c *conn) handleCancel(p *part) error {
 	if sess == nil || !sess.isValid() {
 		return nil
 	}
-	if p.hdr.Flags&wire.FlagSigned == 0 || !sess.signer.Verify(p.raw) {
+	if p.encrypted {
+		if p.hdr.SessionID != p.sessionID {
+			return errDrop
+		}
+	} else if p.hdr.Flags&wire.FlagSigned == 0 || !sess.signer.Verify(p.raw) {
 		return errDrop
 	}
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/storage/smbserver/crypt"
 	"imuslab.com/arozos/mod/storage/smbserver/wire"
 )
 
@@ -43,6 +44,8 @@ type conn struct {
 	clientGUID [16]byte
 	clientCaps uint32
 	clientMode uint16
+	serverCaps uint32 //What NEGOTIATE answered, which VALIDATE_NEGOTIATE repeats
+	cipher     uint16 //Negotiated encryption, zero for none
 	window     creditWindow
 	sessions   map[uint64]*session
 	loggedIn   bool
@@ -52,6 +55,7 @@ type conn struct {
 	pendingByMsg map[uint64]*asyncOp
 	earlyCancels map[uint64]struct{}
 	nextAsync    atomic.Uint64
+	revoked      atomic.Bool //Closed by an admin: durable handles go too
 }
 
 func newConn(s *Server, nc net.Conn, remote string) *conn {
@@ -143,8 +147,10 @@ func (w *creditWindow) grant(requested, charge uint16, loggedIn bool) uint16 {
 
 // part is one request of a compound.
 type part struct {
-	hdr wire.Header
-	raw []byte //From this header to the next one, as the signature covers it
+	hdr       wire.Header
+	raw       []byte //From this header to the next one, as the signature covers it
+	encrypted bool   //It came in a transform, which replaces the signature
+	sessionID uint64 //Of the transform
 }
 
 // splitCompound cuts a frame into its requests.
@@ -234,9 +240,7 @@ func (c *conn) readLoop() error {
 		if _, err := io.ReadFull(c.nc, frame); err != nil {
 			return err
 		}
-		if c.srv.capture != nil {
-			c.srv.capture.record(c, true, frame)
-		}
+		//The capture gets the plain message, after any decryption
 		if err := c.handleFrame(frame); err != nil {
 			return err
 		}
@@ -247,9 +251,24 @@ func (c *conn) handleFrame(frame []byte) error {
 	if wire.IsSMB1(frame) {
 		return c.handleSMB1(frame)
 	}
+	encrypted := false
+	var transformSession uint64
+	if sid, ok := crypt.TransformSession(frame); ok {
+		plain, err := c.decrypt(sid, frame)
+		if err != nil {
+			return err
+		}
+		frame, encrypted, transformSession = plain, true, sid
+	}
+	if c.srv.capture != nil {
+		c.srv.capture.record(c, true, frame)
+	}
 	parts, err := splitCompound(frame)
 	if err != nil {
 		return err
+	}
+	for _, p := range parts {
+		p.encrypted, p.sessionID = encrypted, transformSession
 	}
 
 	//CANCEL neither uses a credit nor gets a reply
@@ -310,6 +329,8 @@ type request struct {
 	chain     *chainState
 	traceInfo string
 	detail    string //Control code or info class, for the trace
+	encrypted bool
+	sessionID uint64 //Of the transform the request came in
 }
 
 // chainState carries the values related requests inherit.
@@ -329,17 +350,93 @@ type response struct {
 	async   *asyncOp
 	after   func(raw []byte) //Sees the finished unsigned message
 	signAs  *session         //Overrides r.sess, for the end of a login
+	plain   bool             //Never sealed, even on an encrypted session
 }
 
 func errorResponse(status uint32) *response { return &response{status: status} }
 
+// mayGoAsync lists the commands that can outlast a client's patience on a slow
+// drive: a staged download, an upload at close, a listing of a remote folder.
+var mayGoAsync = map[uint16]bool{
+	wire.CmdCreate: true, wire.CmdClose: true, wire.CmdFlush: true, wire.CmdRead: true,
+	wire.CmdWrite: true, wire.CmdIoctl: true, wire.CmdQueryDirectory: true,
+	wire.CmdQueryInfo: true, wire.CmdSetInfo: true,
+}
+
+// runSingle handles one request that is not part of a compound. If it takes
+// longer than PendingAfter, the client gets STATUS_PENDING now and the real
+// response when it is ready, so a slow drive does not trip its timeout.
+func (c *conn) runSingle(p *part) error {
+	r := &request{hdr: p.hdr, raw: p.raw, chain: &chainState{}, encrypted: p.encrypted, sessionID: p.sessionID}
+	started := time.Now()
+	res, err := c.authorize(r)
+	if err != nil {
+		return err
+	}
+	if res == nil {
+		done := make(chan *response, 1)
+		go func() { done <- c.route(r) }()
+		timer := time.NewTimer(c.srv.cfg.PendingAfter)
+		select {
+		case res = <-done:
+			timer.Stop()
+		case <-timer.C:
+			op := c.newAsync(r)
+			interim := c.buildPart(r, &response{status: wire.StatusPending, async: op})
+			if err := c.sendParts([]*builtPart{interim}); err != nil {
+				return err
+			}
+			close(op.ready)
+			c.wg.Add(1)
+			go func() {
+				defer c.wg.Done()
+				final := <-done
+				c.traceRequest(r, final, time.Since(started))
+				if !c.finishAsyncResponse(op, final) {
+					c.dropUnseenOpen(r, final)
+				}
+			}()
+			if op.cancelled {
+				go c.finishAsync(op, wire.StatusCancelled, nil)
+			}
+			return nil
+		case <-c.done:
+			return net.ErrClosed
+		}
+	}
+	c.traceRequest(r, res, time.Since(started))
+	return c.sendParts([]*builtPart{c.buildPart(r, res)})
+}
+
+// dropUnseenOpen closes the file a cancelled CREATE opened anyway. The client
+// was told the open failed, so it would never close the handle itself.
+func (c *conn) dropUnseenOpen(r *request, res *response) {
+	if r.hdr.Command != wire.CmdCreate || res.status != wire.StatusOK || !r.chain.hasFile || r.sess == nil {
+		return
+	}
+	r.sess.mu.Lock()
+	o := r.sess.opens[r.chain.fileID]
+	delete(r.sess.opens, r.chain.fileID)
+	r.sess.mu.Unlock()
+	if o != nil {
+		c.closeOpen(o)
+	}
+}
+
 // runChain handles a compound in order and sends its responses as one frame.
 func (c *conn) runChain(parts []*part) error {
+	c.mu.Lock()
+	loggedIn := c.loggedIn
+	c.mu.Unlock()
+	if len(parts) == 1 && loggedIn && mayGoAsync[parts[0].hdr.Command] && parts[0].hdr.Flags&wire.FlagRelated == 0 {
+		return c.runSingle(parts[0])
+	}
+
 	chain := &chainState{}
 	out := make([]*builtPart, 0, len(parts))
 	asyncs := []*asyncOp{}
 	for i, p := range parts {
-		r := &request{hdr: p.hdr, raw: p.raw, chain: chain}
+		r := &request{hdr: p.hdr, raw: p.raw, chain: chain, encrypted: p.encrypted, sessionID: p.sessionID}
 		started := time.Now()
 
 		var res *response
@@ -385,6 +482,15 @@ func (c *conn) runChain(parts []*part) error {
 // dispatch finds the session and tree of a request, proves it came from the
 // signed in client, and runs the handler.
 func (c *conn) dispatch(r *request) (*response, error) {
+	if res, err := c.authorize(r); res != nil || err != nil {
+		return res, err
+	}
+	return c.route(r), nil
+}
+
+// authorize does everything up to the handler of a request on a tree. A nil
+// response and error mean r.sess and r.tree are set and route can run.
+func (c *conn) authorize(r *request) (*response, error) {
 	cmd := r.hdr.Command
 	switch cmd {
 	case wire.CmdNegotiate:
@@ -408,11 +514,24 @@ func (c *conn) dispatch(r *request) (*response, error) {
 		return errorResponse(wire.StatusUserSessionDeleted), nil
 	}
 
-	//Signing cannot be skipped: an unsigned or forged request on a signed
-	//session means someone is in the middle, so the connection goes
-	if r.hdr.Flags&wire.FlagSigned == 0 || !sess.signer.Verify(r.raw) {
-		logger.PrintAndLog(logTitle, "Bad signature from "+c.remote+", closing the connection", nil)
-		return nil, errDrop
+	if r.encrypted {
+		//Encryption authenticates the message, as a signature would. The
+		//header inside must belong to the session that sealed it.
+		if r.hdr.SessionID != r.sessionID {
+			return nil, errDrop
+		}
+	} else {
+		//Signing cannot be skipped: an unsigned or forged request on a
+		//signed session means someone is in the middle, so the connection goes
+		if r.hdr.Flags&wire.FlagSigned == 0 || !sess.signer.Verify(r.raw) {
+			logger.PrintAndLog(logTitle, "Bad signature from "+c.remote+", closing the connection", nil)
+			return nil, errDrop
+		}
+		if sess.mustEncrypt() {
+			//Answered signed and in the clear, the only form the sender reads
+			r.sess = sess
+			return &response{status: wire.StatusAccessDenied, plain: true}, nil
+		}
 	}
 	r.sess = sess
 
@@ -423,6 +542,9 @@ func (c *conn) dispatch(r *request) (*response, error) {
 		return c.handleLogoff(r), nil
 	case wire.CmdTreeConnect:
 		return c.handleTreeConnect(r), nil
+	case wire.CmdOplockBreak:
+		//A lease is the client's, not a tree's
+		return c.handleLeaseAck(r), nil
 	}
 
 	t := sess.tree(r.hdr.TreeID)
@@ -430,37 +552,38 @@ func (c *conn) dispatch(r *request) (*response, error) {
 		return errorResponse(wire.StatusNetworkNameDeleted), nil
 	}
 	r.tree = t
+	return nil, nil
+}
 
-	switch cmd {
+// route runs the handler of an authorized request on a tree.
+func (c *conn) route(r *request) *response {
+	switch r.hdr.Command {
 	case wire.CmdTreeDisconnect:
-		return c.handleTreeDisconnect(r), nil
+		return c.handleTreeDisconnect(r)
 	case wire.CmdCreate:
-		return c.handleCreate(r), nil
+		return c.handleCreate(r)
 	case wire.CmdClose:
-		return c.handleClose(r), nil
+		return c.handleClose(r)
 	case wire.CmdFlush:
-		return c.handleFlush(r), nil
+		return c.handleFlush(r)
 	case wire.CmdRead:
-		return c.handleRead(r), nil
+		return c.handleRead(r)
 	case wire.CmdWrite:
-		return c.handleWrite(r), nil
+		return c.handleWrite(r)
 	case wire.CmdLock:
-		return c.handleLock(r), nil
+		return c.handleLock(r)
 	case wire.CmdIoctl:
-		return c.handleIoctl(r), nil
+		return c.handleIoctl(r)
 	case wire.CmdQueryDirectory:
-		return c.handleQueryDirectory(r), nil
+		return c.handleQueryDirectory(r)
 	case wire.CmdChangeNotify:
-		return c.handleChangeNotify(r), nil
+		return c.handleChangeNotify(r)
 	case wire.CmdQueryInfo:
-		return c.handleQueryInfo(r), nil
+		return c.handleQueryInfo(r)
 	case wire.CmdSetInfo:
-		return c.handleSetInfo(r), nil
-	case wire.CmdOplockBreak:
-		//No oplock or lease is ever granted, so nothing can break
-		return errorResponse(wire.StatusInvalidOplockProtocol), nil
+		return c.handleSetInfo(r)
 	}
-	return errorResponse(wire.StatusNotImplemented), nil
+	return errorResponse(wire.StatusNotImplemented)
 }
 
 // open finds the handle a request names, following "the previous file".
@@ -499,30 +622,36 @@ func (r *request) checkCharge(size uint64) bool {
 
 // builtPart is a finished response, not yet signed.
 type builtPart struct {
-	buf    []byte //msg with room for the frame header in front
-	msg    []byte
-	sess   *session
-	after  func([]byte)
-	unsign bool
+	buf     []byte //msg with room for the frame header in front
+	msg     []byte
+	sess    *session
+	after   func([]byte)
+	unsign  bool
+	encrypt bool
+}
+
+// responseBody returns the body to send. A response without one gets the
+// error body, also used for interim responses. A status of the error class can
+// still carry a real body: the NTLM challenge travels under
+// STATUS_MORE_PROCESSING_REQUIRED.
+func responseBody(res *response) []byte {
+	if res.body != nil {
+		return res.body
+	}
+	w := wire.NewWriter(9 + len(res.errData))
+	w.U16(9)
+	w.U16(0)
+	w.U32(uint32(len(res.errData)))
+	if len(res.errData) == 0 {
+		w.U8(0)
+	} else {
+		w.Bytes(res.errData)
+	}
+	return w.B
 }
 
 func (c *conn) buildPart(r *request, res *response) *builtPart {
-	body := res.body
-	if body == nil {
-		//The error body, also used for interim responses. A status of the
-		//error class can still carry a real body: the NTLM challenge travels
-		//under STATUS_MORE_PROCESSING_REQUIRED.
-		w := wire.NewWriter(9 + len(res.errData))
-		w.U16(9)
-		w.U16(0)
-		w.U32(uint32(len(res.errData)))
-		if len(res.errData) == 0 {
-			w.U8(0)
-		} else {
-			w.Bytes(res.errData)
-		}
-		body = w.B
-	}
+	body := responseBody(res)
 
 	loginDone := r.hdr.Command == wire.CmdSessionSetup && res.status == wire.StatusOK
 	c.mu.Lock()
@@ -555,7 +684,10 @@ func (c *conn) buildPart(r *request, res *response) *builtPart {
 	if res.signAs != nil {
 		sess = res.signAs
 	}
-	return &builtPart{buf: buf, msg: msg, sess: sess, after: res.after, unsign: res.status == wire.StatusPending}
+	//A login that just finished is answered signed: the client only starts
+	//encrypting once it has the response
+	encrypt := res.signAs == nil && !res.plain && sess != nil && (r.encrypted || sess.mustEncrypt())
+	return &builtPart{buf: buf, msg: msg, sess: sess, after: res.after, unsign: res.status == wire.StatusPending, encrypt: encrypt}
 }
 
 // sendParts links the parts of a compound, signs each one over its final
@@ -572,11 +704,18 @@ func (c *conn) sendParts(parts []*builtPart) error {
 		total += len(p.msg)
 	}
 
+	//A compound is sealed whole, so one encrypted part encrypts them all
+	var sealer *session
+	for _, p := range parts {
+		if p.encrypt {
+			sealer = p.sess
+		}
+	}
 	for _, p := range parts {
 		if p.after != nil {
 			p.after(p.msg)
 		}
-		if p.sess != nil && p.sess.signer != nil && !p.unsign {
+		if sealer == nil && p.sess != nil && p.sess.signer != nil && !p.unsign {
 			p.sess.signer.Sign(p.msg)
 		}
 	}
@@ -591,13 +730,58 @@ func (c *conn) sendParts(parts []*builtPart) error {
 		}
 	}
 	frame[1], frame[2], frame[3] = byte(total>>16), byte(total>>8), byte(total)
+	if sealer != nil {
+		return c.sendSealed(sealer, frame[4:])
+	}
 	return c.send(frame)
+}
+
+// sendSealed encrypts a message for a session and queues it. The capture
+// keeps the plain message, which is what debugging needs.
+func (c *conn) sendSealed(sess *session, plain []byte) error {
+	if c.srv.capture != nil {
+		c.srv.capture.record(c, false, plain)
+	}
+	enc, _ := sess.ciphers()
+	if enc == nil {
+		return errDrop
+	}
+	sealed := enc.Seal(sess.id, plain)
+	frame := make([]byte, 4+len(sealed))
+	frame[1], frame[2], frame[3] = byte(len(sealed)>>16), byte(len(sealed)>>8), byte(len(sealed))
+	copy(frame[4:], sealed)
+	return c.queue(frame)
+}
+
+// decrypt opens a transform message of one of this connection's sessions.
+func (c *conn) decrypt(sessionID uint64, frame []byte) ([]byte, error) {
+	c.mu.Lock()
+	sess := c.sessions[sessionID]
+	c.mu.Unlock()
+	if sess == nil {
+		return nil, errors.New("an encrypted message for no session")
+	}
+	_, dec := sess.ciphers()
+	if dec == nil {
+		return nil, errors.New("an encrypted message on a session without encryption")
+	}
+	plain, err := dec.Open(frame)
+	if err != nil {
+		logger.PrintAndLog(logTitle, "A message from "+c.remote+" did not decrypt, closing the connection", nil)
+		return nil, err
+	}
+	return plain, nil
 }
 
 func (c *conn) send(frame []byte) error {
 	if c.srv.capture != nil {
 		c.srv.capture.record(c, false, frame[4:])
 	}
+	return c.queue(frame)
+}
+
+// queue hands a finished frame to the writer.
+func (c *conn) queue(frame []byte) error {
 	select {
 	case c.sendq <- frame:
 		return nil
@@ -631,7 +815,8 @@ func (c *conn) closeAll() {
 	c.sessions = map[uint64]*session{}
 	c.mu.Unlock()
 	for _, s := range list {
-		s.closeAllTrees(c)
+		//The connection died: durable handles wait for their client
+		s.closeAllTrees(c, !c.revoked.Load())
 	}
 }
 

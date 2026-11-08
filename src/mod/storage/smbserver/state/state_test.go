@@ -298,3 +298,25 @@ func TestCheckIO(t *testing.T) {
 		})
 	}
 }
+
+func TestPeersAndConflicts(t *testing.T) {
+	table := NewTable()
+	a, _ := table.Open("k", "f", wire.FileReadData, wire.ShareRead)
+	b, _ := table.Open("k", "f", wire.FileReadData, wire.ShareRead|wire.ShareWrite)
+	if peers := a.Peers(); len(peers) != 1 || peers[0] != b {
+		t.Errorf("peers = %v", peers)
+	}
+	if table.Count("k") != 2 || table.Count("other") != 0 {
+		t.Error("wrong count")
+	}
+	if !a.WouldConflict(wire.FileWriteData, wire.ShareRead|wire.ShareWrite) {
+		t.Error("a shares no write, so a writer must conflict")
+	}
+	if b.WouldConflict(wire.FileWriteData, wire.ShareRead|wire.ShareWrite) {
+		t.Error("b shares write")
+	}
+	b.Close()
+	if len(a.Peers()) != 0 {
+		t.Error("b is closed")
+	}
+}

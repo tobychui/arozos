@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
@@ -60,6 +61,19 @@ type Options struct {
 	//AllowPublicAddresses turns off the private network rule. Port 445 must
 	//not reach the internet, so this is off unless an admin asks for it.
 	AllowPublicAddresses bool
+
+	//StageDir holds the local copies of files on buffered drives. Empty uses
+	//the drive's buffer folder, else the system temp folder.
+	StageDir string
+
+	//KeepDir receives the local copy of a file whose upload failed, so it
+	//must survive a restart. Empty is a "failed" folder in the stage folder.
+	KeepDir string
+
+	//StageLimit returns the largest file of a buffered drive SMB serves. It is
+	//asked on every open, so a change applies at once. Nil or zero is
+	//DefaultStageLimit, and a negative number has no limit.
+	StageLimit func() int64
 }
 
 // Backend implements smbserver.Backend.
@@ -86,7 +100,7 @@ func (b *Backend) Login(username string) (smbserver.UserView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &view{username: username, account: account, quota: quota, capacity: b.opt.Capacity}, nil
+	return &view{username: username, account: account, quota: quota, capacity: b.opt.Capacity, opt: &b.opt}, nil
 }
 
 // Allow implements smbserver.Backend.
@@ -119,6 +133,7 @@ type view struct {
 	account  Account
 	quota    Quota
 	capacity CapacityFunc
+	opt      *Options
 
 	usageMu sync.Mutex
 	usage   map[string]usageEntry
@@ -135,12 +150,11 @@ const usageCacheTTL = 5 * time.Second
 
 func (v *view) Username() string { return v.username }
 
-// Shares lists one share per drive. Drives that need the staged handles of a
-// later phase are left out, because Open does not work on them.
+// Shares lists one share per drive.
 func (v *view) Shares() []smbserver.Share {
 	out := []smbserver.Share{}
 	for _, fsh := range v.account.GetAllFileSystemHandler() {
-		if fsh.Closed || fsh.RequireBuffer {
+		if fsh.Closed {
 			continue
 		}
 		out = append(out, newShare(fsh, v))
@@ -178,6 +192,9 @@ func (s *share) Key() string {
 func (s *share) ReadOnly() bool { return s.fsh.ReadOnly }
 
 func (s *share) vpath(p string) string { return s.fsh.UUID + ":/" + p }
+
+// CanPoll lets watched folders of local drives be listed every few seconds.
+func (s *share) CanPoll() bool { return s.local }
 
 func (s *share) CanRead(p string) bool { return s.v.account.CanRead(s.vpath(p)) }
 
@@ -317,10 +334,36 @@ func (s *share) ReadDir(p string) ([]smbserver.FileInfo, error) {
 	return out, nil
 }
 
+// stage says where this drive keeps local copies, and where failed ones go.
+func (s *share) stage() stageConfig {
+	c := stageConfig{limit: DefaultStageLimit}
+	switch {
+	case s.v.opt != nil && s.v.opt.StageDir != "":
+		c.dir = s.v.opt.StageDir
+	case s.fsh.RuntimePersistenceConfig.LocalBufferPath != "":
+		c.dir = filepath.Join(s.fsh.RuntimePersistenceConfig.LocalBufferPath, "smb")
+	default:
+		c.dir = filepath.Join(os.TempDir(), "arozos-smb")
+	}
+	c.keepDir = filepath.Join(c.dir, failedFolder)
+	if s.v.opt != nil && s.v.opt.KeepDir != "" {
+		c.keepDir = s.v.opt.KeepDir
+	}
+	if s.v.opt != nil && s.v.opt.StageLimit != nil {
+		if limit := s.v.opt.StageLimit(); limit != 0 {
+			c.limit = limit
+		}
+	}
+	return c
+}
+
 func (s *share) Open(p string, flag int) (smbserver.File, error) {
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err
+	}
+	if s.fsh.RequireBuffer {
+		return openStaged(s.fsh, rpath, s.vpath(p), flag, s.stage())
 	}
 	file, err := s.fsh.FileSystemAbstraction.OpenFile(rpath, flag, 0775)
 	if err != nil {
@@ -387,7 +430,13 @@ func (s *share) SetModTime(p string, t time.Time) error {
 	if err != nil {
 		return err
 	}
-	return s.fsh.FileSystemAbstraction.Chtimes(rpath, t, t)
+	err = s.fsh.FileSystemAbstraction.Chtimes(rpath, t, t)
+	if !s.local && (errors.Is(err, arozfs.ErrOperationNotSupported) || errors.Is(err, arozfs.ErrNullOperation)) {
+		//WebDAV, FTP and S3 keep their own times. File Explorer sets the
+		//times at the end of every copy, and must not fail the copy for it.
+		return nil
+	}
+	return err
 }
 
 // tracksQuota reports whether this drive counts against the user's quota.

@@ -61,7 +61,11 @@ const (
 	SigningEnabled  uint16 = 0x0001
 	SigningRequired uint16 = 0x0002
 
-	CapLargeMTU uint32 = 0x00000004
+	CapLeasing    uint32 = 0x00000002
+	CapLargeMTU   uint32 = 0x00000004
+	CapEncryption uint32 = 0x00000040 //Only in 3.0 and 3.0.2; 3.1.1 uses a context
+
+	SessionFlagEncryptData uint16 = 0x0004
 )
 
 // Negotiate contexts
@@ -239,6 +243,9 @@ const (
 	FsctlPipeTransceive        uint32 = 0x0011C017
 	FsctlValidateNegotiateInfo uint32 = 0x00140204
 	FsctlEnumerateSnapshots    uint32 = 0x00144064
+	FsctlSrvRequestResumeKey   uint32 = 0x00140078
+	FsctlSrvCopyChunk          uint32 = 0x001440F2
+	FsctlSrvCopyChunkWrite     uint32 = 0x001480F2
 
 	IoctlIsFsctl uint32 = 0x00000001
 )
@@ -252,6 +259,7 @@ const (
 	ContextDurableRecon  = "DHnC"
 	ContextDurableRecon2 = "DH2C"
 	ContextTimewarp      = "TWrp"
+	ContextLease         = "RqLs"
 )
 
 // NT status codes
@@ -259,6 +267,7 @@ const (
 	StatusOK                     uint32 = 0x00000000
 	StatusPending                uint32 = 0x00000103
 	StatusNotifyCleanup          uint32 = 0x0000010B
+	StatusNotifyEnumDir          uint32 = 0x0000010C
 	StatusBufferOverflow         uint32 = 0x80000005
 	StatusNoMoreFiles            uint32 = 0x80000006
 	StatusUnsuccessful           uint32 = 0xC0000001
@@ -270,6 +279,7 @@ const (
 	StatusNoSuchFile             uint32 = 0xC000000F
 	StatusInvalidDeviceRequest   uint32 = 0xC0000010
 	StatusEndOfFile              uint32 = 0xC0000011
+	StatusInvalidViewSize        uint32 = 0xC000001F
 	StatusMoreProcessingRequired uint32 = 0xC0000016
 	StatusAccessDenied           uint32 = 0xC0000022
 	StatusBufferTooSmall         uint32 = 0xC0000023
@@ -292,6 +302,7 @@ const (
 	StatusNotSupported           uint32 = 0xC00000BB
 	StatusBadNetworkName         uint32 = 0xC00000CC
 	StatusRequestNotAccepted     uint32 = 0xC00000D0
+	StatusFileNotAvailable       uint32 = 0xC0000467
 	StatusInternalError          uint32 = 0xC00000E5
 	StatusDirectoryNotEmpty      uint32 = 0xC0000101
 	StatusNotADirectory          uint32 = 0xC0000103
@@ -301,6 +312,7 @@ const (
 	StatusNotFound               uint32 = 0xC0000225
 	StatusNetworkNameDeleted     uint32 = 0xC00000C9
 	StatusInvalidOplockProtocol  uint32 = 0xC00000E3
+	StatusFileTooLarge           uint32 = 0xC0000904
 )
 
 // IsError reports whether a status ends the request. Warnings such as

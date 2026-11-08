@@ -36,6 +36,18 @@
                 <small locale="smb/public_hint">Leave this off to keep SMB on private networks. Port 445 should never be reachable from the internet.</small>
             </div>
         </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="smb-encrypt" type="checkbox">
+                <label locale="smb/encrypt">Require encryption</label>
+                <small locale="smb/encrypt_hint">Encrypts everything sent over the network, file contents and names included. Clients that cannot encrypt, such as Windows 7 and older Linux and macOS versions, can no longer connect, and transfers get somewhat slower.</small>
+            </div>
+        </div>
+        <div class="field">
+            <label locale="smb/stage_limit">Largest file on cloud and remote drives (MB)</label>
+            <div class="ui input"><input id="smb-stage-limit" type="number" min="0" step="1" placeholder="4096"></div>
+            <small locale="smb/stage_limit_hint">S3, FTP, WebDAV and cluster drives only move whole files, so a file opened over SMB is first copied to this server's temporary folder. Larger files are refused. 0 means no limit.</small>
+        </div>
         <button class="ui black button" type="submit" id="smb-apply" locale="smb/save">Save Changes</button>
         <div class="smb-result" id="smb-config-result" role="status"></div>
     </form>
@@ -100,6 +112,8 @@
             if (!config || config.error !== undefined) return;
             $('#smb-port').val(config.Port);
             $('#smb-public').prop('checked', config.AllowPublic);
+            $('#smb-stage-limit').val(config.StageLimitMB);
+            $('#smb-encrypt').prop('checked', config.Encrypt);
             //Known failures have a translation, and anything else is shown as it came
             var reason = config.LastError || '';
             if (config.LastErrorKey) reason = fill(t('error_' + config.LastErrorKey, reason), { port: config.Port });
@@ -168,12 +182,19 @@
         $.ajax({
             url: '../../system/storage/smb/config',
             method: 'POST',
-            data: { port: $('#smb-port').val(), public: $('#smb-public').is(':checked') ? 'true' : 'false' },
+            data: {
+                port: $('#smb-port').val(),
+                public: $('#smb-public').is(':checked') ? 'true' : 'false',
+                encrypt: $('#smb-encrypt').is(':checked') ? 'true' : 'false',
+                stagelimit: $('#smb-stage-limit').val()
+            },
             success: function (data) {
                 if (data && data.error !== undefined) {
                     message($result, data.error, false);
-                } else {
+                } else if (data && data.Restarted) {
                     message($result, t('applied', 'Settings saved. Connected clients were disconnected and will reconnect by themselves.'), true);
+                } else {
+                    message($result, t('saved', 'Settings saved.'), true);
                 }
                 loadConfig();
                 loadClients();

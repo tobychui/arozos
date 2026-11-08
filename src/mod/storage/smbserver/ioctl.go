@@ -40,6 +40,12 @@ func (c *conn) handleIoctl(r *request) *response {
 		return errorResponse(wire.StatusNotFound)
 	case wire.FsctlEnumerateSnapshots:
 		return ioctlResponse(q, make([]byte, 16), wire.StatusOK)
+	case wire.FsctlSrvRequestResumeKey:
+		return c.requestResumeKey(r, q)
+	case wire.FsctlSrvCopyChunk:
+		return c.copyChunks(r, q, true)
+	case wire.FsctlSrvCopyChunkWrite:
+		return c.copyChunks(r, q, false)
 	}
 	return errorResponse(wire.StatusInvalidDeviceRequest)
 }
@@ -115,6 +121,7 @@ func (c *conn) validateNegotiate(q *wire.IoctlRequest) *response {
 
 	c.mu.Lock()
 	dialect := c.dialect
+	serverCaps := c.serverCaps
 	matches := !in.Bad() && caps == c.clientCaps && mode == c.clientMode && bytes.Equal(guid, c.clientGUID[:])
 	c.mu.Unlock()
 	if !matches || pickDialect(offered) != dialect {
@@ -124,7 +131,7 @@ func (c *conn) validateNegotiate(q *wire.IoctlRequest) *response {
 	}
 
 	w := wire.NewWriter(24)
-	w.U32(serverCapabilities)
+	w.U32(serverCaps)
 	w.Bytes(c.srv.cfg.GUID[:])
 	w.U16(wire.SigningEnabled | wire.SigningRequired)
 	w.U16(dialect)

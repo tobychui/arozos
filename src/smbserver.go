@@ -59,6 +59,10 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 		Sysdb:      sysdb,
 		SecretDir:  filepath.Join("system", "smb"),
 		CaptureDir: *smb_capture,
+		//The tmp folder is emptied at every boot, which clears stale copies,
+		//so a copy whose upload failed is kept in system/ instead
+		StageDir: filepath.Join(*tmp_directory, "smb"),
+		KeepDir:  filepath.Join("system", "smb", "failed"),
 		CurrentUser: func(w http.ResponseWriter, r *http.Request) (string, error) {
 			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {

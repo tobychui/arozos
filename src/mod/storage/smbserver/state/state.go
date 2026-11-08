@@ -60,6 +60,22 @@ type Handle struct {
 	closed        bool
 	path          string
 	fileID        uint64
+	owner         any //What the server keeps for this handle
+}
+
+// SetOwner records what the server keeps for a handle, so a handle found
+// through another one leads back to it.
+func (h *Handle) SetOwner(owner any) {
+	h.table.mu.Lock()
+	h.owner = owner
+	h.table.mu.Unlock()
+}
+
+// Owner returns what SetOwner recorded.
+func (h *Handle) Owner() any {
+	h.table.mu.Lock()
+	defer h.table.mu.Unlock()
+	return h.owner
 }
 
 // sameFile tells real aliases apart from two files whose names only differ by
@@ -337,4 +353,34 @@ func (h *Handle) CheckIO(offset, length uint64, write bool) uint32 {
 		}
 	}
 	return wire.StatusOK
+}
+
+// Peers returns the other handles open on the same file.
+func (h *Handle) Peers() []*Handle {
+	t := h.table
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := []*Handle{}
+	for other := range h.entry.handles {
+		if other != h {
+			out = append(out, other)
+		}
+	}
+	return out
+}
+
+// WouldConflict reports whether a new open with this access and share mode
+// would be refused because of h.
+func (h *Handle) WouldConflict(access, share uint32) bool {
+	return conflicts(access, share, h.access, h.share)
+}
+
+// Count returns how many handles the file at key has.
+func (t *Table) Count(key string) int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if e := t.entries[key]; e != nil {
+		return len(e.handles)
+	}
+	return 0
 }

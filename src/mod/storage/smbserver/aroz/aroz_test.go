@@ -95,17 +95,24 @@ func TestNewNeedsItsDependencies(t *testing.T) {
 	}
 }
 
-func TestSharesSkipUnusableDrives(t *testing.T) {
+func TestSharesSkipClosedDrives(t *testing.T) {
 	normal, _ := drive(t, "media", "public")
 	closed, _ := drive(t, "gone", "public")
 	closed.Closed = true
-	staged, _ := drive(t, "cloud", "public")
-	staged.RequireBuffer = true
 
-	v := loginAs(t, "alice", &fakeAccount{fshs: []*filesystem.FileSystemHandler{normal, closed, staged}, levels: map[string]string{"media": "rw"}}, nil)
+	v := loginAs(t, "alice", &fakeAccount{fshs: []*filesystem.FileSystemHandler{normal, closed}, levels: map[string]string{"media": "rw"}}, nil)
 	s := onlyShare(t, v)
 	if s.Name() != "media" || s.Comment() != "Drive media" {
 		t.Errorf("share = %s, %s", s.Name(), s.Comment())
+	}
+}
+
+func TestSharesIncludeBufferedDrives(t *testing.T) {
+	staged, _ := drive(t, "cloud", "public")
+	staged.RequireBuffer = true
+	v := loginAs(t, "alice", &fakeAccount{fshs: []*filesystem.FileSystemHandler{staged}, levels: map[string]string{"cloud": "rw"}}, nil)
+	if s := onlyShare(t, v); s.Name() != "cloud" {
+		t.Errorf("share = %s", s.Name())
 	}
 }
 

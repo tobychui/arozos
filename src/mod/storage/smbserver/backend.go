@@ -35,6 +35,13 @@ type File interface {
 	Close() error
 }
 
+// PendingFile is a File whose writes reach the drive later, such as a staged
+// copy uploaded when it closes. Until then its own handle reports the size
+// it has, instead of the one the drive still shows.
+type PendingFile interface {
+	PendingSize() (size int64, ok bool)
+}
+
 // Share is one drive as one user sees it. CanRead and CanWrite are asked on
 // every operation rather than once at tree connect, so a change of a drive's
 // access list reaches sessions that are already open.

@@ -313,3 +313,62 @@ func TestWiresharkDecodesRPCReplies(t *testing.T) {
 		}
 	}
 }
+
+func TestSmbclientEveryCipher(t *testing.T) {
+	tool := needTool(t, "smbclient")
+	cases := []struct {
+		name     string
+		protocol string
+		cipher   string
+	}{
+		{"3.0 CCM", "SMB3_00", ""},
+		{"3.0.2 CCM", "SMB3_02", ""},
+		{"3.1.1 AES-128-GCM", "SMB3_11", "AES-128-GCM"},
+		{"3.1.1 AES-128-CCM", "SMB3_11", "AES-128-CCM"},
+		{"3.1.1 AES-256-GCM", "SMB3_11", "AES-256-GCM"},
+		{"3.1.1 AES-256-CCM", "SMB3_11", "AES-256-CCM"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := newHarness(t, requireEncryption, noPoll)
+			work := t.TempDir()
+			data := make([]byte, 5<<20+333)
+			rand.Read(data)
+			want := sha256.Sum256(data)
+			src := filepath.Join(work, "src.bin")
+			back := filepath.Join(work, "back.bin")
+			os.WriteFile(src, data, 0644)
+
+			args := []string{
+				"//127.0.0.1/data", "-p", h.port, "-A", authFile(t), "--configfile=" + emptyConf(t),
+				"--option=client min protocol=" + c.protocol, "--option=client max protocol=" + c.protocol,
+				"--option=client smb encrypt=required",
+			}
+			if c.cipher != "" {
+				args = append(args, "--option=client smb3 encryption algorithms="+c.cipher)
+			}
+			script := fmt.Sprintf("put %s up.bin; ls; get up.bin %s; del up.bin", src, back)
+			out, err := runTool(t, tool, append(args, "-c", script)...)
+			if err != nil {
+				t.Fatalf("%v\n%s", err, out)
+			}
+			if strings.Contains(out, "NT_STATUS") {
+				t.Errorf("a command failed:\n%s", out)
+			}
+			got, _ := os.ReadFile(back)
+			if sha256.Sum256(got) != want {
+				t.Error("the file came back different")
+			}
+		})
+	}
+}
+
+func TestSmbclientWithoutEncryptionIsRefused(t *testing.T) {
+	tool := needTool(t, "smbclient")
+	h := newHarness(t, requireEncryption, noPoll)
+	out, err := runTool(t, tool, "//127.0.0.1/data", "-p", h.port, "-A", authFile(t), "--configfile="+emptyConf(t),
+		"--option=client max protocol=SMB2_10", "-c", "ls")
+	if err == nil || !strings.Contains(out, "ACCESS_DENIED") {
+		t.Errorf("an SMB 2.1 client got in: %v\n%s", err, out)
+	}
+}

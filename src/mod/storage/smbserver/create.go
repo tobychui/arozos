@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -46,7 +47,21 @@ type open struct {
 	size      int64
 	dirty     bool
 	stickyMod time.Time
-	notifies  []*asyncOp
+	watch     *watch //Once the folder got a CHANGE_NOTIFY
+
+	resumeKey    resumeKey //Set once a copy asked for it, guarded by the table
+	hasResumeKey bool
+
+	conn       *conn //Nil while a durable handle waits for its client
+	encrypted  bool  //Opened by an encrypted request
+	lease      *lease
+	leaseFlags uint32
+
+	durable        bool
+	durableTimeout time.Duration
+	createGUID     [16]byte
+	owner          string      //Who may take the handle back
+	detachTimer    *time.Timer //Guarded by the durable table
 }
 
 // getPath returns where the file is now. It lives in the shared table, so that
@@ -111,6 +126,14 @@ func (c *conn) register(r *request, o *open) uint32 {
 	o.id = id
 	o.sess = r.sess
 	o.tree = r.tree
+	c.srv.durables.mu.Lock()
+	o.conn = c
+	c.srv.durables.mu.Unlock()
+	o.encrypted = r.encrypted
+	if o.handle != nil {
+		//Pipes have no handle in the table
+		o.handle.SetOwner(o)
+	}
 
 	sess := r.sess
 	sess.mu.Lock()
@@ -135,11 +158,27 @@ func (c *conn) handleCreate(r *request) *response {
 		return c.createPipe(r, q)
 	}
 
+	var lq *leaseRequest
+	var dq *durableRequest
 	for _, ctx := range q.Contexts {
 		switch ctx.Name {
-		case wire.ContextDurableRecon, wire.ContextDurableRecon2, wire.ContextTimewarp:
-			//No durable handle was granted, and there are no snapshots
+		case wire.ContextDurableRecon2:
+			return c.reconnectDurable(r, q, ctx.Data)
+		case wire.ContextDurableRecon, wire.ContextTimewarp:
+			//Version 1 durable handles are not granted, and there are no
+			//snapshots
 			return errorResponse(wire.StatusObjectNameNotFound)
+		case wire.ContextLease:
+			if q.OplockLevel == oplockLevelLease && c.leasing() {
+				var ok bool
+				if lq, ok = parseLeaseRequest(ctx.Data, c.dialectNow()); !ok {
+					return errorResponse(wire.StatusInvalidParameter)
+				}
+			}
+		case wire.ContextDurableReqV2:
+			if c.dialectNow() >= wire.Dialect300 {
+				dq, _ = parseDurableRequest(ctx.Data)
+			}
 		}
 	}
 
@@ -236,6 +275,18 @@ func (c *conn) handleCreate(r *request) *response {
 	}
 
 	key := fileKey(share, res.path)
+	var mine *leaseID
+	if lq != nil {
+		mine = &leaseID{client: c.clientGUIDNow(), key: lq.key}
+		if c.srv.leases.usedElsewhere(*mine, key) {
+			return errorResponse(wire.StatusInvalidParameter)
+		}
+	}
+	//An open that touches data first takes back what other clients cache
+	//of the file. Explorer's many attribute opens leave caches alone.
+	if res.exists && !isDir && (access&(wire.FileReadData|wire.FileWriteData|wire.FileAppendData|wire.FileExecute|wire.AccessDelete) != 0 || truncate) {
+		c.breakForOpen(key, mine, access, q.ShareAccess, truncate)
+	}
 	handle, status := c.srv.files.Open(key, res.path, access, q.ShareAccess)
 	if status != wire.StatusOK {
 		return errorResponse(status)
@@ -248,6 +299,13 @@ func (c *conn) handleCreate(r *request) *response {
 	}
 	if create {
 		c.srv.names.forget(share, dirName(res.path))
+		kind := notifyFileName
+		if isDir {
+			kind = notifyDirName
+		}
+		c.srv.watches.changed(share, res.path, actionAdded, kind)
+	} else if truncate {
+		c.srv.watches.changed(share, res.path, actionModified, notifySize|notifyLastWrite)
 	}
 	if deleteOnClose {
 		handle.SetDeleteOnClose()
@@ -275,8 +333,30 @@ func (c *conn) handleCreate(r *request) *response {
 		c.releaseOpen(o)
 		return errorResponse(st)
 	}
+	if lq != nil && !isDir {
+		pollable := false
+		if ps, ok := share.(PollableShare); ok {
+			pollable = ps.CanPoll()
+		}
+		//Leases need a drive the server can watch for changes made around it
+		if pollable {
+			c.srv.leases.grant(o, mine.client, lq, info, true)
+			state, _ := c.srv.leases.grantedState(o.lease)
+			r.detail += fmt.Sprintf("lease=%x ", state)
+			if dq != nil && c.srv.makeDurable(o, dq) {
+				r.detail += "durable "
+			}
+		}
+	}
 	r.traceInfo = res.path
 	return &response{body: c.createBody(o, res.path, info, action, q)}
+}
+
+// leasing reports whether this connection may be offered leases.
+func (c *conn) leasing() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.serverCaps&wire.CapLeasing != 0
 }
 
 // materialize does the actual file system work of a CREATE.
@@ -354,7 +434,11 @@ func (c *conn) createBody(o *open, p string, info FileInfo, action uint32, q *wi
 	const fixed = 88
 	w := wire.NewWriter(fixed + 96)
 	w.U16(89)
-	w.U8(0) //No oplock: nothing may be cached until breaks exist
+	if o.lease != nil {
+		w.U8(oplockLevelLease)
+	} else {
+		w.U8(0)
+	}
 	w.U8(0)
 	w.U32(action)
 	w.U64(wire.Filetime(birthOf(info)))
@@ -379,8 +463,8 @@ func (c *conn) createBody(o *open, p string, info FileInfo, action uint32, q *wi
 	return w.B
 }
 
-// createContexts answers MxAc and QFid. Lease and durable handle requests get
-// no answer at all, which is how a server declines them.
+// createContexts answers MxAc, QFid, and lease and durable handle requests
+// that were granted. A request with no answer is one the server declined.
 func (c *conn) createContexts(o *open, p string, info FileInfo, q *wire.CreateRequest) []byte {
 	type reply struct {
 		name string
@@ -401,6 +485,14 @@ func (c *conn) createContexts(o *open, p string, info FileInfo, q *wire.CreateRe
 			w.U64(volumeSerial(share))
 			w.Zero(16)
 			replies = append(replies, reply{ctx.Name, w.B})
+		case wire.ContextLease:
+			if o.lease != nil {
+				replies = append(replies, reply{ctx.Name, c.leaseContext(o)})
+			}
+		case wire.ContextDurableReqV2:
+			if o.durable {
+				replies = append(replies, reply{ctx.Name, durableContext(o)})
+			}
 		}
 	}
 
@@ -462,6 +554,16 @@ func (c *conn) handleClose(r *request) *response {
 		return errorResponse(status)
 	}
 
+	r.sess.mu.Lock()
+	delete(r.sess.opens, o.id)
+	r.sess.mu.Unlock()
+	if err := c.closeOpen(o); err != nil {
+		//On a staged drive this is the upload of what was written. The client
+		//must hear of it: the data is not where it thinks it is.
+		return errorResponse(statusOf(err))
+	}
+
+	//Asked after the close, so a staged file reports what was uploaded
 	var info FileInfo
 	gotInfo := false
 	if flags&wire.CloseFlagPostQuery != 0 && o.pipe == nil {
@@ -469,11 +571,6 @@ func (c *conn) handleClose(r *request) *response {
 		info, statErr = o.tree.share.Stat(o.getPath())
 		gotInfo = statErr == nil
 	}
-
-	r.sess.mu.Lock()
-	delete(r.sess.opens, o.id)
-	r.sess.mu.Unlock()
-	c.closeOpen(o)
 
 	w := wire.NewWriter(60)
 	w.U16(60)
@@ -495,32 +592,37 @@ func (c *conn) handleClose(r *request) *response {
 
 // closeOpen ends an open. It waits for I/O still running on the handle, so a
 // file is never closed under a request that is reading it.
-func (c *conn) closeOpen(o *open) {
+func (c *conn) closeOpen(o *open) error { return c.srv.closeOpen(o) }
+
+// closeOpen also ends durable handles nobody is connected to.
+func (s *Server) closeOpen(o *open) error {
 	o.io.Lock()
 	defer o.io.Unlock()
 	if o.closed {
-		return
+		return nil
 	}
 	o.closed = true
+	s.resume.drop(o)
+	s.forgetDurable(o)
 
+	s.endWatch(o)
 	o.metaMu.Lock()
-	notifies := o.notifies
-	o.notifies = nil
 	sticky := o.stickyMod
 	dirty := o.dirty
 	oldSize, size := o.oldSize, o.size
 	o.metaMu.Unlock()
-	for _, op := range notifies {
-		c.finishAsync(op, wire.StatusNotifyCleanup, nil)
-	}
 
 	if o.pipe != nil {
-		return
+		return nil
 	}
+	var closeErr error
 	if o.file != nil {
-		if err := o.file.Close(); err != nil {
-			logger.PrintAndLog(logTitle, "Close failed for "+o.getPath(), err)
+		if closeErr = o.file.Close(); closeErr != nil {
+			logger.PrintAndLog(logTitle, "Close failed for "+o.getPath(), closeErr)
 		}
+	}
+	if dirty {
+		s.leases.touched(o.handle.Key())
 	}
 
 	share := o.tree.share
@@ -530,6 +632,9 @@ func (c *conn) closeOpen(o *open) {
 		share.SetModTime(p, sticky)
 	}
 	last := o.handle.Close()
+	//After the handle is gone, so that an open waiting for this lease's
+	//break finds the file free
+	s.leases.release(o)
 
 	//Accounted for first, so that a file deleted here gives back only what
 	//it took, even if it never existed before this open
@@ -539,7 +644,16 @@ func (c *conn) closeOpen(o *open) {
 	if last {
 		if err := share.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 			logger.PrintAndLog(logTitle, "Delete on close failed for "+p, err)
+		} else {
+			kind := notifyFileName
+			if o.isDir {
+				kind = notifyDirName
+			}
+			s.watches.changed(share, p, actionRemoved, kind)
 		}
-		c.srv.names.forget(share, dirName(p))
+		s.names.forget(share, dirName(p))
+	} else if dirty && closeErr == nil {
+		s.watches.changed(share, p, actionModified, notifySize|notifyLastWrite)
 	}
+	return closeErr
 }

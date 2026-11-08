@@ -372,19 +372,27 @@ with no Samba install. It is experimental and off by default: an admin turns it
 on in System Settings > File Servers, and each user then sets their own SMB
 password there. The design and its state are in
 [`src/mod/storage/SMB_PROPOSAL.md`](src/mod/storage/SMB_PROPOSAL.md); read it,
-especially section 13, before changing protocol behaviour.
+especially sections 13 and 14, before changing protocol behaviour.
 
 - **Where it lives:** [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/):
-  `wire` (messages), `crypt` (signing), `auth` (SPNEGO and NTLMv2), `rpc` (`IPC$`:
-  srvsvc, lsarpc, dssetup, wkssvc), `state` (share modes and locks across all clients),
-  the core, and `aroz`, the only package that imports ArozOS code, in the same
-  split as `sftpserver.Access`. The file server entry, settings and endpoints are in
+  `wire` (messages), `crypt` (signing, and encryption with its own AES-CCM),
+  `auth` (SPNEGO and NTLMv2), `rpc` (`IPC$`: srvsvc, lsarpc, dssetup, wkssvc),
+  `state` (share modes and locks across all clients), the core (`lease.go`,
+  `durable.go`, `notify.go`, `copy.go` beside the command handlers), and `aroz`,
+  the only package that imports ArozOS code, in the same split as
+  `sftpserver.Access`; it stages files of WebDAV, FTP and S3 drives, which have
+  no random access (`aroz/staged.go`). The file server entry, settings and
+  endpoints are in
   [`src/mod/fileservers/servers/smbserv/`](src/mod/fileservers/servers/smbserv/),
   wired in [`src/smbserver.go`](src/smbserver.go).
-- **Rules that are easy to break:** never grant an oplock or lease before breaks
-  exist, it is silent corruption. Ask `CanRead` / `CanWrite` on every operation,
-  not once at connect. Every request on a session must be signed. Interim
-  `STATUS_PENDING` responses stay unsigned. Grant credits as charge plus request
+- **Rules that are easy to break:** a lease is a promise to break before
+  anything makes the client's cache wrong, so every new way to change a file
+  (a new command, a new write path) must call `breakForWrite`, `breakForOpen`
+  or `breakHandles` first, and leases stay limited to drives the validator can
+  check for changes made around the server (`PollableShare`). Ask `CanRead` /
+  `CanWrite` on every operation, not once at connect. Every request on a session
+  must be signed or arrive encrypted. Interim `STATUS_PENDING` responses and
+  lease break notifications stay unsigned. Grant credits as charge plus request
   minus one: Windows only asks for what a read costs, so repaying exactly that
   holds it to one read in flight (`TestWindowsStyleCopyPipelines`).
 - **Passwords:** NTLM needs the NT hash, which cannot come from the stored login
@@ -396,8 +404,10 @@ especially section 13, before changing protocol behaviour.
   its own, so captures blank every NTLM response: keep it that way, and never
   commit a raw capture.
 - **Testing:** real clients count most. `go test ./mod/storage/smbserver/...`
-  runs `go-smb2`, `smbclient`, `rpcclient` and Wireshark where installed. Windows
-  cannot host it on 445, so test from a Windows client against another machine.
+  runs `go-smb2`, `smbclient` (every dialect and cipher), `rpcclient` and
+  Wireshark where installed. The macOS client (`mount_smbfs`) asks for leases and
+  durable handles, which makes it a good check of breaks. Windows cannot host it
+  on 445, so test from a Windows client against another machine.
 
 ## What Container Apps are
 
