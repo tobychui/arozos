@@ -347,7 +347,7 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 		Key:        aws.String(newKey),
 	})
 	if err != nil {
-		return err
+		return notExist(err)
 	}
 	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -369,7 +369,7 @@ func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, err
+		return nil, notExist(err)
 	}
 	size := int64(0)
 	if resp.ContentLength != nil {
@@ -492,7 +492,7 @@ func (s *S3FSAbstraction) GetModTime(realpath string) (int64, error) {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return 0, err
+		return 0, notExist(err)
 	}
 	if resp.LastModified == nil {
 		return time.Now().Unix(), nil
@@ -607,7 +607,7 @@ func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, err
+		return nil, notExist(err)
 	}
 	return resp.Body, nil // io.ReadCloser backed directly by the S3 HTTP response
 }
@@ -670,6 +670,27 @@ func s3CopySource(bucket, key string) string {
 		encoded[i] = url.PathEscape(seg)
 	}
 	return bucket + "/" + strings.Join(encoded, "/")
+}
+
+// notExist turns the answers S3 gives for a missing object into an error
+// matching os.ErrNotExist, keeping the original for the log. Callers test
+// for a missing file with errors.Is, the way they do on a local disk: the SMB
+// server must answer "not found" for File Explorer to create a new file.
+// HEAD answers NotFound and GET NoSuchKey; a missing bucket is not included.
+func notExist(err error) error {
+	if err == nil {
+		return nil
+	}
+	var notFound *types.NotFound
+	var noSuchKey *types.NoSuchKey
+	var coded interface{ ErrorCode() string }
+	switch {
+	case errors.As(err, &notFound), errors.As(err, &noSuchKey):
+	case errors.As(err, &coded) && (coded.ErrorCode() == "NotFound" || coded.ErrorCode() == "NoSuchKey"):
+	default:
+		return err
+	}
+	return fmt.Errorf("%w: %w", os.ErrNotExist, err)
 }
 
 func filterFilepath(rawpath string) string {
