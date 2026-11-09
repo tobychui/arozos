@@ -171,6 +171,44 @@
         box-shadow: none;
     }
     #fs-root .fs-quiet { font-size: 12.5px; color: var(--ss-text-3); }
+
+    /* Shared by the server parts (ftp.html, sftp.html and their instr/ pages) */
+    #fs-root .fsp [hidden] { display: none !important; }
+    #fs-root .fsp-note { margin-bottom: 14px; font-size: 12.5px; line-height: 1.55; color: var(--ss-text-2); }
+    #fs-root .fsp-banner { display: flex; gap: 8px; margin-bottom: 14px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5; border-radius: var(--ss-radius-sm); }
+    #fs-root .fsp-banner > .icon { flex-shrink: 0; margin: 0; }
+    #fs-root .fsp-banner.error { color: var(--ss-danger); background: var(--ss-danger-soft); }
+    #fs-root .fsp-banner.warn { color: var(--ss-text); background: var(--ss-warning-soft); }
+    #fs-root .fsp-banner.warn > .icon { color: var(--ss-warning); }
+    #fs-root .fsp-hint { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.5; color: var(--ss-text-3); }
+    #fs-root div.fsp-hint { margin-bottom: 10px; }
+    #fs-root .fsp-state { display: flex; align-items: flex-start; gap: 8px; margin: 2px 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--ss-text); }
+    #fs-root .fsp-state > .icon { flex-shrink: 0; margin: 1px 0 0; }
+    #fs-root .fsp-section { margin-top: 16px; font-size: 13px; font-weight: 600; color: var(--ss-text); }
+    #fs-root .fsp-subtitle { margin: 18px 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--ss-text-3); }
+    #fs-root .fsp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    #fs-root .fsp-head h4 { margin: 0; }
+    #fs-root .fsp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    #fs-root .fsp-table th { padding: 4px 8px 4px 0; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ss-text-3); border-bottom: 1px solid var(--ss-border); }
+    #fs-root .fsp-table td { padding: 6px 8px 6px 0; color: var(--ss-text); border-bottom: 1px solid var(--ss-border); overflow-wrap: anywhere; }
+    #fs-root .fsp-table tr:last-child td { border-bottom: none; }
+    #fs-root .fsp-table td.fsp-action { width: 1%; padding-right: 0; text-align: right; white-space: nowrap; }
+    #fs-root .fsp-empty { padding: 6px 0; font-size: 12.5px; color: var(--ss-text-3); }
+    #fs-root .fsp-result { min-height: 1.4em; margin-top: 8px; font-size: 12.5px; }
+    #fs-root .fsp-result.good { color: var(--ss-success); }
+    #fs-root .fsp-result.bad { color: var(--ss-danger); }
+    #fs-root .fsp-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    #fs-root .fsp-row { display: flex; flex-wrap: wrap; gap: 0 14px; }
+    #fs-root .fsp-row > .field { flex: 1 1 160px; min-width: 0; }
+    #fs-root .fsp-key { display: flex; align-items: center; gap: 10px; }
+    #fs-root .fsp-key code { flex: 1; min-width: 0; font-family: var(--ss-mono); font-size: 11.5px; color: var(--ss-text); overflow-wrap: anywhere; }
+    #fs-root .fsp-key .ss-btn { height: 24px; padding: 0 9px; font-size: 11.5px; }
+    #fs-root .fsp .ui.form { font-size: 13px; }
+    #fs-root .fsp .ui.form .field { margin-bottom: 14px; }
+    #fs-root .fsp .ui.form .field > label { font-size: 12.5px; font-weight: 600; color: var(--ss-text); }
+    #fs-root .fsp .ui.checkbox .fsp-hint { padding-left: 0; }
+    #fs-root .fsp .ui.disabled.checkbox .fsp-hint { opacity: 1; }
+    #fs-root #serviceInstruction .fsp .ui.form { max-width: 420px; }
 </style>
 
 <div id="fs-root">

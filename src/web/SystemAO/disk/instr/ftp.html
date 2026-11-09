@@ -1,4 +1,28 @@
-<div class="ui blue message windowsonly" style="display:none; margin-top: 0;">
+<!--
+    Connection help of the FTP server, and where a user turns it on for their
+    own account. Loaded into services.html for every user.
+-->
+<div id="ftp-user" class="fsp">
+    <div class="fsp-state" id="ftp-state"><i class="spinner loading icon"></i></div>
+    <div class="fsp-hint" id="ftp-readonly-note" locale="fileservers/part/readonly_note" hidden>This server is read only: you can browse and download, but not upload or change files.</div>
+
+    <div class="fsp-section" id="ftp-form-title" locale="fileservers/ftp/turn_on_title">Turn FTP on for your account</div>
+    <div class="fsp-hint" id="ftp-form-desc" locale="fileservers/ftp/turn_on_desc">FTP clients sign in with your ArozOS username and password. FTP sends them unencrypted, so only use it on networks you trust.</div>
+
+    <form class="ui form" id="ftp-form" autocomplete="off">
+        <div class="field" id="ftp-login-field">
+            <label locale="fileservers/part/login_password">Your ArozOS login password</label>
+            <input type="password" id="ftp-login" autocomplete="current-password">
+        </div>
+        <div class="fsp-buttons">
+            <button type="submit" class="ui black button" id="ftp-enable"><i class="check icon"></i> <span locale="fileservers/ftp/enable">Turn on FTP for my account</span></button>
+            <button type="button" class="ui basic button" id="ftp-disable" hidden><i class="red times icon"></i> <span locale="fileservers/ftp/disable">Turn off FTP for my account</span></button>
+        </div>
+        <div class="fsp-result" id="ftp-result" role="status"></div>
+    </form>
+</div>
+
+<div class="ui blue message windowsonly" style="display:none; margin-top: 16px;">
     <h4 class="ui header">
         <i class="windows icon"></i>
         <div class="content" locale="fileservers/ftp/win_title">Mount FTP on Windows</div>
@@ -7,20 +31,100 @@
     <p><span locale="fileservers/ftp/win_firewall">If you <b><a href="https://superuser.com/questions/1309756/not-able-to-access-ftp-server-from-other-machines-in-same-lan-when-windows-firew" target="_blank">cannot access the FTP without turning off the Windows Firewall</a></b>, execute this command in cmd as administrator</span><br>
     <code>netsh advfirewall set global StatefulFTP disable</code></p>
 </div>
-<div class="ui basic message maconly" style="display:none;">
+<div class="ui basic message maconly" style="display:none; margin-top: 16px;">
     <h4 class="ui header">
         <i class="apple icon"></i>
         <div class="content" locale="fileservers/ftp/mac_title">Mount FTP on your Mac</div>
     </h4>
     <p locale="fileservers/ftp/mac_desc">To connect your Finder to the ArozOS FTP server, select <code>Go</code> <i class="arrow right icon"></i> <code>Connect to Server</code> and enter the link above into the address bar</p>
 </div>
-<script>
-    var isMac = navigator.platform.indexOf('Mac') > -1;
-    var isWindows = navigator.platform.indexOf('Win') > -1;
 
-    if (isMac){
-        $(".maconly").show();
-    }else if (isWindows){
-        $(".windowsonly").show();
+<script>
+(function () {
+    var T = (typeof fsT === 'function') ? fsT : function (key, fallback) { return fallback; };
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name]; });
     }
+    function result(text, good) {
+        $('#ftp-result').text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+    function state(icon, text) {
+        $('#ftp-state').empty().append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
+    }
+
+    if (navigator.platform.indexOf('Mac') > -1) {
+        $('.maconly').show();
+    } else if (navigator.platform.indexOf('Win') > -1) {
+        $('.windowsonly').show();
+    }
+
+    function refresh() {
+        $.get('../../system/storage/ftp/status', function (status) {
+            if (!status || status.error !== undefined) {
+                state('red exclamation circle', status && status.error ? status.error : T('part/load_failed', 'The status could not be loaded.'));
+                return;
+            }
+            if (!status.Running) {
+                state('grey power off', T('ftp/state_off', 'The FTP server is not running. An administrator can turn it on in the server list.'));
+            } else if (status.Activated) {
+                state('green check circle', fill(T('ftp/state_on', 'FTP is on for your account. Sign in as {user} with your ArozOS password.'), { user: status.Username }));
+            } else {
+                state('yellow info circle', T('ftp/state_inactive', 'FTP is not on for your account yet. Turn it on below.'));
+            }
+            $('#ftp-readonly-note').prop('hidden', !status.ReadOnly);
+            //Turning it off needs no password, so the form only asks to turn it on
+            $('#ftp-form-title, #ftp-form-desc, #ftp-login-field, #ftp-enable').prop('hidden', status.Activated);
+            $('#ftp-disable').prop('hidden', !status.Activated);
+        }).fail(function () {
+            state('red exclamation circle', T('part/load_failed', 'The status could not be loaded.'));
+        });
+    }
+
+    function enable(event) {
+        event.preventDefault();
+        var login = $('#ftp-login').val();
+        if (!login) return result(T('part/need_login', 'Enter your ArozOS login password.'), false);
+        $('#ftp-enable').addClass('loading disabled');
+        $.ajax({
+            url: '../../system/storage/ftp/activate',
+            method: 'POST',
+            data: { password: login },
+            success: function (data) {
+                if (data && data.error !== undefined) return result(data.error, false);
+                $('#ftp-login').val('');
+                result(T('ftp/enabled_done', 'FTP is on for your account.'), true);
+                refresh();
+            },
+            error: function (xhr) {
+                if (xhr.status === 401 || xhr.status === 403) return result(T('part/wrong_login', 'Your ArozOS login password is not correct.'), false);
+                result(T('part/failed', 'The request failed.'), false);
+            },
+            complete: function () { $('#ftp-enable').removeClass('loading disabled'); }
+        });
+    }
+
+    function disable() {
+        ssConfirm({
+            title: T('ftp/disable', 'Turn off FTP for my account'),
+            text: T('ftp/disable_confirm', 'FTP clients signed in with this account are disconnected.'),
+            confirmLabel: T('ftp/disable_button', 'Turn off'),
+            danger: true
+        }, function () {
+            $.post('../../system/storage/ftp/deactivate', function (data) {
+                if (data && data.error !== undefined) return result(data.error, false);
+                result(T('ftp/disabled_done', 'FTP is off for your account.'), true);
+                refresh();
+            });
+        });
+    }
+
+    $('#ftp-form').on('submit', enable);
+    $('#ftp-disable').on('click', disable);
+    //The switch in the server list belongs to the host page, so its effect
+    //is only known here by asking again
+    $('#fs-list').off('.ftpuser').on('change.ftpuser', 'input', function () {
+        setTimeout(function () { if ($('#ftp-user').length) refresh(); }, 700);
+    });
+    refresh();
+})();
 </script>

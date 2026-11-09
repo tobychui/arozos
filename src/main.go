@@ -75,10 +75,13 @@ func executeShutdownSequence() {
 		arozcastStopTurnRelay()
 	}
 
-	//Shutdown FTP Server
+	//Shutdown FTP and SFTP Servers, keeping whether they start on boot
 	if FTPManager != nil {
 		systemWideLogger.PrintAndLog("System", "<!> Shutting down FTP Server", nil)
-		FTPManager.StopFtpServer()
+		FTPManager.Close()
+	}
+	if SFTPManager != nil {
+		SFTPManager.Close()
 	}
 
 	//Shutdown media server, stopping any running HLS transcode

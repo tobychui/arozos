@@ -1,128 +1,146 @@
-<!DOCTYPE html>
-<html>
-<head>
-    
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script src="../../script/jquery.min.js"></script>
-    <script src="../../script/ssdialog.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
-    
-    <style>
-        .hidden{
-            display:none;
-        }
+<!--
+    Settings of the SFTP server. Loaded into services.html for admins.
+-->
+<div id="sftp-admin" class="fsp">
+    <div class="fsp-banner error" id="sftp-config-error" hidden><i class="exclamation circle icon"></i><span></span></div>
+    <div class="fsp-note" locale="fileservers/sftp/admin_note">Every user signs in with their ArozOS username and password, and sees each drive they can reach as a folder. Everything is encrypted.</div>
 
-        .disabled{
-            opacity: 0.5;
-            pointer-events: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="ui form">
+    <form class="ui form" id="sftp-config" autocomplete="off">
         <div class="field">
-            <i class="large user icon" style="margin-top: -0.2em; margin-right: 0.4em;"></i>
-            <div class="ui mini horizontal statistic">
-                <div id="connectedUsers" class="value">
-                    0
-                </div>
-                <div class="label" locale="fileservers/sftp/users">Connected Users</div>
-            </div>
-            <br>
-            <small locale="fileservers/sftp/restart_note">Notes: Setting change will disconnect all clients and restart all the connections</small>
+            <label locale="fileservers/part/port">Listening port</label>
+            <div class="ui input"><input id="sftp-port" type="number" min="1" max="65535" placeholder="2022"></div>
+            <small class="fsp-hint" locale="fileservers/sftp/port_hint">Port 22 is usually taken by the SSH server of the host.</small>
         </div>
         <div class="field">
             <div class="ui toggle checkbox">
-                <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
-                <label locale="fileservers/sftp/upnp">Enable UPnP on SFTP Server Port</label>
-                <small locale="fileservers/common/upnp_hint">Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
+                <input id="sftp-public" type="checkbox">
+                <label locale="fileservers/part/public">Allow connections from public addresses</label>
+                <small class="fsp-hint" locale="fileservers/sftp/public_hint">Turn this off to keep SFTP on private networks. Leave it on to reach the server from the internet.</small>
             </div>
         </div>
         <div class="field">
-            <label locale="fileservers/common/port">Listening Port</label>
-            <div class="ui labeled input">
-                <input id="listeningPort" type="number" placeholder="2022" min="22">
+            <div class="ui toggle checkbox">
+                <input id="sftp-readonly" type="checkbox">
+                <label locale="fileservers/part/readonly">Read only</label>
+                <small class="fsp-hint" locale="fileservers/part/readonly_hint">Users can browse and download, but cannot upload, change or delete anything.</small>
             </div>
         </div>
-        <button class="ui black right floated button" onclick="updatePort();" locale="fileservers/common/save">Save Changes</button>
-        <br><br>
-        <div id="ok" class="ui secondary inverted green segment" style="display:none;">
-            <i class="checkmark icon"></i> <span locale="fileservers/common/applied">Setting Applied</span>
+        <div class="field">
+            <div class="ui toggle checkbox" id="sftp-upnp-box">
+                <input id="sftp-upnp" type="checkbox">
+                <label locale="fileservers/sftp/upnp">Forward the SFTP port with UPnP</label>
+                <small class="fsp-hint" locale="fileservers/sftp/upnp_hint">Asks your router to open this port to the internet.</small>
+                <small class="fsp-hint" id="sftp-upnp-off" locale="fileservers/part/upnp_unavailable" hidden>UPnP is not available on this host.</small>
+            </div>
         </div>
-        <div id="error" class="ui secondary inverted red segment" style="display:none;">
-            <i class="remove icon"></i> <span class="msg" locale="fileservers/common/error">Something went wrong</span>
-        </div>
-        <div class="ui divider"></div>
-       
+
+        <button class="ui black button" type="submit" id="sftp-apply" locale="fileservers/part/save">Save Changes</button>
+        <div class="fsp-result" id="sftp-config-result" role="status"></div>
+    </form>
+
+    <div class="ui divider"></div>
+    <h4 locale="fileservers/sftp/host_key">Host key fingerprint</h4>
+    <div class="fsp-key"><code id="sftp-fingerprint"></code></div>
+    <small class="fsp-hint" locale="fileservers/sftp/host_key_hint">Clients show this the first time they connect. This server made its own key: clients that connected to it with an older ArozOS release warn once that the key changed.</small>
+
+    <div class="ui divider"></div>
+    <div class="fsp-head">
+        <h4 locale="fileservers/part/clients">Connected clients</h4>
+        <button type="button" class="ss-btn" id="sftp-refresh" locale="fileservers/part/refresh">Refresh</button>
     </div>
-    <br><br>
-    <script>
-        var serverAllowUPNP = false;
-        
-        function initConfigs(){
-            $.get("../../system/storage/sftp/port", function(data){
-                $("#listeningPort").val(data);
-            });
+    <div class="fsp-empty" id="sftp-no-clients" locale="fileservers/part/no_clients" hidden>Nobody is connected.</div>
+    <table class="fsp-table" id="sftp-clients" hidden>
+        <thead><tr>
+            <th locale="fileservers/part/col_user">User</th>
+            <th locale="fileservers/part/col_address">Address</th>
+            <th locale="fileservers/sftp/col_client">Client</th>
+            <th locale="fileservers/part/col_since">Connected since</th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
 
-            $.get("../../system/storage/sftp/upnp", function(data){
-                if (data == true){
-                    $("#useUPNP").parent().checkbox("set checked");
-                }else{
-                    $("#useUPNP").parent().checkbox("set unchecked");
+<script>
+(function () {
+    var T = (typeof fsT === 'function') ? fsT : function (key, fallback) { return fallback; };
+    function when(seconds) {
+        return seconds ? new Date(seconds * 1000).toLocaleString() : '';
+    }
+    function message($target, text, good) {
+        $target.text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+
+    function loadConfig() {
+        $.get('../../system/storage/sftp/config', function (config) {
+            if (!config || config.error !== undefined) return;
+            $('#sftp-port').val(config.Port);
+            $('#sftp-public').prop('checked', config.AllowPublic);
+            $('#sftp-readonly').prop('checked', config.ReadOnly);
+            $('#sftp-upnp').prop('checked', config.Upnp && config.UpnpAvailable);
+            $('#sftp-upnp-box').toggleClass('disabled', !config.UpnpAvailable);
+            $('#sftp-upnp-off').prop('hidden', config.UpnpAvailable);
+            $('#sftp-fingerprint').text(config.Fingerprint || '');
+            $('#sftp-config-error').prop('hidden', !config.LastError).find('span').text(config.LastError || '');
+        });
+    }
+
+    function loadClients() {
+        $.get('../../system/storage/sftp/clients', function (clients) {
+            if (!$.isArray(clients)) return;
+            var $body = $('#sftp-clients tbody').empty();
+            clients.forEach(function (c) {
+                var $row = $('<tr></tr>');
+                [c.Username, c.Address, c.Client, when(c.Connected)].forEach(function (text) {
+                    $row.append($('<td></td>').text(text));
+                });
+                $body.append($row);
+            });
+            $('#sftp-clients').prop('hidden', clients.length === 0);
+            $('#sftp-no-clients').prop('hidden', clients.length !== 0);
+        });
+    }
+
+    function save(event) {
+        event.preventDefault();
+        var $result = $('#sftp-config-result');
+        $('#sftp-apply').addClass('loading disabled');
+        $.ajax({
+            url: '../../system/storage/sftp/config',
+            method: 'POST',
+            data: {
+                port: $('#sftp-port').val(),
+                public: $('#sftp-public').is(':checked') ? 'true' : 'false',
+                readonly: $('#sftp-readonly').is(':checked') ? 'true' : 'false',
+                upnp: $('#sftp-upnp').is(':checked') ? 'true' : 'false'
+            },
+            success: function (data) {
+                if (data && data.error !== undefined) {
+                    message($result, data.error, false);
+                } else if (data && data.Restarted) {
+                    message($result, T('part/applied', 'Settings saved. Connected clients were disconnected and will reconnect by themselves.'), true);
+                } else {
+                    message($result, T('part/saved', 'Settings saved.'), true);
                 }
-            });
+                loadConfig();
+                loadClients();
+            },
+            error: function () { message($result, T('part/failed', 'The request failed.'), false); },
+            complete: function () { $('#sftp-apply').removeClass('loading disabled'); }
+        });
+    }
 
-            $.get("../../system/storage/sftp/users", function(data){
-                $("#connectedUsers").text(data);
-            })
-        }
-        initConfigs();
-
-        function toggleUPNP(checked){
-            $.ajax({
-                url:"../../system/storage/sftp/upnp",
-                data: {enabled: checked},
-                method: "POST",
-                success: function(data){
-                    
-                } 
-            })
-        }
-
-        function updatePort(){
-            var newPort = $("#listeningPort").val();
-            if (isNaN(parseInt(newPort)) || parseInt(newPort) < 20 ){
-                ssAlert(fsT("sftp/invalid_port", "Invalid port number entered"));
-                return
-            }
-
-            $.ajax({
-                url:"../../system/storage/sftp/port",
-                data: {port: newPort},
-                method: "POST",
-                success: function(data){
-                    if (data.error !== undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                    }
-                   
-                } 
-            })
-        }
-
-        function showOK(){
-            $("#ok").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-        }
-
-        function showError(msg){
-            $("#error").find(".msg").text(msg);
-            $("#error").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-        }
-       
-    </script>
-</body>
-</html>
+    $('#sftp-config').on('submit', save);
+    $('#sftp-refresh').on('click', loadClients);
+    $('#sftp-admin .ui.checkbox').checkbox();
+    //The server switch belongs to the host page: a failed start shows here
+    $('#fs-list').off('.sftpadmin').on('change.sftpadmin', 'input', function () {
+        setTimeout(function () {
+            if (!$('#sftp-admin').length) return;
+            loadConfig();
+            loadClients();
+        }, 700);
+    });
+    loadConfig();
+    loadClients();
+})();
+</script>

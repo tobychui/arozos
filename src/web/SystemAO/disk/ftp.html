@@ -1,329 +1,229 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <!-- 
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
-    -->
-    <style>
-        .hidden{
-            display:none;
-        }
+<!--
+    Settings of the FTP server. Loaded into services.html for admins.
+    Users turn FTP on for their own account in instr/ftp.html.
+-->
+<div id="ftp-admin" class="fsp">
+    <div class="fsp-banner error" id="ftp-config-error" hidden><i class="exclamation circle icon"></i><span></span></div>
+    <div class="fsp-note" locale="fileservers/ftp/admin_note">After turning the server on, every user who wants FTP, you included, turns it on for their own account in the Connect section above. Nobody can sign in until they have.</div>
+    <div class="fsp-banner warn"><i class="exclamation triangle icon"></i><span locale="fileservers/ftp/plain_warning">FTP sends passwords and files unencrypted. Outside your own network, prefer SFTP or WebDAV over HTTPS.</span></div>
 
-        .disabled{
-            opacity: 0.5;
-            pointer-events: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="ui form">
-        <!-- 
+    <form class="ui form" id="ftp-config" autocomplete="off">
+        <div class="fsp-row">
+            <div class="field">
+                <label locale="fileservers/part/port">Listening port</label>
+                <div class="ui input"><input id="ftp-port" type="number" min="1" max="65533" placeholder="21"></div>
+                <small class="fsp-hint" locale="fileservers/ftp/port_hint">Passive transfers use the two ports after it.</small>
+            </div>
+            <div class="field">
+                <label locale="fileservers/ftp/idle">Disconnect idle clients after (minutes)</label>
+                <div class="ui input"><input id="ftp-idle" type="number" min="1" max="1440" placeholder="15"></div>
+            </div>
+        </div>
         <div class="field">
             <div class="ui toggle checkbox">
-                <input id="enabled" type="checkbox" name="enable" onchange="toggleFTPServer(this.checked);">
-                <label>Enable FTP Server</label>
+                <input id="ftp-public" type="checkbox">
+                <label locale="fileservers/part/public">Allow connections from public addresses</label>
+                <small class="fsp-hint" locale="fileservers/ftp/public_hint">Turn this off to keep FTP on private networks. Leave it on to reach the server from the internet.</small>
             </div>
         </div>
-        -->
         <div class="field">
             <div class="ui toggle checkbox">
-                <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
-                <label locale="fileservers/ftp/upnp">Enable UPnP on FTP Server Port</label>
-                <small locale="fileservers/common/upnp_hint">Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
+                <input id="ftp-readonly" type="checkbox">
+                <label locale="fileservers/part/readonly">Read only</label>
+                <small class="fsp-hint" locale="fileservers/part/readonly_hint">Users can browse and download, but cannot upload, change or delete anything.</small>
             </div>
         </div>
         <div class="field">
-            <label locale="fileservers/common/port">Listening Port</label>
-            <div class="ui labeled input">
-                <input id="listeningPort" type="number" placeholder="21" min="21" onchange="updateFTPPort(this.value)">
+            <div class="ui toggle checkbox" id="ftp-upnp-box">
+                <input id="ftp-upnp" type="checkbox">
+                <label locale="fileservers/ftp/upnp">Forward the FTP ports with UPnP</label>
+                <small class="fsp-hint" locale="fileservers/ftp/upnp_hint">Asks your router to open the FTP port and its two passive ports to the internet, and uses the router's public address for passive transfers.</small>
+                <small class="fsp-hint" id="ftp-upnp-off" locale="fileservers/part/upnp_unavailable" hidden>UPnP is not available on this host.</small>
             </div>
         </div>
-        
+
+        <div class="fsp-subtitle" locale="fileservers/ftp/advanced">Advanced Options</div>
         <div class="field">
-            <label locale="fileservers/ftp/groups">Enable FTP access to the following user groups:</label>
-            <select id="grouplist" name="groups" multiple="" class="ui fluid dropdown">
-                <option value="" locale="fileservers/ftp/groups_placeholder">User Groups</option>
-                
-            </select>
-            <small><a href="../vendor/public/ftpForAdmin.html" target="_blank" locale="fileservers/ftp/admin_warning">Why enable FTP on administrator account is not a good idea?</a></small>
-        </div>
-        <div class="field">
-            <button onclick="updateGroupAccess();" class="ui secondary right floated button" locale="fileservers/ftp/update_access">Update Access Policy</button>
-        </div>
-        <br><br>
-        <div id="ok" class="ui secondary inverted green segment" style="display:none;">
-            <i class="checkmark icon"></i> <span locale="fileservers/common/applied">Setting Applied</span>
-        </div>
-        <div id="error" class="ui secondary inverted red segment" style="display:none;">
-            <i class="remove icon"></i> <span class="msg" locale="fileservers/common/error">Something went wrong</span>
-        </div>
-        <div class="ui divider"></div>
-        <h4 locale="fileservers/ftp/advanced">Advanced Options</h4>
-        <br>
-        <div class="field">
-            <div class="ui toggle checkbox">
-                <input id="passiveMode" type="checkbox" name="passivemode" onchange="handlePassiveModeChange(this.checked);">
-                <label locale="fileservers/ftp/passive">Force Passive Mode</label>
-                <small locale="fileservers/ftp/passive_hint">Required under UPnP mode. Optional in default mode with manual port forwarding in gateway router</small>
+            <div class="ui toggle checkbox" id="ftp-passive-box">
+                <input id="ftp-passive" type="checkbox">
+                <label locale="fileservers/ftp/passive">Announce a public address for passive transfers</label>
+                <small class="fsp-hint" locale="fileservers/ftp/passive_hint">For clients on the internet when you forward the ports on your router yourself. With UPnP, the router's address is used.</small>
             </div>
         </div>
-        <div class="field">
-            <label locale="fileservers/ftp/public_ip">Passive Mode Public IP Address</label>
-            <div class="ui labeled input">
-                <input id="publicip" type="text">
-            </div>
-            <small locale="fileservers/ftp/public_ip_hint">The public IP address of your NAT router. Currently only support IP address.</small>
+        <div class="field" id="ftp-publicip-field">
+            <label locale="fileservers/ftp/public_ip">Public IP address</label>
+            <div class="ui input"><input id="ftp-publicip" type="text" placeholder="203.0.113.10"></div>
+            <small class="fsp-hint" locale="fileservers/ftp/public_ip_hint">The public IP address of your router. Host names are not supported.</small>
         </div>
-        <div class="field">
-            <button onclick="updatePublicIPSetting();" class="ui secondary right floated button" locale="fileservers/ftp/update_ip">Update Public IP Setting</button>
-        </div>
-       
+
+        <button class="ui black button" type="submit" id="ftp-apply" locale="fileservers/part/save">Save Changes</button>
+        <div class="fsp-result" id="ftp-config-result" role="status"></div>
+    </form>
+
+    <div class="ui divider"></div>
+    <div class="fsp-head">
+        <h4 locale="fileservers/part/clients">Connected clients</h4>
+        <button type="button" class="ss-btn" id="ftp-refresh" locale="fileservers/part/refresh">Refresh</button>
     </div>
-    <br><br>
-    <script>
-        var serverAllowUPNP = false;
-        var isMac = navigator.platform.indexOf('Mac') > -1;
-        var isWindows = navigator.platform.indexOf('Win') > -1;
+    <div class="fsp-empty" id="ftp-no-clients" locale="fileservers/part/no_clients" hidden>Nobody is connected.</div>
+    <table class="fsp-table" id="ftp-clients" hidden>
+        <thead><tr>
+            <th locale="fileservers/part/col_user">User</th>
+            <th locale="fileservers/part/col_address">Address</th>
+            <th locale="fileservers/part/col_since">Connected since</th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
 
-        if (isMac){
-            $(".maconly").show();
-        }else if (isWindows){
-            $(".windowsonly").show();
-        }
-        $(document).ready(function(){
-            //Load usergroups
-            $.get("../../system/permission/listgroup", function(data){
-                if (data.error !== undefined){
-                    console.log(data.error);
-                }else{
-                    data.forEach(group => {
-                        $("#grouplist").append(` <option value="${group}">${group}</option>`);
-                    });
-                    
-                }
-                $(".ui.dropdown").dropdown();
+    <div class="ui divider"></div>
+    <div class="fsp-head"><h4 locale="fileservers/ftp/users">Users with FTP on</h4></div>
+    <div class="fsp-empty" id="ftp-no-users" locale="fileservers/ftp/no_users" hidden>No user has turned FTP on yet.</div>
+    <table class="fsp-table" id="ftp-users" hidden>
+        <thead><tr>
+            <th locale="fileservers/part/col_user">User</th>
+            <th locale="fileservers/ftp/col_enabled">Turned on</th>
+            <th></th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
 
-                //Init server status
-                //Update done by service.html
-                initFTPServerStatus();
-            });
-
-            
+<script>
+(function () {
+    var T = (typeof fsT === 'function') ? fsT : function (key, fallback) { return fallback; };
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name]; });
+    }
+    function when(seconds) {
+        return seconds ? new Date(seconds * 1000).toLocaleString() : '';
+    }
+    function message($target, text, good) {
+        $target.text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+    function row(cells) {
+        var $row = $('<tr></tr>');
+        cells.forEach(function (cell) {
+            var $cell = $('<td></td>');
+            if (cell && cell.jquery) $cell.addClass('fsp-action');
+            $row.append($cell.append(typeof cell === 'string' ? document.createTextNode(cell) : cell));
         });
+        return $row;
+    }
 
-        function initFTPServerStatus(){
-            //Load current system status
-            $.get("../../system/storage/ftp/status", function(data){
-                if (data.error !== undefined){
-                    console.log(data.error);
-                }else{
-                    if (data.Enabled == true){
-                        //$("#enabled")[0].checked = true;
-                        $("#useUPNP").parent().removeClass("disabled");
-                    }else{
-                        $("#listeningPort").parent().addClass("disabled");
-                        $("#useUPNP").parent().addClass("disabled");
-                    }
+    var upnpAvailable = false;
 
-                    $("#listeningPort").val(data.Port);
-                    $(".port").text(data.Port);
+    //The public address only matters for passive transfers without UPnP
+    function syncFields() {
+        var upnp = upnpAvailable && $('#ftp-upnp').is(':checked');
+        $('#ftp-passive-box').toggleClass('disabled', upnp);
+        $('#ftp-publicip-field').toggleClass('disabled', upnp || !$('#ftp-passive').is(':checked'));
+    }
 
-                    if (data.AllowUPNP == false){
-                        $("#useUPNP").parent().addClass("disabled");
-                        serverAllowUPNP = false;
-                    }else{
-                        $("#useUPNP").parent().removeClass("disabled");
-                        serverAllowUPNP = true;
-                    }
+    function loadConfig() {
+        $.get('../../system/storage/ftp/config', function (config) {
+            if (!config || config.error !== undefined) return;
+            upnpAvailable = config.UpnpAvailable;
+            $('#ftp-port').val(config.Port);
+            $('#ftp-idle').val(config.IdleMinutes);
+            $('#ftp-public').prop('checked', config.AllowPublic);
+            $('#ftp-readonly').prop('checked', config.ReadOnly);
+            $('#ftp-upnp').prop('checked', config.Upnp && config.UpnpAvailable);
+            $('#ftp-upnp-box').toggleClass('disabled', !config.UpnpAvailable);
+            $('#ftp-upnp-off').prop('hidden', config.UpnpAvailable);
+            $('#ftp-passive').prop('checked', config.Passive);
+            $('#ftp-publicip').val(config.PublicIP);
+            $('#ftp-config-error').prop('hidden', !config.LastError).find('span').text(config.LastError || '');
+            syncFields();
+        });
+    }
 
-                    if (data.FTPUpnpEnabled == true){
-                        $("#useUPNP")[0].checked = true;
-
-                        //Disable the chnage of force passive mode and public ip address
-                        $("#passiveMode")[0].checked = true;
-                        $("#passiveMode").parent().addClass("disabled");
-                        $("#publicip").val(data.PublicAddr);
-                        $("#publicip").parent().addClass("disabled");
-                    }else{
-                        $("#useUPNP")[0].checked = false;
-
-                       //Restore to non UPnP passive mode setting
-                        $("#passiveMode")[0].checked = data.PassiveMode;
-                        $("#passiveMode").parent().removeClass("disabled");
-                        $("#publicip").val(data.PublicAddr);
-                        $("#publicip").parent().removeClass("disabled");
-                    }
-
-                    if (data.UserGroups !== undefined){
-                        $('#grouplist').dropdown('set selected', data.UserGroups);
-                    }
-
-                    if (data.PassiveMode){
-                        $("#passiveMode")[0].checked = true;
-                    }else{
-                        $("#passiveMode")[0].checked = false;
-                    }
-
-                    if (data.PublicAddr != ""){
-                        $("#publicip").val(data.PublicAddr);
-                    }else{
-                        $("#publicip").val("");
-                    }
-
-                }
-
-                //Update tutorial information
-                $(".hostname").text(window.location.hostname);
+    function loadClients() {
+        $.get('../../system/storage/ftp/clients', function (clients) {
+            if (!$.isArray(clients)) return;
+            var $body = $('#ftp-clients tbody').empty();
+            clients.forEach(function (c) {
+                $body.append(row([c.Username || T('ftp/signing_in', '(signing in)'), c.Address, when(c.Connected)]));
             });
-        }
+            $('#ftp-clients').prop('hidden', clients.length === 0);
+            $('#ftp-no-clients').prop('hidden', clients.length !== 0);
+        });
+    }
 
-        function toggleFTPServer(enabled){
-            if (enabled == true){
-                $.get("../../system/storage/ftp/start", function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                        if (serverAllowUPNP){
-                            $("#useUPNP").parent().removeClass("disabled");
-                        }
-                        
-                        $("#listeningPort").parent().removeClass("disabled");
-                    }
-                });
-            }else{
-                $.get("../../system/storage/ftp/stop", function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                        $("#useUPNP").parent().addClass("disabled");
-                        $("#listeningPort").parent().addClass("disabled");
-                    }
-                });
-            }
-        }
-
-        function toggleUPNP(enabled){
-            if (enabled){
-                $.get("../../system/storage/ftp/upnp?enable=true", function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        setTimeout(function(){
-                            handleUpnpStateCheck(true);
-                        }, 1000);
-                    }
-                });
-            }else{
-                $.get("../../system/storage/ftp/upnp?enable=false", function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        setTimeout(function(){
-                            handleUpnpStateCheck(false);
-                        }, 1000);
-                    }
-                });
-            }
-        }
-
-        function handleUpnpStateCheck(expectedUPnPState){
-            console.log("Checking UPNP Enabling State")
-            $.get("../../system/storage/ftp/status",function(data){
-                if (data.FTPUpnpEnabled == expectedUPnPState){
-                    //OK
-                    showOK();
-                }else{
-                    //Show error
-                    showError(fsT("ftp/upnp_failed", "UPnP Port Forward Request Failed"));
-                    $("#useUPNP")[0].checked = false;
-                }
-
-                initFTPServerStatus();
+    function loadUsers() {
+        $.get('../../system/storage/ftp/users', function (users) {
+            if (!$.isArray(users)) return;
+            var $body = $('#ftp-users tbody').empty();
+            users.forEach(function (u) {
+                var $revoke = $('<button type="button" class="ss-btn"></button>').text(T('part/revoke', 'Revoke'));
+                $revoke.on('click', function () { revoke(u.Username); });
+                $body.append(row([u.Username, when(u.Enabled), $revoke]));
             });
-        }
+            $('#ftp-users').prop('hidden', users.length === 0);
+            $('#ftp-no-users').prop('hidden', users.length !== 0);
+        });
+    }
 
-        function updateGroupAccess(){
-            var groups = $("#grouplist").dropdown("get value");
-            groups = JSON.stringify(groups)
-            $.ajax({
-                url: "../../system/storage/ftp/updateGroups",
-                method: "POST",
-                data: {"groups": groups},
-                success: function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                    }
+    function revoke(username) {
+        ssConfirm({
+            title: T('part/revoke', 'Revoke'),
+            text: fill(T('ftp/revoke_confirm', 'Turn FTP off for {user}? They are disconnected now, and can turn it on again themselves.'), { user: username }),
+            confirmLabel: T('part/revoke', 'Revoke'),
+            danger: true
+        }, function () {
+            $.post('../../system/storage/ftp/revoke', { username: username }, function (data) {
+                if (data && data.error !== undefined) return ssAlert(data.error);
+                loadUsers();
+                loadClients();
+            });
+        });
+    }
+
+    function save(event) {
+        event.preventDefault();
+        var $result = $('#ftp-config-result');
+        $('#ftp-apply').addClass('loading disabled');
+        $.ajax({
+            url: '../../system/storage/ftp/config',
+            method: 'POST',
+            data: {
+                port: $('#ftp-port').val(),
+                idle: $('#ftp-idle').val(),
+                public: $('#ftp-public').is(':checked') ? 'true' : 'false',
+                readonly: $('#ftp-readonly').is(':checked') ? 'true' : 'false',
+                upnp: $('#ftp-upnp').is(':checked') ? 'true' : 'false',
+                passive: $('#ftp-passive').is(':checked') ? 'true' : 'false',
+                publicip: $('#ftp-publicip').val()
+            },
+            success: function (data) {
+                if (data && data.error !== undefined) {
+                    message($result, data.error, false);
+                } else if (data && data.Restarted) {
+                    message($result, T('part/applied', 'Settings saved. Connected clients were disconnected and will reconnect by themselves.'), true);
+                } else {
+                    message($result, T('part/saved', 'Settings saved.'), true);
                 }
-            })
-        }
+                loadConfig();
+                loadClients();
+            },
+            error: function () { message($result, T('part/failed', 'The request failed.'), false); },
+            complete: function () { $('#ftp-apply').removeClass('loading disabled'); }
+        });
+    }
 
-        function updatePublicIPSetting(){
-            var newip = $("#publicip").val();
-            $.ajax({
-                url: "../../system/storage/ftp/passivemode",
-                data: {set: "ip", "ip": newip},
-                success: function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                    }
-                }
-            })
-        }
-
-        function handlePassiveModeChange(value){
-            $.ajax({
-                url: "../../system/storage/ftp/passivemode",
-                data: {set: "mode", "passive": value},
-                success: function(data){
-                    if (data.error != undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                    }
-                    initFTPServerStatus();
-                }
-            })
-        }
-
-
-        function updateFTPPort(portNumber){
-            if (portNumber < 21){
-                showError(fsT("ftp/port_too_low", "The port number must be 21 or higher"))
-                return
-            }
-            $.ajax({
-                url: "../../system/storage/ftp/setPort",
-                data: {port: portNumber},
-                success: function(data){
-                    if (data.error !== undefined){
-                        showError(data.error);
-                    }else{
-                        showOK();
-                    }
-                }
-            })
-        }
-
-        function showOK(){
-            $("#ok").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-        }
-
-        function showError(msg){
-            $("#error").find(".msg").text(msg);
-            $("#error").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-        }
-       
-    </script>
-</body>
-</html>
+    $('#ftp-config').on('submit', save);
+    $('#ftp-upnp, #ftp-passive').on('change', syncFields);
+    $('#ftp-refresh').on('click', function () { loadClients(); loadUsers(); });
+    $('#ftp-admin .ui.checkbox').checkbox();
+    //The server switch belongs to the host page: a failed start shows here
+    $('#fs-list').off('.ftpadmin').on('change.ftpadmin', 'input', function () {
+        setTimeout(function () {
+            if (!$('#ftp-admin').length) return;
+            loadConfig();
+            loadClients();
+        }, 700);
+    });
+    loadConfig();
+    loadClients();
+    loadUsers();
+})();
+</script>

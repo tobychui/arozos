@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/fileservers/servers/dirserv"
@@ -20,6 +23,8 @@ import (
 	upnp "imuslab.com/arozos/mod/network/upnp"
 	"imuslab.com/arozos/mod/network/websocket"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/storage/sftpserver"
+	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 	"imuslab.com/arozos/mod/www"
 )
@@ -294,16 +299,26 @@ func FileServerInit() {
 		UserHandler: userHandler,
 	})
 
-	//FTP
+	//FTP: the admin turns the server on, then every user turns it on for
+	//their own account
 	FTPManager = ftpserv.NewFTPManager(&ftpserv.ManagerOption{
 		Hostname:    *host_name,
-		TmpFolder:   *tmp_directory,
-		Logger:      systemWideLogger,
-		UserManager: userHandler,
-		FtpServer:   nil,
 		Sysdb:       sysdb,
 		Upnp:        UPNP,
 		AllowUpnp:   *allow_upnp,
+		CurrentUser: fileServerCurrentUser,
+		ConfirmPassword: func(w http.ResponseWriter, r *http.Request) bool {
+			return AuthValidateSecureRequest(w, r, false)
+		},
+		CheckPassword: fileServerCheckPassword,
+		LogAuth:       fileServerLogAuth("ftp"),
+		LookupUser:    userHandler.GetUserInfoFromUsername,
+		UserExists:    authAgent.UserExists,
+		ListUsers:     authAgent.ListUsers,
+		InGroups: func(username string, groups []string) bool {
+			userinfo, err := userHandler.GetUserInfoFromUsername(username)
+			return err == nil && userinfo.UserIsInOneOfTheGroupOf(groups)
+		},
 	})
 
 	//TFTP
@@ -318,12 +333,18 @@ func FileServerInit() {
 
 	//SFTP
 	SFTPManager = sftpserv.NewSFTPServer(&sftpserv.ManagerOption{
-		Hostname:    *host_name,
-		Upnp:        UPNP,
-		UserManager: userHandler,
-		KeyFile:     "system/auth/id_rsa.key",
-		Logger:      systemWideLogger,
-		Sysdb:       sysdb,
+		Hostname: *host_name,
+		Upnp:     UPNP,
+		//Created on first use: the key that came with older releases is
+		//the same on every installation
+		KeyFile:       filepath.Join("system", "sftp", "host_ed25519.key"),
+		Sysdb:         sysdb,
+		CurrentUser:   fileServerCurrentUser,
+		CheckPassword: fileServerCheckPassword,
+		LogAuth:       fileServerLogAuth("sftp"),
+		LookupUser: func(username string) (sftpserver.Access, error) {
+			return userHandler.GetUserInfoFromUsername(username)
+		},
 	})
 
 	listeningPort := *listen_port
@@ -353,18 +374,18 @@ func FileServerInit() {
 	router.HandleFunc("/system/network/webdav/status", WebDAVManager.HandleStatusChange)
 
 	//SFTP
-	adminRouter.HandleFunc("/system/storage/sftp/port", SFTPManager.HandleListeningPort)
-	adminRouter.HandleFunc("/system/storage/sftp/upnp", SFTPManager.HandleToogleUPnP)
-	adminRouter.HandleFunc("/system/storage/sftp/users", SFTPManager.HandleGetConnectedClients)
+	router.HandleFunc("/system/storage/sftp/status", SFTPManager.HandleStatus)
+	adminRouter.HandleFunc("/system/storage/sftp/config", SFTPManager.HandleConfig)
+	adminRouter.HandleFunc("/system/storage/sftp/clients", SFTPManager.HandleClients)
 
 	//FTP
-	//adminRouter.HandleFunc("/system/storage/ftp/start", FTPManager.HandleFTPServerStart)
-	//adminRouter.HandleFunc("/system/storage/ftp/stop", FTPManager.HandleFTPServerStop)
-	adminRouter.HandleFunc("/system/storage/ftp/upnp", FTPManager.HandleFTPUPnP)
-	adminRouter.HandleFunc("/system/storage/ftp/status", FTPManager.HandleFTPServerStatus)
-	adminRouter.HandleFunc("/system/storage/ftp/updateGroups", FTPManager.HandleFTPAccessUpdate)
-	adminRouter.HandleFunc("/system/storage/ftp/setPort", FTPManager.HandleFTPSetPort)
-	adminRouter.HandleFunc("/system/storage/ftp/passivemode", FTPManager.HandleFTPPassiveModeSettings)
+	router.HandleFunc("/system/storage/ftp/status", FTPManager.HandleStatus)
+	router.HandleFunc("/system/storage/ftp/activate", FTPManager.HandleActivate)
+	router.HandleFunc("/system/storage/ftp/deactivate", FTPManager.HandleDeactivate)
+	adminRouter.HandleFunc("/system/storage/ftp/config", FTPManager.HandleConfig)
+	adminRouter.HandleFunc("/system/storage/ftp/clients", FTPManager.HandleClients)
+	adminRouter.HandleFunc("/system/storage/ftp/users", FTPManager.HandleUsers)
+	adminRouter.HandleFunc("/system/storage/ftp/revoke", FTPManager.HandleRevoke)
 
 	//TFTP
 	adminRouter.HandleFunc("/system/storage/tftp/status", TFTPManager.HandleTFTPServerStatus)
@@ -500,6 +521,39 @@ func FileServerInit() {
 	router.HandleFunc("/system/network/server/status", NetworkHandleGetFileServerStatus)
 	adminRouter.HandleFunc("/system/network/server/toggle", NetworkHandleFileServerToggle)
 }
+
+// fileServerCurrentUser names the signed in user of a request
+func fileServerCurrentUser(w http.ResponseWriter, r *http.Request) (string, error) {
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		return "", err
+	}
+	return userinfo.Username, nil
+}
+
+// fileServerCheckPassword checks a sign in from an FTP or SFTP client: the
+// login IP rules first, then the password. remote is the client's IP address.
+func fileServerCheckPassword(username, password, remote string) error {
+	if allowed, err := authAgent.ValidateLoginIpAccess(remote); !allowed {
+		if err == nil {
+			err = errors.New("This address may not sign in")
+		}
+		return err
+	}
+	if ok, reason := authAgent.ValidateUsernameAndPasswordWithReason(username, password); !ok {
+		return errors.New(reason)
+	}
+	return nil
+}
+
+// fileServerLogAuth records sign ins of a file server in the login history
+func fileServerLogAuth(authType string) func(username, remote string, ok bool) {
+	return func(username, remote string, ok bool) {
+		authAgent.Logger.LogAuthByRequestInfo(username, remote, time.Now().Unix(), ok, authType)
+	}
+}
+
+var _ sftpserver.Access = (*user.User)(nil)
 
 // Toggle the target File Server Services
 func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {

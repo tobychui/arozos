@@ -71,74 +71,6 @@ func (r *rootEntry) Sys() interface{} {
 	return nil
 }
 
-type sftpFileInterface interface {
-	Name() string
-	Size() int64
-	Mode() os.FileMode
-	ModTime() time.Time
-	IsDir() bool
-	Sys() interface{}
-	ReadAt([]byte, int64) (int, error)
-	WriteAt([]byte, int64) (int, error)
-}
-
-// Wrapper for the arozfs File to provide missing functions
-type wrappedArozFile struct {
-	file arozfs.File
-}
-
-func newArozFileWrapper(arozfile arozfs.File) *wrappedArozFile {
-	return &wrappedArozFile{file: arozfile}
-}
-
-func (f *wrappedArozFile) Name() string {
-	return f.file.Name()
-}
-
-func (f *wrappedArozFile) Size() int64 {
-	stat, err := f.file.Stat()
-	if err != nil {
-		return 0
-	}
-
-	return stat.Size()
-}
-func (f *wrappedArozFile) Mode() os.FileMode {
-	stat, err := f.file.Stat()
-	if err != nil {
-		return 0
-	}
-
-	return stat.Mode()
-}
-func (f *wrappedArozFile) ModTime() time.Time {
-	stat, err := f.file.Stat()
-	if err != nil {
-		return time.Time{}
-	}
-
-	return stat.ModTime()
-}
-func (f *wrappedArozFile) IsDir() bool {
-	stat, err := f.file.Stat()
-	if err != nil {
-		return false
-	}
-
-	return stat.IsDir()
-}
-func (f *wrappedArozFile) Sys() interface{} {
-	return nil
-}
-
-func (f *wrappedArozFile) ReadAt(b []byte, off int64) (int, error) {
-	return f.file.ReadAt(b, off)
-}
-
-func (f *wrappedArozFile) WriteAt(b []byte, off int64) (int, error) {
-	return f.file.WriteAt(b, off)
-}
-
 func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
 	root := &root{
 		username:       username,
@@ -203,7 +135,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 		return nil, err
 	}
 
-	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_CREATE|os.O_WRONLY, 0775)
+	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_WRONLY|openFlags(r.Pflags()), 0775)
 	if err != nil {
 		return nil, err
 	}
@@ -212,18 +144,40 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
-	//fmt.Println("Open File", r.Filepath)
+	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
+		return nil, errors.New("ArozOS SFTP root is read only")
+	}
 	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDWR, 0775)
+	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDWR|openFlags(r.Pflags()), 0775)
 	if err != nil {
 		return nil, err
 	}
 
 	return f, nil
+}
+
+// openFlags carries the create, truncate, exclusive and append choices of a
+// client over. Without the truncate flag, a smaller file uploaded over a
+// bigger one would keep the old file's tail.
+func openFlags(p sftp.FileOpenFlags) int {
+	flags := 0
+	if p.Creat {
+		flags |= os.O_CREATE
+	}
+	if p.Trunc {
+		flags |= os.O_TRUNC
+	}
+	if p.Excl {
+		flags |= os.O_EXCL
+	}
+	if p.Append {
+		flags |= os.O_APPEND
+	}
+	return flags
 }
 
 func (fs *root) Filecmd(r *sftp.Request) error {
@@ -484,7 +438,7 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 	return fsh, subpath, rpath, nil
 }
 
-func (fs *root) lfetch(path string) (sftpFileInterface, error) {
+func (fs *root) lfetch(path string) (os.FileInfo, error) {
 	path = strings.TrimSpace(path)
 	if path == "/" {
 		//fmt.Println("Requesting SFTP Root")
@@ -496,24 +450,19 @@ func (fs *root) lfetch(path string) (sftpFileInterface, error) {
 	if err != nil {
 		return nil, err
 	}
-	fshAbs := fsh.FileSystemAbstraction
-
-	if !fshAbs.FileExists(rpath) {
-		//Target file not exists
-		return nil, os.ErrExist
-	}
-
-	//Open the file and return
-	f, err := fshAbs.Open(rpath)
+	//Stat only: a file opened here would never be closed again, and every
+	//stat of a client would keep one more file open on the server
+	info, err := fsh.FileSystemAbstraction.Stat(rpath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, os.ErrNotExist
+		}
 		return nil, err
 	}
-
-	f2 := newArozFileWrapper(f)
-	return f2, nil
+	return info, nil
 }
 
-func (fs *root) fetch(path string) (sftpFileInterface, error) {
+func (fs *root) fetch(path string) (os.FileInfo, error) {
 	file, err := fs.lfetch(path)
 	if err != nil {
 		return nil, err
@@ -557,7 +506,9 @@ func cleanPath(p string) string {
 }
 
 func cleanPathWithBase(base, p string) string {
-	p = filepath.ToSlash(filepath.Clean(p))
+	//SFTP paths are POSIX paths on every host: filepath.Clean would read a
+	//leading // as a Windows network path
+	p = path.Clean(filepath.ToSlash(p))
 	if !path.IsAbs(p) {
 		return path.Join(base, p)
 	}

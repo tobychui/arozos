@@ -22,6 +22,12 @@ var (
 
 type aofs struct {
 	userinfo *user.User
+	readOnly bool //The server refuses every change
+}
+
+// writesTo tells whether opening a file with these flags can change it
+func writesTo(flag int) bool {
+	return flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0
 }
 
 // isVirtualRootPath reports whether name is served by the in-memory FTP root
@@ -104,7 +110,8 @@ func (a aofs) Open(name string) (afero.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+	//Open only reads: listing a folder and downloading go through here
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanRead) {
 		return nil, errors.New("Permission denied")
 	}
 
@@ -135,7 +142,11 @@ func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 	if err != nil {
 		return nil, err
 	}
-	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+	mode := aofsCanRead
+	if writesTo(flag) {
+		mode = aofsCanWrite
+	}
+	if !a.checkAllowAccess(fsh, rewritePath, mode) {
 		return nil, errors.New("Permission denied")
 	}
 	return fsh.FileSystemAbstraction.OpenFile(rewritePath, flag, perm)
@@ -276,6 +287,9 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 
 // Check if user has access to the given path, mode can be string {read / write}
 func (a aofs) checkAllowAccess(fsh *filesystem.FileSystemHandler, path string, mode int) bool {
+	if mode == aofsCanWrite && a.readOnly {
+		return false
+	}
 	vpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, a.userinfo.Username)
 	if err != nil {
 		return false

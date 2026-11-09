@@ -143,10 +143,13 @@ func TestGetNewSFTPRoot(t *testing.T) {
 
 // TestInstance_Closed verifies Instance struct basics.
 func TestInstance_Closed(t *testing.T) {
-	inst := &Instance{
-		Closed: false,
+	inst := &Instance{}
+	if inst.IsClosed() {
+		t.Error("expected an open instance initially")
 	}
-	if inst.Closed {
-		t.Error("expected Closed=false initially")
+	inst.Close()
+	inst.Close() //A second close is harmless
+	if !inst.IsClosed() {
+		t.Error("expected a closed instance after Close")
 	}
 }

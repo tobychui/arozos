@@ -3,93 +3,53 @@ package ftp
 import (
 	"crypto/tls"
 	"errors"
-	"fmt"
-	"time"
 
 	ftp "github.com/fclairamb/ftpserverlib"
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func (m mainDriver) GetSettings() (*ftp.Settings, error) {
+func (m *mainDriver) GetSettings() (*ftp.Settings, error) {
 	return &m.setting, nil
 }
 
-func (m mainDriver) ClientConnected(cc ftp.ClientContext) (string, error) {
-	//log.Println("Client Connected: ", cc.ID(), cc.RemoteAddr())
-	m.connectedUserList.Store(cc.ID(), "")
+func (m *mainDriver) ClientConnected(cc ftp.ClientContext) (string, error) {
+	if !AddressAllowed(cc.RemoteAddr(), m.opt.AllowPublic) {
+		return "This server only accepts clients from private networks", errors.New("public address refused")
+	}
+	m.newClient(cc)
 	return "arozos FTP Endpoint", nil
 }
 
-func (m mainDriver) ClientDisconnected(cc ftp.ClientContext) {
-	//log.Println("Client Disconencted: ", cc.ID(), cc.RemoteAddr())
-	////Recalculate user quota if logged in
-	val, ok := m.connectedUserList.Load(cc.ID())
-	if ok {
-		if val != "" {
-			//Recalculate user storage quota
-			if m.userHandler.GetAuthAgent().UserExists(val.(string)) {
-				userinfo, err := m.userHandler.GetUserInfoFromUsername(val.(string))
-				if err == nil {
-					//Update the user storage quota
-					userinfo.StorageQuota.CalculateQuotaUsage()
-					logger.PrintAndLog("Ftp", fmt.Sprint("FTP storage quota updated: ", val.(string)), nil)
-				}
-			} else {
-				//This user is being delete during his connection to FTP???
-
-			}
-		}
-		m.connectedUserList.Delete(cc.ID())
+func (m *mainDriver) ClientDisconnected(cc ftp.ClientContext) {
+	value, ok := m.clients.LoadAndDelete(cc.ID())
+	if !ok {
+		return
 	}
-
+	//Recalculate the storage quota of a signed in user
+	if account := value.(*client).account(); account != nil && account.StorageQuota != nil {
+		account.StorageQuota.CalculateQuotaUsage()
+		logger.PrintAndLog("Ftp", "FTP storage quota updated: "+account.Username, nil)
+	}
 }
 
-// Authenicate user using arozos authAgent
-func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ftp.ClientDriver, error) {
-	authAgent := m.userHandler.GetAuthAgent()
-	if authAgent.ValidateUsernameAndPassword(user, pass) {
-		//OK
-		userinfo, _ := m.userHandler.GetUserInfoFromUsername(user)
-
-		//Check user permission to access ftp endpoint
-		db := m.userHandler.GetDatabase()
-		allowedPgs := []string{}
-		err := db.Read("ftp", "groups", &allowedPgs)
-		if err != nil {
-			allowedPgs = []string{}
-		}
-		accessOK := userinfo.UserIsInOneOfTheGroupOf(allowedPgs)
-
-		if accessOK {
-			//Check if the request is from a blacklisted ip range
-			allowAccess, err := m.userHandler.GetAuthAgent().ValidateLoginIpAccess(cc.RemoteAddr().String())
-			if !allowAccess {
-				accessOK = false
-				return nil, err
-			}
-		} else {
-			//log the signin request
-			m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
-			//Disconnect this user as he is not in the group that is allowed to access ftp
-			logger.PrintAndLog("Ftp", userinfo.Username+" tries to access FTP endpoint with invalid permission settings.", nil)
-			return nil, errors.New("User " + userinfo.Username + " has no permission to access FTP endpoint")
-		}
-
-		//Record username into connected user list
-		m.connectedUserList.Store(cc.ID(), userinfo.Username)
-		//log the signin request
-		m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(userinfo.Username, cc.RemoteAddr().String(), time.Now().Unix(), true, "ftp")
-		//Return the aofs object
-		return aofs{
-			userinfo: userinfo,
-		}, nil
-	} else {
-		//log the signin request
-		m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
+// AuthUser signs a client in through the Authenticate function of the options
+func (m *mainDriver) AuthUser(cc ftp.ClientContext, username string, pass string) (ftp.ClientDriver, error) {
+	if err := m.opt.Authenticate(username, pass, hostOf(cc.RemoteAddr())); err != nil {
+		return nil, err
+	}
+	userinfo, err := m.opt.LookupUser(username)
+	if err != nil {
 		return nil, errors.New("Invalid username or password")
 	}
+	if value, ok := m.clients.Load(cc.ID()); ok {
+		c := value.(*client)
+		c.mu.Lock()
+		c.user = userinfo
+		c.mu.Unlock()
+	}
+	return aofs{userinfo: userinfo, readOnly: m.opt.ReadOnly}, nil
 }
 
-func (m mainDriver) GetTLSConfig() (*tls.Config, error) {
+func (m *mainDriver) GetTLSConfig() (*tls.Config, error) {
 	return nil, errors.New("Not Supported")
 }

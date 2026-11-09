@@ -1,24 +1,75 @@
-<div class="ui blue message" style="margin-top: 0;">
-   <h4 class="ui header">
-      <i class="terminal icon"></i>
-      <div class="content">
-         <span locale="fileservers/sftp/title">SFTP File Server</span>
-         <div class="sub header" locale="fileservers/sftp/subtitle">How to use SFTP File Server on Windows or Mac</div>
-      </div>
-   </h4>
-   <p locale="fileservers/sftp/clients">In order to connect to ArozOS SFTP Server from Windows or Mac, you will need one of the following SFTP Clients.</p>
-   <div class="ui list">
-      <div class="item">
-         <i class="external icon"></i>
-         <div class="content">
-            <a href="https://winscp.net/eng/download.php" target="_blank">WinSCP</a>
-         </div>
-      </div>
-      <div class="item">
-         <i class="external icon"></i>
-         <div class="content">
-            <a href="https://filezilla-project.org/" target="_blank">FileZilla</a>
-         </div>
-      </div>
-   </div>
+<!--
+    Connection help of the SFTP server. Loaded into services.html for every user.
+-->
+<div id="sftp-user" class="fsp">
+    <div class="fsp-state" id="sftp-state"><i class="spinner loading icon"></i></div>
+    <div class="fsp-hint" id="sftp-readonly-note" locale="fileservers/part/readonly_note" hidden>This server is read only: you can browse and download, but not upload or change files.</div>
+
+    <div id="sftp-key-box" hidden>
+        <div class="fsp-section" locale="fileservers/sftp/host_key">Host key fingerprint</div>
+        <div class="fsp-hint" locale="fileservers/sftp/host_key_user">The first time you connect, your client asks you to trust the server. Check that it shows this fingerprint.</div>
+        <div class="fsp-key">
+            <code id="sftp-key"></code>
+            <button type="button" class="ss-btn fs-copy" id="sftp-key-copy" locale="fileservers/copy">Copy</button>
+        </div>
+    </div>
+
+    <div class="fsp-section" locale="fileservers/sftp/clients_title">SFTP clients</div>
+    <div class="fsp-hint" locale="fileservers/sftp/clients">In order to connect to ArozOS SFTP Server from Windows or Mac, you will need one of the following SFTP Clients.</div>
+    <div class="ui list">
+        <div class="item">
+            <i class="external icon"></i>
+            <div class="content"><a href="https://winscp.net/eng/download.php" target="_blank" rel="noopener">WinSCP</a></div>
+        </div>
+        <div class="item">
+            <i class="external icon"></i>
+            <div class="content"><a href="https://filezilla-project.org/" target="_blank" rel="noopener">FileZilla</a></div>
+        </div>
+        <div class="item">
+            <i class="terminal icon"></i>
+            <div class="content" id="sftp-command"></div>
+        </div>
+    </div>
 </div>
+
+<script>
+(function () {
+    var T = (typeof fsT === 'function') ? fsT : function (key, fallback) { return fallback; };
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name]; });
+    }
+    function state(icon, text) {
+        $('#sftp-state').empty().append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
+    }
+
+    function refresh() {
+        $.get('../../system/storage/sftp/status', function (status) {
+            if (!status || status.error !== undefined) {
+                state('red exclamation circle', status && status.error ? status.error : T('part/load_failed', 'The status could not be loaded.'));
+                return;
+            }
+            if (status.Running) {
+                state('green check circle', fill(T('sftp/state_on', 'Sign in as {user} with your ArozOS password. Each drive you can reach is a folder.'), { user: status.Username }));
+            } else {
+                state('grey power off', T('sftp/state_off', 'The SFTP server is not running. An administrator can turn it on in the server list.'));
+            }
+            $('#sftp-readonly-note').prop('hidden', !status.ReadOnly);
+            $('#sftp-key').text(status.Fingerprint || '');
+            $('#sftp-key-copy').attr('data-clipboard-text', status.Fingerprint || '');
+            $('#sftp-key-box').prop('hidden', !status.Fingerprint);
+            //A terminal works too: OpenSSH comes with Windows, macOS and Linux
+            var command = 'sftp -P ' + status.Port + ' ' + status.Username + '@' + window.location.hostname;
+            $('#sftp-command').empty()
+                .append($('<span></span>').text(T('sftp/terminal', 'Or in a terminal:') + ' '))
+                .append($('<code></code>').text(command));
+        }).fail(function () {
+            state('red exclamation circle', T('part/load_failed', 'The status could not be loaded.'));
+        });
+    }
+
+    $('#fs-list').off('.sftpuser').on('change.sftpuser', 'input', function () {
+        setTimeout(function () { if ($('#sftp-user').length) refresh(); }, 700);
+    });
+    refresh();
+})();
+</script>
