@@ -77,6 +77,9 @@ type AuthAgent struct {
 
 	//Account creation policy for /system/auth/register, wired in by main
 	RegisterAuthorizer *RegisterAuthorizer
+
+	//Session ids that were logged out, see revoke.go
+	revokedSessions *sessionRevoker
 }
 
 // RegisterAuthorizer holds the permission checks HandleRegister needs. The auth
@@ -146,6 +149,9 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 
 		//Switchable Account Pool Manager
 		Logger: newLogger,
+
+		//Logged out sessions
+		revokedSessions: newSessionRevoker(sysdb),
 	}
 
 	poolManager := NewSwitchableAccountPoolManager(sysdb, &newAuthAgent, key)
@@ -159,6 +165,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 				return
 			case <-ticker.C:
 				listeningAuthAgent.ClearTokenStore()
+				listeningAuthAgent.revokedSessions.Prune()
 			}
 		}
 	}(&newAuthAgent)
@@ -320,6 +327,7 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 	session.Values["authenticated"] = true
 	session.Values["username"] = username
 	session.Values["rememberMe"] = rememberme
+	startSession(session)
 
 	CookieSetSameSitePolicy := http.SameSiteNoneMode
 	if r.TLS == nil {
@@ -374,8 +382,13 @@ func (a *AuthAgent) Logout(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	//Revoke the session id, so copies of the signed-in cookie that are still
+	//on their way to the browser (or kept anywhere else) stop working
+	a.revokedSessions.Revoke(sessionIDOf(session))
+
 	session.Values["authenticated"] = false
 	session.Values["username"] = nil
+	delete(session.Values, sessionIDKey)
 	session.Save(r, w)
 
 	return nil
@@ -489,6 +502,11 @@ func (a *AuthAgent) CheckAuth(r *http.Request) bool {
 	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
 		return false
 	}
+	// A logged out session stays logged out, even when a stale copy of its
+	// cookie reaches the browser after the logout
+	if a.revokedSessions.IsRevoked(sessionIDOf(session)) {
+		return false
+	}
 	return true
 }
 
@@ -593,9 +611,13 @@ func (a *AuthAgent) UserExists(username string) bool {
 // Update the session expire time given the request header.
 func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Request) bool {
 	session, _ := a.SessionStore.Get(r, a.SessionName)
-	if session.Values["authenticated"].(bool) {
+	if a.CheckAuth(r) {
 		//User authenticated. Extend its expire time
-		rememberme := session.Values["rememberMe"].(bool)
+		rememberme, _ := session.Values["rememberMe"].(bool)
+		if sessionIDOf(session) == "" {
+			//Signed in before session ids existed: give it one so it can be logged out
+			startSession(session)
+		}
 		//Extend the session expire time
 		if rememberme {
 			session.Options = &sessions.Options{

@@ -153,6 +153,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	session.Values["authenticated"] = true
 	session.Values["username"] = username
 	session.Values["rememberMe"] = false
+	startSession(session)
 
 	logger.PrintAndLog("Auth", username+" logged in via auto-login token", nil)
 
