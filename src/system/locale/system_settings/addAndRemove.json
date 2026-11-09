@@ -30,7 +30,18 @@
                 "addAndRemove/deleteAppBtn": "刪除應用程式",
                 "addAndRemove/confirmRemove": "確定要永久移除「{name}」？\n此操作無法復原。",
                 "addAndRemove/removedOk": "「{name}」已成功移除。",
-                "addAndRemove/removeFail": "移除失敗。"
+                "addAndRemove/removeFail": "移除失敗。",
+                "addAndRemove/enableBtn": "啟用",
+                "addAndRemove/disableBtn": "停用",
+                "addAndRemove/openBtn": "開啟",
+                "addAndRemove/statusKey": "狀態",
+                "addAndRemove/statusOn": "已啟用",
+                "addAndRemove/statusOff": "已停用",
+                "addAndRemove/offBadge": "已停用",
+                "addAndRemove/confirmDisable": "確定要停用「{name}」？\n重新啟用前，任何人都無法開啟它。檔案會保留。",
+                "addAndRemove/disabledOk": "「{name}」已停用。",
+                "addAndRemove/enabledOk": "「{name}」已啟用。",
+                "addAndRemove/toggleFail": "無法儲存變更。"
             },
             "placeholder": {
                 "addAndRemove/zipPlaceholder": "從儲存空間中選取 .zip 檔案…"
@@ -64,7 +75,18 @@
                 "addAndRemove/deleteAppBtn": "刪除應用程式",
                 "addAndRemove/confirmRemove": "確定要永久移除「{name}」？\n此操作無法復原。",
                 "addAndRemove/removedOk": "「{name}」已成功移除。",
-                "addAndRemove/removeFail": "移除失敗。"
+                "addAndRemove/removeFail": "移除失敗。",
+                "addAndRemove/enableBtn": "啟用",
+                "addAndRemove/disableBtn": "停用",
+                "addAndRemove/openBtn": "開啟",
+                "addAndRemove/statusKey": "狀態",
+                "addAndRemove/statusOn": "已啟用",
+                "addAndRemove/statusOff": "已停用",
+                "addAndRemove/offBadge": "已停用",
+                "addAndRemove/confirmDisable": "確定要停用「{name}」？\n重新啟用前，任何人都無法開啟它。檔案會保留。",
+                "addAndRemove/disabledOk": "「{name}」已停用。",
+                "addAndRemove/enabledOk": "「{name}」已啟用。",
+                "addAndRemove/toggleFail": "無法儲存變更。"
             },
             "placeholder": {
                 "addAndRemove/zipPlaceholder": "從儲存空間中選取 .zip 檔案…"
@@ -98,7 +120,18 @@
                 "addAndRemove/deleteAppBtn": "删除应用",
                 "addAndRemove/confirmRemove": "确定要永久删除\"{name}\"？\n此操作无法撤销。",
                 "addAndRemove/removedOk": "\"{name}\"已成功删除。",
-                "addAndRemove/removeFail": "删除失败。"
+                "addAndRemove/removeFail": "删除失败。",
+                "addAndRemove/enableBtn": "启用",
+                "addAndRemove/disableBtn": "停用",
+                "addAndRemove/openBtn": "打开",
+                "addAndRemove/statusKey": "状态",
+                "addAndRemove/statusOn": "已启用",
+                "addAndRemove/statusOff": "已停用",
+                "addAndRemove/offBadge": "已停用",
+                "addAndRemove/confirmDisable": "确定要停用“{name}”吗？\n重新启用前，任何人都无法打开它。文件会保留。",
+                "addAndRemove/disabledOk": "“{name}”已停用。",
+                "addAndRemove/enabledOk": "“{name}”已启用。",
+                "addAndRemove/toggleFail": "无法保存更改。"
             },
             "placeholder": {
                 "addAndRemove/zipPlaceholder": "从存储空间中选取 .zip 文件…"
@@ -132,7 +165,18 @@
                 "addAndRemove/deleteAppBtn": "Delete App",
                 "addAndRemove/confirmRemove": "Permanently remove \"{name}\"?\nThis cannot be undone.",
                 "addAndRemove/removedOk": "\"{name}\" removed successfully.",
-                "addAndRemove/removeFail": "Removal failed."
+                "addAndRemove/removeFail": "Removal failed.",
+                "addAndRemove/enableBtn": "Enable",
+                "addAndRemove/disableBtn": "Disable",
+                "addAndRemove/openBtn": "Open",
+                "addAndRemove/statusKey": "Status",
+                "addAndRemove/statusOn": "Enabled",
+                "addAndRemove/statusOff": "Disabled",
+                "addAndRemove/offBadge": "Off",
+                "addAndRemove/confirmDisable": "Disable \"{name}\"?\nNobody can open it until you enable it again. Its files are kept.",
+                "addAndRemove/disabledOk": "\"{name}\" disabled.",
+                "addAndRemove/enabledOk": "\"{name}\" enabled.",
+                "addAndRemove/toggleFail": "The change could not be saved."
             },
             "placeholder": {
                 "addAndRemove/zipPlaceholder": "Select a .zip file from your storage…"
@@ -166,7 +210,18 @@
                 "addAndRemove/deleteAppBtn": "アプリを削除",
                 "addAndRemove/confirmRemove": "「{name}」を完全に削除しますか？\nこの操作は元に戻せません。",
                 "addAndRemove/removedOk": "「{name}」を正常に削除しました。",
-                "addAndRemove/removeFail": "削除に失敗しました。"
+                "addAndRemove/removeFail": "削除に失敗しました。",
+                "addAndRemove/enableBtn": "有効にする",
+                "addAndRemove/disableBtn": "無効にする",
+                "addAndRemove/openBtn": "開く",
+                "addAndRemove/statusKey": "状態",
+                "addAndRemove/statusOn": "有効",
+                "addAndRemove/statusOff": "無効",
+                "addAndRemove/offBadge": "無効",
+                "addAndRemove/confirmDisable": "「{name}」を無効にしますか？\n再び有効にするまで、誰も開けなくなります。ファイルは残ります。",
+                "addAndRemove/disabledOk": "「{name}」を無効にしました。",
+                "addAndRemove/enabledOk": "「{name}」を有効にしました。",
+                "addAndRemove/toggleFail": "変更を保存できませんでした。"
             },
             "placeholder": {
                 "addAndRemove/zipPlaceholder": "ストレージから .zip ファイルを選択…"
@@ -200,7 +255,18 @@
                 "addAndRemove/deleteAppBtn": "앱 삭제",
                 "addAndRemove/confirmRemove": "\"{name}\"을(를) 영구적으로 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.",
                 "addAndRemove/removedOk": "\"{name}\"이(가) 성공적으로 삭제되었습니다.",
-                "addAndRemove/removeFail": "삭제에 실패했습니다."
+                "addAndRemove/removeFail": "삭제에 실패했습니다.",
+                "addAndRemove/enableBtn": "사용",
+                "addAndRemove/disableBtn": "사용 중지",
+                "addAndRemove/openBtn": "열기",
+                "addAndRemove/statusKey": "상태",
+                "addAndRemove/statusOn": "사용 중",
+                "addAndRemove/statusOff": "사용 중지됨",
+                "addAndRemove/offBadge": "꺼짐",
+                "addAndRemove/confirmDisable": "\"{name}\"을(를) 사용 중지할까요?\n다시 사용하도록 설정하기 전까지 아무도 열 수 없습니다. 파일은 그대로 유지됩니다.",
+                "addAndRemove/disabledOk": "\"{name}\"을(를) 사용 중지했습니다.",
+                "addAndRemove/enabledOk": "\"{name}\"을(를) 다시 사용하도록 설정했습니다.",
+                "addAndRemove/toggleFail": "변경 사항을 저장하지 못했습니다."
             },
             "placeholder": {
                 "addAndRemove/zipPlaceholder": "저장소에서 .zip 파일을 선택…"

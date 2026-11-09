@@ -369,7 +369,12 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 
 	interfaceModuleInfos := []module.ModuleInfo{}
 	for _, im := range interfacingModules {
-		interfaceModuleInfos = append(interfaceModuleInfos, *moduleHandler.GetModuleInfoByID(im))
+		info := moduleHandler.GetModuleInfoByID(im)
+		if info == nil {
+			//Removed or switched off by an admin
+			continue
+		}
+		interfaceModuleInfos = append(interfaceModuleInfos, *info)
 	}
 
 	jsonString, _ := json.Marshal(interfaceModuleInfos)

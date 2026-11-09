@@ -226,6 +226,8 @@
     }
     // Server names and descriptions come from Go in English: translate them by server ID
     function serverName(s) { return t('name/' + s.ID, s.Name); }
+    // The server parts loaded below translate their script made text with this
+    window.fsT = function (key, fallback) { return t(key, fallback); };
     function serverDesc(s) { return t('desc/' + s.ID, s.Desc); }
 
     function esc(text) { return $('<span>').text(text == null ? '' : String(text)).html(); }
@@ -315,6 +317,8 @@
         $.ajax({ url: '../../' + path, dataType: 'html', cache: false }).done(function (html) {
             if (token !== loadToken) return;
             $(target).html(html);
+            // Elements with a locale attribute in the part
+            if (L) { try { L.translate(); } catch (e) {} }
         }).fail(function () {
             if (token !== loadToken) return;
             $(target).html('<div class="fs-quiet">' + esc(t('part_failed', 'This part could not be loaded.')) + '</div>');

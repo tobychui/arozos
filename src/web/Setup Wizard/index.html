@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Setup Wizard</title>
+    <link rel="icon" type="image/svg+xml" href="img/module_icon.svg">
+    <link rel="stylesheet" href="css/wizard.css?v=1.0">
+    <script>
+        //Apply a light or dark choice made with the toggle before the first paint
+        try {
+            var wzTheme = localStorage.getItem("aroz_setup_theme");
+            if (wzTheme === "light" || wzTheme === "dark") {
+                document.documentElement.setAttribute("data-theme", wzTheme);
+            }
+        } catch (e) { }
+    </script>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
+    <script src="../script/ssdialog.js"></script>
+</head>
+
+<body>
+    <div class="wz-shell" id="wzShell">
+        <aside class="wz-side">
+            <div class="wz-brand">
+                <img class="wz-logo for-light" src="../img/system/auth_icon_black.png" alt="ArozOS">
+                <img class="wz-logo for-dark" src="../img/system/auth_icon_white.png" alt="ArozOS">
+            </div>
+            <div class="wz-side-title" id="wzSideTitle">Setup</div>
+            <div class="wz-side-host" id="wzSideHost"></div>
+            <ol class="wz-steps" id="wzSteps"></ol>
+            <div class="wz-side-foot">
+                <label class="wz-lang">
+                    <span class="wz-lang-icon" data-icon="globe"></span>
+                    <select id="wzLanguage" class="wz-lang-select" aria-label="Language"></select>
+                    <button type="button" class="wz-theme-btn" aria-label="Theme"></button>
+                </label>
+            </div>
+        </aside>
+
+        <main class="wz-main">
+            <div class="wz-mobilebar">
+                <div class="wz-mobilebar-row">
+                    <img class="wz-logo-small for-light" src="../img/system/auth_icon_black.png" alt="ArozOS">
+                    <img class="wz-logo-small for-dark" src="../img/system/auth_icon_white.png" alt="ArozOS">
+                    <span class="wz-mobile-count" id="wzMobileCount"></span>
+                    <select class="wz-lang-select wz-lang-mobile" aria-label="Language"></select>
+                    <button type="button" class="wz-theme-btn" aria-label="Theme"></button>
+                </div>
+                <div class="wz-progress"><span id="wzProgressBar"></span></div>
+            </div>
+
+            <div class="wz-scroll" id="wzScroll">
+                <section class="wz-content" id="wzContent" aria-live="polite">
+                    <div class="wz-loading" id="wzLoading"><span class="wz-spinner"></span></div>
+                </section>
+            </div>
+
+            <footer class="wz-nav" id="wzNav">
+                <button type="button" class="wz-btn ghost" id="wzBack"></button>
+                <button type="button" class="wz-link" id="wzSkip"></button>
+                <span class="wz-nav-gap"></span>
+                <button type="button" class="wz-btn primary" id="wzNext"></button>
+            </footer>
+        </main>
+    </div>
+
+    <div class="wz-toast" id="wzToast" role="status"></div>
+
+    <script src="js/icons.js?v=1.0"></script>
+    <script src="js/core.js?v=1.0"></script>
+    <script src="js/step.welcome.js?v=1.0"></script>
+    <script src="js/step.interface.js?v=1.0"></script>
+    <script src="js/step.storage.js?v=1.0"></script>
+    <script src="js/step.network.js?v=1.0"></script>
+    <script src="js/step.people.js?v=1.0"></script>
+    <script src="js/step.accounts.js?v=1.0"></script>
+    <script src="js/step.sharing.js?v=1.0"></script>
+    <script src="js/step.done.js?v=1.0"></script>
+    <script>
+        Wizard.start();
+    </script>
+</body>
+
+</html>

@@ -123,6 +123,30 @@ func (s *Server) expireDetached(o *open, detach uint64) bool {
 	return true
 }
 
+// closeDetached closes the durable opens still waiting for their clients, as
+// the server stops: nothing may stay open once Close returns. A timer that
+// already fired gives up, because the detach count no longer matches.
+func (s *Server) closeDetached() {
+	s.durables.mu.Lock()
+	list := []*open{}
+	for id, o := range s.durables.opens {
+		if o.conn != nil {
+			continue
+		}
+		delete(s.durables.opens, id)
+		if o.detachTimer != nil {
+			o.detachTimer.Stop()
+			o.detachTimer = nil
+		}
+		o.detachCount++
+		list = append(list, o)
+	}
+	s.durables.mu.Unlock()
+	for _, o := range list {
+		s.closeOpen(o)
+	}
+}
+
 // forgetDurable drops an open from the table as it closes.
 func (s *Server) forgetDurable(o *open) {
 	if !o.durable {

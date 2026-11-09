@@ -8,123 +8,209 @@
     <script src="script/ao_module.js"></script>
     <script src="script/applocale.js"></script>
     <style>
+    /*
+        Same look as the Setup Wizard (web/Setup Wizard/css/wizard.css):
+        Swiss typography in a macOS-like window. The page follows the system
+        theme of the desktop when it is known (#uu-root.dark / .light), else
+        the browser's colour scheme.
+    */
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     #uu-root {
-        --uu-text:         #202124;
-        --uu-body:         #3c4043;
-        --uu-dim:          #5f6368;
-        --uu-muted:        #9aa0a6;
-        --uu-sep:          #dadce0;
-        --uu-bg:           #f8f9fa;
-        --uu-card-bg:      #ffffff;
-        --uu-input-border: #dadce0;
-        --uu-input-focus:  #1967d2;
-        --uu-accent:       #1a73e8;
-        --uu-accent-press: #1558b0;
-        --uu-danger:       #d93025;
+        --uu-desk:        #e7e7ea;
+        --uu-window:      #ffffff;
+        --uu-text:        #111113;
+        --uu-text-2:      #4a4a50;
+        --uu-muted:       #8a8a90;
+        --uu-rule:        #e5e5ea;
+        --uu-rule-strong: #d1d1d6;
+        --uu-ink:         #111113;
+        --uu-on-ink:      #ffffff;
+        --uu-signal:      #e3000f;
+        --uu-control:     #007aff;
+        --uu-focus:       rgba(0, 122, 255, 0.38);
+        --uu-danger:      #d70015;
+        --uu-hover:       rgba(0, 0, 0, 0.045);
+        --uu-edge:        rgba(0, 0, 0, 0.09);
+        --uu-shadow:      0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.05), 0 24px 64px rgba(0, 0, 0, 0.16);
 
-        font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
         font-size: 14px;
+        line-height: 1.5;
         -webkit-font-smoothing: antialiased;
-        color: var(--uu-body);
-        background: var(--uu-bg);
+        color: var(--uu-text);
+        background: var(--uu-desk);
         min-height: 100vh;
+        color-scheme: light;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        #uu-root:not(.light) {
+            --uu-desk:        #0b0b0c;
+            --uu-window:      #1c1c1e;
+            --uu-text:        #f5f5f7;
+            --uu-text-2:      #c7c7cc;
+            --uu-muted:       #8e8e93;
+            --uu-rule:        #333336;
+            --uu-rule-strong: #48484c;
+            --uu-ink:         #f5f5f7;
+            --uu-on-ink:      #111113;
+            --uu-signal:      #ff453a;
+            --uu-control:     #0a84ff;
+            --uu-focus:       rgba(10, 132, 255, 0.5);
+            --uu-danger:      #ff453a;
+            --uu-hover:       rgba(255, 255, 255, 0.06);
+            --uu-edge:        rgba(255, 255, 255, 0.1);
+            --uu-shadow:      0 0 0 0.5px rgba(0, 0, 0, 0.6), 0 24px 64px rgba(0, 0, 0, 0.6);
+            color-scheme: dark;
+        }
     }
 
     #uu-root.dark {
-        --uu-text:         #e8eaed;
-        --uu-body:         #bdc1c6;
-        --uu-dim:          #9aa0a6;
-        --uu-muted:        #5f6368;
-        --uu-sep:          #3c4043;
-        --uu-bg:           #202124;
-        --uu-card-bg:      #292a2d;
-        --uu-input-border: #5f6368;
-        --uu-input-focus:  #8ab4f8;
-        --uu-accent:       #8ab4f8;
-        --uu-accent-press: #aecbfa;
-        --uu-danger:       #f28b82;
+        --uu-desk:        #0b0b0c;
+        --uu-window:      #1c1c1e;
+        --uu-text:        #f5f5f7;
+        --uu-text-2:      #c7c7cc;
+        --uu-muted:       #8e8e93;
+        --uu-rule:        #333336;
+        --uu-rule-strong: #48484c;
+        --uu-ink:         #f5f5f7;
+        --uu-on-ink:      #111113;
+        --uu-signal:      #ff453a;
+        --uu-control:     #0a84ff;
+        --uu-focus:       rgba(10, 132, 255, 0.5);
+        --uu-danger:      #ff453a;
+        --uu-hover:       rgba(255, 255, 255, 0.06);
+        --uu-edge:        rgba(255, 255, 255, 0.1);
+        --uu-shadow:      0 0 0 0.5px rgba(0, 0, 0, 0.6), 0 24px 64px rgba(0, 0, 0, 0.6);
+        color-scheme: dark;
     }
 
-    body { background: var(--uu-bg); }
+    html, body { background: #e7e7ea; }
 
-    /* ── Layout ── */
+    @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]), html:not([data-theme="light"]) body { background: #0b0b0c; }
+    }
+
+    html[data-theme="dark"], html[data-theme="dark"] body { background: #0b0b0c; }
+
+    /* ── Layout: a window floating on the backdrop ── */
     #uu-outer {
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px 16px;
+        padding: 32px 16px;
     }
 
-    /* ── Card ── */
     #uu-card {
         width: 100%;
-        max-width: 450px;
-        background: var(--uu-card-bg);
-        border-radius: 8px;
-        border: 1px solid var(--uu-sep);
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        max-width: 440px;
+        background: var(--uu-window);
+        border: 1px solid var(--uu-edge);
+        border-radius: 12px;
+        box-shadow: var(--uu-shadow);
         overflow: hidden;
-    }
-
-    #uu-root.dark #uu-card {
-        box-shadow: 0 1px 4px rgba(0,0,0,0.40);
     }
 
     /* ── Header ── */
     #uu-hero {
-        padding: 32px 40px 22px;
+        padding: 36px 40px 24px;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        border-bottom: 1px solid var(--uu-sep);
     }
 
     #uu-hero-icon { display: none; }
 
+    #uu-hero { position: relative; }
+
+    /* Light / dark toggle, shared with the Setup Wizard through localStorage */
+    #uu-theme-btn {
+        position: absolute;
+        top: 28px;
+        right: 28px;
+        width: 30px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--uu-rule-strong);
+        border-radius: 7px;
+        background: var(--uu-window);
+        color: var(--uu-text-2);
+        cursor: pointer;
+        padding: 0;
+    }
+
+    #uu-theme-btn:hover { color: var(--uu-text); background: var(--uu-hover); }
+    #uu-theme-btn:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--uu-focus); }
+    #uu-theme-btn svg { width: 15px; height: 15px; display: block; }
+
+    #uu-eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        color: var(--uu-muted);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .uu-eyebrow-mark {
+        width: 8px;
+        height: 8px;
+        background: var(--uu-signal);
+    }
+
     #uu-hero-title {
-        font-size: 24px;
-        font-weight: 400;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
         color: var(--uu-text);
-        line-height: 1.25;
-        letter-spacing: 0;
     }
 
     #uu-hero-sub {
-        font-size: 13px;
-        color: var(--uu-dim);
-        margin-top: 8px;
+        font-size: 14.5px;
+        color: var(--uu-text-2);
+        margin-top: 10px;
         line-height: 1.5;
     }
 
     /* ── Form body ── */
-    #uu-body { padding: 24px 40px 32px; }
+    #uu-body {
+        padding: 22px 40px 32px;
+        border-top: 1px solid var(--uu-rule);
+    }
 
-    .uu-field { margin-bottom: 20px; }
+    .uu-field { margin-bottom: 16px; }
 
     .uu-label {
         display: block;
-        font-size: 13px;
-        font-weight: 400;
-        color: var(--uu-dim);
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--uu-text-2);
         margin-bottom: 6px;
     }
 
-    .uu-req { color: var(--uu-danger); margin-left: 2px; }
+    .uu-req { color: var(--uu-signal); margin-left: 2px; }
 
     .uu-input {
         width: 100%;
-        padding: 9px 12px;
-        border-radius: 4px;
-        border: 1px solid var(--uu-input-border);
-        background: transparent;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 7px;
+        border: 1px solid var(--uu-rule-strong);
+        background: var(--uu-window);
         color: var(--uu-text);
         font-family: inherit;
-        font-size: 14px;
+        font-size: 13.5px;
         outline: none;
-        transition: border-color 0.15s, box-shadow 0.15s;
+        transition: border-color 0.12s, box-shadow 0.12s;
         appearance: none;
         -webkit-appearance: none;
     }
@@ -132,53 +218,48 @@
     .uu-input::placeholder { color: var(--uu-muted); }
 
     .uu-input:focus {
-        border-color: var(--uu-input-focus);
-        box-shadow: 0 0 0 1px var(--uu-input-focus);
+        border-color: var(--uu-control);
+        box-shadow: 0 0 0 3.5px var(--uu-focus);
     }
 
     .uu-input.error {
         border-color: var(--uu-danger);
-        box-shadow: 0 0 0 1px var(--uu-danger);
+    }
+
+    .uu-input.error:focus {
+        box-shadow: 0 0 0 3.5px rgba(215, 0, 21, 0.25);
     }
 
     select.uu-input {
-        background-color: var(--uu-card-bg);
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235f6368' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a8a90' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
-        background-position: right 12px center;
-        padding-right: 32px;
+        background-position: right 11px center;
+        padding-right: 30px;
         cursor: pointer;
     }
 
-    /* ── Error alert ── */
+    /* ── Error: a rule on the left, like the wizard's notes ── */
     #uu-err {
         display: none;
-        background: rgba(217,48,37,0.06);
-        border: 1px solid rgba(217,48,37,0.20);
-        border-radius: 4px;
-        padding: 10px 12px;
-        margin-bottom: 16px;
+        margin: 4px 0 18px;
+        padding: 2px 0 2px 12px;
+        border-left: 2px solid var(--uu-danger);
         font-size: 13px;
         color: var(--uu-danger);
-    }
-
-    #uu-root.dark #uu-err {
-        background: rgba(242,139,130,0.08);
-        border-color: rgba(242,139,130,0.28);
     }
 
     /* ── Required note ── */
     #uu-note {
         font-size: 12px;
         color: var(--uu-muted);
-        margin-bottom: 20px;
+        margin: 4px 0 20px;
     }
 
     /* ── Divider ── */
     .uu-divider {
         height: 1px;
-        background: var(--uu-sep);
-        margin-bottom: 20px;
+        background: var(--uu-rule);
+        margin-bottom: 18px;
     }
 
     /* ── Actions ── */
@@ -193,37 +274,47 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 5px;
-        padding: 9px 24px;
-        border-radius: 4px;
-        border: none;
+        gap: 6px;
+        height: 32px;
+        min-width: 96px;
+        padding: 0 16px;
+        border-radius: 7px;
+        border: 1px solid transparent;
         font-family: inherit;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
         cursor: pointer;
         outline: none;
         background: transparent;
-        color: var(--uu-accent);
-        transition: background 0.12s;
+        color: var(--uu-text);
+        transition: background 0.12s, opacity 0.12s;
         white-space: nowrap;
         user-select: none;
         -webkit-tap-highlight-color: transparent;
     }
 
-    .uu-btn:hover  { background: rgba(26,115,232,0.08); }
-    .uu-btn:active { background: rgba(26,115,232,0.14); }
-
-    #uu-root.dark .uu-btn:hover  { background: rgba(138,180,248,0.10); }
-    #uu-root.dark .uu-btn:active { background: rgba(138,180,248,0.16); }
+    .uu-btn:hover  { background: var(--uu-hover); }
+    .uu-btn:focus-visible { box-shadow: 0 0 0 3.5px var(--uu-focus); }
 
     .uu-btn.primary {
-        background: var(--uu-accent);
-        color: #ffffff;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+        background: var(--uu-ink);
+        border-color: var(--uu-ink);
+        color: var(--uu-on-ink);
+        font-weight: 600;
     }
 
-    .uu-btn.primary:hover  { background: var(--uu-accent-press); }
-    .uu-btn.primary:active { opacity: 0.88; }
+    .uu-btn.primary:hover  { opacity: 0.86; }
+    .uu-btn.primary:active { opacity: 0.76; }
+
+    /* ── Phones: the window fills the screen ── */
+    @media (max-width: 520px) {
+        #uu-outer { padding: 0; align-items: stretch; }
+        #uu-card { max-width: none; border: none; border-radius: 0; box-shadow: none; }
+        #uu-hero { padding: 40px 20px 22px; }
+        #uu-body { padding: 22px 20px 32px; }
+        #uu-hero-title { font-size: 29px; }
+        #uu-root { background: var(--uu-window); }
+    }
     </style>
 </head>
 <body>
@@ -233,6 +324,7 @@
 <div id="uu-card">
 
     <div id="uu-hero">
+        <button type="button" id="uu-theme-btn" onclick="uuToggleTheme()"></button>
         <div id="uu-hero-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/>
@@ -240,6 +332,7 @@
             </svg>
         </div>
         <div>
+            <div id="uu-eyebrow"><span class="uu-eyebrow-mark"></span><span>ArozOS</span></div>
             <div id="uu-hero-title" locale="user/title">New User</div>
             <div id="uu-hero-sub"   locale="user/subtitle">Fill in the following information to create an account.</div>
         </div>
@@ -294,18 +387,73 @@
 </div>
 
 <script>
-/* ── Theme (best-effort — page may be public) ── */
-try {
+/* ── Theme: the toggle's choice, else the desktop theme, else the browser ── */
+var UU_THEME_KEY = 'aroz_setup_theme';
+var UU_ICONS = {
+    sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>'
+};
+
+function uuSetTheme(theme) {
+    var root = document.getElementById('uu-root');
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.toggle('light', theme === 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+}
+
+function uuIsDark() {
+    var root = document.getElementById('uu-root');
+    if (root.classList.contains('dark')) return true;
+    if (root.classList.contains('light')) return false;
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
+function uuText(key, fallback) {
+    try { if (typeof uuLocale !== 'undefined') return uuLocale.getString(key, fallback); } catch (e) {}
+    return fallback;
+}
+
+// The button shows the theme it switches to
+function uuRenderThemeButton() {
+    var dark = uuIsDark();
+    var label = dark ? uuText('user/theme-light', 'Switch to light theme') : uuText('user/theme-dark', 'Switch to dark theme');
+    var btn = document.getElementById('uu-theme-btn');
+    btn.innerHTML = dark ? UU_ICONS.sun : UU_ICONS.moon;
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+}
+
+function uuToggleTheme() {
+    var next = uuIsDark() ? 'light' : 'dark';
+    uuSetTheme(next);
+    try { localStorage.setItem(UU_THEME_KEY, next); } catch (e) {}
+    uuRenderThemeButton();
+}
+
+var uuPicked = null;
+try { uuPicked = localStorage.getItem(UU_THEME_KEY); } catch (e) {}
+if (uuPicked === 'light' || uuPicked === 'dark') {
+    uuSetTheme(uuPicked);
+} else try {
     if (typeof ao_module_getSystemThemeColor === 'function') {
         ao_module_getSystemThemeColor(function(c) {
-            document.getElementById('uu-root').classList.toggle('dark', c !== 'whiteTheme');
+            uuSetTheme(c === 'whiteTheme' ? 'light' : 'dark');
+            uuRenderThemeButton();
         });
     } else {
         var _t = (typeof preferredTheme !== 'undefined' ? preferredTheme : null) ||
                  (parent && typeof parent.preferredTheme !== 'undefined' ? parent.preferredTheme : null);
-        if (_t) document.getElementById('uu-root').classList.toggle('dark', _t === 'dark' || _t === 'darkTheme');
+        if (_t) {
+            uuSetTheme(_t === 'dark' || _t === 'darkTheme' ? 'dark' : 'light');
+        }
     }
 } catch(e) {}
+
+uuRenderThemeButton();
+if (window.matchMedia) {
+    var uuScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    if (uuScheme.addEventListener) uuScheme.addEventListener('change', uuRenderThemeButton);
+}
 
 /* ── Locale (best-effort — user may not be logged in) ── */
 try {
@@ -313,6 +461,7 @@ try {
         var uuLocale = NewAppLocale();
         uuLocale.init('locale/user.json', function() {
             uuLocale.translate();
+            uuRenderThemeButton();
         });
     }
 } catch(e) {}

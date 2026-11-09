@@ -111,6 +111,34 @@ front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
   `.agi` scripts invoked from the front end run with the **invoking user's**
   scope. Subservices (below) also register through `ModuleInfo`, so they appear
   on the desktop just like WebApps.
+- **Disabling:** an admin can switch a module off without removing it
+  (System Settings > Add & Remove Module, `/system/modules/setEnabled`,
+  [`src/mod/modules/disable.go`](src/mod/modules/disable.go)). The choice is
+  kept as `disabled/<name>` in the `module` table and applied when the module
+  registers, so it survives restarts. A disabled module sits on
+  `ModuleHandler.DisabledModule` instead of `LoadedModule`; once every module of
+  a folder is off, its files (except images) and AGI scripts are refused
+  (`serveDisabledModuleFolder`, `ScriptFolderDisabled`). System Setting, System
+  Tools, the Desktop and any module a group boots into cannot be disabled.
+
+## What the Setup Wizard is
+
+The first-run guide. On a new installation the `administrator` group boots into
+the **Setup Wizard** interface module
+([`src/web/Setup Wizard/`](src/web/Setup%20Wizard/), read its `README.md`)
+instead of the desktop: workspace (Desktop or Drive), disks and folders,
+network drives, who uses the server (just me, everyone admin, or a limited
+group), accounts and drive access, and file sharing. Finishing or skipping it
+calls `/system/setup/finish`, which sets the admins' interface and disables the
+wizard. Backend endpoints are in [`src/setupwizard.go`](src/setupwizard.go);
+the disk listing and the format safety checks (Linux only, nothing on the disk
+may be in use) in [`src/mod/setupwizard/`](src/mod/setupwizard/).
+
+Usernames of new accounts must pass `auth.ValidateUsername`
+([`src/mod/auth/username.go`](src/mod/auth/username.go)), which
+`CreateUserAccount` runs for every way an account is made: letters of any
+script and digits, then `. - _ @`, no spaces, separators, `..` or Windows
+device names. Existing accounts are not checked.
 
 ## What a SubService is
 
@@ -744,7 +772,8 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/storage/access/`](src/mod/storage/access/) — drive access lists (see "Who can use a drive").
 - [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/) — the built-in SMB server (see "What the built-in SMB server is").
 - [`src/mod/network/wsd/`](src/mod/network/wsd/) — WS-Discovery and LLMNR responder that lists the built-in SMB server in the Windows Network view.
-- [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
+- [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices, plus disabling modules (see "What a WebApp is").
+- [`src/mod/setupwizard/`](src/mod/setupwizard/) — disk inspection and format checks of the first-run Setup Wizard (see "What the Setup Wizard is").
 - [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/office/`](src/mod/office/) — converters behind the `office` AGI library and the Office suite ([`src/web/Office/`](src/web/Office/), read its `README.md` first): one package per format — `docx` / `xlsx` / `pptx` and `odf` import and export, import-only `doc` / `xls` / `ppt` for Office 97-2003 (converted to OOXML), `pdf`; the map is in [`doc.go`](src/mod/office/doc.go).
 - [`src/mod/filesystem/metadata/pdfrender/`](src/mod/filesystem/metadata/pdfrender/) — pure Go PDF page renderer behind the File Manager's PDF thumbnails (`mod/filesystem/metadata/pdf.go`); parses untrusted files, so read its `README.md` rules before changing it.

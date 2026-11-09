@@ -615,8 +615,11 @@ func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// Create user account
+// Create user account. The name must pass ValidateUsername.
 func (a *AuthAgent) CreateUserAccount(newusername string, password string, group []string) error {
+	if err := ValidateUsername(newusername); err != nil {
+		return err
+	}
 	key := newusername
 
 	hashedPassword := Hash(password)

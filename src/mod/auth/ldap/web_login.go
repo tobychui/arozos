@@ -187,7 +187,10 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 			//convert the ldap usergroup to arozos usergroup
 			convertedInfo := ldap.convertGroup(ldapUser)
 			//create user account and login
-			ldap.ag.CreateUserAccount(username, password, convertedInfo.EquivGroup)
+			if err := ldap.ag.CreateUserAccount(username, password, convertedInfo.EquivGroup); err != nil {
+				utils.SendErrorResponse(w, "This LDAP account cannot be used here: "+err.Error())
+				return
+			}
 			ldap.ag.Logger.LogAuth(r, true)
 			ldap.ag.LoginUserByRequest(w, r, username, false)
 			utils.SendOK(w)

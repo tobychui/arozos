@@ -1,22 +1,18 @@
 <div class="ui blue message windowsonly" style="display:none; margin-top: 0;">
     <h4 class="ui header">
         <i class="windows icon"></i>
-        <div class="content">
-            Mount FTP on Windows
-        </div>
+        <div class="content" locale="fileservers/ftp/win_title">Mount FTP on Windows</div>
     </h4>
-    <p>To connect your File Explorer to the ArozOS FTP server, enter the link above into the address bar of your file explorer window.</p>
-    <p>If you <b><a href="https://superuser.com/questions/1309756/not-able-to-access-ftp-server-from-other-machines-in-same-lan-when-windows-firew">cannot access the FTP without turning off the Windows Firewall</a></b>, execute this command in cmd as administrator<br>
+    <p locale="fileservers/ftp/win_desc">To connect your File Explorer to the ArozOS FTP server, enter the link above into the address bar of your file explorer window.</p>
+    <p><span locale="fileservers/ftp/win_firewall">If you <b><a href="https://superuser.com/questions/1309756/not-able-to-access-ftp-server-from-other-machines-in-same-lan-when-windows-firew" target="_blank">cannot access the FTP without turning off the Windows Firewall</a></b>, execute this command in cmd as administrator</span><br>
     <code>netsh advfirewall set global StatefulFTP disable</code></p>
 </div>
 <div class="ui basic message maconly" style="display:none;">
     <h4 class="ui header">
         <i class="apple icon"></i>
-        <div class="content">
-            Mount FTP on your Mac
-        </div>
+        <div class="content" locale="fileservers/ftp/mac_title">Mount FTP on your Mac</div>
     </h4>
-    <p>To connect your Finder to the ArozOS FTP server, select <code>Go</code> <i class="arrow right icon"></i> <code>Connect to Server</code> and enter the link above into the address bar</p>
+    <p locale="fileservers/ftp/mac_desc">To connect your Finder to the ArozOS FTP server, select <code>Go</code> <i class="arrow right icon"></i> <code>Connect to Server</code> and enter the link above into the address bar</p>
 </div>
 <script>
     var isMac = navigator.platform.indexOf('Mac') > -1;

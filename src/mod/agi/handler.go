@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -44,7 +43,7 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 	}
 
 	scriptScope := ""
-	allowAccess := static.CheckUserAccessToScript(targetUser, filepath.Join("./web", script), "./web", g.Option.ModuleFolderResolver)
+	allowAccess := g.userCanRunScript(targetUser, filepath.Join("./web", script), "./web")
 	if !allowAccess {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 - Unauthorized (Permission Denied)"))

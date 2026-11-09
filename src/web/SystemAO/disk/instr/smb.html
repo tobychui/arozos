@@ -164,7 +164,7 @@
             success: function (data) {
                 if (data && data.error !== undefined) return result(data.error, false);
                 clearPasswords();
-                result(t('saved', 'Your SMB password is saved.'), true);
+                result(t('password_saved', 'Your SMB password is saved.'), true);
                 refresh();
             },
             error: function (xhr) {

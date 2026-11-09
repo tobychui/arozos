@@ -19,6 +19,8 @@ func openTempDB(t *testing.T) *db.Database {
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
+	//Runs before the TempDir cleanup: Windows cannot remove an open file
+	t.Cleanup(database.Close)
 	return database
 }
 
@@ -581,5 +583,93 @@ func TestHandleGroupRemove_MissingGroupname(t *testing.T) {
 	body := rr.Body.String()
 	if !strings.Contains(body, "error") {
 		t.Errorf("expected error for missing groupname, got: %s", body)
+	}
+}
+
+// A new installation boots its administrators into the Setup Wizard, while a
+// system whose administrator group already exists keeps its interface.
+func TestNewPermissionHandler_FirstRunInterface(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing bool
+		want     string
+	}{
+		{name: "new installation", existing: false, want: SetupWizardModule},
+		{name: "upgraded installation", existing: true, want: "Desktop"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			database := openTempDB(t)
+			if tt.existing {
+				if err := database.NewTable("permission"); err != nil {
+					t.Fatalf("NewTable: %v", err)
+				}
+				database.Write("permission", "group/administrator", "[\"*\"]")
+				database.Write("permission", "isadmin/administrator", "true")
+			}
+			ph, err := NewPermissionHandler(database)
+			if err != nil {
+				t.Fatalf("NewPermissionHandler: %v", err)
+			}
+			if err := ph.LoadPermissionGroupsFromDatabase(); err != nil {
+				t.Fatalf("LoadPermissionGroupsFromDatabase: %v", err)
+			}
+			admin := ph.GetPermissionGroupByName("administrator")
+			if admin == nil {
+				t.Fatal("administrator group not loaded")
+			}
+			if admin.DefaultInterfaceModule != tt.want {
+				t.Errorf("DefaultInterfaceModule = %q, want %q", admin.DefaultInterfaceModule, tt.want)
+			}
+
+			//Loading again (a restart) must not bring the wizard back
+			if err := ph.SetInterfaceModule("administrator", "Drive"); err != nil {
+				t.Fatalf("SetInterfaceModule: %v", err)
+			}
+			again, _ := NewPermissionHandler(database)
+			again.LoadPermissionGroupsFromDatabase()
+			if got := again.GetPermissionGroupByName("administrator").DefaultInterfaceModule; got != "Drive" {
+				t.Errorf("after restart DefaultInterfaceModule = %q, want Drive", got)
+			}
+		})
+	}
+}
+
+func TestSetInterfaceModule(t *testing.T) {
+	tests := []struct {
+		name    string
+		group   string
+		module  string
+		wantErr bool
+	}{
+		{name: "existing group", group: "editors", module: "Drive"},
+		{name: "group name ignores case", group: "EDITORS", module: "Desktop"},
+		{name: "unknown group", group: "nobody", module: "Drive", wantErr: true},
+		{name: "empty module", group: "editors", module: "  ", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ph, _ := NewPermissionHandler(openTempDB(t))
+			pg := ph.NewPermissionGroup("editors", false, 0, []string{"Photo"}, "Desktop")
+			err := ph.SetInterfaceModule(tt.group, tt.module)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if pg.DefaultInterfaceModule != "Desktop" {
+					t.Errorf("a failed call changed the interface to %q", pg.DefaultInterfaceModule)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("SetInterfaceModule: %v", err)
+			}
+			if pg.DefaultInterfaceModule != tt.module {
+				t.Errorf("DefaultInterfaceModule = %q, want %q", pg.DefaultInterfaceModule, tt.module)
+			}
+			if len(pg.AccessibleModules) != 1 || pg.AccessibleModules[0] != "Photo" {
+				t.Errorf("SetInterfaceModule changed the module list: %v", pg.AccessibleModules)
+			}
+		})
 	}
 }

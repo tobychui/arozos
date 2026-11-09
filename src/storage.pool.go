@@ -341,29 +341,38 @@ func handleDriveNew(w http.ResponseWriter, r *http.Request, group string) {
 		}
 	}
 
-	if err := validateNewDrive(&newFsOption, collectPoolStates()); err != nil {
-		utils.SendErrorResponse(w, err.Error())
-		return
-	}
-
-	options, err := readPoolConfig(group)
+	mountErr, err := addDrive(group, newFsOption, rule)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	if err := writePoolConfig(group, append(options, newFsOption)); err != nil {
-		utils.SendErrorResponse(w, err.Error())
-		return
+	sendMountResult(w, mountErr)
+}
+
+// addDrive saves a new drive in a pool and mounts it. err is set when the
+// drive was not saved; mountErr when it was saved but could not be mounted,
+// in which case it shows as offline. rule, if given, is its access list.
+func addDrive(group string, option fs.FileSystemOption, rule *access.Rule) (mountErr error, err error) {
+	if err := validateNewDrive(&option, collectPoolStates()); err != nil {
+		return nil, err
+	}
+
+	options, err := readPoolConfig(group)
+	if err != nil {
+		return nil, err
+	}
+	if err := writePoolConfig(group, append(options, option)); err != nil {
+		return nil, err
 	}
 	if rule != nil {
-		if err := driveAccessStore.Set(newFsOption.Uuid, *rule); err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
+		if err := driveAccessStore.Set(option.Uuid, *rule); err != nil {
+			return nil, err
 		}
 	}
 
-	sendMountResult(w, mountDrive(group, newFsOption))
+	mountErr = mountDrive(group, option)
 	driveAccessChanged()
+	return mountErr, nil
 }
 
 // validateNewDrive checks a drive about to be added. Drive ids are global:
@@ -548,11 +557,20 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := removeDrive(groupname, uuid); err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+	utils.SendOK(w)
+}
+
+// removeDrive takes a drive out of a pool's config, unmounts it and drops its
+// access rule once no pool holds that id any more
+func removeDrive(groupname string, uuid string) error {
 	//Generate new confic by filtering
 	oldConfigs, err := readPoolConfig(groupname)
 	if err != nil {
-		utils.SendErrorResponse(w, "Failed to parse original config file")
-		return
+		return errors.New("Failed to parse original config file")
 	}
 	newConfigs := []fs.FileSystemOption{}
 	for _, config := range oldConfigs {
@@ -561,8 +579,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := writePoolConfig(groupname, newConfigs); err != nil {
-		utils.SendErrorResponse(w, err.Error())
-		return
+		return err
 	}
 
 	unmountDrive(groupname, uuid)
@@ -574,8 +591,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	driveAccessChanged()
-
-	utils.SendOK(w)
+	return nil
 }
 
 /*

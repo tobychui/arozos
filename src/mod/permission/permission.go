@@ -24,6 +24,11 @@ type PermissionGroup struct {
 	parent                 *PermissionHandler
 }
 
+// SetupWizardModule is the interface module the administrator group of a new
+// installation boots into. Finishing or skipping the wizard sets the group back
+// to a normal interface (see setupwizard.go in the main package).
+const SetupWizardModule = "Setup Wizard"
+
 type PermissionHandler struct {
 	database         *db.Database
 	PermissionGroups []*PermissionGroup
@@ -37,11 +42,14 @@ func NewPermissionHandler(database *db.Database) (*PermissionHandler, error) {
 		return &PermissionHandler{}, err
 	}
 
-	//Check if administrator permission group exists. If not, create one
+	//Check if administrator permission group exists. If not, create one. That
+	//only happens on a new installation, whose first admin is then guided
+	//through the Setup Wizard. Upgraded systems keep their interface.
 	if !database.KeyExists("permission", "group/administrator") {
 		database.Write("permission", "group/administrator", "[\"*\"]")
 		database.Write("permission", "isadmin/administrator", "true")
 		database.Write("permission", "quota/administrator", int64(-1))
+		database.Write("permission", "interfaceModule/administrator", SetupWizardModule)
 	}
 
 	return &PermissionHandler{
@@ -168,6 +176,23 @@ func (h *PermissionHandler) UpdatePermissionGroup(name string, isadmin bool, sto
 	h.database.Write("permission", "interfaceModule/"+name, interfaceModule)
 
 	return nil
+}
+
+// SetInterfaceModule changes only the interface module a group boots into
+func (h *PermissionHandler) SetInterfaceModule(name string, interfaceModule string) error {
+	if strings.TrimSpace(interfaceModule) == "" {
+		return errors.New("Interface module cannot be empty")
+	}
+	for _, thisPG := range h.PermissionGroups {
+		if strings.EqualFold(thisPG.Name, name) {
+			if err := h.database.Write("permission", "interfaceModule/"+thisPG.Name, interfaceModule); err != nil {
+				return err
+			}
+			thisPG.DefaultInterfaceModule = interfaceModule
+			return nil
+		}
+	}
+	return errors.New("Permission group not exists or not loaded")
 }
 
 func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storageQuota int64, moduleNames []string, interfaceModule string) *PermissionGroup {

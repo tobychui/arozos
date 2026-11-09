@@ -537,6 +537,21 @@ func TestDurableReconnectChecks(t *testing.T) {
 	}
 }
 
+func TestCloseReleasesDetachedHandles(t *testing.T) {
+	h := leaseHarness(t)
+	a := newRawClient(t, h)
+	leaseCreate(t, a, "doc.txt", openAllShare, leaseV2(1, rwh, 0), durableV2(7, 60000))
+	a.nc.Close()
+	time.Sleep(100 * time.Millisecond)
+	if n := h.share.openCount(); n != 1 {
+		t.Fatalf("the durable handle must wait for its client, %d open", n)
+	}
+	h.srv.Close()
+	if n := h.share.openCount(); n != 0 {
+		t.Errorf("Close must close the handles nobody came back for yet, %d open", n)
+	}
+}
+
 func TestDurableHandleGivesWayToAnotherClient(t *testing.T) {
 	h := leaseHarness(t)
 	a := newRawClient(t, h)

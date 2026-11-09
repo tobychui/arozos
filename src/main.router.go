@@ -16,6 +16,7 @@ import (
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/locale"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
+	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -128,7 +129,10 @@ func mrouter(h http.Handler) http.Handler {
 				h.ServeHTTP(w, r)
 			} else {
 				interfaceModule := userinfo.GetInterfaceModules()
-				if len(interfaceModule) == 1 && interfaceModule[0] == "Desktop" {
+				if len(interfaceModule) == 1 && interfaceModule[0] == permission.SetupWizardModule && moduleHandler.GetModuleInfoByID(permission.SetupWizardModule) == nil {
+					//The wizard was removed or switched off before it was finished: fall back to the desktop
+					http.Redirect(w, r, "./desktop.html", http.StatusTemporaryRedirect)
+				} else if len(interfaceModule) == 1 && interfaceModule[0] == "Desktop" {
 					http.Redirect(w, r, "./desktop.html", http.StatusTemporaryRedirect)
 				} else if len(interfaceModule) == 1 {
 					//User with default interface module not desktop
@@ -156,6 +160,10 @@ func mrouter(h http.Handler) http.Handler {
 		} else if authAgent.CheckAuth(r) {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
+			if serveDisabledModuleFolder(w, r) {
+				//The files of a WebApp an admin switched off are not served
+				return
+			}
 			if localeServer != nil && strings.HasPrefix(r.URL.Path, locale.URLPrefix) {
 				//System locale files live in ./system/locale, rendered per user (locale.fonts.go)
 				serveLocaleRequest(w, r)
@@ -239,4 +247,28 @@ func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Re
 	} else {
 		h.ServeHTTP(w, r)
 	}
+}
+
+// serveDisabledModuleFolder answers a request for a file of a WebApp whose
+// modules are all disabled, and reports whether it did. The Setup Wizard goes
+// back to the startup interface once it is finished, other apps are not found.
+// Images stay reachable, so the module manager can still show the app's icon.
+func serveDisabledModuleFolder(w http.ResponseWriter, r *http.Request) bool {
+	if moduleHandler == nil {
+		return false
+	}
+	folder := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/"), "/", 2)[0]
+	if folder == "" || !moduleHandler.IsSourceFolderDisabled("web/"+folder) {
+		return false
+	}
+	switch strings.ToLower(filepath.Ext(r.URL.Path)) {
+	case ".png", ".svg", ".jpg", ".jpeg", ".gif", ".webp", ".ico":
+		return false
+	}
+	if strings.EqualFold(folder, permission.SetupWizardModule) {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return true
+	}
+	errorHandleNotFound(w, r)
+	return true
 }

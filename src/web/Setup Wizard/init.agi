@@ -1,0 +1,23 @@
+/*
+	Setup Wizard
+
+	The first-run guide of a new ArozOS installation. The administrator group
+	of a new installation boots into it (see setupwizard.go) until the guide
+	is finished or skipped; the wizard then disables itself. An admin can
+	switch it on again in System Settings > Add & Remove Module and open it
+	to run it once more. See README.md in this folder.
+*/
+
+var root = "Setup Wizard/";
+var moduleLaunchInfo = {
+	Name: "Setup Wizard",
+	Desc: "Guides the first administrator through setting up this server",
+	Group: "Interface Module",
+	IconPath: root + "img/module_icon.svg",
+	Version: "1.0",
+	StartDir: root + "index.html",
+	SupportFW: false,
+	SupportEmb: false
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));

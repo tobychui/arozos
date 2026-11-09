@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -90,9 +92,17 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 		}
 	}
 	m.LoadedModule = newModuleList
+	newDisabledList := []*ModuleInfo{}
+	for _, thisModule := range m.DisabledModule {
+		if !thisModule.allowReload {
+			newDisabledList = append(newDisabledList, thisModule)
+		}
+	}
+	m.DisabledModule = newDisabledList
 	//Reload all webapp init.agi gateway script from source
 	gateway.InitiateAllWebAppModules()
 	m.ModuleSortList()
+	m.refreshDisabledFolders()
 	return nil
 }
 
@@ -186,10 +196,14 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 		InstallDir    string // Path on disk (forward-slash, relative to server root)
 		DiskSpace     int64  // Disk space used
 		Uninstallable bool   // Indicate if this can be uninstalled
+		StartDir      string // Web root relative launch path
+		Enabled       bool   // False when an admin switched the module off
+		Disableable   bool   // Indicate if this can be switched off
+		DisableReason string // Why it cannot be switched off, if it cannot
 	}
 
 	results := []ModuleInstallInfo{}
-	for _, mod := range m.LoadedModule {
+	for _, mod := range append(append([]*ModuleInfo{}, m.LoadedModule...), m.DisabledModule...) {
 		if mod.StartDir == "" {
 			continue
 		}
@@ -221,6 +235,14 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 			canUninstall = false
 		}
 
+		enabled := !m.IsModuleDisabled(mod.Name)
+		disableReason := ""
+		if enabled {
+			if err := m.CanDisableModule(mod); err != nil {
+				disableReason = err.Error()
+			}
+		}
+
 		results = append(results, ModuleInstallInfo{
 			Name:          mod.Name,
 			Desc:          mod.Desc,
@@ -232,8 +254,17 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 			InstallDir:    filepath.ToSlash(dirPath),
 			DiskSpace:     totalsize,
 			Uninstallable: canUninstall,
+			StartDir:      mod.StartDir,
+			Enabled:       enabled,
+			Disableable:   enabled && disableReason == "",
+			DisableReason: disableReason,
 		})
 	}
+
+	//Disabled modules come from their own list: keep one alphabetical order
+	sort.SliceStable(results, func(i, j int) bool {
+		return strings.ToLower(results[i].Name) < strings.ToLower(results[j].Name)
+	})
 
 	js, _ := json.Marshal(results)
 	utils.SendJSONResponse(w, string(js))
@@ -243,11 +274,15 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if this module is allowed to be removed
 	var targetModuleInfo *ModuleInfo = nil
-	for _, mod := range m.LoadedModule {
+	for _, mod := range append(append([]*ModuleInfo{}, m.LoadedModule...), m.DisabledModule...) {
 		if mod.Name == moduleName {
 			targetModuleInfo = mod
 			break
 		}
+	}
+
+	if targetModuleInfo == nil {
+		return errors.New("Module not exists")
 	}
 
 	if targetModuleInfo.Group == "System Tools" || targetModuleInfo.Name == "System Setting" {
@@ -270,6 +305,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 		}
 
 		m.LoadedModule = newLoadedModuleList
+		m.forgetDisabled(moduleName)
 
 		// Fire the uninstall hook so subsystems can clean up (e.g. remove cron jobs)
 		if m.OnModuleUninstall != nil {

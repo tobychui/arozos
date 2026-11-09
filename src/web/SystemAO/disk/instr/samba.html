@@ -12,27 +12,25 @@
 <div class="ui basic yellow message">
     <h4 class="ui header">
         <i class="yellow folder icon"></i>
-        <div class="content">
-            Accessing ArozOS Local Disks using SMB
-        </div>
+        <div class="content" locale="fileservers/samba/instr_title">Accessing ArozOS Local Disks using SMB</div>
     </h4>
-    <p>To access your ArozOS local disk storage using SMB,  you can first enable SMB on your account and open the IP address of this host in your File Explorer or Mac Finder (with smb:// prefix)</p>
-    <small>Samba can only share local disks or partitions. Remote file system mounted into ArozOS cannot be shared by SMB.</small>
+    <p locale="fileservers/samba/instr_desc">To access your ArozOS local disk storage using SMB, you can first enable SMB on your account and open the IP address of this host in your File Explorer or Mac Finder (with smb:// prefix)</p>
+    <small locale="fileservers/samba/local_only">Samba can only share local disks or partitions. Remote file system mounted into ArozOS cannot be shared by SMB.</small>
 </div>
-<p>Click "Activate" to enable SMB access to your file system</p>
-<button class="ui basic activateSmb button" onclick="activateAccountForThisUser();"><i class="ui green circle check icon"></i> Activate</button>
-<button class="ui basic disableSmb disabled button" onclick="disableAccountForThisUser();"><i class="ui red circle times icon"></i> Disable</button>
+<p locale="fileservers/samba/activate_hint">Click "Activate" to enable SMB access to your file system</p>
+<button class="ui basic activateSmb button" onclick="activateAccountForThisUser();"><i class="ui green circle check icon"></i> <span locale="fileservers/samba/activate">Activate</span></button>
+<button class="ui basic disableSmb disabled button" onclick="disableAccountForThisUser();"><i class="ui red circle times icon"></i> <span locale="fileservers/samba/disable">Disable</span></button>
 <table class="ui very basic celled table">
     <thead>
         <tr>
-            <th>Share Names</th>
-            <th>Path</th>
-            <th>Accessible By</th>
+            <th locale="fileservers/samba/col_share">Share Names</th>
+            <th locale="fileservers/samba/col_path">Path</th>
+            <th locale="fileservers/samba/col_access">Accessible By</th>
         </tr>
     </thead>
     <tbody id="userShareList">
         <tr>
-            <td colspan="3"><i class="ui red circle times icon"></i> smbd is not enabled on this server</td>
+            <td colspan="3"><i class="ui red circle times icon"></i> <span locale="fileservers/samba/not_enabled">smbd is not enabled on this server</span></td>
         </tr>
     </tbody>
 </table>
@@ -67,11 +65,11 @@
                     </tr>`);
                 });
                 if (data.UserSmbShareList.length == 0){
-                    $("#userShareList").append(`<tr><td colspan="3"><i class="ui green circle check icon"></i> This account has no shared folder</td></tr>`);
+                    $("#userShareList").append(`<tr><td colspan="3"><i class="ui green circle check icon"></i> ${fsT("samba/no_share_folder", "This account has no shared folder")}</td></tr>`);
                 }else{
                     var clipboard = new ClipboardJS('.smbaddr');
                     clipboard.on('success', function(e) {
-                       msgbox("Address copied. Paste to File Explorer to open share.")
+                       msgbox(fsT("samba/address_copied", "Address copied. Paste it into File Explorer to open the share."))
                     });
                 }
             }
@@ -85,7 +83,7 @@
                 msgbox(data.error, false, 6000);
             }else{
                 if (data != false){
-                    msgbox("SMB shares deactivated");
+                    msgbox(fsT("samba/deactivated", "SMB shares deactivated"));
 
                     if (typeof(initServiceList) != "undefined"){
                         initServiceList(function(){
@@ -108,8 +106,8 @@
         var apiObject = {
                 api: "../system/storage/samba/activate",
                 data: {},
-                title: `Activate SMB Access`,
-                desc: `Confirm sharing my account using SMB (Samba)`,
+                title: fsT("samba/activate_title", "Activate SMB Access"),
+                desc: fsT("samba/activate_desc", "Confirm sharing my account using SMB (Samba)"),
                 thisuser: true, //This username as default, set to false for entering other user
                 method: "POST",
                 success: undefined
@@ -122,7 +120,7 @@
                 width: 480,
                 height: 300,
                 appicon: "SystemAO/security/img/lock.svg",
-                title: `Activate SMB Access`,
+                title: fsT("samba/activate_title", "Activate SMB Access"),
                 parent: ao_module_windowID,
                 callback: "handleSMBActivateCallback"
             });
@@ -133,7 +131,7 @@
             msgbox(data.error, false, 6000);
         }else{
             if (data != false){
-                msgbox("SMB Share activated");
+                msgbox(fsT("samba/activated", "SMB Share activated"));
             }
             initSMBActivationStatusOnThisUser();
 

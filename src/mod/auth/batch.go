@@ -54,7 +54,9 @@ func (a *AuthAgent) HandleCreateUserAccountsFromCSV(w http.ResponseWriter, r *ht
 			continue
 		}
 
-		a.CreateUserAccount(userCreationSetting[0], userCreationSetting[1], []string{userCreationSetting[2]})
+		if err := a.CreateUserAccount(userCreationSetting[0], userCreationSetting[1], []string{userCreationSetting[2]}); err != nil {
+			errors = append(errors, "User "+userCreationSetting[0]+" skipped: "+err.Error())
+		}
 	}
 
 	js, _ := json.Marshal(errors)

@@ -236,6 +236,12 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	//Check that the name is safe as a home folder name before anything is stored
+	if err := auth.ValidateUsername(username); err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
 	//Check if the user already exists
 	if h.authAgent.UserExists(username) {
 		utils.SendErrorResponse(w, "This username has already been used")

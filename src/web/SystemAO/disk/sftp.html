@@ -29,33 +29,31 @@
                 <div id="connectedUsers" class="value">
                     0
                 </div>
-                <div class="label">
-                    Connected Users
-                </div>
+                <div class="label" locale="fileservers/sftp/users">Connected Users</div>
             </div>
             <br>
-            <small>Notes: Setting change will disconnect all clients and restart all the connections</small>
+            <small locale="fileservers/sftp/restart_note">Notes: Setting change will disconnect all clients and restart all the connections</small>
         </div>
         <div class="field">
             <div class="ui toggle checkbox">
                 <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
-                <label>Enable UPnP on SFTP Server Port</label>
-                <small>Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
+                <label locale="fileservers/sftp/upnp">Enable UPnP on SFTP Server Port</label>
+                <small locale="fileservers/common/upnp_hint">Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
             </div>
         </div>
         <div class="field">
-            <label>Listening Port</label>
+            <label locale="fileservers/common/port">Listening Port</label>
             <div class="ui labeled input">
                 <input id="listeningPort" type="number" placeholder="2022" min="22">
             </div>
         </div>
-        <button class="ui black right floated button" onclick="updatePort();">Save Changes</button>
+        <button class="ui black right floated button" onclick="updatePort();" locale="fileservers/common/save">Save Changes</button>
         <br><br>
         <div id="ok" class="ui secondary inverted green segment" style="display:none;">
-            <i class="checkmark icon"></i> Setting Applied
+            <i class="checkmark icon"></i> <span locale="fileservers/common/applied">Setting Applied</span>
         </div>
         <div id="error" class="ui secondary inverted red segment" style="display:none;">
-            <i class="remove icon"></i> <span class="msg">Something went wrong</span>
+            <i class="remove icon"></i> <span class="msg" locale="fileservers/common/error">Something went wrong</span>
         </div>
         <div class="ui divider"></div>
        
@@ -97,7 +95,7 @@
         function updatePort(){
             var newPort = $("#listeningPort").val();
             if (isNaN(parseInt(newPort)) || parseInt(newPort) < 20 ){
-                ssAlert("Invalid port number entered");
+                ssAlert(fsT("sftp/invalid_port", "Invalid port number entered"));
                 return
             }
 

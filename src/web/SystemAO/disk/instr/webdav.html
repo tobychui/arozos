@@ -1,34 +1,40 @@
+<div id="webdav-instr">
 <div class="ui message maconly instr" style="display:none; margin-top: 0;">
-    <h4><i class="apple icon"></i> Login Method for MacOS</h4>
-    <p>If you are using MacOS, you can select "Connect to Network Server", enter the endpoint of the arozos WebDAV service (<span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/) and login with your arozos username and password. Each of your storages shows up as a folder.</p>
+    <h4><i class="apple icon"></i> <span locale="fileservers/webdav/mac_title">Login Method for macOS</span></h4>
+    <p data-fskey="webdav/mac_desc">If you are using macOS, select "Connect to Server" in Finder, enter the endpoint of the ArozOS WebDAV service ({url}) and sign in with your ArozOS username and password. Each of your storages shows up as a folder.</p>
 </div>
 <div class="ui blue message windowonly nontls instr" style="display:none; margin-top: 0;">
-    <h4><i class="windows icon"></i> Login Method for Windows (Non SSL / TLS Mode)</h4>
-    <p>-- Deprecated since Windows 10 --<br>
-    To use WebDAV on Windows, you will need a certificate installed or with a reverse proxy with TLS/SSL support</p>
+    <h4><i class="windows icon"></i> <span locale="fileservers/webdav/win_nontls_title">Login Method for Windows (Non SSL / TLS Mode)</span></h4>
+    <p locale="fileservers/webdav/win_nontls_desc">Windows no longer connects to WebDAV without TLS since Windows 10. To use WebDAV on Windows, you need a certificate installed or a reverse proxy with TLS / SSL support.</p>
     <ol class="ui list">
-        <li>Use a reverse proxy server like <a href="https://zoraxy.aroz.org" target="_blank">Zoraxy <i class="ui external icon"></i></a> to proxy WebDAV traffic with TLS enabled</li>
-        <li>Click "Map Network Drive" in File Explorer > This PC toolbar</li>
-        <li>Enter <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/ as the target</li>
-        <li>Login with your ArozOS username and password</li>
+        <li locale="fileservers/webdav/win_step1">Use a reverse proxy server like <a href="https://zoraxy.aroz.org" target="_blank">Zoraxy <i class="ui external icon"></i></a> to proxy WebDAV traffic with TLS enabled</li>
+        <li locale="fileservers/webdav/win_step2">Click "Map Network Drive" in the This PC toolbar of File Explorer</li>
+        <li data-fskey="webdav/win_step3">Enter {url} as the folder</li>
+        <li locale="fileservers/webdav/win_step4">Sign in with your ArozOS username and password</li>
     </ol>
 </div>
 <div class="ui teal message windowonly tls instr" style="display:none">
-    <h4><i class="windows icon"></i> Login Method for Windows (With SSL / TLS MODE)</h4>
-    <p>If you are using Windows File Explorer as your WebDAV Client, go to "This PC" and add a network drive with the following endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/<br>Each of your storages shows up as a folder.</p>
+    <h4><i class="windows icon"></i> <span locale="fileservers/webdav/win_tls_title">Login Method for Windows (SSL / TLS Mode)</span></h4>
+    <p data-fskey="webdav/win_tls_desc">If you use Windows File Explorer as your WebDAV client, go to "This PC" and add a network drive with the following endpoint: {url}<br>Each of your storages shows up as a folder.</p>
 </div>
-<a onclick="showAllInstr(this);" style="cursor: pointer;">Show instruction for other platforms</a>
+<a onclick="showAllInstr(this);" style="cursor: pointer;" locale="fileservers/webdav/show_all">Show instructions for other platforms</a>
+</div>
 <script>
     var isMac = navigator.platform.indexOf('Mac') > -1;
     var isWindows = navigator.platform.indexOf('Win') > -1;
     
-    //Update tutorial information
-    $(".hostname").text(window.location.hostname);
-    $(".port").text(window.location.port);
-    if (window.location.port == ""){
-        $(".port").text("80");
-    }
-    $(".protocol").text(location.protocol);
+    //Update tutorial information: the texts hold the endpoint, so they are translated here
+    (function(){
+        var port = window.location.port;
+        if (port == ""){
+            port = (location.protocol == "https:") ? "443" : "80";
+        }
+        var url = $("<code></code>").text(location.protocol + "//" + window.location.hostname + ":" + port + "/webdav/").prop("outerHTML");
+        var T = (typeof fsT === "function") ? fsT : function(k, f){ return f; };
+        $("#webdav-instr [data-fskey]").each(function(){
+            $(this).html(T($(this).attr("data-fskey"), $(this).html()).split("{url}").join(url));
+        });
+    })();
     if (isMac){
         $(".maconly").show();
     }else if (isWindows){

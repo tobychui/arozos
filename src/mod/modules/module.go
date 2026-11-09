@@ -38,14 +38,21 @@ type ModuleInfo struct {
 
 type ModuleHandler struct {
 	LoadedModule    []*ModuleInfo
+	DisabledModule  []*ModuleInfo //Registered, but switched off by an admin (see disable.go)
 	userHandler     *user.UserHandler
 	tmpDirectory    string
 	extIconRegistry map[string]string // lowercased ext (no dot) --> web-root-relative icon path
+	stateStore      StateStore        //Where the disabled module names are saved, can be nil
+	disabled        disabledState
 
 	// OnModuleUninstall is an optional hook called when a module is uninstalled.
 	// The hook receives the module name and can be used to clean up associated resources
 	// (e.g. remove scheduled cron jobs registered by that module).
 	OnModuleUninstall func(moduleName string)
+
+	// InterfaceModuleUsers is an optional hook returning the permission groups
+	// that boot into the given module. Such a module cannot be disabled.
+	InterfaceModuleUsers func(moduleName string) []string
 }
 
 func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *ModuleHandler {
@@ -84,10 +91,17 @@ func IsUniversalGroup(group string) bool {
 
 // Register endpoint. Provide moduleInfo datastructure or unparsed json
 func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
+	if m.IsModuleDisabled(module.Name) && !isProtectedModule(&module) {
+		//Switched off by an admin: keep it listed for the module manager only
+		m.DisabledModule = append(m.DisabledModule, &module)
+		m.refreshDisabledFolders()
+		return
+	}
+
 	m.LoadedModule = append(m.LoadedModule, &module)
 
 	//Add the module into universal module if every user may use its group
-	if IsUniversalGroup(module.Group) {
+	if IsUniversalGroup(module.Group) && m.userHandler != nil {
 		m.userHandler.UniversalModules = append(m.userHandler.UniversalModules, module.Name)
 	}
 }

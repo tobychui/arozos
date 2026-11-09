@@ -33,54 +33,54 @@
         <div class="field">
             <div class="ui toggle checkbox">
                 <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
-                <label>Enable UPnP on FTP Server Port</label>
-                <small>Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
+                <label locale="fileservers/ftp/upnp">Enable UPnP on FTP Server Port</label>
+                <small locale="fileservers/common/upnp_hint">Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
             </div>
         </div>
         <div class="field">
-            <label>Listening Port</label>
+            <label locale="fileservers/common/port">Listening Port</label>
             <div class="ui labeled input">
                 <input id="listeningPort" type="number" placeholder="21" min="21" onchange="updateFTPPort(this.value)">
             </div>
         </div>
         
         <div class="field">
-            <label>Enable FTP access to the following user groups: </label>
+            <label locale="fileservers/ftp/groups">Enable FTP access to the following user groups:</label>
             <select id="grouplist" name="groups" multiple="" class="ui fluid dropdown">
-                <option value="">User Groups</option>
+                <option value="" locale="fileservers/ftp/groups_placeholder">User Groups</option>
                 
             </select>
-            <small><a href="../vendor/public/ftpForAdmin.html" target="_blank">Why enable FTP on administrator account is not a good idea?</a></small>
+            <small><a href="../vendor/public/ftpForAdmin.html" target="_blank" locale="fileservers/ftp/admin_warning">Why enable FTP on administrator account is not a good idea?</a></small>
         </div>
         <div class="field">
-            <button onclick="updateGroupAccess();" class="ui secondary right floated button">Update Access Policy</button>
+            <button onclick="updateGroupAccess();" class="ui secondary right floated button" locale="fileservers/ftp/update_access">Update Access Policy</button>
         </div>
         <br><br>
         <div id="ok" class="ui secondary inverted green segment" style="display:none;">
-            <i class="checkmark icon"></i> Setting Applied
+            <i class="checkmark icon"></i> <span locale="fileservers/common/applied">Setting Applied</span>
         </div>
         <div id="error" class="ui secondary inverted red segment" style="display:none;">
-            <i class="remove icon"></i> <span class="msg">Something went wrong</span>
+            <i class="remove icon"></i> <span class="msg" locale="fileservers/common/error">Something went wrong</span>
         </div>
         <div class="ui divider"></div>
-        <h4>Advance Options</h4>
+        <h4 locale="fileservers/ftp/advanced">Advanced Options</h4>
         <br>
         <div class="field">
             <div class="ui toggle checkbox">
                 <input id="passiveMode" type="checkbox" name="passivemode" onchange="handlePassiveModeChange(this.checked);">
-                <label>Force Passive Mode</label>
-                <small>Required under UPnP mode. Optional in default mode with manual port forwarding in gateway router</small>
+                <label locale="fileservers/ftp/passive">Force Passive Mode</label>
+                <small locale="fileservers/ftp/passive_hint">Required under UPnP mode. Optional in default mode with manual port forwarding in gateway router</small>
             </div>
         </div>
         <div class="field">
-            <label>Passive Mode Public IP Address</label>
+            <label locale="fileservers/ftp/public_ip">Passive Mode Public IP Address</label>
             <div class="ui labeled input">
                 <input id="publicip" type="text">
             </div>
-            <small>The public IP address of your NAT router. Currently only support IP address.</small>
+            <small locale="fileservers/ftp/public_ip_hint">The public IP address of your NAT router. Currently only support IP address.</small>
         </div>
         <div class="field">
-            <button onclick="updatePublicIPSetting();" class="ui secondary right floated button">Update Public IP Setting</button>
+            <button onclick="updatePublicIPSetting();" class="ui secondary right floated button" locale="fileservers/ftp/update_ip">Update Public IP Setting</button>
         </div>
        
     </div>
@@ -241,7 +241,7 @@
                     showOK();
                 }else{
                     //Show error
-                    showError("UPnP Port Forward Request Failed");
+                    showError(fsT("ftp/upnp_failed", "UPnP Port Forward Request Failed"));
                     $("#useUPNP")[0].checked = false;
                 }
 
@@ -299,7 +299,7 @@
 
         function updateFTPPort(portNumber){
             if (portNumber < 21){
-                showError("Port number must be > 21")
+                showError(fsT("ftp/port_too_low", "The port number must be 21 or higher"))
                 return
             }
             $.ajax({

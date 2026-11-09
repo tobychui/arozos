@@ -64,6 +64,7 @@ func AGIInit() {
 		ReservedTables:        []string{"auth", "permisson", "register", "desktop"},
 		ModuleRegisterParser:  moduleHandler.RegisterModuleFromAGI,
 		ModuleFolderResolver:  moduleHandler.GetModulesFromSourceFolder,
+		ScriptFolderDisabled:  moduleHandler.IsSourceFolderDisabled,
 		ExtIconRegisterParser: moduleHandler.RegisterExtIcon,
 		ModuleListProvider:    moduleHandler.GetModuleListJSONForUser,
 		PackageManager:        packageManager,

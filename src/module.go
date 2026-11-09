@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -45,6 +46,9 @@ func ModuleServiceInit() {
 		moduleHandler.ReloadAllModules(AGIGateway)
 		utils.SendOK(w)
 	})
+
+	//Switch a module off without removing it, or on again
+	adminRouter.HandleFunc("/system/modules/setEnabled", moduleHandler.HandleSetModuleEnabled)
 
 	//Handle module installer. Require admin
 	http.HandleFunc("/system/modules/installViaZip", func(w http.ResponseWriter, r *http.Request) {
@@ -135,6 +139,26 @@ func ModuleServiceInit() {
 		os.Exit(1)
 	}
 
+	//Modules switched off by an admin must be known before any module registers
+	if err := moduleHandler.LoadDisabledModules(sysdb); err != nil {
+		systemWideLogger.PrintAndLog("Modules", "Could not read the disabled module list", err)
+	}
+	moduleHandler.InterfaceModuleUsers = groupsBootingInto
+}
+
+// groupsBootingInto lists the permission groups whose interface module is the
+// given module. Such a module cannot be switched off.
+func groupsBootingInto(moduleName string) []string {
+	groups := []string{}
+	if permissionHandler == nil {
+		return groups
+	}
+	for _, pg := range permissionHandler.PermissionGroups {
+		if strings.EqualFold(pg.DefaultInterfaceModule, moduleName) {
+			groups = append(groups, pg.Name)
+		}
+	}
+	return groups
 }
 
 /*

@@ -15,30 +15,32 @@
 <body>
     <div class="ui form">
         <div class="field">
-            <label>Default User for TFTP Access</label>
+            <label locale="fileservers/tftp/default_user">Default User for TFTP Access</label>
             <select id="defaultUser" class="ui search dropdown" >
                 <option value="">Select a user account</option>
             </select>
-            <small>All TFTP file operations will be performed using this user's permissions and storage quota.</small>
+            <small locale="fileservers/tftp/default_user_hint">All TFTP file operations will be performed using this user's permissions and storage quota.</small>
         </div>
 
         <div class="field">
-            <label>Listening Port</label>
+            <label locale="fileservers/common/port">Listening Port</label>
             <div class="ui labeled input">
                 <input id="listeningPort" type="number" placeholder="69" min="69" onchange="updateTFTPPort(this.value)">
             </div>
-            <small>Default TFTP port is 69. Changing this port requires TFTP clients to explicitly specify the port.</small>
+            <small locale="fileservers/tftp/port_hint">Default TFTP port is 69. Changing this port requires TFTP clients to explicitly specify the port.</small>
         </div>
         <br><br>
         <div id="ok" class="ui secondary inverted green segment" style="display:none;">
-            <i class="checkmark icon"></i> Setting Applied
+            <i class="checkmark icon"></i> <span locale="fileservers/common/applied">Setting Applied</span>
         </div>
         <div id="error" class="ui secondary inverted red segment" style="display:none;">
-            <i class="remove icon"></i> <span class="msg">Something went wrong</span>
+            <i class="remove icon"></i> <span class="msg" locale="fileservers/common/error">Something went wrong</span>
         </div>
     </div>
     <br><br>
     <script>
+        // Set before the dropdown copies it, the page translation comes later
+        $("#defaultUser option[value='']").text(fsT("tftp/select_user", "Select a user account"));
         $(".ui.dropdown").dropdown();
         $(document).ready(function(){
             //Load current TFTP server status including port
@@ -105,7 +107,7 @@
 
         function updateDefaultUser(username){
             if (username == ""){
-                showError("Please select a valid user");
+                showError(fsT("tftp/invalid_user", "Please select a valid user"));
                 return;
             }
 
@@ -121,14 +123,14 @@
                     }
                 },
                 error: function(){
-                    showError("Failed to update default user");
+                    showError(fsT("tftp/user_failed", "Failed to update default user"));
                 }
             });
         }
 
         function updateTFTPPort(port){
             if (port < 1 || port > 65535){
-                showError("Invalid port number");
+                showError(fsT("tftp/invalid_port", "Invalid port number"));
                 return;
             }
 
@@ -146,7 +148,7 @@
                     }
                 },
                 error: function(){
-                    showError("Failed to update port");
+                    showError(fsT("tftp/port_failed", "Failed to update port"));
                 }
             });
         }

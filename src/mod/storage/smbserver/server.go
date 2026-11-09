@@ -384,6 +384,8 @@ func (s *Server) Close() error {
 		c.nc.Close()
 	}
 	s.wg.Wait()
+	//Every connection has ended, so the durable opens left are detached ones
+	s.closeDetached()
 	if s.capture != nil {
 		s.capture.close()
 	}

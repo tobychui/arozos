@@ -69,6 +69,7 @@ type AgiSysInfo struct {
 	PackageManager        *apt.AptPackageManager
 	ModuleRegisterParser  func(sourceFolder string, jsonModuleConfig string) error //sourceFolder is the web app folder the init.agi lives in, e.g. "web/Office"
 	ModuleFolderResolver  func(folder string) []string                             //Returns the names of the modules registered from a source folder
+	ScriptFolderDisabled  func(folder string) bool                                 //Reports whether every module of a source folder is switched off, can be nil
 	ModuleListProvider    func(username string) string                             //Returns JSON of accessible modules for a user
 	ExtIconRegisterParser func(ext, iconPath string)                               //Called when registerExtensionIcon() fires in an init.agi
 	FileSystemRender      *metadata.RenderHandler
@@ -134,7 +135,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 						continue
 					}
 
-					if static.CheckUserAccessToScript(userinfo, filepath.Join("./web", scriptFile), "./web", g.Option.ModuleFolderResolver) {
+					if g.userCanRunScript(userinfo, filepath.Join("./web", scriptFile), "./web") {
 						//This user can access the module that provide this script.
 						//Execute this script on his account.
 						logger.PrintAndLog("Agi", "[AGI_Nightly] WIP ("+scriptFile+")", nil)
@@ -179,6 +180,17 @@ func (g *Gateway) RunWebAppInitScript(script string) error {
 	})
 	_, err = vm.Run(scriptContent)
 	return err
+}
+
+// userCanRunScript checks that the user may use a module of the script's
+// folder, and that an admin has not switched all of that folder's modules off
+func (g *Gateway) userCanRunScript(thisuser *user.User, scriptFile string, scriptScope string) bool {
+	if g.Option.ScriptFolderDisabled != nil {
+		if folder := static.ScriptSourceFolder(scriptFile, scriptScope); folder != "" && g.Option.ScriptFolderDisabled(folder) {
+			return false
+		}
+	}
+	return static.CheckUserAccessToScript(thisuser, scriptFile, scriptScope, g.Option.ModuleFolderResolver)
 }
 
 func (g *Gateway) RaiseError(err error) {
@@ -253,7 +265,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	}
 
 	//Check for user permission on this module
-	if !static.CheckUserAccessToScript(thisuser, scriptFile, scriptScope, g.Option.ModuleFolderResolver) {
+	if !g.userCanRunScript(thisuser, scriptFile, scriptScope) {
 		moduleName := static.GetScriptRoot(scriptFile, scriptScope)
 		w.WriteHeader(http.StatusForbidden)
 		if g.Option.BuildVersion == "development" {

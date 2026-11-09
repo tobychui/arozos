@@ -14,8 +14,8 @@
 -->
 
 <div class="ui divider"></div>
-<h3><i class="ui green share alternate icon"></i> Samba Share Lists</h3>
-<p>A list of SMB shares currently written into smb.conf</p>
+<h3><i class="ui green share alternate icon"></i> <span locale="fileservers/samba/shares_title">Samba Share Lists</span></h3>
+<p locale="fileservers/samba/shares_desc">A list of SMB shares currently written into smb.conf</p>
 <div style="width: 100%; overflow-y: auto;">
     <div id="sharelist">
 
@@ -24,76 +24,80 @@
 </div>
 
 <!-- Create new Samba Share -->
-<h4><i class="ui green circle add icon"></i> Add Samba Share</h4>
-<p>Create a new SMB share folder from local disk</p>
+<h4><i class="ui green circle add icon"></i> <span locale="fileservers/samba/add_share">Add Samba Share</span></h4>
+<p locale="fileservers/samba/add_share_desc">Create a new SMB share folder from local disk</p>
 <form class="ui form" id="shareForm">
     <div class="field">
-        <label for="shareName">Share Name</label>
+        <label for="shareName" locale="fileservers/samba/share_name">Share Name</label>
         <input type="text" id="shareName" placeholder="Share Name">
     </div>
     <div class="field">
-        <label for="sharePath">Share Path</label>
+        <label for="sharePath" locale="fileservers/samba/share_path">Share Path</label>
         <input type="text" id="sharePath" placeholder="/home/user/myshare">
-        <small><i class="ui yellow exclamation triangle icon"></i> The folder path must be an absolute full path exists on your local disk. e.g. /home/user/myshare/ </small>
+        <small><i class="ui yellow exclamation triangle icon"></i> <span locale="fileservers/samba/path_hint">The folder path must be an absolute full path that exists on your local disk, e.g. /home/user/myshare/</span></small>
     </div>
     <div class="field">
-        <label for="validUsers">Valid Users</label>
+        <label for="validUsers" locale="fileservers/samba/valid_users">Valid Users</label>
         <select multiple="" class="ui search dropdown" id="validUsers">
         </select>
-        <button onclick="event.preventDefault(); initSambaUserList();" class="ui mini basic button" style="margin-top: 0.4em;"><i class="ui green refresh icon"></i> Refresh User List</button>
+        <button onclick="event.preventDefault(); initSambaUserList();" class="ui mini basic button" style="margin-top: 0.4em;"><i class="ui green refresh icon"></i> <span locale="fileservers/samba/refresh_users">Refresh User List</span></button>
     </div>
     <div class="field">
         <div class="ui checkbox">
             <input type="checkbox" id="readOnly">
-            <label for="readOnly">Read Only<br>
-            <small>Set all files in this share to READ ONLY mode</small></label>
+            <label for="readOnly"><span locale="fileservers/samba/read_only">Read Only</span><br>
+            <small locale="fileservers/samba/read_only_hint">Set all files in this share to READ ONLY mode</small></label>
         </div>
     </div>
     <div class="field">
         <div class="ui checkbox">
             <input type="checkbox" id="browseable" checked>
-            <label for="browseable">Browseable <br>
-            <small>Make this share discoverable</small></label>
+            <label for="browseable"><span locale="fileservers/samba/browseable">Browseable</span><br>
+            <small locale="fileservers/samba/browseable_hint">Make this share discoverable</small></label>
         </div>
     </div>
     <div class="field">
         <div class="ui checkbox">
             <input type="checkbox" id="allowGuest">
-            <label for="allowGuest">Allow Guest<br>
-            <small>Enable guest account on this share</small></label>
+            <label for="allowGuest"><span locale="fileservers/samba/allow_guest">Allow Guest</span><br>
+            <small locale="fileservers/samba/allow_guest_hint">Enable guest account on this share</small></label>
         </div>
     </div>
-    <button type="button" class="ui small basic button" onclick="newSambaShare(); event.preventDefault();"><i class="ui green circle add icon"></i> Create Share</button>
+    <button type="button" class="ui small basic button" onclick="newSambaShare(); event.preventDefault();"><i class="ui green circle add icon"></i> <span locale="fileservers/samba/create_share">Create Share</span></button>
 </form>
 <!-- Create new Samba user -->
 <div class="ui divider"></div>
-<h3><i class="ui green user circle icon"></i> Samba Users List</h3>
-<p>Current list of users registered in Samba database</p>
+<h3><i class="ui green user circle icon"></i> <span locale="fileservers/samba/users_title">Samba Users List</span></h3>
+<p locale="fileservers/samba/users_desc">Current list of users registered in Samba database</p>
 <div id="userTableContainer"></div>
 
-<h4><i class="ui green user plus icon"></i> Add Samba User</h4>
-<p>Create Samba user for sharing<br>
-<small>Samba user is not ArozOS user. Creating a Samba user will also create a unix user with login function disabled</small></p>
+<h4><i class="ui green user plus icon"></i> <span locale="fileservers/samba/add_user">Add Samba User</span></h4>
+<p><span locale="fileservers/samba/add_user_desc">Create Samba user for sharing</span><br>
+<small locale="fileservers/samba/add_user_note">Samba user is not ArozOS user. Creating a Samba user will also create a unix user with login function disabled</small></p>
 <div class="ui container">
     <form class="ui form" id="userForm">
         <div class="field">
-            <label for="username">Username</label>
+            <label for="username" locale="fileservers/samba/username">Username</label>
             <input type="text" id="smbuser_username" placeholder="Enter username" required>
         </div>
         <div class="field">
-            <label for="password">Password</label>
+            <label for="password" locale="fileservers/samba/password">Password</label>
             <input type="password" id="smbuser_password" placeholder="Enter password" required>
         </div>
         <div class="field">
-            <label for="confirmPassword">Confirm Password</label>
+            <label for="confirmPassword" locale="fileservers/samba/confirm_password">Confirm Password</label>
             <input type="password" id="smbuser_confirmPassword" placeholder="Confirm password" required>
         </div>
-        <button type="button" class="ui basic button" onclick="createNewSambaUser()"><i class="ui checkmark green icon"></i> Confirm</button>
+        <button type="button" class="ui basic button" onclick="createNewSambaUser()"><i class="ui checkmark green icon"></i> <span locale="fileservers/samba/confirm">Confirm</span></button>
     </form>
 </div>
 
 
 <script>
+    $("#shareName").attr("placeholder", fsT("samba/share_name", "Share Name"));
+    $("#smbuser_username").attr("placeholder", fsT("samba/ph_username", "Enter username"));
+    $("#smbuser_password").attr("placeholder", fsT("samba/ph_password", "Enter password"));
+    $("#smbuser_confirmPassword").attr("placeholder", fsT("samba/ph_confirm", "Confirm password"));
     $("#validUsers").dropdown();
     $("#shareForm").find("checkbox").checkbox();
 
@@ -178,12 +182,12 @@
                 <table class="ui basic celled unstackable table">
                     <thead>
                         <tr>
-                            <th style="min-width: 100px;"><i class="ui yellow folder icon"></i> Name</th>
-                            <th style="min-width: 100px;"><i class="ui grey hdd icon"></i> Path</th>
-                            <th style="min-width: 100px;">Valid Users</th>
-                            <th>Read Only</th>
-                            <th>Browseable</th>
-                            <th>Guest Ok</th>
+                            <th style="min-width: 100px;"><i class="ui yellow folder icon"></i> ${fsT("samba/col_name", "Name")}</th>
+                            <th style="min-width: 100px;"><i class="ui grey hdd icon"></i> ${fsT("samba/col_path", "Path")}</th>
+                            <th style="min-width: 100px;">${fsT("samba/valid_users", "Valid Users")}</th>
+                            <th>${fsT("samba/read_only", "Read Only")}</th>
+                            <th>${fsT("samba/browseable", "Browseable")}</th>
+                            <th>${fsT("samba/col_guest", "Guest Ok")}</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -201,11 +205,11 @@
                     <tr>
                         <td>${item.Name}</td>
                         <td>${item.Path} <span class="editButton" onclick="editSharePath('${item.Name}', '${item.Path}');"><i class="edit icon"></i></span></td>
-                        <td>${(item.ValidUsers!=null)?item.ValidUsers.join(", "):'[unix user]'} ${(item.ValidUsers!=null)?`<span class="shareuserEditBtn editButton" onclick="editSambaUser(this, '${item.Name}');" users="${userListHex}"><i class="edit icon"></i></span>`:""}</td>
+                        <td>${(item.ValidUsers!=null)?item.ValidUsers.join(", "):fsT("samba/unix_user", "[unix user]")} ${(item.ValidUsers!=null)?`<span class="shareuserEditBtn editButton" onclick="editSambaUser(this, '${item.Name}');" users="${userListHex}"><i class="edit icon"></i></span>`:""}</td>
                         <td>${item.ReadOnly?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
                         <td>${item.Browseable?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
                         <td>${item.GuestOk?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
-                        <td><button title="Remove Share" class="ui basic circular tiny red circular icon button" onclick="deleteSMBShare('${item.Name}');"><i class="ui trash icon"></i></button></td>
+                        <td><button title="${fsT("samba/remove_share", "Remove Share")}" class="ui basic circular tiny red circular icon button" onclick="deleteSMBShare('${item.Name}');"><i class="ui trash icon"></i></button></td>
                     </tr>
                 `;
             });
@@ -217,7 +221,7 @@
             `;
 
             if (data.length == 0){
-                table = `<div class="ui basic message"><i class="ui green check circle icon"></i> No Samba share folder found in smb.conf</div>`
+                table = `<div class="ui basic message"><i class="ui green check circle icon"></i> ${fsT("samba/no_shares", "No Samba share folder found in smb.conf")}</div>`
             }
 
             // Insert the table into the div
@@ -235,7 +239,7 @@
 
             if (shareName == ""){
                 $("#shareName").parent().addClass("error");
-                msgbox("Share name cannot be empty", false);
+                msgbox(fsT("samba/name_empty", "Share name cannot be empty"), false);
                 return;
             }else{
                 $("#shareName").parent().removeClass("error");
@@ -243,14 +247,14 @@
 
             if (sharePath == ""){
                 $("#sharePath").parent().addClass("error");
-                msgbox("Share path cannot be empty", false);
+                msgbox(fsT("samba/path_empty", "Share path cannot be empty"), false);
                 return;
             }else{  
                 $("#sharePath").parent().removeClass("error");
             }
 
             if (allowedUsers.length == 0){
-                msgbox("At least one user is required to create share");
+                msgbox(fsT("samba/user_required", "At least one user is required to create a share"), false);
                 return;
             }
 
@@ -270,7 +274,7 @@
                     if (data.error != undefined){
                         msgbox(data.error, false, 6000);
                     }else{
-                        msgbox("New Samba share created");
+                        msgbox(fsT("samba/share_created", "New Samba share created"));
                     }
                     initShareListTable();
                 }
@@ -279,7 +283,7 @@
 
         //Delete the given smb share name
         function deleteSMBShare(smbShareName){
-            ssConfirm({ text: "Confirm remove share " + smbShareName + " ?", danger: true }, function () {
+            ssConfirm({ text: fsT("samba/confirm_remove_share", "Remove the share {name}?").split("{name}").join(smbShareName), danger: true }, function () {
                 $.ajax({
                     url: "../../system/storage/samba/remove",
                     method: "POST",
@@ -290,7 +294,7 @@
                         if (data.error != undefined){
                             msgbox(data.error, false);
                         }else{
-                            msgbox("Samba share removed");
+                            msgbox(fsT("samba/share_removed", "Samba share removed"));
                         }
                         initShareListTable();
 
@@ -311,10 +315,10 @@
                 <table class="ui celled basic small table">
                     <thead>
                         <tr>
-                            <th>Unix Username</th>
-                            <th>Domain</th>
-                            <th>ArozOS User</th>
-                            <th>Remove</th>
+                            <th>${fsT("samba/col_unix", "Unix Username")}</th>
+                            <th>${fsT("samba/col_domain", "Domain")}</th>
+                            <th>${fsT("samba/col_arozos", "ArozOS User")}</th>
+                            <th>${fsT("samba/col_remove", "Remove")}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -327,13 +331,13 @@
                         <td><img class="ui avatar image" src="/system/users/profilepic?user=${item.UnixUsername}"> ${item.UnixUsername}</td>
                         <td>${item.Domain}</td>
                         <td>${item.IsArozOSUser?"<i class='ui green check icon'></i>":"<i class='ui red times icon'></i>"}</td>
-                        <td><button class="ui basic small red button" onclick="removeSambaUser('${item.UnixUsername}');"><i class="ui red trash icon"></i> Remove Samba User</button></td>
+                        <td><button class="ui basic small red button" onclick="removeSambaUser('${item.UnixUsername}');"><i class="ui red trash icon"></i> ${fsT("samba/remove_user", "Remove Samba User")}</button></td>
                     </tr>
                 `;
             });
 
             if (data.length == 0){
-                table += `<tr><td colspan="3"><i class="ui green circle check icon"></i> No registered users in Samba database</td></tr>`;
+                table += `<tr><td colspan="3"><i class="ui green circle check icon"></i> ${fsT("samba/no_users", "No registered users in Samba database")}</td></tr>`;
             }
 
             // Close the table
@@ -356,7 +360,8 @@
 
             // Check if passwords match
             if (password !== confirmPassword) {
-                msgbox("Confirm password does not match!", false);
+                msgbox(fsT("samba/password_mismatch", "The two passwords do not match"), false);
+                return;
             }
 
             $.ajax({
@@ -370,7 +375,7 @@
                     if (data.error != undefined){
                         msgbox(data.error, false, 5000);
                     }else{
-                        msgbox("New Samba user created");
+                        msgbox(fsT("samba/user_created", "New Samba user created"));
                         $("#smbuser_username").val("");
                         $("#smbuser_password").val("");
                         $("#smbuser_confirmPassword").val("");
@@ -383,7 +388,7 @@
 
         //Remove a samba user given the username
         function removeSambaUser(targetUsername){
-            ssConfirm({ text: "Confirm remove samba user \"" + targetUsername + "\" ?", danger: true }, function () {
+            ssConfirm({ text: fsT("samba/confirm_remove_user", "Remove the Samba user \"{name}\"?").split("{name}").join(targetUsername), danger: true }, function () {
                 $.ajax({
                     url: "/system/storage/samba/delUser",
                     method: "POST",
@@ -394,7 +399,7 @@
                         if (data.error != undefined){
                             msgbox(data.error, false, 5000);
                         }else{
-                            msgbox("Samba user removed");
+                            msgbox(fsT("samba/user_removed", "Samba user removed"));
                         }
 
                         //Update the samba user list in share
@@ -408,7 +413,7 @@
         function editSambaUser(targetDom, shareName){
             let originalUserList = JSON.parse(decodeURIComponent($(targetDom).attr("users")));
             let fieldElement = $(targetDom).parent();
-            $(fieldElement).html(`<i class="loading spinner icon"></i> Loading User List`);
+            $(fieldElement).html(`<i class="loading spinner icon"></i> ${fsT("samba/loading_users", "Loading User List")}`);
             //Overwrite the DOM element with multi-selection dropdown and save button
             $.get("../../system/storage/samba/listUsers", function(data){
                 if (data.error == undefined){
@@ -424,13 +429,13 @@
                     //Append save and cancel button
                     $(fieldElement).append(`
                         <div style="margin-top: 0.6em;"> 
-                            <button class="ui small basic button" onclick="saveSambaUserEdit('${shareName}');"><i class="ui green save icon"></i> Save</button>
-                            <button class="ui small basic button" onclick="initShareListTable();"><i class="ui grey remove icon"></i> Cancel</button>
+                            <button class="ui small basic button" onclick="saveSambaUserEdit('${shareName}');"><i class="ui green save icon"></i> ${fsT("samba/save", "Save")}</button>
+                            <button class="ui small basic button" onclick="initShareListTable();"><i class="ui grey remove icon"></i> ${fsT("samba/cancel", "Cancel")}</button>
                         </div>
                     `);
 
                 }else{
-                    msgbox("Failed to connect to smbd service", false)
+                    msgbox(fsT("samba/smbd_failed", "Failed to connect to the smbd service"), false)
                 }
             });
         }
@@ -439,7 +444,7 @@
             //Read selection from #editValidUserList
             let allowedUsers = $("#editValidUserList").dropdown("get value");
             if (allowedUsers.length == 0){
-                msgbox("At least one user is required per share", false);
+                msgbox(fsT("samba/user_required_share", "At least one user is required per share"), false);
                 return
             }
 
@@ -454,7 +459,7 @@
                     if (data.error != undefined){
                         msgbox(data.error, false);
                     }else{
-                        msgbox("Accessible users updated");
+                        msgbox(fsT("samba/users_updated", "Accessible users updated"));
                     }
                     //Clear share table
                     initShareListTable();
@@ -463,7 +468,7 @@
         }
 
         function editSharePath(shareName, originalSharePath){
-            ssPrompt({ title: "New Share Path", value: originalSharePath }, function (newpath) {
+            ssPrompt({ title: fsT("samba/new_path", "New Share Path"), value: originalSharePath }, function (newpath) {
                 if (newpath != null && newpath != "") {
                     $.ajax({
                         url: "/system/storage/samba/editPath",
@@ -476,7 +481,7 @@
                             if (data.error != undefined){
                                 msgbox(data.error, false);
                             }else{
-                                msgbox("Share path updated");
+                                msgbox(fsT("samba/path_updated", "Share path updated"));
                             }
                             //Clear share table
                             initShareListTable();

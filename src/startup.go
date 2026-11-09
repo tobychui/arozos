@@ -180,6 +180,7 @@ func RunStartup() {
 	ClusterInit() //Start Cluster Services
 
 	ModuleInstallerInit() //Start Module Installer
+	SetupWizardInit()     //First run Setup Wizard endpoints, after storage, users and file servers
 
 	//Finally
 	moduleHandler.ModuleSortList() //Sort the system module list
