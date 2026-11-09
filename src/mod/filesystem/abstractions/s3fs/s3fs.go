@@ -74,6 +74,7 @@ type S3FSAbstraction struct {
 	useSSL    bool
 	client    *s3.Client
 	uploader  *manager.Uploader
+	cache     *statCache
 }
 
 // NewS3FSAbstraction creates and validates a new S3 filesystem abstraction.
@@ -159,6 +160,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 		useSSL:    useSSL,
 		client:    client,
 		uploader:  uploader,
+		cache:     newStatCache(statCacheTTL),
 	}, nil
 }
 
@@ -223,6 +225,7 @@ func (s *S3FSAbstraction) Mkdir(filename string, _ os.FileMode) error {
 		Body:        bytes.NewReader([]byte{}),
 		ContentType: aws.String("application/x-directory"),
 	})
+	s.cache.changed(strings.TrimSuffix(key, "/"))
 	return err
 }
 
@@ -253,11 +256,13 @@ func (s *S3FSAbstraction) Remove(filename string) error {
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
+	s.cache.changed(key)
 	return err
 }
 
 // RemoveAll deletes every object whose key starts with the given path prefix.
 func (s *S3FSAbstraction) RemoveAll(path string) error {
+	defer s.cache.clear()
 	prefix := s.realPathToKey(path)
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
@@ -296,6 +301,7 @@ func (s *S3FSAbstraction) RemoveAll(path string) error {
 // Rename copies all objects from oldname to newname then removes the originals.
 // S3 has no native rename; this is a copy-then-delete sequence.
 func (s *S3FSAbstraction) Rename(oldname, newname string) error {
+	defer s.cache.clear()
 	ctx := context.Background()
 
 	if s.IsDir(oldname) {
@@ -347,7 +353,7 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 		Key:        aws.String(newKey),
 	})
 	if err != nil {
-		return err
+		return notExist(err)
 	}
 	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -357,29 +363,54 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 }
 
 // Stat returns object metadata.  Virtual directories are synthesised when any
-// objects exist under the path as a prefix.
+// objects exist under the path as a prefix.  The object is asked for first,
+// so a file costs one request, and answers are cached (statcache.go).
 func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
-	if s.IsDir(filename) {
+	key := s.realPathToKey(filename)
+	if key == "" || key == s.prefix {
 		return NewS3FileInfo(arozfs.Base(filename), 0, true, time.Now()), nil
 	}
-	key := s.realPathToKey(filename)
-	ctx := context.Background()
-	resp, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+	if info, known := s.cache.get(key); known {
+		if info == nil {
+			return nil, &fs.PathError{Op: "stat", Path: filename, Err: os.ErrNotExist}
+		}
+		return info, nil
+	}
+
+	gen := s.cache.generation()
+	resp, err := s.client.HeadObject(context.Background(), &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
-	if err != nil {
+	if err == nil {
+		size := int64(0)
+		if resp.ContentLength != nil {
+			size = *resp.ContentLength
+		}
+		modTime := time.Now()
+		if resp.LastModified != nil {
+			modTime = *resp.LastModified
+		}
+		info := NewS3FileInfo(arozfs.Base(key), size, false, modTime)
+		s.cache.put(gen, key, info)
+		return info, nil
+	}
+	if err = notExist(err); !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	size := int64(0)
-	if resp.ContentLength != nil {
-		size = *resp.ContentLength
+
+	//No such object, but it may be a folder
+	isDir, dirErr := s.dirExists(key)
+	if dirErr != nil {
+		return nil, dirErr
 	}
-	modTime := time.Now()
-	if resp.LastModified != nil {
-		modTime = *resp.LastModified
+	if isDir {
+		info := NewS3FileInfo(arozfs.Base(filename), 0, true, time.Now())
+		s.cache.put(gen, key, info)
+		return info, nil
 	}
-	return NewS3FileInfo(arozfs.Base(key), size, false, modTime), nil
+	s.cache.put(gen, key, nil)
+	return nil, err
 }
 
 func (s *S3FSAbstraction) Close() error { return nil }
@@ -399,16 +430,8 @@ func (s *S3FSAbstraction) RealPathToVirtualPath(fullpath, username string) (stri
 // FileExists returns true if an exact object exists with this key, or if the
 // path is a virtual directory (i.e. objects exist under it as a prefix).
 func (s *S3FSAbstraction) FileExists(realpath string) bool {
-	key := s.realPathToKey(realpath)
-	ctx := context.Background()
-	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(key),
-	})
-	if err == nil {
-		return true
-	}
-	return s.IsDir(realpath)
+	_, err := s.Stat(realpath)
+	return err == nil
 }
 
 // IsDir returns true when the path represents a virtual S3 "directory":
@@ -420,12 +443,27 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 	if key == "" || key == s.prefix {
 		return true
 	}
+	if info, known := s.cache.get(key); known {
+		return info != nil && info.IsDir()
+	}
+	gen := s.cache.generation()
+	isDir, err := s.dirExists(key)
+	if err != nil {
+		return false
+	}
+	if isDir {
+		s.cache.put(gen, key, NewS3FileInfo(arozfs.Base(realpath), 0, true, time.Now()))
+	}
+	return isDir
+}
 
+// dirExists asks the bucket whether key is a folder: a directory marker
+// object, or any object under it.
+func (s *S3FSAbstraction) dirExists(key string) (bool, error) {
 	prefix := key
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
-
 	ctx := context.Background()
 
 	// Check for an explicit directory-marker object.
@@ -434,7 +472,10 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 		Key:    aws.String(prefix),
 	})
 	if err == nil {
-		return true
+		return true, nil
+	}
+	if err = notExist(err); !errors.Is(err, os.ErrNotExist) {
+		return false, err
 	}
 
 	// Check if any objects exist under this prefix.
@@ -443,10 +484,10 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 		Prefix:  aws.String(prefix),
 		MaxKeys: aws.Int32(1),
 	})
-	if err == nil && len(resp.Contents) > 0 {
-		return true
+	if err != nil {
+		return false, err
 	}
-	return false
+	return len(resp.Contents) > 0, nil
 }
 
 // Glob lists all entries in the same directory as realpathWildcard whose names
@@ -472,32 +513,19 @@ func (s *S3FSAbstraction) Glob(realpathWildcard string) ([]string, error) {
 }
 
 func (s *S3FSAbstraction) GetFileSize(realpath string) int64 {
-	key := s.realPathToKey(realpath)
-	ctx := context.Background()
-	resp, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(key),
-	})
-	if err != nil || resp.ContentLength == nil {
+	info, err := s.Stat(realpath)
+	if err != nil || info.IsDir() {
 		return 0
 	}
-	return *resp.ContentLength
+	return info.Size()
 }
 
 func (s *S3FSAbstraction) GetModTime(realpath string) (int64, error) {
-	key := s.realPathToKey(realpath)
-	ctx := context.Background()
-	resp, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(key),
-	})
+	info, err := s.Stat(realpath)
 	if err != nil {
 		return 0, err
 	}
-	if resp.LastModified == nil {
-		return time.Now().Unix(), nil
-	}
-	return resp.LastModified.Unix(), nil
+	return info.ModTime().Unix(), nil
 }
 
 func (s *S3FSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
@@ -519,10 +547,12 @@ func (s *S3FSAbstraction) ReadFile(filename string) ([]byte, error) {
 func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	results := []fs.DirEntry{}
 
-	prefix := s.realPathToKey(dirname)
+	dirKey := s.realPathToKey(dirname)
+	prefix := dirKey
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
+	gen := s.cache.generation()
 
 	ctx := context.Background()
 	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
@@ -575,6 +605,14 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 		}
 	}
 
+	//The listing is complete: keep it to answer Stat for this folder
+	children := make(map[string]os.FileInfo, len(results))
+	for _, entry := range results {
+		if info, err := entry.Info(); err == nil {
+			children[entry.Name()] = info
+		}
+	}
+	s.cache.putListing(gen, strings.TrimSuffix(dirKey, "/"), children)
 	return results, nil
 }
 
@@ -586,6 +624,7 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 // Raspberry Pi) even for multi-GiB files.
 func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.FileMode) error {
 	key := s.realPathToKey(filename)
+	defer s.cache.changed(key)
 	_, err := s.uploader.Upload(context.Background(), &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(key),
@@ -607,7 +646,7 @@ func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, err
+		return nil, notExist(err)
 	}
 	return resp.Body, nil // io.ReadCloser backed directly by the S3 HTTP response
 }
@@ -670,6 +709,27 @@ func s3CopySource(bucket, key string) string {
 		encoded[i] = url.PathEscape(seg)
 	}
 	return bucket + "/" + strings.Join(encoded, "/")
+}
+
+// notExist turns the answers S3 gives for a missing object into an error
+// matching os.ErrNotExist, keeping the original for the log. Callers test
+// for a missing file with errors.Is, the way they do on a local disk: the SMB
+// server must answer "not found" for File Explorer to create a new file.
+// HEAD answers NotFound and GET NoSuchKey; a missing bucket is not included.
+func notExist(err error) error {
+	if err == nil {
+		return nil
+	}
+	var notFound *types.NotFound
+	var noSuchKey *types.NoSuchKey
+	var coded interface{ ErrorCode() string }
+	switch {
+	case errors.As(err, &notFound), errors.As(err, &noSuchKey):
+	case errors.As(err, &coded) && (coded.ErrorCode() == "NotFound" || coded.ErrorCode() == "NoSuchKey"):
+	default:
+		return err
+	}
+	return fmt.Errorf("%w: %w", os.ErrNotExist, err)
 }
 
 func filterFilepath(rawpath string) string {
