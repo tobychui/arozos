@@ -515,7 +515,48 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	driveAccessChanged()
+
+	// Restart all enabled file servers so they pick up the new drive
+	// configuration.  Errors are logged but do not prevent the reload
+	// from succeeding.
+	restartAllEnabledServers()
+
 	utils.SendOK(w)
+}
+
+// restartAllEnabledServers stops and restarts every enabled file server.
+// It is invoked after a storage pool reload to ensure file servers (SMB,
+// WebDAV, SFTP, FTP, etc.) see the re-mounted drives.  Failures are
+// logged to systemWideLogger but never block the reload response.
+func restartAllEnabledServers() {
+	for _, fserv := range networkFileServerDaemon {
+		if fserv.EnableCheck == nil || fserv.ToggleFunc == nil {
+			continue
+		}
+		if !fserv.EnableCheck() {
+			continue
+		}
+
+		systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("Restarting file server: %s", fserv.Name), nil)
+
+		// Stop
+		if err := fserv.ToggleFunc(false); err != nil {
+			systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("Failed to stop file server %s: %v", fserv.Name, err), nil)
+			continue
+		}
+
+		// Brief pause so the OS releases the port cleanly (important for
+		// SMB on port 445).
+		time.Sleep(500 * time.Millisecond)
+
+		// Start
+		if err := fserv.ToggleFunc(true); err != nil {
+			systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("Failed to restart file server %s: %v", fserv.Name, err), nil)
+			continue
+		}
+
+		systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("File server %s restarted successfully", fserv.Name), nil)
+	}
 }
 
 // reloadGroupPool closes and reopens the pool of a permission group
