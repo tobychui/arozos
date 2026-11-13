@@ -1,0 +1,123 @@
+/*
+    3D Modeler - read and write files in the ArozOS file system
+
+    Everything the app stores or loads goes through this script: parts
+    (.aopart), assemblies (.aoasm) and drawings (.aodrw), all JSON text,
+    and the exchange formats it imports and exports (drawings export PDF,
+    DXF, SVG and PNG).
+    Requests are sent as a JSON body, because a url-encoded form is capped in
+    size.
+
+    POST opr:
+        ping         -> { ok: true }                    tells the app a backend exists
+        read         path=vpath -> { ok, content }      text files
+        readBinary   path=vpath -> { ok, hex }          any file, as lowercase hex
+        write        path=vpath, content=text -> { ok, path }
+        writeBinary  path=vpath, hex=hex string -> { ok, path }
+
+    Every reply is JSON: { ok: true, ... } or { error: "text", code: "..." }.
+    The script runs with the calling user's permissions, so filelib refuses
+    what that user may not read or write. Only the file types the app deals
+    with are accepted.
+*/
+
+requirelib("filelib");
+
+var MAX_SIZE = 48 * 1024 * 1024;        // of text, or of binary data
+var ALLOWED = ["aopart", "aoasm", "aodrw", "step", "stp", "brep", "stl", "obj", "3mf", "pdf", "dxf", "svg", "png"];
+
+function param(__field, __fallback) {
+    try {
+        var __value = eval(__field);
+        if (__value === undefined || __value === null) {
+            return __fallback;
+        }
+        return __value;
+    } catch (e) {
+        return __fallback;
+    }
+}
+
+function reply(obj) {
+    sendJSONResp(JSON.stringify(obj));
+}
+
+function extOf(p) {
+    var b = String(p).split("/").pop().toLowerCase();
+    var i = b.lastIndexOf(".");
+    return i < 0 ? "" : b.substring(i + 1);
+}
+
+function parentOf(p) {
+    var i = p.lastIndexOf("/");
+    return i < 0 ? "" : p.substring(0, i);
+}
+
+// Why a file cannot be written to `path`, or "" when it can
+function writeProblem(path) {
+    if (!pathCanWrite(path)) {
+        return { error: "You do not have permission to write to this location", code: "denied" };
+    }
+    // filelib.isDir raises an error on a path that is not there, so ask
+    // fileExists first. The root of a drive ("user:") always exists.
+    var parent = parentOf(path);
+    if (parent !== "" && parent.charAt(parent.length - 1) !== ":" && !(filelib.fileExists(parent) && filelib.isDir(parent))) {
+        return { error: "The destination folder does not exist", code: "nofolder" };
+    }
+    return null;
+}
+
+var opr = String(param("opr", ""));
+var path = String(param("path", ""));
+
+if (opr === "ping") {
+    reply({ ok: true });
+} else if (path === "" || path.indexOf(":/") < 0 || /(^|\/)\.\.(\/|$)/.test(path)) {
+    reply({ error: "Invalid file path", code: "badpath" });
+} else if (ALLOWED.indexOf(extOf(path)) < 0) {
+    reply({ error: "3D Modeler cannot open or save this type of file", code: "badtype" });
+} else if (opr === "read" || opr === "readBinary") {
+    if (!filelib.fileExists(path) || filelib.isDir(path)) {
+        reply({ error: "The file does not exist", code: "notfound" });
+    } else if (filelib.filesize(path) > MAX_SIZE) {
+        reply({ error: "The file is too large to open", code: "toolarge" });
+    } else if (opr === "read") {
+        var text = filelib.readFile(path);
+        if (text === false || text === undefined || text === null) {
+            reply({ error: "Unable to read the file", code: "readfail" });
+        } else {
+            reply({ ok: true, content: String(text) });
+        }
+    } else {
+        var data = filelib.readBinaryFile(path);
+        if (data === false || data === undefined || data === null) {
+            reply({ error: "Unable to read the file", code: "readfail" });
+        } else {
+            reply({ ok: true, hex: String(data) });
+        }
+    }
+} else if (opr === "write") {
+    var content = String(param("content", ""));
+    var problem = content.length > MAX_SIZE ? { error: "The file is too large to save", code: "toolarge" } : writeProblem(path);
+    if (problem) {
+        reply(problem);
+    } else if (filelib.writeFile(path, content)) {
+        reply({ ok: true, path: path });
+    } else {
+        reply({ error: "Unable to write the file", code: "writefail" });
+    }
+} else if (opr === "writeBinary") {
+    var hex = String(param("hex", ""));
+    var bad = hex.length > MAX_SIZE * 2 ? { error: "The file is too large to save", code: "toolarge" }
+        : (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex.substring(0, 64))) ? { error: "Invalid file data", code: "baddata" }
+            : writeProblem(path);
+    if (bad) {
+        reply(bad);
+    } else if (filelib.writeBinaryFile(path, hex)) {
+        reply({ ok: true, path: path });
+    } else {
+        reply({ error: "Unable to write the file", code: "writefail" });
+    }
+} else {
+    reply({ error: "Unknown operation", code: "badop" });
+}

@@ -1,0 +1,30 @@
+/*
+    3D Modeler
+
+    A parametric solid modeller for the ArozOS desktop: 2D sketch on a plane or
+    a face, extrude, then hole / fillet / chamfer, with STEP, STL and OBJ export;
+    assemblies of parts (.aoasm) and 2D drawings of both (.aodrw) for printing.
+
+    Geometry is computed in the browser by an OpenCascade WASM kernel running in
+    a Web Worker (lib/occt) and sketches are solved by planegcs (lib/planegcs).
+    Both are only fetched when the app is opened. See PROPOSAL.md for the design
+    and the roadmap.
+*/
+
+var moduleLaunchInfo = {
+    Name: "3D Modeler",
+    Desc: "Sketch and edit solid 3D parts, put them together in assemblies, make 2D drawings, export STEP, STL, OBJ, PDF and DXF",
+    Group: "Engineering",
+    IconPath: "3D Modeler/img/module_icon.svg",
+    Version: "0.1",
+    StartDir: "3D Modeler/index.html",
+    SupportFW: true,
+    LaunchFWDir: "3D Modeler/index.html",
+    InitFWSize: [1280, 800],
+    SupportEmb: true,
+    LaunchEmb: "3D Modeler/index.html",
+    InitEmbSize: [1280, 800],
+    SupportedExt: [".aopart", ".aoasm", ".aodrw", ".step", ".stp"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

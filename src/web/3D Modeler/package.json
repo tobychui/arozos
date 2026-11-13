@@ -1,0 +1,5 @@
+{
+    "private": true,
+    "type": "module",
+    "description": "Not an npm project. This file only tells Node that the .js files of the app are ES modules, so tests/ can import them: node tests/run.mjs"
+}

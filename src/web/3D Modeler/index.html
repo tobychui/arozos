@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#f3f4f6">
+    <title>3D Modeler</title>
+    <link rel="icon" href="img/module_icon.svg">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./lib/three/three.module.min.js",
+            "three/addons/": "./lib/three/addons/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- ================= Icon sprite (hand drawn inline SVG, no emoji, no icon font) ================= -->
+    <svg id="iconsprite" aria-hidden="true" focusable="false">
+        <defs>
+            <!-- file -->
+            <symbol id="ic-new" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 12v6M9 15h6"/></symbol>
+            <symbol id="ic-open" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3z"/><path d="M3 10h18l-1.6 8.2a1 1 0 0 1-1 .8H5.6a1 1 0 0 1-1-.8z"/></symbol>
+            <symbol id="ic-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></symbol>
+            <symbol id="ic-saveas" viewBox="0 0 24 24"><path d="M5 3h11l3 3v6M12 21H7a2 2 0 0 1-2-2V3"/><path d="M8 3v5h7V3"/><path d="M14 21l1-3.4 5-5 2.4 2.4-5 5z"/></symbol>
+            <symbol id="ic-warn" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.4v.2"/></symbol>
+            <symbol id="ic-import" viewBox="0 0 24 24"><path d="M12 3v11M8 10l4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+            <symbol id="ic-export" viewBox="0 0 24 24"><path d="M12 14V3M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+            <symbol id="ic-undo" viewBox="0 0 24 24"><path d="M8 5L4 9l4 4"/><path d="M4 9h10a5 5 0 0 1 0 10h-3"/></symbol>
+            <symbol id="ic-redo" viewBox="0 0 24 24"><path d="M16 5l4 4-4 4"/><path d="M20 9H10a5 5 0 0 0 0 10h3"/></symbol>
+            <symbol id="ic-test" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-6.5"/></symbol>
+            <!-- 3D model -->
+            <symbol id="ic-sketch" viewBox="0 0 24 24"><path d="M3 9l9-5 9 5-9 5z" stroke-dasharray="2.6 2"/><path d="M9 20l1-3.6 7.6-7.6 2.6 2.6-7.6 7.6z"/></symbol>
+            <symbol id="ic-extrude" viewBox="0 0 24 24"><path d="M4 16l8-3.5 8 3.5-8 3.5z"/><path d="M4 16V11l8-3.5 8 3.5v5M12 12.5V19.5"/><path d="M12 7V2M9.5 4.5L12 2l2.5 2.5"/></symbol>
+            <symbol id="ic-revolve" viewBox="0 0 24 24"><path d="M12 2v20" stroke-dasharray="4 2 1 2"/><path d="M12 6c5 0 7 2 7 6s-2 6-7 6"/><path d="M5 9a8 3 0 0 0 4 2.6M9.4 8.8v3h-3"/></symbol>
+            <symbol id="ic-hole" viewBox="0 0 24 24"><path d="M3 12l9-5 9 5-9 5z"/><ellipse cx="12" cy="12" rx="3.6" ry="2"/><path d="M3 12v4l9 5 9-5v-4"/></symbol>
+            <symbol id="ic-fillet" viewBox="0 0 24 24"><path d="M4 20V11a7 7 0 0 1 7-7h9"/><path d="M4 20h16V4" opacity=".45"/></symbol>
+            <symbol id="ic-chamfer" viewBox="0 0 24 24"><path d="M4 20v-9l7-7h9"/><path d="M4 20h16V4" opacity=".45"/></symbol>
+            <symbol id="ic-shell" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v9l-8 4-8-4z"/><path d="M7.5 9.6L12 7.4l4.5 2.2v5L12 16.8l-4.5-2.2z"/></symbol>
+            <symbol id="ic-plane" viewBox="0 0 24 24"><path d="M3 15l6-8h12l-6 8z"/></symbol>
+            <symbol id="ic-axis" viewBox="0 0 24 24"><path d="M3 21L21 3" stroke-dasharray="6 2.4 1.4 2.4"/></symbol>
+            <symbol id="ic-point" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="ic-rectpattern" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></symbol>
+            <symbol id="ic-circpattern" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><circle cx="18.5" cy="9" r="2"/><circle cx="16" cy="17" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="5.5" cy="9" r="2"/></symbol>
+            <symbol id="ic-mirror" viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="3 2"/><path d="M9 7v10L3 17zM15 7v10l6 0z"/></symbol>
+            <!-- sketch -->
+            <symbol id="ic-line" viewBox="0 0 24 24"><path d="M5 19L19 5"/><circle cx="5" cy="19" r="1.6" fill="currentColor"/><circle cx="19" cy="5" r="1.6" fill="currentColor"/></symbol>
+            <symbol id="ic-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></symbol>
+            <symbol id="ic-arc" viewBox="0 0 24 24"><path d="M4 18A14 14 0 0 1 18 4"/><circle cx="4" cy="18" r="1.6" fill="currentColor"/><circle cx="18" cy="4" r="1.6" fill="currentColor"/></symbol>
+            <symbol id="ic-rect" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12"/></symbol>
+            <symbol id="ic-project" viewBox="0 0 24 24"><path d="M5 4l8-2 6 3-8 2z"/><path d="M5 19l8-2 6 3-8 2z" stroke-dasharray="2.4 2"/><path d="M12 8v7M10 13l2 2 2-2"/></symbol>
+            <symbol id="ic-trim" viewBox="0 0 24 24"><path d="M4 12h5M15 12h5"/><path d="M12 3v18" opacity=".45"/><path d="M10 9l4 6M14 9l-4 6"/></symbol>
+            <symbol id="ic-extend" viewBox="0 0 24 24"><path d="M4 12h8"/><path d="M12 12h6" stroke-dasharray="2.2 2"/><path d="M20 4v16"/></symbol>
+            <symbol id="ic-offset" viewBox="0 0 24 24"><path d="M4 18c0-7 5-12 12-12"/><path d="M9 20c0-6 4-10 10-10" opacity=".55"/></symbol>
+            <symbol id="ic-dimension" viewBox="0 0 24 24"><path d="M4 5v14M20 5v14M4 12h16"/><path d="M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/></symbol>
+            <symbol id="ic-polygon" viewBox="0 0 24 24"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/></symbol>
+            <symbol id="ic-slot" viewBox="0 0 24 24"><path d="M8 7h8a5 5 0 0 1 0 10H8A5 5 0 0 1 8 7z"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="16" cy="12" r="1.2" fill="currentColor"/></symbol>
+            <symbol id="ic-concentric" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+            <symbol id="ic-coincident" viewBox="0 0 24 24"><path d="M3 19l7-7M14 5l6-2"/><circle cx="12" cy="10" r="3"/><circle cx="12" cy="10" r="1" fill="currentColor"/></symbol>
+            <symbol id="ic-collinear" viewBox="0 0 24 24"><path d="M3 20l6-6M15 8l6-6" stroke-width="2.2"/><path d="M10.5 12.5l3-3" stroke-dasharray="1.2 2"/></symbol>
+            <symbol id="ic-horizontal" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M8 16h8" opacity=".5"/></symbol>
+            <symbol id="ic-vertical" viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M16 8v8" opacity=".5"/></symbol>
+            <symbol id="ic-parallel" viewBox="0 0 24 24"><path d="M5 20L13 4M11 20L19 4"/></symbol>
+            <symbol id="ic-perpendicular" viewBox="0 0 24 24"><path d="M4 19h16M12 19V5"/></symbol>
+            <symbol id="ic-tangent" viewBox="0 0 24 24"><circle cx="12" cy="14" r="6"/><path d="M3 8h18"/></symbol>
+            <symbol id="ic-equal" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14"/></symbol>
+            <symbol id="ic-fix" viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/></symbol>
+            <symbol id="ic-midpoint" viewBox="0 0 24 24"><path d="M4 19L20 5"/><path d="M12 7l4.5 8h-9z"/></symbol>
+            <symbol id="ic-construction" viewBox="0 0 24 24"><path d="M4 20L20 4" stroke-dasharray="3.4 2.6"/></symbol>
+            <symbol id="ic-finish" viewBox="0 0 24 24"><path d="M4 13l5.5 5.5L20 6" stroke-width="2.6"/></symbol>
+            <!-- inspect -->
+            <symbol id="ic-measure" viewBox="0 0 24 24"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2"/></symbol>
+            <symbol id="ic-mass" viewBox="0 0 24 24"><path d="M12 3l8 4.4v9.2L12 21l-8-4.4V7.4z"/><circle cx="12" cy="12" r="2.4"/><path d="M12 7v2.6M12 14.4V17M7 12h2.6M14.4 12H17"/></symbol>
+            <!-- view -->
+            <symbol id="ic-style" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6 9.5a7 7 0 0 1 6-3.5" opacity=".6"/><path d="M12 20.5a8.5 8.5 0 0 0 8.5-8.5c-3 4-7 5-12 4" fill="currentColor" stroke="none" opacity=".35"/></symbol>
+            <symbol id="ic-ortho" viewBox="0 0 24 24"><path d="M12 3l8 4.4v9.2L12 21l-8-4.4V7.4z"/><path d="M4 7.4l8 4.4 8-4.4M12 11.8V21"/></symbol>
+            <symbol id="ic-persp" viewBox="0 0 24 24"><path d="M3 5l12 3v8L3 19z"/><path d="M15 8l6 2v4l-6 2"/></symbol>
+            <symbol id="ic-section" viewBox="0 0 24 24"><path d="M12 3l8 4.4v9.2L12 21z"/><path d="M12 3L4 7.4v9.2L12 21" stroke-dasharray="2.4 2"/><path d="M14 8.5l4 2.2M14 12l4 2.2M14 15.5l4 2.2" opacity=".6"/></symbol>
+            <symbol id="ic-pan" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="M9.5 5.5L12 3l2.5 2.5M9.5 18.5L12 21l2.5-2.5M5.5 9.5L3 12l2.5 2.5M18.5 9.5L21 12l-2.5 2.5"/></symbol>
+            <symbol id="ic-zoomall" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="9" y="9" width="6" height="6"/></symbol>
+            <symbol id="ic-orbit" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M12 3a9 9 0 0 1 0 18" opacity=".55"/><path d="M17 14.5l3.4.9.6-3.4"/></symbol>
+            <symbol id="ic-lookat" viewBox="0 0 24 24"><path d="M2 9s3.5-5 8-5 8 5 8 5-3.5 5-8 5-8-5-8-5z"/><circle cx="10" cy="9" r="2.2"/><path d="M8 21l3-4h10l-3 4z"/></symbol>
+            <symbol id="ic-home" viewBox="0 0 24 24"><path d="M3 11.5L12 4l9 7.5"/><path d="M6 10v10h12V10M10 20v-6h4v6"/></symbol>
+            <!-- model browser -->
+            <symbol id="ic-part" viewBox="0 0 24 24"><path d="M12 3l8 4.4v9.2L12 21l-8-4.4V7.4z"/><path d="M4 7.4l8 4.4 8-4.4M12 11.8V21"/></symbol>
+            <symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+            <symbol id="ic-end" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></symbol>
+            <symbol id="ic-caret" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+            <symbol id="ic-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+            <!-- assembly -->
+            <symbol id="ic-assembly" viewBox="0 0 24 24"><path d="M3 9l5-2.6 5 2.6v5.4l-5 2.6-5-2.6z"/><path d="M3 9l5 2.6 5-2.6M8 11.6V17"/><path d="M13 12.6l4-2.1 4 2.1v4.6l-4 2.1-4-2.1z"/><path d="M13 12.6l4 2.1 4-2.1M17 14.7v4.6"/></symbol>
+            <symbol id="ic-drawing" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M14 16h5M14 13h5M3 13.5h8.5V20"/><rect x="6" y="7" width="5" height="4"/><path d="M14 7h4v3h-4z"/></symbol>
+            <symbol id="ic-place" viewBox="0 0 24 24"><path d="M12 9.5l7 3.8v6.2L12 23l-7-3.5v-6.2z"/><path d="M5 13.3l7 3.7 7-3.7M12 17v6"/><path d="M12 1v6M9.5 4.5L12 7l2.5-2.5"/></symbol>
+            <symbol id="ic-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.4M4 13a8 8 0 0 0 14.6 4.4"/><path d="M5 3v4h4M19 21v-4h-4"/></symbol>
+            <symbol id="ic-freemove" viewBox="0 0 24 24"><path d="M8 9.5l5-2.6 5 2.6v5.4l-5 2.6-5-2.6z"/><path d="M8 9.5l5 2.6 5-2.6M13 12.1v5.4"/><path d="M2 12h4M4 10l-2 2 2 2M13 2v3M11 4l2-2 2 2"/></symbol>
+            <symbol id="ic-freerotate" viewBox="0 0 24 24"><path d="M8 10l4-2 4 2v4.4l-4 2-4-2z"/><path d="M8 10l4 2 4-2M12 12v4.4"/><path d="M4.5 16A8.5 8.5 0 0 1 19 5.6"/><path d="M19.5 2.5L19 5.6l-3.1-.6"/></symbol>
+            <symbol id="ic-transform" viewBox="0 0 24 24"><path d="M12 13V3M12 13l8 4.5M12 13l-8 4.5"/><path d="M9.5 5.5L12 3l2.5 2.5"/><path d="M17.3 18.6l2.7-1.1-.5-2.9"/><path d="M4.5 14.6L4 17.5l2.7 1.1"/><circle cx="12" cy="13" r="1.6"/></symbol>
+            <symbol id="ic-ground" viewBox="0 0 24 24"><path d="M12 3v10"/><circle cx="12" cy="5.5" r="2.5"/><path d="M5 14h14M7.5 17h9M10 20h4"/></symbol>
+            <symbol id="ic-drop" viewBox="0 0 24 24"><path d="M8 3h8v7H8z"/><path d="M12 12v6M9.5 15.5L12 18l2.5-2.5"/><path d="M3 21h18"/></symbol>
+            <symbol id="ic-constrain" viewBox="0 0 24 24"><path d="M3 4h8v6H3zM13 14h8v6h-8z"/><path d="M7 10v4h6M17 14v-4h-6" stroke-dasharray="2 1.6"/></symbol>
+            <symbol id="ic-mate" viewBox="0 0 24 24"><path d="M3 4h18v6H3zM3 14h18v6H3z"/><path d="M8 10.8v2.4M16 10.8v2.4"/></symbol>
+            <symbol id="ic-flush" viewBox="0 0 24 24"><path d="M3 5h8v14H3zM13 9h8v10h-8z"/><path d="M2 19.5h20" stroke-dasharray="2 1.6"/></symbol>
+            <symbol id="ic-angle" viewBox="0 0 24 24"><path d="M3 20h18M3 20L17 6"/><path d="M10 20a7 7 0 0 0-2-5"/></symbol>
+            <symbol id="ic-insert" viewBox="0 0 24 24"><path d="M8 3h8v3H8zM10 6h4v9h-4z"/><path d="M3 13h5M16 13h5M3 13v7h18v-7"/><path d="M12 15.5v4" stroke-dasharray="1.6 1.4"/></symbol>
+            <symbol id="ic-hide" viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/><path d="M4 20L20 4"/></symbol>
+            <symbol id="ic-show" viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+            <symbol id="ic-isolate" viewBox="0 0 24 24"><path d="M12 6.5l5 2.6v5.4l-5 2.6-5-2.6V9.1z"/><path d="M7 9.1l5 2.6 5-2.6M12 11.7v5.4"/><path d="M3 3h4M3 3v4M21 3h-4M21 3v4M3 21h4M3 21v-4M21 21h-4M21 21v-4" opacity=".55"/></symbol>
+            <symbol id="ic-interference" viewBox="0 0 24 24"><path d="M3 6h11v9H3z"/><path d="M10 10h11v9H10z"/><path d="M10 10h4v5h-4z" fill="currentColor" stroke="none" opacity=".45"/></symbol>
+            <symbol id="ic-dof" viewBox="0 0 24 24"><path d="M12 12V3M12 12l7.8 4.5M12 12l-7.8 4.5"/><path d="M9.6 5.4L12 3l2.4 2.4"/><path d="M17 3.5a3.5 3.5 0 0 1 3 3.2" opacity=".6"/><circle cx="12" cy="12" r="1.5"/></symbol>
+            <!-- drawing -->
+            <symbol id="ic-baseview" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M7 16V9h5v3h5v4z"/></symbol>
+            <symbol id="ic-projectedview" viewBox="0 0 24 24"><path d="M3 15V8h6v7zM15 15v-5h6v5z"/><path d="M10.5 11.5h3.2M12.2 9.8l1.7 1.7-1.7 1.7"/><path d="M3 19h18" opacity=".45" stroke-dasharray="2 1.6"/></symbol>
+            <symbol id="ic-faceview" viewBox="0 0 24 24"><path d="M7 4h14l-4 4H3z" opacity=".5"/><path d="M3 8h14v12H3z"/><circle cx="10" cy="14" r="2.6"/></symbol>
+            <symbol id="ic-editview" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="1"/><path d="M11 17l1-3.4 6.6-6.6 2.4 2.4-6.6 6.6z"/></symbol>
+            <symbol id="ic-sheet" viewBox="0 0 24 24"><path d="M5 3h14v18H5z"/><path d="M11 21v-5h8M11 18.5h8"/></symbol>
+            <symbol id="ic-dimstyle" viewBox="0 0 24 24"><path d="M4 4v7M20 4v7M4 7.5h16"/><path d="M6.5 6l-2.5 1.5 2.5 1.5M17.5 6l2.5 1.5-2.5 1.5"/><path d="M8 21l4-8 4 8M9.6 18h4.8"/></symbol>
+            <symbol id="ic-zoomin" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></symbol>
+            <symbol id="ic-zoomout" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5"/></symbol>
+            <symbol id="ic-radius" viewBox="0 0 24 24"><circle cx="11" cy="13" r="8" opacity=".45"/><path d="M11 13l5.4-5.4"/><path d="M13.6 7.2l3.1-.1-.1 3.1"/><circle cx="11" cy="13" r="1" fill="currentColor"/></symbol>
+            <symbol id="ic-diameter" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" opacity=".45"/><path d="M6.6 17.4L17.4 6.6"/><path d="M14.4 6.6h3v3M9.6 17.4h-3v-3"/></symbol>
+            <symbol id="ic-holenote" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.5 12.5l4-4h6.5"/><path d="M14.5 5h6.5" opacity=".55"/></symbol>
+            <symbol id="ic-centermark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5" opacity=".45"/><path d="M12 2.5v6.5M12 15v6.5M2.5 12H9M15 12h6.5M11 12h2M12 11v2"/></symbol>
+            <symbol id="ic-leader" viewBox="0 0 24 24"><path d="M4.5 19.5L13 11h7"/><path d="M4 20l1.2-3.8 2.6 2.6z" fill="currentColor"/><path d="M13 7.5h7M13 4h5" opacity=".6"/></symbol>
+            <symbol id="ic-text" viewBox="0 0 24 24"><path d="M5 7V4h14v3M12 4v16M9 20h6"/></symbol>
+            <symbol id="ic-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.6-2.2-.4-1.2.4-2.3 1.7-2.3H18a3 3 0 0 0 3-3A9.6 9.6 0 0 0 12 3z"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="17" cy="10.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="ic-component" viewBox="0 0 24 24"><path d="M12 3l8 4.4v9.2L12 21l-8-4.4V7.4z"/><path d="M4 7.4l8 4.4 8-4.4M12 11.8V21"/></symbol>
+        </defs>
+    </svg>
+
+    <div id="app">
+        <!-- ================= Ribbon ================= -->
+        <header id="ribbon">
+            <div id="tabrow">
+                <div id="quickaccess"></div>
+                <nav id="tabs" role="tablist"></nav>
+                <div id="doctitle">Part1</div>
+            </div>
+            <div id="panels"></div>
+        </header>
+
+        <div id="workspace">
+            <!-- ================= Model browser ================= -->
+            <aside id="browser">
+                <div class="browser-head" id="browser-head">Model</div>
+                <div id="tree" role="tree"></div>
+                <div id="asm-tree" role="tree" hidden></div>
+                <div id="drw-tree" role="tree" hidden></div>
+            </aside>
+
+            <!-- ================= Viewport and document tabs ================= -->
+            <div id="center">
+            <main id="stage">
+                <canvas id="viewport"></canvas>
+                <div id="sheet-stage" hidden></div>
+                <div id="prompt" hidden></div>
+                <div id="viewcube" title="Click a face, an edge or a corner to look from there">
+                    <div id="viewcube-cam"></div>
+                    <button id="viewcube-home" class="qa-btn" title="Home View"><svg class="ic"><use href="#ic-home"/></svg></button>
+                </div>
+                <div id="navbar"></div>
+                <svg id="triad" viewBox="-40 -40 80 80" aria-hidden="true"></svg>
+                <svg id="orbit-mark" aria-hidden="true" hidden></svg>
+                <div id="splash">
+                    <div class="splash-box">
+                        <div class="spinner"></div>
+                        <div id="splash-text">Loading modelling kernel...</div>
+                    </div>
+                </div>
+            </main>
+            <nav id="doctabs" role="tablist" aria-label="Open documents"></nav>
+            </div>
+        </div>
+
+        <!-- ================= Status bar ================= -->
+        <footer id="statusbar">
+            <span id="status-msg">Ready</span>
+            <span class="spacer"></span>
+            <span class="status-item" id="status-kernel" title="OpenCascade geometry kernel"><i class="dot"></i>Kernel</span>
+            <span class="status-item" id="status-solver" title="planegcs sketch constraint solver"><i class="dot"></i>Solver</span>
+            <span class="status-item" id="status-units">mm</span>
+        </footer>
+    </div>
+
+    <div id="menu" hidden></div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
