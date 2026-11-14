@@ -421,8 +421,24 @@ svg.ic {
     text-decoration: line-through;
 }
 
+/* A hidden work plane: in the part, not drawn */
+.node.hiddenitem .node-label,
+.node.hiddenitem svg.ic {
+    color: var(--muted);
+    opacity: .6;
+}
+
 .node.failed .node-label {
     color: var(--bad);
+}
+
+/* After the sketch being edited: the model is rolled back to before it */
+.node.rolled {
+    opacity: 0.45;
+}
+
+.node.rolled .node-label {
+    font-style: italic;
 }
 
 .node-label {
@@ -1056,6 +1072,183 @@ body.dark #stage {
     font-weight: 400;
 }
 
+/* ================= figure rows (the Hole panel's section) ================= */
+.props.props-wide {
+    width: 304px;
+}
+
+.props-figure-row > label {
+    display: none;
+}
+
+.props-figure {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 2px 0 4px;
+    border-radius: 4px;
+    background: var(--panel-2);
+}
+
+.hole-figure {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.hole-figure .hf-material {
+    fill: url(#hf-hatch);
+}
+
+.hole-figure .hf-hatch {
+    stroke: var(--muted);
+    stroke-width: 1;
+    opacity: .45;
+}
+
+.hole-figure .hf-cavity {
+    fill: var(--panel-2);
+}
+
+.hole-figure .hf-edge {
+    fill: none;
+    stroke: var(--text);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+}
+
+.hole-figure .hf-axis {
+    stroke: var(--muted);
+    stroke-width: .8;
+    stroke-dasharray: 8 3 2 3;
+}
+
+.hole-figure .hf-plane {
+    stroke: var(--accent);
+    stroke-width: 1;
+    stroke-dasharray: 3 2;
+}
+
+.hole-figure .hf-dim,
+.hole-figure .hf-dir {
+    stroke: var(--muted);
+    stroke-width: .9;
+}
+
+.hole-figure .hf-head {
+    fill: var(--muted);
+}
+
+.hole-figure .hf-dim.on {
+    stroke: var(--accent);
+    stroke-width: 1.3;
+}
+
+.hole-figure .hf-head.on {
+    fill: var(--accent);
+}
+
+.hole-figure .hf-label {
+    fill: var(--text);
+    font-size: 10.5px;
+    cursor: pointer;
+}
+
+.hole-figure .hf-label:hover {
+    text-decoration: underline;
+}
+
+.hole-figure .hf-label.on {
+    fill: var(--accent);
+    font-weight: 600;
+}
+
+.hole-figure .hf-note {
+    fill: var(--muted);
+    font-size: 9.5px;
+}
+
+/* ================= illustration card (features/illustrate.js) ================= */
+.illus {
+    position: absolute;
+    z-index: 8;
+    width: 262px;
+    box-sizing: border-box;
+    padding: 6px 8px 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, .22);
+    pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.illus-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+}
+
+.illus-close {
+    pointer-events: auto;
+    display: flex;
+    padding: 2px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.illus-close:hover,
+.illus-toggle:hover {
+    background: var(--hover);
+    color: var(--text);
+}
+
+.illus-close svg.ic {
+    width: 14px;
+    height: 14px;
+}
+
+.illus-svg {
+    display: block;
+    width: 244px;
+    height: 150px;
+    margin: 5px 0 6px;
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--text);
+}
+
+.illus-text {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.illus-toggle {
+    align-self: center;
+    margin-left: auto;
+    display: flex;
+    padding: 2px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.illus-toggle.on {
+    color: var(--accent);
+}
+
+.illus-toggle svg.ic {
+    width: 15px;
+    height: 15px;
+}
+
 .props-section {
     padding: 6px 10px 2px;
     color: var(--muted);
@@ -1131,6 +1324,129 @@ body.dark #stage {
 
 .props-select {
     padding: 0 2px;
+}
+
+/* ================= offset plane box (planedrag.js) ================= */
+.offset-box {
+    position: absolute;
+    z-index: 9;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.offset-box.editing {
+    pointer-events: auto;
+}
+
+.offset-box[hidden] {
+    display: none;
+}
+
+.offset-input {
+    width: 96px;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    font: inherit;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+    outline: none;
+}
+
+.offset-input:focus {
+    border-color: var(--accent);
+}
+
+.offset-input.bad {
+    border-color: var(--bad);
+}
+
+.offset-buttons {
+    display: none;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+}
+
+.offset-box.editing .offset-buttons {
+    display: flex;
+}
+
+.offset-buttons button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    cursor: pointer;
+}
+
+.offset-buttons button:hover {
+    background: var(--hover);
+}
+
+.offset-ok {
+    color: var(--ok);
+}
+
+.offset-cancel {
+    color: var(--bad);
+}
+
+.offset-buttons svg.ic {
+    width: 15px;
+    height: 15px;
+}
+
+/* ================= mesh export dialog (io/exportdialog.js) ================= */
+.export-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.export-row > span {
+    flex: 0 0 auto;
+    color: var(--muted);
+}
+
+.export-row select {
+    height: 28px;
+    padding: 0 4px;
+}
+
+.export-hint {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.export-estimate {
+    min-height: 18px;
+    margin: 8px 0 14px;
+    font-weight: 600;
+}
+
+.export-estimate.busy {
+    color: var(--muted);
+    font-weight: 400;
+}
+
+.export-estimate.bad {
+    color: var(--bad);
+    font-weight: 400;
 }
 
 /* ================= Missing Files dialog (io/relink.js) ================= */

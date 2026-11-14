@@ -1428,14 +1428,17 @@
     }
     function sizeKey(v) { return Math.round(v * 2) / 2; }
 
-    /* the editor's line height for a font stack, as a share of the size -
-       what DocsLayout lays a line out with */
+    /* a font stack's ascent and descent, and the editor's single line for
+       it (em), as shares of the size - what DocsLayout lays a line out with */
     var ratioCache = {};
     function ratioOf(stack) {
         if (ratioCache[stack]) return ratioCache[stack];
-        var r = { asc: 0.905, desc: 0.212 };
+        var r = { asc: 0.905, desc: 0.212, em: 1.2 };
         try {
-            if (window.DocsLayout && DocsLayout.fontRatios) r = DocsLayout.fontRatios(stack);
+            if (window.DocsLayout && DocsLayout.fontRatios) {
+                var fr = DocsLayout.fontRatios(stack);
+                r = { asc: fr.asc, desc: fr.desc, em: DocsLayout.lineEm ? DocsLayout.lineEm(stack) : 1.2 };
+            }
         } catch (e) { }
         ratioCache[stack] = r;
         return r;
@@ -1967,7 +1970,7 @@
             if (!P || !P.pitch) return;
             var base = dominant(paragraphTokens(P, false));
             var rt = ratioOf(ctx.stacks[base.famKey] || "Arial");
-            var m = P.pitch / ((rt.asc + rt.desc) * base.size);
+            var m = P.pitch / (rt.em * base.size);
             if (m > 0.6 && m < 4) { P.mult = m; docMults.push(r2(m)); }
         });
         var docLS = docMults.length ? r2(median(docMults)) : 1.15;
@@ -1983,7 +1986,7 @@
                 var base = dominant(paragraphTokens(P, false));
                 var rt = ratioOf(ctx.stacks[base.famKey] || "Arial");
                 var m = P.ls || docLS;
-                lh = { h: (rt.asc + rt.desc) * base.size * m, asc: rt.asc * base.size, desc: rt.desc * base.size };
+                lh = { h: rt.em * base.size * m, asc: rt.asc * base.size, desc: rt.desc * base.size };
                 return lh;
             };
         });
@@ -2283,7 +2286,7 @@
                 if (P.lines.length > 1 && P.pitch) {
                     var base = dominant(paragraphTokens(P, false));
                     var rt = ratioOf(ctx.stacks[base.famKey] || "Arial");
-                    var m = P.pitch / ((rt.asc + rt.desc) * base.size);
+                    var m = P.pitch / (rt.em * base.size);
                     if (m > 0.6 && m < 4 && Math.abs(m - docLS) > 0.03) P.ls = r2(m);
                 }
                 P.marginLeft = Math.max(0, P.marginLeft || 0);

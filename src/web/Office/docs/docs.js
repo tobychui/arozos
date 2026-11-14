@@ -226,6 +226,8 @@
         for (i = layout.length - 1; i >= 0; i--) {
             if (layout[i].parentNode) layout[i].parentNode.removeChild(layout[i]);
         }
+        DocsLayout.restoreParagraphEnds(root);
+        DocsLayout.restoreBorderGroups(root);
         var all = root.querySelectorAll("*");
         for (i = 0; i < all.length; i++) {
             var el = all[i];
@@ -259,6 +261,8 @@
         removeAutoBreaks(root);
         DocsLayout.restoreTablePadding(root);
         DocsLayout.restorePictureLines(root);
+        DocsLayout.restoreBorderGroups(root);
+        DocsLayout.restoreParagraphEnds(root);
         var styled = root.querySelectorAll("[style]");
         for (var i = 0; i < styled.length; i++) {
             var el = styled[i];
@@ -600,6 +604,8 @@
         }
         var nb = b;
         if (b.tagName !== tag) {
+            // the layout's correction of its margin belongs to the old style
+            DocsLayout.restoreParagraphEnds(b);
             nb = document.createElement(tag);
             for (var i = 0; i < b.attributes.length; i++) nb.setAttribute(b.attributes[i].name, b.attributes[i].value);
             while (b.firstChild) nb.appendChild(b.firstChild);
@@ -3929,10 +3935,12 @@
     /* the passes that give a rendered subtree its word-processor layout:
        list markers, exact line heights, tab stops */
     function runLayoutPasses(root) {
+        DocsLayout.applyBorderGroups(root);
         DocsLayout.applyNumbering(root);
         DocsLayout.applyLineHeights(root, docLineSpacing());
         DocsLayout.applyTableBorders(root);
         DocsLayout.applyTabs(root);
+        DocsLayout.applyParagraphEnds(root);
     }
 
     /* ---------- header / footer bands ----------

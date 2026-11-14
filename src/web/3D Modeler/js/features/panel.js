@@ -18,11 +18,17 @@
             { type: "range", key, label, unit }             a slider with a size box
                 beside it; its limits are set with range(key, min, max)
             { type: "seg", key, label, items: [{ id, label, title }] }
+                illustrate: a family of illustrations.js (e.g. "constraint"):
+                a card beside the panel animates what the chosen item does
             { type: "check", key, label }
             { type: "text", key, label, placeholder, multiline }   free text
             { type: "select", key, label, items: [{ id, label }] }  a drop-down
             { type: "color", key, label }                   a colour picker ("#rrggbb")
+            { type: "figure", key }     a picture the width of the panel, set
+                with html(key, markup); a click on an element with
+                data-focus="<row key>" puts the caret in that row
         spec.onChange(key, value)   a number, seg, check, text or select row changed
+        spec.onFocus(key | null)    a number row got (or lost) the caret
         spec.onAction(key)          a pick button was clicked
         spec.onOk(), spec.onCancel()
         spec.okLabel, spec.cancelLabel   other words on the two buttons
@@ -37,6 +43,7 @@
 
 import { evaluate } from '../expr.js';
 import { wheelStep } from '../ui.js';
+import { createIllustration } from './illustrate.js';
 
 export function createPanel(stage, spec) {
     const panel = document.createElement('div');
@@ -49,6 +56,8 @@ export function createPanel(stage, spec) {
     panel.appendChild(title);
 
     const rows = {};    // key -> { row, control, type, value }
+    const illustrated = []; // seg rows with an illustration: { key, family, seg }
+    let illus = null;
     spec.rows.forEach(function (def) {
         if (def.type === 'section') {
             const section = document.createElement('div');
@@ -70,6 +79,17 @@ export function createPanel(stage, spec) {
         if (def.type === 'static') {
             entry.control = document.createElement('span');
             entry.control.className = 'props-static';
+            row.appendChild(entry.control);
+        } else if (def.type === 'figure') {
+            row.classList.add('props-figure-row');
+            entry.control = document.createElement('div');
+            entry.control.className = 'props-figure';
+            entry.control.addEventListener('click', function (event) {
+                const target = event.target.closest('[data-focus]');
+                if (target && rows[target.dataset.focus] && !rows[target.dataset.focus].row.hidden) {
+                    api.focus(target.dataset.focus);
+                }
+            });
             row.appendChild(entry.control);
         } else if (def.type === 'pick') {
             entry.control = document.createElement('button');
@@ -127,6 +147,14 @@ export function createPanel(stage, spec) {
                     input.value = String(+entry.value.toFixed(3));
                     input.classList.remove('bad');
                 }
+                if (spec.onFocus) {
+                    spec.onFocus(null);
+                }
+            });
+            input.addEventListener('focus', function () {
+                if (spec.onFocus) {
+                    spec.onFocus(def.key);
+                }
             });
             row.appendChild(input);
             const unit = document.createElement('span');
@@ -151,6 +179,10 @@ export function createPanel(stage, spec) {
             });
             entry.control = seg;
             row.appendChild(seg);
+            if (def.illustrate) {
+                entry.illustrate = def.illustrate;
+                illustrated.push({ key: def.key, family: def.illustrate, seg: seg });
+            }
         } else if (def.type === 'text') {
             const input = document.createElement(def.multiline ? 'textarea' : 'input');
             input.className = 'props-input' + (def.multiline ? ' props-textarea' : '');
@@ -259,6 +291,12 @@ export function createPanel(stage, spec) {
     buttons.appendChild(cancelButton);
     panel.appendChild(buttons);
     stage.appendChild(panel);
+    if (illustrated.length) {
+        illus = createIllustration(panel);
+        illustrated.forEach(function (r) {
+            illus.attachSeg(r.seg, r.family);
+        });
+    }
 
     panel.addEventListener('keydown', function (event) {
         // Keys typed in the panel belong to it, not to the app shortcuts
@@ -296,16 +334,23 @@ export function createPanel(stage, spec) {
     const api = {
         show: function () {
             panel.hidden = false;
+            if (illus) {
+                illus.resume();
+            }
         },
         hide: function () {
             panel.hidden = true;
+            if (illus) {
+                illus.stop();
+            }
         },
         isOpen: function () {
             return !panel.hidden;
         },
         title: function (text, sub) {
             title.firstChild.textContent = text;
-            title.lastChild.textContent = sub || '';
+            // (the illustration button may come after the subtitle)
+            title.querySelector('.props-sub').textContent = sub || '';
         },
         // The text of a static or pick row; warn marks a pick row as needing attention
         text: function (key, text, warn) {
@@ -326,6 +371,9 @@ export function createPanel(stage, spec) {
                 entry.control.querySelectorAll('.seg-btn').forEach(function (b) {
                     b.classList.toggle('on', b.dataset.id === value);
                 });
+                if (illus && entry.illustrate) {
+                    illus.show(entry.illustrate, value);
+                }
             } else if (entry.type === 'check') {
                 entry.control.checked = !!value;
             } else if (entry.type === 'text' || entry.type === 'select') {
@@ -384,6 +432,10 @@ export function createPanel(stage, spec) {
         },
         element: function () {
             return panel;
+        },
+        // The markup of a figure row
+        html: function (key, markup) {
+            rows[key].control.innerHTML = markup;
         },
         // The unit shown after a number row
         unit: function (key, text) {

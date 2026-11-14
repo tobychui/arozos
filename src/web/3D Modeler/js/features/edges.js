@@ -23,9 +23,13 @@
 import { createPanel } from './panel.js';
 
 const KINDS = {
-    fillet: { title: 'Fillet', size: 'radius', label: 'Radius', start: 2, name: 'fillet' },
-    chamfer: { title: 'Chamfer', size: 'distance', label: 'Distance', start: 1, name: 'chamfer' }
+    fillet: { title: 'Fillet', size: 'radius', label: 'Radius', start: 3, name: 'fillet' },
+    chamfer: { title: 'Chamfer', size: 'distance', label: 'Distance', start: 3, name: 'chamfer' }
 };
+
+// The size of the last fillet and chamfer made or edited, for the next new
+// one while the app stays open
+const lastSize = {};
 
 export function createEdgeFeature(options) {
     const kind = KINDS[options.kind];
@@ -129,6 +133,7 @@ export function createEdgeFeature(options) {
         }
         const made = draft();
         const editing = editId;
+        lastSize[options.kind] = made[kind.size];
         close(true);
         // Each edge also gets a description, so it is found again when an
         // earlier feature moves it (findEdges in kernel/occt.js)
@@ -171,7 +176,7 @@ export function createEdgeFeature(options) {
         editId = editing ? editing.id : null;
         open = true;
         panel.title(editing ? editing.name : kind.title);
-        panel.set('size', editing ? Number(editing[kind.size]) || kind.start : kind.start);
+        panel.set('size', editing ? Number(editing[kind.size]) || kind.start : lastSize[options.kind] || kind.start);
         viewport.setPickFilter({ edges: true, toggle: true });
         viewport.onSelection = refresh;
         // Which edges run on from which, as the kernel will follow them

@@ -257,6 +257,22 @@ export function createDocument() {
         });
     };
 
+    // Hide a work plane (or show it again): it stays in the part, is not
+    // drawn and cannot be picked, so it does not get in the way
+    doc.setHidden = function (id, hidden) {
+        const feature = doc.feature(id);
+        if (!feature) {
+            return false;
+        }
+        return doc.change((hidden ? 'Hide ' : 'Show ') + feature.name, function () {
+            if (hidden) {
+                feature.hidden = true;
+            } else {
+                delete feature.hidden;
+            }
+        });
+    };
+
     doc.rename = function (id, name) {
         const feature = doc.feature(id);
         name = String(name || '').trim().slice(0, 80);

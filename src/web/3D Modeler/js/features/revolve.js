@@ -69,7 +69,7 @@ export function createRevolve(options) {
             { type: 'number', key: 'angle', label: 'Angle A', unit: 'deg', max: 360, step: 5 },
             { type: 'number', key: 'angle2', label: 'Angle B', unit: 'deg', max: 360, step: 5 },
             { type: 'section', label: 'Output' },
-            { type: 'seg', key: 'operation', label: 'Boolean', items: OPERATIONS }
+            { type: 'seg', key: 'operation', label: 'Boolean', items: OPERATIONS, illustrate: 'operation' }
         ],
         onChange: refresh,
         onAction: function (key) {

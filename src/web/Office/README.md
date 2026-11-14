@@ -507,11 +507,11 @@ model allows) in its `.docx`, because there is only one layout:
 
 - [`docs/docs_layout.js`](docs/docs_layout.js) (`DocsLayout`) lays the live
   editor DOM out the way a word processor does and paginates it: line
-  heights from real font metrics (`fontRatios`, measured on a 2048px canvas
-  — CSS `line-height: normal` differs per font and per platform), list
-  numbering, tab stops with leaders, table rules compensated for pixel
-  snapping, keep-with-next / keep-lines / widow and orphan control,
-  footnote space at the foot of each page. **A page boundary is real in the
+  heights by Google Docs' rule (below — CSS `line-height: normal` differs
+  per font and per platform), list numbering, tab stops with leaders,
+  table rules compensated for pixel snapping, paragraph border groups,
+  keep-with-next / keep-lines / widow and orphan control, footnote space
+  at the foot of each page. **A page boundary is real in the
   DOM**: whatever crosses it is split into two elements — a paragraph at a
   line, the list or quote around it, a table row cell by cell (a copy of
   the row takes the rest of every cell) — and a `.doc-autobreak` spacer
@@ -828,6 +828,33 @@ What that turned up, and the code that now follows it:
   a Latin font gets proportional punctuation (`palt`); a page number with no
   stored result is still a page number; a merged table cell crossing a page
   cut is split with the table (`splitRowspans` in `docs_layout.js`).
+- **Google Docs' line is 1.2 em × spacing in every font**, rounded to a
+  whole pixel: `round(1.2 × size × spacing)` (`lineBox` in
+  `docs_layout.js`), so Arial 10.5pt single is 17px, 7.5pt is 12px and
+  16pt is 26px, which the font's own ascent + descent (16, 13, 25px)
+  missed; its baseline is 0.96 × size below the line top. A font whose own
+  box is taller than 1.25 em (Segoe UI, Microsoft JhengHei) still gets at
+  least that box: not yet compared against Google Docs. The PDF import
+  divides a line pitch by the same rule (`DocsLayout.lineEm`).
+- **Space before is not rounded, a paragraph's end is**: the first line may
+  start at 21.33px (16pt before), every later line at
+  `round(top + line)`, and the next paragraph at
+  `round(last line top + line + space after)` (`applyParagraphEnds`, which
+  puts the difference in the paragraph's margin-bottom; `data-mb0` /
+  `data-mbd`, never saved). Without it a 14pt heading with 16pt before and
+  4pt after sits 0.67px off, and the text drifts a pixel or more down a
+  page of headings.
+- **A right tab past the margin stops at the margin** (a CV's 10503-twip
+  stop on a 10482-twip text column): Google Docs puts the text flush
+  against it, where a browser wrapped it onto a line of its own. A tab whose
+  earlier width pushed it, or the text after it, onto the next line is
+  measured again from no width.
+- **Adjacent paragraphs with the same borders and indents are one bordered
+  group**: one rule under the last, none between (`applyBorderGroups`;
+  `data-bgroup` + docs.css, never saved).
+- `DESIGN CV.docx` states its 2pt spacer lines as 2pt, but Google drew them
+  at 2.25pt (a .docx stores half-points), so each lands 1px short of the
+  PDF: the one difference left on that page.
 
 ### Slides: starting a slide
 

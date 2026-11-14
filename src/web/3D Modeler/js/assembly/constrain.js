@@ -58,7 +58,7 @@ export function createConstrain(options) {
     const panel = createPanel(options.stage, {
         title: 'Place Constraint',
         rows: [
-            { type: 'seg', key: 'type', label: 'Type', columns: 3, items: TYPES },
+            { type: 'seg', key: 'type', label: 'Type', columns: 3, items: TYPES, illustrate: 'constraint' },
             { type: 'section', label: 'Selections' },
             { type: 'pick', key: 'p1', label: 'First', title: 'Click to pick this one again' },
             { type: 'pick', key: 'p2', label: 'Second', title: 'Click to pick this one again' },

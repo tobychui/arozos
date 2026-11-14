@@ -36,6 +36,7 @@ export function createBrowser(el, doc, handlers) {
     let selected = null;
     let renaming = null;
     let editing = null;     // id of the sketch open in the sketcher
+    let rollback = null;    // features after this one are rolled back (not shown)
     let report = {};
     let bodyCount = 0;
 
@@ -79,16 +80,32 @@ export function createBrowser(el, doc, handlers) {
                 entries.push({ id: 'editsketch', label: 'Edit Sketch' });
             }
         }
+        if (feature.type === 'plane') {
+            // A work plane in front of the model would catch the clicks
+            entries.push(feature.hidden ? { id: 'show', label: 'Show' } : { id: 'hide', label: 'Hide' });
+        }
         entries.push({ id: 'rename', label: 'Rename', hint: 'F2' });
         entries.push(feature.suppressed ? { id: 'unsuppress', label: 'Unsuppress' } : { id: 'suppress', label: 'Suppress' });
         entries.push({ id: 'delete', label: 'Delete', hint: 'Del' });
         return entries;
     }
 
+    function rolledBack(feature) {
+        if (!rollback) {
+            return false;
+        }
+        const list = doc.features();
+        const at = list.findIndex(function (f) {
+            return f.id === rollback;
+        });
+        return at >= 0 && list.indexOf(feature) > at;
+    }
+
     function featureRow(parent, depth, feature, child) {
         const status = report[feature.id] || {};
         const cls = (feature.id === selected ? 'selected ' : '') + (feature.suppressed ? 'suppressed ' : '') +
-            (status.status === 'error' ? 'failed ' : '') + (feature.id === editing ? 'editing' : '');
+            (status.status === 'error' ? 'failed ' : '') + (feature.id === editing ? 'editing ' : '') +
+            (rolledBack(feature) ? 'rolled ' : '') + (feature.type === 'plane' && feature.hidden ? 'hiddenitem' : '');
         const group = child ? 'f:' + feature.id : null;
         const made = row(parent, depth, FEATURE_ICONS[feature.type] || 'part', feature.name, { cls: cls, group: group });
         const node = group ? made.row : made;
@@ -266,6 +283,11 @@ export function createBrowser(el, doc, handlers) {
         // Mark the sketch that is open in the sketcher (null for none)
         setEditing: function (id) {
             editing = id;
+            render();
+        },
+        // Grey out the features after this one while the model is rolled back
+        setRollback: function (id) {
+            rollback = id;
             render();
         },
         setHotPlane: function (key) {

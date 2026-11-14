@@ -10,17 +10,29 @@
     Simple, counterbore and countersink holes, to a depth or through all, with
     an optional drill point. Threads are not modelled.
 
+    As in Inventor, the panel shows a section of the hole (holefigure.js)
+    that follows the seat, termination, direction and drill point, with
+    each size written where it applies; clicking a size puts the caret in
+    its box, and the box with the caret colours its size in the picture.
+
     options: stage, viewport, kernel, doc, onStatus(text), onClose(committed)
 */
 
 import { createPanel } from './panel.js';
 import { holePoints } from '../sketch/model.js';
 import { withResolvedPlane } from '../kernel/profile.js';
+import { holeFigure } from './holefigure.js';
 
+// A new hole starts as the owner asked: a 3 mm countersunk hole 10 deep
+// with a drill point, countersunk to 6 mm
 const DEFAULTS = {
-    kind: 'simple', diameter: 5, through: false, depth: 10, drillPoint: false, flip: false,
-    cbDiameter: 9, cbDepth: 5, csDiameter: 10, csAngle: 90
+    kind: 'countersink', diameter: 3, through: false, depth: 10, drillPoint: true, flip: false,
+    cbDiameter: 6, cbDepth: 3, csDiameter: 6, csAngle: 90
 };
+
+// The values of the last hole made or edited, for the next new one while
+// the app stays open (not the direction: that depends on the face)
+let lastUsed = null;
 
 export function createHole(options) {
     const viewport = options.viewport;
@@ -32,6 +44,7 @@ export function createHole(options) {
     let valid = false;
     let token = 0;
     let timer = null;
+    let focused = null;     // the size box with the caret, coloured in the picture
 
     const panel = createPanel(options.stage, {
         title: 'Hole',
@@ -39,32 +52,49 @@ export function createHole(options) {
             { type: 'section', label: 'Input Geometry' },
             { type: 'static', key: 'positions', label: 'Positions' },
             { type: 'section', label: 'Type' },
-            { type: 'seg', key: 'kind', label: 'Hole', items: [
-                { id: 'simple', label: 'Simple', title: 'A plain drilled hole' },
+            { type: 'seg', key: 'kind', label: 'Seat', items: [
+                { id: 'simple', label: 'None', title: 'A plain drilled hole' },
                 { id: 'counterbore', label: 'Counterbore', title: 'A wider flat-bottomed recess for a screw head' },
                 { id: 'countersink', label: 'Countersink', title: 'A conical recess for a countersunk screw' }
             ] },
-            { type: 'number', key: 'cbDiameter', label: 'C\'bore dia' },
-            { type: 'number', key: 'cbDepth', label: 'C\'bore depth' },
-            { type: 'number', key: 'csDiameter', label: 'C\'sink dia' },
-            { type: 'number', key: 'csAngle', label: 'C\'sink angle', unit: 'deg', max: 179.5 },
             { type: 'section', label: 'Behavior' },
-            { type: 'number', key: 'diameter', label: 'Diameter' },
             { type: 'seg', key: 'termination', label: 'Termination', items: [
                 { id: 'distance', label: 'Distance', title: 'Drill to a depth' },
                 { id: 'all', label: 'Through All', title: 'Drill through the whole part' }
             ] },
-            { type: 'number', key: 'depth', label: 'Depth' },
-            { type: 'check', key: 'drillPoint', label: 'Drill point (118 deg)' },
-            { type: 'check', key: 'flip', label: 'Flip direction' }
+            { type: 'seg', key: 'direction', label: 'Direction', items: [
+                { id: 'default', label: 'Default', title: 'Into the material, against the sketch plane\'s normal' },
+                { id: 'flipped', label: 'Flipped', title: 'The other way from the sketch plane' }
+            ] },
+            { type: 'seg', key: 'drill', label: 'Drill Point', items: [
+                { id: 'flat', label: 'Flat', title: 'A flat bottom' },
+                { id: 'angle', label: '118\u00b0', title: 'The cone a twist drill leaves, 118 degrees' }
+            ] },
+            { type: 'figure', key: 'figure' },
+            { type: 'number', key: 'csDiameter', label: 'C\'sink dia' },
+            { type: 'number', key: 'csAngle', label: 'C\'sink angle', unit: 'deg', max: 179.5 },
+            { type: 'number', key: 'cbDiameter', label: 'C\'bore dia' },
+            { type: 'number', key: 'cbDepth', label: 'C\'bore depth' },
+            { type: 'number', key: 'diameter', label: 'Diameter' },
+            { type: 'number', key: 'depth', label: 'Depth' }
         ],
         onChange: function (key, value) {
             if (key === 'termination') {
                 draft.through = value === 'all';
+            } else if (key === 'direction') {
+                draft.flip = value === 'flipped';
+            } else if (key === 'drill') {
+                draft.drillPoint = value === 'angle';
             } else {
                 draft[key] = value;
             }
             refresh();
+        },
+        onFocus: function (key) {
+            focused = key;
+            if (draft) {
+                drawFigure();
+            }
         },
         onAction: function () { },
         onOk: commit,
@@ -89,13 +119,21 @@ export function createHole(options) {
         return f;
     }
 
+    // Wider than other panels, so the picture's sizes can be read
+    panel.element().classList.add('props-wide');
+
+    function drawFigure() {
+        panel.html('figure', holeFigure(draft, focused));
+    }
+
     function refresh() {
         panel.visible('cbDiameter', draft.kind === 'counterbore');
         panel.visible('cbDepth', draft.kind === 'counterbore');
         panel.visible('csDiameter', draft.kind === 'countersink');
         panel.visible('csAngle', draft.kind === 'countersink');
         panel.visible('depth', !draft.through);
-        panel.visible('drillPoint', !draft.through);
+        panel.visible('drill', !draft.through);
+        drawFigure();
         clearTimeout(timer);
         const mine = ++token;
         valid = false;
@@ -135,6 +173,7 @@ export function createHole(options) {
         }
         const made = feature();
         const editing = editId;
+        lastUsed = Object.assign({}, draft, { flip: false });
         close(true);
         if (editing) {
             const old = doc.feature(editing);
@@ -179,7 +218,7 @@ export function createHole(options) {
         }
         sketchId = sketch.id;
         editId = editing ? editing.id : null;
-        draft = Object.assign({}, DEFAULTS);
+        draft = Object.assign({}, DEFAULTS, editing ? {} : lastUsed || {});
         if (editing) {
             Object.keys(DEFAULTS).forEach(function (key) {
                 if (editing[key] !== undefined) {
@@ -190,10 +229,13 @@ export function createHole(options) {
         const count = holePoints(sketch).length;
         panel.title(editing ? editing.name : 'Hole', sketch.name);
         panel.text('positions', count + (count === 1 ? ' point of ' : ' points of ') + sketch.name);
-        ['diameter', 'depth', 'cbDiameter', 'cbDepth', 'csDiameter', 'csAngle', 'kind', 'drillPoint', 'flip'].forEach(function (key) {
+        ['diameter', 'depth', 'cbDiameter', 'cbDepth', 'csDiameter', 'csAngle', 'kind'].forEach(function (key) {
             panel.set(key, draft[key]);
         });
         panel.set('termination', draft.through ? 'all' : 'distance');
+        panel.set('direction', draft.flip ? 'flipped' : 'default');
+        panel.set('drill', draft.drillPoint ? 'angle' : 'flat');
+        focused = null;
         open = true;
         panel.show();
         refresh();

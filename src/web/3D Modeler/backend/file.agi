@@ -24,7 +24,7 @@
 requirelib("filelib");
 
 var MAX_SIZE = 48 * 1024 * 1024;        // of text, or of binary data
-var ALLOWED = ["aopart", "aoasm", "aodrw", "step", "stp", "brep", "stl", "obj", "3mf", "pdf", "dxf", "svg", "png"];
+var ALLOWED = ["aopart", "aoasm", "aodrw", "step", "stp", "brep", "stl", "obj", "3mf", "pdf", "dxf", "svg", "png", "jpg", "jpeg", "webp", "gif"];
 
 function param(__field, __fallback) {
     try {

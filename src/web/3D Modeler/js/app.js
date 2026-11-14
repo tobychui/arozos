@@ -31,6 +31,11 @@ import { createDrawing } from './drawing/drawing.js';
 import { createMeasure } from './inspect/measure.js';
 import { createSectionPanel } from './inspect/section.js';
 import { createAppearancePanel } from './features/appearance.js';
+import { createPaintPanel } from './features/paint.js';
+import { normalizeScene, lightingById } from './appearance.js';
+import { toTextureImage, IMAGE_EXTENSIONS } from './io/image.js';
+import { askMeshExport } from './io/exportdialog.js';
+import { createOffsetBox } from './offsetbox.js';
 import * as files from './io/files.js';
 import { toSTL, toOBJ, to3MF } from './io/exchange.js';
 import * as solver from './sketch/solver.js';
@@ -60,6 +65,7 @@ const state = {
     env: 'part',            // the kind of document open: 'part' | 'assembly' | 'drawing'
     mode: 'model',          // 'model' | 'pick-sketch-plane' | 'pick-lookat' | 'sketch' | 'feature'
     rebuildDeferred: false, // the document changed while a sketch was open
+    rollbackAt: null,       // an earlier sketch is edited: the model is shown as it was before it
     leftDrag: 'select',     // what dragging the left button does: 'select' | 'orbit' | 'pan'
     originVisible: false,
     kernelReady: false,
@@ -214,6 +220,9 @@ const browser = createBrowser($('tree'), doc, {
             doc.rename(id, value);
         } else if (action === 'suppress' || action === 'unsuppress') {
             doc.setSuppressed(id, action === 'suppress');
+        } else if (action === 'hide' || action === 'show') {
+            doc.setHidden(id, action === 'hide');
+            setStatus(feature.name + (action === 'hide' ? ' hidden: Show in its right click menu brings it back' : ' shown'));
         } else if (action === 'delete') {
             deleteFeature(id);
         } else if (action === 'edit' && feature.type === 'sketch') {
@@ -262,12 +271,16 @@ const sketcher = createSketcher({
 // Sketches nothing has been built from yet are drawn in the model, so they
 // can be seen and picked; the one open in the sketcher draws itself.
 function refreshSketches() {
-    const used = new Set(doc.features().map(function (f) {
+    const limit = rollbackIndex();
+    // A sketch used only by features after the rolled back point is unused there
+    const used = new Set(doc.features().filter(function (f, i) {
+        return i < limit;
+    }).map(function (f) {
         return f.sketch;
     }));
     const list = [];
-    doc.features().forEach(function (feature) {
-        const frame = feature.type === 'sketch' ? planeFrame(feature.plane, doc.features()) : null;
+    doc.features().forEach(function (feature, i) {
+        const frame = feature.type === 'sketch' && i <= limit ? planeFrame(feature.plane, doc.features()) : null;
         if (!frame || feature.suppressed || used.has(feature.id) || feature.id === sketcher.featureId()) {
             return;
         }
@@ -289,9 +302,10 @@ function refreshSketches() {
 // that is being set up in its panel
 let draftPlane = null;
 function refreshWorkPlanes() {
+    const limit = rollbackIndex();
     const list = [];
-    doc.features().forEach(function (feature) {
-        const frame = feature.type === 'plane' && !feature.suppressed ? workPlaneFrame(feature, doc.features()) : null;
+    doc.features().forEach(function (feature, i) {
+        const frame = feature.type === 'plane' && !feature.suppressed && !feature.hidden && i < limit ? workPlaneFrame(feature, doc.features()) : null;
         // The plane being edited is shown by its draft instead
         if (frame && !(draftPlane && draftPlane.id === feature.id)) {
             list.push({ id: feature.id, frame: frame });
@@ -328,19 +342,65 @@ function faceFrame(target) {
     return { o: [n[0] * d, n[1] * d, n[2] * d], x: x, y: y, n: n };
 }
 
+// Where the model is rolled back to while an earlier sketch is edited:
+// features after it are not shown (Infinity when nothing is rolled back)
+function rollbackIndex() {
+    if (!state.rollbackAt) {
+        return Infinity;
+    }
+    const i = doc.features().findIndex(function (f) {
+        return f.id === state.rollbackAt;
+    });
+    return i < 0 ? Infinity : i;
+}
+
+// Editing a sketch that features come after: show the model as it was
+// before the sketch, so later solids, sketches and planes are out of the way
+// (and cannot be picked or projected, which would loop back on the sketch)
+function rollBackTo(id) {
+    const features = doc.features();
+    const at = features.findIndex(function (f) {
+        return f.id === id;
+    });
+    const later = features.slice(at + 1).some(function (f) {
+        return !f.suppressed;
+    });
+    if (at < 0 || !later) {
+        return;
+    }
+    state.rollbackAt = id;
+    browser.setRollback(id);
+    refreshWorkPlanes();
+    kernel.call('rebuild', { document: doc.data(), upto: id }).then(function (result) {
+        if (state.rollbackAt !== id || state.env !== 'part') {
+            return; // closed again, or another document is on show
+        }
+        takeFaceFrames(result.frames);
+        viewport.setBodies(result.bodies);
+    }).catch(function (err) {
+        setStatus('The model could not be rolled back: ' + err.message);
+    });
+}
+
 function openSketch(id) {
     if (picking()) {
         leaveMode();
     }
-    sketcher.close();
+    if (sketcher.isOpen()) {
+        closeSketch();
+    }
     sketcher.open(id).then(function (ok) {
         if (!ok) {
             setStatus('This sketch cannot be opened: the plane it was drawn on is missing');
+            if (state.rebuildDeferred) {
+                requestRebuild();
+            }
             return;
         }
         state.mode = 'sketch';
         viewport.clearSelection();
         viewport.setOriginVisible(false);
+        rollBackTo(id);
         viewport.lookAlong(sketcher.frame().n);
         ribbon.setTabVisible('sketch', true);
         ribbon.showTab('sketch');
@@ -361,6 +421,16 @@ function closeSketch() {
     ribbon.setTabVisible('sketch', false);
     ribbon.showTab('model');
     browser.setEditing(null);
+    if (state.rollbackAt) {
+        // The whole model comes back with the next rebuild (finishSketch,
+        // or the change that closed the sketch)
+        state.rollbackAt = null;
+        state.rebuildDeferred = true;
+        state.keepView = true; // the solids coming back are not a new part to zoom to
+        browser.setRollback(null);
+        refreshSketches();
+        refreshWorkPlanes();
+    }
     setPrompt('');
     setStatus('Ready');
 }
@@ -400,6 +470,11 @@ function startFeature(kind, featureId) {
     }
     if (sketcher.isOpen()) {
         finishSketch(); // as in Inventor, a feature command inside a sketch finishes it first
+    }
+    // A feature already open (the same one opened twice): closed first, so
+    // the whole model it asks back for is drawn before this one rolls back
+    if (activeFeature) {
+        activeFeature.tool.cancel();
     }
     const tool = featureTools[kind];
     const preselected = viewport.selection();
@@ -630,6 +705,7 @@ function leaveDocument() {
         activeFeature.tool.cancel();
     }
     appearanceTool.cancel();
+    paintTool.cancel();
     if (picking()) {
         leaveMode();
     }
@@ -832,8 +908,9 @@ function requestRebuild() {
         }
         featureReport = result.features;
         takeFaceFrames(result.frames);
-        // A feature being edited keeps its rolled back view; closing it asks again
-        if (!(activeFeature && activeFeature.rolledBack)) {
+        // A feature or an earlier sketch being edited keeps its rolled back
+        // view; closing it asks again
+        if (!(activeFeature && activeFeature.rolledBack) && !state.rollbackAt) {
             const first = !viewport.bodyCount() && result.bodies.length > 0;
             viewport.setBodies(result.bodies);
             refreshWorkPlanes(); // their size follows the part
@@ -874,6 +951,9 @@ doc.onChange(function (reason) {
     refreshChrome();
     if (appearanceTool.isOpen() && reason !== 'saved') {
         appearanceTool.cancel(); // undo or another part pulled the look from under the panel
+    }
+    if (paintTool.isOpen() && reason !== 'saved') {
+        paintTool.cancel();
     }
     if (state.env === 'part') {
         viewport.setAppearance(doc.data().appearance || null);
@@ -1163,12 +1243,13 @@ function inspectClosed(kind) {
 }
 
 /* ================= import and export ================= */
-// How fine the triangles of a mesh export are: the largest gap allowed
-// between a curved face and its triangles (mm) and between neighbours (rad)
-const MESH_QUALITY = {
-    coarse: { deflection: 0.2, angle: 0.5 },
-    normal: { deflection: 0.05, angle: 0.25 },
-    fine: { deflection: 0.01, angle: 0.1 }
+// How fine the triangles of a mesh export are (the largest gap allowed
+// between a curved face and its triangles, and between neighbours) is
+// picked in io/exportdialog.js, which shows the size each choice makes
+const MESH_TEXT = {
+    stl: 'STL keeps triangles, not the exact curves. How closely should they follow curved faces? Finer makes a larger file.',
+    obj: 'OBJ keeps triangles, not the exact curves. How closely should they follow curved faces? Finer makes a larger file.',
+    '3mf': '3MF keeps triangles, not the exact curves. How closely should they follow curved faces? Finer makes a larger file.'
 };
 
 function exportPart(format) {
@@ -1188,24 +1269,34 @@ function exportPart(format) {
             return { text: out.text };
         });
     } else {
-        made = ask('Export ' + format.toUpperCase(), 'How fine should curved faces be? Finer makes a larger file.', [
-            { label: 'Cancel', value: null },
-            { label: 'Coarse', value: 'coarse' },
-            { label: 'Fine', value: 'fine' },
-            { label: 'Normal', value: 'normal', primary: true }
-        ], null).then(function (quality) {
-            if (!quality) {
-                return null;
+        made = askMeshExport({
+            title: 'Export ' + format.toUpperCase(),
+            text: MESH_TEXT[format],
+            // The whole file at one fineness: its size is shown, and it is
+            // what is saved when that fineness is exported
+            make: function (level) {
+                const quality = { deflection: level.deflection, angle: level.angle };
+                const meshed = state.env === 'assembly' ? assembly.exportContent(format, quality) : kernel.call('mesh', quality);
+                return meshed.then(function (out) {
+                    let triangles = 0;
+                    out.bodies.forEach(function (b) {
+                        triangles += b.indices.length / 3;
+                    });
+                    let content;
+                    if (format === 'obj') {
+                        content = { text: toOBJ(out.bodies, name) };
+                    } else {
+                        content = { bytes: format === 'stl' ? toSTL(out.bodies) : to3MF(out.bodies) };
+                    }
+                    const size = content.text !== undefined ? new Blob([content.text]).size : content.bytes.length;
+                    return { content: content, size: size, triangles: triangles };
+                });
             }
-            setStatus(state.env === 'assembly' ? 'Meshing the assembly...' : 'Meshing the part...');
-            const meshed = state.env === 'assembly' ? assembly.exportContent(format, MESH_QUALITY[quality])
-                : kernel.call('mesh', MESH_QUALITY[quality]);
-            return meshed.then(function (out) {
-                if (format === 'obj') {
-                    return { text: toOBJ(out.bodies, name) };
-                }
-                return { bytes: format === 'stl' ? toSTL(out.bodies) : to3MF(out.bodies) };
-            });
+        }).then(function (chosen) {
+            if (chosen) {
+                setStatus('Saving ' + format.toUpperCase() + ' (' + chosen.level.label.toLowerCase() + ')...');
+            }
+            return chosen ? chosen.content : null;
         });
     }
     made.then(function (content) {
@@ -1301,19 +1392,88 @@ function leaveMode() {
     state.mode = sketcher.isOpen() ? 'sketch' : 'model';
 }
 
-// target: { kind: "origin", key } or { kind: "face", body, face, origin, normal }
+// The plane reference a sketch or work plane stores for a picked target.
+// A face also remembers its normal and the point clicked, so the sketch
+// (or work plane) can follow the face when an earlier feature moves it
+function referenceOf(target) {
+    return target.kind === 'origin' ? { ref: 'origin:' + target.key }
+        : target.kind === 'work' ? { ref: 'plane', id: target.id }
+            : target.point ? { ref: 'face', frame: faceFrame(target), face: { normal: target.normal, point: target.point } }
+                : { ref: 'face', frame: faceFrame(target) };
+}
+
+/* ---- dragging a plane into an offset sketch plane (planedrag.js) ---- */
+const offsetBox = createOffsetBox($('stage'));
+
+function offsetFrame(target, offset) {
+    const base = planeFrame(referenceOf(target), doc.features());
+    return base ? {
+        o: [base.o[0] + base.n[0] * offset, base.o[1] + base.n[1] * offset, base.o[2] + base.n[2] * offset],
+        x: base.x, y: base.y, n: base.n
+    } : null;
+}
+
+function showOffsetDraft(target, offset) {
+    const frame = offsetFrame(target, offset);
+    draftPlane = frame ? { frame: frame, id: null } : null;
+    refreshWorkPlanes();
+}
+
+const SKETCH_PLANE_DRAG = {
+    frameOf: function (target) {
+        return planeFrame(referenceOf(target), doc.features());
+    },
+    move: function (target, offset, at) {
+        showOffsetDraft(target, offset);
+        offsetBox.show(at[0], at[1], offset);
+        setStatus('Offset ' + offset + ' mm: release, then type the exact distance');
+    },
+    end: function (target, offset, at) {
+        leaveMode();
+        showOffsetDraft(target, offset);
+        setPrompt('Enter the offset of the new sketch plane');
+        offsetBox.edit(at[0], at[1], offset, function (value) {
+            showOffsetDraft(target, value);
+        }).then(function (value) {
+            draftPlane = null;
+            refreshWorkPlanes();
+            setPrompt('');
+            if (value === null) {
+                setStatus('Ready');
+            } else if (Math.abs(value) < 1e-9) {
+                planePicked(target); // no offset: a sketch on the plane itself
+            } else {
+                sketchOnOffsetPlane(target, value);
+            }
+        });
+    }
+};
+
+// A work plane offset from the target and a new sketch on it, one undo step
+function sketchOnOffsetPlane(target, offset) {
+    const planeId = doc.newId();
+    let k = Number(planeId.slice(1)) + 1;
+    while (doc.feature('f' + k)) {
+        k++;
+    }
+    const sketchId = 'f' + k;
+    const planeName = doc.newName('plane');
+    const sketchName = doc.newName('sketch');
+    doc.change('Sketch on ' + planeName, function (d) {
+        d.features.push({ id: planeId, type: 'plane', name: planeName, base: referenceOf(target), offset: offset });
+        d.features.push({ id: sketchId, type: 'sketch', name: sketchName, plane: { ref: 'plane', id: planeId }, geometry: [], constraints: [] });
+    });
+    setStatus(planeName + ' made ' + offset + ' mm from the plane; sketching on it');
+    openSketch(sketchId);
+}
+
 // target: { kind: "origin", key }, { kind: "face", body, face, origin, normal }
 // or { kind: "work", id } for a work plane feature
 function planePicked(target) {
     state.pickText = null;
     const work = target.kind === 'work' ? doc.feature(target.id) : null;
     const label = target.kind === 'origin' ? ORIGIN_PLANES[target.key].label : work ? work.name : 'the selected face';
-    // A face also remembers its normal and the point clicked, so the sketch
-    // (or work plane) can follow the face when an earlier feature moves it
-    const reference = target.kind === 'origin' ? { ref: 'origin:' + target.key }
-        : work ? { ref: 'plane', id: target.id }
-            : target.point ? { ref: 'face', frame: faceFrame(target), face: { normal: target.normal, point: target.point } }
-                : { ref: 'face', frame: faceFrame(target) };
+    const reference = referenceOf(target);
     const turn = function () {
         if (target.kind === 'origin') {
             viewport.lookAtPlane(target.key);
@@ -1356,13 +1516,19 @@ function planePicked(target) {
 function startPlanePick(mode, button, what) {
     state.mode = mode;
     ribbon.setOn(button, true);
+    // Orbit or Pan would keep the left button: the pick (and dragging an
+    // offset plane off the one picked) needs it back
+    if (state.leftDrag !== 'select') {
+        setLeftDrag('select');
+    }
     // With a solid in the part the user picks one of its planar faces; the
     // origin planes are only offered in an empty part (or from the browser)
     const text = viewport.bodyCount() ? 'Select a planar face ' + what : 'Select plane ' + what;
     state.pickText = text;
     setPrompt(text);
     setStatus(text);
-    viewport.startPlanePick(planePicked, mode === 'pick-workplane');
+    // Start 2D Sketch: dragging off a plane makes an offset plane to sketch on
+    viewport.startPlanePick(planePicked, mode === 'pick-workplane', mode === 'pick-sketch-plane' ? SKETCH_PLANE_DRAG : null);
 }
 
 function runSelfTest() {
@@ -1382,6 +1548,13 @@ function runSelfTest() {
 
 function onCommand(id) {
     closeMenu();
+    if (offsetBox.isOpen()) {
+        offsetBox.hide(); // another command: the offset plane is dropped
+    }
+    // The scene (lighting, shadows, ...) changes how things look, nothing more
+    if (sceneCommand(id)) {
+        return;
+    }
     const wasPicking = picking() ? state.mode : null;
     if (wasPicking) {
         leaveMode();
@@ -1401,6 +1574,10 @@ function onCommand(id) {
     if (wasAppearance && !/^(nav|view|style|proj)\./.test(id)) {
         appearanceTool.cancel();
     }
+    const wasPaint = paintTool.isOpen();
+    if (wasPaint && !/^(nav|view|style|proj)\./.test(id)) {
+        paintTool.cancel();
+    }
     if (state.env === 'assembly' && assembly.command(id)) {
         return;
     }
@@ -1414,6 +1591,17 @@ function onCommand(id) {
             }
             appearanceTool.start();
             ribbon.setOn('app.appearance', true);
+        }
+        return;
+    }
+    if (id === 'app.paint') {
+        if (!wasPaint && state.env === 'part') {
+            if (sketcher.isOpen()) {
+                finishSketch();
+            }
+            if (paintTool.start()) {
+                ribbon.setOn('app.paint', true);
+            }
         }
         return;
     }
@@ -1535,6 +1723,16 @@ document.addEventListener('keydown', function (event) {
     }
     if (appearanceTool.isOpen() && event.key === 'Escape') {
         appearanceTool.cancel();
+        event.preventDefault();
+        return;
+    }
+    if (paintTool.isOpen() && event.key === 'Escape') {
+        paintTool.cancel();
+        event.preventDefault();
+        return;
+    }
+    if (offsetBox.isOpen() && event.key === 'Escape') {
+        offsetBox.hide();
         event.preventDefault();
         return;
     }
@@ -1741,8 +1939,73 @@ const appearanceTool = createAppearancePanel({
     onStatus: setStatus,
     onClose: function () {
         ribbon.setOn('app.appearance', false);
+    },
+    // A picture for the Image finish, made smaller and kept in the part
+    pickImage: function () {
+        return files.openOther(IMAGE_EXTENSIONS, true).then(function (file) {
+            return file ? toTextureImage(file.bytes, file.name) : null;
+        });
     }
 });
+const paintTool = createPaintPanel({
+    stage: $('stage'),
+    viewport: viewport,
+    doc: doc,
+    onStatus: setStatus,
+    onClose: function () {
+        ribbon.setOn('app.paint', false);
+    }
+});
+
+/* ================= the scene (Appearance tab) ================= */
+// How this viewer likes to see models; kept in this browser, not in parts
+const SCENE_KEY = '3dmodeler.scene';
+let sceneOpts = normalizeScene(null);
+try {
+    sceneOpts = normalizeScene(JSON.parse(window.localStorage.getItem(SCENE_KEY) || 'null'));
+} catch (e) {
+    // No storage (private window, blocked site data): the defaults
+}
+
+function applyScene(save) {
+    viewport.setScene(sceneOpts);
+    ribbon.setOn('scene.reflections', sceneOpts.reflections);
+    ribbon.setOn('scene.shadows', sceneOpts.shadows);
+    ribbon.setOn('scene.ground', sceneOpts.ground);
+    ribbon.setOn('scene.textures', sceneOpts.textures);
+    if (save) {
+        try {
+            window.localStorage.setItem(SCENE_KEY, JSON.stringify(sceneOpts));
+        } catch (e) {
+            // Not kept: it still applies until the window closes
+        }
+    }
+}
+
+const SCENE_FLAGS = {
+    'scene.reflections': ['reflections', 'Reflections'],
+    'scene.shadows': ['shadows', 'Ground shadow'],
+    'scene.ground': ['ground', 'Ground plane'],
+    'scene.textures': ['textures', 'Textures']
+};
+
+function sceneCommand(id) {
+    const flag = SCENE_FLAGS[id];
+    if (flag) {
+        sceneOpts[flag[0]] = !sceneOpts[flag[0]];
+        applyScene(true);
+        setStatus(flag[1] + (sceneOpts[flag[0]] ? ' on' : ' off'));
+        return true;
+    }
+    if (id.indexOf('light.') === 0) {
+        sceneOpts.lighting = lightingById(id.slice(6)).id;
+        applyScene(true);
+        setStatus('Lighting: ' + lightingById(sceneOpts.lighting).label);
+        return true;
+    }
+    return false;
+}
+applyScene(false);
 const sectionPanel = createSectionPanel({
     stage: $('stage'),
     viewport: viewport,

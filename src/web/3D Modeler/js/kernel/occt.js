@@ -406,7 +406,11 @@ export function sketchRegions(oc, sketch) {
                 samplePoint = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3];
             }
         }
-        regions.push({ face: face, triangles: new Float32Array(triangles), sample: samplePoint, area: area });
+        // `triangles` (single precision) is what goes to the page; `exact`
+        // keeps full precision for checks in the kernel: a vertex on a
+        // revolve axis rounded to single precision may land a few
+        // millionths of a mm past it
+        regions.push({ face: face, triangles: new Float32Array(triangles), exact: triangles, sample: samplePoint, area: area });
     }
     explorer.delete();
     return regions;
@@ -623,18 +627,21 @@ export function revolveTool(oc, bodies, feature, sketch) {
     }
     const regions = pickedRegions(oc, sketch, feature, 'revolution');
     // The profile must stay on one side of the axis: a profile that crosses
-    // it would sweep through itself
+    // it would sweep through itself. Each area is checked on its own, so
+    // areas on both sides of a line used as the axis are fine. Points on
+    // the axis (a profile turned about its own edge) count as either side:
+    // full precision coordinates, and a tolerance above the splitter's weld
     regions.forEach(function (region) {
         let below = false;
         let above = false;
-        const t = region.triangles;
+        const t = region.exact || region.triangles;
         for (let i = 0; i < t.length; i += 2) {
             const p = toWorld(frame, t[i], t[i + 1]);
             const w = [p[0] - axis.o[0], p[1] - axis.o[1], p[2] - axis.o[2]];
             // Side of the axis within the sketch plane: (d x w) . n
             const side = (axis.d[1] * w[2] - axis.d[2] * w[1]) * frame.n[0] + (axis.d[2] * w[0] - axis.d[0] * w[2]) * frame.n[1] + (axis.d[0] * w[1] - axis.d[1] * w[0]) * frame.n[2];
-            below = below || side < -1e-6;
-            above = above || side > 1e-6;
+            below = below || side < -1e-5;
+            above = above || side > 1e-5;
         }
         if (below && above) {
             throw new Error('The profile crosses the axis: a revolved profile must lie on one side of it');

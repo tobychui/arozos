@@ -227,6 +227,12 @@ body.dark .doc-sheet {
    does), so the band does not reserve it either. */
 .doc-hf-footer > :last-child { margin-bottom: 0 !important; }
 
+/* A paragraph inside a run of paragraphs with the same borders leaves the
+   shared edge to its neighbour, as Word and Google Docs do: one rule under
+   the run, not one under each (DocsLayout.applyBorderGroups) */
+[data-bgroup~="top"] { border-top: none !important; padding-top: 0 !important; }
+[data-bgroup~="bottom"] { border-bottom: none !important; padding-bottom: 0 !important; }
+
 /* Tabs: a real tab character, sized to its tab stop by docs_layout.js */
 span.doc-tab { white-space: pre; }
 /* A leader is drawn under the tab's box, which docs_layout.js gives no

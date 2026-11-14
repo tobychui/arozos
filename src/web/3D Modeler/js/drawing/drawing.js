@@ -161,7 +161,7 @@ export function createDrawing(options) {
                     }
                     rt.items.push({ key: srcKey(sid, comp.part), matrix: comp.matrix, comp: comp.id });
                     res.bodies.forEach(function (body, bi) {
-                        rt.bodies.push(Object.assign({}, body, { matrix: comp.matrix, color: colorOf(comp, ci), group: comp.id, appearance: looks[comp.part] }));
+                        rt.bodies.push(Object.assign({}, body, { matrix: comp.matrix, color: colorOf(comp, ci), group: comp.id, appearance: looks[comp.part], partBody: bi }));
                         rt.map.push({ comp: comp.id, body: bi });
                     });
                     const b = G.transformBox(G.boundsOf(res.bodies), comp.matrix);

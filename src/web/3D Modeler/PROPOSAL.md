@@ -102,7 +102,74 @@ so a browser can keep old modules after an update (see the last item).
       see the change with its constraints still holding.
 - [ ] Export the assembly as STEP and STL.
 
-**Missing parts and relative links (newest, see 14.21; needs ArozOS)**
+**Offset sketch planes, outlines of round faces, defaults, hiding planes (newest, see 14.24)**
+
+- [ ] Start 2D Sketch, then press on a flat face (or an origin or work
+      plane) and drag away from it: a plane follows with its distance by
+      the pointer. Release, type the exact distance, Enter: Work Plane1 is
+      made there and a sketch opens on it, looking at it (one undo step).
+      Esc or the cross cancels; a plain click still sketches on the face.
+- [ ] Shaded with Edges, Shaded with Hidden Edges and Wireframe: a hole,
+      a boss and rounded corners show the lines along their sides (dashed
+      where hidden), and the lines follow when the view turns.
+- [ ] A new Hole starts as a 3 mm countersunk hole, 10 deep, drill point
+      on, countersink 6 mm; the next new hole takes the values of the last
+      one made (not its direction). Fillet and Chamfer start at 3 mm and
+      also take their last size, until the app is closed.
+- [ ] Right click a work plane: Hide takes it out of the view (it stays
+      in the browser, greyed, and no longer catches clicks); Show brings it
+      back; both are undo steps and are saved with the part.
+
+**Pictures of types, hole section, revolve fix, export sizes, wheel (see 14.23)**
+
+- [ ] Assemble > Constrain: a card beside the panel animates the chosen
+      type (Mate, Flush, Angle, Tangent, Insert); pointing at another type
+      shows that one. The i button in the panel title (or the card's x)
+      hides the cards and brings them back; the choice is remembered.
+- [ ] Extrude and Revolve: the same card for the Boolean (Join, Cut,
+      Intersect, New Solid).
+- [ ] Hole: Seat (None, Counterbore, Countersink), Termination, Direction
+      and Drill Point redraw the section in the panel; every size is
+      written where it applies; clicking one puts the caret in its box,
+      and the box with the caret colours its size.
+- [ ] Revolve a sketch with two areas side by side about the outer edge of
+      one of them (as in the owner's screenshot): one solid disc, with any
+      edge position (it used to fail at about half of them).
+- [ ] File > Export > STL, OBJ or 3MF: a Fineness list (Draft to Very fine)
+      and the size and triangle count of the file at that choice; Export
+      saves exactly that file. STEP and BREP keep the exact shape and ask
+      nothing.
+- [ ] The mouse wheel: rolling it away from you zooms out, towards you
+      zooms in, in the 3D view and on a drawing sheet.
+
+**Sketch roll back, dashed hidden edges, the Appearance tab (see 14.22)**
+
+- [ ] Open a sketch that features come after (double click Sketch2 under
+      Extrusion2 in the sample part): the model shows only what was built
+      before it, later work planes and sketches are hidden, and the later
+      features are greyed in the browser. Finish Sketch: the whole model is
+      back.
+- [ ] View > Visual Style > Wireframe: edges in front are solid, edges a
+      surface covers are dashed. Shaded with Hidden Edges: the same dashes
+      over the surfaces. The dashes keep their length while zooming; in
+      the dark theme the wireframe lines are light.
+- [ ] The Appearance tab (parts): Appearance (moved here from View) now
+      has Rotation for patterns, and the Image finish asks for a picture
+      (PNG, JPG, WEBP, GIF) that is laid on the part and saved inside it.
+- [ ] Paint Faces: click faces, choose a colour and finish, Apply, more
+      faces, OK (one undo step). Make the plate of the sample part thicker
+      (Extrusion1 to 18): the painted top keeps its paint, both pieces of
+      it now that the cross hole cuts a groove across it. Remove takes the
+      paint off the selected faces, or off all of them.
+- [ ] Lighting (Studio, Soft, Warm, Cool, High Contrast), Reflections,
+      Shadows (a shadow on the ground under the model), Ground Plane (a
+      grid under it) and Textures On: they apply to parts and assemblies,
+      are not saved in the files and are remembered by the browser.
+- [ ] Open a part with an image and painted faces in an assembly and in a
+      drawing's Base View panel: the picture and the painted faces show
+      there too (painted faces win over the component colour).
+
+**Missing parts and relative links (see 14.21; needs ArozOS)**
 
 - [ ] Save an assembly next to its parts (or with them in a sub folder),
       move or copy the whole folder elsewhere on the same drive, open the
@@ -2013,7 +2080,8 @@ texture of the part".
 - *Not built*: per-face colours; image textures of your own; appearance
   in the exports (3MF colours, coloured OBJ) and in drawings (they print
   black on white by design); an appearance per component in an assembly
-  other than its colour.
+  other than its colour. (Per-face colours and pictures were added in
+  14.22, where the Appearance panel moved to its own ribbon tab.)
 
 ### 14.20 Sketch input: axis snapping, value boxes, editing in Dimension mode (built)
 
@@ -2085,6 +2153,171 @@ first save turns existing absolute links relative.
 - *Tests*: `tests/paths.test.mjs` (relative and back, other roots, the
   drive root, an assembly absolute while open and relative where saved,
   Save As elsewhere, a first save, a drawing's models).
+
+### 14.22 Sketch roll back, dashed hidden edges, the Appearance tab (built)
+
+Asked for by the owner: "when I select a sketch in earlier stages, please
+suppress all other layers (after the editing layer) before entering the
+sketch mode"; in Wireframe and Shaded with Hidden Edges, "make the lines
+hidden by a surface dotted lines" (an Inventor screenshot); "add the
+remaining texture related functions and separate the texture and coloring
+into its own dedicated tab" (with a screenshot of Inventor's View tab:
+visual presets, shadows, reflections, ground plane, IBL, textures on).
+
+- **Roll back while a sketch is edited** (`rollBackTo` in `app.js`):
+  opening a sketch that features come after rebuilds the model only up to
+  it (`rebuild` with `upto`, as editing a feature already did) and sets
+  `state.rollbackAt`: `refreshWorkPlanes` and `refreshSketches` leave out
+  what comes after it (a sketch used only by later features counts as
+  unused there, so it is drawn), the browser greys the later features
+  (`setRollback`, class `rolled`), and `requestRebuild` keeps the rolled
+  back bodies until `closeSketch` clears it and asks for the whole model
+  (with `keepView`, so the returning solids are not zoomed to). Later
+  geometry can no longer be projected into the sketch either, which would
+  loop back on it.
+- **Dashed hidden edges** (`viewport.js`): the hidden copy of each body's
+  edges is a `LineDashedMaterial` with `depthFunc: GreaterDepth`, drawn
+  after the bodies, so it shows only where a surface is in front; dash and
+  gap are set from `worldPerPixel()` every frame (`updateDashes`), about
+  6 and 4 pixels. Wireframe no longer hides the bodies: a depth only copy
+  (`body.depth`, `colorWrite: false`, drawn first) lets the edges know what
+  covers them. Fillet and chamfer result previews do the same
+  (`result-depth`, `result-hidden`). In the dark theme the wireframe lines
+  are light (a `MutationObserver` on `body.dark`).
+- **The Appearance tab** (`ribbon.js`, parts and assemblies): Material
+  (parts: Appearance, Paint Faces), Scene (Lighting, Reflections, Shadows,
+  Ground Plane) and Textures (Textures On). Visual Style stays on View.
+  - *Appearance* gains Rotation (patterns and pictures) and the Image
+    finish: a picture chosen through `files.openOther` (`file.agi` now
+    allows jpg, jpeg, webp and gif), made at most 1024 pixels on its long
+    side and kept in the part as a JPEG data URL, PNG when it has see
+    through parts (`js/io/image.js`); the tile size is its width in mm.
+    Only `data:image/png|jpeg|webp|gif;base64` URLs up to about 2 MB are
+    kept (`normalizeAppearance`), never SVG.
+  - *Paint Faces* (`js/features/paint.js`): picked faces get a colour and
+    finish of their own, stored in `appearance.faces` as
+    `{ body, centre, area, sig, color, texture }`. `sig` is the kind of
+    surface from the kernel's face description (`faceSignature`: plane and
+    the way it faces, cylinder radius and axis). `matchFaces` finds a face
+    where it was, else the nearest face of the same kind within about
+    twice its size, plus the other pieces of it when a later feature split
+    it (same kind, area within 110 % of the face, bringing the pieces'
+    centre closer to where it was; found while testing: the sample's top
+    is cut in two by the cross hole once the plate is thicker). The
+    viewport draws painted faces through geometry groups and a material
+    per look (`applyFaceLooks`), in parts, assembly components (by
+    `partBody`) and the drawing panel's 3D view.
+  - *Scene* (kept in `localStorage` under `3dmodeler.scene`, not in
+    files; `normalizeScene`): five lighting presets (hemisphere and
+    headlight colours), reflections (metals mirror the studio environment,
+    glossy finishes a little; off: none), a ground shadow (a light that
+    lights nothing casts it on a shadow only plane under the model) and a
+    ground grid (1, 2 or 5 times a power of ten, about four cells across
+    the model); both hidden while sketching. Textures On drops every
+    pattern and picture.
+- Also fixed: opening a feature that is already open (a second double
+  click) closed it only after the new roll back, so the whole model came
+  back over the rolled back one; `startFeature` now closes it first.
+- *Tests*: `tests/appearance.test.mjs` (pictures, rotation, face records,
+  signatures, matching after moves and splits, painting over and removing,
+  the scene) and `tests/facepaint.test.mjs` (the sample part painted, its
+  plate made thicker in the kernel: both pieces of the top keep the paint).
+- *Not built*: per-face pictures; a picture per assembly component; ray
+  tracing and ambient occlusion; shadows of a body on itself; appearance
+  in exports (3MF colours, coloured OBJ).
+
+### 14.23 Pictures of types, the hole section, revolve fix, export sizes, wheel (built)
+
+Asked for by the owner: an animation beside a panel showing what each type
+does ("so user knows what to expect on each type of actions"); a revolve of
+two areas about the right-most edge failing ("The profile crosses the
+axis"); the export fineness as a list with the file size; a hole picture
+like Inventor's with the values where they apply, following Seat,
+Termination, Direction and Drill Point; the wheel zoom the other way.
+
+- **Illustration card** (`js/features/illustrate.js`, scenes and their
+  drawing in `js/features/illustrations.js`): a seg row of a panel with
+  `illustrate: '<family>'` gets a card beside the panel animating the chosen
+  item, previewing the one under the pointer. Scenes are a few boxes and
+  cylinders in model units drawn by a small isometric SVG renderer (faces
+  culled and sorted by depth, `layer()` for a part that sits on another,
+  `above()` to cut a pin entering a hole, outlines of round sides known
+  from the fixed view). The card is a sibling of the panel (the panel
+  scrolls, which would clip it) placed beside it every frame, left of it
+  when there is no room, under it on a narrow window. Families:
+  `constraint` (Mate, Flush, Angle, Tangent, Insert) and `operation`
+  (Join, Cut, Intersect, New Solid; Revolve through its seg row, Extrude
+  wired by hand as it builds its own panel). The i button in the panel
+  title and the card's close button store `3dmodeler.illustrations`;
+  reduced motion shows the end state still.
+- **Hole section** (`js/features/holefigure.js`, a `figure` row in
+  `panel.js`): Seat replaces the old Hole row (None, Counterbore,
+  Countersink), Direction and Drill Point became choices instead of check
+  boxes, and the section is redrawn on every change, not to scale, with
+  each value where it applies (depth to the end of the round part, as the
+  kernel measures it). Labels carry `data-focus`, so a click puts the caret
+  in the box; `spec.onFocus` reports the box with the caret, whose size is
+  then coloured. The panel is wider (`props-wide`).
+- **Revolve with more areas**: not the number of areas. Region triangles
+  are kept in single precision for the page; a vertex on the axis (an area
+  turned about its own edge) could round a few millionths of a mm past it
+  and fail the crosses-the-axis check, about half the time. The kernel now
+  checks the full precision copy (`exact`) with a 1e-5 mm tolerance.
+- **Mesh export dialog** (`js/io/exportdialog.js`): five levels, Draft
+  0.5 mm to Very fine 0.002 mm, remembered in `3dmodeler.meshlevel`. Each
+  choice meshes and writes the whole file in the background (kept, so
+  Export saves the same bytes) and shows its size and triangle count.
+  STEP and BREP have nothing to choose.
+- **Wheel**: rolling away zooms out (OrbitControls' `_handleMouseWheel`
+  gets the delta reversed; pinching is unchanged), and the drawing sheet
+  the same way.
+- Fixed on the way: `panel.title()` wrote the subtitle into the last child
+  of the title, now the i button.
+- *Tests*: `tests/illustrate.test.mjs` (a scene for every type, every
+  frame well formed and rendered, the timing, culling and layering, every
+  hole combination with the right sizes written, the focus colour, the
+  export levels and sizes); `tests/revolve.test.mjs` (two areas about
+  their own edge at positions that round up, and an axis across an area
+  still refused).
+
+### 14.24 Offset sketch planes by dragging, outlines of round faces, defaults, hiding work planes (built)
+
+Asked for by the owner: "if I select 2D sketch and drag from a plane to a
+new direction that is vertical to that plane, create a new Work Plane that
+new sketches are created on" with an exact offset typed in (Inventor
+screenshots); the walls of a hole missing in the wireframe; defaults for
+Hole (countersink, 3 mm, distance 10, drill point, 6 mm countersink) and
+Fillet / Chamfer (3 mm), each remembered for the session; Hide on a work
+plane "so it won't block future editing".
+
+- **Drag to an offset plane** (`js/planedrag.js` the drag math,
+  `js/offsetbox.js` the value box): `viewport.startPlanePick` takes an
+  optional drag handler; a press on a plane target that moves more than
+  5 px becomes a drag. The offset is the pointer's movement along the
+  normal as it shows on screen (dragging up when the plane is seen face
+  on), snapped to a step that suits the zoom. The app draws it as the
+  draft work plane; on release the box takes the exact value (formulas
+  allowed, the wheel steps it), and Enter adds the work plane and a sketch
+  on it in one `doc.change`, then opens the sketch. An offset of 0 sketches
+  on the plane itself. Only in Select (not while Orbit or Pan holds the
+  left button).
+- **Outlines of round faces** (`js/silhouette.js`): per body, the inner
+  edges of every face that is not flat, with the triangles beside each
+  (points matched by position, so a closed face's seam counts); for each
+  view the edges between a triangle facing the eye and one facing away
+  are drawn, solid and dashed like the other edges, recomputed only when
+  the view direction (or, in perspective, the camera) changes. Not in
+  Shaded.
+- **Defaults**: `DEFAULTS` in `features/hole.js`, and `lastUsed` (every
+  value but the direction) taken by the next new hole; `KINDS[*].start`
+  3 and `lastSize` in `features/edges.js`. Kept in memory, not saved.
+- **Hide** (`doc.setHidden`, `feature.hidden`): only for work planes;
+  `refreshWorkPlanes` skips them, so they are neither drawn nor picked;
+  the browser greys them (`hiddenitem`).
+- *Tests*: `tests/silhouette.test.mjs` (a cylinder from the side, the
+  outline on its seam, none along its axis, perspective, running
+  lengths; the drag math and snapping; hiding as one undo step that is
+  saved).
 
 ## 15. Handoff
 
@@ -2238,8 +2471,36 @@ Done in the last session, after the table above was first written:
   bringing the warning back and Relink Part in the right click menu.
   Not tried: the real ArozOS file selector and relative links read back
   from a real folder (needs a live server).
+- **Sketch roll back, dashed hidden edges, the Appearance tab** (owner's
+  request, 14.22). Tried in the browser pane: Sketch1 and Sketch2 of the
+  sample part opened with the later features rolled back and greyed, the
+  whole model back on Finish; Wireframe and Shaded with Hidden Edges
+  dashed (and light lines on the dark theme); a fillet preview in
+  Wireframe; wood turned 90 degrees; a picture chosen (a stand-in file
+  picker) and laid on; Textures On off and on; the top and the boss of the
+  sample painted, then the plate made 18 thick: both pieces of the top
+  stayed red; shadows, the ground grid and Warm lighting on the sample
+  assembly; the scene remembered after a reload. Not tried: a picture
+  chosen through the ArozOS file selector (needs a live server).
 
-`node tests/run.mjs` passes, 27 files. **Nothing is committed**: the whole
+- **Pictures of types, hole section, revolve fix, export sizes, wheel**
+  (owner's requests, 14.23). Tried in the browser pane: the constraint
+  card for each type, the hover preview and the i button; the Extrude
+  card; the Hole panel in every seat with Through All and Flipped, a click
+  on a size label; STL, OBJ and 3MF exports whose downloaded size matched
+  the estimate to the byte; the wheel zooming out when rolled away. The
+  revolve fix was reproduced and checked in the kernel (tests), not in the
+  owner's own sketch.
+
+- **Offset sketch planes, outlines, defaults, hiding planes** (owner's
+  requests, 14.24). Tried in the browser pane: a drag off the sample's
+  top face, 6 typed, Work Plane1 and a sketch on it facing the view; the
+  outlines of the plate hole, the boss and the rounded corners in Shaded
+  with Hidden Edges and Wireframe, following an orbit; Hide and Show of
+  the work plane. The hole and fillet defaults were checked in the code
+  only.
+
+`node tests/run.mjs` passes, 30 files. **Nothing is committed**: the whole
 `src/web/3D Modeler/` folder is untracked on the branch the owner works on.
 Do not commit or push unless the owner asks.
 
@@ -2334,8 +2595,13 @@ js/sketch/          model.js (data + solver translation), sketcher.js
                     render.js, geom.js, trim.js, project.js, solver.js
 js/features/        panel.js (property panel builder), extrude.js, edges.js
                     (fillet + chamfer), hole.js, plane.js (work plane),
-                    appearance.js (the Appearance panel, 14.19)
-js/appearance.js    finishes, appearance records, canvas patterns (14.19)
+                    appearance.js (the Appearance panel, 14.19, 14.22),
+                    paint.js (Paint Faces, 14.22), illustrate.js and
+                    illustrations.js (the card of pictures, 14.23),
+                    holefigure.js (the Hole panel's section, 14.23)
+js/appearance.js    finishes, appearance records, canvas patterns, painted
+                    face matching, lighting presets and the scene (14.19,
+                    14.22)
 js/assembly/        assembly mode (14.16): assembly.js (controller),
                     document.js (.aoasm), geometry.js (matrices, entities),
                     solver.js (constraints), browser.js, constrain.js and
@@ -2348,9 +2614,15 @@ js/drawing/         drawing mode (14.17): drawing.js (controller, panels),
                     text), font.js (Helvetica widths), editor.js (the SVG
                     sheet), tools.js (dimension, note, text, projected,
                     place), browser.js
+js/silhouette.js    outlines of round faces for the view (14.24)
+js/planedrag.js     dragging a plane into an offset sketch plane, with
+                    offsetbox.js (the value box by the pointer) (14.24)
 js/io/              files.js (AGI open / save / export, browser fallback),
                     exchange.js (STL, OBJ, 3MF writers), drawsvg.js,
-                    pdf.js, dxf.js, png.js (drawing writers)
+                    pdf.js, dxf.js, png.js (drawing writers), paths.js
+                    and relink.js (links between files, 14.21), image.js
+                    (pictures for the Image finish, 14.22),
+                    exportdialog.js (mesh fineness and size, 14.23)
 backend/file.agi    the only server script: ping, read, readBinary, write,
                     writeBinary; extension whitelist; 48 MB limit
 lib/                occt (OpenCascade WASM), planegcs, three (r185)

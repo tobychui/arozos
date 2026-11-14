@@ -16,6 +16,7 @@
 */
 
 import { icon } from './ui.js';
+import { LIGHTING } from './appearance.js';
 
 export const RIBBON = [
     {
@@ -214,9 +215,27 @@ export const RIBBON = [
         ]
     },
     {
+        id: 'appearance', label: 'Appearance', mode: ['part', 'assembly'], groups: [
+            { label: 'Material', mode: 'part', items: [
+                { id: 'app.appearance', label: 'Appearance', icon: 'palette', big: true, toggle: true },
+                { id: 'app.paint', label: 'Paint Faces', icon: 'paintface', big: true, toggle: true }
+            ] },
+            { label: 'Scene', items: [
+                { id: 'scene.lighting', label: 'Lighting', icon: 'light', big: true, menu: LIGHTING.map(function (l) {
+                    return { id: 'light.' + l.id, label: l.label };
+                }) },
+                { id: 'scene.reflections', label: 'Reflections', icon: 'reflect', toggle: true },
+                { id: 'scene.shadows', label: 'Shadows', icon: 'shadow', toggle: true },
+                { id: 'scene.ground', label: 'Ground Plane', icon: 'ground', toggle: true }
+            ] },
+            { label: 'Textures', items: [
+                { id: 'scene.textures', label: 'Textures On', icon: 'texture', big: true, toggle: true }
+            ] }
+        ]
+    },
+    {
         id: 'view', label: 'View', mode: ['part', 'assembly'], groups: [
             { label: 'Appearance', items: [
-                { id: 'app.appearance', label: 'Appearance', icon: 'palette', big: true, toggle: true, mode: 'part' },
                 { id: 'view.style', label: 'Visual Style', icon: 'style', big: true, menu: [
                     { id: 'style.shaded', label: 'Shaded' },
                     { id: 'style.shaded-edges', label: 'Shaded with Edges' },

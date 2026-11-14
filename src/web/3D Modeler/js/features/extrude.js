@@ -23,6 +23,7 @@ import { toWorld, withResolvedPlane } from '../kernel/profile.js';
 import { evaluate } from '../expr.js';
 import { wheelStep } from '../ui.js';
 import { createProfiles } from './profiles.js';
+import { createIllustration } from './illustrate.js';
 
 const DIRECTIONS = [
     { id: 'positive', label: 'Default', title: 'Away from the sketch plane, along its normal' },
@@ -69,6 +70,9 @@ export function createExtrude(options) {
     panel.querySelectorAll('[data-el]').forEach(function (node) {
         el[node.dataset.el] = node;
     });
+
+    // The card beside the panel showing what the chosen Boolean does
+    const illus = createIllustration(panel);
 
     function segmented(host, items, onPick) {
         items.forEach(function (item) {
@@ -126,6 +130,7 @@ export function createExtrude(options) {
         el.operation.querySelectorAll('.seg-btn').forEach(function (b) {
             b.classList.toggle('on', b.dataset.id === draft.operation);
         });
+        illus.show('operation', draft.operation);
         el.rowb.hidden = draft.direction !== 'asymmetric' || draft.all;
         el.value.disabled = draft.all;
         el.all.checked = draft.all;
@@ -222,6 +227,7 @@ export function createExtrude(options) {
         refresh();
     });
     segmented(el.operation, OPERATIONS, setOperation);
+    illus.attachSeg(el.operation, 'operation');
     wheelStep(el.value, { min: 0, above: true });
     wheelStep(el.value2, { min: 0, above: true });
     el.value.addEventListener('input', function () {
@@ -292,6 +298,7 @@ export function createExtrude(options) {
         token++;
         clearTimeout(timer);
         panel.hidden = true;
+        illus.stop();
         profiles.stop();
         viewport.setPreview(null);
         viewport.setArrow(null);
@@ -357,6 +364,7 @@ export function createExtrude(options) {
             panel.querySelector('.props-title span').textContent = editing ? editing.name : 'Extrusion';
             open = true;
             panel.hidden = false;
+            illus.resume();
             refresh();
             el.value.focus();
             el.value.select();

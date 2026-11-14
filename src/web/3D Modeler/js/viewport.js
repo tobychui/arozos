@@ -25,8 +25,10 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { finishById, drawPattern, DEFAULT_COLOR, DEFAULT_SCALE } from './appearance.js';
+import { finishById, drawPattern, matchFaces, lightingById, normalizeScene, DEFAULT_COLOR, DEFAULT_SCALE, DEFAULT_SCENE } from './appearance.js';
 import { transformInfo } from './assembly/geometry.js';
+import { silhouetteSource, silhouetteSegments } from './silhouette.js';
+import { dragOffset, snapOffset } from './planedrag.js';
 
 const HOME_DIRECTION = new THREE.Vector3(1, -1, 1).normalize();
 const WORLD_UP = new THREE.Vector3(0, 0, 1);
@@ -74,9 +76,45 @@ export function createViewport(options) {
 
     // A light that travels with the camera keeps every face readable while orbiting
     const headlight = new THREE.DirectionalLight(0xffffff, 2.1);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.5));
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.5);
+    scene.add(hemi);
     scene.add(headlight);
     scene.add(headlight.target);
+    // How this viewer likes to see models (appearance.js normalizeScene):
+    // lighting preset, reflections, ground shadow, ground plane, textures
+    let sceneOpts = Object.assign({}, DEFAULT_SCENE);
+
+    function applyLighting() {
+        const l = lightingById(sceneOpts.lighting);
+        hemi.color.setHex(l.sky);
+        hemi.groundColor.setHex(l.ground);
+        hemi.intensity = l.hemi;
+        headlight.color.setHex(l.head);
+        headlight.intensity = l.headIntensity;
+    }
+
+    /* ---- ground: a shadow and a grid under the model ---- */
+    // The shadow comes from a light straight above that lights nothing
+    // (intensity 0): it only casts the shadow on a plane that shows nothing
+    // but shadows, so the look of the model does not change
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    const sun = new THREE.DirectionalLight(0xffffff, 0);
+    sun.castShadow = false;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0004;
+    sun.shadow.radius = 4;      // soft edges (PCF)
+    scene.add(sun);
+    scene.add(sun.target);
+    const groundGroup = new THREE.Group();
+    groundGroup.visible = false;
+    scene.add(groundGroup);
+    const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.45, depthWrite: false }));
+    shadowPlane.receiveShadow = true;
+    groundGroup.add(shadowPlane);
+    let grid = null;
+    let gridKey = '';
+    let groundDirty = true;     // placed again before the next frame
 
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = false;
@@ -88,6 +126,13 @@ export function createViewport(options) {
     // bar, or holding F4, lend the left button to the view (setLeftDrag).
     controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: null };
     controls.addEventListener('change', invalidate);
+    // The wheel zooms the Inventor way round: rolling it away from you
+    // zooms out, towards you zooms in (the owner found three.js's own way
+    // flipped). Only the wheel: pinching keeps its direction.
+    const wheelZoom = controls._handleMouseWheel;
+    controls._handleMouseWheel = function (event) {
+        wheelZoom.call(controls, { clientX: event.clientX, clientY: event.clientY, deltaX: event.deltaX, deltaY: -event.deltaY, deltaMode: event.deltaMode });
+    };
     let leftDrag = 'select';    // 'select' | 'orbit' | 'pan'
     let sketching = false;
 
@@ -181,22 +226,32 @@ export function createViewport(options) {
         polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
     });
     const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x20242b });
-    const hiddenEdgeMaterial = new THREE.LineBasicMaterial({ color: 0x20242b, transparent: true, opacity: 0.28, depthTest: false });
+    // Edges a surface covers, dashed: drawn only where something nearer was
+    // drawn first (GreaterDepth), after every body (transparent, renderOrder
+    // 1). The dash length follows the zoom (updateDashes), so it stays the
+    // same on screen.
+    const hiddenEdgeMaterial = hiddenLineMaterial();
+    // Wireframe: the bodies are drawn into the depth buffer only, so the
+    // edges behind them can tell they are covered
+    const depthMaterial = new THREE.MeshBasicMaterial({
+        colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
     const capMaterial = new THREE.MeshBasicMaterial({ color: 0xc9713d, side: THREE.BackSide });
     // Materials of coloured bodies (assembly components), one per body so
     // each can be tinted on its own; cleared with the bodies
     let ownMaterials = [];
+    // Materials of painted faces (appearance faces), made again with the
+    // bodies or the look
+    let faceMaterials = [];
+    let partAppearance = null;      // the look of the part on show (setAppearance)
+    const looks = new WeakMap();    // material -> { app, color, opacity } it was dressed with
 
     /* ---- appearance (appearance.js): colour, finish, pattern ---- */
     const patternTextures = {};     // pattern -> CanvasTexture, drawn once
     let baseOpacity = 1;            // of the part on show: below 1 for glass
     let ghostOn = false;            // a fillet / chamfer result preview is on
 
-    // A pattern laid on at `scale` mm a tile (texture coordinates are in mm)
-    function patternTexture(pattern, scale) {
-        if (!pattern) {
-            return null;
-        }
+    function patternBase(pattern) {
         let base = patternTextures[pattern];
         if (!base) {
             const canvas = document.createElement('canvas');
@@ -210,8 +265,54 @@ export function createViewport(options) {
             base.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
             patternTextures[pattern] = base;
         }
+        return base;
+    }
+
+    // The picture of an Image finish (a data URL): null until it is loaded,
+    // then the looks are dressed again
+    const imageTextures = new Map();    // data URL -> Texture | 'loading' | 'failed'
+    function imageBase(url) {
+        const known = imageTextures.get(url);
+        if (known) {
+            return typeof known === 'string' ? null : known;
+        }
+        imageTextures.set(url, 'loading');
+        const img = new Image();
+        img.onload = function () {
+            const t = new THREE.Texture(img);
+            t.wrapS = THREE.RepeatWrapping;
+            t.wrapT = THREE.RepeatWrapping;
+            t.colorSpace = THREE.SRGBColorSpace;
+            t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+            t.needsUpdate = true;
+            imageTextures.set(url, t);
+            refreshLooks();
+        };
+        img.onerror = function () {
+            imageTextures.set(url, 'failed');
+        };
+        img.src = url;
+        return null;
+    }
+
+    // The pattern or picture of a finish, one tile per `scale` mm (the
+    // texture coordinates are in mm), turned by `rotation` degrees; none
+    // while textures are off
+    function finishTexture(finish, app) {
+        if (!sceneOpts.textures) {
+            return null;
+        }
+        const base = finish.image ? (app && app.image ? imageBase(app.image) : null) : finish.pattern ? patternBase(finish.pattern) : null;
+        if (!base) {
+            return null;
+        }
+        const scale = (app && app.scale) || DEFAULT_SCALE;
+        const img = base.image;
+        // A picture keeps its proportions: `scale` is its width
+        const aspect = finish.image && img && img.width && img.height ? img.width / img.height : 1;
         const texture = base.clone();   // the same picture, its own repeat
-        texture.repeat.set(1 / scale, 1 / scale);
+        texture.repeat.set(1 / scale, aspect / scale);
+        texture.rotation = THREE.MathUtils.degToRad((app && app.rotation) || 0);
         texture.needsUpdate = true;
         return texture;
     }
@@ -264,18 +365,105 @@ export function createViewport(options) {
         material.color.set(color !== undefined ? color : (app && app.color) || DEFAULT_COLOR);
         material.roughness = finish.roughness;
         material.metalness = finish.metalness;
-        material.envMap = finish.metalness >= 0.3 ? studioEnvironment() : null;
-        material.map = patternTexture(finish.pattern, (app && app.scale) || DEFAULT_SCALE);
+        // Reflections: metals mirror the studio, glossy finishes a little
+        const metal = finish.metalness >= 0.3;
+        material.envMap = sceneOpts.reflections && (metal || finish.roughness < 0.4) ? studioEnvironment() : null;
+        material.envMapIntensity = metal ? 1 : 0.35;
+        material.map = finishTexture(finish, app);
         const opacity = finish.opacity || 1;
         material.transparent = opacity < 1;
         material.opacity = opacity;
         material.depthWrite = opacity >= 1;
         material.needsUpdate = true;
+        looks.set(material, { app: app, color: color, opacity: opacity });
         return opacity;
+    }
+
+    // The faces painted in the look of each body (appearance faces) get
+    // materials of their own, through geometry groups: one group per run of
+    // faces with the same look, material 0 the body's own
+    function applyFaceLooks() {
+        faceMaterials.forEach(function (m) {
+            if (m.map) {
+                m.map.dispose();
+            }
+            m.dispose();
+        });
+        faceMaterials = [];
+        bodies.forEach(function (body, b) {
+            const geometry = body.mesh.geometry;
+            geometry.clearGroups();
+            body.mesh.material = body.baseMaterial;
+            const own = body.data.color !== undefined || !!body.data.appearance;
+            const app = own ? body.data.appearance : partAppearance;
+            const refs = app && app.faces;
+            if (!refs || !refs.length || !body.data.faces) {
+                return;
+            }
+            const hit = matchFaces(body.data.faces, refs, body.data.partBody !== undefined ? body.data.partBody : b);
+            if (!hit.some(function (r) {
+                return r >= 0;
+            })) {
+                return;
+            }
+            const list = [body.baseMaterial];
+            const slot = {};
+            let run = null;
+            body.data.faces.forEach(function (face, i) {
+                let m = 0;
+                if (hit[i] >= 0) {
+                    const ref = refs[hit[i]];
+                    const key = ref.color + '/' + ref.texture;
+                    if (slot[key] === undefined) {
+                        const material = new THREE.MeshStandardMaterial({
+                            polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+                        });
+                        dressMaterial(material, { color: ref.color, texture: ref.texture, scale: app.scale, rotation: app.rotation });
+                        material.clippingPlanes = sectionPlanes;
+                        material.clipIntersection = section.mode === 'threequarter';
+                        faceMaterials.push(material);
+                        slot[key] = list.length;
+                        list.push(material);
+                    }
+                    m = slot[key];
+                }
+                if (run && run.m === m && run.end === face.start) {
+                    run.end = face.start + face.count;
+                } else {
+                    run = { start: face.start, end: face.start + face.count, m: m };
+                    geometry.addGroup(run.start, 0, m);
+                }
+                geometry.groups[geometry.groups.length - 1].count = run.end - run.start;
+            });
+            body.mesh.material = list;
+        });
+    }
+
+    // Every look dressed again: after the scene changed (textures,
+    // reflections) or a picture finished loading
+    function refreshLooks() {
+        baseOpacity = dressMaterial(bodyMaterial, partAppearance);
+        ownMaterials.forEach(function (m) {
+            const look = looks.get(m);
+            if (look) {
+                dressMaterial(m, look.app, look.color);
+            }
+        });
+        applyFaceLooks();
+        applyGhost();
+        applyVisualStyle();
+        invalidate();
     }
 
     // While a result preview is on, the real body is a faint ghost
     function applyGhost() {
+        faceMaterials.forEach(function (m) {
+            const o = looks.get(m).opacity;
+            m.transparent = ghostOn || o < 1;
+            m.opacity = ghostOn ? 0.06 : o;
+            m.depthWrite = !ghostOn && o >= 1;
+            m.needsUpdate = true;
+        });
         bodyMaterial.transparent = ghostOn || baseOpacity < 1;
         bodyMaterial.opacity = ghostOn ? 0.06 : baseOpacity;
         bodyMaterial.depthWrite = !ghostOn && baseOpacity >= 1;
@@ -349,17 +537,168 @@ export function createViewport(options) {
 
     // Every material the bodies are drawn with, for clipping and styles
     function bodyMaterials() {
-        return [bodyMaterial, capMaterial, edgeMaterial, hiddenEdgeMaterial].concat(ownMaterials);
+        return [bodyMaterial, capMaterial, edgeMaterial, hiddenEdgeMaterial, depthMaterial].concat(ownMaterials, faceMaterials);
+    }
+
+    function hiddenLineMaterial() {
+        return new THREE.LineDashedMaterial({
+            color: 0x20242b, transparent: true, opacity: 0.6, depthFunc: THREE.GreaterDepth, depthWrite: false,
+            dashSize: 1, gapSize: 1
+        });
+    }
+
+    // Dashes of about 6 pixels with gaps of 4 at any zoom
+    function updateDashes() {
+        const w = worldPerPixel();
+        const dashed = [hiddenEdgeMaterial];
+        previewGroup.children.forEach(function (child) {
+            if (child.userData.role === 'result-hidden') {
+                dashed.push(child.material);
+            }
+        });
+        dashed.forEach(function (material) {
+            material.dashSize = 6 * w;
+            material.gapSize = 4 * w;
+        });
     }
 
     // Put a body's objects where its placement matrix says (assemblies)
     function placeBody(body, matrix) {
         const m = new THREE.Matrix4().fromArray(matrix);
-        [body.mesh, body.cap, body.hidden, body.lines].forEach(function (object) {
+        [body.mesh, body.depth, body.cap, body.hidden, body.lines].concat(body.sil ? [body.sil.front, body.sil.behind] : []).forEach(function (object) {
             m.decompose(object.position, object.quaternion, object.scale);
             object.updateMatrixWorld(true);
         });
         body.matrix = matrix.slice();
+        groundDirty = true;
+        silhouetteKey = '';
+    }
+
+    /* ---- silhouettes of round faces (silhouette.js) ---- */
+    let silhouetteKey = '';     // the view the silhouettes were worked out for
+
+    function makeSilhouette(data) {
+        const src = silhouetteSource(data.positions, data.indices, data.faces);
+        if (!src) {
+            return null;
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(src.edges * 6), 3));
+        geometry.setAttribute('lineDistance', new THREE.BufferAttribute(new Float32Array(src.edges * 2), 1));
+        geometry.setDrawRange(0, 0);
+        const front = new THREE.LineSegments(geometry, edgeMaterial);
+        const behind = new THREE.LineSegments(geometry, hiddenEdgeMaterial);
+        behind.renderOrder = 1;
+        // Their points change with the view: no stale bounds
+        front.frustumCulled = false;
+        behind.frustumCulled = false;
+        bodyGroup.add(front);
+        bodyGroup.add(behind);
+        silhouetteKey = '';
+        return { src: src, geometry: geometry, front: front, behind: behind };
+    }
+
+    const silInverse = new THREE.Matrix4();
+    const silView = new THREE.Vector3();
+    function updateSilhouettes() {
+        if (visualStyle === 'shaded' || !bodies.length) {
+            return;
+        }
+        const perspective = camera === persp;
+        if (perspective) {
+            silView.copy(camera.position);
+        } else {
+            camera.getWorldDirection(silView);
+        }
+        const key = (perspective ? 'p' : 'o') + silView.toArray().map(function (v) {
+            return v.toFixed(5);
+        }).join(',') + '/' + bodies.length;
+        if (key === silhouetteKey) {
+            return;
+        }
+        silhouetteKey = key;
+        bodies.forEach(function (body) {
+            if (!body.sil) {
+                return;
+            }
+            // The view in the body's own coordinates (assembly placements)
+            body.mesh.updateMatrixWorld();
+            silInverse.copy(body.mesh.matrixWorld).invert();
+            const v = silView.clone();
+            if (perspective) {
+                v.applyMatrix4(silInverse);
+            } else {
+                v.transformDirection(silInverse);
+            }
+            const geometry = body.sil.geometry;
+            const count = silhouetteSegments(body.sil.src, v.toArray(), perspective,
+                geometry.getAttribute('position').array, geometry.getAttribute('lineDistance').array);
+            geometry.setDrawRange(0, count * 2);
+            geometry.getAttribute('position').needsUpdate = true;
+            geometry.getAttribute('lineDistance').needsUpdate = true;
+        });
+    }
+
+    // The ground shadow and grid under the bodies (not while sketching)
+    function placeGround() {
+        groundDirty = false;
+        const show = !sketching && bodies.length > 0 && (sceneOpts.shadows || sceneOpts.ground);
+        groundGroup.visible = show;
+        sun.castShadow = show && sceneOpts.shadows;
+        if (!show) {
+            return;
+        }
+        bodyGroup.updateMatrixWorld(true);
+        const box = new THREE.Box3();
+        bodies.forEach(function (b) {
+            box.expandByObject(b.mesh);
+        });
+        if (box.isEmpty()) {
+            groundGroup.visible = false;
+            sun.castShadow = false;
+            return;
+        }
+        const size = box.getSize(new THREE.Vector3());
+        const centre = box.getCenter(new THREE.Vector3());
+        const span = Math.max(size.x, size.y, size.z, 1);
+        const z = box.min.z - span * 0.002;
+        shadowPlane.visible = sceneOpts.shadows;
+        shadowPlane.position.set(centre.x, centre.y, z);
+        shadowPlane.scale.set(span * 4, span * 4, 1);
+        // A grid of 1, 2 or 5 times a power of ten, about four cells across the part
+        const step = Math.pow(10, Math.floor(Math.log10(span / 4)));
+        const ratio = span / 4 / step;
+        const cell = ratio >= 5 ? step * 5 : ratio >= 2 ? step * 2 : step;
+        const cells = 2 * Math.ceil(span * 1.5 / cell);
+        const key = cell + ':' + cells;
+        if (key !== gridKey) {
+            if (grid) {
+                groundGroup.remove(grid);
+                grid.geometry.dispose();
+                grid.material.dispose();
+            }
+            grid = new THREE.GridHelper(cell * cells, cells, 0x8a919c, 0x8a919c);
+            grid.rotation.x = Math.PI / 2;   // the XY plane: Z is up
+            grid.material.transparent = true;
+            grid.material.opacity = 0.4;
+            grid.material.depthWrite = false;
+            groundGroup.add(grid);
+            gridKey = key;
+        }
+        grid.visible = sceneOpts.ground;
+        grid.position.set(Math.round(centre.x / cell) * cell, Math.round(centre.y / cell) * cell, z);
+        // The light a little off straight above, so the shadow shows the shape
+        sun.position.set(centre.x + span * 0.6, centre.y + span * 0.9, box.max.z + span * 2);
+        sun.target.position.set(centre.x, centre.y, z);
+        sun.target.updateMatrixWorld();
+        const cam = sun.shadow.camera;
+        cam.left = -span * 1.6;
+        cam.right = span * 1.6;
+        cam.top = span * 1.6;
+        cam.bottom = -span * 1.6;
+        cam.near = 0.1;
+        cam.far = span * 4 + size.z;
+        cam.updateProjectionMatrix();
     }
 
     function setBodies(list) {
@@ -389,25 +728,41 @@ export function createViewport(options) {
             }
             const mesh = new THREE.Mesh(geometry, material);
             mesh.userData.body = i;
+            mesh.castShadow = true;
             const lineGeometry = new THREE.BufferGeometry();
             lineGeometry.setAttribute('position', new THREE.BufferAttribute(data.edgePositions || new Float32Array(0), 3));
             const lines = new THREE.LineSegments(lineGeometry, edgeMaterial);
             lines.userData.body = i;
-            // The same edges drawn through the body, for the hidden edge style
+            // The same edges dashed where a surface covers them, for the
+            // wireframe and hidden edge styles
             const hidden = new THREE.LineSegments(lineGeometry, hiddenEdgeMaterial);
+            hidden.computeLineDistances();
+            hidden.renderOrder = 1;
+            // The body in the depth buffer only, for the wireframe style:
+            // drawn first, so the edges it covers are known to be covered
+            const depth = new THREE.Mesh(geometry, depthMaterial);
+            depth.renderOrder = -1;
             // The inside of the body in a flat colour: where a section view
             // cuts the solid open, this is what shows, so the cut looks filled
             const capMesh = new THREE.Mesh(geometry, cap);
+            bodyGroup.add(depth);
             bodyGroup.add(mesh);
             bodyGroup.add(capMesh);
             bodyGroup.add(hidden);
             bodyGroup.add(lines);
-            const body = { data: data, mesh: mesh, lines: lines, hidden: hidden, cap: capMesh, matrix: null, group: data.group };
+            // The outline of round faces as seen from where the camera is
+            // (a hole's walls, a fillet): worked out again when the view
+            // turns (updateSilhouettes), solid in front and dashed behind
+            const sil = makeSilhouette(data);
+            const body = { data: data, mesh: mesh, baseMaterial: material, depth: depth, lines: lines, hidden: hidden, cap: capMesh, sil: sil, matrix: null, group: data.group };
             if (data.matrix) {
                 placeBody(body, data.matrix);
             }
             return body;
         });
+        applyFaceLooks();
+        applyGhost();
+        groundDirty = true;
         applySection();
         // Face and edge numbers belong to the shape that was just replaced
         const hadSelection = selection.length > 0;
@@ -432,23 +787,49 @@ export function createViewport(options) {
         }
     }
 
+    // shaded: surfaces only; shaded with edges: and the edges in front;
+    // hidden-edges: and the covered edges dashed; wireframe: no surfaces,
+    // the edges in front solid and the covered ones dashed
     function applyVisualStyle() {
-        bodyMaterial.visible = visualStyle !== 'wireframe';
+        const wire = visualStyle === 'wireframe';
+        const dashed = wire || visualStyle === 'hidden-edges';
+        // Without surfaces the lines stand on the background: light ones on
+        // the dark theme's stage
+        const light = wire && document.body.classList.contains('dark');
+        const lineColor = light ? 0xd0d5dd : 0x20242b;
+        edgeMaterial.color.setHex(lineColor);
+        hiddenEdgeMaterial.color.setHex(lineColor);
+        hiddenEdgeMaterial.opacity = light ? 0.45 : 0.6;
+        bodyMaterial.visible = !wire;
         bodies.forEach(function (body) {
-            body.mesh.material.visible = visualStyle !== 'wireframe';
+            [].concat(body.mesh.material).forEach(function (m) {
+                m.visible = !wire;
+            });
+            // While a fillet or chamfer result is previewed, the result
+            // stands for the body (its own depth, its own dashed edges)
+            body.depth.visible = wire && !ghostOn;
             body.lines.visible = visualStyle !== 'shaded';
-            body.hidden.visible = visualStyle === 'hidden-edges';
-            body.cap.visible = section.mode !== 'none' && visualStyle !== 'wireframe';
+            body.hidden.visible = dashed && !ghostOn;
+            body.cap.visible = section.mode !== 'none' && !wire;
+            if (body.sil) {
+                body.sil.front.visible = visualStyle !== 'shaded';
+                body.sil.behind.visible = dashed && !ghostOn;
+            }
         });
         // A fillet or chamfer preview is drawn in the same style as the body
         previewGroup.children.forEach(function (child) {
             const role = child.userData.role;
             if (role === 'result-solid') {
-                child.visible = visualStyle !== 'wireframe';
+                child.visible = !wire;
+            } else if (role === 'result-depth') {
+                child.visible = wire;
             } else if (role === 'result-lines') {
                 child.visible = visualStyle !== 'shaded';
+                child.material.color.setHex(lineColor);
             } else if (role === 'result-hidden') {
-                child.visible = visualStyle === 'hidden-edges';
+                child.visible = dashed;
+                child.material.color.setHex(lineColor);
+                child.material.opacity = hiddenEdgeMaterial.opacity;
             }
         });
     }
@@ -531,6 +912,7 @@ export function createViewport(options) {
 
     function setVisualStyle(style) {
         visualStyle = style;
+        silhouetteKey = '';
         applyVisualStyle();
         invalidate();
     }
@@ -629,13 +1011,14 @@ export function createViewport(options) {
             tint[groupOf(hovered.body)] = 'hover';
         }
         bodies.forEach(function (body, i) {
-            const material = body.mesh.material;
-            if (!material.emissive || material === bodyMaterial) {
-                return;
-            }
             const state = tint[groupOf(i)];
-            material.emissive.setHex(state === 'selected' ? SELECTED : state === 'hover' ? HOVER : 0x000000);
-            material.emissiveIntensity = state === 'selected' ? 0.45 : state === 'hover' ? 0.35 : 0;
+            [].concat(body.mesh.material).forEach(function (material) {
+                if (!material.emissive || material === bodyMaterial) {
+                    return;
+                }
+                material.emissive.setHex(state === 'selected' ? SELECTED : state === 'hover' ? HOVER : 0x000000);
+                material.emissiveIntensity = state === 'selected' ? 0.45 : state === 'hover' ? 0.35 : 0;
+            });
         });
     }
 
@@ -931,6 +1314,8 @@ export function createViewport(options) {
     let lastFaceDistance = Infinity; // how far the last face under the pointer was
     let lastFacePoint = null;       // and where on it the pointer was
     let planeHandler = null;    // set while a command waits for a plane or a planar face
+    let planeDragHandler = null; // and, optionally, what dragging away from one does
+    let planeDrag = null;       // { pick, frame, x, y, screen, active, offset } while pressed on a plane
     let hotPlane = null;
     let originPinned = false;
     let downAt = null;
@@ -1064,7 +1449,56 @@ export function createViewport(options) {
         return key ? { kind: 'origin', key: key } : null;
     }
 
+    // What a plane pick hands over for a target under the pointer
+    function pickOf(target) {
+        return target.kind === 'origin' ? { kind: 'origin', key: target.key }
+            : target.kind === 'work' ? { kind: 'work', id: target.id }
+                : { kind: 'face', body: target.item.body, face: target.item.index, origin: target.info.origin, normal: target.info.normal, point: lastFacePoint };
+    }
+
+    // Pressed on a plane while a plane is wanted: a drag pulls out an
+    // offset plane (planedrag.js); a click still picks the plane
+    function startPlaneDrag(event) {
+        const target = planeTargetUnderPointer(event);
+        const pick = target ? pickOf(target) : null;
+        const frame = pick ? planeDragHandler.frameOf(pick) : null;
+        if (!frame) {
+            return;
+        }
+        // Where the press meets the plane, and how the normal shows on screen
+        aim(event);
+        const n = new THREE.Vector3().fromArray(frame.n);
+        const hit = raycaster.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(n, new THREE.Vector3().fromArray(frame.o)), new THREE.Vector3());
+        const at = hit ? hit.toArray() : frame.o;
+        const a = project(at);
+        const b = project([at[0] + frame.n[0], at[1] + frame.n[1], at[2] + frame.n[2]]);
+        const rect = canvas.getBoundingClientRect();
+        planeDrag = {
+            pick: pick, frame: frame, x: event.clientX - rect.left, y: event.clientY - rect.top,
+            screen: [b[0] - a[0], b[1] - a[1]], active: false, offset: 0
+        };
+        try {
+            canvas.setPointerCapture(event.pointerId);
+        } catch (e) {
+            // A synthetic event has no pointer to capture
+        }
+    }
+
     canvas.addEventListener('pointermove', function (event) {
+        if (planeDrag && (event.buttons & 1)) {
+            const rect = canvas.getBoundingClientRect();
+            const now = [event.clientX - rect.left, event.clientY - rect.top];
+            if (!planeDrag.active && Math.hypot(now[0] - planeDrag.x, now[1] - planeDrag.y) > 5) {
+                planeDrag.active = true;
+                setHovered(null);
+            }
+            if (planeDrag.active) {
+                const wpp = worldPerPixel();
+                planeDrag.offset = snapOffset(dragOffset([planeDrag.x, planeDrag.y], now, planeDrag.screen, wpp), wpp);
+                planeDragHandler.move(planeDrag.pick, planeDrag.offset, now);
+            }
+            return;
+        }
         if (event.buttons || animation || (!interactive && !planeHandler)) {
             return;
         }
@@ -1087,6 +1521,10 @@ export function createViewport(options) {
     });
     canvas.addEventListener('pointerdown', function (event) {
         downAt = [event.clientX, event.clientY];
+        planeDrag = null;
+        if (planeHandler && planeDragHandler && event.button === 0 && leftDrag === 'select') {
+            startPlaneDrag(event);
+        }
         // A press on the triad drags it; it must not also pick what is behind
         gizmoGrab = gizmoActive && gizmo.axis !== null;
     });
@@ -1094,6 +1532,16 @@ export function createViewport(options) {
         // A click, not the end of an orbit drag
         const moved = downAt ? Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) : 99;
         downAt = null;
+        const drag = planeDrag;
+        planeDrag = null;
+        if (drag && drag.active) {
+            // Dragged off a plane: the offset plane, not a pick
+            const handler = planeDragHandler;
+            const rect = canvas.getBoundingClientRect();
+            stopPlanePick();
+            handler.end(drag.pick, drag.offset, [event.clientX - rect.left, event.clientY - rect.top]);
+            return;
+        }
         if (gizmoGrab) {
             gizmoGrab = false;
             return;
@@ -1106,9 +1554,7 @@ export function createViewport(options) {
             if (target) {
                 const handler = planeHandler;
                 stopPlanePick();
-                handler(target.kind === 'origin' ? { kind: 'origin', key: target.key }
-                    : target.kind === 'work' ? { kind: 'work', id: target.id }
-                        : { kind: 'face', body: target.item.body, face: target.item.index, origin: target.info.origin, normal: target.info.normal, point: lastFacePoint });
+                handler(pickOf(target));
             }
             return;
         }
@@ -1138,8 +1584,13 @@ export function createViewport(options) {
     // faces of the model are offered and the origin planes stay hidden (they
     // would cover the part); in an empty part the origin planes are shown.
     // Origin planes the user switched on stay pickable either way.
-    function startPlanePick(handler, withOrigin) {
+    // dragHandler (optional): { frameOf(pick) -> { o, x, y, n } or null,
+    // move(pick, offset, [x, y]), end(pick, offset, [x, y]) } for dragging
+    // an offset plane off the one under the pointer
+    function startPlanePick(handler, withOrigin, dragHandler) {
         planeHandler = handler;
+        planeDragHandler = dragHandler || null;
+        planeDrag = null;
         setHovered(null);
         originGroup.visible = originPinned || !bodies.length || !!withOrigin;
         canvas.style.cursor = 'crosshair';
@@ -1148,6 +1599,8 @@ export function createViewport(options) {
 
     function stopPlanePick() {
         planeHandler = null;
+        planeDragHandler = null;
+        planeDrag = null;
         setHotWork(null);
         setHotPlane(null);
         setHovered(null);
@@ -1356,15 +1809,20 @@ export function createViewport(options) {
             previewGroup.add(lines);
             if (kind === 'result') {
                 // The body as it would become, in the visual style of the
-                // body: hidden edges faint in "hidden edges", only edges in
-                // wireframe (applyVisualStyle)
+                // body: covered edges dashed in "hidden edges" and wireframe,
+                // no surfaces in wireframe (applyVisualStyle)
                 solid.userData.role = 'result-solid';
                 lines.userData.role = 'result-lines';
-                const hidden = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({
-                    color: 0x20242b, transparent: true, opacity: 0.28, depthTest: false
+                const depth = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+                    colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
                 }));
+                depth.userData.role = 'result-depth';
+                depth.renderOrder = -1;
+                previewGroup.add(depth);
+                const hidden = new THREE.LineSegments(lineGeometry, hiddenLineMaterial());
+                hidden.computeLineDistances();
                 hidden.userData.role = 'result-hidden';
-                hidden.renderOrder = 2;
+                hidden.renderOrder = 3;
                 previewGroup.add(hidden);
             }
         });
@@ -1793,6 +2251,11 @@ export function createViewport(options) {
             stepAnimation(now);
         }
         camera.updateMatrixWorld();
+        if (groundDirty) {
+            placeGround();
+        }
+        updateSilhouettes();
+        updateDashes();
         placeArrow();
         headlight.position.copy(camera.position);
         headlight.target.position.copy(controls.target);
@@ -1808,6 +2271,11 @@ export function createViewport(options) {
     }
 
     new ResizeObserver(resize).observe(stage);
+    // The theme (body.dark) decides the wireframe line colour
+    new MutationObserver(function () {
+        applyVisualStyle();
+        invalidate();
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     resize();
     ortho.zoom = 1;
     home();
@@ -1873,6 +2341,7 @@ export function createViewport(options) {
         setSketching: function (on) {
             interactive = !on;
             sketching = on;
+            groundDirty = true;
             controls.mouseButtons.LEFT = leftButton();
             if (on) {
                 setHovered(null);
@@ -1895,10 +2364,21 @@ export function createViewport(options) {
         lookAlong: lookAlong,
         // The look of the part on show (appearance.js), or null for the default
         setAppearance: function (app) {
-            baseOpacity = dressMaterial(bodyMaterial, app);
-            applyGhost();
-            applyVisualStyle();
-            invalidate();
+            partAppearance = app || null;
+            refreshLooks();
+        },
+        // How models are shown (appearance.js normalizeScene)
+        setScene: function (s) {
+            sceneOpts = normalizeScene(s);
+            applyLighting();
+            groundDirty = true;
+            refreshLooks();
+        },
+        // The kernel's description of a picked face (type, centre, area,
+        // normal or axis), for appearance.js faceRef
+        faceInfo: function (item) {
+            const body = item && bodies[item.body];
+            return body && body.data.faces ? body.data.faces[item.index] || null : null;
         },
         // Where the camera is, to keep with a document tab, and back
         viewState: function () {

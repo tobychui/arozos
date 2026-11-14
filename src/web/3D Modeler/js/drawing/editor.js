@@ -527,7 +527,8 @@ export function createSheetEditor(options) {
 
     svg.addEventListener('wheel', function (event) {
         event.preventDefault();
-        zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY);
+        // As in the 3D view: rolling the wheel away zooms out
+        zoomAt(event.deltaY > 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY);
         if (tool && lastPointer) {
             tool.move(toSheetPoint(event.clientX, event.clientY), event);
             drawOverlay();

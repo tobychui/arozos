@@ -85,5 +85,32 @@ const cylinder = Math.PI * 40 * 40 * 40;
 a(out.features.r0.status === 'ok' && out.features.r.status === 'ok', 'cylinder and groove build', out.features);
 a(near(out.bodies[0].volume, cylinder - fullTurn, cylinder * 1e-4), 'the groove removes 2 pi R A from the cylinder', [out.bodies[0].volume, cylinder - fullTurn]);
 
+// Turned about the profile's own edge, with two areas picked (owner's
+// report: "fails to create a bottom flat disc"). The region triangles go to
+// the page in single precision; 64.8 and 58.9 round up in it, which put a
+// vertex on the axis a few millionths past it and made the check say the
+// profile crosses the axis. The kernel now checks at full precision.
+function edgeDoc(X) {
+    const P = (id, x, y) => ({ id, type: 'point', x, y });
+    const L = (id, p1, p2) => ({ id, type: 'line', p1, p2 });
+    const g = [P('a', 10, 0), P('b', X, 0), P('c', X, 30), P('d', 10, 30), P('m0', 30, -10), P('m1', 30, 40),
+        L('bottom', 'a', 'b'), L('right', 'b', 'c'), L('top', 'c', 'd'), L('left', 'd', 'a'), L('mid', 'm0', 'm1')];
+    return { features: [{ id: 's', type: 'sketch', name: 'S', plane: { ref: 'origin:xz' }, geometry: g, constraints: [] },
+        { id: 'r', type: 'revolve', name: 'R', sketch: 's', regions: [[20, 15], [(30 + X) / 2, 15]], axis: { curve: 'right' }, operation: 'join', extent: { type: 'full' } }] };
+}
+[64.8, 58.9, 64.6].forEach(X => {
+    const o = createRebuilder(oc).rebuild(edgeDoc(X));
+    const disc = Math.PI * (X - 10) * (X - 10) * 30;
+    a(o.features.r.status === 'ok' && near(o.bodies[0].volume, disc, disc * 1e-4), 'two areas turned about their own edge at ' + X + ' make one solid disc', [o.features.r, o.bodies[0] && o.bodies[0].volume, disc]);
+});
+// Still refused: an axis through the middle of one area
+const across = edgeDoc(64.8);
+across.features[0].geometry = across.features[0].geometry.filter(c => c.id !== 'mid' && c.id !== 'm0' && c.id !== 'm1');
+across.features[0].geometry.push({ id: 'k0', type: 'point', x: 40, y: -10 }, { id: 'k1', type: 'point', x: 40, y: 40 }, { id: 'k', type: 'line', p1: 'k0', p2: 'k1', construction: true });
+across.features[1].regions = [[20, 15]];
+across.features[1].axis = { curve: 'k' };
+const refused = createRebuilder(oc).rebuild(across).features.r;
+a(refused.status === 'error' && /crosses the axis/.test(refused.message), 'an axis across an area is still refused', refused);
+
 console.log(failed ? failed + ' FAILED' : 'all revolve tests passed');
 process.exitCode = failed ? 1 : 0;

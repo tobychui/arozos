@@ -9,12 +9,12 @@
     Four passes over a rendered subtree (the editor, a header/footer copy,
     a footnote area):
 
-      lineHeights  Word and Google Docs size a line from the font's own
-                   ascent and descent, rounded to whole pixels one side at
-                   a time: ceil(ascent x size x spacing) + ceil(descent x
-                   size x spacing). CSS line-height is size x number and
-                   drifts by a pixel or two a line, which over a page is a
-                   different page break. Every block that holds text gets
+      lineHeights  Google Docs makes a line 1.2 em x spacing tall in every
+                   font and puts each line on a whole pixel:
+                   round(1.2 x size x spacing) px (lineHeightPx). CSS
+                   line-height normal differs per font and drifts by a
+                   pixel or two a line, which over a page is a different
+                   page break. Every block that holds text gets
                    that exact line height in px, and inline elements get
                    line-height 0 (docs.css) so a run in another font cannot
                    make its line taller than the rule says; a run in a
@@ -26,7 +26,8 @@
                    list interrupted by a paragraph (same data-num).
       tabs         span.doc-tab is sized to reach the next tab stop: the
                    paragraph's own stops (data-tabs, right/center/left, with
-                   leaders) or the default 36pt grid.
+                   leaders) or the default 36pt grid. A right or center
+                   stop past the end of the line sits on its end.
       footnotes    references are numbered in document order.
 
     And pagination (paginate): the document is one contenteditable flow,
@@ -85,11 +86,36 @@ var DocsLayout = (function () {
         return out;
     }
 
-    // the word-processor line height rule, in px
-    function lineHeightPx(sizePx, family, mult) {
-        var r = fontRatios(family);
+    /* The word-processor line height rule, in px. Google Docs makes a single
+       line 1.2 em tall in every font (its clipboard HTML says line-height
+       1.2, and 1.38 for 1.15 spacing) and starts every line on a whole
+       pixel, so a line is round(1.2 x size x spacing) px: Arial 10.5pt
+       single is 17px, 7.5pt is 12px, 16pt is 26px, which the font's own
+       ascent + descent (16, 13 and 25px) miss. A font whose own box is
+       taller than SINGLE_TALL_EM (Segoe UI, Microsoft JhengHei, Comic Sans)
+       still gets at least that box - not yet checked against Google Docs. */
+    var SINGLE_EM = 1.2;
+    var SINGLE_TALL_EM = 1.25;
+    // a line's height before (raw) and after (px) the rounding
+    function lineBox(sizePx, family, mult) {
         var s = sizePx * (mult > 0 ? mult : 1);
-        return Math.ceil(r.asc * s - 1e-6) + Math.ceil(r.desc * s - 1e-6);
+        var raw = SINGLE_EM * s;
+        var px = Math.round(raw - 1e-6);
+        var r = fontRatios(family);
+        if (r.asc + r.desc > SINGLE_TALL_EM) {
+            var own = Math.ceil(r.asc * s - 1e-6) + Math.ceil(r.desc * s - 1e-6);
+            if (own > px) { px = own; raw = own; }
+        }
+        return { px: px, raw: raw };
+    }
+    function lineHeightPx(sizePx, family, mult) {
+        return lineBox(sizePx, family, mult).px;
+    }
+    // a single line of this font, as a share of its size (what the PDF
+    // import divides a line pitch by to get the spacing back)
+    function lineEm(family) {
+        var r = fontRatios(family);
+        return r.asc + r.desc > SINGLE_TALL_EM ? Math.max(SINGLE_EM, r.asc + r.desc) : SINGLE_EM;
     }
 
     /* ---------------- helpers ---------------- */
@@ -178,7 +204,9 @@ var DocsLayout = (function () {
         if (bcs.display === "none") return;
         var exact = block.getAttribute("data-lsexact");
         if (exact) {
-            block.style.lineHeight = cssLenPx(exact) + "px";
+            var ex = cssLenPx(exact);
+            block.style.lineHeight = ex + "px";
+            block.__docsLine = { px: ex, raw: ex, maxPx: ex, maxRaw: ex };
             return;
         }
         var mult = blockSpacing(block, defLS);
@@ -212,9 +240,11 @@ var DocsLayout = (function () {
         }
         var baseSize = parseFloat(bcs.fontSize) || 14.67;
         var baseFamily = bcs.fontFamily;
-        var strut;
+        var strut, tallest;
+        var bigger = function (a, b) { return b && b.px > a.px ? b : a; };
         if (!runs.length) {
-            strut = lineHeightPx(baseSize, baseFamily, mult);
+            strut = lineBox(baseSize, baseFamily, mult);
+            tallest = strut;
         } else {
             var min = runs[0], direct = false;
             runs.forEach(function (r) {
@@ -225,23 +255,130 @@ var DocsLayout = (function () {
             // so does text standing in the block itself, which has no
             // element to carry a height of its own - a heading with a small
             // link in it would otherwise get the link's lines
-            strut = Math.max(lineHeightPx(min.size, min.family, mult),
-                direct || baseSize <= min.size + 0.01 ? lineHeightPx(baseSize, baseFamily, mult) : 0);
+            strut = bigger(lineBox(min.size, min.family, mult),
+                direct || baseSize <= min.size + 0.01 ? lineBox(baseSize, baseFamily, mult) : null);
+            tallest = strut;
             // bigger runs carry their own height so only their lines grow
             runs.forEach(function (r) {
                 if (r.el === block) return;
                 if (r.size > min.size + 0.01) {
-                    var own = Math.max(lineHeightPx(r.size, r.family, mult), minPx);
+                    var box = lineBox(r.size, r.family, mult);
+                    var own = Math.max(box.px, minPx);
                     if (r.el.style.lineHeight !== own + "px") r.el.style.lineHeight = own + "px";
+                    tallest = bigger(tallest, own > box.px ? { px: own, raw: own } : box);
                 } else if (r.el.style.lineHeight) {
                     r.el.style.lineHeight = "";
                 }
             });
         }
-        if (minPx > strut) strut = minPx;
-        var v = strut + "px";
+        if (minPx > strut.px) strut = { px: minPx, raw: minPx };
+        if (strut.px > tallest.px) tallest = strut;
+        block.__docsLine = { px: strut.px, raw: strut.raw, maxPx: tallest.px, maxRaw: tallest.raw };
+        var v = strut.px + "px";
         if (block.style.lineHeight !== v) block.style.lineHeight = v;
-        if (!runs.length) pictureLines(block, strut, baseSize, baseFamily, mult);
+        if (!runs.length) pictureLines(block, strut.px, baseSize, baseFamily, mult);
+    }
+
+    /* ---------------- whole-pixel paragraph ends ----------------
+       Google Docs adds a paragraph's space before as it is, so its first
+       line may start at a fraction of a pixel (16pt = 21.33px), but rounds
+       where each line ends - the last one together with the space after
+       it: the next paragraph starts at round(last line top + 1.2 em x
+       spacing + space after). CSS adds the rounded line heights and the
+       spacing as they are, so after a heading with 16pt before and 4pt
+       after the text would sit up to a pixel off, a little more with every
+       heading down the page. The difference goes into the paragraph's
+       margin-bottom: data-mb0 keeps the margin it states, data-mbd the
+       correction and the value written (restoreParagraphEnds undoes it). */
+    var ROUND_TAGS = { P: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, LI: 1, PRE: 1 };
+    function roundGap(v) { return Math.round(v + 1e-6); }
+    function applyParagraphEnds(root) {
+        if (!root) return;
+        var blocks = [];
+        var all = root.getElementsByTagName("*");
+        for (var i = 0; i < all.length; i++) {
+            var b = all[i];
+            if (!ROUND_TAGS[b.tagName] || !b.__docsLine) continue;
+            blocks.push(b);
+        }
+        // read everything first, then write: one layout for the lot
+        var plan = [];
+        blocks.forEach(function (b) {
+            var applied = parseParagraphEnd(b);
+            // the margin was changed after the correction went in: that is
+            // the margin the paragraph states now
+            if (applied && b.style.marginBottom !== applied.written) {
+                b.setAttribute("data-mb0", b.style.marginBottom);
+                applied = null;
+                b.removeAttribute("data-mbd");
+            }
+            var skip = b.closest("td,th") || b.getElementsByTagName("img").length ||
+                hasBlockChild(b) || isSpacer(b);
+            var cs = window.getComputedStyle(b);
+            if (skip || cs.display === "none" || cs.display === "inline") {
+                if (applied) plan.push({ b: b, delta: 0 });
+                return;
+            }
+            var stated = (parseFloat(cs.marginBottom) || 0) - (applied ? applied.delta : 0);
+            // what stands above the first line: the margin (beyond what the
+            // paragraph above already ends with - margins collapse), the
+            // top border and its space
+            var mt = parseFloat(cs.marginTop) || 0;
+            var prev = b.previousElementSibling;
+            if (mt > 0 && prev && !isInlineEl(prev)) {
+                var pa = parseParagraphEnd(prev);
+                var pmb = (parseFloat(window.getComputedStyle(prev).marginBottom) || 0) - (pa ? pa.delta : 0);
+                mt = Math.max(0, mt - Math.max(0, pmb));
+            }
+            var before = mt + (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.paddingTop) || 0);
+            var f = before - Math.floor(before + 1e-6);
+            var after = stated + (parseFloat(cs.borderBottomWidth) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            var L = b.__docsLine;
+            var content = b.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+            var delta;
+            if (content < L.px * 1.5) {
+                delta = roundGap(f + L.maxRaw + after) - (f + L.maxPx + after);
+            } else {
+                delta = (roundGap(f + L.raw) - f - L.px) + (roundGap(L.raw + after) - after - L.px);
+            }
+            if (Math.abs(delta) < 0.01) delta = 0;
+            if (delta || applied) plan.push({ b: b, delta: delta, stated: stated });
+        });
+        plan.forEach(function (p) {
+            var b = p.b;
+            var applied = parseParagraphEnd(b);
+            if (!p.delta) {
+                if (applied) {
+                    b.style.marginBottom = b.getAttribute("data-mb0") || "";
+                    b.removeAttribute("data-mb0");
+                    b.removeAttribute("data-mbd");
+                    if (!b.getAttribute("style")) b.removeAttribute("style");
+                }
+                return;
+            }
+            if (applied && Math.abs(applied.delta - p.delta) < 0.01) return;
+            if (!applied) b.setAttribute("data-mb0", b.style.marginBottom || "");
+            var v = (Math.round((p.stated + p.delta) * 1000) / 1000) + "px";
+            b.style.marginBottom = v;
+            b.setAttribute("data-mbd", p.delta.toFixed(3) + ";" + b.style.marginBottom);
+        });
+    }
+    function parseParagraphEnd(b) {
+        var raw = b.getAttribute && b.getAttribute("data-mbd");
+        if (!raw) return null;
+        var i = raw.indexOf(";");
+        return { delta: parseFloat(raw.substring(0, i)) || 0, written: raw.substring(i + 1) };
+    }
+    // root itself included: a paragraph about to become another element
+    function restoreParagraphEnds(root) {
+        var els = Array.prototype.slice.call(root.querySelectorAll("[data-mbd]"));
+        if (root.hasAttribute && root.hasAttribute("data-mbd")) els.push(root);
+        for (var i = 0; i < els.length; i++) {
+            els[i].style.marginBottom = els[i].getAttribute("data-mb0") || "";
+            els[i].removeAttribute("data-mb0");
+            els[i].removeAttribute("data-mbd");
+            if (!els[i].getAttribute("style")) els[i].removeAttribute("style");
+        }
     }
 
     /* A line holding pictures is as tall as the tallest picture, plus 1.75pt
@@ -577,6 +714,32 @@ var DocsLayout = (function () {
         return false;
     }
 
+    // where the text of a block's lines ends, in the same space as a tab's x
+    function lineEnd(block, origin, scale) {
+        var r = block.getBoundingClientRect();
+        var cs = window.getComputedStyle(block);
+        var right = r.right - ((parseFloat(cs.borderRightWidth) || 0) + (parseFloat(cs.paddingRight) || 0)) * scale;
+        return (right - origin) / scale;
+    }
+
+    // what a tab stands after starts on an earlier line than the tab itself
+    function startsLaterLine(span, block) {
+        var range = document.createRange();
+        range.setStart(block, 0);
+        range.setEndBefore(span);
+        var rects = range.getClientRects();
+        var top = span.getBoundingClientRect().top;
+        for (var i = rects.length - 1; i >= 0; i--) {
+            if (!rects[i].width) continue;
+            return top - rects[i].top > rects[i].height;
+        }
+        return false;
+    }
+
+    // keeps the text after a right tab that ends on the margin from tipping
+    // onto the next line over a rounding difference (px)
+    var TAB_SLACK = 0.1;
+
     function sizeTab(span, root) {
         var block = lineBlockOf(span, root);
         var scale = scaleOf(root) || 1;
@@ -595,10 +758,23 @@ var DocsLayout = (function () {
             if (w < 1) w += grid;
         } else if (stop.align === "right" || stop.align === "center" || stop.align === "decimal") {
             // the text after the tab, up to the next tab or the end of the line
-            var follow = followingWidth(span, block) / scale;
-            // a right stop sits on the margin more often than not; a hair of
-            // slack keeps the number from wrapping to a line of its own
-            w = stop.pos - x - (stop.align === "center" ? follow / 2 : follow) - 1;
+            var follow = followingWidth(span, block);
+            // A width this tab got before (the text in front of it has
+            // grown since) can have pushed the tab, or the text after it,
+            // onto the next line, and measured there it would keep that
+            // wrong place: measure it again from no width at all.
+            if ((parseFloat(span.style.width) || 0) > 0 && (follow.wraps || startsLaterLine(span, block))) {
+                span.style.width = "0px";
+                x = (span.getBoundingClientRect().left - origin) / scale;
+                follow = followingWidth(span, block);
+            }
+            // a stop past the end of the line sits on it: Google Docs puts
+            // the text of a right tab set beyond the margin flush against
+            // the margin, where a browser would wrap it
+            var pos = Math.min(stop.pos, lineEnd(block, origin, scale));
+            var fw = follow.width / scale;
+            // text too long to fit before the stop just runs on
+            w = follow.wraps ? 0 : pos - x - (stop.align === "center" ? fw / 2 : fw) - TAB_SLACK;
             if (w < 0) w = 0;
         } else {
             w = stop.pos - x;
@@ -633,16 +809,75 @@ var DocsLayout = (function () {
         if (end) range.setEndBefore(end);
         else range.setEnd(block, block.childNodes.length);
         var rects = range.getClientRects();
-        if (!rects.length) return 0;
-        // only what stays on the tab's own line counts
+        if (!rects.length) return { width: 0, wraps: false };
+        // only what stays on the tab's own line counts; wraps says some of
+        // it went on to the next line
         var top = span.getBoundingClientRect().top;
-        var left = Infinity, right = -Infinity;
+        var left = Infinity, right = -Infinity, wraps = false;
         for (var i = 0; i < rects.length; i++) {
-            if (Math.abs(rects[i].top - top) > rects[i].height) continue;
+            if (Math.abs(rects[i].top - top) > rects[i].height) {
+                if (rects[i].width && rects[i].top > top) wraps = true;
+                continue;
+            }
             left = Math.min(left, rects[i].left);
             right = Math.max(right, rects[i].right);
         }
-        return right > left ? right - left : 0;
+        return { width: right > left ? right - left : 0, wraps: wraps };
+    }
+
+    /* ---------------- border groups ----------------
+       Word and Google Docs draw one border around a run of adjacent
+       paragraphs that state the same borders and indents: the top rule over
+       the first, the bottom rule under the last, nothing between them. Two
+       headings with a bottom rule and an empty paragraph above, both
+       carrying it, show one rule. A paragraph inside such a run gets
+       data-bgroup naming the bordered edges it leaves to its neighbour
+       ("top", "bottom"), and docs.css takes that border and its space away;
+       the marks are never saved (restoreBorderGroups). */
+    var GROUP_TAGS = { P: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, LI: 1, PRE: 1, BLOCKQUOTE: 1, DIV: 1 };
+    var GROUP_SIDES = ["Top", "Right", "Bottom", "Left"];
+    var groupGen = 0;
+    function hasBorder(el, side) {
+        var st = el.style["border" + side + "Style"];
+        return !!st && st !== "none" && st !== "hidden";
+    }
+    function borderSignature(el) {
+        if (!el || el.nodeType !== 1 || !GROUP_TAGS[el.tagName] || isSpacer(el)) return "";
+        var s = el.style, any = false, parts = [];
+        for (var i = 0; i < GROUP_SIDES.length; i++) {
+            var side = GROUP_SIDES[i];
+            if (hasBorder(el, side)) any = true;
+            parts.push(s["border" + side], s["padding" + side]);
+        }
+        if (!any) return "";
+        parts.push(s.marginLeft, s.marginRight);
+        return parts.join("|");
+    }
+    function applyBorderGroups(root) {
+        if (!root) return;
+        var gen = ++groupGen;
+        var cands = root.querySelectorAll("[style*='border']");
+        for (var i = 0; i < cands.length; i++) {
+            var el = cands[i];
+            var sig = borderSignature(el);
+            if (!sig) continue;
+            var marks = [];
+            if (hasBorder(el, "Top") && borderSignature(el.previousElementSibling) === sig) marks.push("top");
+            if (hasBorder(el, "Bottom") && borderSignature(el.nextElementSibling) === sig) marks.push("bottom");
+            var v = marks.join(" ");
+            if (!v) continue;
+            el.__docsGroupGen = gen;
+            if (el.getAttribute("data-bgroup") !== v) el.setAttribute("data-bgroup", v);
+        }
+        // a paragraph that has left its group draws its edges again
+        var old = root.querySelectorAll("[data-bgroup]");
+        for (var j = 0; j < old.length; j++) {
+            if (old[j].__docsGroupGen !== gen) old[j].removeAttribute("data-bgroup");
+        }
+    }
+    function restoreBorderGroups(root) {
+        var old = root.querySelectorAll("[data-bgroup]");
+        for (var i = 0; i < old.length; i++) old[i].removeAttribute("data-bgroup");
     }
 
     /* ---------------- footnote references ---------------- */
@@ -1928,10 +2163,15 @@ var DocsLayout = (function () {
         fontRatios: fontRatios,
         clearMetrics: clearMetrics,
         lineHeightPx: lineHeightPx,
+        lineEm: lineEm,
         applyLineHeights: applyLineHeights,
         applyTableBorders: applyTableBorders,
         restoreTablePadding: restoreTablePadding,
         restorePictureLines: restorePictureLines,
+        applyBorderGroups: applyBorderGroups,
+        restoreBorderGroups: restoreBorderGroups,
+        applyParagraphEnds: applyParagraphEnds,
+        restoreParagraphEnds: restoreParagraphEnds,
         applyNumbering: applyNumbering,
         applyTabs: applyTabs,
         numberFootnotes: numberFootnotes,

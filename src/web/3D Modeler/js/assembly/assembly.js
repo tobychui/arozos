@@ -408,7 +408,7 @@ export function createAssembly(options) {
                 return;
             }
             rt.bodies.forEach(function (body, i) {
-                list.push(Object.assign({}, body, { matrix: matrixOf(comp), color: colorOf(comp), group: comp.id, appearance: rt.data && rt.data.appearance }));
+                list.push(Object.assign({}, body, { matrix: matrixOf(comp), color: colorOf(comp), group: comp.id, appearance: rt.data && rt.data.appearance, partBody: i }));
                 bodyMap.push({ comp: comp.id, partBody: i });
             });
         });
