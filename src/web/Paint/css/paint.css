@@ -146,9 +146,9 @@ svg.ic {
 #quick {
     display: flex;
     gap: 1px;
-    margin-left: 6px;
-    padding-left: 6px;
-    border-left: 1px solid var(--border);
+    margin-right: 6px;
+    padding-right: 6px;
+    border-right: 1px solid var(--border);
 }
 
 #quick .ib {
@@ -185,9 +185,6 @@ svg.ic {
     flex: none;
 }
 
-#menubar-right {
-    display: flex;
-}
 
 /* ------------------------------------------------------------ buttons */
 

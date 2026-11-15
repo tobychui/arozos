@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paint</title>
-    <link rel="icon" href="img/small_icon.png">
+    <link rel="icon" href="img/module_icon.svg">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <script src="../script/applocale.js"></script>
@@ -14,12 +14,11 @@
 <body>
     <div id="app">
         <header id="menubar">
-            <nav id="menus" aria-label="Menu"></nav>
             <div id="quick"></div>
+            <nav id="menus" aria-label="Menu"></nav>
             <div class="spacer"></div>
             <div id="doc-title" aria-live="polite"></div>
             <div class="spacer"></div>
-            <div id="menubar-right"></div>
         </header>
 
         <div id="ribbon">
@@ -47,7 +46,7 @@
         </div>
 
         <footer id="statusbar">
-            <div class="st-item"><span class="st-icon" id="st-pos-icon"></span><span id="st-pos"></span></div>
+            <div class="st-item" id="st-pos-item" style="display:none"><span class="st-icon" id="st-pos-icon"></span><span id="st-pos"></span></div>
             <div class="st-item"><span class="st-icon sel-icon"></span><span id="st-sel"></span></div>
             <div class="st-item" id="st-pick" style="display:none"><span class="chip"></span><span class="hex"></span></div>
             <div class="spacer"></div>

@@ -674,9 +674,6 @@ function buildMenuBar() {
     quick.appendChild(actionBtn('save'));
     quick.appendChild(actionBtn('undo'));
     quick.appendChild(actionBtn('redo'));
-    const theme = iconBtn('moon', T('dark-mode', 'Dark mode'), () => toggleTheme(), { id: 'theme-btn' });
-    $('menubar-right').innerHTML = '';
-    $('menubar-right').appendChild(theme);
 }
 
 function buildRibbon() {
@@ -756,12 +753,10 @@ function buildStatus() {
     });
 
     App.on('pointer', (p) => {
-        if (!p) {
-            pos.textContent = '';
-            return;
-        }
-        const x = Math.floor(p.x), y = Math.floor(p.y);
-        pos.textContent = (x >= 0 && y >= 0 && x < App.W && y < App.H) ? x + ', ' + y + ' px' : '';
+        const x = p ? Math.floor(p.x) : -1, y = p ? Math.floor(p.y) : -1;
+        const inside = x >= 0 && y >= 0 && x < App.W && y < App.H;
+        pos.textContent = inside ? x + ', ' + y + ' px' : '';
+        pos.parentElement.style.display = inside ? '' : 'none';
     });
     const showSel = () => {
         const r = selectionSize();

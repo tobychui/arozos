@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+    <defs>
+        <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fff6e6"/>
+            <stop offset="1" stop-color="#f0d6ad"/>
+        </linearGradient>
+        <linearGradient id="handle" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f59e0b"/>
+            <stop offset="1" stop-color="#b45309"/>
+        </linearGradient>
+        <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#e2e8f0"/>
+            <stop offset="1" stop-color="#94a3b8"/>
+        </linearGradient>
+    </defs>
+    <!-- palette with a thumb hole -->
+    <path fill="url(#wood)" stroke="#d9b98a" stroke-width="2.5" fill-rule="evenodd"
+        d="M64 14C34 14 12 34 12 60c0 24 18 42 40 42 8 0 11-5 11-10 0-6-5-8-5-14 0-6 5-10 12-10h14c17 0 32-12 32-30C116 26 93 14 64 14z
+           M28 72a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <!-- paint -->
+    <circle cx="36" cy="46" r="9" fill="#ef4444"/>
+    <circle cx="60" cy="31" r="9" fill="#facc15"/>
+    <circle cx="86" cy="35" r="9" fill="#22c55e"/>
+    <circle cx="99" cy="56" r="8" fill="#8b5cf6"/>
+    <circle cx="33.5" cy="43.5" r="2.5" fill="#fff" opacity=".45"/>
+    <circle cx="57.5" cy="28.5" r="2.5" fill="#fff" opacity=".45"/>
+    <circle cx="83.5" cy="32.5" r="2.5" fill="#fff" opacity=".45"/>
+    <circle cx="96.8" cy="53.8" r="2.2" fill="#fff" opacity=".45"/>
+    <!-- brush -->
+    <g transform="translate(64 64) rotate(45)">
+        <path d="M30 -6.5L74 -3.6a3.6 3.6 0 0 1 0 7.2L30 6.5z" fill="url(#handle)"/>
+        <rect x="19" y="-7" width="12" height="14" rx="1.5" fill="url(#metal)"/>
+        <path d="M0 0C5 -8 12 -9 19.5 -7V7C12 9 5 8 0 0z" fill="#2563eb"/>
+        <path d="M3 -1.5C7 -5 11 -6 16 -5.5" fill="none" stroke="#93c5fd" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+</svg>

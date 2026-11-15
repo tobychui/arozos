@@ -15,7 +15,7 @@ var moduleLaunchInfo = {
 	Name: "Paint",
 	Desc: "Draw, sketch and mark up pictures",
 	Group: "Utilities",
-	IconPath: "Paint/img/small_icon.png",
+	IconPath: "Paint/img/module_icon.svg",
 	Version: "2.0",
 	StartDir: "Paint/index.html",
 	SupportFW: true,
