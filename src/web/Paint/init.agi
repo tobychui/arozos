@@ -1,20 +1,28 @@
 /*
-	Simple Paint WebApps
-*/
+	Paint - a simple drawing app
 
+	Pencil, brushes, eraser, fill, text, shapes, selections, clipboard
+	paste, resize / rotate / crop. Open and save PNG, JPEG, WebP and BMP.
+	Everything runs in the browser; the files are read through /media and
+	written with the file system upload endpoint, so no backend script is
+	needed.
+
+	Do not call any user / filepath functions in this script.
+*/
 
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
-    Name: "Paint",
-	Desc: "A basic drawing apps",
+	Name: "Paint",
+	Desc: "Draw, sketch and mark up pictures",
 	Group: "Utilities",
-	IconPath: "Paint/img/small_icon.png",
-	Version: "1.0",
+	IconPath: "Paint/img/module_icon.svg",
+	Version: "2.0",
 	StartDir: "Paint/index.html",
 	SupportFW: true,
 	LaunchFWDir: "Paint/index.html",
 	SupportEmb: false,
-	InitFWSize: [870, 530]
+	InitFWSize: [1100, 720],
+	SupportedExt: [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
 }
 
 //Register the module

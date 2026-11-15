@@ -4,100 +4,62 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paint</title>
+    <link rel="icon" href="img/module_icon.svg">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
-    <title>Paint</title>
-    <style>
-        body{
-            background-color: #999999;
-        }
-    </style>
+    <script src="../script/applocale.js"></script>
+    <link rel="stylesheet" href="css/paint.css">
 </head>
 <body>
-    <script src="./js/painterro-1.2.66.min.js"></script>
-    <script>
-    var saveFilename = "";
-    var saveFilepath = "";
-    var savePendingBlob = null;
-    //Initiate the Painterro Object
-    var painterroObject = Painterro({
-        onClose: function(){
-            ao_module_close();
-        },
-        saveHandler: function(drawing, callback){
-            //window.open(drawing.asDataURL());
-            var blob = drawing.asBlob();
-            if (saveFilepath == ""){
-                //Popup file save selector
-                savePendingBlob = blob;
-                ao_module_openFileSelector(fileSelected, "user:/Desktop", "new" ,false,{
-                    defaultName: "Untitled.png",
-                });
-                callback();
-            }else{
-                //Convert the image to file
-                var imageFile = ao_module_utils.blobToFile(blob, saveFilename);
-                //Write to source
-                ao_module_uploadFile(imageFile, saveFilepath, function(){
-                    callback();
-                });
-            }
-            console.log(drawing);
-            
-            
-        }
-    });
+    <div id="app">
+        <header id="menubar">
+            <div id="quick"></div>
+            <nav id="menus" aria-label="Menu"></nav>
+            <div class="spacer"></div>
+            <div id="doc-title" aria-live="polite"></div>
+            <div class="spacer"></div>
+        </header>
 
-    function fileSelected(filedata){
-        for (var i=0; i < filedata.length; i++){
-            var filename = filedata[i].filename;
-            var filepath = filedata[i].filepath;
-            //Save the temp blob to there
-            if (savePendingBlob != null){
-                //Extract filepath dirname
-                saveFilepath = filepath;
-                saveFilepath = saveFilepath.split("/");
-                saveFilepath.pop();
-                saveFilepath = saveFilepath.join("/");
-                saveFilename = filename;
-                ao_module_setWindowTitle("Paint - " + saveFilename);
+        <div id="ribbon">
+            <div class="group" id="g-clipboard"></div>
+            <div class="group" id="g-image"></div>
+            <div class="group grow" id="tool-options"></div>
+            <div class="group" id="colors"></div>
+        </div>
 
-                //Convert the save pending blob to 
-                let imageFile = ao_module_utils.blobToFile(savePendingBlob, filename);
-                //Save to server
-                ao_module_uploadFile(imageFile, saveFilepath, function(){
-                    //Reset the savePendingFile
-                    savePendingBlob = null;
-                });
+        <div id="main">
+            <nav id="toolrail" role="radiogroup" aria-label="Tools"></nav>
+            <div id="workspace">
+                <div id="stage">
+                    <div id="canvas-box">
+                        <canvas id="doc-canvas" width="1" height="1"></canvas>
+                        <canvas id="preview-canvas" width="1" height="1"></canvas>
+                        <div id="pixel-grid"></div>
+                        <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+                        <div class="grip" data-dir="e" title="Drag to change the canvas size"></div>
+                        <div class="grip" data-dir="s" title="Drag to change the canvas size"></div>
+                        <div class="grip" data-dir="se" title="Drag to change the canvas size"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-              
-            }
-        }
-    }
-
-    //Check if there are any file loading from ao_module
-    var inputFiles = ao_module_loadInputFiles();
-    if (inputFiles == null){
-        //Nothing is loaded. Use blank canvas
-        painterroObject.show()
-    }else{
-        //Something is loaded. Use the first image to load
-        var openingFile = inputFiles[0];
-        var filename = openingFile.filename;
-        saveFilename = filename;
-        ao_module_setWindowTitle("Paint - " + saveFilename);
-
-        //Filter out the filepath to get its parent dir
-        var filepath = openingFile.filepath;
-        saveFilepath = filepath;
-        saveFilepath = saveFilepath.split("/");
-        saveFilepath.pop();
-        saveFilepath = saveFilepath.join("/");
-
-        painterroObject.show("../media?file=" + filepath);
-    }
-    
-    
-    </script>
+        <footer id="statusbar">
+            <div class="st-item" id="st-pos-item" style="display:none"><span class="st-icon" id="st-pos-icon"></span><span id="st-pos"></span></div>
+            <div class="st-item"><span class="st-icon sel-icon"></span><span id="st-sel"></span></div>
+            <div class="st-item" id="st-pick" style="display:none"><span class="chip"></span><span class="hex"></span></div>
+            <div class="spacer"></div>
+            <div class="st-item"><span class="st-icon" id="st-size-icon"></span><span id="st-size"></span></div>
+            <div class="st-zoom">
+                <button type="button" class="ib small" id="zoom-out"></button>
+                <input type="range" id="zoom-slider" min="-432" max="500" step="1" value="0" aria-label="Zoom">
+                <button type="button" class="ib small" id="zoom-in"></button>
+                <button type="button" class="zoom-label" id="zoom-label" aria-haspopup="true">100%</button>
+            </div>
+        </footer>
+    </div>
+    <div id="busy-indicator" aria-hidden="true"></div>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
