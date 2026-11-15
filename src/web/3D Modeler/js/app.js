@@ -37,6 +37,7 @@ import { toTextureImage, IMAGE_EXTENSIONS } from './io/image.js';
 import { askMeshExport } from './io/exportdialog.js';
 import { createOffsetBox } from './offsetbox.js';
 import * as files from './io/files.js';
+import * as native from './io/native.js';
 import { toSTL, toOBJ, to3MF } from './io/exchange.js';
 import * as solver from './sketch/solver.js';
 import { createSketcher } from './sketch/sketcher.js';
@@ -123,6 +124,15 @@ function applyTheme(theme) {
 }
 
 function initTheme() {
+    if (native.available()) {
+        // The Mac app follows the system's appearance, also when it changes
+        const query = window.matchMedia('(prefers-color-scheme: dark)');
+        applyTheme(query.matches ? 'dark' : 'light');
+        query.addEventListener('change', function (event) {
+            applyTheme(event.matches ? 'dark' : 'light');
+        });
+        return;
+    }
     const inDesktop = !!window.ao_module_virtualDesktop;
     if (!inDesktop && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         applyTheme('dark');
@@ -577,7 +587,7 @@ function startFeature(kind, featureId) {
         leaveMode();
     }
     if (sketcher.isOpen()) {
-        finishSketch(); // as in Inventor, a feature command inside a sketch finishes it first
+        finishSketch(); // as in desktop CAD, a feature command inside a sketch finishes it first
     }
     // A feature already open (the same one opened twice): closed first, so
     // the whole model it asks back for is drawn before this one rolls back
@@ -691,6 +701,33 @@ function setLeftDrag(mode) {
     drawOrbitMark();
 }
 
+// Orbit and Pan are for looking around. Commands that only move the
+// camera or restyle the view leave them on; any other command gives the
+// left button back to selecting, so the tool it starts can pick at once
+// (a chamfer its edges, a sketch its plane). So does working in a tool's
+// panel or in the model browser: a click on a chamfer's edge selector
+// means the next click in the view picks an edge.
+const VIEW_ONLY_COMMANDS = /^(nav\.(pan|orbit|zoomall|home)|style\.|proj\.|view\.origin$)/;
+
+function releaseLeftButton() {
+    if (state.leftDrag === 'select') {
+        return;
+    }
+    const was = state.leftDrag;
+    heldOrbit = null; // letting go of F4 later brings nothing back
+    setLeftDrag('select');
+    setStatus((was === 'orbit' ? 'Orbit' : 'Pan') + ' off: the left button selects again');
+}
+
+['pointerdown', 'focusin'].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+        const target = event.target;
+        if (state.leftDrag !== 'select' && target && target.closest && target.closest('.props, #browser')) {
+            releaseLeftButton();
+        }
+    }, true);
+});
+
 // The circle shown over the model while the left button orbits: four
 // ticks outside it at the quarters and a small cross in the middle
 function drawOrbitMark() {
@@ -789,7 +826,7 @@ function tabData(tab) {
 
 function renderTabs() {
     tabBar.render(tabs.map(function (t) {
-        return { id: t.id, kind: t.kind, name: tabName(t), path: tabPath(t), dirty: tabDirty(t) };
+        return { id: t.id, kind: t.kind, name: tabName(t), path: files.displayPath(tabPath(t)), dirty: tabDirty(t) };
     }), activeTab ? activeTab.id : null);
     scheduleAutosave();
 }
@@ -933,7 +970,7 @@ function offerAutosaves() {
         return f.time || 0;
     }));
     const names = docs.map(function (d) {
-        return d.name + (d.path ? ' (' + d.path + ')' : ' (never saved)');
+        return d.name + (d.path ? ' (' + files.displayPath(d.path) + ')' : ' (never saved)');
     });
     ask('Restore unsaved work?', '3D Modeler was closed' + (when ? ' at ' + new Date(when).toLocaleString() : '') +
         ' with changes that were not saved:\n\n' + names.join('\n') +
@@ -1078,7 +1115,7 @@ function switchTo(tab) {
     leaveDocument();
     stash();
     enter(tab, null);
-    setStatus(tabName(tab) + (tabPath(tab) ? ' (' + tabPath(tab) + ')' : ''));
+    setStatus(tabName(tab) + (tabPath(tab) ? ' (' + files.displayPath(tabPath(tab)) + ')' : ''));
 }
 
 // Open a document in a tab of its own: a file already open shows its tab,
@@ -1170,6 +1207,12 @@ function refreshChrome() {
         window.ao_module_setWindowTitle('3D Modeler - ' + title);
     } catch (e) {
         // Not inside an ArozOS float window
+    }
+    if (native.available()) {
+        // The Mac window: its title, the close button's unsaved dot, the
+        // file in the title bar, and which File menu items apply
+        document.title = d.name;
+        native.windowInfo({ edited: tabs.some(tabDirty), path: d.path, kind: state.env });
     }
     renderTabs();
 }
@@ -1442,7 +1485,7 @@ function newDocument() {
 function openDocument() {
     files.open().then(function (file) {
         if (file && loadDocument(file.data, file.name, file.path)) {
-            setStatus('Opened ' + (file.path || file.name));
+            setStatus('Opened ' + (files.displayPath(file.path) || file.name));
         }
     }).catch(function (err) {
         fail('The part could not be opened', err);
@@ -1464,7 +1507,7 @@ function saveDocument(askWhere) {
         d.name = saved.name;
         d.path = saved.path;
         d.markSaved();
-        setStatus(saved.path ? 'Saved to ' + saved.path : 'Downloaded ' + saved.name + ext);
+        setStatus(saved.path ? 'Saved to ' + files.displayPath(saved.path) : 'Downloaded ' + saved.name + ext);
         return true;
     }).catch(function (err) {
         fail('The ' + KIND_NAMES[state.env] + ' could not be saved', err);
@@ -1632,7 +1675,7 @@ function exportPart(format) {
     made.then(function (content) {
         return content ? files.saveAs(base, content) : null;
     }).then(function (saved) {
-        setStatus(saved ? (saved.path ? 'Exported to ' + saved.path : 'Downloaded ' + saved.name) : 'Ready');
+        setStatus(saved ? (saved.path ? 'Exported to ' + files.displayPath(saved.path) : 'Downloaded ' + saved.name) : 'Ready');
     }).catch(function (err) {
         fail('The part could not be exported', err);
     });
@@ -1679,29 +1722,38 @@ function deleteFeature(id) {
 // The desktop calls ao_module_close() when the window's close button is
 // pressed: unsaved work is asked about first.
 const closeWindow = window.ao_module_closeHandler;
-window.ao_module_close = function () {
+
+// Resolves to true when the window may close: nothing unsaved, or the
+// person said so
+function confirmCloseAll() {
     closeInspect(true);
     const dirty = tabs.filter(tabDirty);
-    let go;
     if (!dirty.length) {
-        go = Promise.resolve(true);
-    } else if (dirty.length === 1 && dirty[0] === activeTab) {
-        go = confirmDiscard();
-    } else {
-        go = ask('Unsaved changes', dirty.map(tabName).join(', ') + (dirty.length === 1 ? ' has' : ' have') +
-            ' changes that are not saved. Close 3D Modeler anyway?', [
-            { label: 'Close Without Saving', value: true },
-            { label: 'Cancel', value: false, primary: true }
-        ], false);
+        return Promise.resolve(true);
     }
-    go.then(function (ok) {
+    if (dirty.length === 1 && dirty[0] === activeTab) {
+        return confirmDiscard();
+    }
+    return ask('Unsaved changes', dirty.map(tabName).join(', ') + (dirty.length === 1 ? ' has' : ' have') +
+        ' changes that are not saved. Close 3D Modeler anyway?', [
+        { label: 'Close Without Saving', value: true },
+        { label: 'Cancel', value: false, primary: true }
+    ], false);
+}
+
+// Closed on purpose (saved, or not saved on purpose): nothing to restore
+function closingOnPurpose() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    autosaveClosed = true;
+    autosaveOn = false;
+    dropAutosave(AUTOSAVE_KEY);
+}
+
+window.ao_module_close = function () {
+    confirmCloseAll().then(function (ok) {
         if (ok) {
-            // Closed on purpose (saved, or not saved on purpose): nothing to restore
-            clearTimeout(autosaveTimer);
-            autosaveTimer = null;
-            autosaveClosed = true;
-            autosaveOn = false;
-            dropAutosave(AUTOSAVE_KEY);
+            closingOnPurpose();
         }
         if (ok && typeof closeWindow === 'function') {
             closeWindow();
@@ -1907,6 +1959,9 @@ function onCommand(id) {
     if (sceneCommand(id)) {
         return;
     }
+    if (!VIEW_ONLY_COMMANDS.test(id)) {
+        releaseLeftButton();
+    }
     const wasPicking = picking() ? state.mode : null;
     if (wasPicking) {
         leaveMode();
@@ -2025,7 +2080,7 @@ function onCommand(id) {
         // Clicking the active one gives the left button back to selecting
         const mode = id.slice(4);
         setLeftDrag(state.leftDrag === mode ? 'select' : mode);
-        setStatus(state.leftDrag === 'select' ? 'Ready' : (mode === 'orbit' ? 'Orbit' : 'Pan') + ': drag with the left button. Esc or the button again to stop.');
+        setStatus(state.leftDrag === 'select' ? 'Ready' : (mode === 'orbit' ? 'Orbit' : 'Pan') + ': drag with the left button. Esc, the button again or any tool gives it back to selecting.');
     } else if (id === 'ins.mass') {
         showMassProperties();
     } else if (id === 'ins.measure') {
@@ -2137,7 +2192,7 @@ document.addEventListener('keydown', function (event) {
         return;
     }
     if (key === 'f4' && !event.repeat && state.leftDrag !== 'orbit') {
-        // Held down, F4 turns the left button into orbit, as in Inventor
+        // Held down, F4 turns the left button into orbit, as in desktop CAD
         event.preventDefault();
         heldOrbit = state.leftDrag;
         setLeftDrag('orbit');
@@ -2253,7 +2308,7 @@ const assembly = createAssembly({
     openPath: function (path) {
         files.readPath(path).then(function (file) {
             if (loadDocument(file.data, file.name, file.path)) {
-                setStatus('Opened ' + path + ' in a tab. Changes show in the assembly when its tab is shown again.');
+                setStatus('Opened ' + files.displayPath(path) + ' in a tab. Changes show in the assembly when its tab is shown again.');
             }
         }).catch(function (err) {
             fail('The part could not be opened', err);
@@ -2418,23 +2473,92 @@ ribbon.showTab('model');
 // Unsaved work of a window that crashed, was reloaded or was closed
 setTimeout(offerAutosaves, 600);
 
-// A part handed over by the File Manager ("Open with 3D Modeler")
-const launch = files.launchPath();
-if (launch && /\.(step|stp)$/i.test(launch)) {
-    // A STEP file opened with 3D Modeler starts a new part with it imported
-    files.readText(launch).then(function (file) {
-        loadDocument(null, file.name.replace(/\.[^.]+$/, ''), '');
-        return addImport(file);
-    }).catch(function (err) {
-        fail('The file could not be imported', err);
-    });
-} else if (launch) {
-    // A part or an assembly: loadDocument goes by the file's format
-    files.readPath(launch).then(function (file) {
+// A file handed over from outside the window: the File Manager's "Open
+// with 3D Modeler", or in the Mac app Finder, the Dock and Open Recent
+function openHandedOver(path) {
+    if (/\.(step|stp)$/i.test(path)) {
+        // A STEP file opened with 3D Modeler starts a new part with it imported
+        return files.readText(path).then(function (file) {
+            loadDocument(null, file.name.replace(/\.[^.]+$/, ''), '');
+            return addImport(file);
+        }).catch(function (err) {
+            fail('The file could not be imported', err);
+        });
+    }
+    // A part, an assembly or a drawing: loadDocument goes by the file's format
+    return files.readPath(path).then(function (file) {
         if (loadDocument(file.data, file.name, file.path)) {
-            setStatus('Opened ' + file.path);
+            setStatus('Opened ' + files.displayPath(file.path));
         }
     }).catch(function (err) {
         fail('The file could not be opened', err);
     });
+}
+
+const launch = files.launchPath();
+if (launch) {
+    openHandedOver(launch);
+}
+
+/* ================= the Mac app (io/native.js) ================= */
+// The menu bar items the page carries out. Undo and Redo in a text field
+// being typed in act on the typing, as the keys do.
+const MENU_COMMANDS = /^(file\.(new|open|save|saveas)|import\.step|export\.(step|stl|obj|3mf|brep)|dexport\.(pdf|dxf|svg|png)|nav\.(home|zoomall))$/;
+
+function nativeMenu(command) {
+    const el = document.activeElement;
+    const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    if ((command === 'edit.undo' || command === 'edit.redo') && typing) {
+        document.execCommand(command === 'edit.undo' ? 'undo' : 'redo');
+        return;
+    }
+    if (document.querySelector('.veil')) {
+        return; // a question is open: it is answered first, as with the keys
+    }
+    if (command === 'tab.close') {
+        if (activeTab) {
+            closeTab(activeTab);
+        }
+    } else if (command === 'edit.undo' || command === 'edit.redo' || MENU_COMMANDS.test(command)) {
+        onCommand(command);
+    }
+}
+
+// Files waiting in the shell, one tab each, in the order they came
+function takeHandedOver() {
+    native.takeOpened().then(function (list) {
+        return list.reduce(function (chain, file) {
+            return chain.then(function () {
+                return openHandedOver(file.path);
+            });
+        }, Promise.resolve());
+    }).catch(function (err) {
+        fail('The file could not be opened', err);
+    });
+}
+
+if (native.available()) {
+    native.handle({
+        // The close button or Quit: true closes now; otherwise the page asks
+        // and tells the shell what the person chose
+        requestClose: function () {
+            if (!tabs.some(tabDirty)) {
+                closingOnPurpose();
+                return true;
+            }
+            confirmCloseAll().then(function (ok) {
+                if (ok) {
+                    closingOnPurpose();
+                    return native.closeWindow();
+                }
+                return native.closeCancelled();
+            }).catch(function () {
+                native.closeCancelled();
+            });
+            return false;
+        },
+        menu: nativeMenu,
+        opened: takeHandedOver
+    });
+    takeHandedOver();
 }

@@ -2,15 +2,18 @@
     3D Modeler - opening and saving part and assembly files
 
     Inside ArozOS everything goes through the AGI script backend/file.agi and
-    the system file selector (ao_module.js). Without a backend - the static
-    preview, or the page opened on its own - it falls back to the browser's
-    file picker and a download, so the app stays usable for development.
+    the system file selector (ao_module.js). In a native desktop shell
+    (a macOS app around this page) the files are the computer's own, reached through the shell's Open and Save
+    dialogs (native.js). Without either - the static preview, or the page
+    opened on its own - it falls back to the browser's file picker and a
+    download, so the app stays usable for development.
 
     jQuery and ao_module.js are classic scripts; they are reached through
     window so this module loads even where they are missing.
 */
 
 import { toHex, fromHex } from './exchange.js';
+import * as native from './native.js';
 
 const SCRIPT = '3D Modeler/backend/file.agi';
 // Documents open in tabs of this window: a read of their path gets what the
@@ -54,7 +57,11 @@ function agi(data) {
 }
 
 // Resolves to true when the AGI backend answers. Asked once per session.
+// The Mac app has none: its files go through native.js.
 export function hasBackend() {
+    if (backend === null && native.available()) {
+        backend = Promise.resolve(false);
+    }
     if (backend === null) {
         backend = agi({ opr: 'ping' }).then(function () {
             return true;
@@ -111,6 +118,11 @@ export function readPath(path) {
     if (open) {
         return Promise.resolve({ data: JSON.parse(JSON.stringify(open.data)), name: open.name, path: path, open: true });
     }
+    if (native.available()) {
+        return nativeText(path).then(function (text) {
+            return { data: parse(text), name: baseName(path), path: path };
+        });
+    }
     return agi({ opr: 'read', path: path }).then(function (reply) {
         return { data: parse(reply.content), name: baseName(path), path: path };
     });
@@ -141,6 +153,11 @@ function browserPick(accept) {
 // Let the user choose a part or an assembly and read it. Resolves to
 // { data, name, path }, or null when cancelled.
 export function open() {
+    if (native.available()) {
+        return nativePick(EXTENSIONS, 'open').then(function (file) {
+            return file ? readPath(file.path) : null;
+        });
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             return browserPick();
@@ -154,6 +171,14 @@ export function open() {
 // Let the user choose a part file (a missing part found again). Resolves
 // to { data, name, path } or null when cancelled.
 export function openPartFile() {
+    if (native.available()) {
+        return nativePick(['.aopart'], 'part').then(function (file) {
+            if (file && !/\.aopart$/i.test(file.path)) {
+                throw new Error('Choose a part file (.aopart)');
+            }
+            return file ? readPath(file.path) : null;
+        });
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             return browserPick('.aopart');
@@ -170,6 +195,14 @@ export function openPartFile() {
 // Let the user choose a part or an assembly to draw. Resolves to
 // { data, name, path } or null when cancelled.
 export function openModel() {
+    if (native.available()) {
+        return nativePick(['.aopart', '.aoasm'], 'part').then(function (file) {
+            if (file && !/\.(aopart|aoasm)$/i.test(file.path)) {
+                throw new Error('Choose a part (.aopart) or an assembly (.aoasm)');
+            }
+            return file ? readPath(file.path) : null;
+        });
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             return browserPick('.aopart,.aoasm');
@@ -187,6 +220,19 @@ export function openModel() {
 // Resolves to { data, name, path } for a part, { step: text, name, path }
 // for a STEP file, or null when cancelled.
 export function openForPlace() {
+    if (native.available()) {
+        return nativePick(['.aopart', '.step', '.stp'], 'part').then(function (file) {
+            if (!file) {
+                return null;
+            }
+            if (/\.(step|stp)$/i.test(file.path)) {
+                return readText(file.path).then(function (got) {
+                    return { step: got.text, name: got.name.replace(/\.[^.]+$/, ''), path: '' };
+                });
+            }
+            return readPath(file.path);
+        });
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             return new Promise(function (resolve, reject) {
@@ -242,6 +288,9 @@ function download(name, text, ext) {
 // its own file writes them for where it lands. Resolves to { name, path } (path is empty for a browser
 // download), or null when cancelled.
 export function save(text, name, path, askWhere, ext) {
+    if (native.available()) {
+        return nativeSave(text, name, path, askWhere, ext);
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             download(name, typeof text === 'function' ? text('') : text, ext);
@@ -288,6 +337,16 @@ function extensionOf(name) {
 // when cancelled.
 export function saveAs(fileName, content) {
     const ext = extensionOf(fileName);
+    if (native.available()) {
+        return native.pickSave({ name: fileName, ext: ext, purpose: 'export' }).then(function (picked) {
+            if (!picked) {
+                return null;
+            }
+            return native.write(picked.path, content.bytes || content.text).then(function () {
+                return { name: picked.name, path: picked.path };
+            });
+        });
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             const blob = new Blob([content.bytes || content.text], { type: content.bytes ? 'application/octet-stream' : 'text/plain' });
@@ -328,6 +387,20 @@ export function openOther(extensions, binary) {
     const wrong = function (name) {
         return extensions.indexOf(extensionOf(name)) < 0;
     };
+    if (native.available()) {
+        return nativePick(extensions, 'import').then(function (file) {
+            if (!file) {
+                return null;
+            }
+            if (wrong(file.path)) {
+                throw new Error('Choose a ' + extensions.join(' or ') + ' file');
+            }
+            return native.read(file.path).then(function (bytes) {
+                return binary ? { name: file.name, path: file.path, bytes: bytes }
+                    : { name: file.name, path: file.path, text: new TextDecoder().decode(bytes) };
+            });
+        });
+    }
     return hasBackend().then(function (ok) {
         if (!ok) {
             return new Promise(function (resolve, reject) {
@@ -377,13 +450,22 @@ export function openOther(extensions, binary) {
 // Read a text file (a STEP file handed over by the File Manager) by its
 // ArozOS path. Resolves to { name, path, text }.
 export function readText(path) {
+    if (native.available()) {
+        return nativeText(path).then(function (text) {
+            return { name: String(path).split('/').pop(), path: path, text: text };
+        });
+    }
     return agi({ opr: 'read', path: path }).then(function (reply) {
         return { name: String(path).split('/').pop(), path: path, text: reply.content };
     });
 }
 
-// The part the File Manager asked this window to open, or null.
+// The part the File Manager asked this window to open, or null. (The Mac
+// app hands over files through native.takeOpened instead.)
 export function launchPath() {
+    if (native.available()) {
+        return null;
+    }
     try {
         const files = window.ao_module_loadInputFiles();
         if (files && files.length && files[0].filepath) {
@@ -393,4 +475,56 @@ export function launchPath() {
         // ao_module.js is not loaded
     }
     return null;
+}
+
+/* ================= the Mac app (native.js) ================= */
+// A path for the person to read: "~/Desktop/Bracket.aopart" in the Mac
+// app, the ArozOS path itself elsewhere
+export function displayPath(path) {
+    return native.displayPath(path);
+}
+
+// A link that names a file outside this Mac (an assembly made in ArozOS
+// with an absolute "user:/..." link) fails as a missing file does, so the
+// Missing Files dialog can point it at the file here
+function nativeText(path) {
+    if (!native.isLocal(path)) {
+        const err = new Error(path ? path + ' is not a file on this Mac' : 'The file has no path');
+        err.code = 'notfound';
+        return Promise.reject(err);
+    }
+    return native.readText(path);
+}
+
+// The system Open dialog for one file -> { path, name } or null
+function nativePick(extensions, purpose) {
+    return native.pickOpen({ exts: extensions, purpose: purpose }).then(function (picked) {
+        return picked.length ? picked[0] : null;
+    });
+}
+
+// save() in the Mac app. A document with a path is written in place;
+// one the shell may not write without asking (never opened from this
+// Mac, or a restored copy of one) gets the Save dialog, in its folder.
+function nativeSave(text, name, path, askWhere, ext) {
+    const want = ext || EXTENSION;
+    const write = function (target) {
+        return native.write(target, typeof text === 'function' ? text(target) : text).then(function () {
+            return { name: baseName(target), path: target };
+        });
+    };
+    const ask = function () {
+        return native.pickSave({ name: withExtension(name, want), ext: want, near: path, purpose: 'part' }).then(function (picked) {
+            return picked ? write(withExtension(picked.path, want)) : null;
+        });
+    };
+    if (path && !askWhere && native.isLocal(path)) {
+        return write(path).catch(function (err) {
+            if (err.code === 'nogrant') {
+                return ask();
+            }
+            throw err;
+        });
+    }
+    return ask();
 }

@@ -434,7 +434,7 @@ function arcBetween(c, p, q, forward) {
     return forward ? arcFrom('', c, p, q) : arcFrom('', c, q, p);
 }
 
-// Three point arc, Inventor's default: start, end, then a point the arc
+// Three point arc, the usual CAD default: start, end, then a point the arc
 // passes through (which also says which way it bends)
 function arc3Tool(ctx) {
     let start = null;
@@ -587,7 +587,7 @@ function tangentArcTool(ctx) {
 
 // Sketch Fillet and Chamfer: type the size, then click the corner point
 // where two lines meet, or the two lines. Further corners of the same size
-// share the first one's dimension (they are made equal to it), as Inventor
+// share the first one's dimension (they are made equal to it), as desktop CAD
 // does.
 function cornerTool(ctx, kind) {
     const title = kind === 'fillet' ? 'Fillet' : 'Chamfer';
@@ -1111,7 +1111,7 @@ function dimensionTool(ctx) {
         },
         click: function (s) {
             const sk = ctx.sk();
-            // A click on a dimension's value edits it, as in Inventor
+            // A click on a dimension's value edits it, as in desktop CAD
             if (s.hit && s.hit.kind === 'dim') {
                 reset();
                 ctx.editDimension(s.hit.id);
@@ -1144,7 +1144,7 @@ function dimensionTool(ctx) {
                 ctx.editDimension(id);
             } else {
                 // The sketch is already held that way: keep the size as a
-                // driven dimension instead, as Inventor offers
+                // driven dimension instead, as desktop CAD offers
                 d.driven = true;
                 M.addConstraint(ctx.sk(), d); // the sketch was restored: take it again
                 if (ctx.commit('Driven dimension')) {

@@ -1,8 +1,8 @@
 /*
     3D Modeler - Measure panel
 
-    Inspect > Measure, for a part and for an assembly, as Inventor's Measure
-    command: click a face or an edge and the panel says what it is (area,
+    Inspect > Measure, for a part and for an assembly, as a desktop CAD
+    Measure command: click a face or an edge and the panel says what it is (area,
     length, radius); click a second one and it gives the shortest distance
     between them (exact, from the kernel), its X, Y and Z parts and the
     angle between them when both have a direction. A line between the two

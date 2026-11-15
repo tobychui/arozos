@@ -9,7 +9,7 @@
     Profiles are picked as in Extrude (profiles.js). Once a profile is
     picked, the straight lines of its sketch and the origin axes in its
     plane are drawn as candidates; a click picks the axis. A sketch with
-    exactly one construction line has it picked for you, as Inventor does
+    exactly one construction line has it picked for you, as desktop CAD does
     with a centre line.
 
     The kernel side is revolveTool / revolve in kernel/occt.js.

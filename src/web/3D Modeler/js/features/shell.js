@@ -2,7 +2,7 @@
     3D Modeler - Shell
 
     Hollows the solid, leaving walls of one thickness, open at the faces
-    picked in the model (click toggles), as Inventor's Shell: Inside keeps
+    picked in the model (click toggles), as a desktop CAD Shell: Inside keeps
     the outside of the part where it is, Outside grows the walls outwards.
 
     Faces are remembered by their centre and area plus the key of their

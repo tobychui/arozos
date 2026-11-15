@@ -580,7 +580,7 @@ svg.ic {
     min-height: 0;
 }
 
-/* One tab per open document under the view, as in Inventor */
+/* One tab per open document under the view, as in desktop CAD */
 #doctabs {
     flex: 0 0 auto;
     display: flex;
@@ -914,8 +914,8 @@ body.dark #stage {
     color: var(--accent);
 }
 
-/* The size boxes of a sketch tool: on the shape being drawn (Inventor's
-   heads-up input), or beside the pointer */
+/* The size boxes of a sketch tool: on the shape being drawn (the heads-up
+   input of desktop CAD), or beside the pointer */
 #sketch-hud {
     position: absolute;
     inset: 0;
@@ -1969,7 +1969,7 @@ body.dark #stage {
 
 /* The orbit mark: while the left button orbits (the Orbit button or F4
    held) a circle with four ticks and a centre cross sits over the model,
-   as Inventor shows it, so the mode is never a surprise */
+   as desktop CAD shows it, so the mode is never a surprise */
 #orbit-mark {
     position: absolute;
     inset: 0;

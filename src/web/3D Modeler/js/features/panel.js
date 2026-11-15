@@ -1,8 +1,8 @@
 /*
     3D Modeler - feature property panel
 
-    Builds the floating panel a feature tool shows (the Inventor "Properties"
-    panel) from a list of rows, so every feature looks and behaves the same:
+    Builds the floating panel a feature tool shows (the "Properties" panel of
+    desktop CAD) from a list of rows, so every feature looks and behaves the same:
     drag by the title, Enter is OK, Esc is Cancel, size boxes take formulas.
     (extrude.js predates this helper and builds its own panel the same way.)
 

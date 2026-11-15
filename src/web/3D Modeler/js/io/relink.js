@@ -19,6 +19,7 @@
 
 import { icon } from '../ui.js';
 import { folderOf, fileNameOf } from './paths.js';
+import { displayPath } from './native.js';
 
 export function showRelink(items, options) {
     return new Promise(function (resolve) {
@@ -72,7 +73,7 @@ export function showRelink(items, options) {
                     '<span class="relink-main"><span class="relink-name"></span><span class="relink-path"></span><span class="relink-note"></span></span>';
                 el.querySelector('.relink-name').textContent = row.item.name;
                 const path = el.querySelector('.relink-path');
-                path.textContent = row.done ? row.newPath || 'Kept inside the file' : row.item.path || '';
+                path.textContent = row.done ? displayPath(row.newPath) || 'Kept inside the file' : displayPath(row.item.path) || '';
                 path.title = path.textContent;
                 el.querySelector('.relink-note').textContent = row.note;
                 const pick = document.createElement('button');

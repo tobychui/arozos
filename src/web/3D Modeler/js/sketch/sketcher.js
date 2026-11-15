@@ -190,7 +190,7 @@ export function createSketcher(options) {
         return (unit === 'deg' ? +value.toFixed(2) : unit === 'mm' ? +value.toFixed(3) : Math.round(value)) + (unit ? ' ' + unit : '');
     }
 
-    // The size boxes of a tool, as Inventor shows them: each sits on the
+    // The size boxes of a tool, as desktop CAD shows them: each sits on the
     // shape being drawn (where the tool says, else beside the pointer) and
     // shows the size as it is now until something is typed into it; the
     // active one (Tab moves on) takes the keys. A typed formula shows its
@@ -517,7 +517,7 @@ export function createSketcher(options) {
     }
 
     // Constraint and Dimension tools can pick an edge of the model that is
-    // not in the sketch yet, as Inventor does: it is projected on the spot.
+    // not in the sketch yet, as desktop CAD does: it is projected on the spot.
     function picksModel() {
         return toolId === 'dimension' || toolId.indexOf('con:') === 0;
     }
@@ -1032,7 +1032,7 @@ export function createSketcher(options) {
             return true;
         }
         if (key === 'F8' || key === 'F9') {
-            // As in Inventor: F8 shows every constraint glyph, F9 hides them
+            // As in desktop CAD: F8 shows every constraint glyph, F9 hides them
             glyphs = key === 'F8';
             options.onStatus(glyphs ? 'Constraints shown (F9 hides them)' : 'Constraints hidden (F8 shows them)');
             redraw();

@@ -1,7 +1,7 @@
 /*
     3D Modeler - dragging a plane into an offset sketch plane
 
-    As in Inventor: with Start 2D Sketch waiting for a plane, pressing on a
+    As in desktop CAD: with Start 2D Sketch waiting for a plane, pressing on a
     plane or a flat face and dragging away from it pulls out a work plane
     parallel to it; on release a box by the pointer takes the exact offset
     (OK or Enter makes the plane and opens a sketch on it, Cancel or Esc

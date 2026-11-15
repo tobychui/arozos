@@ -1,7 +1,7 @@
 /*
     3D Modeler - the picture in the Hole panel
 
-    A section through the hole, as Inventor's Hole panel shows it: the
+    A section through the hole, as a desktop CAD Hole panel shows it: the
     seat (none, counterbore, countersink), the termination (to a depth or
     through all), the drill point and the direction (flipped: drilled the
     other way from the sketch plane), with every size the panel asks for

@@ -1701,7 +1701,7 @@ export function createDrawing(options) {
         exportContent(format).then(function (content) {
             return files.saveAs(doc.name + '.' + format, content);
         }).then(function (saved) {
-            setStatus(saved ? (saved.path ? 'Exported to ' + saved.path : 'Downloaded ' + saved.name) : 'Ready');
+            setStatus(saved ? (saved.path ? 'Exported to ' + files.displayPath(saved.path) : 'Downloaded ' + saved.name) : 'Ready');
         }).catch(function (err) {
             setStatus('The drawing could not be exported: ' + err.message);
             options.tell('The drawing could not be exported', err.message);

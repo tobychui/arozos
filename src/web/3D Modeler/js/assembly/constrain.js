@@ -1,7 +1,7 @@
 /*
     3D Modeler - Constrain panel (assemblies)
 
-    Assemble > Constrain, as Inventor's Place Constraint: choose the type,
+    Assemble > Constrain, as a desktop CAD Place Constraint: choose the type,
     click a face or an edge on one component and one on another, set the
     offset or the angle. As soon as both are picked the components move
     into place (a preview the solver works out); OK keeps it, Apply keeps

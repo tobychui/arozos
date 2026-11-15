@@ -120,13 +120,13 @@ export function createViewport(options) {
     controls.enableDamping = false;
     controls.zoomToCursor = true;
     controls.screenSpacePanning = true;
-    // Inventor's mouse: the left button only selects and draws, the middle
+    // The desktop CAD mouse: the left button only selects and draws, the middle
     // button pans, Shift + middle orbits (OrbitControls swaps pan and rotate
     // on Shift by itself), the wheel zooms. Orbit and Pan on the navigation
     // bar, or holding F4, lend the left button to the view (setLeftDrag).
     controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: null };
     controls.addEventListener('change', invalidate);
-    // The wheel zooms the Inventor way round: rolling it away from you
+    // The wheel zooms the desktop CAD way round: rolling it away from you
     // zooms out, towards you zooms in (the owner found three.js's own way
     // flipped). Only the wheel: pinching keeps its direction.
     const wheelZoom = controls._handleMouseWheel;
@@ -2103,7 +2103,7 @@ export function createViewport(options) {
 
     // The body as a fillet or chamfer would leave it: the model's own colour,
     // with the faces the feature makes (mesh.fresh: [start, count] index
-    // ranges) in the preview green, as Inventor shows them
+    // ranges) in the preview green, as desktop CAD shows them
     function resultMesh(geometry, mesh) {
         // The part's own look (colour, finish, pattern), not the ghost's
         const plain = bodyMaterial.clone();

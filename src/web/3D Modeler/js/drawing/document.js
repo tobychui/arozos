@@ -270,7 +270,7 @@ export function createDrawingDocument() {
         return prefix + n;
     };
 
-    // "VIEW1", "VIEW2", ... as Inventor names them
+    // "VIEW1", "VIEW2", ... as desktop CAD names them
     doc.newViewName = function () {
         const names = new Set(data.views.map(function (v) {
             return v.name;

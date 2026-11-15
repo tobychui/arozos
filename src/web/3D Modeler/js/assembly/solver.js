@@ -2,7 +2,7 @@
     3D Modeler - assembly constraint solver
 
     Places the components of an assembly so their constraints hold, as
-    Inventor's Mate, Flush, Angle, Tangent and Insert do.
+    desktop CAD's Mate, Flush, Angle, Tangent and Insert do.
 
     Every constraint is a short list of residuals: numbers that are zero when
     it holds. Distances are in millimetres; directions and angles are

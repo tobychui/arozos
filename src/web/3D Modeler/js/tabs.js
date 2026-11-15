@@ -1,7 +1,7 @@
 /*
     3D Modeler - document tabs
 
-    The strip under the view, as in Inventor: one tab per open part,
+    The strip under the view, as in desktop CAD: one tab per open part,
     assembly or drawing, the shown one marked. Clicking a tab shows that
     document; the cross (or the middle button) closes it; the plus starts a
     new one. app.js keeps the documents themselves (switchTo, closeTab).

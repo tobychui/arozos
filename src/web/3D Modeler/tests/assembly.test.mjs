@@ -137,7 +137,7 @@ doc.change('Place', function (d) {
     d.components.push({ id: c2, name: doc.newComponentName('Plate'), part: pid, matrix: G.translation([50, 0, 0]) });
     d.constraints.push({ id: doc.newId('k'), name: doc.newConstraintName('mate', 'flush'), type: 'mate', solution: 'flush', a: { comp: c1 }, b: { comp: c2 } });
 });
-a(doc.components()[1].name === 'Plate:2' && doc.constraints()[0].name === 'Flush:1', 'occurrences and constraints get Inventor style names', [doc.components()[1].name, doc.constraints()[0].name]);
+a(doc.components()[1].name === 'Plate:2' && doc.constraints()[0].name === 'Flush:1', 'occurrences and constraints get CAD style names (Pin:1, Flush:1)', [doc.components()[1].name, doc.constraints()[0].name]);
 a(doc.partByPath('user:/Plate.aopart') === pid && doc.constraintsOf(c2).length === 1, 'parts are found by file, constraints by component');
 doc.change('Delete', function (d) {
     doc.removeComponents(d, [c2]);

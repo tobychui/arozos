@@ -3,9 +3,9 @@
 
     Two ways to place holes (Placement):
       From Sketch  a hole at every point of a sketch that was placed with
-                   the Point tool, the way Inventor's Hole uses the centre
+                   the Point tool, the way a desktop CAD Hole uses the centre
                    points of a sketch
-      Linear       (Inventor's Linear placement) click a flat face, then two
+      Linear       (the usual Linear placement) click a flat face, then two
                    straight edges and the distances of the hole from them;
                    on OK a sketch is made on the face with the point and the
                    two distances as dimensions, so it can be edited later
@@ -18,7 +18,7 @@
     { designation, depth }`, shown in the browser, the section and Mass
     Properties); choosing one sets the diameter to its tap drill.
 
-    As in Inventor, the panel shows a section of the hole (holefigure.js)
+    As in desktop CAD, the panel shows a section of the hole (holefigure.js)
     that follows the seat, termination, direction, drill point and thread,
     with each size written where it applies; clicking a size puts the caret
     in its box, and the box with the caret colours its size in the picture.

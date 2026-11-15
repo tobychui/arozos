@@ -7,7 +7,7 @@
           overlay() -> { items, edges, marks, frames }, cancel(rightClick) }
     with p a sheet point (mm).
 
-    The Dimension tool works like Inventor's general dimension: what is
+    The Dimension tool works like a desktop CAD general dimension: what is
     clicked decides what is measured.
         a circle            its diameter (an arc: its radius); R / D switch
         a straight edge     its length, or click a second straight edge:

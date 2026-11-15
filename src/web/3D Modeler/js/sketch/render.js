@@ -96,7 +96,7 @@ export function dimensionLabel(d) {
     } else {
         text = (d.type === 'radius' ? 'R' : d.type === 'diameter' ? 'Ø' : '') + formatLength(d.value);
     }
-    // A driven (reference) dimension is shown in brackets, as in Inventor
+    // A driven (reference) dimension is shown in brackets, as in desktop CAD
     return d.driven ? '(' + text + ')' : text;
 }
 

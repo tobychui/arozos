@@ -1,7 +1,7 @@
 # 3D Modeler - design proposal
 
-A parametric solid modeller for the ArozOS desktop, following the Autodesk
-Inventor part workflow: **2D sketch -> extrude -> pick a face -> 2D sketch ->
+A parametric solid modeller for the ArozOS desktop, following the usual desktop
+CAD part workflow: **2D sketch -> extrude -> pick a face -> 2D sketch ->
 extrude**, then hole, fillet and chamfer, with STEP, STL and OBJ export for 3D
 printing. Parts can be put together in **assemblies** (14.16): placed,
 moved, turned and scaled by hand, and held by Mate, Flush, Angle, Tangent and
@@ -380,7 +380,7 @@ itself (the static preview has no file selector and no second window):
 |---|---|---|
 | Geometry kernel | OpenCascade compiled to WASM, the `replicad-opencascadejs` build, unmodified | Real B-rep solids: exact STEP in and out, true fillets, chamfers and booleans |
 | App name | 3D Modeler, group `Engineering`, folder `src/web/3D Modeler/` | Sits next to 3D Viewer in the start menu |
-| Sketching | Full geometric constraint solver in stage 1 | Sketches behave like Inventor's: constraints plus driving dimensions, solved live |
+| Sketching | Full geometric constraint solver in stage 1 | Sketches behave like desktop CAD sketches: constraints plus driving dimensions, solved live |
 | Interface | Ribbon, light and dark, following the ArozOS theme | One style sheet with colour tokens on `body` / `body.dark` |
 | Self contained | Every library is vendored inside the app folder | Nothing is loaded from 3D Viewer or any other WebApp, and nothing from a CDN |
 
@@ -435,7 +435,7 @@ Open the app and you get:
   cells that meet at an edge or corner light up together, and a home button
   sits beside it.
 - **Model browser nesting**: a sketch sits under the feature built from it
-  (collapsed, as in Inventor); a sketch nothing uses yet stands on its own
+  (collapsed, as in desktop CAD); a sketch nothing uses yet stands on its own
   and is drawn in the 3D view. Right click offers **Edit Sketch** on a sketch
   and on the feature that uses it; double click a sketch to edit it.
 - **The sketcher** (M2). Start 2D Sketch creates a sketch feature on the
@@ -486,7 +486,7 @@ Open the app and you get:
   it, so a line can be made tangent to a hole of the model. **Project
   Geometry** adds any other edge, or all edges of a clicked face. Straight
   edges and circular edges seen face-on can be projected. The constraint
-  tools and Dimension also take a model edge directly, as Inventor does:
+  tools and Dimension also take a model edge directly, as desktop CAD does:
   click an edge that is not in the sketch and it is projected on the spot
   (near its end, the end point is picked) and used for the constraint.
 - **Formulas in every size box**: 35/2, (40 - 2*3)/4, 2^3, sqrt(2)*10, pi*12.
@@ -494,7 +494,7 @@ Open the app and you get:
   dimension editor and the Extrude distances accept them too. The result is
   stored, not the formula.
 - **Extrude** (M3). The Extrude button opens a property panel laid out like
-  Inventor's: Profiles, From, Direction (Default, Flipped, Symmetric,
+  desktop CAD's: Profiles, From, Direction (Default, Flipped, Symmetric,
   Asymmetric), Distance A (and B), Through All, Boolean (Join, Cut, Intersect,
   New Solid), OK and Cancel.
   - *Profiles*: the closed areas of every sketch not yet used are shaded in
@@ -534,7 +534,7 @@ Open the app and you get:
     the graphics card, so the model itself is untouched and can be orbited
     and picked while cut. End Section View restores it.
   - *Shaded with Hidden Edges* joins Shaded, Shaded with Edges and Wireframe.
-  - *Mouse as in Inventor* (answer 13.3): the left button selects and
+  - *Mouse as in desktop CAD* (answer 13.3): the left button selects and
     draws, middle drag pans, Shift + middle drag orbits, the wheel zooms.
     The Orbit and Pan buttons under the view cube (and F4 held) lend the left
     button to the view; Esc gives it back.
@@ -647,13 +647,13 @@ patterns, mirror, assemblies, 2D drawings, a parameter table, threads.
 
 ## 5. Workflow
 
-The target is that an Inventor user needs no manual for the basic loop.
+The target is that a desktop CAD user needs no manual for the basic loop.
 
 1. **Start 2D Sketch**, pick a plane or a planar face. The camera turns to the
    plane, the Sketch tab opens, the edges of a picked face are projected as
    reference geometry.
-2. Draw. While drawing, size boxes follow the cursor (as in Inventor's
-   heads-up input); Tab moves between them, Enter confirms. Snaps and inferred
+2. Draw. While drawing, size boxes follow the cursor (as in the
+   heads-up input of desktop CAD); Tab moves between them, Enter confirms. Snaps and inferred
    constraints (horizontal, vertical, coincident, tangent) are applied as the
    geometry is placed.
 3. Add constraints and dimensions. Geometry changes colour when it is fully
@@ -755,7 +755,7 @@ Plan for stage 1:
    type, a point on it, normal or axis, area). If the name no longer resolves,
    the closest match by signature is used when it is unambiguous.
 3. **Fail loudly.** If neither resolves, the feature is marked as needing
-   repair and the user re-picks, as Inventor does with a sick feature. It never
+   repair and the user re-picks, as desktop CAD does with a sick feature. It never
    silently applies to a different edge.
 
 ### 6.4 Sketcher
@@ -795,7 +795,7 @@ Plan for stage 1:
 | Work plane | offset from a plane or planar face | none, it is a coordinate system |
 
 Every feature has the same shape in code: a property panel docked at the left
-of the viewport (Inventor's layout), a live preview drawn while values change,
+of the viewport (the usual CAD layout), a live preview drawn while values change,
 OK / Cancel, and a kernel function that takes the previous shape and the
 feature's JSON. After each boolean `ShapeUpgrade_UnifySameDomain` merges
 coplanar faces so the model does not collect seam lines.
@@ -816,7 +816,7 @@ coplanar faces so the model does not collect seam lines.
   planes, a work plane or a picked face, with a drag handle for the offset.
 - Navigation: left drag orbits, middle or right drag pans, wheel zooms to the
   cursor, Home key, view cube. Look At takes a face or a plane. Whether to
-  switch to Inventor's exact mouse mapping (F4 + drag to orbit, middle drag to
+  switch to the reference CAD's exact mouse mapping (F4 + drag to orbit, middle drag to
   pan, Shift + middle to orbit) is question 13.3.
 - World is **Z-up, millimetres** (question 13.1).
 
@@ -950,7 +950,7 @@ Each milestone ends in something you can try.
 | **M3** | Extrude and sketch on face: region picking, join / cut / intersect / new body, extents, projected face edges, offset work plane, edit feature and edit sketch from the browser | The loop sketch, extrude, pick face, sketch, extrude works three levels deep, and editing the first sketch rebuilds the rest |
 | **M4** | Hole, fillet, chamfer, with stable references (6.3). **Done except the stable references**: edges are found by position and fail loudly when moved. | Fillets survive an edit of an earlier sketch dimension; a broken reference is reported, not misapplied |
 | **M5** | View and inspect: section views with caps, all visual styles, Look At face, measure (distance, angle, radius), mass properties and centre of gravity. **Done** in a first form: fixed section planes, measure as a dialog. | The three section modes of your screenshots work on a real part |
-| **M6** | Import and export: STEP, BREP, STL, OBJ, 3MF. **Done** for export of all five and import of STEP. | An exported STEP opens in Inventor with the same faces; an exported STL slices correctly |
+| **M6** | Import and export: STEP, BREP, STL, OBJ, 3MF. **Done** for export of all five and import of STEP. | An exported STEP opens in other CAD software with the same faces; an exported STL slices correctly |
 | **M7** | Finish: touch and pen input, localisation, README, desktop icon, File Manager opening `.aopart` | Review pass on a tablet and in both themes |
 
 Suggested order is as listed. M5 and M6 do not depend on M4 and can move
@@ -966,14 +966,14 @@ earlier if export matters sooner than fillets.
   assert that each later reference still resolves to the intended face.
 - The interface is checked in the static preview and on a real ArozOS
   instance, in both themes.
-- Exported STEP files should be opened in Inventor by you, since no machine
+- Exported STEP files should be opened in your desktop CAD by you, since no machine
   here has it. STL and 3MF can be checked in a slicer.
 
 ## 11. After stage 1
 
 Revolve, sweep, loft, shell, draft, rectangular and circular pattern, mirror,
 work axis and work point, sketch offset / mirror / pattern / text, a parameter
-table with expressions (Inventor's fx), cosmetic and modelled threads,
+table with expressions (the fx of desktop CAD), cosmetic and modelled threads,
 multi body tools (combine, split), appearance and material per body, IGES
 import (needs a different kernel build or the import-only kernel of 3D
 Viewer), DXF sketch import and export, 2D drawings from the hidden line
@@ -996,7 +996,7 @@ Section 14 plans each of these in detail.
 ## 13. Open questions (answered)
 
 1. **Up axis.** The scaffold is Z-up, like STEP, STL and slicers, so a part
-   lands on the print bed the way it was modelled. Inventor defaults to Y-up
+   lands on the print bed the way it was modelled. The reference CAD defaults to Y-up
    (your screenshots show Y up). Keep Z-up, switch to Y-up, or make it a
    setting?
    
@@ -1006,12 +1006,12 @@ Section 14 plans each of these in detail.
    
    > That is fine
 3. **Mouse mapping.** Keep left drag = orbit when nothing is selected, or copy
-   Inventor exactly (middle drag pans, Shift + middle or F4 orbits, left only
+   the reference CAD exactly (middle drag pans, Shift + middle or F4 orbits, left only
    selects)? The second is safer once selection exists, because a left drag
    can then be a window selection.
    
    > copy exactly, and add orbital view controller on the right menu under the cube
-4. **Multiple bodies.** Inventor parts can hold several solid bodies ("New
+4. **Multiple bodies.** Desktop CAD parts can hold several solid bodies ("New
    Body" in Extrude). Should stage 1 support that, or one body per part?
    
    > support single parts, but parts can have isolated sections within them
@@ -1080,7 +1080,7 @@ partly tried in a browser.
    two buttons toggle and show their state. **Not tried, needs a real
    mouse:** middle drag, Shift + middle, F4 held and released, and that a
    sketch tool does nothing while Orbit is on (`sketcher` asks
-   `viewport.isNavigating()`). Also still missing from Inventor's set:
+   `viewport.isNavigating()`). Also still missing from the reference CAD's set:
    F2 + drag pan, F3 + drag zoom, F5 previous view, F6 home view, double
    click on the middle button = Zoom All, and a right click menu in the view
    (Repeat last command, Done, Zoom All, Home View).
@@ -1131,7 +1131,7 @@ stored arc is always counter clockwise from `start` to `end`, so swap the
 two when the third point lies on the clockwise side (sign of the cross
 product of start->end and start->third). Make it the default of the Arc
 button with the present centre point arc in a small drop-down (the ribbon
-supports `menu`), as in Inventor.
+supports `menu`), as in desktop CAD.
 
 **Tangent arc** (done). Start on the end point of an existing line or arc; the
 centre lies on the normal to that curve through the point; the end is the
@@ -1147,7 +1147,7 @@ point (the old shared point is dropped if nothing else uses it, or kept as
 a construction corner when dimensions hang on it), add the arc, add two
 `tangent` constraints and a `radius` dimension. A second fillet with the
 same radius gets an `equal` to the first instead of its own dimension, as
-Inventor does. Chamfer: same with a line instead of the arc and two
+desktop CAD does. Chamfer: same with a line instead of the arc and two
 `distance` dimensions. Line-arc and arc-arc corners can come later.
 
 **Window selection** (done in the sketch; the model view is open). In the Select tool, a left drag that starts on
@@ -1271,7 +1271,7 @@ does not exist yet: extend `viewport.setSketches` so each curve is its own
 object carrying `{ sketch, id }`, and add `startCurvePick(filter, handler)`
 beside `startPlanePick` (hover highlight, click returns the id). Only
 straight curves qualify. When the sketch has exactly one construction
-line, pick it automatically, as Inventor does with a centre line.
+line, pick it automatically, as desktop CAD does with a centre line.
 
 **Tests** (`tests/kernel.test.mjs` or a new file): a rectangle revolved a
 full turn about a line at distance R gives volume 2 * pi * Rc * A (Pappus);
@@ -1319,7 +1319,7 @@ by what they are:
 
 So after an upstream edit a fillet fails ("an edge ... is no longer there"),
 a sketch on a face stays where the face used to be, and projected edges go
-stale. Failing loudly is correct, but Inventor users expect all three to
+stale. Failing loudly is correct, but desktop CAD users expect all three to
 follow.
 
 **What the kernel offers.** Checked in this build: `IsSame()` on shapes;
@@ -1420,7 +1420,7 @@ not per rebuild.
 ### 14.6 A5 - Shell, Mirror, Patterns
 
 **Done.** Shell (`shell` in `occt.js`, `MakeThickSolidByJoin` with the
-Intersection join so outer corners stay sharp as in Inventor; a result
+Intersection join so outer corners stay sharp as in desktop CAD; a result
 whose volume did not change is refused, which is how walls too thick come
 back; panel `js/features/shell.js`; faces picked in the model and kept as
 `{ body, centre, area, sig }` with `findFaces`, so an edit upstream does
@@ -1515,7 +1515,7 @@ Store `mode: "equal" | "two" | "angle"`, `distance2`, `angle` and `flip`
 **Variable or multi-radius fillet** (later). One feature with several edge
 sets, each with its own radius: `{ sets: [{ edges, radius }] }`.
 
-**Hole placed without a sketch** (M). Inventor's "Linear" placement: click a
+**Hole placed without a sketch** (M). The usual "Linear" placement: click a
 face, then two edges and their distances. Implement as sugar: create the
 sketch on the face, a point, and two `pldistance` dimensions to the
 projected edges, then open the Hole panel on it.
@@ -1576,7 +1576,7 @@ Today a formula is evaluated when typed and only the number is stored
 - **Interface:** Manage > Parameters, a table (name, equation, value,
   comment). Dimensions show `d3 = wall * 2` when a status bar toggle asks
   for it. Each dimension also gets an automatic name (`d0`, `d1`, ...) so
-  it can be used in another formula, as in Inventor.
+  it can be used in another formula, as in desktop CAD.
 
 ### 14.10 A9 - View and inspect
 
@@ -1698,7 +1698,7 @@ browser today).
 meets a plane. Needs vertex picking (14.10).
 
 **More work planes** (M). Midplane between two parallel planes or faces
-(very common in Inventor): offset from the first by half the distance.
+(very common in desktop CAD): offset from the first by half the distance.
 Through an edge at an angle to a plane: `{ base, axis, angle }`, the frame
 rotated about the axis. Through three points. Tangent to a cylinder and
 parallel to a plane. All are new `def` kinds resolved by `workPlaneFrame()`;
@@ -1760,7 +1760,7 @@ so parts can be easily manipulated in 3D space."
     inside the assembly as a part of one Imported feature). The first
     component is grounded at the origin; later ones land beside what is
     there and the view zooms to show them. The same file placed twice is one
-    part entry with two components (Inventor style names `Pin:1`, `Pin:2`).
+    part entry with two components (CAD style names `Pin:1`, `Pin:2`).
     **Refresh Parts** reloads every part file (after editing one), **Open
     Part** opens a component's file in a tab (14.18), **Delete**.
   - *Position*: **Free Move** (drag a component in the view plane) and
@@ -1879,7 +1879,7 @@ so parts can be easily manipulated in 3D space."
   `.aoasm` cannot be placed into another.
 - No editing a part in place: Open Part opens it in a tab, and the
   assembly shows the change when its tab is shown again (14.18).
-- A Place shows no ghost following the pointer (Inventor's way); the part
+- A Place shows no ghost following the pointer (the desktop CAD way); the part
   lands beside the assembly instead.
 - No exploded views, bill of materials or per-component material and
   density (Mass Properties uses one density for all).
@@ -1935,7 +1935,7 @@ configures the drawing or parts to other ratios."
   - *Zoom All*, *Zoom In*, *Zoom Out*. On the sheet the wheel zooms at the
     pointer; the middle button (or the left one on empty paper) pans.
 - **Annotate tab.**
-  - *Dimension* (also the D key) works like Inventor's: a straight edge
+  - *Dimension* (also the D key) works like desktop CAD's: a straight edge
     gives its length, or click a second edge for the angle between them
     (or the distance, when parallel), or a point for the distance to it;
     two points (ends, middles, centres) give the distance between them; a
@@ -2038,7 +2038,7 @@ configures the drawing or parts to other ratios."
 ### 14.18 Document tabs, orbit mark, ribbon fit (built)
 
 Asked for by the owner after trying assembly and drawing mode: (1) a mark
-over the model while the Orbit tool is on, like Inventor's orbit circle;
+over the model while the Orbit tool is on, like the orbit circle of desktop CAD;
 (2) ribbon labels that overflowed their buttons in the assembly and
 drawing tabs; (3) "tabs so I can quickly switch between different parts,
 assemblies or drawing sheets, and the drawing or assembly updated
@@ -2143,7 +2143,7 @@ texture of the part".
 
 ### 14.20 Sketch input: axis snapping, value boxes, editing in Dimension mode (built)
 
-Asked for by the owner with Inventor screenshots: lines close to level or
+Asked for by the owner with screenshots of the reference CAD: lines close to level or
 upright snap to it; clicking a dimension while the Dimension tool is on
 edits it; size boxes while a shape is drawn (a slot's centre line with its
 length and, when not level or upright, its angle; then the diameter of its
@@ -2217,9 +2217,9 @@ first save turns existing absolute links relative.
 Asked for by the owner: "when I select a sketch in earlier stages, please
 suppress all other layers (after the editing layer) before entering the
 sketch mode"; in Wireframe and Shaded with Hidden Edges, "make the lines
-hidden by a surface dotted lines" (an Inventor screenshot); "add the
+hidden by a surface dotted lines" (a screenshot of the reference CAD); "add the
 remaining texture related functions and separate the texture and coloring
-into its own dedicated tab" (with a screenshot of Inventor's View tab:
+into its own dedicated tab" (with a screenshot of the reference CAD's View tab:
 visual presets, shadows, reflections, ground plane, IBL, textures on).
 
 - **Roll back while a sketch is edited** (`rollBackTo` in `app.js`):
@@ -2290,7 +2290,7 @@ Asked for by the owner: an animation beside a panel showing what each type
 does ("so user knows what to expect on each type of actions"); a revolve of
 two areas about the right-most edge failing ("The profile crosses the
 axis"); the export fineness as a list with the file size; a hole picture
-like Inventor's with the values where they apply, following Seat,
+like desktop CAD's with the values where they apply, following Seat,
 Termination, Direction and Drill Point; the wheel zoom the other way.
 
 - **Illustration card** (`js/features/illustrate.js`, scenes and their
@@ -2342,7 +2342,7 @@ Termination, Direction and Drill Point; the wheel zoom the other way.
 
 Asked for by the owner: "if I select 2D sketch and drag from a plane to a
 new direction that is vertical to that plane, create a new Work Plane that
-new sketches are created on" with an exact offset typed in (Inventor
+new sketches are created on" with an exact offset typed in (reference CAD
 screenshots); the walls of a hole missing in the wireframe; defaults for
 Hole (countersink, 3 mm, distance 10, drill point, 6 mm countersink) and
 Fillet / Chamfer (3 mm), each remembered for the session; Hide on a work
@@ -2449,7 +2449,7 @@ The plans of 14.7 and 14.8, all of them, with the card and hint style of
   session.
 - **Fillet with several radii**: `sets: [{ edges, radius }]` beside the
   old `edges` + `radius` (one set is stored the old way). The panel lists
-  the sets one under the other, Inventor style (owner's request after
+  the sets one under the other, desktop CAD style (owner's request after
   trying a drop-down): each line is the set's edge button, its radius box
   and a cross that removes it (hidden while there is one set), with + Add
   Set below. The active line is outlined; its edges are the viewport's
@@ -2566,7 +2566,7 @@ Done in the last session, after the table above was first written:
   while picking a plane, the Point tool on a projected point (a hole on
   the centre of a rounded corner), and the two reference failures above.
   Noted, not changed: the feature panel covers the left of the view (as in
-  Inventor); ArozOS serves WebApp files without a Cache-Control header, so
+  desktop CAD); ArozOS serves WebApp files without a Cache-Control header, so
   a browser can keep old modules after an update (a server change, to be
   decided by the owner).
 - **Selection feedback** (owner's request after trying the previews):
@@ -2590,9 +2590,14 @@ Done in the last session, after the table above was first written:
   `occt.js` (BRepCheck_Analyzer plus "every face meshes") rejects results
   that OpenCascade reports as done but are invalid. Test:
   `tests/chamfer-after-fillet.test.mjs`.
-- **Mouse mapping as in Inventor** (answer 13.3), with Orbit and Pan buttons
+- **Mouse mapping as in desktop CAD** (answer 13.3), with Orbit and Pan buttons
   on the navigation bar under the view cube, F4 held to orbit, Esc to give
-  the left button back. Needs a real mouse check (14.2).
+  the left button back. Needs a real mouse check (14.2). Orbit and Pan also
+  end on their own when a tool needs to pick (owner's request): any command
+  but the camera ones (Pan, Orbit, Zoom All, Home View, visual style,
+  projection, origin planes), or a click or the caret in a tool panel
+  (`.props`) or the model browser, gives the left button back
+  (`releaseLeftButton` in `app.js`).
 - **STEP association** (answer 13.6): `init.agi` lists `.step` and `.stp`;
   a STEP file opened with the app becomes a new part with one Imported
   feature. Needs a live server check (14.2).
@@ -2655,7 +2660,7 @@ Done in the last session, after the table above was first written:
   components and in the drawing panel (the code passes it; no sample
   part has one).
 - **Sketch input** (owner's requests, 14.20): axis snapping by angle,
-  Inventor-style value boxes while drawing, a typed angle to the X axis
+  desktop CAD style value boxes while drawing, a typed angle to the X axis
   kept as a dimension, editing a dimension by clicking it in Dimension
   mode. Tried in the browser pane: a line 2 degrees off level snapped
   level; one 10 degrees off showed its length and angle boxes; 50, Tab,
@@ -2929,8 +2934,8 @@ to read them before planning on a class.
 
 ### 15.7 Working with the owner
 
-- The owner writes short messages, sometimes with Inventor screenshots as
-  the reference for how a tool should look and behave. Follow Inventor's
+- The owner writes short messages, sometimes with screenshots of a desktop CAD system
+  as the reference for how a tool should look and behave. Follow that
   layout and behaviour unless told otherwise.
 - Report what was tried and what was not, plainly. Items that need a real
   mouse, a tablet or a live server and could not be tried go in the
