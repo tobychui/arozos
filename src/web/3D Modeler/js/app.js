@@ -47,10 +47,10 @@ import { createShell } from './features/shell.js';
 import { createPattern } from './features/pattern.js';
 import { createEdgeFeature } from './features/edges.js';
 import { createHole } from './features/hole.js';
-import { createWorkPlane } from './features/plane.js';
+import { createWorkFeature } from './features/workfeature.js';
 import * as sketchModel from './sketch/model.js';
 import { sample } from './sketch/geom.js';
-import { planeFrame, toWorld, workPlaneFrame, resolveFace } from './kernel/profile.js';
+import { planeFrame, toWorld, workPlaneFrame, resolveFace, resolveWork, workAxisLine, workPoint } from './kernel/profile.js';
 import { icon, openMenu, closeMenu, ask, tell, chooseNew } from './ui.js';
 import { createTabBar, freeName } from './tabs.js';
 import { validate as validatePart } from './document/document.js';
@@ -194,12 +194,40 @@ const browser = createBrowser($('tree'), doc, {
         viewport.setHotPlane(key);
     },
     onPlaneClick: function (key) {
+        // A work feature panel waiting for a plane takes it
+        if (viewport.offerRef({ kind: 'plane', target: { kind: 'origin', key: key } })) {
+            return;
+        }
         if (picking()) {
             viewport.stopPlanePick();
             planePicked({ kind: 'origin', key: key });
         }
     },
+    onOriginClick: function (what) {
+        if (what.axis) {
+            const d = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[what.axis];
+            viewport.offerRef({ kind: 'axis', ref: { ref: 'origin:' + what.axis }, line: { o: [0, 0, 0], d: d } });
+        } else {
+            viewport.offerRef({ kind: 'point', ref: { ref: 'origin' }, at: [0, 0, 0] });
+        }
+    },
     onFeatureSelect: function (id) {
+        // A work feature panel waiting for a plane, an axis or a point takes
+        // a work feature clicked in the browser
+        const work = id ? doc.feature(id) : null;
+        if (work && !work.suppressed) {
+            if (work.type === 'plane' && viewport.offerRef({ kind: 'plane', target: { kind: 'work', id: id } })) {
+                return;
+            }
+            const line = work.type === 'axis' ? workAxisLine(work, doc.features()) : null;
+            if (line && viewport.offerRef({ kind: 'axis', ref: { ref: 'axis', id: id }, line: line })) {
+                return;
+            }
+            const at = work.type === 'point' ? workPoint(work, doc.features()) : null;
+            if (at && viewport.offerRef({ kind: 'point', ref: { ref: 'point', id: id }, at: at })) {
+                return;
+            }
+        }
         // While a pattern or mirror is set up, the browser picks what it repeats
         if (activeFeature && activeFeature.tool.pickFeature) {
             activeFeature.tool.pickFeature(id);
@@ -222,7 +250,14 @@ const browser = createBrowser($('tree'), doc, {
             doc.setSuppressed(id, action === 'suppress');
         } else if (action === 'hide' || action === 'show') {
             doc.setHidden(id, action === 'hide');
-            setStatus(feature.name + (action === 'hide' ? ' hidden: Show in its right click menu brings it back' : ' shown'));
+            setStatus(feature.name + (action === 'hide' ? ' hidden: the eye on its row (or Show in its right click menu) brings it back' : ' shown'));
+        } else if (action === 'share' || action === 'unshare') {
+            doc.setShared(id, action === 'share');
+            setStatus(action === 'share' ? feature.name + ' is shared: its areas are offered again to Extrude, Revolve and Hole'
+                : feature.name + ' is no longer shared');
+        } else if (action === 'endhere') {
+            doc.setEnd(id);
+            setStatus(endStatus());
         } else if (action === 'delete') {
             deleteFeature(id);
         } else if (action === 'edit' && feature.type === 'sketch') {
@@ -234,8 +269,44 @@ const browser = createBrowser($('tree'), doc, {
         } else if (action === 'edit') {
             setStatus(feature.name + ' cannot be edited in this version');
         }
+    },
+    // A row dragged to another place in the history
+    onMoveFeature: function (id, beforeId, built) {
+        const feature = doc.feature(id);
+        const reason = doc.canMove(id, beforeId);
+        if (!feature) {
+            return;
+        }
+        if (reason) {
+            setStatus(feature.name + ' cannot go there: ' + reason);
+            return;
+        }
+        if (doc.move(id, beforeId, built)) {
+            setStatus(feature.name + ' moved' + (doc.features().indexOf(doc.feature(id)) > doc.endIndex() ? ' below End of Part: it is not built until End of Part is moved past it' : ''));
+        }
+    },
+    // End of Part dropped: after a feature, above them all ("") or at the bottom (null)
+    onMoveEnd: function (afterId) {
+        doc.setEnd(afterId);
+        setStatus(endStatus());
+    },
+    onBodyVisibility: function (index, hidden) {
+        doc.setBodyHidden(index, hidden);
+        setStatus('Solid' + (index + 1) + (hidden ? ' hidden: the eye on its row brings it back' : ' shown'));
+    },
+    onHint: function (text) {
+        setStatus(text || 'Ready');
     }
 });
+
+// What End of Part leaves out, for the status bar
+function endStatus() {
+    const list = doc.features();
+    const out = list.length - 1 - doc.endIndex();
+    return out > 0 ? 'End of Part moved: ' + out + (out === 1 ? ' feature below it is' : ' features below it are') +
+        ' not built, and new features are added there. Right-click End of Part > Move to End to build them all again.'
+        : 'End of Part is at the bottom: every feature is built';
+}
 
 /* ================= sketcher ================= */
 // Ribbon button of each sketch tool, to show which one is active
@@ -271,8 +342,9 @@ const sketcher = createSketcher({
 // Sketches nothing has been built from yet are drawn in the model, so they
 // can be seen and picked; the one open in the sketcher draws itself.
 function refreshSketches() {
-    const limit = rollbackIndex();
-    // A sketch used only by features after the rolled back point is unused there
+    const limit = Math.min(rollbackIndex(), doc.endIndex() + 1);
+    // A sketch used only by features after the rolled back point (or below
+    // End of Part) is unused there; a shared one is always drawn
     const used = new Set(doc.features().filter(function (f, i) {
         return i < limit;
     }).map(function (f) {
@@ -280,8 +352,8 @@ function refreshSketches() {
     }));
     const list = [];
     doc.features().forEach(function (feature, i) {
-        const frame = feature.type === 'sketch' && i <= limit ? planeFrame(feature.plane, doc.features()) : null;
-        if (!frame || feature.suppressed || used.has(feature.id) || feature.id === sketcher.featureId()) {
+        const frame = feature.type === 'sketch' && i <= Math.min(rollbackIndex(), doc.endIndex()) && !feature.hidden ? planeFrame(feature.plane, doc.features()) : null;
+        if (!frame || feature.suppressed || (used.has(feature.id) && !feature.shared) || feature.id === sketcher.featureId()) {
             return;
         }
         const out = [];
@@ -298,35 +370,69 @@ function refreshSketches() {
     viewport.setSketches(list);
 }
 
-// Work plane features are drawn in the model; `draft` is the frame of one
-// that is being set up in its panel
+// Work planes, axes and points are drawn in the model; the drafts are the
+// one being set up in its panel ({ frame } / { line } / { at }, with the
+// id of the feature it replaces while editing)
 let draftPlane = null;
+let draftAxis = null;
+let draftPoint = null;
 function refreshWorkPlanes() {
-    const limit = rollbackIndex();
+    const limit = Math.min(rollbackIndex(), doc.endIndex() + 1);
     const list = [];
-    doc.features().forEach(function (feature, i) {
-        const frame = feature.type === 'plane' && !feature.suppressed && !feature.hidden && i < limit ? workPlaneFrame(feature, doc.features()) : null;
-        // The plane being edited is shown by its draft instead
-        if (frame && !(draftPlane && draftPlane.id === feature.id)) {
-            list.push({ id: feature.id, frame: frame });
+    const axes = [];
+    const points = [];
+    const features = doc.features();
+    features.forEach(function (feature, i) {
+        if (feature.suppressed || feature.hidden || i >= limit) {
+            return;
+        }
+        // One being edited is shown by its draft instead
+        if (feature.type === 'plane' && !(draftPlane && draftPlane.id === feature.id)) {
+            const frame = workPlaneFrame(feature, features);
+            if (frame) {
+                list.push({ id: feature.id, frame: frame });
+            }
+        } else if (feature.type === 'axis' && !(draftAxis && draftAxis.id === feature.id)) {
+            const line = workAxisLine(feature, features);
+            if (line) {
+                axes.push({ id: feature.id, o: line.o, d: line.d });
+            }
+        } else if (feature.type === 'point' && !(draftPoint && draftPoint.id === feature.id)) {
+            const at = workPoint(feature, features);
+            if (at) {
+                points.push({ id: feature.id, at: at });
+            }
         }
     });
     if (draftPlane) {
         list.push({ id: null, frame: draftPlane.frame, draft: true });
     }
+    if (draftAxis) {
+        axes.push({ id: null, o: draftAxis.line.o, d: draftAxis.line.d, draft: true });
+    }
+    if (draftPoint) {
+        points.push({ id: null, at: draftPoint.at, draft: true });
+    }
     viewport.setWorkPlanes(list);
+    viewport.setWorkAxes(axes);
+    viewport.setWorkPoints(points);
 }
 
 // The coordinate system of a sketch on a picked planar face: X runs level
 // (or along world X on a horizontal face), the origin is the point of the
 // plane nearest the part origin, so sketch and model coordinates line up.
 // Sketches and work planes on faces, where the rebuild found the faces now
-function takeFaceFrames(frames) {
+function takeFaceFrames(frames, lines) {
     Object.keys(frames || {}).forEach(function (id) {
         const feature = doc.feature(id);
         if (feature) {
             resolveFace(feature.type === 'plane' ? feature.base : feature.plane, frames[id]);
         }
+    });
+    // Work axes (and tangent planes) on edges and round faces, where the
+    // rebuild found them now
+    Object.keys(lines || {}).forEach(function (id) {
+        resolveWork(doc.feature(id), lines[id]);
     });
 }
 
@@ -375,7 +481,7 @@ function rollBackTo(id) {
         if (state.rollbackAt !== id || state.env !== 'part') {
             return; // closed again, or another document is on show
         }
-        takeFaceFrames(result.frames);
+        takeFaceFrames(result.frames, result.lines);
         viewport.setBodies(result.bodies);
     }).catch(function (err) {
         setStatus('The model could not be rolled back: ' + err.message);
@@ -438,22 +544,24 @@ function closeSketch() {
 /* ================= feature panels ================= */
 // What the status bar says while a new feature of each kind is set up
 const FEATURE_HINTS = {
-    extrude: 'Extrude: pick a profile, set the distance (type it or drag the arrow), then OK',
+    extrude: 'Extrude: pick a profile, choose how far it goes (Distance, To a plane, To Next, Through All), then OK',
     revolve: 'Revolve: pick a profile and the axis line to turn it about, then OK',
     shell: 'Shell: click the faces to leave open, set the wall thickness, then OK',
     rectpattern: 'Rectangular Pattern: click the features to repeat in the browser, set the directions, then OK',
     circpattern: 'Circular Pattern: click the features to repeat in the browser, pick the axis, then OK',
     mirror: 'Mirror: click the features to mirror in the browser (none: the whole solid), pick the plane, then OK',
-    fillet: 'Fillet: click the edges to round, set the radius, then OK',
-    chamfer: 'Chamfer: click the edges to break, set the distance, then OK',
-    hole: 'Hole: set the type and size of the holes at the sketch points, then OK',
-    plane: 'Work Plane: set the distance from the picked plane (type it or drag the arrow), then OK'
+    fillet: 'Fillet: click the edges to round, set the radius (Add a set for edges with another radius), then OK',
+    chamfer: 'Chamfer: choose the type, click the edges to break, set the sizes, then OK',
+    hole: 'Hole: place it at sketch points or by two edges (Linear), set the type, size and thread, then OK',
+    plane: 'Work Plane: pick what it is defined by in the model, set the values, then OK',
+    axis: 'Work Axis: pick an edge, a round face, two planes or two points, then OK',
+    point: 'Work Point: pick a corner, type coordinates, or pick an axis and a plane, then OK'
 };
 let activeFeature = null;   // { kind, tool, rolledBack } while a feature panel is open
 
 // The ribbon button of a feature kind
 function featureButton(kind) {
-    return { plane: 'work.plane', rectpattern: 'pat.rect', circpattern: 'pat.circ', mirror: 'pat.mirror' }[kind] || 'feat.' + kind;
+    return { plane: 'work.plane', axis: 'work.axis', point: 'work.point', rectpattern: 'pat.rect', circpattern: 'pat.circ', mirror: 'pat.mirror' }[kind] || 'feat.' + kind;
 }
 
 // The panel kind that edits a feature (patterns come in two kinds)
@@ -480,7 +588,7 @@ function startFeature(kind, featureId) {
     const preselected = viewport.selection();
     viewport.clearSelection();
     const shown = featureId ? kernel.call('rebuild', { document: doc.data(), upto: featureId }).then(function (result) {
-        takeFaceFrames(result.frames);
+        takeFaceFrames(result.frames, result.lines);
         viewport.setBodies(result.bodies);
     }) : Promise.resolve();
     shown.then(function () {
@@ -615,6 +723,7 @@ let featureReport = {};
 let rebuildRunning = false;
 let rebuildWanted = false;
 let lastFailed = false;
+let lastFailureText = '';    // what the status bar said about them
 
 // The document the shared commands (files, undo, title) act on
 function activeDoc() {
@@ -682,6 +791,178 @@ function renderTabs() {
     tabBar.render(tabs.map(function (t) {
         return { id: t.id, kind: t.kind, name: tabName(t), path: tabPath(t), dirty: tabDirty(t) };
     }), activeTab ? activeTab.id : null);
+    scheduleAutosave();
+}
+
+/* ================= autosave ================= */
+// Unsaved documents are copied to the browser's storage a moment after each
+// change, so a crash or a closed browser tab does not lose them: the next
+// start offers them back. Each window has an entry of its own and keeps an
+// "alive" stamp fresh while it runs, so a window still open elsewhere is
+// never offered (PROPOSAL.md 14.8, 14.26).
+const AUTOSAVE_PREFIX = '3dmodeler.autosave.';
+const AUTOSAVE_KEY = AUTOSAVE_PREFIX + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const AUTOSAVE_STALE = 15000;   // ms without an alive stamp: that window is gone
+let autosaveTimer = null;
+let autosaveOn = false;          // this window has an entry
+let autosaveClosed = false;      // closed on purpose: nothing more is kept
+
+function autosaveStore() {
+    try {
+        return window.localStorage || null;
+    } catch (e) {
+        return null; // storage blocked: no autosave
+    }
+}
+
+function writeAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    const store = autosaveStore();
+    if (!store || autosaveClosed) {
+        return;
+    }
+    const dirty = tabs.filter(tabDirty);
+    try {
+        if (!dirty.length) {
+            dropAutosave(AUTOSAVE_KEY);
+            autosaveOn = false;
+            return;
+        }
+        store.setItem(AUTOSAVE_KEY, JSON.stringify({
+            time: Date.now(),
+            tabs: dirty.map(function (t) {
+                return { kind: t.kind, name: tabName(t), path: tabPath(t), text: JSON.stringify(tabData(t)) };
+            })
+        }));
+        store.setItem(AUTOSAVE_KEY + '.alive', String(Date.now()));
+        autosaveOn = true;
+    } catch (e) {
+        // full or blocked: this change is not kept
+    }
+}
+
+function dropAutosave(key) {
+    const store = autosaveStore();
+    try {
+        if (store) {
+            store.removeItem(key);
+            store.removeItem(key + '.alive');
+        }
+    } catch (e) {
+        // nothing to drop
+    }
+}
+
+function scheduleAutosave() {
+    if (!autosaveTimer) {
+        autosaveTimer = setTimeout(writeAutosave, 1500);
+    }
+}
+
+// The alive stamp, while this window has unsaved work stored
+setInterval(function () {
+    const store = autosaveStore();
+    if (autosaveOn && store) {
+        try {
+            store.setItem(AUTOSAVE_KEY + '.alive', String(Date.now()));
+        } catch (e) {
+            // storage went away
+        }
+    }
+}, 5000);
+
+// Entries left by windows that are gone: [{ key, time, tabs }]
+function orphanedAutosaves() {
+    const store = autosaveStore();
+    const out = [];
+    if (!store) {
+        return out;
+    }
+    try {
+        for (let i = 0; i < store.length; i++) {
+            const key = store.key(i);
+            if (!key || key.indexOf(AUTOSAVE_PREFIX) !== 0 || /\.alive$/.test(key) || key === AUTOSAVE_KEY) {
+                continue;
+            }
+            const alive = Number(store.getItem(key + '.alive')) || 0;
+            if (Date.now() - alive < AUTOSAVE_STALE) {
+                out.pending = true; // another window still open, or one that just stopped
+                continue;
+            }
+            try {
+                const entry = JSON.parse(store.getItem(key));
+                if (entry && Array.isArray(entry.tabs) && entry.tabs.length) {
+                    out.push({ key: key, time: entry.time, tabs: entry.tabs });
+                    continue;
+                }
+            } catch (e) {
+                // unreadable: dropped below
+            }
+            out.push({ key: key, tabs: [] });
+        }
+    } catch (e) {
+        return [];
+    }
+    return out;
+}
+
+// On start: offer what a crashed or closed window did not save. An entry
+// whose stamp is still fresh is looked at again once it would be stale.
+let autosaveChecks = 0;
+function offerAutosaves() {
+    const found = orphanedAutosaves();
+    if (found.pending && ++autosaveChecks < 2) {
+        setTimeout(offerAutosaves, AUTOSAVE_STALE + 1000);
+    }
+    const usable = found.filter(function (f) {
+        return f.tabs.length;
+    });
+    found.filter(function (f) {
+        return !f.tabs.length;
+    }).forEach(function (f) {
+        dropAutosave(f.key);
+    });
+    if (!usable.length) {
+        return;
+    }
+    const docs = [].concat.apply([], usable.map(function (f) {
+        return f.tabs;
+    }));
+    const when = Math.max.apply(null, usable.map(function (f) {
+        return f.time || 0;
+    }));
+    const names = docs.map(function (d) {
+        return d.name + (d.path ? ' (' + d.path + ')' : ' (never saved)');
+    });
+    ask('Restore unsaved work?', '3D Modeler was closed' + (when ? ' at ' + new Date(when).toLocaleString() : '') +
+        ' with changes that were not saved:\n\n' + names.join('\n') +
+        '\n\nRestore opens them in tabs, still unsaved, so you can look and save them. Discard throws them away.', [
+        { label: 'Discard', value: false },
+        { label: 'Restore', value: true, primary: true }
+    ], null).then(function (answer) {
+        if (answer === null) {
+            return; // asked again next time
+        }
+        if (answer) {
+            let restored = 0;
+            docs.forEach(function (d) {
+                try {
+                    if (loadDocument(JSON.parse(d.text), d.name, d.path)) {
+                        docOf(d.kind).markUnsaved();
+                        restored++;
+                    }
+                } catch (e) {
+                    // a document that cannot be read is skipped
+                }
+            });
+            refreshChrome();
+            setStatus('Restored ' + restored + (restored === 1 ? ' document' : ' documents') + ': save to keep the changes');
+        }
+        usable.forEach(function (f) {
+            dropAutosave(f.key);
+        });
+    });
 }
 
 // An empty document nobody has touched: a file opened next takes its place
@@ -755,6 +1036,7 @@ function enter(tab, fresh) {
         state.keepView = !fresh;
         if (fresh) {
             doc.reset(fresh.data, fresh.name, fresh.path);
+            state.reportOnOpen = fresh.data ? doc.data() : null;
         } else {
             doc.restore(tab.snap);
         }
@@ -902,12 +1184,17 @@ function requestRebuild() {
     rebuildRunning = true;
     rebuildWanted = false;
     state.rebuildDeferred = false;
-    kernel.call('rebuild', { document: doc.data() }).then(function (result) {
+    const asked = doc.data();
+    kernel.call('rebuild', { document: asked }).then(function (result) {
         if (state.env !== 'part') {
             return; // an assembly is on show; the (empty) part waits
         }
+        const opened = state.reportOnOpen === asked;
+        if (opened) {
+            state.reportOnOpen = null;
+        }
         featureReport = result.features;
-        takeFaceFrames(result.frames);
+        takeFaceFrames(result.frames, result.lines);
         // A feature or an earlier sketch being edited keeps its rolled back
         // view; closing it asks again
         if (!(activeFeature && activeFeature.rolledBack) && !state.rollbackAt) {
@@ -931,11 +1218,15 @@ function requestRebuild() {
         });
         const hadFailures = lastFailed;
         lastFailed = failed.length > 0;
+        if (failed.length && opened) {
+            reportOpenFailures(failed);
+        }
         if (failed.length) {
-            setStatus(failed.length === 1 ? failed[0].name + ' could not be built: ' + featureReport[failed[0].id].message
-                : failed.length + ' features could not be built, see the model browser');
-        } else if (hadFailures && state.mode === 'model') {
-            setStatus('Ready'); // clear the error text once the part builds again
+            lastFailureText = failed.length === 1 ? failed[0].name + ' could not be built: ' + featureReport[failed[0].id].message
+                : failed.length + ' features could not be built, see the model browser';
+            setStatus(lastFailureText);
+        } else if (hadFailures && state.mode === 'model' && $('status-msg').textContent === lastFailureText) {
+            setStatus('Ready'); // clear the error text once the part builds again (not a newer message)
         }
     }).catch(function (err) {
         setStatus('Rebuild failed: ' + err.message);
@@ -947,7 +1238,32 @@ function requestRebuild() {
     });
 }
 
+// A part that was just opened and has features that cannot be built: say
+// which and why at once, rather than leaving it to red rows in the tree
+function reportOpenFailures(failed) {
+    const lines = failed.slice(0, 8).map(function (f) {
+        return f.name + ': ' + featureReport[f.id].message;
+    });
+    if (failed.length > 8) {
+        lines.push('and ' + (failed.length - 8) + ' more');
+    }
+    tell(failed.length === 1 ? 'A feature could not be built' : failed.length + ' features could not be built',
+        doc.name + ' opened, but ' + (failed.length === 1 ? 'this feature fails' : 'these features fail') + ':\n\n' + lines.join('\n') +
+        '\n\nThey are marked red in the model browser. Edit them, Suppress them, or drag End of Part above them to work on the rest of the part.');
+}
+
 doc.onChange(function (reason) {
+    if (state.env === 'part') {
+        viewport.setHiddenBodies(doc.data().hiddenBodies || []);
+    }
+    if (reason === 'visual') {
+        // Hidden, shown or shared: nothing to rebuild, nothing to close
+        refreshChrome();
+        browser.render();
+        refreshSketches();
+        refreshWorkPlanes();
+        return;
+    }
     refreshChrome();
     if (appearanceTool.isOpen() && reason !== 'saved') {
         appearanceTool.cancel(); // undo or another part pulled the look from under the panel
@@ -1037,6 +1353,7 @@ function setEnv(env) {
         showSheetChrome(false);
     }
     viewport.setBodies([]);
+    viewport.setHiddenBodies(env === 'part' ? doc.data().hiddenBodies || [] : []);
     state.env = env;
     ribbon.setMode(env);
     ribbon.setTabVisible('sketch', false);
@@ -1156,6 +1473,19 @@ function saveDocument(askWhere) {
 }
 
 /* ================= inspect ================= */
+// The threads of the part's holes, as notes (threads are not modelled)
+function threadNotes() {
+    const lines = [];
+    doc.features().forEach(function (f) {
+        if (f.type === 'hole' && !f.suppressed && f.thread && f.thread.designation) {
+            const sketch = doc.feature(f.sketch);
+            const count = sketch ? sketchModel.holePoints(sketch).length : 0;
+            lines.push(f.name + ': ' + count + ' x ' + f.thread.designation + (f.thread.depth ? ', ' + mm(f.thread.depth, 2) + ' mm deep' : ', through'));
+        }
+    });
+    return lines.length ? ['', 'Threads (notes, not in the volume):'].concat(lines) : [];
+}
+
 function showMassProperties() {
     if (!viewport.bodyCount()) {
         setStatus('There is no solid to measure yet');
@@ -1175,7 +1505,7 @@ function showMassProperties() {
             'Centre of gravity: X ' + mm(m.centre[0], 3) + ', Y ' + mm(m.centre[1], 3) + ', Z ' + mm(m.centre[2], 3) + ' mm',
             '',
             'Mass = volume x density of your material, for example PLA 1.24 g/cm3: ' + mm(m.volume / 1000 * 1.24, 2) + ' g.'
-        ].join('\n'));
+        ].concat(threadNotes()).join('\n'));
     }).catch(function (err) {
         fail('The part could not be measured', err);
     });
@@ -1365,11 +1695,33 @@ window.ao_module_close = function () {
         ], false);
     }
     go.then(function (ok) {
+        if (ok) {
+            // Closed on purpose (saved, or not saved on purpose): nothing to restore
+            clearTimeout(autosaveTimer);
+            autosaveTimer = null;
+            autosaveClosed = true;
+            autosaveOn = false;
+            dropAutosave(AUTOSAVE_KEY);
+        }
         if (ok && typeof closeWindow === 'function') {
             closeWindow();
         }
     });
 };
+// The page goes away (closed, reloaded): its entry is stale at once, so the
+// next start offers it without waiting for the stamp to age
+window.addEventListener('pagehide', function () {
+    if (autosaveTimer || autosaveOn) {
+        writeAutosave(); // a change of the last moment too
+    }
+    if (autosaveOn) {
+        try {
+            autosaveStore().setItem(AUTOSAVE_KEY + '.alive', '0');
+        } catch (e) {
+            // storage went away
+        }
+    }
+});
 window.addEventListener('beforeunload', function (event) {
     // Covers a browser tab; inside the desktop the handler above runs first
     if (tabs.some(tabDirty) && !window.ao_module_virtualDesktop) {
@@ -1617,13 +1969,21 @@ function onCommand(id) {
         }
     } else if (id === 'sketch.finish') {
         finishSketch();
-    } else if (id === 'work.plane') {
+    } else if (id === 'work.plane' || id === 'plane.offset') {
         // First the plane or face to offset from, then the panel
         if (wasPicking !== 'pick-workplane' && wasFeature !== 'plane') {
             if (sketcher.isOpen()) {
                 finishSketch();
             }
             startPlanePick('pick-workplane', 'work.plane', 'to offset a work plane from');
+        }
+    } else if (id.indexOf('plane.') === 0) {
+        // The other kinds of work plane pick their references in the panel
+        featureTools.plane.prepareKind(id.slice(6));
+        startFeature('plane', null);
+    } else if (id === 'work.axis' || id === 'work.point') {
+        if (wasFeature !== id.slice(5)) {
+            startFeature(id.slice(5), null);
         }
     } else if (id.indexOf('pat.') === 0) {
         const kind = { rect: 'rectpattern', circ: 'circpattern', mirror: 'mirror' }[id.slice(4)];
@@ -1837,6 +2197,8 @@ function featureOptions(kind) {
         kernel: kernel,
         doc: doc,
         onStatus: setStatus,
+        // The plane reference of a picked plane or face (To, Linear holes)
+        referenceOf: referenceOf,
         onClose: function () {
             featureClosed(kind);
         }
@@ -1852,13 +2214,25 @@ const featureTools = {
     fillet: createEdgeFeature(featureOptions('fillet')),
     chamfer: createEdgeFeature(featureOptions('chamfer')),
     hole: createHole(featureOptions('hole')),
-    plane: createWorkPlane(Object.assign(featureOptions('plane'), {
-        onDraft: function (frame, editing) {
-            draftPlane = frame ? { frame: frame, id: editing || null } : null;
+    plane: createWorkFeature('plane', workOptions('plane')),
+    axis: createWorkFeature('axis', workOptions('axis')),
+    point: createWorkFeature('point', workOptions('point'))
+};
+
+// The work feature panels show what they set up as drafts, and take plane
+// picks as the references sketches use
+function workOptions(kind) {
+    return Object.assign(featureOptions(kind), {
+        referenceOf: referenceOf,
+        onDraft: function (draft, editing) {
+            const id = editing || null;
+            draftPlane = draft && draft.frame ? { frame: draft.frame, id: id } : null;
+            draftAxis = draft && draft.line ? { line: draft.line, id: id } : null;
+            draftPoint = draft && draft.at ? { at: draft.at, id: id } : null;
             refreshWorkPlanes();
         }
-    }))
-};
+    });
+}
 
 // The assembly environment (js/assembly/), and the Measure and Section
 // View panels both environments share
@@ -2040,6 +2414,9 @@ refreshWorkPlanes();
 ribbon.setMode('part');
 refreshChrome();
 ribbon.showTab('model');
+
+// Unsaved work of a window that crashed, was reloaded or was closed
+setTimeout(offerAutosaves, 600);
 
 // A part handed over by the File Manager ("Open with 3D Modeler")
 const launch = files.launchPath();

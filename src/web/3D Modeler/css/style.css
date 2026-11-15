@@ -432,13 +432,87 @@ svg.ic {
     color: var(--bad);
 }
 
-/* After the sketch being edited: the model is rolled back to before it */
+/* Below End of Part, or after the sketch being edited: not built now */
 .node.rolled {
     opacity: 0.45;
 }
 
 .node.rolled .node-label {
     font-style: italic;
+}
+
+/* End of Part: dragged up the tree, it stands out until it is back at the bottom */
+.node.end-row {
+    cursor: grab;
+}
+
+.node.end-row.moved {
+    background: var(--accent-soft);
+}
+
+.node.end-row.moved .node-label {
+    font-weight: 600;
+}
+
+/* Where a dragged row would land; red where it cannot go */
+.node.dragging {
+    opacity: .4;
+}
+
+.node.drop-before {
+    box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.node.drop-after {
+    box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.node.drop-no.drop-before {
+    box-shadow: inset 0 2px 0 var(--bad);
+}
+
+.node.drop-no.drop-after {
+    box-shadow: inset 0 -2px 0 var(--bad);
+}
+
+/* The eye of a sketch, work feature or solid body: shown on hover, and all
+   the time while the item is hidden */
+.node .node-eye {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0;
+}
+
+.node:hover .node-eye,
+.node .node-eye.off,
+.node .node-eye:focus-visible {
+    opacity: 1;
+}
+
+.node .node-eye:hover {
+    background: var(--hover);
+    color: var(--text);
+}
+
+.node .node-eye svg.ic {
+    width: 14px;
+    height: 14px;
+}
+
+.node .node-mark + .node-eye,
+.node .node-tail + .node-eye {
+    margin-left: 4px;
 }
 
 .node-label {
@@ -1162,6 +1236,12 @@ body.dark #stage {
     font-weight: 600;
 }
 
+.hole-figure .hf-thread {
+    stroke: var(--text);
+    stroke-width: .9;
+    stroke-dasharray: 2 2;
+}
+
 .hole-figure .hf-note {
     fill: var(--muted);
     font-size: 9.5px;
@@ -1279,8 +1359,13 @@ body.dark #stage {
 
 .props-pick {
     flex: 1 1 auto;
+    min-width: 0;
     height: 22px;
     padding: 0 8px;
+    /* One line: a long text ends in an ellipsis instead of spilling out */
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     border: 1px solid var(--border);
     border-radius: 4px;
     background: var(--panel-2);
@@ -1293,6 +1378,92 @@ body.dark #stage {
 .props-pick.empty {
     border-color: var(--accent);
     color: var(--accent);
+}
+
+/* ================= the Fillet's sets (one line each) ================= */
+.props-custom {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.fillet-sets-head {
+    display: flex;
+    gap: 4px;
+    padding: 2px 0 3px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.fillet-sets-head span:first-child {
+    flex: 1 1 auto;
+}
+
+/* the radius box, its unit and the remove button below it */
+.fillet-sets-head span:last-child {
+    flex: 0 0 102px;
+}
+
+.fillet-set {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.fillet-set.active .props-pick {
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.fillet-set .props-pick.none {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.fillet-set .fillet-radius {
+    flex: 0 0 54px;
+}
+
+.fillet-set .fillet-unit {
+    flex: 0 0 18px;
+}
+
+.fillet-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.fillet-remove:hover {
+    background: var(--hover);
+    color: var(--bad);
+}
+
+.fillet-remove svg.ic {
+    width: 13px;
+    height: 13px;
+}
+
+.props-pick.fillet-add {
+    display: block;
+    width: 100%;
+    margin-bottom: 2px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.props-pick.fillet-add:hover {
+    color: var(--text);
+    border-color: var(--accent);
 }
 
 .props-input {

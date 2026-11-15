@@ -15,7 +15,22 @@
 */
 
 import * as kernel from './occt.js';
-import { withResolvedPlane, resolveFace } from './profile.js';
+import { withResolvedPlane, resolveFace, resolveWork, axisLine, planeFrame } from './profile.js';
+
+// What a work feature follows on the model: a straight edge or a round face
+function followOf(feature) {
+    const def = feature.def;
+    if (!def) {
+        return null;
+    }
+    if (feature.type === 'axis' && def.kind === 'edge' && def.edge) {
+        return { edge: def.edge };
+    }
+    if (((feature.type === 'axis' && def.kind === 'cylinder') || (feature.type === 'plane' && def.kind === 'tangent')) && def.face) {
+        return { face: def.face };
+    }
+    return null;
+}
 
 // The face plane reference of a sketch or a work plane feature, if any
 function facePlaneOf(feature) {
@@ -33,10 +48,13 @@ function hash(text, seed) {
     return h;
 }
 
-// The parts of a feature that change its geometry. Renaming must not rebuild.
+// The parts of a feature that change its geometry. Renaming, hiding and
+// sharing a sketch must not rebuild.
 function geometryKey(feature) {
     const copy = Object.assign({}, feature);
     delete copy.name;
+    delete copy.hidden;
+    delete copy.shared;
     return JSON.stringify(copy);
 }
 
@@ -74,11 +92,13 @@ export function createRebuilder(oc) {
         switch (feature.type) {
             case 'sketch':
             case 'plane':
-                return bodies; // a sketch or a work plane adds no solid by itself
+            case 'axis':
+            case 'point':
+                return bodies; // sketches and work features add no solid by themselves
             case 'extrude':
-                return kernel.extrude(oc, bodies, feature, sketchOf(feature, byId, features));
+                return kernel.extrude(oc, bodies, withTarget(feature, features), sketchOf(feature, byId, features));
             case 'revolve':
-                return kernel.revolve(oc, bodies, feature, sketchOf(feature, byId, features));
+                return kernel.revolve(oc, bodies, withWorkAxis(feature, features), sketchOf(feature, byId, features));
             case 'hole':
                 return kernel.hole(oc, bodies, feature, sketchOf(feature, byId, features));
             case 'fillet':
@@ -89,12 +109,50 @@ export function createRebuilder(oc) {
                 return kernel.shell(oc, bodies, feature);
             case 'pattern':
             case 'mirror':
-                return kernel.pattern(oc, bodies, feature, sourcesOf(feature, byId, features));
+                return kernel.pattern(oc, bodies, withWorkAxis(feature, features), sourcesOf(feature, byId, features));
             case 'import':
                 return bodies.concat(kernel.importSTEP(oc, feature.data || ''));
             default:
                 throw new Error('This version cannot build a "' + feature.type + '" feature');
         }
+    }
+
+    // An extrusion "to" a plane or face gets where that plane is now
+    function withTarget(feature, features) {
+        const extent = feature.extent;
+        if (!extent || extent.type !== 'to') {
+            return feature;
+        }
+        const frame = extent.plane ? planeFrame(extent.plane, features) : null;
+        return Object.assign({}, feature, { extent: Object.assign({}, extent, { target: frame ? { o: frame.o, n: frame.n } : null }) });
+    }
+
+    // A feature that turns about a work axis, or mirrors in a work plane,
+    // gets them as they are now: revolve { axis: { work } } -> { line },
+    // pattern { axisRef } -> axis, mirror { planeRef } -> plane
+    function withWorkAxis(feature, features) {
+        if (feature.type === 'revolve' && feature.axis && feature.axis.work) {
+            const line = axisLine({ ref: 'axis', id: feature.axis.work }, features);
+            return Object.assign({}, feature, { axis: line ? { work: feature.axis.work, line: line } : { work: feature.axis.work } });
+        }
+        if (feature.type === 'pattern' && feature.axisRef) {
+            const line = axisLine(feature.axisRef, features);
+            if (!line) {
+                throw new Error('The work axis of this pattern no longer exists');
+            }
+            const d = feature.axis && feature.axis.d && (feature.axis.d[0] * line.d[0] + feature.axis.d[1] * line.d[1] + feature.axis.d[2] * line.d[2]) < 0 ? -1 : 1;
+            return Object.assign({}, feature, { axis: { o: line.o, d: line.d.map(function (c) {
+                return c * d;
+            }) } });
+        }
+        if (feature.type === 'mirror' && feature.planeRef) {
+            const frame = planeFrame(feature.planeRef, features);
+            if (!frame) {
+                throw new Error('The work plane of this mirror no longer exists');
+            }
+            return Object.assign({}, feature, { plane: { o: frame.o, n: frame.n } });
+        }
+        return feature;
     }
 
     // Replay the features in order, stopping before feature `upto` when given.
@@ -105,18 +163,37 @@ export function createRebuilder(oc) {
         const entries = new Map();
         const report = {};
         const frames = {};  // sketch or work plane id -> where its face is now
+        const lines = {};   // work feature id -> the edge or round face it follows, now
         let bodies = [];
         let key = 2166136261;
         let reused = 0;
+        // The End of Part marker: features after it are not built
+        const last = doc && typeof doc.end === 'string' ? (doc.end === '' ? -1 : features.findIndex(function (f) {
+            return f.id === doc.end;
+        })) : features.length - 1;
         for (let i = 0; i < features.length; i++) {
             const feature = features[i];
             if (upto && feature.id === upto) {
                 break;
             }
+            if (i > (last < -1 ? features.length : last)) {
+                report[feature.id] = { status: 'rolled' };
+                continue;
+            }
             // A feature depends on what came before it, which the running hash covers
             key = hash(geometryKey(feature), key);
             byId[feature.id] = feature;
             let entry = cache.get(key);
+            // A face an extrusion goes "to" is found on the solids before it
+            const toFace = !entry && feature.extent && feature.extent.type === 'to' && feature.extent.plane &&
+                feature.extent.plane.ref === 'face' && feature.extent.plane.face ? feature.extent.plane : null;
+            if (toFace) {
+                try {
+                    resolveFace(toFace, kernel.followFace(oc, bodies, toFace));
+                } catch (err) {
+                    // where it was picked
+                }
+            }
             if (entry) {
                 reused++;
             } else if (feature.suppressed) {
@@ -146,11 +223,26 @@ export function createRebuilder(oc) {
                 resolveFace(facePlane, entry.frame);
                 frames[feature.id] = entry.frame;
             }
+            // A work axis on an edge or a round face (or a plane touching
+            // one) follows it, found on the solids before it
+            const follow = followOf(feature);
+            if (follow && !entry.tracked) {
+                entry.tracked = true;
+                try {
+                    entry.line = follow.edge ? kernel.edgeLine(oc, bodies, follow.edge) : kernel.cylinderLine(oc, bodies, follow.face);
+                } catch (err) {
+                    entry.line = null; // kept where it was made
+                }
+            }
+            if (follow && entry.line) {
+                resolveWork(feature, entry.line);
+                lines[feature.id] = entry.line;
+            }
             entries.set(key, entry);
             report[feature.id] = entry.status;
             bodies = entry.bodies;
         }
-        return { bodies: bodies, report: report, entries: entries, reused: reused, byId: byId, frames: frames };
+        return { bodies: bodies, report: report, entries: entries, reused: reused, byId: byId, frames: frames, lines: lines };
     }
 
     function describeAll(bodies) {
@@ -180,7 +272,7 @@ export function createRebuilder(oc) {
         });
         cache = run.entries;
         latest = run.bodies;
-        return { bodies: describeAll(run.bodies), features: run.report, reused: run.reused, frames: run.frames };
+        return { bodies: describeAll(run.bodies), features: run.report, reused: run.reused, frames: run.frames, lines: run.lines };
     }
 
     // The solids as they are just before feature `upto` (or after the last
@@ -199,7 +291,7 @@ export function createRebuilder(oc) {
         rebuild: rebuild,
         rollback: function (doc, upto) {
             const run = before(doc, upto);
-            return { bodies: describeAll(run.bodies), features: run.report, reused: run.reused, frames: run.frames };
+            return { bodies: describeAll(run.bodies), features: run.report, reused: run.reused, frames: run.frames, lines: run.lines };
         },
         // { bodies: [shape], byId } before feature `upto`
         shapesBefore: function (doc, upto) {

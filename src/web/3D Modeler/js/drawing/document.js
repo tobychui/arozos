@@ -177,6 +177,12 @@ export function createDrawingDocument() {
         savedState = JSON.stringify(data);
         emit('saved');
     };
+
+    // A document brought back from an autosave: it is not saved anywhere
+    doc.markUnsaved = function () {
+        savedState = '';
+        emit('saved');
+    };
     doc.reset = function (newData, name, path) {
         data = newData ? validateDrawing(newData) : emptyDrawing();
         // Links are absolute while the drawing is open

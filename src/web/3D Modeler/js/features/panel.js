@@ -27,6 +27,8 @@
             { type: "figure", key }     a picture the width of the panel, set
                 with html(key, markup); a click on an element with
                 data-focus="<row key>" puts the caret in that row
+            { type: "custom", key }     the width of the panel, filled by the
+                tool itself through container(key) (the Fillet's sets)
         spec.onChange(key, value)   a number, seg, check, text or select row changed
         spec.onFocus(key | null)    a number row got (or lost) the caret
         spec.onAction(key)          a pick button was clicked
@@ -38,7 +40,8 @@
     The returned object: show(), hide(), isOpen(), title(text, sub),
     text(key, text, warn), set(key, value), get(key), visible(key, shown),
     note(text, bad), ok(enabled), focus(key), unit(key, text),
-    items(key, list) (the entries of a select row).
+    items(key, list) (the entries of a select row), container(key) (the
+    element of a custom row).
 */
 
 import { evaluate } from '../expr.js';
@@ -90,6 +93,11 @@ export function createPanel(stage, spec) {
                     api.focus(target.dataset.focus);
                 }
             });
+            row.appendChild(entry.control);
+        } else if (def.type === 'custom') {
+            row.classList.add('props-figure-row');
+            entry.control = document.createElement('div');
+            entry.control.className = 'props-custom';
             row.appendChild(entry.control);
         } else if (def.type === 'pick') {
             entry.control = document.createElement('button');
@@ -432,6 +440,17 @@ export function createPanel(stage, spec) {
         },
         element: function () {
             return panel;
+        },
+        // The label of a row
+        label: function (key, text) {
+            const label = rows[key].row.querySelector('label');
+            if (label) {
+                label.textContent = text;
+            }
+        },
+        // The element a custom row's content goes in
+        container: function (key) {
+            return rows[key].control;
         },
         // The markup of a figure row
         html: function (key, markup) {

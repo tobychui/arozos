@@ -102,7 +102,10 @@ const operations = {
     // The solid a draft extrude or revolve feature would sweep, for the live preview
     preview: function (args) {
         const make = args.feature.type === 'revolve' ? kernel.revolveTool : kernel.extrudeTool;
-        const tool = make(oc, rebuilder.bodies(), args.feature, args.sketch);
+        // The model as it is before the feature (To Next and Through All
+        // measure against it); without a document, the whole model
+        const bodies = args.document ? rebuilder.shapesBefore(args.document, args.at || null).bodies : rebuilder.bodies();
+        const tool = make(oc, bodies, args.feature, args.sketch);
         const mesh = kernel.describe(oc, tool);
         tool.delete();
         return {

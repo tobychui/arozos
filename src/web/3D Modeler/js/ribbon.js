@@ -146,9 +146,16 @@ export const RIBBON = [
                 { id: 'feat.shell', label: 'Shell', icon: 'shell', toggle: true }
             ] },
             { label: 'Work Features', items: [
-                { id: 'work.plane', label: 'Plane', icon: 'plane', big: true, toggle: true },
-                { id: 'work.axis', label: 'Axis', icon: 'axis', planned: 'Stage 2' },
-                { id: 'work.point', label: 'Point', icon: 'point', planned: 'Stage 2' }
+                { id: 'work.plane', label: 'Plane', icon: 'plane', big: true, toggle: true, menu: [
+                    { id: 'plane.offset', label: 'Offset from Plane', hint: 'pick, then distance' },
+                    { id: 'plane.midplane', label: 'Midplane between Two Planes' },
+                    { id: 'plane.angle', label: 'Angle to Plane around Edge' },
+                    { id: 'plane.points', label: 'Three Points' },
+                    { id: 'plane.tangent', label: 'Tangent to Surface, Parallel to Plane' },
+                    { id: 'plane.normal', label: 'Normal to Axis through Point' }
+                ] },
+                { id: 'work.axis', label: 'Axis', icon: 'axis', toggle: true },
+                { id: 'work.point', label: 'Point', icon: 'point', toggle: true }
             ] },
             { label: 'Pattern', items: [
                 { id: 'pat.rect', label: 'Rectangular', icon: 'rectpattern', toggle: true },

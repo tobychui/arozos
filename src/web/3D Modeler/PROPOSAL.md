@@ -102,7 +102,61 @@ so a browser can keep old modules after an update (see the last item).
       see the change with its constraints still holding.
 - [ ] Export the assembly as STEP and STL.
 
-**Offset sketch planes, outlines of round faces, defaults, hiding planes (newest, see 14.24)**
+**Extrude extents, chamfer types, fillet sets, linear holes, history tools (newest, see 14.26)**
+
+- [ ] Extrude: Extents is Distance, To, To Next or Through All, with a
+      card for each. To: click a flat face, a work plane or an origin plane
+      (also in the browser); a slanted one ends the solid slanted. To Next
+      stops at the next face of the solid ahead. Taper narrows the sides
+      (negative widens); it is refused with Symmetric and Asymmetric.
+- [ ] Chamfer: Type is Equal Distance, Two Distances or Distance and Angle
+      (a card for each); Flip faces swaps which face takes which size.
+- [ ] Fillet: the panel lists sets one under the other (edges, radius, a
+      cross to remove). Pick edges, + Add Set, pick more edges and give
+      them their own radius; click a set's edge button (or its radius) to
+      go back to it; remove a set with its cross.
+- [ ] Hole without a sketch: Placement > Linear, click a face, then two
+      straight edges, type the distances; OK makes the sketch and the hole
+      in one step, and editing the hole edits the distances. Thread (M2 to
+      M20) sets the tap drill, shows in the section, the browser ("Hole1
+      M6x1") and Inspect > Mass Properties (a note, not modelled).
+- [ ] End of Part: drag it up the tree (or right-click a feature > Move
+      End of Part Here): the features below go grey and are not built; a
+      new feature goes in where it is. Right-click it > Move to End.
+- [ ] Drag a feature row to another place; where it cannot go (above
+      what it is built from) the line turns red and the status bar says
+      why. A row dropped just above End of Part is built.
+- [ ] Right-click a sketch a feature uses > Share Sketch: it gets its own
+      row tagged "shared", is drawn again and offered to Extrude, Revolve
+      and Hole. Stop Sharing undoes it.
+- [ ] The eye on sketches, work features and Solid Bodies > Solid1 hides
+      them without a rebuild; a hidden body cannot be picked.
+- [ ] Open a part whose features fail: a dialog lists them and why.
+- [ ] Make a change, then reload or close the browser tab without saving:
+      the next start offers Restore; the documents come back unsaved.
+      Closing the window from the desktop and answering the save question
+      leaves nothing to restore. Not tried with two 3D Modeler windows
+      open at once (each keeps its own entry).
+
+**Work axes, work points, more work planes (see 14.25)**
+
+- [ ] 3D Model > Axis: click the side of the boss: a dashed axis through
+      it, OK. Edit Extrusion2's sketch to move the boss: the axis moves with
+      it. Also: two planes (where they meet) and two points.
+- [ ] 3D Model > Point: a corner of the model (a diamond shows under the
+      pointer), typed coordinates, or where an axis meets a plane.
+- [ ] 3D Model > Plane is a menu: Offset (as before), Midplane, Angle to
+      Plane around Edge, Three Points, Tangent to Surface Parallel to
+      Plane, Normal to Axis through Point. Each panel says what to pick;
+      origin planes, axes, the centre point and work features can also be
+      clicked in the browser while a panel waits for them.
+- [ ] A sketch on each new kind of plane; Edit Feature brings the panel
+      back with the picks; Hide works on axes and points too.
+- [ ] Circular Pattern > Axis > Work Axis, Mirror > Plane > Work Plane,
+      and Revolve offering work axes as axis lines; delete the work axis
+      and the pattern reports it.
+
+**Offset sketch planes, outlines of round faces, defaults, hiding planes (see 14.24)**
 
 - [ ] Start 2D Sketch, then press on a flat face (or an origin or work
       plane) and drag away from it: a plane follows with its distance by
@@ -996,13 +1050,13 @@ several files and a test file; **L** = several days, touches the core.
 | A3 | Revolve (14.4) | M | The most used feature still missing |
 | A4 | Stable references (14.5) | L | Without it, edits upstream break fillets and leave face sketches behind |
 | A5 | Shell, Mirror, Patterns (14.6) | M each | The rest of the greyed ribbon buttons |
-| A6 | Extrude and Chamfer options (14.7) | S to M | Taper, To, To Next, two-distance chamfer |
-| A7 | History tools (14.8) | M | End of Part rollback, reorder, shared sketches, visibility |
+| A6 | Extrude and Chamfer options (14.7) | S to M | **Built** (14.26): taper, To, To Next, chamfer types, fillet sets, linear holes, threads |
+| A7 | History tools (14.8) | M | **Built** (14.26): End of Part, reorder, shared sketches, visibility, errors on open, autosave |
 | A8 | Parameters, "fx" (14.9) | M to L | Formulas that stay formulas |
 | A9 | View and inspect (14.10) | S to M | Movable section planes, measure in the view, thick edges |
 | A10 | Exchange (14.11) | S to M | STL / OBJ as reference, export options |
 | A11 | M7: touch, localisation, README (14.12) | M | Release polish |
-| A12 | Work axes, points, more planes (14.13) | S to M | Needed by Revolve and Circular Pattern for off-sketch axes |
+| A12 | Work axes, points, more planes (14.13) | S to M | **Built** (14.25): axes, points, six kinds of plane; used by Revolve, Circular Pattern, Mirror |
 | A13 | Sweep, Loft, Draft (14.14) | M each | Stage 2 shapes |
 | A14 | Later stages (14.15) | L | Threads, text, sheet metal |
 | A15 | Assembly mode (14.16) | L | **Built**: placing parts, constraints, move rotate scale, section, measure, interference |
@@ -1430,6 +1484,8 @@ a 3 x 2 pattern of a through hole removes six cylinders.
 
 ### 14.7 A6 - Extrude and Chamfer options
 
+*Built; what was done and where it differs is in 14.26.*
+
 **Taper** (M). `extent.taper` in degrees. This build has no draft prism
 (`LocOpe_DPrism`, `BRepFeat` are absent). Build the prism as now, then
 draft its side faces: `const d = new oc.BRepOffsetAPI_DraftAngle(prism)`,
@@ -1469,6 +1525,8 @@ projected edges, then open the Hole panel on it.
 text. A modelled helix is a later stage.
 
 ### 14.8 A7 - History tools
+
+*Built; what was done and where it differs is in 14.26.*
 
 **End of Part marker** (M). The row exists but does nothing. Make it
 draggable in the browser; `doc.data().end` holds the id of the last active
@@ -2319,6 +2377,147 @@ plane "so it won't block future editing".
   lengths; the drag math and snapping; hiding as one undo step that is
   saved).
 
+### 14.25 A12 built: work axes, work points, more work planes
+
+The plan of 14.13, all of it, plus what using it asked for.
+
+- **Data** (`js/kernel/profile.js`, pure, shared by the worker and the
+  page): `type: "axis"` and `type: "point"` features with a `def`, and work
+  planes with a `def` beside the old `{ base, offset }`. References:
+  planes as before, axes `{ ref: "origin:x|y|z" | "axis", id }` (or
+  `{ ref: "line", line }`, an edge kept as it was picked), points
+  `{ ref: "origin" | "point", id | "vertex", at }`. `axisLine`, `pointAt`,
+  `workAxisLine`, `workPoint` and `workPlaneFrame` resolve them, leaving
+  the feature out of its own lookup and stopping at depth 32 (so two
+  features defined by each other give nothing instead of looping).
+  Kinds: axis edge / cylinder / planes / points; point vertex / coords /
+  axisplane; plane offset / midplane / angle / points / tangent / normal.
+- **Following the model** (`js/kernel/rebuild.js`, `edgeLine` and
+  `cylinderLine` in `occt.js`): a work axis on an edge or a round face, and
+  a tangent plane, are found again in the replay on the solids before
+  them (`findEdges` / `findFaces`, so the panel stores the edge or face
+  with its description through `edgeRefs` / `faceRefs`), given to
+  `resolveWork`, and returned as `result.lines` for the page
+  (`takeFaceFrames(frames, lines)`). A vertex point keeps where it was.
+- **Used by**: Revolve offers work axes as axis lines (`axis: { work }`);
+  Circular Pattern has Axis > Work Axis (`axisRef`); Mirror has Plane >
+  Work Plane (`planeRef`). The replay hands each its axis or plane as it is
+  now (`withWorkAxis`); a missing one is reported. `document.usesOf` finds
+  every reference, so deleting a work feature takes what uses it.
+- **Interface**: one panel module for the three
+  (`js/features/workfeature.js`, replacing `plane.js`); Plane is a ribbon
+  menu of the six kinds; Axis and Point are enabled. The viewport's
+  reference pick (`startRefPick(want, handler)`) offers flat faces and
+  planes, origin and work axes (the origin axes drawn while wanted),
+  straight edges (also in Shaded), round faces, the centre point, work
+  points and the corners of the model, with a marker under the pointer;
+  the browser's origin rows and work features feed it too
+  (`viewport.offerRef`). Work axes are dashed lines and work points small
+  diamonds, both kept the same size on screen. Hide and Show work on axes
+  and points like on planes.
+- *Tests*: `tests/workfeatures.test.mjs` (every kind, parallel and
+  degenerate cases, a loop of planes, suppression, references and
+  dependents; in the kernel the axis of the boss face following the boss
+  when it moves, a circular pattern about it and its error once the axis
+  is deleted, an axis on an edge, a revolution about a work axis).
+
+### 14.26 A6 and A7 built: extents, chamfer types, fillet sets, linear holes, history tools
+
+The plans of 14.7 and 14.8, all of them, with the card and hint style of
+14.23 for the new choices.
+
+- **Extrude** (`occt.js extrudeTool`, `js/features/extrude.js`): Extents is
+  a segmented row with a card (Distance, To, To Next, Through All; the
+  Through All check box is gone, old files still read). `extent.type:
+  "to"` with `extent.plane` (any plane reference: face, origin, work
+  plane): parallel to the sketch it is an exact distance, otherwise the
+  prism is swept far enough and cut by the half space beyond the target
+  (`cutBeyond`). `"next"` sweeps as far as `reach()`, splits the prism by
+  the bodies (`BRepAlgoAPI_Splitter`) and keeps the pieces that touch the
+  profile, found as zero distance (`BRepExtrema_DistShapeShape.Value()`)
+  from points on the profile (`InnerSolution()` is not reliable in this
+  build). `extent.taper` in degrees drafts the side faces about the
+  sketch plane (`BRepOffsetAPI_DraftAngle`): positive narrows, below 89,
+  not with Symmetric or Asymmetric. The panel picks the To plane with the
+  viewport's reference pick (14.25), the browser feeding it too; previews
+  run on the bodies before the feature (`worker.preview` with `at`).
+- **Chamfer** (`occt.js chamfer`, `js/features/edges.js`): `mode: "equal" |
+  "two" | "angle"`, `distance2`, `angle`, `flip`. The face a size is
+  measured on is the one most of the picked edges touch (the top of a box
+  whose top edges are picked), else the first by position; Flip takes the
+  other. Sizes and type are remembered for the next chamfer in the
+  session.
+- **Fillet with several radii**: `sets: [{ edges, radius }]` beside the
+  old `edges` + `radius` (one set is stored the old way). The panel lists
+  the sets one under the other, Inventor style (owner's request after
+  trying a drop-down): each line is the set's edge button, its radius box
+  and a cross that removes it (hidden while there is one set), with + Add
+  Set below. The active line is outlined; its edges are the viewport's
+  selection, so clicked edges go to it, and a click on another line's
+  button or radius switches. The list is a `custom` panel row
+  (`panel.container(key)`). Every pick button is one line now, ending in
+  an ellipsis instead of spilling out of its box.
+- **Linear hole** (`js/features/hole.js`): Placement is From Sketch or
+  Linear (the default when no sketch with points is free). Linear picks a
+  face and two straight edges (`startRefPick`), and OK writes a sketch on
+  the face (both edges projected, a point, two `pldistance` dimensions)
+  and the hole in one undo step; editing the hole edits the two distances.
+  `linearPoint` (pure) places the preview point on the side of the click.
+- **Threads**: `thread: { designation, depth? }` from `THREADS` (M2 to
+  M20, tap drill = major - pitch, which the diameter takes). Shown as
+  thread lines and a label in the hole section, after the name in the
+  browser, and as notes in Mass Properties. Not modelled.
+- **End of Part** (`document.js`, `rebuild.js`, `browser.js`):
+  `data.end` is the id of the last feature built (`""` above them all; no
+  key when at the bottom). The replay reports later features as
+  `rolled`. `doc.change` puts features added at the end of the list where
+  the marker is and moves the marker past them (`placeAtEnd`), so every
+  panel inserts there without knowing. `doc.setEnd`, `doc.endIndex`. The
+  browser shows the marker before the first row not built, draggable,
+  highlighted while it is up the tree; right-click: Move to End, Move to
+  Top; a feature's menu: Move End of Part Here. Sketches, work features
+  and profiles below the marker are not drawn or offered.
+- **Reorder**: HTML5 drag of the top-level rows. `doc.canMove(id,
+  beforeId)` returns why not (a feature before something it uses,
+  `usesOf`), `doc.move(id, beforeId, built)` moves a feature with the
+  sketch only it uses. While dragging, the drop line is red with the
+  reason in the status bar where the move is refused. Dropped in the gap
+  just above End of Part (`built`), the marker moves past it; when the
+  feature the marker is after moves away, the marker stays in place.
+  *Limit*: a sketch on a face names the face, not the feature that made
+  it, so moving it above that feature is allowed and then reported by the
+  rebuild.
+- **Shared sketches**: right-click > Share Sketch / Stop Sharing
+  (`doc.setShared`). *Deviation from 14.8*: a shared sketch keeps a row of
+  its own at its place in the history, tagged "shared", instead of being
+  listed under every feature that uses it (one row to edit, hide and
+  drag).
+- **Visibility**: an eye at the end of sketch, work feature and solid body
+  rows (shown on hover, always while hidden). `hidden` on features,
+  `data.hiddenBodies` (body numbers) for bodies. These are "visual"
+  changes: `doc.change(label, fn, { visual: true })` emits `"visual"`, the
+  app redraws without a rebuild or closing the open panel, and
+  `geometryKey` ignores `hidden` and `shared`. Hidden bodies are left out
+  of every pick (`viewport.setHiddenBodies`). Body numbers can shift when
+  an edit changes how many bodies there are.
+- **Errors on open**: the first rebuild of a part opened from a file (or
+  restored) lists the failing features and their reasons in a dialog
+  (`reportOpenFailures`), at most eight.
+- **Autosave** (`app.js`): a second and a half after a change, every
+  unsaved tab (kind, name, path, text) goes to `localStorage` under a key
+  of this window, with an "alive" stamp refreshed every 5 s and zeroed on
+  `pagehide`. On start, entries whose window is gone are offered in one
+  Restore / Discard dialog; restored documents open in tabs, unsaved
+  (`markUnsaved` on all three document kinds). Closing the window through
+  the desktop's close button (saved or answered) drops the entry.
+- *Tests*: `tests/a6a7.test.mjs` (taper both ways and refused symmetric,
+  To a work plane, To Next under a slab and with nothing ahead, every
+  chamfer type with Flip and two edges, two fillet radii and a set that
+  does not fit; End of Part in the replay; insertion at the marker,
+  setEnd, move with the group, the refused move, the marker keeping its
+  place, a drop above the marker; visual changes, validate, markUnsaved;
+  threads, `linearPoint`, the new cards).
+
 ## 15. Handoff
 
 This section is for the model or person who continues the work (the earlier
@@ -2500,7 +2699,26 @@ Done in the last session, after the table above was first written:
   the work plane. The hole and fillet defaults were checked in the code
   only.
 
-`node tests/run.mjs` passes, 30 files. **Nothing is committed**: the whole
+- **A12, work axes, points and planes** (14.25). Tried in the browser
+  pane: an axis on the boss face, a circular pattern of the cross hole
+  about it, a midplane of the plate's top face and the XY plane (picked in
+  the browser), a work point on a corner, a plane square to Z through it,
+  a plane at 45 degrees to XZ about Z, and editing it. Not tried by hand:
+  Tangent and Three Points planes, an axis through two points (covered by
+  tests).
+
+- **A6 and A7** (14.26). Tried in the browser pane on the sample part:
+  End of Part dragged up and back (and by its menu), a refused drag (red
+  line, reason in the status bar), a work plane dragged to the top, a hole
+  dropped just above End of Part, the eyes on a work plane, a sketch and
+  Solid1 (a hidden body not picked), Share Sketch and an extrusion from
+  the shared sketch To the boss top with a 5 degree taper, To Next, a
+  two-distance chamfer with Flip on a tangent chain, a two-set fillet, a
+  linear M6 hole, the failure dialog on open, and Restore after a reload.
+  Not tried: autosave with two windows open, the Distance and Angle
+  chamfer on a model (covered by tests).
+
+`node tests/run.mjs` passes, 32 files. **Nothing is committed**: the whole
 `src/web/3D Modeler/` folder is untracked on the branch the owner works on.
 Do not commit or push unless the owner asks.
 
@@ -2573,9 +2791,11 @@ Do not commit or push unless the owner asks.
 ```
 index.html          ribbon host, browser, viewport, panels, SVG icon symbols
 css/style.css       one style sheet, colour tokens on body / body.dark
-js/app.js           wiring: ribbon commands, modes, feature panels, files, keys
+js/app.js           wiring: ribbon commands, modes, feature panels, files,
+                    keys, autosave and restore (14.26)
 js/ribbon.js        the ribbon as one data table (tabs > groups > buttons)
-js/browser.js       model browser (tree) built from the document
+js/browser.js       model browser (tree) built from the document; End of
+                    Part, drag to reorder, eyes, shared sketches (14.26)
 js/ui.js            ask(), tell(), menus, small DOM helpers
 js/tabs.js          the document tab strip under the view (14.18)
 js/expr.js          formula evaluation of size boxes
@@ -2594,7 +2814,8 @@ js/sketch/          model.js (data + solver translation), sketcher.js
                     (controller), tools.js (one state machine per tool),
                     render.js, geom.js, trim.js, project.js, solver.js
 js/features/        panel.js (property panel builder), extrude.js, edges.js
-                    (fillet + chamfer), hole.js, plane.js (work plane),
+                    (fillet + chamfer), hole.js, workfeature.js (work
+                    plane, axis and point panels, 14.25),
                     appearance.js (the Appearance panel, 14.19, 14.22),
                     paint.js (Paint Faces, 14.22), illustrate.js and
                     illustrations.js (the card of pictures, 14.23),

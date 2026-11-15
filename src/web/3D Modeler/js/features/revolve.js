@@ -19,7 +19,11 @@
 
 import { createPanel } from './panel.js';
 import { createProfiles } from './profiles.js';
-import { planeFrame, toWorld, withResolvedPlane } from '../kernel/profile.js';
+import { planeFrame, toWorld, withResolvedPlane, workAxisLine } from '../kernel/profile.js';
+
+function add(p, d, k) {
+    return [p[0] + d[0] * k, p[1] + d[1] * k, p[2] + d[2] * k];
+}
 import { curves as sketchCurves } from '../sketch/model.js';
 
 const DIRECTIONS = [
@@ -87,7 +91,10 @@ export function createRevolve(options) {
     });
 
     function sameAxis(x, y) {
-        return !!x && !!y && (x.curve ? x.curve === y.curve : x.origin === y.origin);
+        if (!x || !y) {
+            return false;
+        }
+        return x.curve ? x.curve === y.curve : x.work ? x.work === y.work : !!x.origin && x.origin === y.origin;
     }
 
     // The lines of the profile's sketch and the origin axes in its plane
@@ -122,6 +129,18 @@ export function createRevolve(options) {
                     }), b: o.d.map(function (c) {
                         return c * reach;
                     }) });
+            }
+        });
+        // Work axes of the part (made before this revolution), wherever
+        // they lie: a revolution about an axis outside the sketch
+        const list = doc.features();
+        const at = editId ? list.findIndex(function (f) {
+            return f.id === editId;
+        }) : list.length;
+        list.slice(0, at < 0 ? list.length : at).forEach(function (f) {
+            const line = f.type === 'axis' && !f.suppressed ? workAxisLine(f, list) : null;
+            if (line) {
+                candidates.push({ axis: { work: f.id, line: line }, label: f.name, a: add(line.o, line.d, -reach), b: add(line.o, line.d, reach) });
             }
         });
         // One construction line: that is the centre line, take it

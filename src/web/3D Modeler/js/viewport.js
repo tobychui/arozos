@@ -790,6 +790,9 @@ export function createViewport(options) {
     // shaded: surfaces only; shaded with edges: and the edges in front;
     // hidden-edges: and the covered edges dashed; wireframe: no surfaces,
     // the edges in front solid and the covered ones dashed
+    // Solid bodies the user hid (by number): not drawn, not picked
+    let hiddenBodies = new Set();
+
     function applyVisualStyle() {
         const wire = visualStyle === 'wireframe';
         const dashed = wire || visualStyle === 'hidden-edges';
@@ -801,19 +804,21 @@ export function createViewport(options) {
         hiddenEdgeMaterial.color.setHex(lineColor);
         hiddenEdgeMaterial.opacity = light ? 0.45 : 0.6;
         bodyMaterial.visible = !wire;
-        bodies.forEach(function (body) {
+        bodies.forEach(function (body, i) {
+            body.off = hiddenBodies.has(i);
+            body.mesh.visible = !body.off;
             [].concat(body.mesh.material).forEach(function (m) {
                 m.visible = !wire;
             });
             // While a fillet or chamfer result is previewed, the result
             // stands for the body (its own depth, its own dashed edges)
-            body.depth.visible = wire && !ghostOn;
-            body.lines.visible = visualStyle !== 'shaded';
-            body.hidden.visible = dashed && !ghostOn;
-            body.cap.visible = section.mode !== 'none' && !wire;
+            body.depth.visible = wire && !ghostOn && !body.off;
+            body.lines.visible = visualStyle !== 'shaded' && !body.off;
+            body.hidden.visible = dashed && !ghostOn && !body.off;
+            body.cap.visible = section.mode !== 'none' && !wire && !body.off;
             if (body.sil) {
-                body.sil.front.visible = visualStyle !== 'shaded';
-                body.sil.behind.visible = dashed && !ghostOn;
+                body.sil.front.visible = visualStyle !== 'shaded' && !body.off;
+                body.sil.behind.visible = dashed && !ghostOn && !body.off;
             }
         });
         // A fillet or chamfer preview is drawn in the same style as the body
@@ -1372,7 +1377,9 @@ export function createViewport(options) {
     function itemUnderPointer(event, wantEdges) {
         aim(event);
         const tolerance = EDGE_PIXELS * worldPerPixel();
-        const faceHit = raycaster.intersectObjects(bodies.map(function (b) {
+        const faceHit = raycaster.intersectObjects(bodies.filter(function (b) {
+            return !b.off;
+        }).map(function (b) {
             return b.mesh;
         }), false).filter(function (hit) {
             return !cutAway(hit.point);
@@ -1391,8 +1398,10 @@ export function createViewport(options) {
             // Whole components: the body under the pointer stands for its group
             return result ? { type: 'body', body: result.body } : null;
         }
-        if (wantEdges && visualStyle !== 'shaded') {
-            const lines = bodies.map(function (b) {
+        if (wantEdges && (visualStyle !== 'shaded' || wantEdges === 'always')) {
+            const lines = bodies.filter(function (b) {
+                return !b.off;
+            }).map(function (b) {
                 return b.lines;
             });
             const edgeNear = function (threshold, limit) {
@@ -1485,6 +1494,10 @@ export function createViewport(options) {
     }
 
     canvas.addEventListener('pointermove', function (event) {
+        if (refPick && !event.buttons && !animation) {
+            showRefHot(refUnderPointer(event));
+            return;
+        }
         if (planeDrag && (event.buttons & 1)) {
             const rect = canvas.getBoundingClientRect();
             const now = [event.clientX - rect.left, event.clientY - rect.top];
@@ -1532,6 +1545,13 @@ export function createViewport(options) {
         // A click, not the end of an orbit drag
         const moved = downAt ? Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) : 99;
         downAt = null;
+        if (refPick && event.button === 0 && moved <= 4) {
+            const picked = refUnderPointer(event);
+            if (picked) {
+                refPick.handler(picked);
+            }
+            return;
+        }
         const drag = planeDrag;
         planeDrag = null;
         if (drag && drag.active) {
@@ -1709,6 +1729,347 @@ export function createViewport(options) {
             axisGroup.add(line);
         });
         paintAxes();
+    }
+
+    /* ---------------- work axes and work points ---------------- */
+    // Work axes as long dashed lines, work points as small diamonds, both
+    // drawn over the model; their size on screen does not change with zoom
+    // (updateWorkRefs, every frame)
+    const workRefGroup = new THREE.Group();
+    scene.add(workRefGroup);
+    const workAxisMaterial = new THREE.LineDashedMaterial({ color: 0x2f6fb5, dashSize: 1, gapSize: 1, depthTest: false, depthWrite: false, transparent: true });
+    const workAxisDraftMaterial = new THREE.LineDashedMaterial({ color: HOVER, dashSize: 1, gapSize: 1, depthTest: false, depthWrite: false, transparent: true });
+    const workPointGeometry = new THREE.OctahedronGeometry(1);
+    const workPointMaterial = new THREE.MeshBasicMaterial({ color: 0x2f6fb5, depthTest: false, depthWrite: false, transparent: true });
+    const workPointDraftMaterial = new THREE.MeshBasicMaterial({ color: HOVER, depthTest: false, depthWrite: false, transparent: true });
+    let workAxisList = [];
+    let workPointList = [];
+
+    // The middle and size of the model, for lines long enough to see
+    function modelSpan() {
+        const box = new THREE.Box3();
+        if (bodies.length) {
+            box.setFromObject(bodyGroup);
+        }
+        return {
+            centre: box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3()),
+            size: box.isEmpty() ? PLANE_SIZE : Math.max(box.getSize(new THREE.Vector3()).length() * 1.1, 50)
+        };
+    }
+
+    // The two ends of a long line along { o, d }, around the model's middle
+    function lineEnds(o, d) {
+        const span = modelSpan();
+        const oo = new THREE.Vector3().fromArray(o);
+        const dd = new THREE.Vector3().fromArray(d).normalize();
+        const mid = oo.clone().addScaledVector(dd, span.centre.clone().sub(oo).dot(dd));
+        return [mid.clone().addScaledVector(dd, -span.size / 2).toArray(), mid.clone().addScaledVector(dd, span.size / 2).toArray()];
+    }
+
+    function clearWorkRefs(test) {
+        workRefGroup.children.filter(test).forEach(function (child) {
+            workRefGroup.remove(child);
+            if (child.geometry !== workPointGeometry) {
+                child.geometry.dispose();
+            }
+        });
+    }
+
+    // list: [{ id, o, d, draft }]
+    function setWorkAxes(list) {
+        clearWorkRefs(function (c) {
+            return c.userData.workAxis !== undefined;
+        });
+        workAxisList = (list || []).map(function (axis) {
+            return Object.assign({ ends: lineEnds(axis.o, axis.d) }, axis);
+        });
+        workAxisList.forEach(function (axis) {
+            const geometry = new THREE.BufferGeometry().setFromPoints(axis.ends.map(function (p) {
+                return new THREE.Vector3().fromArray(p);
+            }));
+            const line = new THREE.Line(geometry, axis.draft ? workAxisDraftMaterial : workAxisMaterial);
+            line.computeLineDistances();
+            line.renderOrder = 8;
+            line.userData.workAxis = axis.id;
+            workRefGroup.add(line);
+        });
+        invalidate();
+    }
+
+    // list: [{ id, at, draft }]
+    function setWorkPoints(list) {
+        clearWorkRefs(function (c) {
+            return c.userData.workPoint !== undefined;
+        });
+        workPointList = list || [];
+        workPointList.forEach(function (point) {
+            const mesh = new THREE.Mesh(workPointGeometry, point.draft ? workPointDraftMaterial : workPointMaterial);
+            mesh.position.fromArray(point.at);
+            mesh.renderOrder = 9;
+            mesh.userData.workPoint = point.id;
+            workRefGroup.add(mesh);
+        });
+        invalidate();
+    }
+
+    function updateWorkRefs() {
+        const w = worldPerPixel();
+        [workAxisMaterial, workAxisDraftMaterial].forEach(function (m) {
+            m.dashSize = 10 * w;
+            m.gapSize = 4 * w;
+        });
+        [workRefGroup, refGuides].forEach(function (group) {
+            group.children.forEach(function (c) {
+                if (c.geometry === workPointGeometry) {
+                    c.scale.setScalar((c.userData.hot ? 6 : 4.5) * w);
+                }
+            });
+        });
+    }
+
+    /* ---------------- picking a plane, an axis or a point ---------------- */
+    // For the work feature panels: what may be picked is
+    //   want: { planes, axes, edges, cylinders, points, vertices }
+    // planes: flat faces, origin and work planes; axes: origin and work
+    // axes; edges: straight edges; cylinders: round faces; points: the
+    // centre point and work points; vertices: corners of the model. The
+    // handler gets one of
+    //   { kind: "plane", target }        target as a plane pick gives it
+    //   { kind: "axis", ref, line }      ref { ref: "origin:x" } or { ref: "axis", id }
+    //   { kind: "edge", item, line }     a straight edge, item as selected
+    //   { kind: "cylinder", item, line, radius, point }
+    //   { kind: "point", ref, at }       ref { ref: "origin" } or { ref: "point", id }
+    //   { kind: "vertex", at }
+    // and the pick stays on until stopRefPick or the next startRefPick.
+    const refGuides = new THREE.Group();
+    scene.add(refGuides);
+    let refPick = null;
+    let refHot = null;
+    const ORIGIN_AXIS_COLORS = { x: 0xd64545, y: 0x3fae5a, z: 0x3b78e0 };
+
+    function clearGuides() {
+        while (refGuides.children.length) {
+            const child = refGuides.children.pop();
+            if (child.geometry && child.geometry !== workPointGeometry) {
+                child.geometry.dispose();
+            }
+            if (child.userData.ownMaterial) {
+                child.material.dispose();
+            }
+        }
+    }
+
+    function originAxisEnds(key) {
+        const d = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[key];
+        return lineEnds([0, 0, 0], d);
+    }
+
+    function buildGuides() {
+        clearGuides();
+        const want = refPick ? refPick.want : {};
+        if (want.axes) {
+            ['x', 'y', 'z'].forEach(function (key) {
+                const ends = originAxisEnds(key);
+                const geometry = new THREE.BufferGeometry().setFromPoints(ends.map(function (p) {
+                    return new THREE.Vector3().fromArray(p);
+                }));
+                const material = new THREE.LineBasicMaterial({ color: ORIGIN_AXIS_COLORS[key], depthTest: false, transparent: true, opacity: 0.8 });
+                const line = new THREE.Line(geometry, material);
+                line.renderOrder = 8;
+                line.userData.ownMaterial = true;
+                refGuides.add(line);
+            });
+        }
+        if (want.points) {
+            const centre = new THREE.Mesh(workPointGeometry, workPointMaterial);
+            centre.renderOrder = 9;
+            refGuides.add(centre);
+        }
+        // The marker of what is under the pointer
+        const marker = new THREE.Mesh(workPointGeometry, workPointDraftMaterial);
+        marker.visible = false;
+        marker.renderOrder = 10;
+        marker.userData.hot = true;
+        marker.userData.marker = true;
+        refGuides.add(marker);
+        const hotGeometry = new LineSegmentsGeometry();
+        hotGeometry.setPositions([0, 0, 0, 1, 0, 0]);
+        const hotLine = new LineSegments2(hotGeometry, axisMaterials.hot);
+        hotLine.visible = false;
+        hotLine.renderOrder = 10;
+        hotLine.userData.hotLine = true;
+        refGuides.add(hotLine);
+    }
+
+    // The corners of the model (the ends of its edges), in model space
+    function modelVertices() {
+        const out = [];
+        bodies.forEach(function (body) {
+            if (body.off) {
+                return; // hidden by the user
+            }
+            const data = body.data;
+            const ep = data.edgePositions;
+            if (!body.vertices) {
+                const seen = new Set();
+                body.vertices = [];
+                (data.edges || []).forEach(function (e) {
+                    if (!ep || e.count < 2 || (e.curve && e.curve.type === 'circle' && e.curve.closed)) {
+                        return;
+                    }
+                    [e.start * 3, (e.start + e.count - 1) * 3].forEach(function (i) {
+                        const p = [ep[i], ep[i + 1], ep[i + 2]];
+                        const key = p.map(function (v) {
+                            return Math.round(v * 1e4);
+                        }).join(',');
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            body.vertices.push(p);
+                        }
+                    });
+                });
+            }
+            const m = body.matrix ? new THREE.Matrix4().fromArray(body.matrix) : null;
+            body.vertices.forEach(function (p) {
+                out.push(m ? new THREE.Vector3().fromArray(p).applyMatrix4(m).toArray() : p);
+            });
+        });
+        return out;
+    }
+
+    function segmentDistance(px, a, b) {
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const len2 = dx * dx + dy * dy;
+        const t = len2 ? Math.max(0, Math.min(1, ((px[0] - a[0]) * dx + (px[1] - a[1]) * dy) / len2)) : 0;
+        return Math.hypot(px[0] - a[0] - dx * t, px[1] - a[1] - dy * t);
+    }
+
+    function refUnderPointer(event) {
+        const want = refPick.want;
+        const rect = canvas.getBoundingClientRect();
+        const px = [event.clientX - rect.left, event.clientY - rect.top];
+        // Points first: they are small
+        if (want.points || want.vertices) {
+            const list = [];
+            if (want.points) {
+                list.push({ kind: 'point', ref: { ref: 'origin' }, at: [0, 0, 0] });
+                workPointList.forEach(function (p) {
+                    if (p.id) {
+                        list.push({ kind: 'point', ref: { ref: 'point', id: p.id }, at: p.at });
+                    }
+                });
+            }
+            if (want.vertices) {
+                modelVertices().forEach(function (at) {
+                    list.push({ kind: 'vertex', at: at });
+                });
+            }
+            let best = null;
+            let bestD = 9;
+            list.forEach(function (c) {
+                const d = Math.hypot(project(c.at)[0] - px[0], project(c.at)[1] - px[1]);
+                if (d < bestD) {
+                    bestD = d;
+                    best = c;
+                }
+            });
+            if (best) {
+                return best;
+            }
+        }
+        if (want.axes) {
+            const lines = [];
+            ['x', 'y', 'z'].forEach(function (key) {
+                lines.push({ kind: 'axis', ref: { ref: 'origin:' + key }, line: { o: [0, 0, 0], d: { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[key] }, ends: originAxisEnds(key) });
+            });
+            workAxisList.forEach(function (a) {
+                if (a.id) {
+                    lines.push({ kind: 'axis', ref: { ref: 'axis', id: a.id }, line: { o: a.o, d: a.d }, ends: a.ends });
+                }
+            });
+            let best = null;
+            let bestD = 6;
+            lines.forEach(function (c) {
+                const d = segmentDistance(px, project(c.ends[0]), project(c.ends[1]));
+                if (d < bestD) {
+                    bestD = d;
+                    best = c;
+                }
+            });
+            if (best) {
+                return best;
+            }
+        }
+        if (want.edges || want.cylinders || want.planes) {
+            const item = itemUnderPointer(event, want.edges ? 'always' : false);
+            const info = item ? describeItem(item) : null;
+            if (info && item.type === 'edge' && want.edges && info.curve && info.curve.type === 'line') {
+                const a = info.curve.a;
+                const b = info.curve.b;
+                const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+                return { kind: 'edge', item: item, info: info, line: { o: a.slice(), d: d }, ends: [a, b] };
+            }
+            if (info && item.type === 'face' && want.cylinders && info.type === 'cylinder' && info.axis) {
+                return { kind: 'cylinder', item: item, info: info, line: { o: info.axis.o.slice(), d: info.axis.d.slice() }, radius: info.radius, point: lastFacePoint };
+            }
+            if (want.planes) {
+                const target = planeTargetUnderPointer(event);
+                if (target) {
+                    return { kind: 'plane', target: pickOf(target), item: target.item || null };
+                }
+            }
+        }
+        return null;
+    }
+
+    function showRefHot(c) {
+        refHot = c;
+        const marker = refGuides.children.filter(function (x) {
+            return x.userData.marker;
+        })[0];
+        const hotLine = refGuides.children.filter(function (x) {
+            return x.userData.hotLine;
+        })[0];
+        if (marker) {
+            marker.visible = !!c && (c.kind === 'point' || c.kind === 'vertex');
+            if (marker.visible) {
+                marker.position.fromArray(c.at);
+            }
+        }
+        if (hotLine) {
+            hotLine.visible = !!c && c.kind === 'axis';
+            if (hotLine.visible) {
+                hotLine.geometry.setPositions(c.ends[0].concat(c.ends[1]));
+            }
+        }
+        setHovered(c && (c.kind === 'edge' || c.kind === 'cylinder') ? c.item : c && c.kind === 'plane' && c.item ? c.item : null);
+        setHotPlane(c && c.kind === 'plane' && c.target.kind === 'origin' ? c.target.key : null);
+        setHotWork(c && c.kind === 'plane' && c.target.kind === 'work' ? c.target.id : null);
+        invalidate();
+    }
+
+    function startRefPick(want, handler) {
+        refPick = { want: want || {}, handler: handler };
+        buildGuides();
+        originGroup.visible = originPinned || !!refPick.want.planes;
+        canvas.style.cursor = 'crosshair';
+        showRefHot(null);
+    }
+
+    function stopRefPick() {
+        if (!refPick) {
+            return;
+        }
+        refPick = null;
+        clearGuides();
+        refHot = null;
+        setHotPlane(null);
+        setHotWork(null);
+        setHovered(null);
+        originGroup.visible = originPinned;
+        canvas.style.cursor = restCursor();
+        invalidate();
     }
 
     function axisUnderPointer(event) {
@@ -2254,6 +2615,7 @@ export function createViewport(options) {
         if (groundDirty) {
             placeGround();
         }
+        updateWorkRefs();
         updateSilhouettes();
         updateDashes();
         placeArrow();
@@ -2287,6 +2649,33 @@ export function createViewport(options) {
         setWorkPlanes: setWorkPlanes,
         selectEdges: selectEdges,
         selectFaces: selectFaces,
+        // Solid bodies hidden by the user: [number]
+        setHiddenBodies: function (list) {
+            hiddenBodies = new Set(list || []);
+            applyVisualStyle();
+            invalidate();
+        },
+        setWorkAxes: setWorkAxes,
+        setWorkPoints: setWorkPoints,
+        startRefPick: startRefPick,
+        stopRefPick: stopRefPick,
+        // A pick made elsewhere (the model browser) for the open reference
+        // pick: taken when it is something the pick wants. Returns true then.
+        offerRef: function (pick) {
+            if (!refPick) {
+                return false;
+            }
+            const want = refPick.want;
+            const fits = pick.kind === 'plane' ? want.planes : pick.kind === 'axis' ? want.axes : pick.kind === 'point' ? want.points : false;
+            if (!fits) {
+                return false;
+            }
+            refPick.handler(pick);
+            return true;
+        },
+        isRefPicking: function () {
+            return !!refPick;
+        },
         // Limit what can be picked: { edges, faces, toggle } or null for everything
         setPickFilter: function (filter) {
             pickFilter = filter;
@@ -2486,7 +2875,9 @@ export function createViewport(options) {
         // The body under a screen point, and where on it: { body, group, point } or null
         bodyAt: function (clientX, clientY) {
             aim({ clientX: clientX, clientY: clientY });
-            const hit = raycaster.intersectObjects(bodies.map(function (b) {
+            const hit = raycaster.intersectObjects(bodies.filter(function (b) {
+                return !b.off;
+            }).map(function (b) {
                 return b.mesh;
             }), false).filter(function (h) {
                 return !cutAway(h.point);

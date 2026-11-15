@@ -17,7 +17,43 @@ export const FORMAT = 'aopart';
 export const VERSION = 1;
 const UNDO_LIMIT = 100;
 
-const TYPE_NAMES = { sketch: 'Sketch', extrude: 'Extrusion', revolve: 'Revolution', shell: 'Shell', pattern: 'Pattern', mirror: 'Mirror', hole: 'Hole', fillet: 'Fillet', chamfer: 'Chamfer', plane: 'Work Plane', import: 'Imported' };
+const TYPE_NAMES = { sketch: 'Sketch', extrude: 'Extrusion', revolve: 'Revolution', shell: 'Shell', pattern: 'Pattern', mirror: 'Mirror', hole: 'Hole', fillet: 'Fillet', chamfer: 'Chamfer', plane: 'Work Plane', axis: 'Work Axis', point: 'Work Point', import: 'Imported' };
+
+// The features one refers to: its sketch, what a pattern repeats, and
+// every work plane, axis or point in its references, however deep
+export function usesOf(feature) {
+    const out = [];
+    if (feature.sketch) {
+        out.push(feature.sketch);
+    }
+    (feature.features || []).forEach(function (id) {
+        out.push(id);
+    });
+    const walk = function (v, depth) {
+        if (!v || typeof v !== 'object' || depth > 6) {
+            return;
+        }
+        if (Array.isArray(v)) {
+            v.forEach(function (x) {
+                walk(x, depth + 1);
+            });
+            return;
+        }
+        if ((v.ref === 'plane' || v.ref === 'axis' || v.ref === 'point') && typeof v.id === 'string') {
+            out.push(v.id);
+        }
+        if (typeof v.work === 'string') {
+            out.push(v.work); // a revolution about a work axis
+        }
+        Object.keys(v).forEach(function (k) {
+            if (k !== 'features' && k !== 'geometry' && k !== 'constraints' && k !== 'data') {
+                walk(v[k], depth + 1);
+            }
+        });
+    };
+    walk(feature, 0);
+    return out;
+}
 
 export function emptyData() {
     return { format: FORMAT, version: VERSION, units: 'mm', features: [] };
@@ -49,6 +85,20 @@ export function validate(data) {
         }
     });
     const out = { format: FORMAT, version: VERSION, units: data.units === 'mm' ? 'mm' : 'mm', features: data.features };
+    // The End of Part marker: the id of the last feature that is built
+    // ("" before every feature); kept only when it names one
+    if (typeof data.end === 'string' && (data.end === '' || ids.has(data.end))) {
+        out.end = data.end;
+    }
+    // Solid bodies hidden in the view, by their number
+    if (Array.isArray(data.hiddenBodies)) {
+        const hidden = data.hiddenBodies.filter(function (n) {
+            return Number.isInteger(n) && n >= 0;
+        });
+        if (hidden.length) {
+            out.hiddenBodies = hidden;
+        }
+    }
     // The part's colour and finish (appearance.js), kept only when set
     const look = normalizeAppearance(data.appearance);
     if (look) {
@@ -134,9 +184,15 @@ export function createDocument() {
         emit('restore');
     };
 
-    doc.change = function (label, fn) {
+    // options.visual: only how the part is shown changed (hidden, shared):
+    // listeners hear "visual" instead of "change", so nothing is rebuilt
+    doc.change = function (label, fn, options) {
         const before = JSON.stringify(data);
+        const had = new Set(data.features.map(function (f) {
+            return f.id;
+        }));
         fn(data);
+        placeAtEnd(had);
         if (JSON.stringify(data) === before) {
             return false;
         }
@@ -145,8 +201,192 @@ export function createDocument() {
             undoStack.shift();
         }
         redoStack = [];
-        emit('change');
+        emit(options && options.visual ? 'visual' : 'change');
         return true;
+    };
+
+    // With the End of Part marker up the tree, features added at the end of
+    // the list go where the marker is, and the marker moves past them
+    function placeAtEnd(had) {
+        if (data.end === undefined) {
+            return;
+        }
+        const fresh = data.features.filter(function (f) {
+            return !had.has(f.id);
+        });
+        if (data.end !== '' && !doc.feature(data.end)) {
+            delete data.end; // its feature is gone
+            return;
+        }
+        if (!fresh.length) {
+            return;
+        }
+        const rest = data.features.filter(function (f) {
+            return had.has(f.id);
+        });
+        const at = data.end === '' ? 0 : rest.findIndex(function (f) {
+            return f.id === data.end;
+        }) + 1;
+        data.features = rest.slice(0, at).concat(fresh, rest.slice(at));
+        data.end = fresh[fresh.length - 1].id;
+        if (data.end === data.features[data.features.length - 1].id) {
+            delete data.end; // at the bottom again: no marker needed
+        }
+    }
+
+    // Where the End of Part marker is: the index of the last feature that
+    // is built (-1 before them all; the last index when there is no marker)
+    doc.endIndex = function () {
+        if (data.end === undefined) {
+            return data.features.length - 1;
+        }
+        return data.end === '' ? -1 : data.features.findIndex(function (f) {
+            return f.id === data.end;
+        });
+    };
+
+    // Move the End of Part marker after feature `id` ("" before them all,
+    // null to the bottom). Features after it are not built.
+    doc.setEnd = function (id) {
+        return doc.change('Move End of Part', function (d) {
+            if (id === null || id === undefined || (id && d.features.length && d.features[d.features.length - 1].id === id)) {
+                delete d.end;
+            } else {
+                d.end = id;
+            }
+        });
+    };
+
+    // A feature and what moves with it: the sketch only it is built from
+    function moveGroup(id) {
+        const feature = doc.feature(id);
+        if (!feature) {
+            return [];
+        }
+        const group = [id];
+        const sketch = feature.sketch ? doc.feature(feature.sketch) : null;
+        if (sketch && !sketch.shared && data.features.indexOf(sketch) < data.features.indexOf(feature) &&
+            !data.features.some(function (f) {
+                return f !== feature && usesOf(f).indexOf(sketch.id) >= 0;
+            })) {
+            group.unshift(sketch.id);
+        }
+        return group;
+    }
+
+    // The feature list with `id` (and its own sketch) moved before
+    // `beforeId` (null: to the bottom), or a reason it cannot be: every
+    // feature must still come after everything it uses
+    function reordered(id, beforeId) {
+        const group = moveGroup(id);
+        if (!group.length) {
+            return { reason: 'There is no such feature' };
+        }
+        if (group.indexOf(beforeId) >= 0) {
+            return { list: data.features.slice() };
+        }
+        const moving = group.map(doc.feature);
+        const rest = data.features.filter(function (f) {
+            return group.indexOf(f.id) < 0;
+        });
+        const at = beforeId ? rest.findIndex(function (f) {
+            return f.id === beforeId;
+        }) : rest.length;
+        if (at < 0) {
+            return { reason: 'There is no such place in the tree' };
+        }
+        const list = rest.slice(0, at).concat(moving, rest.slice(at));
+        const place = {};
+        list.forEach(function (f, i) {
+            place[f.id] = i;
+        });
+        for (let i = 0; i < list.length; i++) {
+            const uses = usesOf(list[i]);
+            for (let k = 0; k < uses.length; k++) {
+                if (place[uses[k]] !== undefined && place[uses[k]] > i) {
+                    const used = list[place[uses[k]]];
+                    return { reason: list[i].name + ' is built from ' + used.name + ', which would come after it' };
+                }
+            }
+        }
+        return { list: list };
+    }
+
+    // null when the move is allowed, else why not
+    doc.canMove = function (id, beforeId) {
+        return reordered(id, beforeId).reason || null;
+    };
+
+    // built: the feature lands just above End of Part, so the marker moves
+    // past it (dropped in the gap above the marker in the tree)
+    doc.move = function (id, beforeId, built) {
+        const out = reordered(id, beforeId);
+        if (out.reason) {
+            return false;
+        }
+        const feature = doc.feature(id);
+        const group = moveGroup(id);
+        return doc.change('Move ' + feature.name, function (d) {
+            // The End of Part marker stays where it was when the feature it
+            // is after moves away: it goes to the one before
+            if (typeof d.end === 'string' && group.indexOf(d.end) >= 0) {
+                let i = d.features.findIndex(function (f) {
+                    return f.id === d.end;
+                }) - 1;
+                while (i >= 0 && group.indexOf(d.features[i].id) >= 0) {
+                    i--;
+                }
+                d.end = i >= 0 ? d.features[i].id : '';
+            }
+            d.features = out.list;
+            if (built && typeof d.end === 'string') {
+                d.end = id;
+            }
+            if (d.end && d.end === d.features[d.features.length - 1].id) {
+                delete d.end;
+            }
+        });
+    };
+
+    // A sketch shared between features: drawn in the model and offered as a
+    // profile again although something is built from it
+    doc.setShared = function (id, shared) {
+        const feature = doc.feature(id);
+        if (!feature || feature.type !== 'sketch') {
+            return false;
+        }
+        return doc.change((shared ? 'Share ' : 'Stop Sharing ') + feature.name, function () {
+            if (shared) {
+                feature.shared = true;
+            } else {
+                delete feature.shared;
+            }
+        }, { visual: true });
+    };
+
+    // Hide a solid body in the view (by its number) or show it again
+    doc.setBodyHidden = function (index, hidden) {
+        return doc.change((hidden ? 'Hide' : 'Show') + ' Solid' + (index + 1), function (d) {
+            const list = (d.hiddenBodies || []).filter(function (n) {
+                return n !== index;
+            });
+            if (hidden) {
+                list.push(index);
+            }
+            if (list.length) {
+                d.hiddenBodies = list.sort(function (a, b) {
+                    return a - b;
+                });
+            } else {
+                delete d.hiddenBodies;
+            }
+        }, { visual: true });
+    };
+
+    // A document brought back from an autosave: it is not saved anywhere
+    doc.markUnsaved = function () {
+        savedState = '';
+        emit('saved');
     };
 
     doc.canUndo = function () {
@@ -213,8 +453,9 @@ export function createDocument() {
                 if (gone.has(f.id)) {
                     return;
                 }
-                // its sketch, its work plane, and what a pattern or mirror repeats
-                const uses = [f.sketch, f.plane && f.plane.ref === 'plane' ? f.plane.id : null, f.base && f.base.ref === 'plane' ? f.base.id : null].concat(f.features || []);
+                // its sketch, its work planes, axes and points, and what a
+                // pattern or mirror repeats
+                const uses = usesOf(f);
                 if (uses.some(function (u) {
                     return u && gone.has(u);
                 })) {
@@ -270,7 +511,7 @@ export function createDocument() {
             } else {
                 delete feature.hidden;
             }
-        });
+        }, { visual: true });
     };
 
     doc.rename = function (id, name) {

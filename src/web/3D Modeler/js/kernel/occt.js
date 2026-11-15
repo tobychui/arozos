@@ -483,20 +483,76 @@ function reach(oc, bodies, frame) {
 //   feature.regions    [[u, v], ...] a point inside each chosen sketch region
 //   feature.extent     { type: "distance", value, value2, direction }
 //                      { type: "all", direction }
+//                      { type: "to", plane, target }  as far as a plane or
+//                          flat face (`target` { o, n }: where it is now,
+//                          filled in by the rebuild from `plane`); a target
+//                          at an angle to the sketch ends the solid slanted
+//                      { type: "next", direction }  as far as the first face
+//                          of the solids ahead of the profile
 //       direction      "positive" (along the plane normal) | "negative" |
 //                      "symmetric" (value split over both sides) |
 //                      "asymmetric" (value forwards, value2 backwards)
-// `bodies` are the solids before the feature; "all" measures against them.
+//       taper          degrees (optional, one direction only): the sides
+//                      lean in as the solid goes out (out when negative)
+// `bodies` are the solids before the feature; "all" and "next" measure
+// against them.
 export function extrudeTool(oc, bodies, feature, sketch) {
     const frame = planeFrame(sketch.plane);
     if (!frame) {
         throw new Error('The sketch plane could not be found');
     }
     const extent = feature.extent || {};
-    const direction = extent.direction || 'positive';
+    let direction = extent.direction || 'positive';
+    const taper = Number(extent.taper) || 0;
+    if (taper && (direction === 'symmetric' || direction === 'asymmetric')) {
+        throw new Error('A taper needs the extrusion to go one way: Default or Flipped');
+    }
+    if (Math.abs(taper) >= 89) {
+        throw new Error('The taper must be less than 89 degrees');
+    }
     let forwards;
     let backwards;
-    if (extent.type === 'all') {
+    let cutAt = null;       // a slanted "to" plane: { o, n, keep }
+    let toNext = false;
+    let regions = null;
+    if (extent.type === 'to') {
+        const target = extent.target;
+        if (!target || !target.n) {
+            throw new Error('The face or plane this extrusion goes to no longer exists');
+        }
+        regions = pickedRegions(oc, sketch, feature, 'extrusion');
+        const middle = profileMiddle(frame, regions);
+        const along = frame.n[0] * target.n[0] + frame.n[1] * target.n[1] + frame.n[2] * target.n[2];
+        if (Math.abs(along) < 1e-6) {
+            throw new Error('The plane to extrude to runs along the sketch: the extrusion would never reach it');
+        }
+        const gap = [target.o[0] - middle[0], target.o[1] - middle[1], target.o[2] - middle[2]];
+        const t = (gap[0] * target.n[0] + gap[1] * target.n[1] + gap[2] * target.n[2]) / along;
+        if (Math.abs(t) < 1e-6) {
+            throw new Error('The plane to extrude to goes through the profile');
+        }
+        direction = t > 0 ? 'positive' : 'negative';
+        if (Math.abs(Math.abs(along) - 1) < 1e-9) {
+            forwards = t > 0 ? t : 0;  // parallel: simply that far
+            backwards = t > 0 ? 0 : -t;
+        } else {
+            const far = Math.max(reach(oc, bodies, frame), Math.abs(t) * 2 + reach(oc, [], frame) + profileSize(regions) * 4);
+            forwards = t > 0 ? far : 0;
+            backwards = t > 0 ? 0 : far;
+            cutAt = { o: target.o, n: target.n, keep: middle };
+        }
+    } else if (extent.type === 'next') {
+        if (!bodies.length) {
+            throw new Error('To Next needs a solid ahead of the profile to stop at');
+        }
+        if (direction === 'symmetric' || direction === 'asymmetric') {
+            throw new Error('To Next goes one way: Default or Flipped');
+        }
+        const far = reach(oc, bodies, frame);
+        forwards = direction === 'negative' ? 0 : far;
+        backwards = direction === 'negative' ? far : 0;
+        toNext = true;
+    } else if (extent.type === 'all') {
         if (!bodies.length) {
             throw new Error('Through All needs a solid to go through');
         }
@@ -512,7 +568,9 @@ export function extrudeTool(oc, bodies, feature, sketch) {
         forwards = direction === 'negative' ? 0 : direction === 'symmetric' ? value / 2 : value;
         backwards = direction === 'negative' ? value : direction === 'symmetric' ? value / 2 : direction === 'asymmetric' ? value2 : 0;
     }
-    const regions = pickedRegions(oc, sketch, feature, 'extrusion');
+    if (!regions) {
+        regions = pickedRegions(oc, sketch, feature, 'extrusion');
+    }
     const sweep = vec(oc, frame.n.map(function (c) {
         return c * (forwards + backwards);
     }));
@@ -532,12 +590,157 @@ export function extrudeTool(oc, bodies, feature, sketch) {
             });
         }
         const prism = new oc.BRepPrimAPI_MakePrism(face, sweep, false, true);
-        const solid = prism.Shape();
+        let solid = prism.Shape();
         prism.delete();
+        if (taper) {
+            solid = drafted(oc, solid, frame, direction === 'negative' ? -1 : 1, taper);
+        }
         tool = tool ? boolean(oc, 'join', tool, solid) : solid;
     });
     sweep.delete();
+    if (cutAt) {
+        tool = cutBeyond(oc, tool, cutAt);
+    }
+    if (toNext) {
+        tool = upToNext(oc, tool, bodies, frame, regions, direction === 'negative' ? -1 : 1);
+    }
     return tool;
+}
+
+// The middle of the picked regions' sample points, in the model
+function profileMiddle(frame, regions) {
+    const m = [0, 0, 0];
+    regions.forEach(function (r) {
+        const p = toWorld(frame, r.sample[0], r.sample[1]);
+        for (let k = 0; k < 3; k++) {
+            m[k] += p[k] / regions.length;
+        }
+    });
+    return m;
+}
+
+// About how big the profile is (its largest region's span)
+function profileSize(regions) {
+    let size = 1;
+    regions.forEach(function (r) {
+        const t = r.exact || r.triangles;
+        for (let i = 0; i < t.length; i += 2) {
+            size = Math.max(size, Math.abs(t[i] - r.sample[0]), Math.abs(t[i + 1] - r.sample[1]));
+        }
+    });
+    return size * 2;
+}
+
+// A prism with its sides leaning by `degrees` towards its axis as it goes
+// out from the sketch plane (`sign`: which way it was swept). The caps (the
+// faces parallel to the sketch) stay; every other face is drafted about
+// the sketch plane.
+function drafted(oc, solid, frame, sign, degrees) {
+    const origin = pnt(oc, frame.o);
+    const normal = new oc.gp_Dir(frame.n[0] * sign, frame.n[1] * sign, frame.n[2] * sign);
+    const plane = new oc.gp_Pln(origin, normal);
+    const draft = new oc.BRepOffsetAPI_DraftAngle(solid);
+    const explorer = new oc.TopExp_Explorer(solid, oc.TopAbs_ShapeEnum.TopAbs_FACE);
+    let sides = 0;
+    try {
+        for (; explorer.More(); explorer.Next()) {
+            const face = oc.TopoDS.Face(explorer.Current());
+            const info = faceInfo(oc, face, false);
+            const cap = info.type === 'plane' && Math.abs(Math.abs(info.normal[0] * frame.n[0] + info.normal[1] * frame.n[1] + info.normal[2] * frame.n[2]) - 1) < 1e-6;
+            if (!cap) {
+                draft.Add(face, normal, degrees * Math.PI / 180, plane, true);
+                if (!draft.AddDone()) {
+                    throw new Error('The taper could not be put on this profile. Try a smaller angle');
+                }
+                sides++;
+            }
+        }
+        if (!sides) {
+            return solid;
+        }
+        const progress = new oc.Message_ProgressRange();
+        draft.Build(progress);
+        progress.delete();
+        if (!draft.IsDone()) {
+            throw new Error('The taper could not be put on this profile. Try a smaller angle');
+        }
+        const out = draft.Shape();
+        if (!isSound(oc, out)) {
+            throw new Error('The taper makes the profile close up before the end: use a smaller angle or a shorter distance');
+        }
+        return out;
+    } finally {
+        [explorer, draft, plane, normal, origin].forEach(function (x) {
+            x.delete();
+        });
+    }
+}
+
+// Cut a tool off beyond a slanted plane { o, n, keep }: the side of the
+// plane with `keep` (the profile) stays
+function cutBeyond(oc, tool, cut) {
+    const s = (cut.keep[0] - cut.o[0]) * cut.n[0] + (cut.keep[1] - cut.o[1]) * cut.n[1] + (cut.keep[2] - cut.o[2]) * cut.n[2];
+    const away = s > 0 ? -1 : 1;
+    const origin = pnt(oc, cut.o);
+    const dir = new oc.gp_Dir(cut.n[0], cut.n[1], cut.n[2]);
+    const plane = new oc.gp_Pln(origin, dir);
+    const faceMaker = new oc.BRepBuilderAPI_MakeFace(plane, -1e5, 1e5, -1e5, 1e5);
+    const far = pnt(oc, [cut.o[0] + cut.n[0] * away, cut.o[1] + cut.n[1] * away, cut.o[2] + cut.n[2] * away]);
+    const half = new oc.BRepPrimAPI_MakeHalfSpace(faceMaker.Face(), far);
+    try {
+        const out = boolean(oc, 'cut', tool, half.Solid());
+        if (isEmpty(oc, out)) {
+            throw new Error('Nothing of the extrusion is left before the plane to extrude to');
+        }
+        return out;
+    } finally {
+        [half, far, faceMaker, plane, dir, origin].forEach(function (x) {
+            x.delete();
+        });
+    }
+}
+
+// Shorten a long prism to the first face of the solids ahead of the
+// profile: split it by them and keep the pieces that start at the profile
+function upToNext(oc, tool, bodies, frame, regions, sign) {
+    const argumentList = new oc.NCollection_List_TopoDS_Shape([tool]);
+    const toolList = new oc.NCollection_List_TopoDS_Shape(bodies);
+    const splitter = new oc.BRepAlgoAPI_Splitter();
+    const progress = new oc.Message_ProgressRange();
+    splitter.SetArguments(argumentList);
+    splitter.SetTools(toolList);
+    splitter.Build(progress);
+    const failed = !splitter.IsDone() || splitter.HasErrors();
+    const pieces = failed ? null : splitter.Shape();
+    [progress, splitter, toolList, argumentList].forEach(function (x) {
+        x.delete();
+    });
+    if (!pieces) {
+        throw new Error('The extrusion could not be stopped at the next face');
+    }
+    // A point of each region: the piece that starts at the profile touches
+    // it (distance zero); the pieces further on do not
+    const probes = regions.map(function (r) {
+        return toWorld(frame, r.sample[0], r.sample[1]);
+    });
+    let kept = null;
+    let count = 0;
+    const explorer = new oc.TopExp_Explorer(pieces, oc.TopAbs_ShapeEnum.TopAbs_SOLID);
+    for (; explorer.More(); explorer.Next()) {
+        count++;
+        const piece = explorer.Current();
+        const touches = probes.some(function (p) {
+            return distanceTo(oc, piece, p) < 1e-6;
+        });
+        if (touches) {
+            kept = kept ? boolean(oc, 'join', kept, piece) : piece;
+        }
+    }
+    explorer.delete();
+    if (!kept || count < 2) {
+        throw new Error('No face is ahead of the profile to stop at: use Distance or Through All, or flip the direction');
+    }
+    return kept;
 }
 
 // The regions of a sketch a feature picked (feature.regions: a point inside
@@ -566,10 +769,23 @@ export function extrude(oc, bodies, feature, sketch) {
 // direction), from feature.axis
 //   { curve: id }      a straight line of the sketch (usually construction)
 //   { origin: "x" | "y" | "z" }   an axis of the part's origin
+//   { work: id }       a work axis: the rebuild hands it over as { line }
+//   { line: { o, d } } a line in the model
 export function revolveAxis(sketch, axis) {
     const frame = planeFrame(sketch.plane);
     if (!axis) {
         throw new Error('No axis is selected');
+    }
+    if (axis.work && !axis.line) {
+        throw new Error('The work axis of this revolution no longer exists');
+    }
+    if (axis.line) {
+        const d = axis.line.d;
+        const l = Math.hypot(d[0], d[1], d[2]);
+        if (!(l > 1e-9)) {
+            throw new Error('The axis of this revolution has no direction');
+        }
+        return { o: axis.line.o.slice(), d: [d[0] / l, d[1] / l, d[2] / l] };
     }
     if (axis.origin) {
         const d = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[axis.origin];
@@ -689,6 +905,54 @@ export function revolveTool(oc, bodies, feature, sketch) {
 // Apply a revolve feature, as extrude() does
 export function revolve(oc, bodies, feature, sketch) {
     return applyTool(oc, bodies, revolveTool(oc, bodies, feature, sketch), feature.operation || 'join');
+}
+
+/* ================= work axes on the model ================= */
+// The line of a straight edge (a work axis along it), found again by its
+// reference (findEdges): { o, d }
+export function edgeLine(oc, bodies, ref) {
+    const found = findEdges(oc, bodies, [ref])[0];
+    const curve = new oc.BRepAdaptor_Curve(found.edge);
+    try {
+        if (curve.GetType() !== oc.GeomAbs_CurveType.GeomAbs_Line) {
+            throw new Error('The edge of this work axis is no longer straight');
+        }
+        const a = curve.Value(curve.FirstParameter());
+        const b = curve.Value(curve.LastParameter());
+        const o = [a.X(), a.Y(), a.Z()];
+        const d = [b.X() - o[0], b.Y() - o[1], b.Z() - o[2]];
+        a.delete();
+        b.delete();
+        const l = Math.hypot(d[0], d[1], d[2]);
+        if (!(l > 1e-9)) {
+            throw new Error('The edge of this work axis has no length');
+        }
+        return { o: o, d: [d[0] / l, d[1] / l, d[2] / l] };
+    } finally {
+        curve.delete();
+    }
+}
+
+// The axis and radius of a round face (findFaces): { o, d, r }
+export function cylinderLine(oc, bodies, ref) {
+    const found = findFaces(oc, bodies, [ref])[0];
+    const surface = new oc.BRepAdaptor_Surface(found.face, true);
+    try {
+        if (surface.GetType() !== oc.GeomAbs_SurfaceType.GeomAbs_Cylinder) {
+            throw new Error('The face of this work feature is no longer round');
+        }
+        const cylinder = surface.Cylinder();
+        const axis = cylinder.Axis();
+        const loc = axis.Location();
+        const dir = axis.Direction();
+        const out = { o: [loc.X(), loc.Y(), loc.Z()], d: [dir.X(), dir.Y(), dir.Z()], r: cylinder.Radius() };
+        [dir, loc, axis, cylinder].forEach(function (x) {
+            x.delete();
+        });
+        return out;
+    } finally {
+        surface.delete();
+    }
 }
 
 /* ================= patterns and mirror ================= */
@@ -1491,8 +1755,14 @@ function onEdges(oc, bodies, feature, what, make, report) {
         throw new Error('No edge is selected');
     }
     return bodies.map(function (body, index) {
-        const edges = picked.filter(function (p) {
-            return p.body === index;
+        // which of feature.edges each edge of this body is (for settings per edge)
+        const which = [];
+        const edges = picked.filter(function (p, i) {
+            if (p.body === index) {
+                which.push(i);
+                return true;
+            }
+            return false;
         }).map(function (p) {
             return p.edge;
         });
@@ -1501,7 +1771,7 @@ function onEdges(oc, bodies, feature, what, make, report) {
         }
         let maker = null;
         try {
-            maker = make(body, edges);
+            maker = make(body, edges, which);
             const made = maker.Shape();
             if (!isSound(oc, made)) {
                 made.delete();
@@ -1580,16 +1850,26 @@ export function edgeChains(oc, body, edges) {
     return chain;
 }
 
-// feature: { edges: [ref], radius }; report: see onEdges (optional)
+// feature: { edges: [ref], radius } or, with several sizes in one fillet,
+// { sets: [{ edges: [ref], radius }] }; report: see onEdges (optional)
 export function fillet(oc, bodies, feature, report) {
-    const radius = Number(feature.radius);
-    if (!(radius > 0)) {
-        throw new Error('The fillet radius must be larger than zero');
-    }
-    return onEdges(oc, bodies, feature, 'fillet', function (body, edges) {
+    const sets = Array.isArray(feature.sets) && feature.sets.length ? feature.sets : [{ edges: feature.edges || [], radius: feature.radius }];
+    const edges = [];
+    const radii = [];
+    sets.forEach(function (set) {
+        const r = Number(set.radius);
+        if (!(r > 0)) {
+            throw new Error('Every fillet radius must be larger than zero');
+        }
+        (set.edges || []).forEach(function (e) {
+            edges.push(e);
+            radii.push(r);
+        });
+    });
+    return onEdges(oc, bodies, { edges: edges }, 'fillet', function (body, found, which) {
         const maker = new oc.BRepFilletAPI_MakeFillet(body);
-        edges.forEach(function (edge) {
-            maker.Add(radius, edge);
+        found.forEach(function (edge, i) {
+            maker.Add(radii[which[i]], edge);
         });
         maker.Build();
         if (!maker.IsDone()) {
@@ -1600,17 +1880,78 @@ export function fillet(oc, bodies, feature, report) {
     }, report);
 }
 
-// feature: { edges: [ref], distance }; report: see onEdges (optional)
+// feature: { edges: [ref], distance, mode, distance2, angle, flip }
+//   mode "equal" (default): `distance` on both faces
+//        "two": `distance` on one face, `distance2` on the other
+//        "angle": `distance` on one face, the bevel at `angle` degrees to it
+//   flip: which of the edge's two faces `distance` is measured on (the
+//   faces in a fixed order: by their centres)
+// report: see onEdges (optional)
 export function chamfer(oc, bodies, feature, report) {
     const distance = Number(feature.distance);
+    const mode = feature.mode || 'equal';
     if (!(distance > 0)) {
         throw new Error('The chamfer distance must be larger than zero');
     }
+    const distance2 = Number(feature.distance2);
+    const angle = Number(feature.angle);
+    if (mode === 'two' && !(distance2 > 0)) {
+        throw new Error('The second chamfer distance must be larger than zero');
+    }
+    if (mode === 'angle' && !(angle > 0 && angle < 90)) {
+        throw new Error('The chamfer angle must be between 0 and 90 degrees');
+    }
     return onEdges(oc, bodies, feature, 'chamfer', function (body, edges) {
         const maker = new oc.BRepFilletAPI_MakeChamfer(body);
-        edges.forEach(function (edge) {
-            maker.Add(distance, edge);
+        // Two distances or an angle are measured from one of the edge's two
+        // faces. The edges picked together all measure from the same kind
+        // of face: the one most of them touch (the top of a box whose top
+        // edges are picked), else the first by position; Flip takes the other.
+        const adjacent = mode === 'equal' ? [] : edges.map(function (edge) {
+            return facesOfEdge(oc, body, edge);
         });
+        const shared = function (face) {
+            return adjacent.reduce(function (n, list) {
+                return n + (list.some(function (g) {
+                    return g.IsSame(face);
+                }) ? 1 : 0);
+            }, 0);
+        };
+        const free = function () {
+            adjacent.forEach(function (list) {
+                list.forEach(function (f) {
+                    f.delete();
+                });
+            });
+        };
+        try {
+            edges.forEach(function (edge, i) {
+                if (mode === 'equal') {
+                    maker.Add(distance, edge);
+                    return;
+                }
+                const faces = adjacent[i];
+                if (faces.length < 2) {
+                    throw new Error('An edge of this chamfer does not lie between two faces');
+                }
+                const order = faces.map(function (face, k) {
+                    return { face: face, n: shared(face), k: k };
+                }).sort(function (a, b) {
+                    return b.n - a.n || a.k - b.k;
+                });
+                const ref = order[feature.flip ? 1 : 0].face;
+                if (mode === 'two') {
+                    maker.Add(distance, distance2, edge, ref);
+                } else {
+                    maker.AddDA(distance, angle * Math.PI / 180, edge, ref);
+                }
+            });
+        } catch (err) {
+            free();
+            maker.delete();
+            throw err;
+        }
+        free();
         maker.Build();
         if (!maker.IsDone()) {
             maker.delete();
@@ -1618,6 +1959,56 @@ export function chamfer(oc, bodies, feature, report) {
         }
         return maker;
     }, report);
+}
+
+// How far a point is from a shape
+function distanceTo(oc, shape, p) {
+    const point = new oc.gp_Pnt(p[0], p[1], p[2]);
+    const maker = new oc.BRepBuilderAPI_MakeVertex(point);
+    const vertex = maker.Vertex();
+    const measure = new oc.BRepExtrema_DistShapeShape(vertex, shape);
+    const d = measure.IsDone() ? measure.Value() : Infinity;
+    [measure, vertex, maker, point].forEach(function (x) {
+        x.delete();
+    });
+    return d;
+}
+
+// The (two) faces of a body an edge lies between, in a fixed order: by
+// their centres (x, then y, then z), so "flip" always means the same face
+export function facesOfEdge(oc, body, edge) {
+    const out = [];
+    const faces = new oc.TopExp_Explorer(body, oc.TopAbs_ShapeEnum.TopAbs_FACE);
+    for (; faces.More(); faces.Next()) {
+        const face = oc.TopoDS.Face(faces.Current());
+        const edges = new oc.TopExp_Explorer(face, oc.TopAbs_ShapeEnum.TopAbs_EDGE);
+        let has = false;
+        for (; edges.More() && !has; edges.Next()) {
+            const e = edges.Current();
+            has = e.IsSame(edge);
+            e.delete();
+        }
+        edges.delete();
+        if (has && !out.some(function (o) {
+            return o.face.IsSame(face);
+        })) {
+            out.push({ face: face, centre: faceInfo(oc, face, false).centre });
+        } else {
+            face.delete();
+        }
+    }
+    faces.delete();
+    out.sort(function (a, b) {
+        for (let k = 0; k < 3; k++) {
+            if (Math.abs(a.centre[k] - b.centre[k]) > 1e-6) {
+                return a.centre[k] - b.centre[k];
+            }
+        }
+        return 0;
+    });
+    return out.map(function (o) {
+        return o.face;
+    });
 }
 
 /* ================= hole ================= */

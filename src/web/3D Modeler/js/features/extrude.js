@@ -10,6 +10,12 @@
     feature, asks the kernel for a preview of it, and on OK adds it (or
     replaces the edited one) as one undo step.
 
+    Extents (PROPOSAL.md 14.7, 14.26): Distance; To a plane or flat face
+    (picked in the model or the browser; one at an angle ends the solid
+    slanted); To Next (the first face of the solid ahead); Through All.
+    A taper leans the sides in (out when negative) for one-way extents.
+    The card beside the panel animates the chosen extent and Boolean.
+
     createExtrude(options)
         stage       element the panel is added to
         viewport    setRegions(), setPreview(), setArrow()
@@ -19,7 +25,7 @@
         onClose(committed)      the panel closed
 */
 
-import { toWorld, withResolvedPlane } from '../kernel/profile.js';
+import { toWorld, withResolvedPlane, planeFrame } from '../kernel/profile.js';
 import { evaluate } from '../expr.js';
 import { wheelStep } from '../ui.js';
 import { createProfiles } from './profiles.js';
@@ -31,6 +37,13 @@ const DIRECTIONS = [
     { id: 'symmetric', label: 'Symmetric', title: 'Half the distance to each side' },
     { id: 'asymmetric', label: 'Asymmetric', title: 'Distance A forwards, distance B backwards' }
 ];
+const EXTENTS = [
+    { id: 'distance', label: 'Distance', title: 'As far as the distance you type (or drag the arrow)' },
+    { id: 'to', label: 'To', title: 'As far as a plane or flat face you pick' },
+    { id: 'next', label: 'To Next', title: 'As far as the first face of the solid ahead' },
+    { id: 'all', label: 'Through All', title: 'Right through the whole solid' }
+];
+const PLANE_NAMES = { 'origin:xy': 'XY Plane', 'origin:xz': 'XZ Plane', 'origin:yz': 'YZ Plane', face: 'a face of the model' };
 const OPERATIONS = [
     { id: 'join', label: 'Join', title: 'Add to the solid' },
     { id: 'cut', label: 'Cut', title: 'Remove from the solid' },
@@ -57,10 +70,12 @@ export function createExtrude(options) {
         '<div class="props-row"><label>Profiles</label><button class="props-pick" data-el="profiles" title="Click to clear the selection"></button></div>' +
         '<div class="props-row"><label>From</label><span class="props-static">Sketch plane</span></div>' +
         '<div class="props-section">Behavior</div>' +
-        '<div class="props-row"><label>Direction</label><div class="seg" data-el="direction"></div></div>' +
-        '<div class="props-row"><label>Distance A</label><input class="props-input" data-el="value" autocomplete="off" spellcheck="false"><span class="props-unit">mm</span></div>' +
+        '<div class="props-row"><label>Extents</label><div class="seg" data-el="extent"></div></div>' +
+        '<div class="props-row" data-el="rowto"><label>To</label><button class="props-pick" data-el="to" title="Click, then pick a plane or flat face in the model or the browser"></button></div>' +
+        '<div class="props-row" data-el="rowdir"><label>Direction</label><div class="seg" data-el="direction"></div></div>' +
+        '<div class="props-row" data-el="rowa"><label>Distance A</label><input class="props-input" data-el="value" autocomplete="off" spellcheck="false"><span class="props-unit">mm</span></div>' +
         '<div class="props-row" data-el="rowb"><label>Distance B</label><input class="props-input" data-el="value2" autocomplete="off" spellcheck="false"><span class="props-unit">mm</span></div>' +
-        '<div class="props-row"><label></label><label class="props-check"><input type="checkbox" data-el="all"> Through All</label></div>' +
+        '<div class="props-row" data-el="rowtaper"><label>Taper</label><input class="props-input" data-el="taper" autocomplete="off" spellcheck="false" title="Degrees the sides lean in as the solid goes out (negative: out). 0 for straight sides"><span class="props-unit">deg</span></div>' +
         '<div class="props-section">Output</div>' +
         '<div class="props-row"><label>Boolean</label><div class="seg" data-el="operation"></div></div>' +
         '<div class="props-note" data-el="note"></div>' +
@@ -94,7 +109,8 @@ export function createExtrude(options) {
     const profiles = createProfiles({ viewport: viewport, kernel: kernel, doc: doc, onPick: function () {
         refresh();
     } });
-    let draft = null;           // { operation, direction, value, value2, all }
+    let draft = null;           // { operation, direction, value, value2, extent, taper, to }
+    let picking = false;        // waiting for the "To" plane to be picked
     let directionTouched = false;
     let valid = false;
     let token = 0;              // drops preview answers that arrive late
@@ -106,10 +122,59 @@ export function createExtrude(options) {
             sketch: profiles.chosenSketch(),
             regions: profiles.samples(),
             operation: draft.operation,
-            extent: draft.all ? { type: 'all', direction: draft.direction === 'asymmetric' ? 'symmetric' : draft.direction }
-                : draft.direction === 'asymmetric' ? { type: 'distance', value: draft.value, value2: draft.value2, direction: 'asymmetric' }
-                    : { type: 'distance', value: draft.value, direction: draft.direction }
+            extent: extentOf()
         };
+    }
+
+    function extentOf() {
+        const oneWay = draft.direction === 'positive' || draft.direction === 'negative';
+        let e;
+        if (draft.extent === 'all') {
+            e = { type: 'all', direction: draft.direction === 'asymmetric' ? 'symmetric' : draft.direction };
+        } else if (draft.extent === 'next') {
+            e = { type: 'next', direction: oneWay ? draft.direction : 'positive' };
+        } else if (draft.extent === 'to') {
+            e = { type: 'to', plane: draft.to ? draft.to.ref : null };
+            // Where the plane is now, for the preview (the rebuild works it out again)
+            const frame = draft.to ? planeFrame(draft.to.ref, doc.features()) : null;
+            if (frame) {
+                e.target = { o: frame.o, n: frame.n };
+            }
+        } else {
+            e = draft.direction === 'asymmetric' ? { type: 'distance', value: draft.value, value2: draft.value2, direction: 'asymmetric' }
+                : { type: 'distance', value: draft.value, direction: draft.direction };
+        }
+        if (draft.taper && (draft.extent === 'to' || oneWay)) {
+            e.taper = draft.taper;
+        }
+        return e;
+    }
+
+    function planeLabel(ref) {
+        if (ref && ref.ref === 'plane') {
+            const f = doc.feature(ref.id);
+            return f ? f.name : 'a deleted work plane';
+        }
+        return ref ? PLANE_NAMES[ref.ref] || 'a plane' : '';
+    }
+
+    // Wait for the plane the extrusion goes to (the profiles cannot be
+    // clicked meanwhile; picking one hands them back)
+    function pickTo(on) {
+        picking = on;
+        if (!on) {
+            viewport.stopRefPick();
+            return;
+        }
+        viewport.startRefPick({ planes: true }, function (pick) {
+            if (pick.kind !== 'plane') {
+                return;
+            }
+            const ref = options.referenceOf(pick.target);
+            draft.to = { ref: ref, label: planeLabel(ref) };
+            pickTo(false);
+            refresh();
+        });
     }
 
     function note(text, bad) {
@@ -123,23 +188,36 @@ export function createExtrude(options) {
         el.sketch.textContent = sketch ? doc.feature(sketch).name : '';
         el.profiles.textContent = count ? count + (count === 1 ? ' profile' : ' profiles') : 'Pick a profile in the model';
         el.profiles.classList.toggle('empty', !count);
+        el.extent.querySelectorAll('.seg-btn').forEach(function (b) {
+            b.classList.toggle('on', b.dataset.id === draft.extent);
+        });
         el.direction.querySelectorAll('.seg-btn').forEach(function (b) {
             b.classList.toggle('on', b.dataset.id === draft.direction);
-            b.disabled = draft.all && b.dataset.id === 'asymmetric';
+            // To Next goes one way; Through All has no second distance
+            b.disabled = (draft.extent === 'all' && b.dataset.id === 'asymmetric') ||
+                (draft.extent === 'next' && (b.dataset.id === 'symmetric' || b.dataset.id === 'asymmetric'));
         });
         el.operation.querySelectorAll('.seg-btn').forEach(function (b) {
             b.classList.toggle('on', b.dataset.id === draft.operation);
         });
-        illus.show('operation', draft.operation);
-        el.rowb.hidden = draft.direction !== 'asymmetric' || draft.all;
-        el.value.disabled = draft.all;
-        el.all.checked = draft.all;
+        // The card shows the extent while it is being chosen, else the Boolean
+        illus.show(lastSeg === 'extent' ? 'extent' : 'operation', lastSeg === 'extent' ? draft.extent : draft.operation);
+        el.rowto.hidden = draft.extent !== 'to';
+        el.to.textContent = draft.to ? draft.to.label : picking ? 'Pick it in the model' : 'Click to pick';
+        el.to.classList.toggle('empty', !draft.to);
+        el.rowdir.hidden = draft.extent === 'to'; // the side of the plane decides
+        el.rowa.hidden = draft.extent !== 'distance';
+        el.rowb.hidden = draft.extent !== 'distance' || draft.direction !== 'asymmetric';
+        const oneWay = draft.direction === 'positive' || draft.direction === 'negative' || draft.extent === 'to';
+        el.taper.disabled = !oneWay;
+        el.taper.title = oneWay ? 'Degrees the sides lean in as the solid goes out (negative: out). 0 for straight sides'
+            : 'A taper needs a one-way extrusion: Default or Flipped';
         profiles.paint();
     }
 
     // The arrow stands on the middle of the picked profiles and points the way the solid grows
     function placeArrow() {
-        if (!profiles.count() || draft.all) {
+        if (!profiles.count() || draft.extent !== 'distance') {
             viewport.setArrow(null);
             return;
         }
@@ -178,15 +256,20 @@ export function createExtrude(options) {
             note('Click a closed area of the sketch to use it as the profile.');
             return;
         }
-        if (!draft.all && (!(draft.value > 0) || (draft.direction === 'asymmetric' && !(draft.value2 > 0)))) {
+        if (draft.extent === 'distance' && (!(draft.value > 0) || (draft.direction === 'asymmetric' && !(draft.value2 > 0)))) {
             viewport.setPreview(null);
             note('Enter a distance larger than zero. A formula such as 35/2 works too.', true);
+            return;
+        }
+        if (draft.extent === 'to' && !draft.to) {
+            viewport.setPreview(null);
+            note('Pick the plane or flat face to extrude to, in the model or the browser.');
             return;
         }
         // A short pause, so typing or dragging does not queue a preview per keystroke
         timer = setTimeout(function () {
             const f = feature();
-            kernel.call('preview', { feature: f, sketch: withResolvedPlane(doc.feature(f.sketch), doc.features()) }).then(function (mesh) {
+            kernel.call('preview', { feature: f, sketch: withResolvedPlane(doc.feature(f.sketch), doc.features()), document: doc.data(), at: editId }).then(function (mesh) {
                 if (mine !== token || !open) {
                     return;
                 }
@@ -221,13 +304,44 @@ export function createExtrude(options) {
         refresh();
     }
 
+    let lastSeg = 'operation'; // the row the card shows
+    segmented(el.extent, EXTENTS, function (id) {
+        draft.extent = id;
+        lastSeg = 'extent';
+        if (id === 'next' && (draft.direction === 'symmetric' || draft.direction === 'asymmetric')) {
+            draft.direction = 'positive';
+        }
+        if (id === 'all' && draft.direction === 'asymmetric') {
+            draft.direction = 'symmetric';
+        }
+        pickTo(id === 'to' && !draft.to);
+        refresh();
+    });
     segmented(el.direction, DIRECTIONS, function (id) {
         draft.direction = id;
         directionTouched = true;
         refresh();
     });
-    segmented(el.operation, OPERATIONS, setOperation);
+    segmented(el.operation, OPERATIONS, function (id) {
+        lastSeg = 'operation';
+        setOperation(id);
+    });
     illus.attachSeg(el.operation, 'operation');
+    illus.attachSeg(el.extent, 'extent');
+    el.to.addEventListener('click', function () {
+        pickTo(true);
+        refresh();
+    });
+    wheelStep(el.taper, { min: -60, max: 60, step: 1 });
+    el.taper.addEventListener('input', function () {
+        const v = evaluate(el.taper.value || '0');
+        const ok = isFinite(v) && Math.abs(v) < 89;
+        el.taper.classList.toggle('bad', !ok);
+        if (ok) {
+            draft.taper = v;
+            refresh();
+        }
+    });
     wheelStep(el.value, { min: 0, above: true });
     wheelStep(el.value2, { min: 0, above: true });
     el.value.addEventListener('input', function () {
@@ -243,13 +357,6 @@ export function createExtrude(options) {
                 pair[0].value = trim(draft[pair[1]]);
             }
         });
-    });
-    el.all.addEventListener('change', function () {
-        draft.all = el.all.checked;
-        if (draft.all && draft.direction === 'asymmetric') {
-            draft.direction = 'symmetric';
-        }
-        refresh();
     });
     el.profiles.addEventListener('click', function () {
         profiles.clear();
@@ -299,6 +406,7 @@ export function createExtrude(options) {
         clearTimeout(timer);
         panel.hidden = true;
         illus.stop();
+        pickTo(false);
         profiles.stop();
         viewport.setPreview(null);
         viewport.setArrow(null);
@@ -310,6 +418,7 @@ export function createExtrude(options) {
             return;
         }
         const made = feature();
+        delete made.extent.target; // worked out again by every rebuild
         const editing = editId;
         // Close first: the document change below starts a rebuild, and the
         // app treats a change while the panel is open as "cancel it"
@@ -352,11 +461,16 @@ export function createExtrude(options) {
                     direction: extent.direction || 'positive',
                     value: extent.value > 0 ? extent.value : 10,
                     value2: extent.value2 > 0 ? extent.value2 : 10,
-                    all: extent.type === 'all'
+                    extent: ['to', 'next', 'all'].indexOf(extent.type) >= 0 ? extent.type : 'distance',
+                    taper: Number(extent.taper) || 0,
+                    to: extent.type === 'to' && extent.plane ? { ref: extent.plane, label: planeLabel(extent.plane) } : null
                 };
             } else {
-                draft = { operation: 'join', direction: 'positive', value: 10, value2: 10, all: false };
+                draft = { operation: 'join', direction: 'positive', value: 10, value2: 10, extent: 'distance', taper: 0, to: null };
             }
+            lastSeg = 'operation';
+            el.taper.value = trim(draft.taper);
+            el.taper.classList.remove('bad');
             el.value.value = trim(draft.value);
             el.value2.value = trim(draft.value2);
             el.value.classList.remove('bad');

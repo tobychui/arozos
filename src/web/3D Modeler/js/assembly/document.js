@@ -166,6 +166,12 @@ export function createAssemblyDocument() {
         emit('saved');
     };
 
+    // A document brought back from an autosave: it is not saved anywhere
+    doc.markUnsaved = function () {
+        savedState = '';
+        emit('saved');
+    };
+
     doc.reset = function (newData, name, path) {
         data = newData ? resolvePartPaths(validateAssembly(newData), path) : emptyAssembly();
         undoStack = [];

@@ -343,6 +343,125 @@ export const SCENES = {
     },
 
     // The Boolean of an extrusion or a revolution
+    // How far an extrusion goes (Extrude > Extents)
+    'extent.distance': {
+        title: 'Distance',
+        text: 'The profile is swept as far as the distance you type, or drag the arrow.',
+        frame: function (t) {
+            const h = Math.max(0.01, mix(0, 16, t));
+            const base = box([0, 0, 0], [40, 30, 4]);
+            const tool = layer(box([12, 9, 4], [28, 21, 4 + h], { color: 'orange' }));
+            return {
+                faces: base.concat(tool),
+                lines: loop([[12, 9, 4], [28, 9, 4], [28, 21, 4], [12, 21, 4]], { color: 'ink', width: 1.2 }),
+                arrows: [{ from: [36, 2, 4], dir: [0, 0, 1], len: Math.max(0.5, h), color: 'ink' }],
+                labels: t > 0.6 ? [{ at: [38, 0, 4 + h / 2], text: 'd' }] : []
+            };
+        }
+    },
+    'extent.to': {
+        title: 'To',
+        text: 'The profile is swept up to a plane or flat face you pick; one at an angle ends the solid slanted.',
+        frame: function (t) {
+            const base = box([0, 0, 0], [40, 30, 4]);
+            const top = 22;
+            const h = Math.max(0.01, mix(0, top - 4, t));
+            const tool = layer(box([12, 9, 4], [28, 21, 4 + h], { color: 'orange' }));
+            const sheet = { p: [[-4, -4, top], [44, -4, top], [44, 34, top], [-4, 34, top]], n: [0, 0, 1], color: 'blue', alpha: 0.35, bias: 5000 };
+            return { faces: base.concat(tool, [sheet]) };
+        }
+    },
+    'extent.next': {
+        title: 'To Next',
+        text: 'The profile is swept until it meets the next face of the solid ahead of it.',
+        frame: function (t) {
+            const base = box([0, 0, 0], [40, 30, 4]);
+            const bridge = layer(box([-2, 4, 20], [42, 26, 26]), 2);
+            const h = Math.max(0.01, mix(0, 16, t));
+            const tool = layer(box([12, 9, 4], [28, 21, 4 + h], { color: 'orange' }));
+            return { faces: base.concat(tool, bridge) };
+        }
+    },
+    'extent.all': {
+        title: 'Through All',
+        text: 'The profile goes right through the whole solid, however thick it is.',
+        frame: function (t) {
+            const top = 14;
+            const a = box([0, 0, 0], [40, 30, top]);
+            const zBase = mix(top + 4, -8, t);
+            const tool = layer(above(box([14, 9, zBase], [26, 21, zBase + 20], { color: 'red', alpha: mix(0.7, 0.3, t) }), top));
+            const opening = decal([[14, 9, top], [26, 9, top], [26, 21, top], [14, 21, top]], [0, 0, 1], 'dark', Math.max(0, Math.min(1, (top - zBase) / 20)));
+            return { faces: a.concat([opening], tool) };
+        }
+    },
+
+    // A chamfer's sizes (Chamfer > Type)
+    'chamfer.equal': {
+        title: 'Equal Distance',
+        text: 'The edge is cut back the same distance on both faces.',
+        frame: function (t) {
+            return chamferScene(mix(0.01, 7, t), mix(0.01, 7, t), t, ['d', 'd']);
+        }
+    },
+    'chamfer.two': {
+        title: 'Two Distances',
+        text: 'A distance on each face; Flip faces swaps which face takes which.',
+        frame: function (t) {
+            return chamferScene(mix(0.01, 5, t), mix(0.01, 11, t), t, ['d1', 'd2']);
+        }
+    },
+    'chamfer.angle': {
+        title: 'Distance and Angle',
+        text: 'A distance on one face, and the angle of the bevel to that face.',
+        frame: function (t) {
+            const d = mix(0.01, 9, t);
+            return chamferScene(d, d * Math.tan(30 * Math.PI / 180), t, ['d', 'angle']);
+        }
+    },
+
+    // Where holes go (Hole > Placement)
+    'placement.sketch': {
+        title: 'From Sketch',
+        text: 'A hole at every point of a sketch made with the Point tool.',
+        frame: function (t) {
+            const plate = box([0, 0, 0], [44, 30, 8]);
+            const spots = [[12, 10], [32, 10], [22, 22]];
+            const faces = plate.slice();
+            const lines = [];
+            spots.forEach(function (s) {
+                lines.push({ a: [s[0] - 3, s[1], 8], b: [s[0] + 3, s[1], 8], color: 'ink', width: 1.4 });
+                lines.push({ a: [s[0], s[1] - 3, 8], b: [s[0], s[1] + 3, 8], color: 'ink', width: 1.4 });
+                if (t > 0.5) {
+                    faces.push(decal(circle([s[0], s[1], 8], 'z', 3.2), [0, 0, 1], 'dark', Math.min(1, (t - 0.5) * 3)));
+                }
+            });
+            return { faces: faces, lines: lines };
+        }
+    },
+    'placement.linear': {
+        title: 'Linear',
+        text: 'Click a face, then two edges; the hole is placed at the distances you type from them.',
+        frame: function (t) {
+            const plate = box([0, 0, 0], [44, 30, 8]);
+            const at = [mix(30, 14, Math.min(1, t * 1.4)), mix(22, 11, Math.min(1, t * 1.4)), 8];
+            const faces = plate.slice();
+            const lines = [
+                { a: [0, 0, 8], b: [44, 0, 8], color: 'blue', width: 2.4 },
+                { a: [0, 0, 8], b: [0, 30, 8], color: 'blue', width: 2.4 },
+                { a: [at[0], 0, 8], b: at, color: 'ink', dash: true, width: 1 },
+                { a: [0, at[1], 8], b: at, color: 'ink', dash: true, width: 1 }
+            ];
+            if (t > 0.7) {
+                faces.push(decal(circle(at, 'z', 3.2), [0, 0, 1], 'dark', Math.min(1, (t - 0.7) * 4)));
+            }
+            return {
+                faces: faces,
+                lines: lines,
+                labels: [{ at: [at[0] + 2, at[1] / 2, 8], text: 'd2' }, { at: [at[0] / 2, at[1] + 2, 8], text: 'd1' }]
+            };
+        }
+    }
+,
     'operation.join': {
         title: 'Join',
         text: 'The new shape is added to the solid it touches: one solid comes out.',
@@ -552,6 +671,52 @@ export function sceneBounds(scene) {
     const cx = (min[0] + max[0]) / 2;
     const cy = (min[1] + max[1]) / 2;
     return { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+}
+
+// A block 34 long (along X) with its top back edge (the one the
+// isometric view sees) chamfered `top` mm along the top and `side` mm
+// down the back; the new face in green
+function chamferScene(top, side, t, names) {
+    const W = 26;
+    const H = 18;
+    const profile = [[0, 0], [W, 0], [W, H - side], [W - top, H], [0, H]];
+    const faces = prismX(profile, 0, 34, { color: 'grey' });
+    faces.forEach(function (f) {
+        if (f.edge === 2 && t > 0.02) {
+            f.color = 'green';
+        }
+    });
+    const labels = t > 0.6 ? [
+        { at: [36, W - top / 2, H + 3], text: names[0] },
+        { at: [36, W + 3, H - side / 2], text: names[1] }
+    ] : [];
+    return { faces: faces, labels: labels };
+}
+
+// A prism along X from x0 to x1 over a profile of [y, z] points given
+// anticlockwise as seen from +X; each side face knows its profile edge
+export function prismX(profile, x0, x1, look) {
+    const l = look || {};
+    const faces = [];
+    const n = profile.length;
+    for (let i = 0; i < n; i++) {
+        const a = profile[i];
+        const b = profile[(i + 1) % n];
+        const dy = b[0] - a[0];
+        const dz = b[1] - a[1];
+        const len = Math.hypot(dy, dz) || 1;
+        faces.push({
+            p: [[x0, a[0], a[1]], [x1, a[0], a[1]], [x1, b[0], b[1]], [x0, b[0], b[1]]],
+            n: [0, dz / len, -dy / len], color: l.color || 'grey', alpha: 1, edge: i
+        });
+    }
+    faces.push({ p: profile.map(function (q) {
+        return [x1, q[0], q[1]];
+    }), n: [1, 0, 0], color: l.color || 'grey', alpha: 1 });
+    faces.push({ p: profile.slice().reverse().map(function (q) {
+        return [x0, q[0], q[1]];
+    }), n: [-1, 0, 0], color: l.color || 'grey', alpha: 1 });
+    return faces;
 }
 
 // The scene for a choice: `family` (the panel row's illustrate key) and

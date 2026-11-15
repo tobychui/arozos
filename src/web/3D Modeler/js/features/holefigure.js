@@ -119,6 +119,18 @@ export function holeFigure(draft, focus) {
         out += '<line class="hf-edge" x1="' + LEFT + '" y1="' + f(y(s.bottom)) + '" x2="' + (CX - R) + '" y2="' + f(y(s.bottom)) + '"/>';
         out += '<line class="hf-edge" x1="' + (CX + R) + '" y1="' + f(y(s.bottom)) + '" x2="' + RIGHT + '" y2="' + f(y(s.bottom)) + '"/>';
     }
+    // A thread (a note, not modelled): thin lines at its major diameter
+    // over the threaded length, and its designation under the part
+    if (draft.thread) {
+        const from = draft.kind === 'simple' ? 0 : s.seatDepth;
+        const depth = Number(draft.depth) || 1;
+        const to = s.through ? s.bottom : from + (s.end - from) * Math.min(1, (Number(draft.threadDepth) || depth) / depth);
+        [-1, 1].forEach(function (side) {
+            out += '<line class="hf-thread" x1="' + f(CX + side * (R + 3.5)) + '" y1="' + f(y(from)) + '" x2="' + f(CX + side * (R + 3.5)) + '" y2="' + f(y(to)) + '"/>';
+        });
+        out += '<text class="hf-label' + on('thread') + '" data-focus="thread" x="' + f(CX) + '" y="' + f(y(s.bottom + 22)) + '" text-anchor="middle" dominant-baseline="middle">' +
+            String(draft.thread).replace(/[<&]/g, '') + (s.through ? ' through' : ' x ' + mm(draft.threadDepth)) + '</text>';
+    }
     // The axis
     out += '<line class="hf-axis" x1="' + CX + '" y1="' + f(y(-14)) + '" x2="' + CX + '" y2="' + f(y(s.bottom + 12)) + '"/>';
     // Which way it is drilled, from the sketch plane

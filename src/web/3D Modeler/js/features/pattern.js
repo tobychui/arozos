@@ -19,6 +19,7 @@
 */
 
 import { createPanel } from './panel.js';
+import { workAxisLine, planeFrame } from '../kernel/profile.js';
 
 const AXES = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
 const PLANES = { xy: [0, 0, 1], xz: [0, 1, 0], yz: [1, 0, 0] };
@@ -72,8 +73,10 @@ export function createPattern(options) {
                 { id: 'x', label: 'X', title: 'The X axis of the origin' },
                 { id: 'y', label: 'Y', title: 'The Y axis of the origin' },
                 { id: 'z', label: 'Z', title: 'The Z axis of the origin' },
-                { id: 'pick', label: 'Picked', title: 'The axis of a hole, a boss or a circular edge picked in the model' }
+                { id: 'pick', label: 'Picked', title: 'The axis of a hole, a boss or a circular edge picked in the model' },
+                { id: 'work', label: 'Work Axis', title: 'A work axis of the part (it moves with what it was made on)' }
             ] },
+            { type: 'select', key: 'workAxis', label: 'Work axis', items: [] },
             { type: 'check', key: 'flip', label: 'Flip' },
             { type: 'number', key: 'count', label: 'Count', unit: ' ', step: 1 },
             { type: 'number', key: 'angle', label: 'Angle', unit: 'deg', max: 360, step: 5 }
@@ -85,8 +88,10 @@ export function createPattern(options) {
                 { id: 'xy', label: 'XY', title: 'The XY plane of the origin' },
                 { id: 'xz', label: 'XZ', title: 'The XZ plane of the origin' },
                 { id: 'yz', label: 'YZ', title: 'The YZ plane of the origin' },
-                { id: 'pick', label: 'Face', title: 'A planar face picked in the model' }
-            ] }
+                { id: 'pick', label: 'Face', title: 'A planar face picked in the model' },
+                { id: 'work', label: 'Work Plane', title: 'A work plane of the part' }
+            ] },
+            { type: 'select', key: 'workPlane', label: 'Work plane', items: [] }
         );
     }
 
@@ -154,18 +159,45 @@ export function createPattern(options) {
     function draft() {
         if (kind === 'mirror') {
             const choice = panel.get('plane');
+            if (choice === 'work') {
+                // A work plane: stored by reference, so the mirror follows it
+                const id = panel.get('workPlane');
+                const frame = id ? planeFrame({ ref: 'plane', id: id }, otherFeatures()) : null;
+                const made = { type: 'mirror', features: features.slice(), plane: frame ? { o: frame.o, n: frame.n } : null };
+                if (frame) {
+                    made.planeRef = { ref: 'plane', id: id };
+                }
+                return made;
+            }
             const plane = choice === 'pick' ? picked.plane : PLANES[choice] ? { o: [0, 0, 0], n: PLANES[choice] } : null;
             return { type: 'mirror', features: features.slice(), plane: plane };
         }
         if (kind === 'circ') {
             const choice = panel.get('axis');
-            let axis = choice === 'pick' ? picked.axis : AXES[choice] ? { o: [0, 0, 0], d: AXES[choice] } : null;
+            let axisRef = null;
+            let axis = null;
+            if (choice === 'work') {
+                // A work axis: stored by reference, so the pattern follows it
+                const id = panel.get('workAxis');
+                const feature = id ? doc.feature(id) : null;
+                const line = feature ? workAxisLine(feature, otherFeatures()) : null;
+                if (line) {
+                    axis = { o: line.o, d: line.d };
+                    axisRef = { ref: 'axis', id: id };
+                }
+            } else {
+                axis = choice === 'pick' ? picked.axis : AXES[choice] ? { o: [0, 0, 0], d: AXES[choice] } : null;
+            }
             if (axis && panel.get('flip')) {
                 axis = { o: axis.o, d: axis.d.map(function (c) {
                     return -c;
                 }) };
             }
-            return { type: 'pattern', kind: 'circ', features: features.slice(), axis: axis, count: Math.round(panel.get('count')), angle: panel.get('angle') };
+            const made = { type: 'pattern', kind: 'circ', features: features.slice(), axis: axis, count: Math.round(panel.get('count')), angle: panel.get('angle') };
+            if (axisRef) {
+                made.axisRef = axisRef;
+            }
+            return made;
         }
         const two = panel.get('dir2') !== 'none';
         return {
@@ -175,15 +207,33 @@ export function createPattern(options) {
         };
     }
 
+    // The features before the one edited (all for a new one)
+    function otherFeatures() {
+        const list = doc.features();
+        const at = editId ? list.findIndex(function (f) {
+            return f.id === editId;
+        }) : -1;
+        return at >= 0 ? list.slice(0, at) : list;
+    }
+
+    // The work axes or planes the panel may offer
+    function workItems(type) {
+        return otherFeatures().filter(function (f) {
+            return f.type === type && !f.suppressed;
+        }).map(function (f) {
+            return { id: f.id, label: f.name };
+        });
+    }
+
     function missing(f) {
         if (kind === 'mirror') {
-            return f.plane ? null : 'Pick a flat face for the mirror plane.';
+            return f.plane ? null : panel.get('plane') === 'work' ? 'Choose a work plane.' : 'Pick a flat face for the mirror plane.';
         }
         if (!features.length) {
             return 'Click the features to repeat in the model browser.';
         }
         if (kind === 'circ') {
-            return f.axis ? null : 'Pick a circular edge, or the face of a hole or a boss, for the axis.';
+            return f.axis ? null : panel.get('axis') === 'work' ? 'Choose a work axis.' : 'Pick a circular edge, or the face of a hole or a boss, for the axis.';
         }
         if (!f.dir1) {
             return 'Pick a straight edge for direction 1.';
@@ -201,6 +251,11 @@ export function createPattern(options) {
         const names = features.map(function (id) {
             return doc.feature(id) ? doc.feature(id).name : id;
         });
+        if (kind === 'circ') {
+            panel.visible('workAxis', panel.get('axis') === 'work');
+        } else if (kind === 'mirror') {
+            panel.visible('workPlane', panel.get('plane') === 'work');
+        }
         panel.text('features', names.length ? names.join(', ') : kind === 'mirror' ? 'Whole solid (or click features)' : 'Click features in the browser', !names.length && kind !== 'mirror');
         if (kind === 'rect') {
             const two = panel.get('dir2') !== 'none';
@@ -296,6 +351,8 @@ export function createPattern(options) {
         if (editing) {
             const old = doc.feature(editing);
             doc.change('Edit ' + old.name, function () {
+                delete old.axisRef;
+                delete old.planeRef;
                 Object.keys(made).forEach(function (key) {
                     old[key] = made[key];
                 });
@@ -363,6 +420,18 @@ export function createPattern(options) {
             }
             panel.set('count', editing ? editing.count : 6);
             panel.set('angle', editing ? editing.angle : 360);
+            const axes = workItems('axis');
+            panel.items('workAxis', axes);
+            panel.segEnabled('axis', 'work', axes.length > 0);
+            if (editing && editing.axisRef) {
+                panel.set('axis', 'work');
+                panel.set('workAxis', editing.axisRef.id);
+                // the direction was stored with the reference's sign
+                const line = doc.feature(editing.axisRef.id) ? workAxisLine(doc.feature(editing.axisRef.id), otherFeatures()) : null;
+                panel.set('flip', !!(line && editing.axis && line.d[0] * editing.axis.d[0] + line.d[1] * editing.axis.d[1] + line.d[2] * editing.axis.d[2] < 0));
+            } else if (axes.length) {
+                panel.set('workAxis', axes[axes.length - 1].id);
+            }
         } else {
             const plane = editing ? editing.plane : null;
             const key = plane && plane.o.every(function (c) {
@@ -373,6 +442,15 @@ export function createPattern(options) {
             panel.set('plane', plane ? key || 'pick' : 'yz');
             if (plane && !key) {
                 picked.plane = plane;
+            }
+            const planes = workItems('plane');
+            panel.items('workPlane', planes);
+            panel.segEnabled('plane', 'work', planes.length > 0);
+            if (editing && editing.planeRef) {
+                panel.set('plane', 'work');
+                panel.set('workPlane', editing.planeRef.id);
+            } else if (planes.length) {
+                panel.set('workPlane', planes[planes.length - 1].id);
             }
         }
         // Model picks feed the "picked" choices (edges and faces)

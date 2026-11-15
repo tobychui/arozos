@@ -75,8 +75,10 @@ export function createProfiles(options) {
         const used = new Set(doc.features().map(function (f) {
             return f.sketch;
         }));
-        const sketches = editing ? [doc.feature(editing.sketch)].filter(Boolean) : doc.features().filter(function (f) {
-            return f.type === 'sketch' && !f.suppressed && !used.has(f.id);
+        // A shared sketch is offered again; one below End of Part or hidden is not
+        const end = doc.endIndex ? doc.endIndex() : Infinity;
+        const sketches = editing ? [doc.feature(editing.sketch)].filter(Boolean) : doc.features().filter(function (f, i) {
+            return f.type === 'sketch' && !f.suppressed && !f.hidden && i <= end && (!used.has(f.id) || f.shared);
         });
         if (!sketches.length) {
             return Promise.resolve({ ok: false, message: editing ? 'The sketch of this feature no longer exists' : what + ' needs a sketch: draw one with Start 2D Sketch first' });
