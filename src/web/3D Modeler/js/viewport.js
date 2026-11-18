@@ -79,7 +79,8 @@ const CUBE_FACES = [
 export function createViewport(options) {
     const canvas = options.canvas;
     const stage = canvas.parentElement;
-    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    // stencil: the section caps (syncCaps) are masked with it
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, stencil: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
     const scene = new THREE.Scene();
@@ -562,6 +563,14 @@ export function createViewport(options) {
     let sectionPlanes = [];
     let sectionHandles = null;  // the sheets and arrows to drag the planes (made below)
     let sectionHot = null;      // the one under the pointer
+    // The hatched cut faces (syncCaps): made when first needed
+    let capGroup = null;
+    let capParts = [];          // [{ body, plane: 0 | 1, stencils: [mesh, mesh], cap: mesh }]
+    let capKey = '';            // what capParts were made for
+    let hatch = null;           // the hatching texture
+    let bodiesVersion = 0;      // counts setBodies, so the caps are made again for new bodies
+    const capPlanes = [new THREE.Plane(), new THREE.Plane()];
+    const capOutside = [new THREE.Plane(), new THREE.Plane()];  // the same, turned round
     let componentMode = false;   // the pointer picks whole components (groups)
     renderer.localClippingEnabled = true;
     const HOVER = 0xf0943a;
@@ -761,6 +770,7 @@ export function createViewport(options) {
     }
 
     function setBodies(list) {
+        bodiesVersion++;
         disposeGroup(bodyGroup);
         ownMaterials.forEach(function (material) {
             material.dispose();
@@ -874,11 +884,19 @@ export function createViewport(options) {
             body.depth.visible = wire && !ghostOn && !body.off;
             body.lines.visible = visualStyle !== 'shaded' && !body.off;
             body.hidden.visible = dashed && !ghostOn && !body.off;
-            body.cap.visible = section.mode !== 'none' && !wire && !body.off;
+            // The inside drawn flat only when there are no hatched caps (no stencil buffer)
+            body.cap.visible = section.mode !== 'none' && !wire && !body.off && !capParts.length;
             if (body.sil) {
                 body.sil.front.visible = visualStyle !== 'shaded' && !body.off;
                 body.sil.behind.visible = dashed && !ghostOn && !body.off;
             }
+        });
+        capParts.forEach(function (part) {
+            const on = section.mode !== 'none' && !wire && !part.body.off;
+            part.cap.visible = on;
+            part.stencils.forEach(function (mesh) {
+                mesh.visible = on;
+            });
         });
         // A fillet or chamfer preview is drawn in the same style as the body
         previewGroup.children.forEach(function (child) {
@@ -953,9 +971,165 @@ export function createViewport(options) {
             material.clipIntersection = section.mode === 'threequarter';
             material.needsUpdate = true;
         });
+        syncCaps(planes);
         applyVisualStyle();
         placeSectionHandles();
         invalidate();
+    }
+
+    /* ---------------- section caps ---------------- */
+    // A cut face is drawn as a real face on the cutting plane, hatched, as
+    // a section drawing shows it, instead of the inside of the body showing
+    // through (body.cap, the inside drawn flat, only stands in when there is
+    // no stencil buffer: shown with the caps, a thin wall seen at a grazing
+    // angle lets it through the front face in specks). For each plane and body: the body clipped by that plane
+    // alone goes into the stencil buffer only (back faces add one, front
+    // faces take one away), which leaves non-zero exactly where the plane
+    // runs through solid material; then a sheet on the plane is drawn
+    // there, cut by the other plane (Quarter keeps the part inside it,
+    // Three Quarter the part outside), and the stencil is cleared again.
+    function syncCaps(planes) {
+        const key = planes.length ? section.mode + ':' + planes.length + ':' + bodiesVersion : '';
+        if (key !== capKey) {
+            buildCaps(planes.length);
+            capKey = key;
+        }
+        planes.forEach(function (plane, k) {
+            capPlanes[k].copy(plane);
+            capOutside[k].copy(plane).negate();
+        });
+        placeCaps();
+    }
+
+    function clearCaps() {
+        capParts.forEach(function (part) {
+            part.stencils.forEach(function (mesh) {
+                mesh.removeFromParent();
+                mesh.material.dispose();
+            });
+            part.cap.removeFromParent();
+            part.cap.geometry.dispose();
+            part.cap.material.dispose();
+        });
+        capParts = [];
+    }
+
+    function buildCaps(count) {
+        clearCaps();
+        // Without a stencil buffer body.cap (the inside drawn flat) stands in
+        const attributes = renderer.getContext().getContextAttributes();
+        if (!count || !attributes || !attributes.stencil) {
+            return;
+        }
+        if (!capGroup) {
+            capGroup = new THREE.Group();
+            scene.add(capGroup);
+            hatch = hatchTexture();
+        }
+        let order = 10; // after the bodies; each body's stencil passes, then its sheet
+        for (let k = 0; k < count; k++) {
+            const others = count < 2 ? [] : [section.mode === 'threequarter' ? capOutside[1 - k] : capPlanes[1 - k]];
+            bodies.forEach(function (body) {
+                // Children of the body's mesh: they follow its placement and hide with it
+                const stencils = [[THREE.BackSide, THREE.IncrementWrapStencilOp], [THREE.FrontSide, THREE.DecrementWrapStencilOp]].map(function (pass) {
+                    const mesh = new THREE.Mesh(body.mesh.geometry, new THREE.MeshBasicMaterial({
+                        side: pass[0], colorWrite: false, depthWrite: false, depthTest: false, clippingPlanes: [capPlanes[k]],
+                        stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc,
+                        stencilFail: pass[1], stencilZFail: pass[1], stencilZPass: pass[1]
+                    }));
+                    mesh.renderOrder = order;
+                    body.mesh.add(mesh);
+                    return mesh;
+                });
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+                geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(8), 2));
+                geometry.setIndex([0, 1, 2, 0, 2, 3]);
+                const cap = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+                    // the body's cut colour (a component's own shade) under the hatching
+                    color: body.cap.material.color.clone(), map: hatch, side: THREE.DoubleSide, clippingPlanes: others,
+                    stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc,
+                    stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp
+                }));
+                cap.renderOrder = order + 1;
+                // Fragments the other plane cuts away leave their stencil behind: clear it all
+                cap.onAfterRender = function (r) {
+                    r.clearStencil();
+                };
+                capGroup.add(cap);
+                capParts.push({ body: body, plane: k, stencils: stencils, cap: cap });
+                order += 2;
+            });
+        }
+    }
+
+    // Every cap sheet over the model's extent on its plane. The hatching is
+    // fixed to the plane, one stripe every CAP_STRIPE_PIXELS on screen at
+    // the zoom it was placed for (render() places it again when the zoom
+    // changes), so even a thin wall shows a few stripes
+    const CAP_STRIPE_PIXELS = 10;
+    let capZoom = 0;            // world per pixel the hatching was placed for
+    function placeCaps() {
+        const bounds = capParts.length ? modelBounds() : null;
+        if (!bounds) {
+            return;
+        }
+        const size = Math.max(bounds[1][0] - bounds[0][0], bounds[1][1] - bounds[0][1], bounds[1][2] - bounds[0][2], 1);
+        const pad = size * 0.05 + 1;
+        capZoom = worldPerPixel();
+        const tile = Math.max(capZoom * CAP_STRIPE_PIXELS, 1e-4);
+        capParts.forEach(function (part) {
+            const plane = capPlanes[part.plane];
+            const axis = Math.abs(plane.normal.x) > 0.5 ? 0 : Math.abs(plane.normal.y) > 0.5 ? 1 : 2;
+            const at = -plane.constant / plane.normal.getComponent(axis);
+            const u = (axis + 1) % 3;
+            const v = (axis + 2) % 3;
+            const positions = part.cap.geometry.getAttribute('position');
+            const uvs = part.cap.geometry.getAttribute('uv');
+            [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(function (corner, i) {
+                const p = [0, 0, 0];
+                p[axis] = at;
+                p[u] = corner[0] ? bounds[1][u] + pad : bounds[0][u] - pad;
+                p[v] = corner[1] ? bounds[1][v] + pad : bounds[0][v] - pad;
+                positions.setXYZ(i, p[0], p[1], p[2]);
+                uvs.setXY(i, p[u] / tile, p[v] / tile);
+            });
+            positions.needsUpdate = true;
+            uvs.needsUpdate = true;
+            part.cap.geometry.computeBoundingSphere();
+        });
+    }
+
+    // Diagonal stripes on white, one per tile: the map multiplies the cap's
+    // colour, so the ground keeps it and the stripes are a darker shade
+    function hatchTexture() {
+        const n = 64;
+        const stripe = 14;
+        const c = document.createElement('canvas');
+        c.width = n;
+        c.height = n;
+        const g = c.getContext('2d');
+        const image = g.createImageData(n, n);
+        for (let y = 0; y < n; y++) {
+            for (let x = 0; x < n; x++) {
+                // Distance into the stripe along the diagonal, softened at its edges
+                const d = (x + y + 1) % n;
+                const cover = Math.max(0, Math.min(1, Math.min(d, stripe - d) + 0.5));
+                const value = Math.round(255 - cover * 95);
+                const i = (y * n + x) * 4;
+                image.data[i] = value;
+                image.data[i + 1] = value;
+                image.data[i + 2] = value;
+                image.data[i + 3] = 255;
+            }
+        }
+        g.putImageData(image, 0, 0);
+        const texture = new THREE.CanvasTexture(c);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        return texture;
     }
 
     // mode: "none" | "half" | "quarter" | "threequarter", or a whole spec
@@ -3119,6 +3293,9 @@ export function createViewport(options) {
         updateDashes();
         placeArrow();
         placeSectionHeads();
+        if (capParts.length && Math.abs(worldPerPixel() - capZoom) > capZoom * 0.02) {
+            placeCaps(); // zoomed: the hatching keeps its spacing on screen
+        }
         headlight.position.copy(camera.position);
         headlight.target.position.copy(controls.target);
         renderer.render(scene, camera);
