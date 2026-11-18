@@ -42,6 +42,45 @@ so a browser can keep old modules after an update (see the last item).
       the sketch dimension editor) steps by 0.5, never reaches 0, and stops
       at a box's maximum (countersink angle 179.5).
 
+**Watertight meshes and Repair (14.27)**
+
+- [ ] Build a part the way it broke before (extrude, sketch on its end,
+      a tapered cut, a fillet), export STL and open it in your slicer: no
+      "non-manifold" or "open edges" warning. The export dialog says "Not
+      watertight" under the size when a mesh would leak.
+- [ ] Extrude a profile that only touches the solid along a line (a block
+      against a cylinder): the feature turns red with "zero thickness".
+- [ ] Inspect > Check Geometry on a sound part says "No problems found";
+      3D Model > Repair shows the before / after table and adds Repair1.
+- [ ] Open a STEP file from another program whose solids came out as
+      loose faces: it now imports as a solid.
+
+**Stable references (14.29)**
+
+- [ ] Start a sketch on the top face of a plate, dimension a circle from
+      the projected right edge, cut it through; make the plate wider: the
+      hole stays the same distance from the right edge.
+- [ ] Fillet the top edge of a leaning side of a plate, then make the side
+      lean more (move its sketch point): the fillet stays on that edge.
+- [ ] A chamfer on the top edge of a boss, then a smaller boss radius: the
+      chamfer stays (it used to fail).
+
+**Sweep, Loft, Draft, Parameters, Material, meshes (14.28)**
+
+- [ ] Sweep: a circle on XY, a path (a line up and an arc) in a sketch on
+      XZ; pick the circle, click the path: the joined curves come along,
+      the tube starts at the circle. Cut a groove with it.
+- [ ] Loft: a square, a work plane above it, a circle on the work plane;
+      click the square then the circle; Smooth and Ruled.
+- [ ] Draft: the four sides of a block, Fixed Plane = its bottom face,
+      3 degrees, then Flip.
+- [ ] 3D Model > Parameters: add width = 40 and depth = width / 4, type
+      width in a sketch dimension and depth as an extrusion distance, then
+      change width: the sketch and the solid follow.
+- [ ] Appearance > Material: steel; Inspect > Mass Properties gives grams.
+- [ ] File > Import > STL mesh: a pale reference; hide it with its eye.
+- [ ] F5 goes back to the previous view, F6 is Home.
+
 **Part features**
 
 - [ ] Fillet / Chamfer: clicking one edge of a rounded outline highlights
@@ -1048,17 +1087,18 @@ several files and a test file; **L** = several days, touches the core.
 | A1 | Finish checking the last changes (14.2) | S | Three small things were written but not fully tried |
 | A2 | Quick wins in the sketcher (14.3) | S each | Daily friction: three point arc, sketch fillet, window selection |
 | A3 | Revolve (14.4) | M | The most used feature still missing |
-| A4 | Stable references (14.5) | L | Without it, edits upstream break fillets and leave face sketches behind |
+| A4 | Stable references (14.5) | L | **Built** (14.29): face names by role, projected sketch geometry follows, profiles remember their curves |
 | A5 | Shell, Mirror, Patterns (14.6) | M each | The rest of the greyed ribbon buttons |
 | A6 | Extrude and Chamfer options (14.7) | S to M | **Built** (14.26): taper, To, To Next, chamfer types, fillet sets, linear holes, threads |
 | A7 | History tools (14.8) | M | **Built** (14.26): End of Part, reorder, shared sketches, visibility, errors on open, autosave |
-| A8 | Parameters, "fx" (14.9) | M to L | Formulas that stay formulas |
-| A9 | View and inspect (14.10) | S to M | Movable section planes, measure in the view, thick edges |
-| A10 | Exchange (14.11) | S to M | STL / OBJ as reference, export options |
+| A8 | Parameters, "fx" (14.9) | M to L | **Built in part** (14.28): table, names in every size box, kept formulas on sketch dimensions and extrusion distances |
+| A9 | View and inspect (14.10) | S to M | **Built in part** (14.28): material and mass, F5 / F6; sections, measure line, thick edges were done before |
+| A10 | Exchange (14.11) | S to M | **Built** (14.28): STL / OBJ as reference meshes, ASCII STL, inches |
 | A11 | M7: touch, localisation, README (14.12) | M | Release polish |
 | A12 | Work axes, points, more planes (14.13) | S to M | **Built** (14.25): axes, points, six kinds of plane; used by Revolve, Circular Pattern, Mirror |
-| A13 | Sweep, Loft, Draft (14.14) | M each | Stage 2 shapes |
+| A13 | Sweep, Loft, Draft (14.14) | M each | **Built** (14.28) |
 | A14 | Later stages (14.15) | L | Threads, text, sheet metal |
+| A17 | Watertight meshes, Repair (14.27) | M | **Built**: the cracked / non-manifold extrusions fixed, zero thickness refused, Check Geometry, Repair feature |
 | A15 | Assembly mode (14.16) | L | **Built**: placing parts, constraints, move rotate scale, section, measure, interference |
 | A16 | Drawing mode (14.17) | L | **Built**: base, projected and face views, dimensions and notes, sheet setup, PDF / DXF / SVG / PNG |
 
@@ -2518,6 +2558,290 @@ The plans of 14.7 and 14.8, all of them, with the card and hint style of
   place, a drop above the marker; visual changes, validate, markUnsaved;
   threads, `linearPoint`, the new cards).
 
+### 14.27 Watertight meshes, zero thickness, Check Geometry and Repair (built)
+
+Owner's report (with two screenshots): "sometimes it can or cannot create a
+proper mesh and the mesh breaks, becomes non-manifold; if I try again it
+sometimes works. Make sure there is no non-manifold mesh when creating
+extrusions, and add a function that fixes it when the user sees it."
+
+**What was wrong.** Reproduced with a random model generator (57 of 150
+random parts leaked). The caps of an extrusion are the sketch region faces,
+and those kept the finer mesh made when `sketchRegions` worked out the
+profiles (0.05 mm). `describe()` then meshed the walls at 0.1 mm and left
+faces that already had a mesh alone, so a cap's rim and the wall's rim had
+different points: cracks all round the cap. A cap that a later boolean
+merged or split got a fresh mesh, which is why it came and went. Exports at
+another fineness and previews did the same to cached shapes. A second,
+smaller cause: booleans ran in OpenCascade's default destructive mode and
+could change the tolerances of their inputs, which are the cached results
+of earlier features, so the next preview or rebuild of the same document
+could come out different.
+
+**Fixes** (`js/kernel/occt.js`, new `js/kernel/heal.js`):
+
+- `describe()` always meshes from scratch (`BRepTools.Clean` first), and the
+  region faces are cleaned after `sketchRegions`; `isSound` too. The
+  description of a body is cached per shape in `rebuild.js`
+  (`described`), so a rebuild that changed nothing meshes nothing (handed
+  out as copies: the buffers are transferred to the page).
+- `safeBoolean` (all joins, cuts, intersects): `SetNonDestructive(true)`;
+  the result is checked (`BRepCheck_Analyzer` and no open edges) and, when
+  broken, tried again with fuzzy values 1e-5 and 1e-4, and without the face
+  merging if that is what spoilt it; when nothing comes out sound the first
+  result is kept, as before. The To Next splitter is non destructive too.
+- **Zero thickness is refused** (`zeroThickness`, from `applyTool`): a result
+  with an edge used by more than two faces (a block touching a cylinder
+  along a line, two profiles meeting at a corner, a cut leaving a wall of no
+  thickness) fails with "would touch itself with zero thickness along an
+  edge (near x, y, z) ... make the shapes overlap, or leave a gap", as other
+  CAD programs refuse zero-thickness geometry. Such a solid is valid to
+  OpenCascade but every slicer calls its mesh non-manifold.
+- **Fallback mesh** (`fallbackTriangles`): a face the mesher gives up on is
+  triangulated from its outline in (u, v) (`earclip.js`, ear clipping with
+  holes) using the node parameters of the neighbouring faces' meshes
+  (`PolygonOnTriangulation`), so it meets them without cracks. Marked
+  `patched` on the face; never seen in testing after the fixes above, kept
+  as a guarantee that the view never shows a hole.
+- `describe()` returns `health: { open, multiple, empty, patched }`; the app
+  says once in the status bar when a solid has any.
+- `weld()` (OBJ / 3MF, and `meshCheck`) merges within 1e-5 mm across cell
+  walls instead of rounding to a 1e-4 grid, which could split two copies of
+  a corner a hair apart.
+- STEP import sews files whose solids arrive as loose faces (`heal`).
+
+**New commands.**
+
+- **Inspect > Check Geometry** (`js/inspect/check.js`, worker op `check`):
+  per solid a table (closed solid, open edges, zero thickness, unmeshed
+  faces, `js/inspect/health.js`) and what a slicer would say of the mesh
+  (`meshCheck` in `io/exchange.js`); dots in the view mark the problems
+  (`viewport.setMarkers`: red open, amber zero thickness, purple patched
+  face). Repair... opens the Repair feature; it is greyed when nothing is
+  wrong. The panel checks again after every rebuild while it is open.
+- **3D Model > Repair** (`js/features/repair.js`, `{ type: "repair",
+  tolerance }`, kernel `repair` -> `heal`): faces fixed one by one
+  (`ShapeFix_Face`), slivers narrower than the tolerance dropped, sewn
+  (`BRepBuilderAPI_Sewing`), shells closed into solids (`MakeSolid`,
+  `ShapeFix_Solid`, `OrientClosedSolid`), merged; a looser sewing (ten times
+  the tolerance) as a last try. The result is taken only when it is better
+  (a score of validity, open and zero-thickness edges, unmeshed faces) and
+  keeps the volume within 0.2 %; so Repair on a sound solid changes nothing.
+  It is a history feature, so an upstream edit that breaks the solid again
+  is repaired again. The panel shows a live before / after table and the
+  repaired solid as a preview; the browser shows the outcome (status
+  `note`) on hover and click. Zero thickness cannot be repaired: it needs a
+  change of the model, and the table and notes say so.
+- The mesh export dialog warns "Not watertight: N open and M non-manifold
+  edges" under the size when a mesh would leak.
+
+**Tests:** `tests/repair.test.mjs` (the cap cracks, a feature after an
+export at another fineness, the hood with a tapered cut touching its edge,
+inputs left alone by a boolean, three zero-thickness cases and an overlap
+that joins, the fallback mesh meeting its neighbours, ear clipping, weld
+across a cell wall, Repair sewing six loose faces, a sound solid left
+alone, the feature in a part, STEP import of loose faces) and
+`tests/meshfuzz.test.mjs` (80 random parts with a fixed seed, every
+feature's mesh watertight).
+
+**Tried in the browser pane:** a hood over a slab with a tapered cut into
+its end (the owner's first screenshot) shows every face, Check Geometry
+says no problems and a watertight mesh, the STL export dialog has no
+warning; a disc touching the slab end is refused with the zero-thickness
+message on open; Repair shows its table and adds Repair1. Not tried: the
+owner's own part files (not available here); a real slicer.
+
+### 14.28 A13, A10, A9 and A8 built (Sweep, Loft, Draft, meshes, material, F5, parameters)
+
+Owner's request after 14.27: "continue the remaining phases in the
+proposal to finish the missing functions". Taken in the order that adds
+most for a user: A13, A10, A9, A8. A4 and A11 are left (see the end).
+
+**A13 Sweep, Loft, Draft** (`js/kernel/occt.js`, `js/sketch/chain.js`,
+`js/features/sweep.js`, `loft.js`, `draft.js`; 3D Model > Create and
+Modify):
+
+- *Sweep* `{ type: "sweep", sketch, regions, path: { sketch, curves },
+  operation }`: profile areas picked as in Extrude, the path is curves of
+  another sketch drawn in the view (`viewport.setAxes`, one segment per
+  sample); a click takes every curve joined to it end to end
+  (`connectedCurves`), a click on a picked curve drops it, another curve of
+  the same sketch is added. `chainCurves` orders the curves and says which
+  way each is run; the wire starts at the end nearer the profile plane.
+  `BRepOffsetAPI_MakePipe` per region; a solid that comes out inside out
+  is turned (`outward`). The kernel builds a fold-over without complaint,
+  so a profile that reaches further from the path start than the tightest
+  arc radius is refused before sweeping.
+- *Loft* `{ type: "loft", sketch, sections: [{ sketch, region }], ruled,
+  operation }`: `createProfiles({ multi: true })` picks one area per sketch
+  in click order (`picks()`); `BRepOffsetAPI_ThruSections` through the
+  outer wires (`BRepTools.OuterWire`, holes left out), `CheckCompatibility`.
+  Two neighbouring sections in one plane are refused (the kernel built a
+  flat solid from them). `sketch` is the first section, for the browser.
+- *Draft* `{ type: "draft", faces, plane, angle, flip }`: faces picked as
+  for Shell, the fixed plane by the reference pick (origin plane, work
+  plane, flat face); the rebuild resolves it to `frame` (`withFrame`);
+  `BRepOffsetAPI_DraftAngle` about that plane, pulled along its normal.
+- `sketchesOf(feature)` (document.js) lists every sketch a feature uses;
+  `usesOf`, the browser, the free-sketch lists of Extrude / Hole and the
+  drawn sketches use it, so a path or section sketch counts as used.
+- Previews: `tryFeature` returns the tool mesh for sweep and loft, the
+  bodies as they become for draft.
+
+**A10 Exchange** (`js/io/exchange.js`, `js/io/exportdialog.js`):
+
+- File > Import > STL / OBJ mesh: `parseSTL` (binary or ASCII, detected by
+  size and header), `parseOBJ` (polygons fanned, negative and v/vt/vn
+  indices), welded; at most `MAX_TRIANGLES` (1 000 000). Kept in the part
+  as `{ type: "mesh", format, source, data: { positions, indices } }`
+  (base64 of the Float32 / Uint32 buffers, `encodeMesh`); above 8 MB the
+  user is asked first. The kernel ignores it (`applyFeature`), its data is
+  not hashed (`geometryKey`), so it costs the rebuild nothing; drawn pale
+  and never picked (`viewport.setMeshes`), hideable with the eye, left out
+  of export and Mass Properties.
+- Export dialog: Units (millimetres or inches: the mesh scaled, the STL
+  header, OBJ comment and 3MF `unit` say so) and, for STL, Binary or
+  ASCII (`toSTLText`). Fineness and the choices are remembered per format.
+
+**A9 View and inspect** (`js/materials.js`, `js/features/material.js`,
+`viewport.js`, `app.js`):
+
+- Appearance > Material: `data.material = { id, density }` from a list of
+  printing and machining materials or Custom; Mass Properties states the
+  mass ("502.40 g in Steel, mild"), else the PLA example as before.
+- F5 Previous View (a stack of 30 views, noted before every orbit, pan,
+  zoom, view cube click, Home, Zoom All, Look At; the wheel counts once per
+  0.6 s; started over on a tab switch), F6 Home View.
+- Not done from 14.10: Monochrome style, vertices as measure picks,
+  running totals of several picks.
+
+**A8 Parameters** (`js/expr.js`, `js/parameters.js`,
+`js/features/paramtable.js`; 3D Model > Manage > Parameters):
+
+- `data.parameters = [{ name, expr, comment }]`; the table shows values as
+  you type, an unknown name, a loop (`a -> b -> a`) or a bad name on its
+  row, and OK stays off until all rows work.
+- `evaluate(text, scope)` takes names; the app sets the open part's values
+  as the default scope (`setScope`) on every document change, so every
+  size box accepts parameter names.
+- Kept formulas: a sketch dimension typed with a name keeps `expr` (in
+  degrees for angles; the editor shows the formula again), an extrusion
+  distance keeps `extent.expr` / `expr2`. Applying the table runs
+  `applyParameters` (new values for every kept formula) and solves the
+  sketches whose dimensions changed with the sketch solver, headless, in
+  the same undo step; a sketch that cannot meet the new sizes keeps its old
+  ones and the status bar says which.
+- Not done from 14.9: kept formulas in the other panels (they take names
+  but store the number), automatic dimension names (d0, d1) and showing
+  `d3 = wall * 2` on the dimension.
+
+**Tests:** `tests/a13.test.mjs` (chains, a bent tube's volume, the tube
+starting at the profile whatever order the path was picked, a straight
+sweep cut, the fold-over refused, frustum loft, square to circle, sections
+in one plane refused, a drafted box both ways, faces across the pull
+refused, dependents), `tests/a10.test.mjs` (STL binary and ASCII and OBJ
+read back watertight, damaged files refused, base64 round trip, inches,
+the mesh feature in a rebuild), `tests/a9.test.mjs` (materials and
+masses, the file keeps its material), `tests/a8.test.mjs` (names, order,
+loops, kept formulas, a 40 x 20 x 10 block that becomes 60 x 30 x 6 by
+its parameters through the headless solve and a rebuild). 38 files pass.
+
+**Tried in the browser pane** (it was hidden, so through the page itself,
+not by mouse): the Parameters table (values while typing, a loop refused,
+width 40 -> 80 made the block 80 x 40 x 20), Material steel and the mass,
+an STL tetrahedron brought in as Mesh1 and left out of the STL export, the
+export dialog's Units and Encoding, F5 / F6, the Sweep panel opening with
+its notes. **Not tried by hand:** picking a sweep path, loft sections and
+draft faces in the view (the kernel side is covered by the tests).
+
+**Left from section 14:** A4 stable references beyond the first step
+(naming faces by role, projected geometry that follows), A11 (touch and
+pen, localisation, the README that replaces this file as the handoff,
+desktop icon PNG, other browsers, performance), the rest of A8 and A9
+listed above, and the sketcher gaps of A2 (offset, sketch patterns,
+ellipse, spline, text).
+
+### 14.29 A4 built: face names, projected geometry that follows, profiles by their curves
+
+Owner: "proceed with next phase" (A4 was next in the order of 14.1).
+Phases A and C of the design in 14.5 are built, and a fault found on the
+way is fixed; phase B (sketches on faces) was mostly there and now also
+follows a face that turns.
+
+**Face names** (`js/kernel/naming.js`, `rebuild.js`, `occt.js`): after each
+feature the replay names every face of every solid (`entry.names`, once per
+cache entry): the same face as before keeps its name; a trimmed, split or
+merged face takes the name of the named face of before on the same surface
+(`surfaceKeyOf`) that holds a point of it (a point of its largest mesh
+triangle, pulled onto the face); new faces get a role - an extrusion's
+`<id>/start`, `end+`, `end-` and `side:<sketch curve id>` (the curve its
+edges lie on, seen along the sketch normal), an import's `face:<n>`, any
+other feature's `<id>/new`. Faces cut in two keep one name. IsSame is only
+asked between faces with the same centre and area (rounded), so naming
+costs little (the sample part rebuilds as fast as before). Descriptions
+carry `face.name` and `edge.names` (the pair of its faces).
+
+**References use them** (`occt.js`; the rebuild calls `useNames` before
+each feature, and every rebuild leaves the names of the bodies it returns
+for the worker's operations):
+
+- Edge references gain `names` when stored (`describeEdgeRefs`); `findEdges`
+  tries the position, then the edge between the faces with those names
+  (nearest to where it was), then the signature as before.
+- Face references (Shell, Draft) gain `name` (`describeFaceRefs`);
+  `findFaces` tries the name after the position.
+- A sketch on a face keeps the face's name (`plane.face.name`, from the
+  pick's face record); `followFace` finds the face by name first and, when
+  the face turned, turns the sketch frame with it (its X axis kept as near
+  as the new plane allows) - `followNamedFace`.
+- Behaviour change: a chamfer on a boss whose radius changes now follows
+  the boss (the edge between its top and its side) instead of failing;
+  `tests/references.test.mjs` was changed to say so.
+- References saved before names work as before (position, signature).
+
+**Projected geometry follows** (phase C; `rebuild.js followProjection`,
+`project.js applyFollow`, `app.js followModel`): a projected curve keeps
+the model edge it came from (`source: { body, mid, length, sig }`; the
+viewport's `curvesOf` hands it over, Linear holes too). The replay finds
+each source edge on the solids before the sketch (`followEdges`, which
+also fills in `sig` the first time), projects it again and reports the
+curves that moved (`projections` in the rebuild result). The app moves
+them in the sketch, solves the sketch with the headless solver, and
+stores it with `doc.amend` (no undo step of its own: the user's change that
+caused it undoes both; listeners hear "amend", which rebuilds but leaves
+open panels and the sketcher alone). A lost edge stays where it was and is
+said once; a sketch that cannot meet its constraints keeps its geometry
+and says so; a pass counter stops a loop. `source` is kept out of the
+sketch's cache key, so updating it rebuilds nothing after the sketch.
+
+**Profiles remember their curves** (found while testing the above): a
+profile is remembered by a point inside it, and when sketch geometry moves
+(following the model, a parameter, any edit) the point can land in another
+area - the cut then took the plate away instead of the hole. Every region
+now carries the ids of the sketch curves around it (`boundingCurves` in
+`sketchRegions`), stored as `regionCurves` by Extrude, Revolve and Sweep and
+`section.curves` by Loft; `pickedRegions` and the panels' `findRegion` take
+the area with the same curves when the point disagrees. Old features
+without them work by point as before.
+
+**Tests:** `tests/a4.test.mjs` (the face outline projected with sources,
+a hole 10 from the right edge following the plate from 60 to 80 wide, the
+wrong area a point alone picks, a circle following and a lost curve; the
+sample part's names, a split face keeping one name, an edge knowing its
+faces; a leaning side made to lean more: the fillet, the shell and a
+sketch on it follow by name, and without names the fillet is lost).
+
+**Tried in the browser pane** (hidden again, so through the page): a part
+whose plate width is a parameter, with a hole dimensioned from the
+projected right edge; width 60 -> 80 moved the hole with the edge (volume
+and centre of gravity checked: X 39.521 with the hole at x 70), and one
+undo brought back the plate and the hole as they were.
+
+**Still open from 14.5:** names for the side faces of revolutions, sweeps,
+lofts and holes (they are `<id>/new`, so references to them fall back to
+the nearest such face), copies of a pattern share names (the nearest wins),
+and a face that splits keeps one name (the nearest piece wins).
+
 ## 15. Handoff
 
 This section is for the model or person who continues the work (the earlier
@@ -2723,9 +3047,9 @@ Done in the last session, after the table above was first written:
   Not tried: autosave with two windows open, the Distance and Angle
   chamfer on a model (covered by tests).
 
-`node tests/run.mjs` passes, 32 files. **Nothing is committed**: the whole
-`src/web/3D Modeler/` folder is untracked on the branch the owner works on.
-Do not commit or push unless the owner asks.
+`node tests/run.mjs` passes, 39 files (after 14.27 to 14.29). The owner
+has committed the app on branch v3.0.5; the work of 14.27 to 14.29 is not
+committed. Do not commit or push unless the owner asks.
 
 ### 15.2 Rules the owner set (do not break them)
 

@@ -110,9 +110,10 @@ function path(pts) {
     }).join('L');
 }
 
-// view: { sk, frame, project(world) -> [x, y], hover, selected: Set, dof,
+// view: { sk, frame, project(world) -> [x, y], hover, hoverTwin, selected: Set, dof,
 //         fixed: Set of geometry ids that cannot move any more,
-//         bad: Set of constraint ids, preview: { curves, dims, snap } | null }
+//         bad: Set of constraint ids, preview: { curves, dims, snap } | null,
+//         usable: kinds a constraint tool can pick (model.pickable) | null }
 export function draw(svg, view) {
     const sk = view.sk;
     const to = function (p) {
@@ -121,7 +122,13 @@ export function draw(svg, view) {
     const cache = { points: [], curves: [], dims: [], badges: [] };
     const out = [];
     const state = function (id) {
-        return view.selected.has(id) ? ' sk-sel' : view.hover === id ? ' sk-hot' : '';
+        return view.selected.has(id) ? ' sk-sel' : view.hover === id || view.hoverTwin === id ? ' sk-hot' : '';
+    };
+    // A constraint tool names the kinds it can pick (view.usable): points of
+    // other kinds are hidden and curves dimmed, and neither can be hit.
+    // What is already picked stays as it is.
+    const usable = function (kind, id) {
+        return !view.usable || view.usable.indexOf(kind) >= 0 || view.selected.has(id);
     };
 
     /* ---- grid: lines every 1, 2 or 5 units at least GRID_PIXELS apart ---- */
@@ -136,8 +143,12 @@ export function draw(svg, view) {
     resolved.forEach(function (c) {
         byId[c.id] = c;
         const pts = sample(c).map(to);
-        cache.curves.push({ id: c.id, pts: pts });
-        const cls = 'sk-curve' + (c.construction ? ' sk-construction' : c.ref ? ' sk-ref' : view.fixed.has(c.id) ? ' sk-fixed' : '') + state(c.id);
+        const can = usable(c.type, c.id);
+        if (can) {
+            cache.curves.push({ id: c.id, pts: pts });
+        }
+        const cls = 'sk-curve' + (c.construction ? ' sk-construction' : c.ref ? ' sk-ref' : view.fixed.has(c.id) ? ' sk-fixed' : '') +
+            (can ? '' : ' sk-unusable') + state(c.id);
         out.push('<path class="' + cls + '" d="' + path(pts) + '"/>');
     });
 
@@ -163,8 +174,10 @@ export function draw(svg, view) {
         return 'M' + f(tip[0]) + ' ' + f(tip[1]) + 'L' + f(tip[0] - ux * 8 + uy * 3) + ' ' + f(tip[1] - uy * 8 - ux * 3) +
             'L' + f(tip[0] - ux * 8 - uy * 3) + ' ' + f(tip[1] - uy * 8 + ux * 3) + 'Z';
     };
-    // Dimension between two points, measured along `axis` ("x", "y" or the line through them)
-    const linear = function (d, a, b, axis, preview) {
+    // Dimension between two points, measured along `axis` ("x", "y" or the
+    // line through them). `along` is the direction measured when the two
+    // points meet (a size of 0), where the line through them has none.
+    const linear = function (d, a, b, axis, preview, along) {
         const pos = d.pos || [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         let a2;
         let b2;
@@ -175,15 +188,29 @@ export function draw(svg, view) {
             a2 = [pos[0], a[1]];
             b2 = [pos[0], b[1]];
         } else {
-            const len = dist(a, b) || 1;
-            const nx = -(b[1] - a[1]) / len;
-            const ny = (b[0] - a[0]) / len;
+            const len = dist(a, b);
+            const u = len > 1e-9 ? [(b[0] - a[0]) / len, (b[1] - a[1]) / len] : along || [0, 0];
+            const nx = -u[1];
+            const ny = u[0];
             const off = (pos[0] - a[0]) * nx + (pos[1] - a[1]) * ny;
             a2 = [a[0] + nx * off, a[1] + ny * off];
             b2 = [b[0] + nx * off, b[1] + ny * off];
         }
         const sa = to(a2);
         const sb = to(b2);
+        const dir = axis === 'x' ? [1, 0] : axis === 'y' ? [0, 1] : along;
+        if (dir && Math.hypot(sb[0] - sa[0], sb[1] - sa[1]) < 1) {
+            // A size of 0: two arrow heads pointing in at the spot from
+            // either side, along the direction measured
+            const ahead = to([a2[0] + dir[0], a2[1] + dir[1]]);
+            const len = Math.hypot(ahead[0] - sa[0], ahead[1] - sa[1]) || 1;
+            const ux = (ahead[0] - sa[0]) / len;
+            const uy = (ahead[1] - sa[1]) / len;
+            const before = [sa[0] - ux * 18, sa[1] - uy * 18];
+            const after = [sa[0] + ux * 18, sa[1] + uy * 18];
+            return '<path class="sk-dim" d="' + path([to(a), sa]) + path([before, after]) + path([sa, to(pos)]) + '"/>' +
+                '<path class="sk-dimarrow" d="' + arrow(sa, before) + arrow(sa, after) + '"/>' + label(d, pos, preview);
+        }
         return '<path class="sk-dim" d="' + path([to(a), sa]) + path([to(b), sb]) + path([sa, sb]) + path([sa, to(pos)]) + '"/>' +
             '<path class="sk-dimarrow" d="' + arrow(sa, sb) + arrow(sb, sa) + '"/>' + label(d, pos, preview);
     };
@@ -202,7 +229,8 @@ export function draw(svg, view) {
             const dx = line.b[0] - line.a[0];
             const dy = line.b[1] - line.a[1];
             const t = ((p[0] - line.a[0]) * dx + (p[1] - line.a[1]) * dy) / (dx * dx + dy * dy || 1);
-            return linear(d, [line.a[0] + dx * t, line.a[1] + dy * t], p, '', preview);
+            const len = Math.hypot(dx, dy) || 1;
+            return linear(d, [line.a[0] + dx * t, line.a[1] + dy * t], p, '', preview, [-dy / len, dx / len]);
         }
         if (d.type === 'radius' || d.type === 'diameter') {
             const c = byId[d.curve];
@@ -325,10 +353,12 @@ export function draw(svg, view) {
 
     /* ---- points ---- */
     const origin = to([0, 0]);
-    cache.points.push({ id: M.ORIGIN, x: origin[0], y: origin[1] });
-    out.push('<circle class="sk-origin' + state(M.ORIGIN) + '" cx="' + f(origin[0]) + '" cy="' + f(origin[1]) + '" r="' + (state(M.ORIGIN) ? 5.5 : 4) + '"/>');
+    if (usable('point', M.ORIGIN)) {
+        cache.points.push({ id: M.ORIGIN, x: origin[0], y: origin[1] });
+        out.push('<circle class="sk-origin' + state(M.ORIGIN) + '" cx="' + f(origin[0]) + '" cy="' + f(origin[1]) + '" r="' + (state(M.ORIGIN) ? 5.5 : 4) + '"/>');
+    }
     sk.geometry.forEach(function (g) {
-        if (g.type !== 'point') {
+        if (g.type !== 'point' || !usable('point', g.id)) {
             return;
         }
         const p = to([g.x, g.y]);
@@ -337,8 +367,8 @@ export function draw(svg, view) {
     });
     // A coincidence shows as a small dot on the point; it is picked like a glyph
     joints.forEach(function (j) {
-        if (view.glyphs === false) {
-            return;
+        if (view.glyphs === false || !usable('point', null)) {
+            return; // hidden with F9, or with the points
         }
         const p = to(j.p);
         cache.badges.push({ id: j.c.id, x: p[0] - 5, y: p[1] - 5, w: 10, h: 10 });

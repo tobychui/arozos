@@ -7,12 +7,19 @@
     the dialog makes the file in the background (options.make) and shows
     its size and triangle count, so the cost of a finer mesh is known
     before it is saved. What was made is kept, and Export saves it without
-    meshing again. The last choice is remembered in the browser.
+    meshing again. The last choices are remembered in the browser, per
+    format.
 
     MESH_LEVELS             [{ id, label, deflection (mm), angle (rad) }]
-    askMeshExport(options)  -> Promise of { content, level } or null
+    askMeshExport(options)  -> Promise of { content, level, choices } or null
         options.title, options.text
-        options.make(level) -> Promise of { content, size (bytes), triangles }
+        options.format      "stl" | "obj" | "3mf": the key the choices are
+                            remembered under
+        options.choices     more drop-downs: [{ key, label, items: [{ id,
+                            label }] }] (units, ASCII or binary STL)
+        options.make(level, choices) -> Promise of { content, size (bytes),
+                               triangles, warning? (said under the size, e.g.
+                               a mesh that is not watertight) }
 */
 
 export const MESH_LEVELS = [
@@ -44,17 +51,21 @@ export function formatSize(bytes) {
     return (mb < 10 ? mb.toFixed(1) : Math.round(mb)) + ' MB';
 }
 
-function remembered() {
+function stored(key) {
     try {
-        return levelById(window.localStorage.getItem(PREF)).id;
+        return window.localStorage.getItem(key);
     } catch (e) {
-        return 'normal';
+        return null;
     }
 }
 
-function remember(id) {
+function remembered(format) {
+    return levelById(stored(PREF + (format ? '.' + format : '')) || stored(PREF)).id;
+}
+
+function remember(key, value) {
     try {
-        window.localStorage.setItem(PREF, id);
+        window.localStorage.setItem(key, value);
     } catch (e) {
         // Not kept
     }
@@ -69,6 +80,7 @@ export function askMeshExport(options) {
         box.setAttribute('role', 'dialog');
         box.innerHTML = '<div class="dialog-title"></div><div class="dialog-text"></div>' +
             '<label class="export-row"><span>Fineness</span><select class="props-input export-level"></select></label>' +
+            '<div class="export-choices"></div>' +
             '<div class="export-hint"></div><div class="export-estimate"></div>' +
             '<div class="dialog-buttons"><button class="dialog-btn" data-act="cancel">Cancel</button>' +
             '<button class="dialog-btn primary" data-act="export">Export</button></div>';
@@ -84,37 +96,75 @@ export function askMeshExport(options) {
             opt.textContent = l.label + ' (' + l.deflection + ' mm)';
             select.appendChild(opt);
         });
-        select.value = remembered();
+        select.value = remembered(options.format);
+        // More choices (units, encoding), each remembered per format
+        const choiceSelects = {};
+        (options.choices || []).forEach(function (choice) {
+            const row = document.createElement('label');
+            row.className = 'export-row';
+            const name = document.createElement('span');
+            name.textContent = choice.label;
+            const pick = document.createElement('select');
+            pick.className = 'props-input';
+            choice.items.forEach(function (item) {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = item.label;
+                pick.appendChild(opt);
+            });
+            const kept = stored(PREF + '.' + (options.format || '') + '.' + choice.key);
+            pick.value = choice.items.some(function (item) {
+                return item.id === kept;
+            }) ? kept : choice.items[0].id;
+            row.appendChild(name);
+            row.appendChild(pick);
+            box.querySelector('.export-choices').appendChild(row);
+            choiceSelects[choice.key] = pick;
+            pick.addEventListener('change', show);
+        });
+        const choices = function () {
+            const out = {};
+            Object.keys(choiceSelects).forEach(function (key) {
+                out[key] = choiceSelects[key].value;
+            });
+            return out;
+        };
+        const cacheKey = function (id) {
+            return id + JSON.stringify(choices());
+        };
         veil.appendChild(box);
 
         const made = {};    // level id -> Promise of { content, size, triangles }
         let closed = false;
 
         function make(id) {
-            if (!made[id]) {
-                made[id] = options.make(levelById(id));
-                made[id].catch(function () {
-                    delete made[id]; // try again next time
+            const key = cacheKey(id);
+            if (!made[key]) {
+                made[key] = options.make(levelById(id), choices());
+                made[key].catch(function () {
+                    delete made[key]; // try again next time
                 });
             }
-            return made[id];
+            return made[key];
         }
 
         function show() {
             const id = select.value;
+            const key = cacheKey(id);
             const level = levelById(id);
             hint.textContent = 'Curved faces are followed within ' + level.deflection + ' mm.';
             estimate.textContent = 'Working out the file size...';
             estimate.classList.remove('bad');
             estimate.classList.add('busy');
             make(id).then(function (r) {
-                if (!closed && select.value === id) {
+                if (!closed && cacheKey(select.value) === key) {
                     estimate.classList.remove('busy');
                     estimate.textContent = 'About ' + formatSize(r.size) + ', ' + r.triangles.toLocaleString('en-US') +
-                        (r.triangles === 1 ? ' triangle' : ' triangles');
+                        (r.triangles === 1 ? ' triangle' : ' triangles') + (r.warning ? '. ' + r.warning : '');
+                    estimate.classList.toggle('bad', !!r.warning);
                 }
             }, function (err) {
-                if (!closed && select.value === id) {
+                if (!closed && cacheKey(select.value) === key) {
                     estimate.classList.remove('busy');
                     estimate.classList.add('bad');
                     estimate.textContent = err.message;
@@ -146,9 +196,13 @@ export function askMeshExport(options) {
         exportButton.addEventListener('click', function () {
             const id = select.value;
             exportButton.disabled = true;
-            remember(id);
+            remember(PREF + (options.format ? '.' + options.format : ''), id);
+            const picked = choices();
+            Object.keys(picked).forEach(function (key) {
+                remember(PREF + '.' + (options.format || '') + '.' + key, picked[key]);
+            });
             make(id).then(function (r) {
-                done({ content: r.content, level: levelById(id) });
+                done({ content: r.content, level: levelById(id), choices: picked });
             }, function () {
                 exportButton.disabled = false;
             });

@@ -97,6 +97,9 @@ export function projectInto(sk, frame, curve) {
         return same(at(g.c), flat.c) && same(at(g.start), flat.a) && same(at(g.end), flat.b);
     })[0];
     if (twin) {
+        if (curve.source && !twin.source) {
+            twin.source = sourceOf(curve.source);
+        }
         return { id: twin.id, added: false };
     }
     let id;
@@ -108,5 +111,65 @@ export function projectInto(sk, frame, curve) {
         id = M.addArc(sk, refPoint(sk, flat.c), refPoint(sk, flat.a), refPoint(sk, flat.b));
     }
     M.find(sk, id).ref = true;
+    if (curve.source) {
+        M.find(sk, id).source = sourceOf(curve.source);
+    }
     return { id: id, added: true };
+}
+
+// Move projected curves to where their model edges are now: `changes` as
+// the rebuild reports them ([{ id, source, curve }] or [{ id, lost }], see
+// followProjection in kernel/rebuild.js). Changes the sketch in place and
+// returns { moved, lost: [curve id] }; the sketch must be solved again when
+// something moved, so the geometry tied to the projection follows.
+export function applyFollow(sk, changes) {
+    let moved = false;
+    const lost = [];
+    const set = function (id, p) {
+        const point = M.find(sk, id);
+        if (point) {
+            point.x = p[0];
+            point.y = p[1];
+        }
+    };
+    (changes || []).forEach(function (ch) {
+        const g = M.find(sk, ch.id);
+        if (!g) {
+            return;
+        }
+        if (ch.lost) {
+            lost.push(g.id);
+            return;
+        }
+        if (ch.source) {
+            g.source = sourceOf(ch.source);
+        }
+        const c = ch.curve;
+        if (!c) {
+            return;
+        }
+        moved = true;
+        if (c.type === 'line') {
+            set(g.p1, c.a);
+            set(g.p2, c.b);
+        } else if (c.type === 'circle') {
+            set(g.c, c.c);
+            g.r = c.r;
+        } else {
+            set(g.c, c.c);
+            set(g.start, c.a);
+            set(g.end, c.b);
+        }
+    });
+    return { moved: moved, lost: lost };
+}
+
+// The record of the model edge a projected curve came from:
+// { body, mid, length, sig? } (sig is added by the rebuild)
+function sourceOf(s) {
+    const out = { body: s.body || 0, mid: s.mid.slice(), length: s.length };
+    if (s.sig) {
+        out.sig = s.sig;
+    }
+    return out;
 }

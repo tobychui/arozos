@@ -36,8 +36,10 @@
 */
 
 import { icon, openMenu } from './ui.js';
+import { sketchesOf } from './document/document.js';
 
-const FEATURE_ICONS = { sketch: 'sketch', extrude: 'extrude', revolve: 'revolve', shell: 'shell', pattern: 'rectpattern', mirror: 'mirror', hole: 'hole', fillet: 'fillet', chamfer: 'chamfer', plane: 'plane', axis: 'axis', point: 'point', import: 'import' };
+const FEATURE_ICONS = { sketch: 'sketch', extrude: 'extrude', revolve: 'revolve', shell: 'shell', pattern: 'rectpattern', mirror: 'mirror', hole: 'hole', fillet: 'fillet', chamfer: 'chamfer', plane: 'plane', axis: 'axis', point: 'point', import: 'import', repair: 'repair',
+    sweep: 'sweep', loft: 'loft', draft: 'draft', mesh: 'meshref' };
 const WORK_TYPES = ['plane', 'axis', 'point'];
 const ORIGIN_ITEMS = [
     { plane: 'yz', label: 'YZ Plane', icon: 'plane' },
@@ -101,7 +103,7 @@ export function createBrowser(el, doc, handlers) {
     // Drawn in the view (so it can be hidden): work features, and sketches
     // no feature has taken (or that are shared)
     function showable(feature) {
-        return WORK_TYPES.indexOf(feature.type) >= 0 || (feature.type === 'sketch' && (!consumed.has(feature.id) || !!feature.shared));
+        return WORK_TYPES.indexOf(feature.type) >= 0 || feature.type === 'mesh' || (feature.type === 'sketch' && (!consumed.has(feature.id) || !!feature.shared));
     }
 
     function menuFor(feature, topLevel) {
@@ -310,6 +312,8 @@ export function createBrowser(el, doc, handlers) {
             mark.title = status.message || 'This feature could not be built';
             node.appendChild(mark);
             node.title = mark.title;
+        } else if (status.note) {
+            node.title = feature.name + ': ' + status.note;
         }
         if (feature.type === 'sketch' && feature.shared) {
             const tail = document.createElement('span');
@@ -467,12 +471,16 @@ export function createBrowser(el, doc, handlers) {
         const consumedBy = {};
         consumed = new Set();
         features.forEach(function (feature) {
-            const sketch = feature.sketch ? doc.feature(feature.sketch) : null;
-            if (sketch) {
-                consumed.add(sketch.id);
-                if (!consumedBy[sketch.id] && !sketch.shared) {
-                    consumedBy[sketch.id] = feature.id;
+            // A sweep's path and a loft's other sections are used too, but
+            // only the profile sketch is shown under the feature
+            sketchesOf(feature).forEach(function (id) {
+                if (doc.feature(id)) {
+                    consumed.add(id);
                 }
+            });
+            const sketch = feature.sketch ? doc.feature(feature.sketch) : null;
+            if (sketch && !consumedBy[sketch.id] && !sketch.shared) {
+                consumedBy[sketch.id] = feature.id;
             }
         });
         // The sketch being edited is shown opened up, so it can be seen in the tree

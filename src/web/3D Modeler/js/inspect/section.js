@@ -3,8 +3,9 @@
 
     View > Section View opens this panel, for a part and for an assembly:
     Half, Quarter or Three Quarter, which origin plane cuts (XY, XZ, YZ),
-    where along its axis (a slider over the model's extent, or a typed
-    value) and which side stays. Quarter and Three Quarter use a second
+    where along its axis (a slider over the model's extent, a typed value,
+    or dragging the plane's sheet or arrow in the model) and which side
+    stays. Quarter and Three Quarter use a second
     plane with the same settings. Everything shows at once; OK keeps the
     section on (View > End Section View takes it off), Cancel puts back what
     was there before.
@@ -24,6 +25,7 @@ export function createSectionPanel(options) {
     const viewport = options.viewport;
     let open = false;
     let before = null;
+    const limitsOf = {};    // "" | "2" -> [min, max] of that plane's slider
 
     const planeItems = [
         { id: 'xy', label: 'XY', title: 'Cut level, across Z' },
@@ -81,7 +83,20 @@ export function createSectionPanel(options) {
         if (centre || !isFinite(panel.get('offset' + suffix))) {
             panel.set('offset' + suffix, +((lo + hi) / 2).toFixed(2));
         }
-        panel.range('offset' + suffix, +(lo - pad).toFixed(2), +(hi + pad).toFixed(2));
+        limitsOf[suffix] = [+(lo - pad).toFixed(2), +(hi + pad).toFixed(2)];
+        panel.range('offset' + suffix, limitsOf[suffix][0], limitsOf[suffix][1]);
+    }
+
+    // A plane's sheet or arrow dragged in the model (viewport.setSectionHandles):
+    // the position goes into its field, kept within the slider's limits
+    function dragged(suffix, at) {
+        if (!open) {
+            return;
+        }
+        const range = limitsOf[suffix];
+        const value = range ? Math.min(Math.max(at, range[0]), range[1]) : at;
+        panel.set('offset' + suffix, +value.toFixed(2));
+        apply();
     }
 
     function apply() {
@@ -101,7 +116,7 @@ export function createSectionPanel(options) {
         });
         panel.note('Cut across ' + AXIS_NAME[panel.get('plane')] + ' at ' + (+panel.get('offset')).toFixed(2) + ' mm' +
             (two ? ' and across ' + AXIS_NAME[panel.get('plane2')] + ' at ' + (+panel.get('offset2')).toFixed(2) + ' mm' : '') +
-            '. Drag the slider or type a position.');
+            '. Drag the plane in the model or the slider, or type a position.');
     }
 
     // Open with a section type ("half", "quarter", "threequarter")
@@ -123,6 +138,7 @@ export function createSectionPanel(options) {
         limits('', false);
         limits('2', false);
         apply();
+        viewport.setSectionHandles(dragged);
         panel.ok(true);
         panel.show();
         return true;
@@ -134,6 +150,7 @@ export function createSectionPanel(options) {
         }
         open = false;
         panel.hide();
+        viewport.setSectionHandles(null);
         if (!keep && before) {
             viewport.setSection(before);
         }

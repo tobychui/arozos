@@ -16,7 +16,8 @@ import * as kernel from './occt.js';
 import * as assembly from './assembly.js';
 import * as drawing from './drawing.js';
 import { createRebuilder, transferList } from './rebuild.js';
-import { withResolvedPlane } from './profile.js';
+import { withResolvedPlane, planeFrame } from './profile.js';
+import { meshCheck } from '../io/exchange.js';
 
 let oc = null;
 let rebuilder = null;       // the one the part operations use: the shown part tab's
@@ -92,7 +93,7 @@ const operations = {
     // [{ triangles: Float32Array (plane coordinates), sample: [u, v], area }]
     regions: function (args) {
         const list = kernel.sketchRegions(oc, args.sketch).map(function (region) {
-            return { triangles: region.triangles, sample: region.sample, area: region.area };
+            return { triangles: region.triangles, sample: region.sample, area: region.area, curves: region.curves };
         });
         return { result: { regions: list }, transfer: list.map(function (region) {
             return region.triangles.buffer;
@@ -123,6 +124,44 @@ const operations = {
     tryFeature: function (args) {
         const state = rebuilder.shapesBefore(args.document, args.at || null);
         const feature = args.feature;
+        if (feature.type === 'sweep' || feature.type === 'loft') {
+            // The solid the feature adds or removes, drawn like an extrude preview
+            const sketchNow = function (id, what) {
+                const sk = state.byId[id];
+                if (!sk || sk.type !== 'sketch') {
+                    throw new Error('The ' + what + ' sketch comes after this feature or no longer exists');
+                }
+                return withResolvedPlane(sk, args.document.features);
+            };
+            const tool = feature.type === 'sweep'
+                ? kernel.sweepTool(oc, state.bodies, feature, sketchNow(feature.sketch, 'profile'), sketchNow(feature.path && feature.path.sketch, 'path'))
+                : kernel.loftTool(oc, feature, (feature.sections || []).map(function (s) {
+                    return sketchNow(s.sketch, 'section');
+                }));
+            const mesh = kernel.describe(oc, tool);
+            tool.delete();
+            return {
+                result: { ok: true, mesh: { positions: mesh.positions, indices: mesh.indices, edgePositions: mesh.edgePositions } },
+                transfer: [mesh.positions.buffer, mesh.indices.buffer, mesh.edgePositions.buffer]
+            };
+        }
+        if (feature.type === 'draft') {
+            // The bodies as they would become (the plane resolved as the rebuild does)
+            const frame = feature.plane ? planeFrame(feature.plane, args.document.features) : null;
+            const made = kernel.draft(oc, state.bodies, Object.assign({}, feature, { frame: frame ? { o: frame.o, n: frame.n } : null }));
+            const meshes = made.map(function (shape) {
+                const mesh = kernel.describe(oc, shape);
+                return { positions: mesh.positions, indices: mesh.indices, edgePositions: mesh.edgePositions, fresh: [] };
+            });
+            made.forEach(function (shape) {
+                if (state.bodies.indexOf(shape) < 0) {
+                    shape.delete();
+                }
+            });
+            return { result: { ok: true, meshes: meshes }, transfer: [].concat.apply([], meshes.map(function (m) {
+                return [m.positions.buffer, m.indices.buffer, m.edgePositions.buffer];
+            })) };
+        }
         if (feature.type === 'fillet' || feature.type === 'chamfer' || feature.type === 'shell') {
             // The bodies as they would be with the feature, for the live preview
             const report = { fresh: [] };
@@ -166,6 +205,24 @@ const operations = {
                 return [m.positions.buffer, m.indices.buffer, m.edgePositions.buffer];
             })) };
         }
+        if (feature.type === 'repair') {
+            // The bodies as they would come out, and what each check says
+            // before and after
+            const reports = [];
+            const made = kernel.repair(oc, state.bodies, feature, null, reports);
+            const meshes = made.map(function (shape) {
+                const mesh = kernel.describe(oc, shape);
+                return { positions: mesh.positions, indices: mesh.indices, edgePositions: mesh.edgePositions, fresh: [] };
+            });
+            made.forEach(function (shape) {
+                if (state.bodies.indexOf(shape) < 0) {
+                    shape.delete();
+                }
+            });
+            return { result: { ok: true, meshes: meshes, reports: reports }, transfer: [].concat.apply([], meshes.map(function (m) {
+                return [m.positions.buffer, m.indices.buffer, m.edgePositions.buffer];
+            })) };
+        }
         if (feature.type === 'hole') {
             const tool = kernel.holeTool(oc, state.bodies, feature, args.sketch);
             const mesh = kernel.describe(oc, tool);
@@ -204,6 +261,37 @@ const operations = {
                 })
             }
         };
+    },
+
+    // Inspect > Check Geometry: per body of the shown part, the topology
+    // (checkShape in heal.js: valid, solids, open and zero-thickness edges
+    // with where they are), the faces the mesher could not fill, and what a
+    // slicer would say about the mesh
+    check: function () {
+        const list = rebuilder.bodies().map(function (shape) {
+            const topology = kernel.checkBodies(oc, [shape])[0];
+            const mesh = kernel.describe(oc, shape);
+            const patched = [];
+            mesh.faces.forEach(function (face) {
+                if (face.patched || !face.count) {
+                    patched.push(face.centre);
+                }
+            });
+            return {
+                valid: topology.valid,
+                solids: topology.solids,
+                faces: topology.faces,
+                open: topology.open.slice(0, 200),
+                multiple: topology.multiple.slice(0, 200),
+                openCount: topology.open.length,
+                multipleCount: topology.multiple.length,
+                patched: patched,
+                empty: mesh.health.empty,
+                mesh: meshCheck(mesh),
+                volume: mesh.volume
+            };
+        });
+        return { result: { bodies: list } };
     },
 
     // The whole part as the text of a STEP or BREP file

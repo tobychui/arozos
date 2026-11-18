@@ -28,6 +28,7 @@ import { nearest, midpoint, dist } from './geom.js';
 import { planeFrame } from '../kernel/profile.js';
 import { projectInto } from './project.js';
 import { evaluate, isFormula } from '../expr.js';
+import { dimensionValue, keptFormula } from '../parameters.js';
 import { wheelStep } from '../ui.js';
 
 const POINT_PIXELS = 9;
@@ -36,6 +37,12 @@ const INFER_PIXELS = 6;
 // A stroke this close to level or upright (degrees) snaps to it
 const ANGLE_SNAP = 3;
 const DRAG_PIXELS = 4;
+// Two curves this close to the click (pixels) running within TWIN_DEGREES of
+// each other, or two points both in reach, lie on top of each other: one
+// click of a TWIN_TOOLS constraint takes both
+const TWIN_PIXELS = 10;
+const TWIN_DEGREES = 12;
+const TWIN_TOOLS = ['collinear', 'parallel', 'tangent', 'concentric', 'coincident'];
 
 export function createSketcher(options) {
     const viewport = options.viewport;
@@ -79,6 +86,7 @@ export function createSketcher(options) {
     let picks = [];         // entities picked for a constraint tool
     let construction = false;
     let hover = null;       // id under the cursor
+    let hoverTwin = null;   // a second id a constraint tool click would take with it (constraintPick)
     let selection = [];     // ids of geometry and constraints
     let preview = null;
     let cache = { points: [], curves: [], dims: [], badges: [] };
@@ -98,9 +106,11 @@ export function createSketcher(options) {
             return;
         }
         cache = draw(svg, {
-            sk: sk, frame: frame, project: viewport.project, hover: hover, width: canvas.clientWidth, height: canvas.clientHeight,
+            sk: sk, frame: frame, project: viewport.project, hover: hover, hoverTwin: hoverTwin,
+            width: canvas.clientWidth, height: canvas.clientHeight,
             selected: new Set(selection.concat(picks)), dof: result.dof, fixed: fixed, glyphs: glyphs,
-            bad: new Set(result.conflicting.concat(result.redundant)), preview: preview
+            bad: new Set(result.conflicting.concat(result.redundant)), preview: preview,
+            usable: constraintType() ? M.pickable(sk, constraintType(), picks) : null
         });
     }
 
@@ -458,6 +468,94 @@ export function createSketcher(options) {
         return c ? { kind: 'curve', id: c } : null;
     }
 
+    /* ================= constraint tool picking ================= */
+    // The constraint type of the active tool ("collinear"), or null
+    function constraintType() {
+        return toolId.indexOf('con:') === 0 ? toolId.slice(4) : null;
+    }
+
+    // Points and curves near px a constraint tool could take, points first
+    // (as entityAt), then nearest first: [{ kind, id, d, dir }]. The cache
+    // only holds what the tool can use (render.js), and dimension values and
+    // glyphs are left out so a curve under them can still be picked.
+    function candidatesAt(px) {
+        const out = [];
+        cache.points.forEach(function (p) {
+            const d = Math.hypot(p.x - px[0], p.y - px[1]);
+            if (d < POINT_PIXELS && picks.indexOf(p.id) < 0) {
+                out.push({ kind: 'point', id: p.id, d: d });
+            }
+        });
+        cache.curves.forEach(function (c) {
+            if (picks.indexOf(c.id) >= 0) {
+                return;
+            }
+            let best = Infinity;
+            let dir = null;
+            for (let i = 1; i < c.pts.length; i++) {
+                const d = segmentDistance(px, c.pts[i - 1], c.pts[i]);
+                if (d < best) {
+                    best = d;
+                    const dx = c.pts[i][0] - c.pts[i - 1][0];
+                    const dy = c.pts[i][1] - c.pts[i - 1][1];
+                    const len = Math.hypot(dx, dy) || 1;
+                    dir = [dx / len, dy / len];
+                }
+            }
+            if (best < TWIN_PIXELS) {
+                out.push({ kind: 'curve', id: c.id, d: best, dir: dir });
+            }
+        });
+        return out.sort(function (a, b) {
+            return a.kind !== b.kind ? (a.kind === 'point' ? -1 : 1) : a.d - b.d;
+        });
+    }
+
+    // Do two candidates lie on top of each other? Two points both in reach
+    // (not two points of one curve), or two curves running the same way here
+    function together(a, b) {
+        if (a.kind !== b.kind) {
+            return false;
+        }
+        if (a.kind === 'point') {
+            return !sk.geometry.some(function (g) {
+                const own = [g.p1, g.p2, g.c, g.start, g.end];
+                return g.type !== 'point' && own.indexOf(a.id) >= 0 && own.indexOf(b.id) >= 0;
+            });
+        }
+        return Math.abs(a.dir[0] * b.dir[1] - a.dir[1] * b.dir[0]) < Math.sin(TWIN_DEGREES * Math.PI / 180);
+    }
+
+    // What a click at px gives the constraint tool: { first, twin }. first is
+    // the nearest point (else curve) in reach. twin is a second one lying on
+    // top of it (two lines drawn over each other, two ends a pixel apart),
+    // taken by the same click when the tool still needs one and accepts it.
+    function constraintPick(px) {
+        const type = constraintType();
+        const found = candidatesAt(px);
+        const first = found.filter(function (c) {
+            return c.d < (c.kind === 'point' ? POINT_PIXELS : CURVE_PIXELS);
+        })[0] || null;
+        let twin = null;
+        if (first && TWIN_TOOLS.indexOf(type) >= 0 && M.build(sk, type, picks.concat([first.id])).more) {
+            twin = found.filter(function (c) {
+                return c !== first && together(first, c) && !M.build(sk, type, picks.concat([first.id, c.id])).error;
+            })[0] || null;
+        }
+        return { first: first, twin: twin };
+    }
+
+    // Is a model edge of this kind any use to the constraint tool?
+    function modelEdgeUsable(item) {
+        const type = constraintType();
+        if (!type || !item) {
+            return !!item;
+        }
+        const def = viewport.curvesOf(item)[0];
+        const usable = M.pickable(sk, type, picks);
+        return !!def && (def.type === 'line' ? usable.indexOf('line') >= 0 : usable.indexOf('circle') >= 0 || usable.indexOf('arc') >= 0);
+    }
+
     // Where a click here would land: on a point, a midpoint, a curve, or level
     // with / straight above the tool's anchor point.
     function snapAt(event) {
@@ -531,7 +629,7 @@ export function createSketcher(options) {
     // its end point when the pointer is on one, otherwise the curve.
     function pickModelEdge(event) {
         const item = modelEdgeAt(event);
-        if (!item) {
+        if (!item || !modelEdgeUsable(item)) {
             return null;
         }
         const made = projectInto(sk, frame, viewport.curvesOf(item)[0]);
@@ -546,7 +644,10 @@ export function createSketcher(options) {
         const g = M.find(sk, made.id);
         const raw = viewport.pointOnPlane(event.clientX, event.clientY, frame) || [0, 0];
         const reach = POINT_PIXELS * viewport.worldPerPixel();
-        const ends = g.type === 'line' ? [g.p1, g.p2] : g.type === 'arc' ? [g.start, g.end] : [];
+        // Its end only when the tool takes points (Collinear wants the line)
+        const type = constraintType();
+        const points = !type || M.pickable(sk, type, picks).indexOf('point') >= 0;
+        const ends = !points ? [] : g.type === 'line' ? [g.p1, g.p2] : g.type === 'arc' ? [g.start, g.end] : [];
         const end = ends.filter(function (id) {
             return dist(M.point(sk, id), raw) < reach;
         })[0];
@@ -646,6 +747,7 @@ export function createSketcher(options) {
         viewport.hoverModel(null);
         toolId = id;
         picks = [];
+        hoverTwin = null;
         preview = null;
         tool = null;
         ctx.fields([]);
@@ -766,7 +868,8 @@ export function createSketcher(options) {
             return;
         }
         editing = id;
-        editor.value = (d.type === 'axisangle' && d.value < 0 ? '-' : '') + dimensionLabel(d).replace(/[^0-9.]/g, '');
+        // A dimension driven by a parameter shows its formula to edit
+        editor.value = typeof d.expr === 'string' ? d.expr : (d.type === 'axisangle' && d.value < 0 ? '-' : '') + dimensionLabel(d).replace(/[^0-9.]/g, '');
         editor.hidden = false;
         editor.style.left = box.x + box.w / 2 - 36 + 'px';
         editor.style.top = box.y - 3 + 'px';
@@ -784,18 +887,27 @@ export function createSketcher(options) {
         const d = sk && sk.constraints.filter(function (c) {
             return c.id === id;
         })[0];
-        const typed = evaluate(editor.value); // a formula such as 35/2 is fine
-        // The angle of a line to the X axis may be zero or below; sizes not
-        const axis = !!d && d.type === 'axisangle';
-        if (!apply || !d || !isFinite(typed) || (!axis && !(typed > 0))) {
+        const typed = evaluate(editor.value); // a formula such as 35/2 or wall * 2 is fine
+        if (!apply || !d) {
             return;
         }
         // Angles are typed in degrees; the stored sign (which side) is kept,
-        // except for an axis angle, which is typed with its sign
-        const magnitude = d.type === 'angle' || axis ? typed * Math.PI / 180 : typed;
-        const value = !axis && d.value < 0 ? -magnitude : magnitude;
-        if (Math.abs(value - d.value) > 1e-9) {
+        // except for an axis angle, which is typed with its sign; sizes must
+        // be above zero (dimensionValue in parameters.js)
+        const value = dimensionValue(d, typed);
+        if (!isFinite(value)) {
+            return;
+        }
+        // A formula with a parameter name is kept, so the dimension follows
+        // the parameter (Manage > Parameters)
+        const formula = keptFormula(editor.value);
+        if (Math.abs(value - d.value) > 1e-9 || (formula || null) !== (typeof d.expr === 'string' ? d.expr : null)) {
             d.value = value;
+            if (formula) {
+                d.expr = formula;
+            } else {
+                delete d.expr;
+            }
             commit('Edit dimension', true);
         }
     }
@@ -870,6 +982,21 @@ export function createSketcher(options) {
         if (event.buttons) {
             return; // panning with the middle or right button
         }
+        if (constraintType()) {
+            // What a click would take, both of two lying on top of each
+            // other; with nothing of the sketch here, the model edge underneath
+            const choice = constraintPick(cursor);
+            const edge = choice.first ? null : modelEdgeAt(event);
+            viewport.hoverModel(edge && modelEdgeUsable(edge) ? edge : null);
+            const id = choice.first ? choice.first.id : null;
+            const twin = choice.twin ? choice.twin.id : null;
+            if (id !== hover || twin !== hoverTwin) {
+                hover = id;
+                hoverTwin = twin;
+                redraw();
+            }
+            return;
+        }
         if (picksModel()) {
             // Nothing of the sketch here: offer the model edge underneath
             viewport.hoverModel(entityAt(cursor) ? null : modelEdgeAt(event));
@@ -934,6 +1061,24 @@ export function createSketcher(options) {
         if (!active() || event.button !== 0) {
             return;
         }
+        if (constraintType()) {
+            const choice = constraintPick(pixelOf(event));
+            let hit = choice.first ? choice.first.id : null;
+            if (!hit) {
+                const edge = pickModelEdge(event);
+                hit = edge && (edge.kind === 'point' || edge.kind === 'curve') ? edge.id : null;
+            }
+            if (hit && picks.indexOf(hit) < 0) {
+                picks.push(hit);
+                if (choice.twin) {
+                    picks.push(choice.twin.id);
+                }
+                hover = null;
+                hoverTwin = null;
+                constraintStep();
+            }
+            return;
+        }
         if (toolId !== 'select') {
             const s = snapFor(event);
             if (picksModel() && !s.hit) {
@@ -945,9 +1090,6 @@ export function createSketcher(options) {
                 if (tool) {
                     tool.move(snapFor(event));
                 }
-            } else if (s.hit && (s.hit.kind === 'point' || s.hit.kind === 'curve') && picks.indexOf(s.hit.id) < 0) {
-                picks.push(s.hit.id);
-                constraintStep();
             }
             return;
         }

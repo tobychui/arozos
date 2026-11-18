@@ -12,20 +12,37 @@
 */
 
 import { normalizeAppearance } from '../appearance.js';
+import { normalizeMaterial } from '../materials.js';
+import { normalizeParameters } from '../parameters.js';
 
 export const FORMAT = 'aopart';
 export const VERSION = 1;
 const UNDO_LIMIT = 100;
 
-const TYPE_NAMES = { sketch: 'Sketch', extrude: 'Extrusion', revolve: 'Revolution', shell: 'Shell', pattern: 'Pattern', mirror: 'Mirror', hole: 'Hole', fillet: 'Fillet', chamfer: 'Chamfer', plane: 'Work Plane', axis: 'Work Axis', point: 'Work Point', import: 'Imported' };
+const TYPE_NAMES = { sketch: 'Sketch', extrude: 'Extrusion', revolve: 'Revolution', shell: 'Shell', pattern: 'Pattern', mirror: 'Mirror', hole: 'Hole', fillet: 'Fillet', chamfer: 'Chamfer', plane: 'Work Plane', axis: 'Work Axis', point: 'Work Point', import: 'Imported', repair: 'Repair', sweep: 'Sweep', loft: 'Loft', draft: 'Draft', mesh: 'Mesh' };
 
-// The features one refers to: its sketch, what a pattern repeats, and
-// every work plane, axis or point in its references, however deep
-export function usesOf(feature) {
+// Every sketch a feature is built from: its profile sketch, the path of a
+// sweep, the sections of a loft
+export function sketchesOf(feature) {
     const out = [];
     if (feature.sketch) {
         out.push(feature.sketch);
     }
+    if (feature.path && feature.path.sketch) {
+        out.push(feature.path.sketch);
+    }
+    (feature.sections || []).forEach(function (s) {
+        if (s && s.sketch && out.indexOf(s.sketch) < 0) {
+            out.push(s.sketch);
+        }
+    });
+    return out;
+}
+
+// The features one refers to: its sketch, what a pattern repeats, and
+// every work plane, axis or point in its references, however deep
+export function usesOf(feature) {
+    const out = sketchesOf(feature);
     (feature.features || []).forEach(function (id) {
         out.push(id);
     });
@@ -53,6 +70,25 @@ export function usesOf(feature) {
     };
     walk(feature, 0);
     return out;
+}
+
+// The distance of the newest extrusion in `features` that goes a distance
+// (not To, To Next or Through All): { value, value2, expr, expr2 }, or null.
+// A new extrusion starts from it instead of a fixed 10 mm.
+export function lastExtrudeDistance(features) {
+    for (let i = (features || []).length - 1; i >= 0; i--) {
+        const f = features[i];
+        const e = f && f.type === 'extrude' ? f.extent : null;
+        if (e && (e.type || 'distance') === 'distance' && e.value > 0) {
+            return {
+                value: e.value,
+                value2: e.value2 > 0 ? e.value2 : e.value,
+                expr: typeof e.expr === 'string' ? e.expr : null,
+                expr2: typeof e.expr2 === 'string' ? e.expr2 : null
+            };
+        }
+    }
+    return null;
 }
 
 export function emptyData() {
@@ -103,6 +139,16 @@ export function validate(data) {
     const look = normalizeAppearance(data.appearance);
     if (look) {
         out.appearance = look;
+    }
+    // What the part is made of, for its mass (features/material.js)
+    const material = normalizeMaterial(data.material);
+    if (material) {
+        out.material = material;
+    }
+    // Named values formulas can use (parameters.js)
+    const parameters = normalizeParameters(data.parameters);
+    if (parameters.length) {
+        out.parameters = parameters;
     }
     return out;
 }
@@ -202,6 +248,19 @@ export function createDocument() {
         }
         redoStack = [];
         emit(options && options.visual ? 'visual' : 'change');
+        return true;
+    };
+
+    // A change that is not an undo step of its own: what the app does by
+    // itself after a change (projected sketch geometry following the model).
+    // The user's step before it undoes both. Listeners hear "amend".
+    doc.amend = function (fn) {
+        const before = JSON.stringify(data);
+        fn(data);
+        if (JSON.stringify(data) === before) {
+            return false;
+        }
+        emit('amend');
         return true;
     };
 

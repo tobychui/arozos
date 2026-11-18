@@ -16,9 +16,13 @@
         kernel      call('regions')
         doc         the document
         onPick()    the picked set changed
+        multi       true for Loft: areas of several sketches, one per
+                    sketch, kept in the order picked (picks()); a second
+                    area of a sketch replaces its first
 */
 
 import { planeFrame, toWorld, withResolvedPlane } from '../kernel/profile.js';
+import { sketchesOf } from '../document/document.js';
 
 // Is plane point p inside a region (any of its triangles; six numbers each)?
 export function insideRegion(region, p) {
@@ -41,6 +45,7 @@ export function createProfiles(options) {
     const doc = options.doc;
     let regions = [];           // [{ sketch, frame, triangles, sample, world }]
     let selected = new Set();   // indices into regions
+    let order = [];             // the same, in the order picked (multi)
 
     function chosenSketch() {
         const first = selected.values().next();
@@ -54,6 +59,25 @@ export function createProfiles(options) {
     }
 
     function pick(index) {
+        if (options.multi) {
+            if (selected.has(index)) {
+                order = order.filter(function (i) {
+                    return i !== index;
+                });
+            } else {
+                const at = order.findIndex(function (i) {
+                    return regions[i].sketch === regions[index].sketch;
+                });
+                if (at >= 0) {
+                    order[at] = index;
+                } else {
+                    order.push(index);
+                }
+            }
+            selected = new Set(order);
+            options.onPick();
+            return;
+        }
         if (selected.has(index)) {
             selected.delete(index);
         } else {
@@ -72,13 +96,12 @@ export function createProfiles(options) {
     // the edited feature used are picked again; a single area is picked
     // for a new feature, as there is nothing to choose between.
     function load(editing, what) {
-        const used = new Set(doc.features().map(function (f) {
-            return f.sketch;
-        }));
+        const used = new Set([].concat.apply([], doc.features().map(sketchesOf)));
         // A shared sketch is offered again; one below End of Part or hidden is not
         const end = doc.endIndex ? doc.endIndex() : Infinity;
-        const sketches = editing ? [doc.feature(editing.sketch)].filter(Boolean) : doc.features().filter(function (f, i) {
-            return f.type === 'sketch' && !f.suppressed && !f.hidden && i <= end && (!used.has(f.id) || f.shared);
+        const own = editing ? sketchesOf(editing) : [];
+        const sketches = editing && !options.multi ? [doc.feature(editing.sketch)].filter(Boolean) : doc.features().filter(function (f, i) {
+            return f.type === 'sketch' && !f.suppressed && !f.hidden && i <= end && (!used.has(f.id) || f.shared || own.indexOf(f.id) >= 0);
         });
         if (!sketches.length) {
             return Promise.resolve({ ok: false, message: editing ? 'The sketch of this feature no longer exists' : what + ' needs a sketch: draw one with Start 2D Sketch first' });
@@ -94,7 +117,7 @@ export function createProfiles(options) {
                         world[i * 3 + 1] = p[1];
                         world[i * 3 + 2] = p[2];
                     }
-                    return { sketch: sketch.id, frame: frame, triangles: region.triangles, sample: region.sample, world: world };
+                    return { sketch: sketch.id, frame: frame, triangles: region.triangles, sample: region.sample, curves: region.curves || [], world: world };
                 });
             }).catch(function () {
                 return []; // a sketch the kernel cannot read offers no profile
@@ -102,14 +125,22 @@ export function createProfiles(options) {
         })).then(function (lists) {
             regions = [].concat.apply([], lists);
             selected = new Set();
+            order = [];
             if (!regions.length) {
                 return { ok: false, message: 'No closed profile to ' + what.toLowerCase() + ': the sketch needs an area that is closed all the way round' };
             }
-            if (editing) {
-                regions.forEach(function (region, i) {
-                    if ((editing.regions || []).some(function (p) {
-                        return insideRegion(region, p);
-                    })) {
+            if (editing && options.multi) {
+                (editing.sections || []).forEach(function (section) {
+                    const i = findRegion(section.sketch, section.region, section.curves);
+                    if (i >= 0) {
+                        order.push(i);
+                    }
+                });
+                selected = new Set(order);
+            } else if (editing) {
+                (editing.regions || []).forEach(function (p, k) {
+                    const i = findRegion(editing.sketch, p, (editing.regionCurves || [])[k]);
+                    if (i >= 0) {
                         selected.add(i);
                     }
                 });
@@ -117,6 +148,21 @@ export function createProfiles(options) {
                 selected.add(0);
             }
             return { ok: true };
+        });
+    }
+
+    // The region a feature picked: the one with the same curves around it
+    // (kernel boundingCurves), else the one its point falls in
+    function findRegion(sketch, point, curves) {
+        const key = Array.isArray(curves) && curves.length ? curves.slice().sort().join(',') : null;
+        const byKey = key ? regions.findIndex(function (r) {
+            return r.sketch === sketch && r.curves.slice().sort().join(',') === key;
+        }) : -1;
+        if (byKey >= 0) {
+            return byKey;
+        }
+        return regions.findIndex(function (r) {
+            return r.sketch === sketch && insideRegion(r, point);
         });
     }
 
@@ -128,6 +174,19 @@ export function createProfiles(options) {
         },
         clear: function () {
             selected.clear();
+            order = [];
+        },
+        // multi: [{ sketch, region: [u, v], curves }] in the order picked
+        picks: function () {
+            return order.map(function (i) {
+                return { sketch: regions[i].sketch, region: regions[i].sample, curves: regions[i].curves.slice() };
+            });
+        },
+        // The curves around each picked area, in the order of samples()
+        curveSets: function () {
+            return Array.from(selected).map(function (i) {
+                return regions[i].curves.slice();
+            });
         },
         count: function () {
             return selected.size;

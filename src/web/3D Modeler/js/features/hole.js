@@ -32,6 +32,7 @@ import { holePoints, addConstraint, point as sketchPoint } from '../sketch/model
 import { projectInto } from '../sketch/project.js';
 import { withResolvedPlane, planeFrame, toPlane } from '../kernel/profile.js';
 import { holeFigure } from './holefigure.js';
+import { sketchesOf } from '../document/document.js';
 
 // A new hole starts as the owner asked: a 3 mm countersunk hole 10 deep
 // with a drill point, countersunk to 6 mm
@@ -194,9 +195,7 @@ export function createHole(options) {
     panel.element().classList.add('props-wide');
 
     function freeSketch() {
-        const used = new Set(doc.features().map(function (f) {
-            return f.sketch;
-        }));
+        const used = new Set([].concat.apply([], doc.features().map(sketchesOf)));
         const end = doc.endIndex ? doc.endIndex() : Infinity;
         return doc.features().filter(function (f, i) {
             return f.type === 'sketch' && !f.suppressed && !f.hidden && i <= end && (!used.has(f.id) || f.shared) && holePoints(f).length;
@@ -246,7 +245,9 @@ export function createHole(options) {
                 options.onStatus('That edge is square to the face: pick an edge lying along it');
                 return;
             }
-            linear.edges[active === 'edge1' ? 0 : 1] = { curve: curve, line: { a: [a.u, a.v], b: [b.u, b.v] } };
+            // The edge it is goes along, so the projected edge follows the model
+            const tagged = pick.info.mid ? Object.assign({}, curve, { source: { body: pick.item ? pick.item.body : 0, mid: pick.info.mid, length: pick.info.length } }) : curve;
+            linear.edges[active === 'edge1' ? 0 : 1] = { curve: tagged, line: { a: [a.u, a.v], b: [b.u, b.v] } };
         } else {
             return;
         }

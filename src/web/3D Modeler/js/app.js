@@ -19,7 +19,7 @@
 */
 
 import { createRibbon } from './ribbon.js';
-import { createViewport, ORIGIN_PLANES } from './viewport.js';
+import { createViewport, ORIGIN_PLANES, orbitRing } from './viewport.js';
 import { createBrowser } from './browser.js';
 import { createKernel } from './kernel/client.js';
 import { createDocument } from './document/document.js';
@@ -32,16 +32,20 @@ import { createMeasure } from './inspect/measure.js';
 import { createSectionPanel } from './inspect/section.js';
 import { createAppearancePanel } from './features/appearance.js';
 import { createPaintPanel } from './features/paint.js';
+import { createMaterialPanel, massOf } from './features/material.js';
+import { createParameterTable } from './features/paramtable.js';
+import { evaluateParameters, applyParameters } from './parameters.js';
+import { setScope } from './expr.js';
 import { normalizeScene, lightingById } from './appearance.js';
 import { toTextureImage, IMAGE_EXTENSIONS } from './io/image.js';
 import { askMeshExport } from './io/exportdialog.js';
 import { createOffsetBox } from './offsetbox.js';
 import * as files from './io/files.js';
 import * as native from './io/native.js';
-import { toSTL, toOBJ, to3MF } from './io/exchange.js';
+import { toSTL, toSTLText, toOBJ, to3MF, meshCheck, scaled, parseSTL, parseOBJ, encodeMesh, decodeMesh, meshInfo } from './io/exchange.js';
 import * as solver from './sketch/solver.js';
 import { createSketcher } from './sketch/sketcher.js';
-import { addProjected } from './sketch/project.js';
+import { addProjected, applyFollow } from './sketch/project.js';
 import { createExtrude } from './features/extrude.js';
 import { createRevolve } from './features/revolve.js';
 import { createShell } from './features/shell.js';
@@ -49,12 +53,17 @@ import { createPattern } from './features/pattern.js';
 import { createEdgeFeature } from './features/edges.js';
 import { createHole } from './features/hole.js';
 import { createWorkFeature } from './features/workfeature.js';
+import { createRepair } from './features/repair.js';
+import { createSweep } from './features/sweep.js';
+import { createLoft } from './features/loft.js';
+import { createDraft } from './features/draft.js';
+import { createCheckPanel } from './inspect/check.js';
 import * as sketchModel from './sketch/model.js';
 import { sample } from './sketch/geom.js';
 import { planeFrame, toWorld, workPlaneFrame, resolveFace, resolveWork, workAxisLine, workPoint } from './kernel/profile.js';
 import { icon, openMenu, closeMenu, ask, tell, chooseNew } from './ui.js';
 import { createTabBar, freeName } from './tabs.js';
-import { validate as validatePart } from './document/document.js';
+import { validate as validatePart, sketchesOf } from './document/document.js';
 import { validateAssembly } from './assembly/document.js';
 import { validateDrawing } from './drawing/document.js';
 
@@ -246,7 +255,7 @@ const browser = createBrowser($('tree'), doc, {
         const feature = id && doc.feature(id);
         if (feature && state.mode === 'model') {
             const status = featureReport[id];
-            setStatus(status && status.status === 'error' ? feature.name + ': ' + status.message : feature.name);
+            setStatus(status && status.status === 'error' ? feature.name + ': ' + status.message : status && status.note ? feature.name + ': ' + status.note : feature.name);
         }
     },
     onFeatureAction: function (action, id, value) {
@@ -355,11 +364,9 @@ function refreshSketches() {
     const limit = Math.min(rollbackIndex(), doc.endIndex() + 1);
     // A sketch used only by features after the rolled back point (or below
     // End of Part) is unused there; a shared one is always drawn
-    const used = new Set(doc.features().filter(function (f, i) {
+    const used = new Set([].concat.apply([], doc.features().filter(function (f, i) {
         return i < limit;
-    }).map(function (f) {
-        return f.sketch;
-    }));
+    }).map(sketchesOf)));
     const list = [];
     doc.features().forEach(function (feature, i) {
         const frame = feature.type === 'sketch' && i <= Math.min(rollbackIndex(), doc.endIndex()) && !feature.hidden ? planeFrame(feature.plane, doc.features()) : null;
@@ -378,6 +385,32 @@ function refreshSketches() {
         list.push({ id: feature.id, segments: new Float32Array(out) });
     });
     viewport.setSketches(list);
+    refreshMeshes();
+}
+
+// Reference meshes (STL / OBJ brought in) are drawn pale; decoded once
+const decodedMeshes = new Map(); // feature id -> { stored, mesh }
+function refreshMeshes() {
+    const limit = Math.min(rollbackIndex(), doc.endIndex());
+    const list = [];
+    doc.features().forEach(function (feature, i) {
+        if (feature.type !== 'mesh' || feature.suppressed || feature.hidden || i > limit || !feature.data) {
+            return;
+        }
+        let entry = decodedMeshes.get(feature.id);
+        if (!entry || entry.stored !== feature.data) {
+            try {
+                entry = { stored: feature.data, mesh: decodeMesh(feature.data) };
+            } catch (err) {
+                entry = { stored: feature.data, mesh: null };
+            }
+            decodedMeshes.set(feature.id, entry);
+        }
+        if (entry.mesh) {
+            list.push({ id: feature.id, positions: entry.mesh.positions, indices: entry.mesh.indices });
+        }
+    });
+    viewport.setMeshes(state.env === 'part' ? list : []);
 }
 
 // Work planes, axes and points are drawn in the model; the drafts are the
@@ -565,7 +598,11 @@ const FEATURE_HINTS = {
     hole: 'Hole: place it at sketch points or by two edges (Linear), set the type, size and thread, then OK',
     plane: 'Work Plane: pick what it is defined by in the model, set the values, then OK',
     axis: 'Work Axis: pick an edge, a round face, two planes or two points, then OK',
-    point: 'Work Point: pick a corner, type coordinates, or pick an axis and a plane, then OK'
+    point: 'Work Point: pick a corner, type coordinates, or pick an axis and a plane, then OK',
+    repair: 'Repair: the solid is checked and healed (gaps, slivers, open edges); compare before and after, then OK',
+    sweep: 'Sweep: pick a profile, then the path (curves of another sketch), then OK',
+    loft: 'Loft: click a closed area of each section sketch in order, choose Smooth or Ruled, then OK',
+    draft: 'Draft: click the faces to tilt, pick the fixed plane, set the angle, then OK'
 };
 let activeFeature = null;   // { kind, tool, rolledBack } while a feature panel is open
 
@@ -603,7 +640,7 @@ function startFeature(kind, featureId) {
     }) : Promise.resolve();
     shown.then(function () {
         // Fillet and chamfer pick edges of the model; the others must not react to it
-        viewport.setPicking(['fillet', 'chamfer', 'shell', 'rectpattern', 'circpattern', 'mirror'].indexOf(kind) >= 0);
+        viewport.setPicking(['fillet', 'chamfer', 'shell', 'draft', 'rectpattern', 'circpattern', 'mirror'].indexOf(kind) >= 0);
         return tool.start(featureId || null, preselected, browser.selected());
     }).then(function (ok) {
         if (!ok) {
@@ -641,9 +678,16 @@ function featureClosed(kind) {
 }
 
 function finishSketch() {
+    // Turn to the face the sketch is on, at an angle, so an extrusion out of
+    // it shows (also when Extrude is what finished the sketch)
+    const frame = sketcher.isOpen() ? sketcher.frame() : null;
     closeSketch();
     refreshSketches();
-    viewport.home();
+    if (frame && frame.n) {
+        viewport.viewFace(frame.n);
+    } else {
+        viewport.home();
+    }
     if (state.rebuildDeferred) {
         requestRebuild();
     }
@@ -687,7 +731,7 @@ $('viewcube-home').addEventListener('click', function () {
 iconButton($('navbar'), 'nav.zoomall', 'zoomall', 'Zoom All');
 iconButton($('navbar'), 'nav.home', 'home', 'Home View');
 iconButton($('navbar'), 'nav.lookat', 'lookat', 'Look At');
-const orbitButton = iconButton($('navbar'), 'nav.orbit', 'orbit', 'Orbit: drag with the left button to turn the view (or hold F4, or Shift + middle button)');
+const orbitButton = iconButton($('navbar'), 'nav.orbit', 'orbit', 'Orbit: drag with the left button inside the circle to turn the view, outside it to roll the view (or hold F4; Shift + middle button turns it)');
 const panButton = iconButton($('navbar'), 'nav.pan', 'pan', 'Pan: drag with the left button to move the view (or drag with the middle button)');
 
 // Lend the left button to the view ('orbit' or 'pan'), or give it back ('select')
@@ -729,7 +773,8 @@ function releaseLeftButton() {
 });
 
 // The circle shown over the model while the left button orbits: four
-// ticks outside it at the quarters and a small cross in the middle
+// ticks outside it at the quarters and a small cross in the middle. Its
+// zones (inside, outside, the ticks) are in viewport.js orbitRing().
 function drawOrbitMark() {
     const mark = $('orbit-mark');
     // An SVG element has no `hidden` property: set the attribute itself
@@ -740,10 +785,11 @@ function drawOrbitMark() {
     }
     const w = $('stage').clientWidth;
     const h = $('stage').clientHeight;
-    const cx = Math.round(w / 2) + 0.5;
-    const cy = Math.round(h / 2) + 0.5;
-    const r = Math.round(Math.min(w, h) * 0.37);
-    const t = Math.round(r * 0.21);
+    const ring = orbitRing(w, h);
+    const cx = ring.cx;
+    const cy = ring.cy;
+    const r = ring.r;
+    const t = ring.tick;
     const c = 30;
     mark.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
     mark.innerHTML = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
@@ -1043,8 +1089,19 @@ function leaveDocument() {
     setPrompt('');
 }
 
+// F5 Previous View: the views before each change of view, newest last
+// (viewport.onViewChange); started over with every tab switch
+const viewHistory = [];
+viewport.onViewChange = function (view) {
+    viewHistory.push(view);
+    if (viewHistory.length > 30) {
+        viewHistory.shift();
+    }
+};
+
 // Keep the shown document (and where it was looked at) in its tab
 function stash() {
+    viewHistory.length = 0;
     if (activeTab) {
         activeTab.snap = docOf(activeTab.kind).snapshot();
         activeTab.view = activeTab.kind === 'drawing' ? drawing.viewState() : viewport.viewState();
@@ -1238,6 +1295,7 @@ function requestRebuild() {
         }
         featureReport = result.features;
         takeFaceFrames(result.frames, result.lines);
+        followModel(result.projections);
         // A feature or an earlier sketch being edited keeps its rolled back
         // view; closing it asks again
         if (!(activeFeature && activeFeature.rolledBack) && !state.rollbackAt) {
@@ -1271,6 +1329,16 @@ function requestRebuild() {
         } else if (hadFailures && state.mode === 'model' && $('status-msg').textContent === lastFailureText) {
             setStatus('Ready'); // clear the error text once the part builds again (not a newer message)
         }
+        // A solid that does not close up (or one the mesher patched) is
+        // said once, when it turns up
+        const unhealthy = result.bodies.some(function (b) {
+            return b.health && (b.health.open || b.health.multiple || b.health.empty || b.health.patched);
+        });
+        if (unhealthy && !state.unhealthy && !failed.length) {
+            setStatus('The solid has open edges or faces that did not mesh cleanly: Inspect > Check Geometry shows where, 3D Model > Repair fixes it');
+        }
+        state.unhealthy = unhealthy;
+        checkPanel.refresh();
     }).catch(function (err) {
         setStatus('Rebuild failed: ' + err.message);
     }).then(function () {
@@ -1296,6 +1364,8 @@ function reportOpenFailures(failed) {
 }
 
 doc.onChange(function (reason) {
+    // Every size box understands the part's parameter names
+    setScope(evaluateParameters(doc.data().parameters).values);
     if (state.env === 'part') {
         viewport.setHiddenBodies(doc.data().hiddenBodies || []);
     }
@@ -1308,6 +1378,19 @@ doc.onChange(function (reason) {
         return;
     }
     refreshChrome();
+    if (reason === 'amend') {
+        // The app's own follow-up (projected geometry following the model):
+        // rebuild, but leave open panels and the sketcher alone
+        browser.render();
+        refreshSketches();
+        refreshWorkPlanes();
+        if (sketcher.isOpen()) {
+            state.rebuildDeferred = true;
+        } else {
+            requestRebuild();
+        }
+        return;
+    }
     if (appearanceTool.isOpen() && reason !== 'saved') {
         appearanceTool.cancel(); // undo or another part pulled the look from under the panel
     }
@@ -1398,6 +1481,7 @@ function setEnv(env) {
     viewport.setBodies([]);
     viewport.setHiddenBodies(env === 'part' ? doc.data().hiddenBodies || [] : []);
     state.env = env;
+    refreshMeshes(); // a part's reference meshes only show in the part
     ribbon.setMode(env);
     ribbon.setTabVisible('sketch', false);
     $('tree').hidden = env !== 'part';
@@ -1516,6 +1600,14 @@ function saveDocument(askWhere) {
 }
 
 /* ================= inspect ================= */
+// The mass from the part's material (Appearance > Material), or an example
+function massLines(volume) {
+    const mass = massOf(volume, doc.data().material);
+    return mass ? ['Mass: ' + mass.text + ' in ' + mass.material]
+        : ['Mass = volume x density of your material, for example PLA 1.24 g/cm3: ' + mm(volume / 1000 * 1.24, 2) + ' g.',
+            'Appearance > Material sets the material of the part.'];
+}
+
 // The threads of the part's holes, as notes (threads are not modelled)
 function threadNotes() {
     const lines = [];
@@ -1546,9 +1638,8 @@ function showMassProperties() {
             line('Surface area', [m.area], 'mm2'),
             line('Overall size (X x Y x Z)', m.size, 'mm'),
             'Centre of gravity: X ' + mm(m.centre[0], 3) + ', Y ' + mm(m.centre[1], 3) + ', Z ' + mm(m.centre[2], 3) + ' mm',
-            '',
-            'Mass = volume x density of your material, for example PLA 1.24 g/cm3: ' + mm(m.volume / 1000 * 1.24, 2) + ' g.'
-        ].concat(threadNotes()).join('\n'));
+            ''
+        ].concat(massLines(m.volume)).concat(threadNotes()).join('\n'));
     }).catch(function (err) {
         fail('The part could not be measured', err);
     });
@@ -1576,15 +1667,17 @@ function startInspect(kind, arg) {
     if (state.env === 'assembly') {
         assembly.stopTools();
     }
-    const tool = kind === 'section' ? sectionPanel : state.env === 'assembly' ? measureAssembly : measurePart;
+    const tool = kind === 'section' ? sectionPanel : kind === 'check' ? checkPanel : state.env === 'assembly' ? measureAssembly : measurePart;
     if (!viewport.bodyCount()) {
-        setStatus(kind === 'section' ? 'There is nothing to cut yet' : 'There is nothing to measure yet');
+        setStatus(kind === 'section' ? 'There is nothing to cut yet' : kind === 'check' ? 'There is nothing to check yet' : 'There is nothing to measure yet');
         return;
     }
     if (tool.start(arg)) {
         activeInspect = { kind: kind, tool: tool };
         ribbon.setOn('ins.measure', kind === 'measure');
-        setStatus(kind === 'measure' ? 'Measure: click a face or an edge, then a second one' : 'Section View: pick the plane and drag its position');
+        ribbon.setOn('ins.check', kind === 'check');
+        setStatus(kind === 'measure' ? 'Measure: click a face or an edge, then a second one' : kind === 'check' ? 'Check Geometry: checking the solid'
+            : 'Section View: pick the plane and drag its position');
     }
 }
 
@@ -1605,6 +1698,7 @@ function inspectClosed(kind) {
     }
     activeInspect = null;
     ribbon.setOn('ins.measure', false);
+    ribbon.setOn('ins.check', false);
     if (state.env === 'assembly') {
         viewport.setComponentMode(true);
     }
@@ -1642,27 +1736,48 @@ function exportPart(format) {
             return { text: out.text };
         });
     } else {
+        const choices = [{ key: 'units', label: 'Units', items: [{ id: 'mm', label: 'Millimetres' }, { id: 'in', label: 'Inches' }] }];
+        if (format === 'stl') {
+            choices.push({ key: 'encoding', label: 'Encoding', items: [{ id: 'binary', label: 'Binary (small)' }, { id: 'ascii', label: 'ASCII text' }] });
+        }
         made = askMeshExport({
             title: 'Export ' + format.toUpperCase(),
             text: MESH_TEXT[format],
+            format: format,
+            choices: choices,
             // The whole file at one fineness: its size is shown, and it is
             // what is saved when that fineness is exported
-            make: function (level) {
+            make: function (level, picked) {
                 const quality = { deflection: level.deflection, angle: level.angle };
                 const meshed = state.env === 'assembly' ? assembly.exportContent(format, quality) : kernel.call('mesh', quality);
-                return meshed.then(function (out) {
+                return meshed.then(function (raw) {
+                    // Inches: every coordinate over 25.4 (the file has no unit of its own)
+                    const out = Object.assign({}, raw, { bodies: scaled(raw.bodies, picked && picked.units === 'in' ? 1 / 25.4 : 1) });
                     let triangles = 0;
                     out.bodies.forEach(function (b) {
                         triangles += b.indices.length / 3;
                     });
                     let content;
+                    const units = picked && picked.units === 'in' ? 'in' : 'mm';
                     if (format === 'obj') {
-                        content = { text: toOBJ(out.bodies, name) };
+                        content = { text: toOBJ(out.bodies, name, units) };
+                    } else if (format === 'stl' && picked && picked.encoding === 'ascii') {
+                        content = { text: toSTLText(out.bodies, name) };
                     } else {
-                        content = { bytes: format === 'stl' ? toSTL(out.bodies) : to3MF(out.bodies) };
+                        content = { bytes: format === 'stl' ? toSTL(out.bodies, units) : to3MF(out.bodies, units) };
                     }
                     const size = content.text !== undefined ? new Blob([content.text]).size : content.bytes.length;
-                    return { content: content, size: size, triangles: triangles };
+                    // What a slicer will say: each solid checked on its own
+                    let open = 0;
+                    let multiple = 0;
+                    out.bodies.forEach(function (b) {
+                        const check = meshCheck(b);
+                        open += check.open;
+                        multiple += check.multiple;
+                    });
+                    const warning = open || multiple ? 'Not watertight: ' + [open ? open + ' open' : '', multiple ? multiple + ' non-manifold' : ''].filter(Boolean).join(' and ') +
+                        ' edges. Inspect > Check Geometry shows where' : '';
+                    return { content: content, size: size, triangles: triangles, warning: warning };
                 });
             }
         }).then(function (chosen) {
@@ -1701,6 +1816,43 @@ function importStep() {
         return file ? addImport(file) : null;
     }).catch(function (err) {
         fail('The file could not be imported', err);
+    });
+}
+
+// An STL or OBJ file becomes a reference mesh: drawn pale to model around,
+// not a solid (the kernel ignores it; it is not exported or weighed)
+const MESH_WARN_BYTES = 8 * 1024 * 1024;
+function importMesh(format) {
+    files.openOther([format], format === 'stl').then(function (file) {
+        if (!file) {
+            return null;
+        }
+        setStatus('Reading ' + file.name + '...');
+        const mesh = format === 'stl' ? parseSTL(file.bytes) : parseOBJ(file.text);
+        const data = encodeMesh(mesh);
+        const size = data.positions.length + data.indices.length;
+        const info = meshInfo(mesh);
+        const go = size < MESH_WARN_BYTES ? Promise.resolve(true) : ask('Large mesh', file.name + ' has ' + info.triangles.toLocaleString('en-US') +
+            ' triangles and adds about ' + Math.round(size / 1048576) + ' MB to the part file. Bring it in anyway?',
+            [{ label: 'Cancel', value: false }, { label: 'Bring In', value: true, primary: true }], false);
+        return go.then(function (ok) {
+            if (!ok) {
+                setStatus('Ready');
+                return;
+            }
+            const id = doc.newId();
+            const name = doc.newName('mesh');
+            doc.change('Bring in ' + file.name, function (d) {
+                d.features.push({ id: id, type: 'mesh', name: name, format: format, source: file.name, data: data });
+            });
+            const span = info.max.map(function (v, k) {
+                return +(v - info.min[k]).toFixed(2);
+            });
+            setStatus(name + ': ' + file.name + ', ' + info.triangles.toLocaleString('en-US') + ' triangles, ' + span.join(' x ') +
+                ' mm. A reference to model around: it is not a solid and is not exported.');
+        });
+    }).catch(function (err) {
+        fail('The mesh could not be brought in', err);
     });
 }
 
@@ -1802,7 +1954,7 @@ function leaveMode() {
 function referenceOf(target) {
     return target.kind === 'origin' ? { ref: 'origin:' + target.key }
         : target.kind === 'work' ? { ref: 'plane', id: target.id }
-            : target.point ? { ref: 'face', frame: faceFrame(target), face: { normal: target.normal, point: target.point } }
+            : target.point ? { ref: 'face', frame: faceFrame(target), face: target.name ? { normal: target.normal, point: target.point, name: target.name } : { normal: target.normal, point: target.point } }
                 : { ref: 'face', frame: faceFrame(target) };
 }
 
@@ -1985,6 +2137,24 @@ function onCommand(id) {
     if (wasPaint && !/^(nav|view|style|proj)\./.test(id)) {
         paintTool.cancel();
     }
+    const wasMaterial = materialTool.isOpen();
+    if (wasMaterial && !/^(nav|view|style|proj)\./.test(id)) {
+        materialTool.cancel();
+    }
+    const wasParams = paramTable.isOpen();
+    if (wasParams && !/^(nav|view|style|proj)\./.test(id)) {
+        paramTable.cancel();
+    }
+    if (id === 'manage.params') {
+        if (!wasParams && state.env === 'part') {
+            if (sketcher.isOpen()) {
+                finishSketch();
+            }
+            paramTable.start();
+            ribbon.setOn('manage.params', true);
+        }
+        return;
+    }
     if (state.env === 'assembly' && assembly.command(id)) {
         return;
     }
@@ -1998,6 +2168,16 @@ function onCommand(id) {
             }
             appearanceTool.start();
             ribbon.setOn('app.appearance', true);
+        }
+        return;
+    }
+    if (id === 'app.material') {
+        if (!wasMaterial && state.env === 'part') {
+            if (sketcher.isOpen()) {
+                finishSketch();
+            }
+            materialTool.start();
+            ribbon.setOn('app.material', true);
         }
         return;
     }
@@ -2080,12 +2260,17 @@ function onCommand(id) {
         // Clicking the active one gives the left button back to selecting
         const mode = id.slice(4);
         setLeftDrag(state.leftDrag === mode ? 'select' : mode);
-        setStatus(state.leftDrag === 'select' ? 'Ready' : (mode === 'orbit' ? 'Orbit' : 'Pan') + ': drag with the left button. Esc, the button again or any tool gives it back to selecting.');
+        setStatus(state.leftDrag === 'select' ? 'Ready' : (mode === 'orbit' ? 'Orbit: drag inside the circle to turn, outside it to roll, on a tick to turn about one axis' : 'Pan: drag with the left button') +
+            '. Esc, the button again or any tool gives it back to selecting.');
     } else if (id === 'ins.mass') {
         showMassProperties();
     } else if (id === 'ins.measure') {
         if (wasInspect !== 'measure') {
             startInspect('measure');
+        }
+    } else if (id === 'ins.check') {
+        if (wasInspect !== 'check') {
+            startInspect('check');
         }
     } else if (id.indexOf('style.') === 0) {
         viewport.setVisualStyle(id.slice(6));
@@ -2106,6 +2291,8 @@ function onCommand(id) {
         exportPart(id.slice(7));
     } else if (id === 'import.step') {
         importStep();
+    } else if (id === 'import.stl' || id === 'import.obj') {
+        importMesh(id.slice(7));
     } else if (id === 'file.sample') {
         loadDocument(sampleDocument(), sampleName('Sample Part'), '');
     } else if (id === 'file.sampledrw') {
@@ -2191,6 +2378,23 @@ document.addEventListener('keydown', function (event) {
         onCommand(command);
         return;
     }
+    if (key === 'f5' && !ctrl && state.env !== 'drawing') {
+        // Previous View, as in desktop CAD (the browser's reload is Ctrl+F5 / Ctrl+R)
+        event.preventDefault();
+        const view = viewHistory.pop();
+        if (view) {
+            viewport.setViewState(view);
+            setStatus('Previous view' + (viewHistory.length ? '' : ': this was the first one kept'));
+        } else {
+            setStatus('No previous view: the view has not changed yet');
+        }
+        return;
+    }
+    if (key === 'f6' && state.env !== 'drawing') {
+        event.preventDefault();
+        onCommand('nav.home'); // Home View
+        return;
+    }
     if (key === 'f4' && !event.repeat && state.leftDrag !== 'orbit') {
         // Held down, F4 turns the left button into orbit, as in desktop CAD
         event.preventDefault();
@@ -2271,7 +2475,11 @@ const featureTools = {
     hole: createHole(featureOptions('hole')),
     plane: createWorkFeature('plane', workOptions('plane')),
     axis: createWorkFeature('axis', workOptions('axis')),
-    point: createWorkFeature('point', workOptions('point'))
+    point: createWorkFeature('point', workOptions('point')),
+    repair: createRepair(featureOptions('repair')),
+    sweep: createSweep(featureOptions('sweep')),
+    loft: createLoft(featureOptions('loft')),
+    draft: createDraft(featureOptions('draft'))
 };
 
 // The work feature panels show what they set up as drafts, and take plane
@@ -2346,6 +2554,19 @@ const measurePart = createMeasure({
         inspectClosed('measure');
     }
 });
+// Inspect > Check Geometry; its Repair... button opens the Repair feature
+const checkPanel = createCheckPanel({
+    stage: $('stage'),
+    viewport: viewport,
+    kernel: kernel,
+    onStatus: setStatus,
+    onRepair: function () {
+        startFeature('repair', null);
+    },
+    onClose: function () {
+        inspectClosed('check');
+    }
+});
 const measureAssembly = createMeasure({
     stage: $('stage'),
     viewport: viewport,
@@ -2374,6 +2595,125 @@ const appearanceTool = createAppearancePanel({
         return files.openOther(IMAGE_EXTENSIONS, true).then(function (file) {
             return file ? toTextureImage(file.bytes, file.name) : null;
         });
+    }
+});
+// Projected sketch geometry follows its model edges (PROPOSAL.md 14.5 C):
+// the rebuild reports projected curves whose edges moved; they are moved
+// in the sketch, the sketch is solved again (headless) so what is tied to
+// them follows, and the part rebuilds. Not an undo step of its own. A
+// sketch that cannot be solved that way keeps its geometry (said once).
+let followPasses = 0;
+const followSaid = new Set();
+function followModel(projections) {
+    const ids = Object.keys(projections || {}).filter(function (id) {
+        return doc.feature(id) && !(sketcher.isOpen() && sketcher.featureId() === id) &&
+            !followSaid.has(id + JSON.stringify(projections[id]));
+    });
+    if (!ids.length) {
+        followPasses = 0;
+        return;
+    }
+    if (++followPasses > 4) {
+        followPasses = 0;
+        setStatus('Projected sketch geometry could not settle on the model; open the sketch to check it');
+        return;
+    }
+    if (!headlessSolver) {
+        headlessSolver = solver.createSolver();
+    }
+    headlessSolver.then(function (s) {
+        const said = [];
+        doc.amend(function (d) {
+            ids.forEach(function (id) {
+                const sketch = d.features.find(function (f) {
+                    return f.id === id;
+                });
+                if (!sketch) {
+                    return;
+                }
+                const before = JSON.stringify(sketch.geometry);
+                const out = applyFollow(sketch, projections[id]);
+                if (out.lost.length) {
+                    followSaid.add(id + JSON.stringify(projections[id]));
+                    said.push(sketch.name + ': ' + (out.lost.length === 1 ? 'a projected edge is' : out.lost.length + ' projected edges are') +
+                        ' no longer in the model and stay' + (out.lost.length === 1 ? 's' : '') + ' where ' + (out.lost.length === 1 ? 'it was' : 'they were'));
+                }
+                if (out.moved && !s.solve(sketch).ok) {
+                    // The constraints cannot be met with the edges where they
+                    // are now: keep the sketch as it was
+                    sketch.geometry = JSON.parse(before);
+                    followSaid.add(id + JSON.stringify(projections[id]));
+                    said.push(sketch.name + ' cannot follow the model: its constraints cannot be met with the edges where they are now. Open it to fix them');
+                }
+            });
+        });
+        if (said.length) {
+            setStatus(said[0]);
+        }
+    }).catch(function (err) {
+        setStatus('Projected sketch geometry could not follow the model: ' + err.message);
+    });
+}
+
+// Manage > Parameters. OK works every kept formula out again and solves
+// the sketches whose dimensions changed (the sketch solver, headless), as
+// one undo step; a sketch that cannot meet its new sizes keeps its old ones
+let headlessSolver = null;
+const paramTable = createParameterTable({
+    stage: $('stage'),
+    doc: doc,
+    onStatus: setStatus,
+    onClose: function () {
+        ribbon.setOn('manage.params', false);
+    },
+    onApply: function (list) {
+        if (!headlessSolver) {
+            headlessSolver = solver.createSolver();
+        }
+        headlessSolver.then(function (s) {
+            const problems = [];
+            doc.change('Parameters', function (d) {
+                if (list.length) {
+                    d.parameters = list;
+                } else {
+                    delete d.parameters;
+                }
+                const before = {};
+                d.features.forEach(function (f) {
+                    if (f.type === 'sketch') {
+                        before[f.id] = (f.constraints || []).map(function (c) {
+                            return c.value;
+                        });
+                    }
+                });
+                const out = applyParameters(d);
+                problems.push.apply(problems, out.problems);
+                out.sketches.forEach(function (id) {
+                    const sketch = d.features.find(function (f) {
+                        return f.id === id;
+                    });
+                    const solved = s.solve(sketch);
+                    if (!solved.ok) {
+                        (sketch.constraints || []).forEach(function (c, i) {
+                            c.value = before[id][i];
+                        });
+                        problems.push(sketch.name + ' cannot meet its dimensions with these values: it keeps its old sizes');
+                    }
+                });
+            });
+            setStatus(problems.length ? problems[0] + (problems.length > 1 ? ' (and ' + (problems.length - 1) + ' more)' : '')
+                : 'Parameters applied' + (list.length ? ': ' + list.length + (list.length === 1 ? ' parameter' : ' parameters') : ''));
+        }).catch(function (err) {
+            fail('The parameters could not be applied', err);
+        });
+    }
+});
+const materialTool = createMaterialPanel({
+    stage: $('stage'),
+    doc: doc,
+    onStatus: setStatus,
+    onClose: function () {
+        ribbon.setOn('app.material', false);
     }
 });
 const paintTool = createPaintPanel({

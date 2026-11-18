@@ -590,6 +590,52 @@ export function build(sk, type, ids) {
     return { error: 'Unknown constraint' };
 }
 
+const ALL_KINDS = ['point', 'line', 'circle', 'arc'];
+
+// What a constraint tool can take as its next pick, after the entities
+// picked so far (ids): a list of kinds out of "point", "line", "circle",
+// "arc", in step with build(). The sketcher hides the points and dims the
+// curves of other kinds, and does not pick them.
+export function pickable(sk, type, ids) {
+    const kinds = (ids || []).map(function (id) {
+        return kindOf(sk, id);
+    });
+    const count = function (test) {
+        return kinds.filter(test).length;
+    };
+    const has = function (kind) {
+        return kinds.indexOf(kind) >= 0;
+    };
+    const round = count(isRound) > 0;
+    switch (type) {
+        case 'horizontal':
+        case 'vertical':
+            return has('point') ? ['point'] : ['point', 'line'];
+        case 'parallel':
+        case 'perpendicular':
+        case 'collinear':
+            return ['line'];
+        case 'tangent':
+            return has('line') ? ['circle', 'arc'] : ['line', 'circle', 'arc'];
+        case 'equal':
+            return has('line') ? ['line'] : round ? ['circle', 'arc'] : ['line', 'circle', 'arc'];
+        case 'coincident':
+            return kinds.length > count(function (k) {
+                return k === 'point';
+            }) ? ['point'] : ALL_KINDS.slice();
+        case 'concentric':
+            return ['circle', 'arc'];
+        case 'midpoint':
+            return has('point') ? ['line'] : has('line') ? ['point'] : ['point', 'line'];
+        case 'symmetric':
+            return (count(function (k) {
+                return k === 'point';
+            }) < 2 ? ['point'] : []).concat(has('line') ? [] : ['line']);
+        default:
+            return ALL_KINDS.slice(); // fix, and anything new
+    }
+}
+
 /* ================= measuring ================= */
 function lineAngle(sk, id) {
     const c = curve(sk, id);
@@ -780,7 +826,11 @@ function mapConstraint(sk, c) {
         case 'vdistance':
             return one({ type: 'difference', param1: { o_id: c.a, prop: 'y' }, param2: { o_id: c.b, prop: 'y' }, difference: c.value });
         case 'pldistance':
-            return one({ type: 'p2l_distance', p_id: c.p, l_id: c.line, distance: c.value });
+            // At 0 the point lies on the line. The distance equation is an
+            // absolute value with no slope there, so the solver gets the
+            // point on line equation instead.
+            return Math.abs(c.value) < 1e-9 ? one({ type: 'point_on_line_pl', p_id: c.p, l_id: c.line })
+                : one({ type: 'p2l_distance', p_id: c.p, l_id: c.line, distance: c.value });
         case 'radius':
             return kinds[c.curve] === 'circle' ? one({ type: 'circle_radius', c_id: c.curve, radius: c.value })
                 : one({ type: 'arc_radius', a_id: c.curve, radius: c.value });

@@ -13,7 +13,9 @@
 
 import { planeFrame, toWorld } from './profile.js';
 import { curves as sketchCurves, holePoints } from '../sketch/model.js';
-import { sample } from '../sketch/geom.js';
+import { sample, onArc } from '../sketch/geom.js';
+import { chainCurves, reverseChain } from '../sketch/chain.js';
+import { safeBoolean, zeroThickness, fallbackTriangles, heal, checkShape, summary } from './heal.js';
 
 // The triangles of one meshed face in world coordinates:
 // { points: [x, y, z, ...], tris: [a, b, c, ...] } with outward winding.
@@ -81,6 +83,12 @@ function faceTriangles(oc, face) {
 // what later milestones resolve references against. Seams and degenerate
 // edges are not edges a user can pick and are left out.
 export function describe(oc, shape, linearDeflection = 0.1, angularDeflection = 0.3) {
+    // Always a fresh mesh of the whole shape. Faces keep the mesh of the
+    // last time they were meshed (a sketch region, a preview, an export at
+    // another fineness), and a face meshed at one fineness next to one
+    // meshed at another leaves cracks along their common edge: the "non
+    // manifold" mesh a slicer complains about.
+    oc.BRepTools.Clean(shape, true);
     const mesher = new oc.BRepMesh_IncrementalMesh(shape, linearDeflection, false, angularDeflection, false);
     mesher.delete();
 
@@ -91,13 +99,31 @@ export function describe(oc, shape, linearDeflection = 0.1, angularDeflection = 
     const edges = [];
     const reversed = oc.TopAbs_Orientation.TopAbs_REVERSED;
     const seen = new Map(); // geometric key of an edge -> its index
+    const uses = [];        // edge index -> how many faces it borders
+    let patched = 0;        // faces meshed by the fallback
 
     const explorer = new oc.TopExp_Explorer(shape, oc.TopAbs_ShapeEnum.TopAbs_FACE);
     for (; explorer.More(); explorer.Next()) {
         const face = oc.TopoDS.Face(explorer.Current());
         const start = indices.length;
         const base = positions.length / 3;
-        const mesh = faceTriangles(oc, face);
+        let mesh = faceTriangles(oc, face);
+        let fallback = false;
+        if (!mesh.tris.length) {
+            // The mesher gave up on this face (it happens with odd faces a
+            // boolean leaves): triangulate its outline ourselves rather
+            // than leave a hole in the model
+            try {
+                const patch = fallbackTriangles(oc, shape, face, linearDeflection);
+                if (patch && patch.tris.length) {
+                    mesh = patch;
+                    fallback = true;
+                    patched++;
+                }
+            } catch (err) {
+                // leave the face empty
+            }
+        }
         for (let i = 0; i < mesh.points.length; i++) {
             positions.push(mesh.points[i]);
         }
@@ -108,6 +134,9 @@ export function describe(oc, shape, linearDeflection = 0.1, angularDeflection = 
         info.start = start;
         info.count = indices.length - start;
         info.edges = [];
+        if (fallback) {
+            info.patched = true;
+        }
         faces.push(info);
 
         const edgeExplorer = new oc.TopExp_Explorer(face, oc.TopAbs_ShapeEnum.TopAbs_EDGE);
@@ -133,14 +162,33 @@ export function describe(oc, shape, linearDeflection = 0.1, angularDeflection = 
                     edgePositions.push(segments[i]);
                 }
                 edges.push({ start: edgeStart, count: segments.length / 3, length: measured.length, curve: measured.curve, mid: measured.mid });
+                uses.push(0);
             }
             if (info.edges.indexOf(index) < 0) {
                 info.edges.push(index);
+                uses[index]++;
             }
         }
         edgeExplorer.delete();
     }
     explorer.delete();
+
+    // What a mesh checker would complain about: edges on one face only
+    // (something is missing), edges on more than two (the solid touches
+    // itself), faces that could not be meshed at all or only by the fallback
+    const health = { open: 0, multiple: 0, empty: 0, patched: patched };
+    uses.forEach(function (n) {
+        if (n === 1) {
+            health.open++;
+        } else if (n > 2) {
+            health.multiple++;
+        }
+    });
+    faces.forEach(function (f) {
+        if (!f.count && f.area > 1e-9) {
+            health.empty++;
+        }
+    });
 
     return {
         positions: new Float32Array(positions),
@@ -148,7 +196,8 @@ export function describe(oc, shape, linearDeflection = 0.1, angularDeflection = 
         faces: faces,
         edgePositions: new Float32Array(edgePositions),
         edges: edges,
-        volume: volume(oc, shape)
+        volume: volume(oc, shape),
+        health: health
     };
 }
 
@@ -410,10 +459,61 @@ export function sketchRegions(oc, sketch) {
         // keeps full precision for checks in the kernel: a vertex on a
         // revolve axis rounded to single precision may land a few
         // millionths of a mm past it
-        regions.push({ face: face, triangles: new Float32Array(triangles), exact: triangles, sample: samplePoint, area: area });
+        regions.push({ face: face, triangles: new Float32Array(triangles), exact: triangles, sample: samplePoint, area: area,
+            curves: boundingCurves(oc, face, frame, curves) });
     }
     explorer.delete();
+    // The region faces become the caps of extrusions and revolutions; a cap
+    // that kept this finer mesh would not meet the walls meshed later
+    oc.BRepTools.Clean(pieces, true);
     return regions;
+}
+
+// The ids of the sketch curves a region's edges lie on, sorted: what a
+// feature remembers besides a point inside the region, so the region is
+// found again when the sketch changes and the point falls elsewhere
+function boundingCurves(oc, face, frame, curves) {
+    const ids = [];
+    const explorer = new oc.TopExp_Explorer(face, oc.TopAbs_ShapeEnum.TopAbs_EDGE);
+    for (; explorer.More(); explorer.Next()) {
+        const edge = oc.TopoDS.Edge(explorer.Current());
+        const adaptor = new oc.BRepAdaptor_Curve(edge);
+        const at = adaptor.Value((adaptor.FirstParameter() + adaptor.LastParameter()) / 2);
+        const d = [at.X() - frame.o[0], at.Y() - frame.o[1], at.Z() - frame.o[2]];
+        at.delete();
+        adaptor.delete();
+        edge.delete();
+        const p = [d[0] * frame.x[0] + d[1] * frame.x[1] + d[2] * frame.x[2], d[0] * frame.y[0] + d[1] * frame.y[1] + d[2] * frame.y[2]];
+        const tol = 1e-5 * (1 + Math.hypot(p[0], p[1]));
+        curves.forEach(function (c) {
+            if (c.id && ids.indexOf(c.id) < 0 && onCurve(c, p, tol)) {
+                ids.push(c.id);
+            }
+        });
+    }
+    explorer.delete();
+    return ids.sort();
+}
+
+function onCurve(c, p, tol) {
+    if (c.type === 'line') {
+        const dx = c.b[0] - c.a[0];
+        const dy = c.b[1] - c.a[1];
+        const len2 = dx * dx + dy * dy;
+        const t = len2 > 0 ? ((p[0] - c.a[0]) * dx + (p[1] - c.a[1]) * dy) / len2 : 0;
+        if (t < -1e-9 || t > 1 + 1e-9) {
+            return false;
+        }
+        return Math.hypot(c.a[0] + dx * t - p[0], c.a[1] + dy * t - p[1]) < tol;
+    }
+    const off = Math.abs(Math.hypot(p[0] - c.c[0], p[1] - c.c[1]) - c.r);
+    return off < tol && (c.type === 'circle' || onArc(c, p, 1e-6));
+}
+
+function sameIds(a, b) {
+    return a.length === b.length && a.every(function (id, i) {
+        return id === b[i];
+    });
 }
 
 // Is plane point p inside a region (any of its triangles)?
@@ -432,23 +532,10 @@ export function inRegion(region, p) {
     return false;
 }
 
+// Join, cut or intersect (see safeBoolean in heal.js: inputs are never
+// changed, results are checked and tried again when broken)
 function boolean(oc, kind, a, b) {
-    const progress = new oc.Message_ProgressRange();
-    const Op = kind === 'cut' ? oc.BRepAlgoAPI_Cut : kind === 'intersect' ? oc.BRepAlgoAPI_Common : oc.BRepAlgoAPI_Fuse;
-    const op = new Op(a, b, progress);
-    const failed = !op.IsDone() || op.HasErrors();
-    const raw = failed ? null : op.Shape();
-    op.delete();
-    progress.delete();
-    if (failed) {
-        throw new Error('The boolean operation failed');
-    }
-    // Merge faces that ended up on the same surface, so no seam lines stay behind
-    const unify = new oc.ShapeUpgrade_UnifySameDomain(raw, true, true, false);
-    unify.Build();
-    const result = unify.Shape();
-    unify.delete();
-    return result;
+    return safeBoolean(oc, kind, a, b);
 }
 
 function isEmpty(oc, shape) {
@@ -709,6 +796,7 @@ function upToNext(oc, tool, bodies, frame, regions, sign) {
     const progress = new oc.Message_ProgressRange();
     splitter.SetArguments(argumentList);
     splitter.SetTools(toolList);
+    splitter.SetNonDestructive(true);
     splitter.Build(progress);
     const failed = !splitter.IsDone() || splitter.HasErrors();
     const pieces = failed ? null : splitter.Shape();
@@ -745,12 +833,28 @@ function upToNext(oc, tool, bodies, frame, regions, sign) {
 
 // The regions of a sketch a feature picked (feature.regions: a point inside
 // each); `what` names the feature in the message when none is left
+//   feature.regionCurves  (optional) per region the ids of the curves
+//                         around it (boundingCurves): when the point now
+//                         falls in another region, the region with the
+//                         same curves around it is taken
 function pickedRegions(oc, sketch, feature, what) {
     const picks = Array.isArray(feature.regions) ? feature.regions : [];
-    const regions = sketchRegions(oc, sketch).filter(function (region) {
-        return picks.some(function (p) {
-            return inRegion(region, p);
-        });
+    const keys = Array.isArray(feature.regionCurves) ? feature.regionCurves : [];
+    const all = sketchRegions(oc, sketch);
+    const regions = [];
+    picks.forEach(function (p, i) {
+        let region = all.find(function (r) {
+            return inRegion(r, p);
+        }) || null;
+        const key = Array.isArray(keys[i]) ? keys[i].slice().sort() : null;
+        if (key && key.length && !(region && sameIds(region.curves, key))) {
+            region = all.find(function (r) {
+                return sameIds(r.curves, key);
+            }) || region;
+        }
+        if (region && regions.indexOf(region) < 0) {
+            regions.push(region);
+        }
     });
     if (!regions.length) {
         throw new Error(picks.length ? 'The sketch profile of this ' + what + ' no longer exists' : 'No sketch profile is selected');
@@ -905,6 +1009,340 @@ export function revolveTool(oc, bodies, feature, sketch) {
 // Apply a revolve feature, as extrude() does
 export function revolve(oc, bodies, feature, sketch) {
     return applyTool(oc, bodies, revolveTool(oc, bodies, feature, sketch), feature.operation || 'join');
+}
+
+/* ================= face names (naming.js) ================= */
+// Helpers naming.js needs, and the names of the faces of the bodies the
+// feature being applied works on: set by the rebuild (useNames) before each
+// feature, [[name per face, TopExp order] per body] or null
+export { faceInfo as faceInfoOf, distanceTo, faceTriangles, onCurve as onSketchCurve };
+export function surfaceKeyOf(oc, face, p) {
+    return surfaceAt(oc, face, p).key;
+}
+let faceNames = null;
+export function useNames(names) {
+    faceNames = names || null;
+}
+
+function namesOfBody(index) {
+    return faceNames && faceNames[index] ? faceNames[index] : null;
+}
+
+// For each edge of a body (by a key of its middle and length), the names
+// of the faces it lies between: Map key -> [name, ...]
+function edgeNameMap(oc, body, names) {
+    const map = new Map();
+    let j = 0;
+    const faces = new oc.TopExp_Explorer(body, oc.TopAbs_ShapeEnum.TopAbs_FACE);
+    for (; faces.More(); faces.Next()) {
+        const name = names[j++];
+        const current = faces.Current();
+        const face = oc.TopoDS.Face(current);
+        current.delete();
+        const edges = new oc.TopExp_Explorer(face, oc.TopAbs_ShapeEnum.TopAbs_EDGE);
+        for (; edges.More(); edges.Next()) {
+            const cur = edges.Current();
+            const edge = oc.TopoDS.Edge(cur);
+            cur.delete();
+            if (!oc.BRep_Tool.Degenerated(edge)) {
+                const key = placeOfEdge(edgeMiddle(oc, edge), edgeLength(oc, edge));
+                const list = map.get(key) || [];
+                if (name && list.indexOf(name) < 0) {
+                    list.push(name);
+                }
+                map.set(key, list);
+            }
+            edge.delete();
+        }
+        edges.delete();
+        face.delete();
+    }
+    faces.delete();
+    map.forEach(function (list) {
+        list.sort();
+    });
+    return map;
+}
+
+function placeOfEdge(mid, length) {
+    return mid.map(function (v) {
+        return Math.round(v * 1e6);
+    }).join(',') + ':' + Math.round(length * 1e6);
+}
+
+function samePair(a, b) {
+    return a.length === b.length && a.every(function (x, i) {
+        return x === b[i];
+    });
+}
+
+// The names of the faces an edge of `body` lies between, sorted
+export function namesOfEdge(oc, body, index, edge) {
+    const names = namesOfBody(index);
+    if (!names) {
+        return null;
+    }
+    const key = placeOfEdge(edgeMiddle(oc, edge), edgeLength(oc, edge));
+    return edgeNameMap(oc, body, names).get(key) || null;
+}
+
+// The name of a face of body `index`, by finding it in TopExp order
+export function nameOfFace(oc, body, index, face) {
+    const names = namesOfBody(index);
+    if (!names) {
+        return null;
+    }
+    let j = 0;
+    let found = null;
+    const explorer = new oc.TopExp_Explorer(body, oc.TopAbs_ShapeEnum.TopAbs_FACE);
+    for (; explorer.More() && found === null; explorer.Next()) {
+        const current = explorer.Current();
+        if (current.IsSame(face)) {
+            found = names[j] || null;
+        }
+        current.delete();
+        j++;
+    }
+    explorer.delete();
+    return found;
+}
+
+/* ================= sweep, loft, draft (PROPOSAL.md 14.14) ================= */
+export { chainCurves, reverseChain };
+
+// Where a chain starts and ends (sketch coordinates)
+function chainEnds(order) {
+    const first = order[0];
+    const last = order[order.length - 1];
+    if (first.type === 'circle') {
+        const p = [first.c[0] + first.r, first.c[1]];
+        return { start: p, end: p };
+    }
+    return { start: first.reversed ? first.b : first.a, end: last.reversed ? last.a : last.b };
+}
+
+// The path of a sweep as a wire in the model, starting at the end nearer
+// to the profile plane `near` ({ o, n }). Also returns the start point and
+// the tightest bend (the smallest arc radius; Infinity for straight lines)
+function pathWire(oc, sketch, ids, near) {
+    const frame = planeFrame(sketch.plane);
+    if (!frame) {
+        throw new Error('The plane of the sweep path could not be found');
+    }
+    let order = chainCurves(sketch, ids);
+    const off = function (p) {
+        const w = toWorld(frame, p[0], p[1]);
+        return Math.abs((w[0] - near.o[0]) * near.n[0] + (w[1] - near.o[1]) * near.n[1] + (w[2] - near.o[2]) * near.n[2]);
+    };
+    let ends = chainEnds(order);
+    if (off(ends.end) < off(ends.start) - 1e-9) {
+        order = reverseChain(order);
+        ends = chainEnds(order);
+    }
+    const maker = new oc.BRepBuilderAPI_MakeWire();
+    let bend = Infinity;
+    order.forEach(function (c) {
+        const edge = curveEdge(oc, frame, c);
+        const run = c.reversed ? edge.Reversed() : edge;
+        maker.Add(oc.TopoDS.Edge(run));
+        if (run !== edge) {
+            run.delete();
+        }
+        edge.delete();
+        if (c.type !== 'line') {
+            bend = Math.min(bend, c.r);
+        }
+    });
+    const ok = maker.IsDone();
+    const wire = ok ? maker.Wire() : null;
+    maker.delete();
+    if (!wire) {
+        throw new Error('The path curves must join end to end in one chain, without branches or gaps');
+    }
+    return { wire: wire, start: toWorld(frame, ends.start[0], ends.start[1]), bend: bend };
+}
+
+// A swept or lofted solid can come out inside out; turn it the right way
+function outward(oc, solid) {
+    if (volume(oc, solid) < 0) {
+        const turned = solid.Reversed();
+        solid.delete();
+        return turned;
+    }
+    return solid;
+}
+
+// The solid a sweep makes: each picked region of `sketch` moved along the
+// path, a chain of curves of `pathSketch`.
+//   feature.regions   points inside the profile areas, as Extrude
+//   feature.path      { sketch, curves: [curve id] } (no curves: the whole
+//                     sketch, construction left out)
+export function sweepTool(oc, bodies, feature, sketch, pathSketch) {
+    const regions = pickedRegions(oc, sketch, feature, 'sweep');
+    const frame = planeFrame(sketch.plane);
+    const spine = pathWire(oc, pathSketch, feature.path && feature.path.curves, frame);
+    const path = spine.wire;
+    // A profile reaching further from the path than its tightest bend
+    // folds over itself; the kernel builds that without complaint
+    let reach = 0;
+    regions.forEach(function (region) {
+        const t = region.exact || region.triangles;
+        for (let i = 0; i < t.length; i += 2) {
+            const w = toWorld(frame, t[i], t[i + 1]);
+            reach = Math.max(reach, Math.hypot(w[0] - spine.start[0], w[1] - spine.start[1], w[2] - spine.start[2]));
+        }
+    });
+    if (reach >= spine.bend - 1e-6) {
+        path.delete();
+        throw new Error('The path bends tighter (radius ' + +spine.bend.toFixed(3) + ') than the profile reaches from it (' + +reach.toFixed(3) +
+            '): the sweep would fold into itself');
+    }
+    let tool = null;
+    try {
+        regions.forEach(function (region) {
+            let solid = null;
+            try {
+                const maker = new oc.BRepOffsetAPI_MakePipe(path, region.face);
+                solid = maker.Shape();
+                maker.delete();
+            } catch (err) {
+                solid = null;
+            }
+            if (!solid || isEmpty(oc, solid)) {
+                throw new Error('The profile could not be swept along this path');
+            }
+            solid = outward(oc, solid);
+            if (!isSound(oc, solid)) {
+                throw new Error('The sweep runs into itself: the path bends tighter than the profile is wide, or the profile does not stand across the path');
+            }
+            tool = tool ? boolean(oc, 'join', tool, solid) : solid;
+        });
+    } finally {
+        path.delete();
+    }
+    return tool;
+}
+
+export function sweep(oc, bodies, feature, sketch, pathSketch) {
+    return applyTool(oc, bodies, sweepTool(oc, bodies, feature, sketch, pathSketch), feature.operation || 'join');
+}
+
+// The solid a loft makes through two or more sections, in order.
+//   feature.sections  [{ sketch, region: [u, v] }]: one closed area of a
+//                     sketch each (its outline: holes are left out)
+//   feature.ruled     straight sides from section to section (else smooth)
+// `sketches` are the section sketches, in the same order.
+export function loftTool(oc, feature, sketches) {
+    const sections = feature.sections || [];
+    if (sections.length < 2) {
+        throw new Error('A loft needs two sections or more');
+    }
+    // Two sections next to each other in one plane leave nothing between
+    for (let i = 1; i < sections.length; i++) {
+        const p = planeFrame(sketches[i - 1].plane);
+        const q = planeFrame(sketches[i].plane);
+        if (p && q) {
+            const parallel = Math.abs(Math.abs(p.n[0] * q.n[0] + p.n[1] * q.n[1] + p.n[2] * q.n[2]) - 1) < 1e-9;
+            const apart = (q.o[0] - p.o[0]) * p.n[0] + (q.o[1] - p.o[1]) * p.n[1] + (q.o[2] - p.o[2]) * p.n[2];
+            if (parallel && Math.abs(apart) < 1e-6) {
+                throw new Error('Sections ' + i + ' and ' + (i + 1) + ' lie in one plane: a loft needs each section on its own plane');
+            }
+        }
+    }
+    const maker = new oc.BRepOffsetAPI_ThruSections(true, !!feature.ruled, 1e-6);
+    const progress = new oc.Message_ProgressRange();
+    try {
+        sections.forEach(function (section, i) {
+            const regions = pickedRegions(oc, sketches[i], { regions: [section.region], regionCurves: section.curves ? [section.curves] : [] }, 'loft section');
+            const wire = oc.BRepTools.OuterWire(regions[0].face);
+            maker.AddWire(wire);
+            wire.delete();
+        });
+        maker.CheckCompatibility(true);
+        try {
+            maker.Build(progress);
+        } catch (err) {
+            // reported below
+        }
+        if (!maker.IsDone()) {
+            throw new Error('No loft fits through these sections: they may lie in one plane, or cross each other');
+        }
+        const solid = outward(oc, maker.Shape());
+        if (!isSound(oc, solid)) {
+            solid.delete();
+            throw new Error('The loft twists into itself between these sections: try the sections in another order, or Ruled');
+        }
+        return solid;
+    } finally {
+        progress.delete();
+        maker.delete();
+    }
+}
+
+export function loft(oc, bodies, feature, sketches) {
+    return applyTool(oc, bodies, loftTool(oc, feature, sketches), feature.operation || 'join');
+}
+
+// Draft: picked faces tilted about a neutral plane, as for a moulded part.
+//   feature.faces   face references (findFaces), as Shell
+//   feature.frame   the neutral plane { o, n }, filled in by the rebuild
+//                   from feature.plane (any plane reference)
+//   feature.angle   degrees; the faces lean in as they go along the pull
+//                   direction (the plane normal, the other way with flip)
+export function draft(oc, bodies, feature) {
+    const angle = Number(feature.angle);
+    if (!(Math.abs(angle) > 0) || Math.abs(angle) >= 89) {
+        throw new Error('The draft angle must be between 0 and 89 degrees');
+    }
+    const frame = feature.frame;
+    if (!frame || !frame.n) {
+        throw new Error('The plane this draft is measured from no longer exists');
+    }
+    const picked = findFaces(oc, bodies, feature.faces);
+    if (!picked.length) {
+        throw new Error('Pick the faces to draft');
+    }
+    const sign = feature.flip ? -1 : 1;
+    return bodies.map(function (body, index) {
+        const faces = picked.filter(function (p) {
+            return p.body === index;
+        });
+        if (!faces.length) {
+            return body;
+        }
+        const origin = pnt(oc, frame.o);
+        const pull = new oc.gp_Dir(frame.n[0] * sign, frame.n[1] * sign, frame.n[2] * sign);
+        const neutral = new oc.gp_Pln(origin, pull);
+        const maker = new oc.BRepOffsetAPI_DraftAngle(body);
+        const progress = new oc.Message_ProgressRange();
+        try {
+            faces.forEach(function (f) {
+                maker.Add(f.face, pull, angle * Math.PI / 180, neutral, true);
+                if (!maker.AddDone()) {
+                    throw new Error('A picked face cannot be drafted from this plane: it may lie across the pull direction, or be round about it');
+                }
+            });
+            maker.Build(progress);
+            if (!maker.IsDone()) {
+                throw new Error('The draft could not be built: try a smaller angle');
+            }
+            const made = maker.Shape();
+            if (!isSound(oc, made)) {
+                made.delete();
+                throw new Error('The draft makes the faces run into each other: try a smaller angle');
+            }
+            return made;
+        } catch (err) {
+            if (err && err.message) {
+                throw err;
+            }
+            throw new Error('The draft could not be built on these faces');
+        } finally {
+            [progress, maker, neutral, pull, origin].forEach(function (x) {
+                x.delete();
+            });
+        }
+    });
 }
 
 /* ================= work axes on the model ================= */
@@ -1110,20 +1548,31 @@ export function pattern(oc, bodies, feature, sources) {
 
 // Join, cut or intersect a feature's tool with the bodies; a new list
 function applyTool(oc, bodies, tool, operation) {
+    let out;
     if (operation === 'new' || (operation === 'join' && !bodies.length)) {
-        return bodies.concat([tool]);
-    }
-    if (!bodies.length) {
+        out = bodies.concat([tool]);
+    } else if (!bodies.length) {
         throw new Error('There is no solid body to ' + operation + ' yet');
+    } else if (operation === 'join') {
+        out = [boolean(oc, 'join', bodies[0], tool)].concat(bodies.slice(1));
+    } else {
+        out = bodies.map(function (body) {
+            return boolean(oc, operation, body, tool);
+        }).filter(function (body) {
+            return !isEmpty(oc, body);
+        });
     }
-    if (operation === 'join') {
-        return [boolean(oc, 'join', bodies[0], tool)].concat(bodies.slice(1));
-    }
-    return bodies.map(function (body) {
-        return boolean(oc, operation, body, tool);
-    }).filter(function (body) {
-        return !isEmpty(oc, body);
+    // A solid touching itself along an edge is refused, the way other CAD
+    // programs refuse "zero thickness geometry": its mesh is non-manifold
+    out.forEach(function (body) {
+        if (bodies.indexOf(body) < 0) {
+            const thin = zeroThickness(oc, body);
+            if (thin) {
+                throw new Error(thin.message);
+            }
+        }
     });
+    return out;
 }
 
 // Volume of a solid in mm^3.
@@ -1454,6 +1903,12 @@ export function followFace(oc, bodies, plane) {
     if (!n || !p || !plane.frame) {
         return null;
     }
+    if (plane.face.name && faceNames) {
+        const named = followNamedFace(oc, bodies, plane);
+        if (named) {
+            return named;
+        }
+    }
     let best = null;
     bodies.forEach(function (body) {
         const explorer = new oc.TopExp_Explorer(body, oc.TopAbs_ShapeEnum.TopAbs_FACE);
@@ -1488,6 +1943,72 @@ export function followFace(oc, bodies, plane) {
     return { o: [f.o[0] + f.n[0] * along, f.o[1] + f.n[1] * along, f.o[2] + f.n[2] * along], x: f.x, y: f.y, n: f.n };
 }
 
+// A sketch's face found by its name: of the flat faces with that name, the
+// one the clicked point lands on (moved square onto it), else the nearest.
+// The frame moves onto it and turns with it when the face turned: the
+// sketch's X axis is kept as close as the new plane allows.
+function followNamedFace(oc, bodies, plane) {
+    const p = plane.face.point;
+    let best = null;
+    bodies.forEach(function (body, index) {
+        const names = namesOfBody(index);
+        if (!names) {
+            return;
+        }
+        let j = 0;
+        const explorer = new oc.TopExp_Explorer(body, oc.TopAbs_ShapeEnum.TopAbs_FACE);
+        for (; explorer.More(); explorer.Next(), j++) {
+            if (names[j] !== plane.face.name) {
+                continue;
+            }
+            const current = explorer.Current();
+            const face = oc.TopoDS.Face(current);
+            current.delete();
+            const info = faceInfo(oc, face, face.Orientation() === oc.TopAbs_Orientation.TopAbs_REVERSED);
+            if (info.type === 'plane') {
+                const m = info.normal;
+                const shift = (info.origin[0] - p[0]) * m[0] + (info.origin[1] - p[1]) * m[1] + (info.origin[2] - p[2]) * m[2];
+                const onto = [p[0] + m[0] * shift, p[1] + m[1] * shift, p[2] + m[2] * shift];
+                const off = distanceTo(oc, face, onto);
+                const rank = [off > 1e-6 ? 1 : 0, off];
+                if (!best || rank[0] < best.rank[0] || (rank[0] === best.rank[0] && rank[1] < best.rank[1])) {
+                    best = { rank: rank, normal: m, onto: onto };
+                }
+            }
+            face.delete();
+        }
+        explorer.delete();
+    });
+    if (!best) {
+        return null;
+    }
+    const f = plane.frame;
+    const m = best.normal;
+    // The frame's normal points the way the old one did relative to the face
+    const flip = (f.n[0] * plane.face.normal[0] + f.n[1] * plane.face.normal[1] + f.n[2] * plane.face.normal[2]) < 0 ? -1 : 1;
+    const n = m.map(function (c) {
+        return c * flip;
+    });
+    // Old origin moved square onto the new plane
+    const d = (best.onto[0] - f.o[0]) * n[0] + (best.onto[1] - f.o[1]) * n[1] + (best.onto[2] - f.o[2]) * n[2];
+    const o = [f.o[0] + n[0] * d, f.o[1] + n[1] * d, f.o[2] + n[2] * d];
+    // X: the old X with its part along the new normal taken out
+    const along = f.x[0] * n[0] + f.x[1] * n[1] + f.x[2] * n[2];
+    let x = [f.x[0] - n[0] * along, f.x[1] - n[1] * along, f.x[2] - n[2] * along];
+    let len = Math.hypot(x[0], x[1], x[2]);
+    if (len < 1e-9) {
+        x = [f.y[0], f.y[1], f.y[2]];
+        const a2 = x[0] * n[0] + x[1] * n[1] + x[2] * n[2];
+        x = [x[0] - n[0] * a2, x[1] - n[1] * a2, x[2] - n[2] * a2];
+        len = Math.hypot(x[0], x[1], x[2]);
+    }
+    x = x.map(function (c) {
+        return c / len;
+    });
+    const y = [n[1] * x[2] - n[2] * x[1], n[2] * x[0] - n[0] * x[2], n[0] * x[1] - n[1] * x[0]];
+    return { o: o, x: x, y: y, n: n };
+}
+
 // The kernel edges of the given references: [{ body, edge }]
 export function findEdges(oc, bodies, refs) {
     const listed = {};
@@ -1518,6 +2039,27 @@ export function findEdges(oc, bodies, refs) {
                 }
             });
         });
+        if (!found && Array.isArray(ref.names) && ref.names.length && faceNames) {
+            // Moved (or turned) by an edit upstream: the edge between the
+            // faces with the same names, nearest to where it was
+            const wanted = ref.names.slice().sort();
+            let best = Infinity;
+            candidates.forEach(function (index) {
+                const names = namesOfBody(index);
+                if (!names) {
+                    return;
+                }
+                const map = edgeNameMap(oc, bodies[index], names);
+                edgesOf(index).forEach(function (e) {
+                    const pair = map.get(placeOfEdge(e.mid, e.length));
+                    const off = Math.hypot(e.mid[0] - ref.mid[0], e.mid[1] - ref.mid[1], e.mid[2] - ref.mid[2]);
+                    if (pair && samePair(pair, wanted) && off < best) {
+                        best = off;
+                        found = { body: index, edge: e.edge };
+                    }
+                });
+            });
+        }
         if (!found && ref.sig) {
             // Moved by an edit upstream: the edge that is the same kind of
             // edge, nearest to where it was
@@ -1556,7 +2098,7 @@ export function findFaces(oc, bodies, refs) {
             for (; explorer.More(); explorer.Next()) {
                 const face = oc.TopoDS.Face(explorer.Current());
                 const info = faceInfo(oc, face, face.Orientation() === oc.TopAbs_Orientation.TopAbs_REVERSED);
-                listed[index].push({ face: face, centre: info.centre, area: info.area });
+                listed[index].push({ face: face, centre: info.centre, area: info.area, name: namesOfBody(index) ? namesOfBody(index)[listed[index].length] || null : null });
             }
             explorer.delete();
         }
@@ -1575,6 +2117,19 @@ export function findFaces(oc, bodies, refs) {
                 }
             });
         });
+        if (!found && ref.name) {
+            // The face with the same name, nearest to where it was
+            let best = Infinity;
+            candidates.forEach(function (index) {
+                facesOf(index).forEach(function (f) {
+                    const off = Math.hypot(f.centre[0] - ref.centre[0], f.centre[1] - ref.centre[1], f.centre[2] - ref.centre[2]);
+                    if (f.name === ref.name && off < best) {
+                        best = off;
+                        found = { body: index, face: f.face };
+                    }
+                });
+            });
+        }
         if (!found && ref.sig) {
             let best = Infinity;
             candidates.forEach(function (index) {
@@ -1603,7 +2158,12 @@ export function describeFaceRefs(oc, bodies, refs, resolve) {
             const reversed = found.face.Orientation() === oc.TopAbs_Orientation.TopAbs_REVERSED;
             const info = faceInfo(oc, found.face, reversed);
             const sig = surfaceAt(oc, found.face, info.centre).key;
-            return resolve ? { body: found.body, centre: info.centre, area: info.area, sig: sig } : Object.assign({}, ref, { sig: sig });
+            const name = nameOfFace(oc, bodies[found.body], found.body, found.face);
+            const out = resolve ? { body: found.body, centre: info.centre, area: info.area, sig: sig } : Object.assign({}, ref, { sig: sig });
+            if (name) {
+                out.name = name;
+            }
+            return out;
         } catch (err) {
             return resolve ? null : ref;
         }
@@ -1663,6 +2223,43 @@ export function shell(oc, bodies, feature, report) {
     });
 }
 
+// The Repair feature: every body put through heal() of heal.js (faces
+// fixed, slivers dropped, sewn, closed into solids, oriented), each kept
+// only when it came out better.
+//   feature.tolerance  mm, default 0.001: gaps and slivers narrower than
+//                      this are closed
+// `notes` (optional) collects one sentence per body on what was done;
+// `reports` (optional) one { changed, notes, before, after } per body, the
+// two checks as counts (see summary in heal.js), for the Repair panel.
+export function repair(oc, bodies, feature, notes, reports) {
+    if (!bodies.length) {
+        throw new Error('There is no solid to repair yet');
+    }
+    const tolerance = Number(feature.tolerance) > 0 ? Number(feature.tolerance) : 1e-3;
+    if (tolerance > 1) {
+        throw new Error('The repair tolerance must be at most 1 mm');
+    }
+    return bodies.map(function (body, index) {
+        const out = heal(oc, body, tolerance);
+        if (reports) {
+            reports.push({ changed: out.changed, notes: out.notes, before: summary(out.before), after: summary(out.after) });
+        }
+        if (notes) {
+            const name = bodies.length > 1 ? 'Solid' + (index + 1) + ': ' : '';
+            notes.push(name + (out.changed ? out.notes.join(', ') || 'rebuilt' : out.notes.length ? out.notes.join(', ') : 'nothing to repair'));
+        }
+        return out.shape;
+    });
+}
+
+// What is wrong with each body, for Inspect > Check Geometry:
+// [{ valid, solids, shells, faces, open: [mid], multiple: [mid] }]
+export function checkBodies(oc, bodies) {
+    return bodies.map(function (body) {
+        return checkShape(oc, body);
+    });
+}
+
 // Where the referenced edges are now ([{ body, mid, length } or null]),
 // for re-selecting them when a feature is edited after an upstream change
 export function resolveEdges(oc, bodies, refs) {
@@ -1676,12 +2273,42 @@ export function resolveEdges(oc, bodies, refs) {
     });
 }
 
+// Where referenced edges are now, for projected sketch geometry that
+// follows the model: one record per reference, { found: false } or
+// { found: true, body, mid, length, curve, sig } (curve as describe()
+// gives it; sig always, so a reference without one gains it)
+export function followEdges(oc, bodies, refs) {
+    return refs.map(function (ref) {
+        let found = null;
+        try {
+            found = findEdges(oc, bodies, [ref])[0];
+        } catch (err) {
+            // The body number can shift when features add or merge solids
+            try {
+                found = findEdges(oc, bodies, [Object.assign({}, ref, { body: -1 })])[0];
+            } catch (err2) {
+                return { found: false };
+            }
+        }
+        const measured = discretize(oc, found.edge, []);
+        return {
+            found: true, body: found.body, mid: measured.mid, length: measured.length, curve: measured.curve,
+            sig: ref.sig || edgeSignature(oc, bodies[found.body], found.edge)
+        };
+    });
+}
+
 // Add the description (sig) to edge references picked in the model
 export function describeEdgeRefs(oc, bodies, refs) {
     return refs.map(function (ref) {
         try {
             const found = findEdges(oc, bodies, [ref])[0];
-            return Object.assign({}, ref, { sig: edgeSignature(oc, bodies[found.body], found.edge) });
+            const names = namesOfEdge(oc, bodies[found.body], found.body, found.edge);
+            const out = Object.assign({}, ref, { sig: edgeSignature(oc, bodies[found.body], found.edge) });
+            if (names && names.length) {
+                out.names = names;
+            }
+            return out;
         } catch (err) {
             return ref;
         }
@@ -1699,6 +2326,7 @@ function isSound(oc, shape) {
     if (!valid) {
         return false;
     }
+    oc.BRepTools.Clean(shape, true);
     const mesher = new oc.BRepMesh_IncrementalMesh(shape, 0.1, false, 0.3, false);
     mesher.delete();
     let sound = true;
@@ -2178,16 +2806,37 @@ export function importSTEP(oc, text) {
     if (!shape || shape.IsNull()) {
         throw new Error('No geometry could be read from this STEP file');
     }
+    let solids = solidsOf(oc, shape);
+    if (!solids.length && hasFaces(oc, shape)) {
+        // Faces that were never sewn into a solid (a common export fault of
+        // other programs): sew them, as the Repair feature does
+        const sewn = heal(oc, shape, 1e-3);
+        solids = sewn.changed ? solidsOf(oc, sewn.shape) : [];
+        if (!solids.length) {
+            throw new Error('This STEP file holds faces that do not close up into a solid');
+        }
+    }
+    if (!solids.length) {
+        throw new Error('This STEP file holds surfaces or curves but no solid');
+    }
+    return solids;
+}
+
+function solidsOf(oc, shape) {
     const solids = [];
     const explorer = new oc.TopExp_Explorer(shape, oc.TopAbs_ShapeEnum.TopAbs_SOLID);
     for (; explorer.More(); explorer.Next()) {
         solids.push(oc.TopoDS.Solid(explorer.Current()));
     }
     explorer.delete();
-    if (!solids.length) {
-        throw new Error('This STEP file holds surfaces or curves but no solid');
-    }
     return solids;
+}
+
+function hasFaces(oc, shape) {
+    const explorer = new oc.TopExp_Explorer(shape, oc.TopAbs_ShapeEnum.TopAbs_FACE);
+    const found = explorer.More();
+    explorer.delete();
+    return found;
 }
 
 // Volume, surface area, centre of mass and overall size of the part

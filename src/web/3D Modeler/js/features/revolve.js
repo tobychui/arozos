@@ -159,6 +159,7 @@ export function createRevolve(options) {
             type: 'revolve',
             sketch: profiles.chosenSketch(),
             regions: profiles.samples(),
+            regionCurves: profiles.curveSets(),
             axis: axis,
             operation: panel.get('operation'),
             extent: kind === 'full' ? { type: 'full' }
@@ -260,6 +261,7 @@ export function createRevolve(options) {
             doc.change('Edit ' + old.name, function () {
                 old.sketch = made.sketch;
                 old.regions = made.regions;
+                old.regionCurves = made.regionCurves;
                 old.axis = made.axis;
                 old.operation = made.operation;
                 old.extent = made.extent;
@@ -268,7 +270,7 @@ export function createRevolve(options) {
             const id = doc.newId();
             const name = doc.newName('revolve');
             doc.change(name, function (d) {
-                d.features.push({ id: id, type: 'revolve', name: name, sketch: made.sketch, regions: made.regions,
+                d.features.push({ id: id, type: 'revolve', name: name, sketch: made.sketch, regions: made.regions, regionCurves: made.regionCurves,
                     axis: made.axis, operation: made.operation, extent: made.extent });
             });
         }

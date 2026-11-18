@@ -33,6 +33,41 @@ function baseIds(list) {
     return out;
 }
 
+// A constraint made of several equations (Collinear: both ends of the second
+// line on the first; Fix: x and y) can have a part that the rest of the sketch
+// already implies. Two vertical lines made collinear only need one end on the
+// other line: the vertical constraints carry the second end along. The solver
+// calls that part redundant, which would refuse the whole constraint. Those
+// parts are returned here so they can be left out, as long as the constraint
+// keeps at least one equation. A redundant equation is one the solution of the
+// others satisfies anyway, so leaving it out does not change the answer.
+export function spareParts(sketch, primitives, redundant) {
+    const constraints = new Set(sketch.constraints.map(function (c) {
+        return c.id;
+    }));
+    const flagged = new Set(redundant.map(String));
+    const parts = new Map(); // constraint id -> ids of its equations
+    primitives.forEach(function (p) {
+        const base = String(p.id).split(':')[0];
+        if (constraints.has(base)) {
+            if (!parts.has(base)) {
+                parts.set(base, []);
+            }
+            parts.get(base).push(String(p.id));
+        }
+    });
+    const out = [];
+    parts.forEach(function (ids) {
+        const extra = ids.filter(function (id) {
+            return flagged.has(id);
+        });
+        if (extra.length && extra.length < ids.length) {
+            Array.prototype.push.apply(out, extra);
+        }
+    });
+    return out;
+}
+
 // createSolver().then(solver => solver.solve(sketch, drag))
 // solve() moves the geometry of `sketch` in place when it succeeds and returns
 //   { ok, dof, conflicting: [constraint id], redundant: [constraint id] }
@@ -43,18 +78,45 @@ export async function createSolver() {
     const wrapper = new GcsWrapper(new mod.GcsSystem());
     wrapper.debug_mode = 0; // DebugMode.NoDebug: keep the solver out of the console
 
-    function solve(sketch, drag) {
+    // Push the sketch, minus the equations in `skip`, and solve it
+    function attempt(sketch, drag, skip) {
         wrapper.clear_data();
+        const primitives = toPrimitives(sketch, drag).filter(function (p) {
+            return !skip.has(String(p.id));
+        });
+        wrapper.push_primitives_and_params(primitives);
+        const status = wrapper.solve();
+        return {
+            primitives: primitives,
+            status: status,
+            conflicting: wrapper.get_gcs_conflicting_constraints(),
+            redundant: wrapper.get_gcs_redundant_constraints()
+        };
+    }
+
+    function solve(sketch, drag) {
+        const skip = new Set();
+        let run = null;
         try {
-            wrapper.push_primitives_and_params(toPrimitives(sketch, drag));
+            // Each pass leaves out the parts of constraints found to be implied
+            // by the rest (see spareParts); one pass is the usual case
+            for (let pass = 0; pass < 4; pass++) {
+                run = attempt(sketch, drag, skip);
+                const spare = run.conflicting.length ? [] : spareParts(sketch, run.primitives, run.redundant);
+                if (!spare.length) {
+                    break;
+                }
+                spare.forEach(function (id) {
+                    skip.add(id);
+                });
+            }
         } catch (err) {
             return { ok: false, dof: -1, conflicting: [], redundant: [], error: String(err && err.message ? err.message : err) };
         }
-        const status = wrapper.solve();
-        const conflicting = baseIds(wrapper.get_gcs_conflicting_constraints());
-        const redundant = baseIds(wrapper.get_gcs_redundant_constraints());
+        const conflicting = baseIds(run.conflicting);
+        const redundant = baseIds(run.redundant);
         // 0 = solved, 1 = converged to the nearest answer; anything else failed
-        const ok = (status === 0 || status === 1) && !conflicting.length;
+        const ok = (run.status === 0 || run.status === 1) && !conflicting.length;
         if (ok) {
             wrapper.apply_solution();
             applySolution(sketch, wrapper.sketch_index.get_primitives());

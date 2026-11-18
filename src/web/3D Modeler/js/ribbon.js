@@ -30,8 +30,8 @@ export const RIBBON = [
             { label: 'Exchange', items: [
                 { id: 'file.import', label: 'Import', icon: 'import', big: true, mode: 'part', menu: [
                     { id: 'import.step', label: 'STEP solid', hint: '.step .stp' },
-                    { id: 'import.stl', label: 'STL mesh', hint: '.stl', planned: 'a later stage' },
-                    { id: 'import.obj', label: 'OBJ mesh', hint: '.obj', planned: 'a later stage' }
+                    { id: 'import.stl', label: 'STL mesh (reference)', hint: '.stl' },
+                    { id: 'import.obj', label: 'OBJ mesh (reference)', hint: '.obj' }
                 ] },
                 { id: 'file.export', label: 'Export', icon: 'export', big: true, mode: ['part', 'assembly'], menu: [
                     { id: 'export.step', label: 'STEP solid', hint: '.step' },
@@ -137,13 +137,17 @@ export const RIBBON = [
             ] },
             { label: 'Create', items: [
                 { id: 'feat.extrude', label: 'Extrude', icon: 'extrude', big: true, toggle: true },
-                { id: 'feat.revolve', label: 'Revolve', icon: 'revolve', big: true, toggle: true }
+                { id: 'feat.revolve', label: 'Revolve', icon: 'revolve', big: true, toggle: true },
+                { id: 'feat.sweep', label: 'Sweep', icon: 'sweep', toggle: true },
+                { id: 'feat.loft', label: 'Loft', icon: 'loft', toggle: true }
             ] },
             { label: 'Modify', items: [
                 { id: 'feat.hole', label: 'Hole', icon: 'hole', big: true, toggle: true },
                 { id: 'feat.fillet', label: 'Fillet', icon: 'fillet', big: true, toggle: true },
                 { id: 'feat.chamfer', label: 'Chamfer', icon: 'chamfer', toggle: true },
-                { id: 'feat.shell', label: 'Shell', icon: 'shell', toggle: true }
+                { id: 'feat.shell', label: 'Shell', icon: 'shell', toggle: true },
+                { id: 'feat.draft', label: 'Draft', icon: 'draft', toggle: true },
+                { id: 'feat.repair', label: 'Repair', icon: 'repair', toggle: true }
             ] },
             { label: 'Work Features', items: [
                 { id: 'work.plane', label: 'Plane', icon: 'plane', big: true, toggle: true, menu: [
@@ -161,6 +165,9 @@ export const RIBBON = [
                 { id: 'pat.rect', label: 'Rectangular', icon: 'rectpattern', toggle: true },
                 { id: 'pat.circ', label: 'Circular', icon: 'circpattern', toggle: true },
                 { id: 'pat.mirror', label: 'Mirror', icon: 'mirror', toggle: true }
+            ] },
+            { label: 'Manage', items: [
+                { id: 'manage.params', label: 'Parameters', icon: 'fx', big: true, toggle: true }
             ] }
         ]
     },
@@ -215,6 +222,9 @@ export const RIBBON = [
                 { id: 'ins.measure', label: 'Measure', icon: 'measure', big: true, toggle: true },
                 { id: 'ins.mass', label: 'Mass Properties', icon: 'mass', big: true }
             ] },
+            { label: 'Geometry', mode: 'part', items: [
+                { id: 'ins.check', label: 'Check Geometry', icon: 'checkgeo', big: true, toggle: true }
+            ] },
             { label: 'Interference', mode: 'assembly', items: [
                 { id: 'asm.interference', label: 'Analyze Interference', icon: 'interference', big: true },
                 { id: 'asm.dof', label: 'Degrees of Freedom', icon: 'dof', big: true, toggle: true }
@@ -225,7 +235,8 @@ export const RIBBON = [
         id: 'appearance', label: 'Appearance', mode: ['part', 'assembly'], groups: [
             { label: 'Material', mode: 'part', items: [
                 { id: 'app.appearance', label: 'Appearance', icon: 'palette', big: true, toggle: true },
-                { id: 'app.paint', label: 'Paint Faces', icon: 'paintface', big: true, toggle: true }
+                { id: 'app.paint', label: 'Paint Faces', icon: 'paintface', big: true, toggle: true },
+                { id: 'app.material', label: 'Material', icon: 'mass', big: true, toggle: true }
             ] },
             { label: 'Scene', items: [
                 { id: 'scene.lighting', label: 'Lighting', icon: 'light', big: true, menu: LIGHTING.map(function (l) {

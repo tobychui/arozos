@@ -13,20 +13,58 @@
 // The kernel meshes every face on its own, so a corner appears once per face
 // that meets there. OBJ and 3MF want each corner once, or slicers call the
 // mesh "not watertight": merge the vertices that sit in the same place.
+// "The same place" is within WELD mm. Points are filed in cells of CELL mm;
+// a point close to a cell wall is also looked for in the cell next to it, so
+// two copies of a corner a hair apart on both sides of a wall still meet.
+const WELD = 1e-5;
+const CELL = 1e-4;
+
 export function weld(mesh) {
-    const seen = new Map();
+    const cells = new Map();  // cell key -> [vertex index]
     const positions = [];
     const remap = new Uint32Array(mesh.positions.length / 3);
+    const near = function (v, i) {
+        const f = v / CELL - i;
+        return f < WELD / CELL ? [i, i - 1] : f > 1 - WELD / CELL ? [i, i + 1] : [i];
+    };
     for (let i = 0; i < remap.length; i++) {
         const x = mesh.positions[i * 3];
         const y = mesh.positions[i * 3 + 1];
         const z = mesh.positions[i * 3 + 2];
-        const key = Math.round(x * 1e4) + ',' + Math.round(y * 1e4) + ',' + Math.round(z * 1e4);
-        let index = seen.get(key);
-        if (index === undefined) {
+        const ix = Math.floor(x / CELL);
+        const iy = Math.floor(y / CELL);
+        const iz = Math.floor(z / CELL);
+        let index = -1;
+        const xs = near(x, ix);
+        const ys = near(y, iy);
+        const zs = near(z, iz);
+        for (let a = 0; a < xs.length && index < 0; a++) {
+            for (let b = 0; b < ys.length && index < 0; b++) {
+                for (let c = 0; c < zs.length && index < 0; c++) {
+                    const list = cells.get(xs[a] + ',' + ys[b] + ',' + zs[c]);
+                    if (!list) {
+                        continue;
+                    }
+                    for (let k = 0; k < list.length; k++) {
+                        const j = list[k] * 3;
+                        if (Math.abs(positions[j] - x) <= WELD && Math.abs(positions[j + 1] - y) <= WELD && Math.abs(positions[j + 2] - z) <= WELD) {
+                            index = list[k];
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (index < 0) {
             index = positions.length / 3;
-            seen.set(key, index);
             positions.push(x, y, z);
+            const key = ix + ',' + iy + ',' + iz;
+            const list = cells.get(key);
+            if (list) {
+                list.push(index);
+            } else {
+                cells.set(key, [index]);
+            }
         }
         remap[i] = index;
     }
@@ -42,19 +80,46 @@ export function weld(mesh) {
     return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
 }
 
+// What a slicer would say about a mesh once its corners are merged:
+// { triangles, open, multiple, watertight } - open edges belong to one
+// triangle (a crack or a missing face), multiple ones to more than two (the
+// solid touches itself there, "non-manifold")
+export function meshCheck(mesh) {
+    const m = weld(mesh);
+    const uses = new Map();
+    for (let i = 0; i < m.indices.length; i += 3) {
+        for (let k = 0; k < 3; k++) {
+            const a = m.indices[i + k];
+            const b = m.indices[i + (k + 1) % 3];
+            const key = a < b ? a * 4294967296 + b : b * 4294967296 + a;
+            uses.set(key, (uses.get(key) || 0) + 1);
+        }
+    }
+    let open = 0;
+    let multiple = 0;
+    uses.forEach(function (count) {
+        if (count === 1) {
+            open++;
+        } else if (count > 2) {
+            multiple++;
+        }
+    });
+    return { triangles: m.indices.length / 3, open: open, multiple: multiple, watertight: !open && !multiple };
+}
+
 function n(v) {
     return String(+v.toFixed(5));
 }
 
 // Binary STL of all solids together: Uint8Array
-export function toSTL(meshes) {
+export function toSTL(meshes, units) {
     let triangles = 0;
     meshes.forEach(function (m) {
         triangles += m.indices.length / 3;
     });
     const buffer = new ArrayBuffer(84 + triangles * 50);
     const view = new DataView(buffer);
-    const header = 'Binary STL written by ArozOS 3D Modeler, units mm';
+    const header = 'Binary STL written by ArozOS 3D Modeler, units ' + (units === 'in' ? 'inch' : 'mm');
     for (let i = 0; i < header.length; i++) {
         view.setUint8(i, header.charCodeAt(i));
     }
@@ -89,9 +154,204 @@ export function toSTL(meshes) {
     return new Uint8Array(buffer);
 }
 
+// ASCII STL of all solids together: text (for programs that read no binary)
+export function toSTLText(meshes, name) {
+    const title = (name || 'part').replace(/\s+/g, '_');
+    const lines = ['solid ' + title];
+    meshes.forEach(function (m) {
+        const p = m.positions;
+        for (let i = 0; i < m.indices.length; i += 3) {
+            const a = m.indices[i] * 3;
+            const b = m.indices[i + 1] * 3;
+            const c = m.indices[i + 2] * 3;
+            const u = [p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]];
+            const v = [p[c] - p[a], p[c + 1] - p[a + 1], p[c + 2] - p[a + 2]];
+            const nn = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+            const len = Math.hypot(nn[0], nn[1], nn[2]) || 1;
+            lines.push('  facet normal ' + n(nn[0] / len) + ' ' + n(nn[1] / len) + ' ' + n(nn[2] / len), '    outer loop');
+            [a, b, c].forEach(function (k) {
+                lines.push('      vertex ' + n(p[k]) + ' ' + n(p[k + 1]) + ' ' + n(p[k + 2]));
+            });
+            lines.push('    endloop', '  endfacet');
+        }
+    });
+    lines.push('endsolid ' + title);
+    return lines.join('\n') + '\n';
+}
+
+// The meshes scaled (millimetres to inches for an export in inches)
+export function scaled(meshes, factor) {
+    if (factor === 1) {
+        return meshes;
+    }
+    return meshes.map(function (m) {
+        const positions = new Float32Array(m.positions.length);
+        for (let i = 0; i < positions.length; i++) {
+            positions[i] = m.positions[i] * factor;
+        }
+        return Object.assign({}, m, { positions: positions });
+    });
+}
+
+/* ---------------- reading meshes (STL, OBJ) ---------------- */
+// The largest mesh read in: more triangles make the part file too big
+export const MAX_TRIANGLES = 1000000;
+
+function looksAscii(bytes) {
+    let head = '';
+    for (let i = 0; i < Math.min(bytes.length, 512); i++) {
+        head += String.fromCharCode(bytes[i]);
+    }
+    head = head.toLowerCase();
+    return /^\s*solid/.test(head) && head.indexOf('facet') >= 0;
+}
+
+// An STL file (binary or ASCII bytes) as an indexed mesh
+// { positions: Float32Array, indices: Uint32Array } with shared corners
+export function parseSTL(bytes) {
+    if (!(bytes instanceof Uint8Array)) {
+        bytes = new Uint8Array(bytes);
+    }
+    const positions = [];
+    if (bytes.length >= 84) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const count = view.getUint32(80, true);
+        if (84 + count * 50 === bytes.length && !(count === 0 && looksAscii(bytes))) {
+            if (count > MAX_TRIANGLES) {
+                throw new Error('This STL file has ' + count + ' triangles; at most ' + MAX_TRIANGLES + ' can be brought in');
+            }
+            for (let t = 0; t < count; t++) {
+                const at = 84 + t * 50 + 12;
+                for (let k = 0; k < 9; k++) {
+                    positions.push(view.getFloat32(at + k * 4, true));
+                }
+            }
+            return finish(positions);
+        }
+    }
+    if (!looksAscii(bytes)) {
+        throw new Error('This is not an STL file');
+    }
+    const text = new TextDecoder().decode(bytes);
+    const vertex = /vertex\s+(\S+)\s+(\S+)\s+(\S+)/g;
+    let m;
+    while ((m = vertex.exec(text))) {
+        positions.push(Number(m[1]), Number(m[2]), Number(m[3]));
+        if (positions.length > MAX_TRIANGLES * 9) {
+            throw new Error('This STL file has more than ' + MAX_TRIANGLES + ' triangles');
+        }
+    }
+    if (!positions.length || positions.length % 9 !== 0 || positions.some(function (v) {
+        return !isFinite(v);
+    })) {
+        throw new Error('This STL file is damaged: its triangles do not add up');
+    }
+    return finish(positions);
+}
+
+// A Wavefront OBJ file's faces (polygons fanned into triangles; texture and
+// normal indices ignored; negative indices count from the end)
+export function parseOBJ(text) {
+    const verts = [];
+    const positions = [];
+    String(text).split(/\r?\n/).forEach(function (line) {
+        const parts = line.trim().split(/\s+/);
+        if (parts[0] === 'v' && parts.length >= 4) {
+            verts.push([Number(parts[1]), Number(parts[2]), Number(parts[3])]);
+        } else if (parts[0] === 'f' && parts.length >= 4) {
+            const ids = parts.slice(1).map(function (q) {
+                const k = parseInt(q.split('/')[0], 10);
+                return k < 0 ? verts.length + k : k - 1;
+            });
+            for (let i = 1; i + 1 < ids.length; i++) {
+                [ids[0], ids[i], ids[i + 1]].forEach(function (k) {
+                    const v = verts[k];
+                    if (!v) {
+                        throw new Error('This OBJ file is damaged: a face uses a corner that does not exist');
+                    }
+                    positions.push(v[0], v[1], v[2]);
+                });
+            }
+            if (positions.length > MAX_TRIANGLES * 9) {
+                throw new Error('This OBJ file has more than ' + MAX_TRIANGLES + ' triangles');
+            }
+        }
+    });
+    if (!positions.length) {
+        throw new Error('This OBJ file has no faces');
+    }
+    if (positions.some(function (v) {
+        return !isFinite(v);
+    })) {
+        throw new Error('This OBJ file is damaged: a corner is not a number');
+    }
+    return finish(positions);
+}
+
+// Triangle soup -> welded indexed mesh
+function finish(positions) {
+    const soup = new Float32Array(positions);
+    const indices = new Uint32Array(soup.length / 3);
+    for (let i = 0; i < indices.length; i++) {
+        indices[i] = i;
+    }
+    const out = weld({ positions: soup, indices: indices });
+    if (!out.indices.length) {
+        throw new Error('The file has no triangles with an area');
+    }
+    return out;
+}
+
+// A mesh kept in a part file: base64 of its Float32 / Uint32 buffers
+function toBase64(bytes) {
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(text);
+}
+
+function fromBase64(text) {
+    const raw = atob(text);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) {
+        bytes[i] = raw.charCodeAt(i);
+    }
+    return bytes;
+}
+
+export function encodeMesh(mesh) {
+    return {
+        positions: toBase64(new Uint8Array(mesh.positions.buffer, mesh.positions.byteOffset, mesh.positions.byteLength)),
+        indices: toBase64(new Uint8Array(mesh.indices.buffer, mesh.indices.byteOffset, mesh.indices.byteLength))
+    };
+}
+
+export function decodeMesh(stored) {
+    const p = fromBase64(stored.positions || '');
+    const i = fromBase64(stored.indices || '');
+    if (p.length % 12 || i.length % 12) {
+        throw new Error('The mesh kept in this part is damaged');
+    }
+    return { positions: new Float32Array(p.buffer), indices: new Uint32Array(i.buffer) };
+}
+
+// Triangles and bounds of a mesh, for the import message
+export function meshInfo(mesh) {
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < mesh.positions.length; i += 3) {
+        for (let k = 0; k < 3; k++) {
+            min[k] = Math.min(min[k], mesh.positions[i + k]);
+            max[k] = Math.max(max[k], mesh.positions[i + k]);
+        }
+    }
+    return { triangles: mesh.indices.length / 3, min: min, max: max };
+}
+
 // Wavefront OBJ, one object per solid: text
-export function toOBJ(meshes, name) {
-    const lines = ['# Written by ArozOS 3D Modeler, units mm'];
+export function toOBJ(meshes, name, units) {
+    const lines = ['# Written by ArozOS 3D Modeler, units ' + (units === 'in' ? 'inch' : 'mm')];
     let offset = 1;
     meshes.forEach(function (raw, i) {
         const m = weld(raw);
@@ -182,7 +442,7 @@ export function zip(files) {
 }
 
 // 3MF (the 3D printing format slicers prefer): Uint8Array
-export function to3MF(meshes) {
+export function to3MF(meshes, units) {
     const objects = [];
     const items = [];
     meshes.forEach(function (raw, i) {
@@ -206,7 +466,7 @@ export function to3MF(meshes) {
             '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>' },
         { name: '_rels/.rels', text: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
             '<Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>' },
-        { name: '3D/3dmodel.model', text: head + '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">' +
+        { name: '3D/3dmodel.model', text: head + '<model unit="' + (units === 'in' ? 'inch' : 'millimeter') + '" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">' +
             '<resources>' + objects.join('') + '</resources><build>' + items.join('') + '</build></model>' }
     ]);
 }

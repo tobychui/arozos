@@ -749,6 +749,11 @@ body.dark #stage {
     stroke: var(--sk-fixed);
 }
 
+/* A curve the active constraint tool cannot take */
+.sk-curve.sk-unusable {
+    opacity: .3;
+}
+
 .sk-curve.sk-ref,
 #sketch-overlay .sk-point.sk-ref {
     stroke: var(--sk-ref);
@@ -1355,6 +1360,112 @@ body.dark #stage {
 
 .props-static {
     color: var(--muted);
+}
+
+/* Manage > Parameters (features/paramtable.js) */
+.props.props-params {
+    width: 460px;
+}
+
+.param-table {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+}
+
+.param-row {
+    display: grid;
+    grid-template-columns: 82px 1fr 64px 92px 22px;
+    gap: 4px;
+    align-items: center;
+}
+
+.param-row .props-input {
+    width: 100%;
+    min-width: 0;
+}
+
+.param-head {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.param-row.bad .props-input {
+    border-color: var(--bad);
+}
+
+.param-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.param-error {
+    color: var(--bad);
+    font-size: 11px;
+    padding: 0 0 2px;
+}
+
+.param-drop {
+    border: 0;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+}
+
+.param-drop:hover {
+    color: var(--bad);
+}
+
+.param-add {
+    align-self: flex-start;
+    margin-top: 4px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    padding: 3px 10px;
+    cursor: pointer;
+}
+
+.param-add:hover {
+    background: var(--hover);
+}
+
+/* Check Geometry and Repair: what is wrong with each solid (inspect/health.js) */
+.health {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.health th,
+.health td {
+    padding: 3px 6px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.health th {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.health tr:last-child td {
+    border-bottom: 0;
+}
+
+.health td.h-ok {
+    color: var(--ok);
+}
+
+.health td.h-bad {
+    color: var(--bad);
+    font-weight: 600;
 }
 
 .props-pick {

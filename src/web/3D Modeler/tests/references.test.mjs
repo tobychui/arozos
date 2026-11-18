@@ -108,7 +108,16 @@ function refsFor(doc, test) {
     doc.features.push({ id: 'c1', type: 'chamfer', name: 'Chamfer1', edges: top, distance: 1 });
     doc.features.find(f => f.id === 's2').geometry.find(g => g.id === 'k').r = 12;
     const out = createRebuilder(oc).rebuild(doc);
-    a(out.features.c1.status === 'error', 'a boss of another size is not the same edge: the chamfer fails rather than guess', out.features.c1);
+    // Before face names (14.29) this failed rather than guess. The edge
+    // between the boss's top and its side is still that edge by name, so the
+    // chamfer follows the boss to its new size, as in Inventor
+    a(out.features.c1.status === 'ok', 'a boss of another size keeps its chamfer: the edge between its top and side, by name', out.features.c1);
+    const direct = part(15);
+    direct.features.find(f => f.id === 's2').geometry.find(g => g.id === 'k').r = 12;
+    direct.features.push({ id: 'c1', type: 'chamfer', name: 'Chamfer1', distance: 1,
+        edges: refsFor(direct, e => e.curve && e.curve.type === 'circle' && near(e.mid[2], 15) && near(e.curve.r, 12)) });
+    const expected = createRebuilder(oc).rebuild(direct).bodies[0].volume;
+    a(near(out.bodies[0].volume, expected, 1e-3), 'the same as a chamfer picked on the smaller boss', [out.bodies[0].volume, expected]);
 }
 
 console.log(failed ? failed + ' FAILED' : 'all reference tests passed');

@@ -27,6 +27,8 @@
 
 import { toWorld, withResolvedPlane, planeFrame } from '../kernel/profile.js';
 import { evaluate } from '../expr.js';
+import { keptFormula } from '../parameters.js';
+import { lastExtrudeDistance } from '../document/document.js';
 import { wheelStep } from '../ui.js';
 import { createProfiles } from './profiles.js';
 import { createIllustration } from './illustrate.js';
@@ -115,12 +117,25 @@ export function createExtrude(options) {
     let valid = false;
     let token = 0;              // drops preview answers that arrive late
     let timer = null;
+    // The distance last committed in each part this session (key: its path,
+    // or its name until it is saved). A new extrusion starts from it, else
+    // from the newest distance extrusion in the part, else 10 mm.
+    const lastUsed = new Map();
+
+    function partKey() {
+        return doc.path || 'unsaved:' + doc.name;
+    }
+
+    function startDistance() {
+        return lastUsed.get(partKey()) || lastExtrudeDistance(doc.features()) || { value: 10, value2: 10, expr: null, expr2: null };
+    }
 
     function feature() {
         return {
             type: 'extrude',
             sketch: profiles.chosenSketch(),
             regions: profiles.samples(),
+            regionCurves: profiles.curveSets(),
             operation: draft.operation,
             extent: extentOf()
         };
@@ -143,6 +158,12 @@ export function createExtrude(options) {
         } else {
             e = draft.direction === 'asymmetric' ? { type: 'distance', value: draft.value, value2: draft.value2, direction: 'asymmetric' }
                 : { type: 'distance', value: draft.value, direction: draft.direction };
+            if (draft.valueExpr) {
+                e.expr = draft.valueExpr;
+            }
+            if (draft.direction === 'asymmetric' && draft.value2Expr) {
+                e.expr2 = draft.value2Expr;
+            }
         }
         if (draft.taper && (draft.extent === 'to' || oneWay)) {
             e.taper = draft.taper;
@@ -300,6 +321,8 @@ export function createExtrude(options) {
     function readValue(input, key) {
         const v = evaluate(input.value);
         draft[key] = v > 0 ? v : 0;
+        // wall * 2 stays a formula that follows the parameter
+        draft[key + 'Expr'] = v > 0 ? keptFormula(input.value) : null;
         input.classList.toggle('bad', !(v > 0));
         refresh();
     }
@@ -420,6 +443,9 @@ export function createExtrude(options) {
         const made = feature();
         delete made.extent.target; // worked out again by every rebuild
         const editing = editId;
+        if (made.extent.type === 'distance') {
+            lastUsed.set(partKey(), lastExtrudeDistance([made]));
+        }
         // Close first: the document change below starts a rebuild, and the
         // app treats a change while the panel is open as "cancel it"
         close(true);
@@ -428,13 +454,14 @@ export function createExtrude(options) {
             doc.change('Edit ' + old.name, function () {
                 old.sketch = made.sketch;
                 old.regions = made.regions;
+                old.regionCurves = made.regionCurves;
                 old.operation = made.operation;
                 old.extent = made.extent;
             });
         } else {
             made.id = doc.newId();
             made.name = doc.newName('extrude');
-            const ordered = { id: made.id, type: 'extrude', name: made.name, sketch: made.sketch, regions: made.regions, operation: made.operation, extent: made.extent };
+            const ordered = { id: made.id, type: 'extrude', name: made.name, sketch: made.sketch, regions: made.regions, regionCurves: made.regionCurves, operation: made.operation, extent: made.extent };
             doc.change(made.name, function (d) {
                 d.features.push(ordered);
             });
@@ -461,18 +488,24 @@ export function createExtrude(options) {
                     direction: extent.direction || 'positive',
                     value: extent.value > 0 ? extent.value : 10,
                     value2: extent.value2 > 0 ? extent.value2 : 10,
+                    valueExpr: typeof extent.expr === 'string' ? extent.expr : null,
+                    value2Expr: typeof extent.expr2 === 'string' ? extent.expr2 : null,
                     extent: ['to', 'next', 'all'].indexOf(extent.type) >= 0 ? extent.type : 'distance',
                     taper: Number(extent.taper) || 0,
                     to: extent.type === 'to' && extent.plane ? { ref: extent.plane, label: planeLabel(extent.plane) } : null
                 };
             } else {
-                draft = { operation: 'join', direction: 'positive', value: 10, value2: 10, extent: 'distance', taper: 0, to: null };
+                const last = startDistance();
+                draft = {
+                    operation: 'join', direction: 'positive', value: last.value, value2: last.value2,
+                    valueExpr: last.expr, value2Expr: last.expr2, extent: 'distance', taper: 0, to: null
+                };
             }
             lastSeg = 'operation';
             el.taper.value = trim(draft.taper);
             el.taper.classList.remove('bad');
-            el.value.value = trim(draft.value);
-            el.value2.value = trim(draft.value2);
+            el.value.value = draft.valueExpr || trim(draft.value);
+            el.value2.value = draft.value2Expr || trim(draft.value2);
             el.value.classList.remove('bad');
             el.value2.classList.remove('bad');
             panel.querySelector('.props-title span').textContent = editing ? editing.name : 'Extrusion';

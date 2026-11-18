@@ -29,9 +29,33 @@ import { finishById, drawPattern, matchFaces, lightingById, normalizeScene, DEFA
 import { transformInfo } from './assembly/geometry.js';
 import { silhouetteSource, silhouetteSegments } from './silhouette.js';
 import { dragOffset, snapOffset } from './planedrag.js';
+import { faceView } from './faceview.js';
 
 const HOME_DIRECTION = new THREE.Vector3(1, -1, 1).normalize();
 const WORLD_UP = new THREE.Vector3(0, 0, 1);
+
+// The orbit ring shown while the left button orbits, as in the free orbit
+// of desktop CAD: a circle in the middle of the view with a tick outside it at each
+// quarter. Drag inside it to turn the view freely, outside it to roll the
+// view, on the top or bottom tick to turn about the screen's across axis, on
+// the left or right tick about its up axis. app.js draws it from this too.
+export function orbitRing(width, height) {
+    const r = Math.round(Math.min(width, height) * 0.37);
+    return { cx: Math.round(width / 2) + 0.5, cy: Math.round(height / 2) + 0.5, r: r, tick: Math.round(r * 0.21) };
+}
+
+// Two arrows round a circle, black on a white outline: the roll cursor
+const ROLL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
+    '<g fill="none" stroke-linecap="round"><path d="M4.5 13A7.5 7.5 0 0 1 17 6.5M19.5 11A7.5 7.5 0 0 1 7 17.5" stroke="#fff" stroke-width="4"/>' +
+    '<path d="M4.5 13A7.5 7.5 0 0 1 17 6.5M19.5 11A7.5 7.5 0 0 1 7 17.5" stroke="#000" stroke-width="1.6"/></g>' +
+    '<path d="M15.5 8.1L18.5 4.9L18.9 8.2ZM8.5 15.9L5.5 19.1L5.1 15.8Z" fill="#000" stroke="#fff" stroke-width="1" stroke-linejoin="round"/></svg>';
+const RING_CURSORS = {
+    free: 'grab',
+    roll: 'url("data:image/svg+xml,' + encodeURIComponent(ROLL_SVG) + '") 12 12, alias',
+    tilt: 'ns-resize',
+    spin: 'ew-resize'
+};
+const RING_GRIP = 10;   // pixels either side of a tick that still catch it
 const PLANE_SIZE = 120;
 
 // Origin planes: normal, the direction that is "up" on screen when looking at
@@ -134,7 +158,40 @@ export function createViewport(options) {
         wheelZoom.call(controls, { clientX: event.clientX, clientY: event.clientY, deltaX: event.deltaX, deltaY: -event.deltaY, deltaMode: event.deltaMode });
     };
     let leftDrag = 'select';    // 'select' | 'orbit' | 'pan'
+    let ringHover = 'free';     // the orbit ring zone under the pointer (ringZone)
     let sketching = false;
+
+    // Free orbit, as in desktop CAD: the view turns round the orbit centre about
+    // the axes of the screen, never about world Z, so any side of the part
+    // can face down and nothing snaps the view upright again. OrbitControls
+    // still reads the mouse and fingers (Shift + middle button, one finger,
+    // the left button inside the orbit ring), but its two turn steps come
+    // here instead of changing its turntable angles. camera.up turns with the
+    // view, and OrbitControls.update() then keeps exactly this orientation.
+    function screenAxis(x, y, z) {
+        return new THREE.Vector3(x, y, z).applyQuaternion(camera.quaternion);
+    }
+
+    // Turn the camera by `angle` about `axis` (world space, through the orbit centre)
+    function turnView(axis, angle) {
+        if (!angle) {
+            return;
+        }
+        const q = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+        const up = screenAxis(0, 1, 0).applyQuaternion(q);
+        camera.position.sub(controls.target).applyQuaternion(q).add(controls.target);
+        camera.up.copy(up);
+        camera.lookAt(controls.target);
+    }
+
+    // The part follows the pointer: dragging right turns the camera the other
+    // way about the screen's up, dragging down about the screen's across axis
+    controls._rotateLeft = function (angle) {
+        turnView(screenAxis(0, 1, 0), -angle);
+    };
+    controls._rotateUp = function (angle) {
+        turnView(screenAxis(1, 0, 0), -angle);
+    };
 
     function leftButton() {
         return leftDrag === 'pan' ? THREE.MOUSE.PAN : leftDrag === 'orbit' ? THREE.MOUSE.ROTATE : null;
@@ -503,6 +560,8 @@ export function createViewport(options) {
     // flip / flip2 keep the other side
     let section = { mode: 'none', plane: 'xz', offset: null, flip: false, plane2: 'yz', offset2: null, flip2: false };
     let sectionPlanes = [];
+    let sectionHandles = null;  // the sheets and arrows to drag the planes (made below)
+    let sectionHot = null;      // the one under the pointer
     let componentMode = false;   // the pointer picks whole components (groups)
     renderer.localClippingEnabled = true;
     const HOVER = 0xf0943a;
@@ -860,10 +919,15 @@ export function createViewport(options) {
         return box.isEmpty() ? null : [box.min.toArray(), box.max.toArray()];
     }
 
-    function sectionPlane(key, offset, flip) {
-        const bounds = modelBounds();
+    // Where a plane sits on its axis: the offset, else the middle of the model
+    function sectionAt(key, offset, bounds) {
         const axis = SECTION_AXES[key];
-        const at = offset === null || offset === undefined ? (bounds ? (bounds[0][axis] + bounds[1][axis]) / 2 : 0) : offset;
+        return offset === null || offset === undefined || !isFinite(offset) ? (bounds ? (bounds[0][axis] + bounds[1][axis]) / 2 : 0) : offset;
+    }
+
+    function sectionPlane(key, offset, flip) {
+        const axis = SECTION_AXES[key];
+        const at = sectionAt(key, offset, modelBounds());
         const normal = new THREE.Vector3().fromArray(SECTION_KEEP[key]);
         if (flip) {
             normal.negate();
@@ -890,6 +954,7 @@ export function createViewport(options) {
             material.needsUpdate = true;
         });
         applyVisualStyle();
+        placeSectionHandles();
         invalidate();
     }
 
@@ -1089,7 +1154,7 @@ export function createViewport(options) {
     // The cursor when the pointer is over nothing in particular: what a left
     // drag would do
     function restCursor() {
-        return leftDrag === 'pan' ? 'move' : leftDrag === 'orbit' ? 'grab' : '';
+        return leftDrag === 'pan' ? 'move' : leftDrag === 'orbit' ? RING_CURSORS[ringHover] : '';
     }
 
     function setHovered(item) {
@@ -1237,6 +1302,7 @@ export function createViewport(options) {
     // Fly the camera so it looks along -normal with `up` at the top of the screen.
     // fit = true also centres and zooms on the content.
     function flyTo(normal, up, fit) {
+        noteView();
         const box = contentBox();
         const sphere = box.getBoundingSphere(new THREE.Sphere());
         const endTarget = fit ? sphere.center.clone() : controls.target.clone();
@@ -1291,11 +1357,34 @@ export function createViewport(options) {
         }
     }
 
-    // OrbitControls always turns around world Z. A top or bottom view needs a
-    // different screen-up (Y), so that is kept only until the next orbit starts.
+    // Orbit, pan or zoom starts. camera.up is set to the screen's up as it
+    // is, so OrbitControls keeps the view as it is (rolled, upside down)
+    // instead of standing world Z up again.
     controls.addEventListener('start', function () {
-        camera.up.copy(WORLD_UP);
+        noteView();
+        camera.up.copy(screenAxis(0, 1, 0));
     });
+
+    // Where the camera is ({ projection, position, up, target, zoom })
+    function currentView() {
+        return {
+            projection: camera === persp ? 'perspective' : 'orthographic',
+            position: camera.position.toArray(), up: camera.up.toArray(),
+            target: controls.target.toArray(), zoom: ortho.zoom
+        };
+    }
+
+    // Before the view changes (orbit, pan, zoom, a view cube click, Home,
+    // Zoom All, Look At) api.onViewChange gets the view as it was, for F5
+    // Previous View. Steps closer than 0.6 s (a turn of the wheel) count once.
+    let viewNoted = 0;
+    function noteView() {
+        const now = Date.now();
+        if (api.onViewChange && now - viewNoted > 600) {
+            api.onViewChange(currentView());
+        }
+        viewNoted = now;
+    }
 
     function home() {
         // "up" for an isometric view is world Z projected on the view plane; lookAt sorts that out
@@ -1462,7 +1551,7 @@ export function createViewport(options) {
     function pickOf(target) {
         return target.kind === 'origin' ? { kind: 'origin', key: target.key }
             : target.kind === 'work' ? { kind: 'work', id: target.id }
-                : { kind: 'face', body: target.item.body, face: target.item.index, origin: target.info.origin, normal: target.info.normal, point: lastFacePoint };
+                : { kind: 'face', body: target.item.body, face: target.item.index, origin: target.info.origin, normal: target.info.normal, point: lastFacePoint, name: target.info.name || null };
     }
 
     // Pressed on a plane while a plane is wanted: a drag pulls out an
@@ -1513,6 +1602,10 @@ export function createViewport(options) {
             return;
         }
         if (event.buttons || animation || (!interactive && !planeHandler)) {
+            return;
+        }
+        if (sectionHot) {
+            setHovered(null); // the pointer is on a section plane's sheet or arrow
             return;
         }
         if (gizmoActive && gizmo.axis !== null) {
@@ -1640,6 +1733,14 @@ export function createViewport(options) {
         const n = new THREE.Vector3().fromArray(normal).normalize();
         const up = Math.abs(n.z) > 0.99 ? [0, n.z > 0 ? 1 : -1, 0] : [0, 0, 1];
         flyTo(n.toArray(), up, true);
+    }
+
+    // Look at a face (a sketch plane, by its outward normal) from its front
+    // at an angle, the model fitted, so a solid built out of it shows its
+    // depth (faceview.js)
+    function viewFace(normal) {
+        const view = faceView(normal);
+        flyTo(view.dir, view.up, true);
     }
 
     /* ---------------- feature tools: regions, preview solid, drag arrow ---------------- */
@@ -2320,6 +2421,337 @@ export function createViewport(options) {
         }
     });
 
+    /* ---------------- section view handles ---------------- */
+    // While the Section View panel is open each cutting plane shows as a
+    // see-through sheet over the model with an arrow on it, as in desktop
+    // CAD. Dragging the arrow (with any left button mode) or the sheet (while
+    // the left button selects) moves the plane along its axis, the same way
+    // a plane is dragged into an offset plane (planedrag.js).
+    // setSectionHandles(onDrag) turns them on, null off; onDrag(which,
+    // position, done) gets "" or "2" (the first or the second plane) and the
+    // new position on that plane's axis. Registered before the orbit ring,
+    // so a press on an arrow outside the ring drags the plane, not the view.
+    const SHEET_COLOR = 0x4a90d9;
+    const SHEET_OPACITY = 0.2;
+    const sectionGroup = new THREE.Group();
+    scene.add(sectionGroup);
+    let sectionHandler = null;
+    let sectionDrag = null;     // { handle, from: [x, y], screen: [x, y] px per mm, at } while dragged
+
+    sectionHandles = [0, 1].map(function () {
+        const group = new THREE.Group();
+        const positions = new THREE.BufferAttribute(new Float32Array(12), 3);
+        const sheetGeometry = new THREE.BufferGeometry();
+        sheetGeometry.setAttribute('position', positions);
+        sheetGeometry.setIndex([0, 1, 2, 0, 2, 3]);
+        const sheetMaterial = new THREE.MeshBasicMaterial({
+            color: SHEET_COLOR, transparent: true, opacity: SHEET_OPACITY, side: THREE.DoubleSide, depthWrite: false,
+            // drawn just in front of the cut face it lies on
+            polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+        });
+        const sheet = new THREE.Mesh(sheetGeometry, sheetMaterial);
+        sheet.renderOrder = 3;
+        const outlineGeometry = new THREE.BufferGeometry();
+        outlineGeometry.setAttribute('position', positions);
+        const outline = new THREE.LineLoop(outlineGeometry, new THREE.LineBasicMaterial({ color: 0x2f6fb5 }));
+        outline.renderOrder = 3;
+        // The arrow, as the feature arrow above: one pixel per unit, scaled every frame
+        const head = new THREE.Group();
+        const headMaterial = new THREE.MeshBasicMaterial({ color: 0xe07b1f, depthTest: false });
+        [[new THREE.SphereGeometry(4.5, 16, 12), 0], [new THREE.CylinderGeometry(1.6, 1.6, 26, 12), 13], [new THREE.ConeGeometry(5.5, 14, 16), 33]].forEach(function (part) {
+            const mesh = new THREE.Mesh(part[0], headMaterial);
+            mesh.position.y = part[1];
+            mesh.renderOrder = 4;
+            head.add(mesh);
+        });
+        const grab = new THREE.Mesh(new THREE.SphereGeometry(16, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+        grab.position.y = 16;
+        head.add(grab);
+        group.add(sheet, outline, head);
+        group.visible = false;
+        sectionGroup.add(group);
+        return {
+            group: group, sheet: sheet, sheetMaterial: sheetMaterial, positions: positions, head: head, headMaterial: headMaterial, grab: grab,
+            origin: new THREE.Vector3(), dir: new THREE.Vector3(0, 1, 0), axis: 0, at: 0, which: ''
+        };
+    });
+
+    // Put the sheets on the planes, over the model's extent and a margin;
+    // each arrow at its sheet's middle, pointing into the side cut away
+    function placeSectionHandles() {
+        if (!sectionHandles) {
+            return;
+        }
+        const bounds = sectionHandler && section.mode !== 'none' ? modelBounds() : null;
+        const specs = !bounds ? [] : [['', section.plane, section.offset, section.flip]].concat(section.mode === 'half' ? []
+            : [['2', section.plane2, section.offset2, section.flip2]]);
+        const size = bounds ? Math.max(bounds[1][0] - bounds[0][0], bounds[1][1] - bounds[0][1], bounds[1][2] - bounds[0][2], 1) : 1;
+        const pad = size * 0.12;
+        sectionHandles.forEach(function (h, i) {
+            const spec = specs[i];
+            h.group.visible = !!spec;
+            if (!spec) {
+                return;
+            }
+            const axis = SECTION_AXES[spec[1]];
+            const at = sectionAt(spec[1], spec[2], bounds);
+            const u = (axis + 1) % 3;
+            const v = (axis + 2) % 3;
+            [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(function (corner, k) {
+                const p = [0, 0, 0];
+                p[axis] = at;
+                p[u] = corner[0] ? bounds[1][u] + pad : bounds[0][u] - pad;
+                p[v] = corner[1] ? bounds[1][v] + pad : bounds[0][v] - pad;
+                h.positions.setXYZ(k, p[0], p[1], p[2]);
+            });
+            h.positions.needsUpdate = true;
+            h.sheet.geometry.computeBoundingSphere();
+            h.origin.set((bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2, (bounds[0][2] + bounds[1][2]) / 2).setComponent(axis, at);
+            h.dir.fromArray(SECTION_KEEP[spec[1]]).multiplyScalar(spec[3] ? 1 : -1);
+            h.axis = axis;
+            h.at = at;
+            h.which = spec[0];
+        });
+        if (sectionHot && !sectionHot.group.visible) {
+            setSectionHot(null);
+        }
+        placeSectionHeads();
+        invalidate();
+    }
+
+    // Every frame: the arrows keep their size on screen
+    function placeSectionHeads() {
+        if (!sectionHandles) {
+            return;
+        }
+        const scale = worldPerPixel();
+        sectionHandles.forEach(function (h) {
+            if (h.group.visible) {
+                h.head.position.copy(h.origin);
+                h.head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), h.dir);
+                h.head.scale.setScalar(scale);
+                h.head.updateMatrixWorld(true);
+            }
+        });
+    }
+
+    function setSectionHandles(onDrag) {
+        sectionHandler = onDrag || null;
+        if (sectionDrag) {
+            sectionDrag = null;
+            controls.enabled = true; // closed in the middle of a drag
+        }
+        setSectionHot(null);
+        placeSectionHandles();
+    }
+
+    function setSectionHot(handle) {
+        if (handle === sectionHot) {
+            return;
+        }
+        sectionHot = handle;
+        sectionHandles.forEach(function (h) {
+            h.sheetMaterial.opacity = h === handle ? SHEET_OPACITY * 1.8 : SHEET_OPACITY;
+            h.headMaterial.color.setHex(h === handle ? 0xf5a04a : 0xe07b1f);
+        });
+        canvas.style.cursor = handle ? 'move' : hovered ? 'default' : restCursor();
+        invalidate();
+    }
+
+    // The handle under the pointer: an arrow first (with any left button
+    // mode), then a sheet while the left button selects, when no solid
+    // stands in front of it
+    function sectionHandleAt(event) {
+        if (!sectionHandler) {
+            return null;
+        }
+        aim(event);
+        const shown = sectionHandles.filter(function (h) {
+            return h.group.visible;
+        });
+        const arrowHit = shown.filter(function (h) {
+            return raycaster.intersectObject(h.grab, false).length > 0;
+        })[0];
+        if (arrowHit || leftDrag !== 'select') {
+            return arrowHit || null;
+        }
+        const solid = raycaster.intersectObjects(bodies.filter(function (b) {
+            return !b.off;
+        }).map(function (b) {
+            return b.mesh;
+        }), false).filter(function (hit) {
+            return !cutAway(hit.point);
+        })[0];
+        let best = null;
+        let near = solid ? solid.distance : Infinity;
+        shown.forEach(function (h) {
+            const hit = raycaster.intersectObject(h.sheet, false)[0];
+            if (hit && hit.distance < near) {
+                near = hit.distance;
+                best = h;
+            }
+        });
+        return best;
+    }
+
+    function stagePoint(event) {
+        const rect = canvas.getBoundingClientRect();
+        return [event.clientX - rect.left, event.clientY - rect.top];
+    }
+
+    canvas.addEventListener('pointerdown', function (event) {
+        if (!sectionHandler || event.button !== 0 || animation) {
+            return;
+        }
+        const h = sectionHandleAt(event);
+        if (!h) {
+            return;
+        }
+        // Pixels one millimetre along the plane's axis covers on screen
+        const a = project(h.origin.toArray());
+        const b = project(h.origin.clone().add(h.dir).toArray());
+        sectionDrag = { handle: h, from: stagePoint(event), screen: [b[0] - a[0], b[1] - a[1]], at: h.at };
+        setSectionHot(h);
+        controls.enabled = false;
+        event.stopImmediatePropagation();
+        try {
+            canvas.setPointerCapture(event.pointerId);
+        } catch (e) {
+            // A synthetic event has no pointer to capture
+        }
+    }, true);
+
+    // The position the drag has reached on the plane's axis
+    function sectionDragAt(event) {
+        const d = sectionDrag;
+        const wpp = worldPerPixel();
+        const along = dragOffset(d.from, stagePoint(event), d.screen, wpp);
+        return snapOffset(d.at + along * d.handle.dir.getComponent(d.handle.axis), wpp);
+    }
+
+    canvas.addEventListener('pointermove', function (event) {
+        if (sectionDrag) {
+            sectionHandler(sectionDrag.handle.which, sectionDragAt(event), false);
+            return;
+        }
+        if (sectionHandler && !event.buttons && !animation) {
+            setSectionHot(sectionHandleAt(event));
+        }
+    });
+
+    function endSectionDrag(event, done) {
+        if (!sectionDrag) {
+            return;
+        }
+        const at = event && done ? sectionDragAt(event) : sectionDrag.at;
+        const which = sectionDrag.handle.which;
+        sectionDrag = null;
+        controls.enabled = true;
+        if (sectionHandler) {
+            sectionHandler(which, at, true);
+        }
+    }
+    canvas.addEventListener('pointerup', function (event) {
+        endSectionDrag(event, true);
+    });
+    canvas.addEventListener('pointercancel', function () {
+        endSectionDrag(null, false); // back where the drag started
+    });
+    canvas.addEventListener('pointerleave', function () {
+        if (!sectionDrag) {
+            setSectionHot(null);
+        }
+    });
+
+    /* ---------------- orbit ring (left button orbits) ---------------- */
+    // Inside the ring OrbitControls turns the view (freely, see turnView);
+    // a press outside it or on a tick is handled here. Registered after the
+    // feature arrow's grab, so a press on the arrow still drags the arrow.
+    let ringDrag = null;    // { zone, x, y } while the ring has the left button
+
+    // "free" inside the ring, "roll" outside it, "tilt" on the top or
+    // bottom tick, "spin" on the left or right one
+    function ringZone(x, y) {
+        const ring = orbitRing(canvas.clientWidth, canvas.clientHeight);
+        const dx = x - ring.cx;
+        const dy = y - ring.cy;
+        const d = Math.hypot(dx, dy);
+        if (d > ring.r - RING_GRIP && d < ring.r + ring.tick + RING_GRIP) {
+            if (Math.abs(dx) < RING_GRIP) {
+                return 'tilt';
+            }
+            if (Math.abs(dy) < RING_GRIP) {
+                return 'spin';
+            }
+        }
+        return d > ring.r ? 'roll' : 'free';
+    }
+
+    function canvasPoint(event) {
+        const rect = canvas.getBoundingClientRect();
+        return [event.clientX - rect.left, event.clientY - rect.top];
+    }
+
+    canvas.addEventListener('pointerdown', function (event) {
+        if (leftDrag !== 'orbit' || event.button !== 0 || animation || (gizmoActive && gizmo.axis !== null)) {
+            return;
+        }
+        const at = canvasPoint(event);
+        const zone = ringZone(at[0], at[1]);
+        if (zone === 'free') {
+            return; // OrbitControls has it
+        }
+        noteView();
+        ringDrag = { zone: zone, x: at[0], y: at[1] };
+        controls.enabled = false; // OrbitControls leaves this press alone
+        try {
+            canvas.setPointerCapture(event.pointerId);
+        } catch (e) {
+            // A synthetic event has no pointer to capture
+        }
+    }, true);
+
+    canvas.addEventListener('pointermove', function (event) {
+        const at = canvasPoint(event);
+        if (ringDrag) {
+            const turn = Math.PI * 2 / (canvas.clientHeight || 1); // as OrbitControls: a drag of the full height is one turn
+            if (ringDrag.zone === 'roll') {
+                // The part turns round the middle of the view with the pointer
+                const ring = orbitRing(canvas.clientWidth, canvas.clientHeight);
+                let angle = Math.atan2(at[1] - ring.cy, at[0] - ring.cx) - Math.atan2(ringDrag.y - ring.cy, ringDrag.x - ring.cx);
+                angle = Math.atan2(Math.sin(angle), Math.cos(angle));
+                turnView(screenAxis(0, 0, 1), angle);
+            } else if (ringDrag.zone === 'tilt') {
+                turnView(screenAxis(1, 0, 0), -turn * (at[1] - ringDrag.y));
+            } else {
+                turnView(screenAxis(0, 1, 0), -turn * (at[0] - ringDrag.x));
+            }
+            ringDrag.x = at[0];
+            ringDrag.y = at[1];
+            invalidate();
+            return;
+        }
+        // The cursor tells what a drag from here would do
+        if (leftDrag === 'orbit' && !event.buttons) {
+            const zone = ringZone(at[0], at[1]);
+            if (zone !== ringHover) {
+                ringHover = zone;
+                if (!hovered && hotAxis < 0 && hotRegion < 0 && !planeHandler) {
+                    canvas.style.cursor = restCursor();
+                }
+            }
+        }
+    });
+
+    function endRingDrag() {
+        if (ringDrag) {
+            ringDrag = null;
+            controls.enabled = true;
+        }
+    }
+    canvas.addEventListener('pointerup', endRingDrag);
+    canvas.addEventListener('pointercancel', endRingDrag);
+
     /* ---------------- move / rotate / scale triad (assemblies) ---------------- */
     // three.js TransformControls on a stand-in object at the component's
     // centre. The handler gets the change as a matrix (stand-in now times
@@ -2444,12 +2876,79 @@ export function createViewport(options) {
         invalidate();
     }
 
+    /* ---------------- reference meshes (STL / OBJ brought in) ---------------- */
+    // [{ id, positions, indices }]: drawn pale and see-through, never picked;
+    // a mesh already drawn with the same data is kept
+    const meshGroup = new THREE.Group();
+    scene.add(meshGroup);
+    const referenceMaterial = new THREE.MeshStandardMaterial({
+        color: 0x9fb0c8, roughness: 0.8, metalness: 0, transparent: true, opacity: 0.55,
+        side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    let referenceMeshes = new Map(); // id -> { key, mesh }
+
+    function setMeshes(list) {
+        const next = new Map();
+        (list || []).forEach(function (m) {
+            const key = m.positions.length + ':' + m.indices.length + ':' + (m.positions[0] || 0);
+            const old = referenceMeshes.get(m.id);
+            if (old && old.key === key) {
+                next.set(m.id, old);
+                referenceMeshes.delete(m.id);
+                return;
+            }
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(m.positions, 3));
+            geometry.setIndex(new THREE.BufferAttribute(m.indices, 1));
+            geometry.computeVertexNormals();
+            const mesh = new THREE.Mesh(geometry, referenceMaterial);
+            mesh.raycast = function () {}; // a reference: never picked
+            mesh.renderOrder = 2;
+            meshGroup.add(mesh);
+            next.set(m.id, { key: key, mesh: mesh });
+        });
+        referenceMeshes.forEach(function (entry) {
+            meshGroup.remove(entry.mesh);
+            entry.mesh.geometry.dispose();
+        });
+        referenceMeshes = next;
+        invalidate();
+    }
+
+    /* ---------------- problem markers (Check Geometry) ---------------- */
+    // [{ at: [x, y, z], kind: "open" | "multiple" | "face" }]: dots over the
+    // model, seen through it, where a check found something wrong
+    const markerGroup = new THREE.Group();
+    scene.add(markerGroup);
+    const markerGeometry = new THREE.SphereGeometry(1, 12, 8);
+    const markerMaterials = {
+        open: new THREE.MeshBasicMaterial({ color: 0xd8342c, depthTest: false, transparent: true, opacity: 0.9 }),
+        multiple: new THREE.MeshBasicMaterial({ color: 0xe8a317, depthTest: false, transparent: true, opacity: 0.9 }),
+        face: new THREE.MeshBasicMaterial({ color: 0x9b4dca, depthTest: false, transparent: true, opacity: 0.9 })
+    };
+
+    function setMarkers(list) {
+        while (markerGroup.children.length) {
+            markerGroup.children.pop();
+        }
+        (list || []).forEach(function (m) {
+            const dot = new THREE.Mesh(markerGeometry, markerMaterials[m.kind] || markerMaterials.open);
+            dot.position.fromArray(m.at);
+            dot.renderOrder = 10;
+            markerGroup.add(dot);
+        });
+        invalidate();
+    }
+
     function placeMeasureLabels() {
         const size = worldPerPixel() * 4;
         measureGroup.children.forEach(function (child) {
             if (child.userData.dot) {
                 child.scale.setScalar(size);
             }
+        });
+        markerGroup.children.forEach(function (child) {
+            child.scale.setScalar(size * 1.4);
         });
         measureLabels.forEach(function (label) {
             const at = project(label.point);
@@ -2619,6 +3118,7 @@ export function createViewport(options) {
         updateSilhouettes();
         updateDashes();
         placeArrow();
+        placeSectionHeads();
         headlight.position.copy(camera.position);
         headlight.target.position.copy(controls.target);
         renderer.render(scene, camera);
@@ -2715,8 +3215,11 @@ export function createViewport(options) {
                 return [];
             }
             const list = item.type === 'face' ? (data.faces[item.index].edges || []) : [item.index];
+            // Each with the edge it is (source), so projected geometry can
+            // follow the edge when the model changes
             return list.map(function (i) {
-                return data.edges[i] && data.edges[i].curve;
+                const e = data.edges[i];
+                return e && e.curve ? Object.assign({}, e.curve, { source: { body: item.body, mid: e.mid, length: e.length } }) : null;
             }).filter(Boolean);
         },
         project: project,
@@ -2751,6 +3254,7 @@ export function createViewport(options) {
             }
         },
         lookAlong: lookAlong,
+        viewFace: viewFace,
         // The look of the part on show (appearance.js), or null for the default
         setAppearance: function (app) {
             partAppearance = app || null;
@@ -2770,13 +3274,7 @@ export function createViewport(options) {
             return body && body.data.faces ? body.data.faces[item.index] || null : null;
         },
         // Where the camera is, to keep with a document tab, and back
-        viewState: function () {
-            return {
-                projection: camera === persp ? 'perspective' : 'orthographic',
-                position: camera.position.toArray(), up: camera.up.toArray(),
-                target: controls.target.toArray(), zoom: ortho.zoom
-            };
-        },
+        viewState: currentView,
         setViewState: function (s) {
             if (!s) {
                 return;
@@ -2801,6 +3299,7 @@ export function createViewport(options) {
         },
         setVisualStyle: setVisualStyle,
         setSection: setSection,
+        setSectionHandles: setSectionHandles,
         // What dragging the left button does: "select" (nothing; it picks and
         // draws), "orbit" or "pan"
         setLeftDrag: function (action) {
@@ -2916,7 +3415,9 @@ export function createViewport(options) {
         isGizmoDragging: function () {
             return gizmoActive && gizmo.dragging;
         },
-        setMeasure: setMeasure
+        setMeasure: setMeasure,
+        setMarkers: setMarkers,
+        setMeshes: setMeshes
     });
     return api;
 }
