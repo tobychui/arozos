@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	_ "github.com/glebarez/go-sqlite"
+	_ "modernc.org/sqlite"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/info/logger"
@@ -409,7 +409,7 @@ sqlite.open = function(path) {
 const sqliteBusyTimeoutMs = 5000
 
 // sqliteBuildDSN turns a real file path into a driver DSN carrying the pragmas
-// every ArozOS database needs. The glebarez/go-sqlite driver treats everything
+// every ArozOS database needs. The modernc.org/sqlite driver treats everything
 // after the first '?' as a query string, so a path already containing '?' cannot
 // carry pragmas - in that case the bare path is returned and SQLite falls back to
 // its defaults rather than failing to open.

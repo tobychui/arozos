@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/glebarez/go-sqlite"
+	_ "modernc.org/sqlite"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	user "imuslab.com/arozos/mod/user"

@@ -515,6 +515,7 @@ func FileServerInit() {
 	}
 
 	SMBServerInit(router, adminRouter) //See smbserver.go
+	SyncthingInit(router, adminRouter) //See syncthing.go
 
 	router.HandleFunc("/system/network/server/list", NetworkHandleGetFileServerServiceList)
 	router.HandleFunc("/system/network/server/endpoints", NetworkHandleGetFileServerEndpoints)

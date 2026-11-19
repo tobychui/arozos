@@ -1,0 +1,277 @@
+<!--
+    Settings of the embedded Syncthing device. Loaded into services.html for
+    admins.
+-->
+<style>
+    #st-admin .st-groups .ui.checkbox { display: inline-block; margin: 0 16px 6px 0; }
+    #st-admin .st-sub { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ss-text-3); overflow-wrap: anywhere; }
+    #st-admin .st-mono { font-family: var(--ss-mono); }
+    #st-admin .fsp-table td.fsp-action .ss-btn { height: 24px; padding: 0 8px; font-size: 11.5px; }
+</style>
+
+<div id="st-admin" class="fsp">
+    <div class="fsp-banner error" id="st-config-error" hidden><i class="exclamation circle icon"></i><span></span></div>
+    <div class="fsp-note" locale="syncthing/admin_note">Turn the server on in the list, then pick the groups whose members may use Syncthing. Administrators always can. Each user links their own devices and picks their own folders in the Connect section above.</div>
+
+    <div class="fsp-key" id="st-admin-id-box" hidden>
+        <code id="st-admin-id"></code>
+    </div>
+    <div class="fsp-hint" id="st-admin-id-hint" locale="syncthing/admin_id_hint" hidden>Device ID of this server.</div>
+
+    <form class="ui form" id="st-config">
+        <div class="field st-groups">
+            <label locale="syncthing/groups">Groups that may use Syncthing</label>
+            <div id="st-group-list"></div>
+            <small class="fsp-hint" locale="syncthing/groups_hint">Taking a group away pauses the devices and folders of its members. Their files stay where they are.</small>
+        </div>
+        <div class="field">
+            <label locale="syncthing/port">Sync port</label>
+            <div class="ui input"><input id="st-port" type="number" min="1" max="65535" placeholder="22000"></div>
+            <small class="fsp-hint" locale="syncthing/port_hint">Used for TCP and QUIC (UDP). Forward it on your router for direct connections from outside your network.</small>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="st-global" type="checkbox">
+                <label locale="syncthing/global">Global discovery</label>
+                <small class="fsp-hint" locale="syncthing/global_hint">Devices find this server over the internet by its device ID, through Syncthing's public discovery servers. They learn the device ID and addresses of the server, never the files.</small>
+            </div>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="st-local" type="checkbox">
+                <label locale="syncthing/local">Local discovery</label>
+                <small class="fsp-hint" locale="syncthing/local_hint">Devices on the same network find this server by broadcast.</small>
+            </div>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="st-relays" type="checkbox">
+                <label locale="syncthing/relays">Relays</label>
+                <small class="fsp-hint" locale="syncthing/relays_hint">When no direct connection can be made, data goes through Syncthing's public relays. It stays encrypted from end to end.</small>
+            </div>
+        </div>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="st-nat" type="checkbox">
+                <label locale="syncthing/nat">Open the port on the router</label>
+                <small class="fsp-hint" locale="syncthing/nat_hint">Asks the router to forward the sync port with UPnP or NAT-PMP.</small>
+            </div>
+        </div>
+        <button class="ui black button" type="submit" id="st-apply" locale="syncthing/save_changes">Save Changes</button>
+        <div class="fsp-result" id="st-config-result" role="status"></div>
+    </form>
+
+    <div class="ui divider"></div>
+
+    <div class="fsp-head">
+        <h4 locale="syncthing/all_devices">Linked devices</h4>
+        <button type="button" class="ss-btn" id="st-refresh" locale="syncthing/refresh">Refresh</button>
+    </div>
+    <div class="fsp-empty" id="st-no-all-devices" locale="syncthing/no_all_devices" hidden>No user has linked a device yet.</div>
+    <table class="fsp-table" id="st-all-devices" hidden>
+        <thead><tr>
+            <th locale="syncthing/col_user">User</th>
+            <th locale="syncthing/col_device">Device</th>
+            <th locale="syncthing/col_status">Status</th>
+            <th></th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="fsp-head" style="margin-top: 18px;"><h4 locale="syncthing/all_folders">Synced folders</h4></div>
+    <div class="fsp-empty" id="st-no-all-folders" locale="syncthing/no_all_folders" hidden>No folder is synced yet.</div>
+    <table class="fsp-table" id="st-all-folders" hidden>
+        <thead><tr>
+            <th locale="syncthing/col_user">User</th>
+            <th locale="syncthing/col_folder">Folder</th>
+            <th locale="syncthing/col_status">Status</th>
+            <th></th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="st-unknown-box" hidden>
+        <div class="fsp-head" style="margin-top: 18px;"><h4 locale="syncthing/unknown">Devices nobody linked</h4></div>
+        <div class="fsp-hint" locale="syncthing/unknown_hint">These tried to connect before their owner linked them. Users link their own devices in the Connect section, with the device ID shown here.</div>
+        <table class="fsp-table" id="st-unknown">
+            <thead><tr>
+                <th locale="syncthing/col_device">Device</th>
+                <th locale="syncthing/col_address">Address</th>
+                <th locale="syncthing/col_time">Time</th>
+            </tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(function () {
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('syncthing/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name] === undefined ? all : values[name]; });
+    }
+    function api(path) { return '../../system/storage/syncthing/' + path; }
+    function failed(data) { return !data || data.error !== undefined; }
+    function when(value) {
+        if (!value) return '';
+        var date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
+        return isNaN(date.getTime()) ? '' : date.toLocaleString();
+    }
+    function message($target, text, good) {
+        $target.text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+    function cell(text, extra) {
+        var $td = $('<td></td>').append($('<span></span>').text(text));
+        if (extra) $td.append($('<span class="st-sub"></span>').text(extra));
+        return $td;
+    }
+
+    function loadConfig() {
+        $.get(api('config'), function (config) {
+            if (failed(config)) return;
+            var s = config.Settings;
+            $('#st-port').val(s.Port);
+            $('#st-global').prop('checked', s.GlobalDiscovery);
+            $('#st-local').prop('checked', s.LocalDiscovery);
+            $('#st-relays').prop('checked', s.Relays);
+            $('#st-nat').prop('checked', s.NAT);
+            var $list = $('#st-group-list').empty();
+            (config.AllGroups || []).forEach(function (name, i) {
+                var id = 'st-group-' + i;
+                var $input = $('<input type="checkbox">').attr('id', id).val(name).prop('checked', s.Groups.indexOf(name) >= 0);
+                $list.append($('<div class="ui checkbox"></div>').append($input).append($('<label></label>').attr('for', id).text(name)));
+            });
+            $('#st-config-error').prop('hidden', !config.LastError).find('span').text(config.LastError || '');
+            $('#st-admin-id').text(config.DeviceID || '');
+            $('#st-admin-id-box, #st-admin-id-hint').prop('hidden', !config.DeviceID);
+        });
+    }
+
+    function save(event) {
+        event.preventDefault();
+        var $result = $('#st-config-result');
+        var groups = [];
+        $('#st-group-list input:checked').each(function () { groups.push($(this).val()); });
+        $('#st-apply').addClass('loading disabled');
+        $.ajax({
+            url: api('config'),
+            method: 'POST',
+            data: {
+                port: $('#st-port').val(),
+                global: $('#st-global').is(':checked') ? 'true' : 'false',
+                local: $('#st-local').is(':checked') ? 'true' : 'false',
+                relays: $('#st-relays').is(':checked') ? 'true' : 'false',
+                nat: $('#st-nat').is(':checked') ? 'true' : 'false',
+                groups: JSON.stringify(groups)
+            }
+        }).done(function (data) {
+            if (failed(data)) return message($result, data && data.error ? data.error : t('failed', 'The request failed.'), false);
+            message($result, t('saved', 'Settings saved.'), true);
+            loadConfig();
+            loadOverview();
+        }).fail(function () {
+            message($result, t('failed', 'The request failed.'), false);
+        }).always(function () { $('#st-apply').removeClass('loading disabled'); });
+    }
+
+    function remove(kind, id, text) {
+        ssConfirm({
+            title: kind === 'device' ? t('unlink_device', 'Unlink device') : t('stop_folder', 'Stop syncing'),
+            text: text,
+            confirmLabel: kind === 'device' ? t('unlink', 'Unlink') : t('stop', 'Stop'),
+            danger: true
+        }, function () {
+            $.post(api('admin/remove'), { kind: kind, id: id }, function (data) {
+                if (failed(data)) return ssAlert({ title: t('failed_title', 'Syncthing'), text: data && data.error ? data.error : t('failed', 'The request failed.') });
+                loadOverview();
+            });
+        });
+    }
+
+    function deviceState(d, running) {
+        if (d.Reason === 'not_allowed') return t('admin_reason_not_allowed', 'Paused: the owner may no longer use Syncthing');
+        if (d.Paused) return t('device_paused', 'Paused');
+        if (!running) return t('server_off', 'Server off');
+        if (d.Connected) return t('connected', 'Connected');
+        if (d.LastSeen) return fill(t('last_seen', 'Last seen {time}'), { time: when(d.LastSeen) });
+        return t('never_seen', 'Waiting for the device to connect');
+    }
+
+    function folderState(f, running) {
+        if (f.Paused) {
+            if (f.Reason === 'no_access') return fill(t('reason_no_access', 'Paused: {detail}'), { detail: f.ReasonText });
+            if (f.Reason === 'quota') return t('admin_reason_quota', 'Paused: the storage quota of the owner is full');
+            if (f.Reason === 'overlap') return t('reason_overlap', 'Paused: another synced folder holds or is inside this folder');
+            if (f.Reason === 'not_allowed') return t('admin_reason_not_allowed', 'Paused: the owner may no longer use Syncthing');
+            return t('reason_paused', 'Paused');
+        }
+        if (!running) return t('server_off', 'Server off');
+        if (f.State === 'idle') return t('state_idle', 'Up to date');
+        if (f.State === 'error') return f.Error || t('state_error', 'Error');
+        if (f.State === 'syncing') return t('state_syncing_short', 'Syncing');
+        return f.State || t('state_starting', 'Starting');
+    }
+
+    function loadOverview() {
+        $.get(api('overview'), function (o) {
+            if (failed(o)) return;
+            var $devices = $('#st-all-devices tbody').empty();
+            o.Devices.forEach(function (d) {
+                var $remove = $('<button type="button" class="ss-btn"></button>').text(t('unlink', 'Unlink')).on('click', function () {
+                    remove('device', d.ID, fill(t('admin_unlink_confirm', 'Unlink {name} of {user}? It can no longer connect. The files already on the server stay.'), { name: d.Name, user: d.Owner }));
+                });
+                $devices.append($('<tr></tr>').append(cell(d.Owner)).append(cell(d.Name, d.ID).addClass('st-dev'))
+                    .append(cell(deviceState(d, o.Running))).append($('<td class="fsp-action"></td>').append($remove)));
+            });
+            $('#st-all-devices').prop('hidden', o.Devices.length === 0);
+            $('#st-no-all-devices').prop('hidden', o.Devices.length !== 0);
+
+            var $folders = $('#st-all-folders tbody').empty();
+            o.Folders.forEach(function (f) {
+                var $remove = $('<button type="button" class="ss-btn"></button>').text(t('stop', 'Stop')).on('click', function () {
+                    remove('folder', f.ID, fill(t('admin_stop_confirm', 'Stop syncing {path} of {user}? Its files stay where they are.'), { path: f.Path, user: f.Owner }));
+                });
+                $folders.append($('<tr></tr>').append(cell(f.Owner)).append(cell(f.Label, f.Path))
+                    .append(cell(folderState(f, o.Running))).append($('<td class="fsp-action"></td>').append($remove)));
+            });
+            $('#st-all-folders').prop('hidden', o.Folders.length === 0);
+            $('#st-no-all-folders').prop('hidden', o.Folders.length !== 0);
+
+            var $unknown = $('#st-unknown tbody').empty();
+            (o.Unknown || []).forEach(function (u) {
+                $unknown.append($('<tr></tr>').append(cell(u.Name || '', u.ID)).append(cell(u.Address || '')).append(cell(when(u.Time))));
+            });
+            $('#st-unknown-box').prop('hidden', !(o.Unknown && o.Unknown.length));
+            $('#st-admin .st-dev .st-sub, #st-unknown .st-sub').addClass('st-mono');
+        });
+    }
+
+    function start() {
+        $('#st-config').on('submit', save);
+        $('#st-refresh').on('click', function () { loadConfig(); loadOverview(); });
+        $('#st-admin .ui.checkbox').checkbox();
+        //A switch that failed to start the server is explained here
+        $('#fs-list').off('.stadmin').on('change.stadmin', 'input', function () {
+            setTimeout(function () {
+                if (!$('#st-admin').length) return;
+                loadConfig();
+                loadOverview();
+            }, 1500);
+        });
+        loadConfig();
+        loadOverview();
+    }
+
+    if (L) {
+        L.init('../locale/system_settings/fileservers.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+})();
+</script>

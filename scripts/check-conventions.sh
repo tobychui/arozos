@@ -144,6 +144,10 @@ license_reminder() {
 scan_one() {
 	file=$1
 	case "$file" in
+	third_party/* | */third_party/*)
+		# Copies of other projects keep their own conventions
+		return
+		;;
 	go.mod | go.sum | */go.mod | */go.sum)
 		license_reminder
 		return
@@ -202,6 +206,10 @@ case "$mode" in
 		[ -n "$f" ] || continue
 		emoji_only=""
 		case "$f" in
+		third_party/* | */third_party/*)
+			# Copies of other projects keep their own conventions
+			continue
+			;;
 		go.mod | go.sum | */go.mod | */go.sum)
 			license_reminder
 			continue

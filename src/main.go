@@ -44,6 +44,7 @@ func executeShutdownSequence() {
 
 	//Shutdown the SMB server before the drives it serves
 	SMBServerShutdown()
+	SyncthingShutdown() //Syncthing writes into the drives too
 
 	//Shutdown authAgent
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down auth gateway", nil)

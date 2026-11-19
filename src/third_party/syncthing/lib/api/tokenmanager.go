@@ -1,0 +1,260 @@
+// Copyright (C) 2024 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
+package api
+
+import (
+	"math"
+	"net/http"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/gen/apiproto"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/rand"
+)
+
+type tokenManager struct {
+	key      string
+	miscDB   *db.Typed
+	lifetime time.Duration
+	maxItems int
+
+	timeNow func() time.Time // can be overridden for testing
+
+	mut       sync.Mutex
+	tokens    *apiproto.TokenSet
+	saveTimer *time.Timer
+}
+
+const defaultSessionCookieDurationS = 7 * 24 * 60 * 60
+
+func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
+	var tokens apiproto.TokenSet
+	if bs, ok, _ := miscDB.Bytes(key); ok {
+		_ = proto.Unmarshal(bs, &tokens) // best effort
+	}
+	if tokens.Tokens == nil {
+		tokens.Tokens = make(map[string]int64)
+	}
+	return &tokenManager{
+		key:      key,
+		miscDB:   miscDB,
+		lifetime: lifetime,
+		maxItems: maxItems,
+		timeNow:  time.Now,
+		tokens:   &tokens,
+	}
+}
+
+// Check returns true if the token is valid, and updates the token's expiry
+// time. The token is removed if it is expired.
+func (m *tokenManager) Check(token string) bool {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	expires, ok := m.tokens.Tokens[token]
+	if !ok {
+		return false
+	}
+	if expires != 0 && expires < m.timeNow().UnixNano() {
+		// The token is expired.
+		m.saveLocked() // removes expired tokens
+		return false
+	}
+
+	// Give the token further life.
+	m.tokens.Tokens[token] = m.newExpiryNanos()
+	m.saveLocked()
+	return true
+}
+
+// New creates a new token and returns it.
+func (m *tokenManager) New() string {
+	token := rand.String(randomTokenLength)
+
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.tokens.Tokens[token] = m.newExpiryNanos()
+	m.saveLocked()
+
+	return token
+}
+
+func (m *tokenManager) newExpiryNanos() int64 {
+	if m.lifetime <= 0 {
+		return 0
+	}
+	return m.timeNow().Add(m.lifetime).UnixNano()
+}
+
+// Delete removes a token.
+func (m *tokenManager) Delete(token string) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	delete(m.tokens.Tokens, token)
+	m.saveLocked()
+}
+
+func (m *tokenManager) saveLocked() {
+	// Remove expired tokens.
+	now := m.timeNow().UnixNano()
+	for token, expiry := range m.tokens.Tokens {
+		if expiry != 0 && expiry < now {
+			delete(m.tokens.Tokens, token)
+		}
+	}
+
+	// If we have a limit on the number of tokens, remove the oldest ones.
+	if m.maxItems > 0 && len(m.tokens.Tokens) > m.maxItems {
+		// Sort the tokens by expiry time, oldest first.
+		type tokenExpiry struct {
+			token  string
+			expiry int64
+		}
+		var tokens []tokenExpiry
+		for token, expiry := range m.tokens.Tokens {
+			tokens = append(tokens, tokenExpiry{token, expiry})
+		}
+		slices.SortFunc(tokens, func(a, b tokenExpiry) int {
+			return int(a.expiry - b.expiry)
+		})
+		// Remove the oldest tokens.
+		for _, token := range tokens[:len(tokens)-m.maxItems] {
+			delete(m.tokens.Tokens, token.token)
+		}
+	}
+
+	// Postpone saving until one second of inactivity.
+	if m.saveTimer == nil {
+		m.saveTimer = time.AfterFunc(time.Second, m.scheduledSave)
+	} else {
+		m.saveTimer.Reset(time.Second)
+	}
+}
+
+func (m *tokenManager) scheduledSave() {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.saveTimer = nil
+
+	bs, _ := proto.Marshal(m.tokens) // can't fail
+	_ = m.miscDB.PutBytes(m.key, bs) // can fail, but what are we going to do?
+}
+
+type tokenCookieManager struct {
+	cookieName string
+	shortID    string
+	guiCfg     config.GUIConfiguration
+	evLogger   events.Logger
+	tokens     *tokenManager
+}
+
+func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.Typed) *tokenCookieManager {
+	sessionLifetimeS := guiCfg.SessionCookieDurationS
+	if sessionLifetimeS == 0 {
+		sessionLifetimeS = defaultSessionCookieDurationS
+	}
+	return &tokenCookieManager{
+		cookieName: "sessionid-" + shortID,
+		shortID:    shortID,
+		guiCfg:     guiCfg,
+		evLogger:   evLogger,
+		tokens:     newTokenManager("sessions", miscDB, time.Duration(sessionLifetimeS)*time.Second, maxActiveSessions),
+	}
+}
+
+func (m *tokenCookieManager) createSession(username string, persistent bool, w http.ResponseWriter, r *http.Request) {
+	sessionid := m.tokens.New()
+
+	// Best effort detection of whether the connection is HTTPS --
+	// either directly to us, or as used by the client towards a reverse
+	// proxy who sends us headers.
+	connectionIsHTTPS := r.TLS != nil ||
+		strings.ToLower(r.Header.Get("X-Forwarded-Proto")) == "https" ||
+		strings.Contains(strings.ToLower(r.Header.Get("Forwarded")), "proto=https")
+	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
+	// bit in cookies.
+	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()
+
+	maxAge := 0
+	if persistent {
+		maxAge = m.sessionCookieMaxAge()
+	}
+	path := m.guiCfg.SessionCookiePath
+	if path == "" {
+		path = "/"
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:  m.cookieName,
+		Value: sessionid,
+		// In HTTP spec Max-Age <= 0 means delete immediately,
+		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
+		MaxAge: maxAge,
+		Secure: useSecureCookie,
+		Path:   path,
+	})
+
+	emitLoginAttempt(true, username, r, m.evLogger)
+}
+
+func (m *tokenCookieManager) sessionCookieMaxAge() int {
+	switch {
+	case m.guiCfg.SessionCookieDurationS < 0:
+		// A negative value means "never expire the cookie". Use a very
+		// large Max-Age to make the browser keep the cookie for a long
+		// time.
+		return math.MaxInt32
+	case m.guiCfg.SessionCookieDurationS == 0:
+		return defaultSessionCookieDurationS
+	default:
+		return m.guiCfg.SessionCookieDurationS
+	}
+}
+
+func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
+	for _, cookie := range r.Cookies() {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. Any "old" ones
+		// won't match an existing session and will be ignored, then
+		// later removed on logout or when timing out.
+		if cookie.Name == m.cookieName {
+			if m.tokens.Check(cookie.Value) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (m *tokenCookieManager) destroySession(w http.ResponseWriter, r *http.Request) {
+	for _, cookie := range r.Cookies() {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. We drop them
+		// all.
+		if cookie.Name == m.cookieName {
+			m.tokens.Delete(cookie.Value)
+
+			// Create a cookie deletion command
+			http.SetCookie(w, &http.Cookie{
+				Name:   m.cookieName,
+				Value:  "",
+				MaxAge: -1,
+				Secure: cookie.Secure,
+				Path:   cookie.Path,
+			})
+		}
+	}
+}

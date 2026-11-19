@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="128px" height="128px" viewBox="0 0 128 128">
+	<!-- Folder, as the other network folder icons -->
+	<polygon fill="#DBAC50" points="110.998,23.424 110.998,84.064 17.001,84.064 17.001,13.652 48.449,13.469 55.315,23.669"/>
+	<polygon fill="#E5BD64" points="110.998,84.064 17.001,84.064 17.087,31.401 110.57,31.401"/>
+	<!-- Network stand -->
+	<rect x="17.001" y="103.51" fill="#443F5D" width="93.997" height="4.691"/>
+	<rect x="60.985" y="84.064" fill="#443F5D" width="6.029" height="19.445"/>
+	<path fill="#55516E" d="M72.935,110.512c0,2.221-1.8,4.02-4.021,4.02h-9.827c-2.221,0-4.021-1.799-4.021-4.02v-9.828
+		c0-2.221,1.8-4.021,4.021-4.021h9.827c2.221,0,4.021,1.801,4.021,4.021V110.512z"/>
+	<!-- Sync badge: two arrows chasing each other -->
+	<circle cx="33" cy="80" r="19" fill="#1E88C7" stroke="#F4F4F4" stroke-width="3"/>
+	<path fill="none" stroke="#FFFFFF" stroke-width="3.6" stroke-linecap="round" d="M22.17,78.09 A11,11 0 0 1 43,75.3"/>
+	<polygon fill="#FFFFFF" points="45.05,80.94 38.77,76.84 47.23,73.76"/>
+	<path fill="none" stroke="#FFFFFF" stroke-width="3.6" stroke-linecap="round" d="M43.83,81.91 A11,11 0 0 1 23,84.7"/>
+	<polygon fill="#FFFFFF" points="20.95,79.06 27.23,83.16 18.77,86.24"/>
+</svg>

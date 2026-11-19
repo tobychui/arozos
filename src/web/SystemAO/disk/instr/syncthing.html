@@ -1,0 +1,607 @@
+<!--
+    Syncthing: where a user links their phones and computers to the server and
+    picks a folder of their drives for every folder those devices share.
+    Loaded into services.html for every user.
+-->
+<style>
+    #st-user .st-server { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; margin-bottom: 4px; }
+    #st-user .st-qr { width: 132px; height: 132px; flex-shrink: 0; padding: 6px; background: #ffffff; border: 1px solid var(--ss-border); border-radius: var(--ss-radius-sm); image-rendering: pixelated; }
+    #st-user .st-server-text { flex: 1 1 220px; min-width: 0; }
+    #st-user .st-label { margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--ss-text-2, var(--ss-text)); }
+    #st-user .st-name { font-weight: 600; }
+    #st-user .st-sub { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ss-text-3); overflow-wrap: anywhere; }
+    #st-user .st-mono { font-family: var(--ss-mono); }
+    #st-user .st-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+    #st-user .st-badge .icon { margin: 0; }
+    #st-user .st-bar { height: 4px; margin-top: 4px; border-radius: 2px; background: var(--ss-border); overflow: hidden; max-width: 140px; }
+    #st-user .st-bar > span { display: block; height: 100%; background: var(--ss-accent); }
+    #st-user .fsp-table td.fsp-action .ss-btn { height: 24px; padding: 0 8px; margin-left: 4px; font-size: 11.5px; }
+    #st-user .st-open { margin-top: 10px; }
+    #st-user .st-offer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--ss-border); border-radius: var(--ss-radius-sm); }
+    #st-user .st-offer-text { flex: 1 1 240px; min-width: 0; font-size: 12.5px; line-height: 1.5; color: var(--ss-text); }
+    #st-user .st-offer-buttons { display: flex; gap: 6px; }
+    #st-user .st-offer .ss-btn { height: 26px; padding: 0 10px; font-size: 12px; }
+    #st-user .st-panel { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--ss-border); border-radius: var(--ss-radius-sm); background: var(--ss-surface-2); }
+    #st-user .st-panel h4 { margin: 0 0 10px; font-size: 13px; }
+    #st-user .ui.form { max-width: 560px; }
+    #st-user .st-modes .field { margin-bottom: 8px !important; }
+    #st-user .st-devices-pick .ui.checkbox { display: block; margin-bottom: 6px; }
+</style>
+
+<div id="st-user" class="fsp">
+    <div class="ui basic blue message">
+        <h4 class="ui header">
+            <i class="blue sync alternate icon"></i>
+            <div class="content" locale="syncthing/intro_title">Sync your phone with Syncthing</div>
+        </h4>
+        <p locale="syncthing/intro">Install a Syncthing app on your device: Sushitrain on iPhone and iPad, Syncthing-Fork on Android, or Syncthing on a computer. Add this server as a device in the app, link the device here, then share folders from the app and choose where each one goes in your drives.</p>
+    </div>
+
+    <div class="fsp-state" id="st-state"><i class="spinner loading icon"></i></div>
+
+    <div id="st-main" hidden>
+        <div id="st-server-box" hidden>
+            <div class="fsp-subtitle" locale="syncthing/this_server">This server</div>
+            <div class="st-server">
+                <img class="st-qr" id="st-qr" alt="" src="data:,">
+                <div class="st-server-text">
+                    <div class="st-label" locale="syncthing/device_id">Device ID</div>
+                    <div class="fsp-key">
+                        <code id="st-id"></code>
+                        <button type="button" class="ss-btn fs-copy" id="st-id-copy" locale="syncthing/copy">Copy</button>
+                    </div>
+                    <div class="fsp-hint" locale="syncthing/device_id_hint">In the app, add a device, then scan this code or paste the ID. Give the server an address only if the app cannot find it by itself: use the one shown above.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fsp-subtitle" locale="syncthing/your_devices">Your devices</div>
+        <div class="fsp-empty" id="st-no-devices" locale="syncthing/no_devices" hidden>No device is linked yet.</div>
+        <table class="fsp-table" id="st-devices" hidden>
+            <thead><tr>
+                <th locale="syncthing/col_device">Device</th>
+                <th locale="syncthing/col_status">Status</th>
+                <th></th>
+            </tr></thead>
+            <tbody></tbody>
+        </table>
+        <button type="button" class="ui basic button st-open" id="st-device-open"><i class="plus icon"></i> <span locale="syncthing/link_device">Link a device</span></button>
+
+        <div class="st-panel" id="st-device-panel" hidden>
+            <h4 locale="syncthing/link_device">Link a device</h4>
+            <form class="ui form" id="st-device-form" autocomplete="off">
+                <div class="field">
+                    <label locale="syncthing/their_id">Device ID of your phone or computer</label>
+                    <input type="text" id="st-device-id" class="st-mono" spellcheck="false" autocapitalize="characters">
+                    <small class="fsp-hint" locale="syncthing/their_id_hint">The app shows it under its own device, for example Settings in Sushitrain. Copy it there and paste it here.</small>
+                </div>
+                <div class="field">
+                    <label locale="syncthing/device_name">Name</label>
+                    <input type="text" id="st-device-name" maxlength="64">
+                </div>
+                <div class="field">
+                    <label locale="syncthing/login_password">Your ArozOS login password</label>
+                    <input type="password" id="st-device-password" autocomplete="current-password">
+                    <small class="fsp-hint" locale="syncthing/login_password_hint">A linked device can write into your drives, so linking one needs your password.</small>
+                </div>
+                <div class="fsp-buttons">
+                    <button type="submit" class="ui black button" id="st-device-save"><i class="linkify icon"></i> <span locale="syncthing/link">Link device</span></button>
+                    <button type="button" class="ui basic button" id="st-device-cancel" locale="syncthing/cancel">Cancel</button>
+                </div>
+                <div class="fsp-result" id="st-device-result" role="status"></div>
+            </form>
+        </div>
+
+        <div id="st-offers-box" hidden>
+            <div class="fsp-subtitle" locale="syncthing/offers">Folders your devices share</div>
+            <div id="st-offers"></div>
+        </div>
+
+        <div class="fsp-subtitle" locale="syncthing/folders">Synced folders</div>
+        <div class="fsp-empty" id="st-no-folders" locale="syncthing/no_folders" hidden>No folder is synced yet. Share a folder from the app on your device, or sync a folder of your drives with your devices.</div>
+        <table class="fsp-table" id="st-folders" hidden>
+            <thead><tr>
+                <th locale="syncthing/col_folder">Folder</th>
+                <th locale="syncthing/col_status">Status</th>
+                <th></th>
+            </tr></thead>
+            <tbody></tbody>
+        </table>
+        <button type="button" class="ui basic button st-open" id="st-folder-open"><i class="plus icon"></i> <span locale="syncthing/add_folder">Sync a folder</span></button>
+
+        <div class="st-panel" id="st-folder-panel" hidden>
+            <h4 id="st-folder-title"></h4>
+            <form class="ui form" id="st-folder-form" autocomplete="off">
+                <div class="field" id="st-path-field">
+                    <label locale="syncthing/path">Folder in your drives</label>
+                    <div class="ui action input">
+                        <input type="text" id="st-path" placeholder="user:/Phone">
+                        <button type="button" class="ui button" id="st-browse" locale="syncthing/browse">Browse</button>
+                    </div>
+                    <small class="fsp-hint" locale="syncthing/path_hint">A folder on a disk of this server. Network, cloud and shared drives cannot be used. A missing folder is created.</small>
+                </div>
+                <div class="field" id="st-path-show" hidden>
+                    <label locale="syncthing/path">Folder in your drives</label>
+                    <div class="st-mono" id="st-path-text"></div>
+                </div>
+                <div class="field">
+                    <label locale="syncthing/label">Name</label>
+                    <input type="text" id="st-label" maxlength="128">
+                </div>
+                <div class="grouped fields st-modes">
+                    <label locale="syncthing/mode">When the device changes or deletes files</label>
+                    <div class="field">
+                        <div class="ui radio checkbox">
+                            <input type="radio" name="st-mode" value="backup" id="st-mode-backup">
+                            <label for="st-mode-backup"><span locale="syncthing/mode_backup">Backup</span>
+                                <small class="fsp-hint" locale="syncthing/mode_backup_hint">Keep everything the device sends. Files deleted on the device stay here, so you can free space on the phone. Nothing goes back to the device.</small></label>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="ui radio checkbox">
+                            <input type="radio" name="st-mode" value="mirror" id="st-mode-mirror">
+                            <label for="st-mode-mirror"><span locale="syncthing/mode_mirror">Mirror</span>
+                                <small class="fsp-hint" locale="syncthing/mode_mirror_hint">Follow the device, deletions included. Nothing goes back to the device.</small></label>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="ui radio checkbox">
+                            <input type="radio" name="st-mode" value="twoway" id="st-mode-twoway">
+                            <label for="st-mode-twoway"><span locale="syncthing/mode_twoway">Two-way sync</span>
+                                <small class="fsp-hint" locale="syncthing/mode_twoway_hint">Changes on either side go to the other, deletions included.</small></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label locale="syncthing/versions">Keep replaced and deleted files</label>
+                    <select class="ui dropdown" id="st-versions">
+                        <option value="0" locale="syncthing/versions_off">No</option>
+                        <option value="7" data-days="7"></option>
+                        <option value="30" data-days="30"></option>
+                        <option value="90" data-days="90"></option>
+                        <option value="365" data-days="365"></option>
+                    </select>
+                    <small class="fsp-hint" locale="syncthing/versions_hint">Old copies go to the .stversions folder inside the folder, and are deleted after this many days.</small>
+                </div>
+                <div class="field st-devices-pick">
+                    <label locale="syncthing/share_with">Share with</label>
+                    <div id="st-device-picks"></div>
+                    <div class="fsp-empty" id="st-no-picks" locale="syncthing/no_picks" hidden>Link a device first.</div>
+                </div>
+                <div class="field" id="st-paused-field" hidden>
+                    <div class="ui toggle checkbox">
+                        <input type="checkbox" id="st-paused">
+                        <label locale="syncthing/pause_folder">Pause this folder</label>
+                    </div>
+                </div>
+                <div class="fsp-buttons">
+                    <button type="submit" class="ui black button" id="st-folder-save"><i class="check icon"></i> <span id="st-folder-save-label"></span></button>
+                    <button type="button" class="ui basic button" id="st-folder-cancel" locale="syncthing/cancel">Cancel</button>
+                </div>
+                <div class="fsp-result" id="st-folder-result" role="status"></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        try { return (L && L.getString('syncthing/' + key, fallback)) || fallback; } catch (e) { return fallback; }
+    }
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name] === undefined ? all : values[name]; });
+    }
+    function api(path) { return '../../system/storage/syncthing/' + path; }
+    function failed(data) { return !data || data.error !== undefined; }
+
+    var status = null;
+    var editing = null;      // Folder being edited, or null
+    var accepting = null;    // Offer being accepted, or null
+    var timer = null;
+
+    function sizeText(bytes) {
+        var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        var i = 0;
+        var n = bytes || 0;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return (i === 0 ? String(n) : n.toFixed(n < 10 ? 1 : 0)) + ' ' + units[i];
+    }
+    function when(seconds) { return seconds ? new Date(seconds * 1000).toLocaleString() : ''; }
+
+    function badge(icon, text) {
+        return $('<span class="st-badge"></span>').append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
+    }
+
+    function state(icon, text) {
+        $('#st-state').empty().append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
+    }
+
+    function reasonText(key, detail) {
+        switch (key) {
+        case 'paused': return t('reason_paused', 'Paused');
+        case 'not_allowed': return t('reason_not_allowed', 'Paused: your account may no longer use Syncthing');
+        case 'quota': return t('reason_quota', 'Paused: your storage quota is full');
+        case 'overlap': return t('reason_overlap', 'Paused: another synced folder holds or is inside this folder');
+        case 'no_access': return fill(t('reason_no_access', 'Paused: {detail}'), { detail: detail || '' });
+        }
+        return t('reason_paused', 'Paused');
+    }
+
+    function deviceName(id) {
+        var list = (status && status.Devices) || [];
+        for (var i = 0; i < list.length; i++) if (list[i].ID === id) return list[i].Name;
+        return id.substring(0, 7);
+    }
+
+    function modeName(mode) {
+        if (mode === 'mirror') return t('mode_mirror', 'Mirror');
+        if (mode === 'twoway') return t('mode_twoway', 'Two-way sync');
+        return t('mode_backup', 'Backup');
+    }
+
+    function post(path, data, done) {
+        $.ajax({ url: api(path), method: 'POST', data: data }).done(function (res) {
+            if (failed(res)) return ssAlert({ title: t('failed_title', 'Syncthing'), text: res && res.error ? res.error : t('failed', 'The request failed.') });
+            if (done) done(res);
+            refresh();
+        }).fail(function () {
+            ssAlert({ title: t('failed_title', 'Syncthing'), text: t('failed', 'The request failed.') });
+        });
+    }
+
+    /* Devices */
+
+    function deviceStatus(d) {
+        if (d.Reason === 'not_allowed') return badge('grey ban', reasonText('not_allowed'));
+        if (d.Paused) return badge('grey pause circle', t('device_paused', 'Paused'));
+        if (!status.Running) return badge('grey power off', t('server_off', 'Server off'));
+        if (d.Connected) return badge('green check circle', t('connected', 'Connected'));
+        if (d.LastSeen) return badge('grey clock outline', fill(t('last_seen', 'Last seen {time}'), { time: when(d.LastSeen) }));
+        return badge('yellow hourglass half', t('never_seen', 'Waiting for the device to connect'));
+    }
+
+    function renderDevices() {
+        var $body = $('#st-devices tbody').empty();
+        status.Devices.forEach(function (d) {
+            var $who = $('<td></td>').append($('<span class="st-name"></span>').text(d.Name))
+                .append($('<span class="st-sub st-mono"></span>').text(d.ID));
+            var $pause = $('<button type="button" class="ss-btn"></button>').text(d.Paused && d.Reason !== 'not_allowed' ? t('resume', 'Resume') : t('pause', 'Pause'));
+            $pause.prop('disabled', d.Reason === 'not_allowed').on('click', function () {
+                post('device/edit', { id: d.ID, paused: d.Paused ? 'false' : 'true' });
+            });
+            var $rename = $('<button type="button" class="ss-btn"></button>').text(t('rename', 'Rename')).on('click', function () {
+                ssPrompt({ title: t('rename_device', 'Rename device'), value: d.Name, confirmLabel: t('save', 'Save') }, function (name) {
+                    if (name && name.trim()) post('device/edit', { id: d.ID, name: name.trim() });
+                });
+            });
+            var $remove = $('<button type="button" class="ss-btn"></button>').text(t('unlink', 'Unlink')).on('click', function () {
+                ssConfirm({
+                    title: t('unlink_device', 'Unlink device'),
+                    text: fill(t('unlink_confirm', '{name} can no longer connect, and stops syncing every folder. The files already on the server stay.'), { name: d.Name }),
+                    confirmLabel: t('unlink', 'Unlink'),
+                    danger: true
+                }, function () { post('device/remove', { id: d.ID }); });
+            });
+            $body.append($('<tr></tr>').append($who).append($('<td></td>').append(deviceStatus(d)))
+                .append($('<td class="fsp-action"></td>').append($pause, $rename, $remove)));
+        });
+        $('#st-devices').prop('hidden', status.Devices.length === 0);
+        $('#st-no-devices').prop('hidden', status.Devices.length !== 0);
+    }
+
+    function openDeviceForm() {
+        $('#st-device-id, #st-device-name, #st-device-password').val('');
+        $('#st-device-result').text('').removeClass('good bad');
+        $('#st-device-panel').prop('hidden', false);
+        $('#st-device-open').prop('hidden', true);
+        $('#st-device-id').focus();
+    }
+
+    function closeDeviceForm() {
+        $('#st-device-panel').prop('hidden', true);
+        $('#st-device-open').prop('hidden', false);
+        $('#st-device-password').val('');
+    }
+
+    function saveDevice(event) {
+        event.preventDefault();
+        var $result = $('#st-device-result');
+        var id = $('#st-device-id').val().trim();
+        if (!id) return $result.text(t('need_id', 'Paste the device ID of your device.')).addClass('bad').removeClass('good');
+        if (!$('#st-device-password').val()) return $result.text(t('need_password', 'Enter your ArozOS login password.')).addClass('bad').removeClass('good');
+        $('#st-device-save').addClass('loading disabled');
+        $.ajax({
+            url: api('device/add'),
+            method: 'POST',
+            data: { id: id, name: $('#st-device-name').val(), password: $('#st-device-password').val() }
+        }).done(function (res) {
+            if (failed(res)) return $result.text(res && res.error ? res.error : t('failed', 'The request failed.')).addClass('bad').removeClass('good');
+            closeDeviceForm();
+            refresh();
+        }).fail(function (xhr) {
+            var text = (xhr.status === 401 || xhr.status === 403) ? t('wrong_password', 'Your ArozOS login password is not correct.') : t('failed', 'The request failed.');
+            $result.text(text).addClass('bad').removeClass('good');
+        }).always(function () {
+            $('#st-device-save').removeClass('loading disabled');
+            $('#st-device-password').val('');
+        });
+    }
+
+    /* Offers */
+
+    function renderOffers() {
+        var $box = $('#st-offers').empty();
+        status.Offers.forEach(function (o) {
+            var label = o.Label || o.FolderID;
+            var $text = $('<div class="st-offer-text"></div>')
+                .append($('<span></span>').text(fill(t('offer_text', '{device} shares "{label}"'), { device: o.DeviceName, label: label })))
+                .append($('<span class="st-sub"></span>').text(fill(t('offer_id', 'Folder ID {id}'), { id: o.FolderID })));
+            var $buttons = $('<div class="st-offer-buttons"></div>');
+            if (o.Existing === 'mine') {
+                $text.append($('<span class="st-sub"></span>').text(t('offer_mine', 'You already sync this folder with another device.')));
+                $buttons.append($('<button type="button" class="ss-btn"></button>').text(t('offer_join', 'Add this device')).on('click', function () { joinFolder(o); }));
+            } else if (o.Existing === 'taken') {
+                $text.append($('<span class="st-sub"></span>').text(t('offer_taken', 'The server already has a folder with this ID. Give the folder another ID in the app and share it again.')));
+            } else {
+                $buttons.append($('<button type="button" class="ss-btn"></button>').text(t('offer_accept', 'Choose where it goes')).on('click', function () { openFolderForm(null, o); }));
+            }
+            $buttons.append($('<button type="button" class="ss-btn"></button>').text(t('offer_ignore', 'Ignore')).on('click', function () {
+                post('offer/ignore', { id: o.DeviceID, folder: o.FolderID });
+            }));
+            $box.append($('<div class="st-offer"></div>').append($text, $buttons));
+        });
+        $('#st-offers-box').prop('hidden', status.Offers.length === 0);
+    }
+
+    function joinFolder(offer) {
+        var folder = null;
+        status.Folders.forEach(function (f) { if (f.ID === offer.FolderID) folder = f; });
+        if (!folder) return;
+        var devices = folder.Devices.slice();
+        if (devices.indexOf(offer.DeviceID) < 0) devices.push(offer.DeviceID);
+        post('folder/edit', { id: folder.ID, devices: JSON.stringify(devices) });
+    }
+
+    /* Folders */
+
+    function folderStatus(f) {
+        if (f.Paused) return badge('grey pause circle', reasonText(f.Reason, f.ReasonText));
+        if (!status.Running) return badge('grey power off', t('server_off', 'Server off'));
+        var $cell = $('<div></div>');
+        switch (f.State) {
+        case 'idle':
+            $cell.append(badge('green check circle', t('state_idle', 'Up to date')));
+            break;
+        case 'syncing':
+        case 'sync-preparing':
+            var pct = f.GlobalBytes > 0 ? Math.max(0, Math.min(100, Math.floor(100 * (f.GlobalBytes - f.NeedBytes) / f.GlobalBytes))) : 0;
+            $cell.append(badge('blue sync alternate', fill(t('state_syncing', 'Syncing, {pct}%'), { pct: pct })));
+            $cell.append($('<div class="st-bar"></div>').append($('<span></span>').css('width', pct + '%')));
+            break;
+        case 'scanning':
+        case 'scan-waiting':
+            $cell.append(badge('blue search', t('state_scanning', 'Looking for changes')));
+            break;
+        case 'sync-waiting':
+            $cell.append(badge('blue hourglass half', t('state_waiting', 'Waiting to sync')));
+            break;
+        case 'cleaning':
+        case 'clean-waiting':
+            $cell.append(badge('blue recycle', t('state_cleaning', 'Cleaning up old versions')));
+            break;
+        case 'error':
+            $cell.append(badge('red exclamation circle', f.Error || t('state_error', 'Error')));
+            break;
+        default:
+            $cell.append(badge('grey hourglass start', t('state_starting', 'Starting')));
+        }
+        $cell.append($('<span class="st-sub"></span>').text(fill(t('folder_size', '{files} files, {size}'), { files: f.LocalFiles, size: sizeText(f.LocalBytes) })));
+        if (f.NeedFiles > 0 && f.State !== 'idle') {
+            $cell.append($('<span class="st-sub"></span>').text(fill(t('folder_need', '{files} files ({size}) to go'), { files: f.NeedFiles, size: sizeText(f.NeedBytes) })));
+        }
+        return $cell;
+    }
+
+    function renderFolders() {
+        var $body = $('#st-folders tbody').empty();
+        status.Folders.forEach(function (f) {
+            var names = f.Devices.map(deviceName);
+            var $what = $('<td></td>').append($('<span class="st-name"></span>').text(f.Label))
+                .append($('<span class="st-sub st-mono"></span>').text(f.Path))
+                .append($('<span class="st-sub"></span>').text(modeName(f.Mode) + ' · ' + (names.length ? names.join(', ') : t('no_device_shared', 'Not shared with a device'))));
+            var $edit = $('<button type="button" class="ss-btn"></button>').text(t('edit', 'Edit')).on('click', function () { openFolderForm(f, null); });
+            var $rescan = $('<button type="button" class="ss-btn"></button>').text(t('rescan', 'Rescan')).prop('disabled', f.Paused || !status.Running)
+                .on('click', function () { post('folder/rescan', { id: f.ID }); });
+            var $remove = $('<button type="button" class="ss-btn"></button>').text(t('stop', 'Stop')).on('click', function () {
+                ssConfirm({
+                    title: t('stop_folder', 'Stop syncing'),
+                    text: fill(t('stop_confirm', '"{label}" stops syncing with your devices. Its files stay where they are.'), { label: f.Label }),
+                    confirmLabel: t('stop', 'Stop'),
+                    danger: true
+                }, function () { post('folder/remove', { id: f.ID }); });
+            });
+            $body.append($('<tr></tr>').append($what).append($('<td></td>').append(folderStatus(f)))
+                .append($('<td class="fsp-action"></td>').append($edit, $rescan, $remove)));
+        });
+        $('#st-folders').prop('hidden', status.Folders.length === 0);
+        $('#st-no-folders').prop('hidden', status.Folders.length !== 0);
+    }
+
+    function renderPicks(selected) {
+        var $box = $('#st-device-picks').empty();
+        status.Devices.forEach(function (d, i) {
+            var id = 'st-pick-' + i;
+            var $input = $('<input type="checkbox">').attr('id', id).val(d.ID).prop('checked', selected.indexOf(d.ID) >= 0);
+            $box.append($('<div class="ui checkbox"></div>').append($input).append($('<label></label>').attr('for', id).text(d.Name)));
+        });
+        $('#st-no-picks').prop('hidden', status.Devices.length !== 0);
+    }
+
+    function suggestPath(label) {
+        var clean = String(label || '').replace(/[\\/:*?"<>|]+/g, ' ').trim();
+        return 'user:/Syncthing/' + (clean || 'Folder');
+    }
+
+    function openFolderForm(folder, offer) {
+        editing = folder;
+        accepting = offer;
+        $('#st-folder-result').text('').removeClass('good bad');
+        var mode = 'backup', days = 0, devices = [], label = '';
+        if (folder) {
+            $('#st-folder-title').text(fill(t('edit_title', 'Edit "{label}"'), { label: folder.Label }));
+            $('#st-folder-save-label').text(t('save', 'Save'));
+            mode = folder.Mode; days = folder.VersionDays; devices = folder.Devices.slice(); label = folder.Label;
+            $('#st-path-text').text(folder.Path);
+        } else if (offer) {
+            label = offer.Label || offer.FolderID;
+            $('#st-folder-title').text(fill(t('accept_title', 'Sync "{label}" from {device}'), { label: label, device: offer.DeviceName }));
+            $('#st-folder-save-label').text(t('accept', 'Start syncing'));
+            devices = [offer.DeviceID];
+            $('#st-path').val(suggestPath(label));
+        } else {
+            $('#st-folder-title').text(t('add_folder', 'Sync a folder'));
+            $('#st-folder-save-label').text(t('accept', 'Start syncing'));
+            $('#st-path').val('');
+        }
+        $('#st-path-field').prop('hidden', !!folder);
+        $('#st-path-show').prop('hidden', !folder);
+        $('#st-paused-field').prop('hidden', !folder);
+        $('#st-paused').prop('checked', !!(folder && folder.Paused && folder.Reason === 'paused'));
+        $('#st-label').val(label);
+        $('#st-folder-form input[name="st-mode"]').prop('checked', false).filter('[value="' + mode + '"]').prop('checked', true);
+        //A number of days set elsewhere gets an option of its own
+        var $versions = $('#st-versions');
+        $versions.find('option[data-custom]').remove();
+        if ($versions.find('option[value="' + days + '"]').length === 0) {
+            $versions.append($('<option data-custom="1"></option>').val(days).text(fill(t('versions_days', '{days} days'), { days: days })));
+        }
+        $versions.val(String(days));
+        renderPicks(devices);
+        $('#st-folder-panel').prop('hidden', false);
+        $('#st-folder-open').prop('hidden', true);
+        $('#st-folder-panel')[0].scrollIntoView({ block: 'nearest' });
+    }
+
+    function closeFolderForm() {
+        editing = null;
+        accepting = null;
+        $('#st-folder-panel').prop('hidden', true);
+        $('#st-folder-open').prop('hidden', false);
+    }
+
+    function saveFolder(event) {
+        event.preventDefault();
+        var $result = $('#st-folder-result');
+        var devices = [];
+        $('#st-device-picks input:checked').each(function () { devices.push($(this).val()); });
+        var data = {
+            label: $('#st-label').val(),
+            mode: $('#st-folder-form input[name="st-mode"]:checked').val() || 'backup',
+            versiondays: $('#st-versions').val(),
+            devices: JSON.stringify(devices)
+        };
+        var path = 'folder/add';
+        if (editing) {
+            path = 'folder/edit';
+            data.id = editing.ID;
+            data.paused = $('#st-paused').is(':checked') ? 'true' : 'false';
+        } else {
+            data.path = $('#st-path').val().trim();
+            if (!data.path) return $result.text(t('need_path', 'Pick a folder in your drives.')).addClass('bad').removeClass('good');
+            if (accepting) data.id = accepting.FolderID;
+        }
+        $('#st-folder-save').addClass('loading disabled');
+        $.ajax({ url: api(path), method: 'POST', data: data }).done(function (res) {
+            if (failed(res)) return $result.text(res && res.error ? res.error : t('failed', 'The request failed.')).addClass('bad').removeClass('good');
+            closeFolderForm();
+            refresh();
+        }).fail(function () {
+            $result.text(t('failed', 'The request failed.')).addClass('bad').removeClass('good');
+        }).always(function () { $('#st-folder-save').removeClass('loading disabled'); });
+    }
+
+    function browse() {
+        if (typeof ao_module_openFileSelector !== 'function') return;
+        ao_module_openFileSelector(function (files) {
+            if (files && files.length > 0) $('#st-path').val(files[0].filepath);
+        }, 'user:/', 'folder', false);
+    }
+
+    /* Status */
+
+    function render() {
+        if (!status.Allowed) {
+            state('grey ban', t('state_not_allowed', 'Your account cannot use Syncthing. An administrator can turn it on for your group.'));
+            $('#st-main').prop('hidden', true);
+            return;
+        }
+        if (status.Running) {
+            state('green check circle', fill(t('state_running', 'Syncthing is running on port {port}.'), { port: status.Port }));
+        } else {
+            state('grey power off', t('state_off', 'The Syncthing server is not running. An administrator can turn it on in the server list.'));
+        }
+        $('#st-main').prop('hidden', false);
+        var hadID = $('#st-id').text();
+        $('#st-server-box').prop('hidden', !status.DeviceID);
+        if (status.DeviceID && hadID !== status.DeviceID) {
+            $('#st-id').text(status.DeviceID);
+            $('#st-id-copy').attr('data-clipboard-text', status.DeviceID);
+            $('#st-qr').attr('src', api('qr') + '?t=' + Date.now()).attr('alt', status.DeviceID);
+        }
+        renderDevices();
+        renderOffers();
+        renderFolders();
+    }
+
+    function refresh() {
+        if (!$('#st-user').length) {
+            //The page moved on
+            if (timer) clearInterval(timer);
+            timer = null;
+            return;
+        }
+        $.get(api('status'), function (data) {
+            if (failed(data)) {
+                state('red exclamation circle', data && data.error ? data.error : t('load_failed', 'The status could not be loaded.'));
+                return;
+            }
+            status = data;
+            render();
+        }).fail(function () {
+            state('red exclamation circle', t('load_failed', 'The status could not be loaded.'));
+        });
+    }
+
+    function start() {
+        $('#st-versions option[data-days]').each(function () {
+            $(this).text(fill(t('versions_days', '{days} days'), { days: $(this).attr('data-days') }));
+        });
+        $('#st-device-id').attr('placeholder', 'XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX');
+        $('#st-device-name').attr('placeholder', t('name_placeholder', 'My phone'));
+        $('#st-device-open').on('click', openDeviceForm);
+        $('#st-device-cancel').on('click', closeDeviceForm);
+        $('#st-device-form').on('submit', saveDevice);
+        $('#st-folder-open').on('click', function () { openFolderForm(null, null); });
+        $('#st-folder-cancel').on('click', closeFolderForm);
+        $('#st-folder-form').on('submit', saveFolder);
+        $('#st-browse').on('click', browse);
+        //The switch in the server list belongs to the host page
+        $('#fs-list').off('.stuser').on('change.stuser', 'input', function () {
+            setTimeout(refresh, 1500);
+        });
+        refresh();
+        timer = setInterval(refresh, 5000);
+    }
+
+    if (L) {
+        L.init('../locale/system_settings/fileservers.json', function () {
+            L.translate();
+            start();
+        }, start);
+    } else {
+        start();
+    }
+})();
+</script>
