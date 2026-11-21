@@ -250,14 +250,17 @@ export function createSketcher(options) {
     // Solve the working copy and store it as one undo step. Constraints added
     // since the last store that turn out redundant are dropped quietly, unless
     // `strict` is set: then the whole edit is refused, as it is for a conflict.
-    function commit(label, strict) {
+    // `changed` lists dimensions whose value was edited: they move as little
+    // of the sketch as they can (solveChange), so an edge shared with other
+    // shapes stays and the free end moves.
+    function commit(label, strict, changed) {
         const before = new Set(JSON.parse(saved).constraints.map(function (c) {
             return c.id;
         }));
         const added = function (id) {
             return !before.has(id);
         };
-        let r = solver.solve(sk);
+        let r = changed ? solver.solveChange(sk, changed) : solver.solve(sk);
         let dropped = 0;
         if (!r.ok && !strict) {
             // A snap left a constraint behind that cannot hold with the rest:
@@ -908,7 +911,7 @@ export function createSketcher(options) {
             } else {
                 delete d.expr;
             }
-            commit('Edit dimension', true);
+            commit('Edit dimension', true, [id]);
         }
     }
 

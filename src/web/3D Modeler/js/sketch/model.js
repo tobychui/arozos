@@ -687,6 +687,34 @@ export function measure(sk, d) {
     return 0;
 }
 
+// The ends a dimension measures between, as lists of point ids: a new value
+// moves one end against the other, and solveChange (solver.js) tries
+// holding each in turn. A radius or a diameter has one end, the centre.
+export function dimensionSides(sk, d) {
+    const ends = function (id) {
+        const g = find(sk, id);
+        return g && g.type === 'line' ? [g.p1, g.p2] : [];
+    };
+    switch (d.type) {
+        case 'distance':
+        case 'hdistance':
+        case 'vdistance':
+        case 'axisangle':
+            return [[d.a], [d.b]];
+        case 'pldistance':
+            return [[d.p], ends(d.line)];
+        case 'angle':
+            return [ends(d.l1), ends(d.l2)];
+        case 'radius':
+        case 'diameter': {
+            const g = find(sk, d.curve);
+            return g && g.c ? [[g.c]] : [];
+        }
+        default:
+            return [];
+    }
+}
+
 /* ================= solver translation ================= */
 // The end point two curves (lines or arcs) share, or null
 function sharedEnd(sk, a, b) {

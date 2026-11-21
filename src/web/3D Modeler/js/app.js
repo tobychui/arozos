@@ -2692,7 +2692,13 @@ const paramTable = createParameterTable({
                     const sketch = d.features.find(function (f) {
                         return f.id === id;
                     });
-                    const solved = s.solve(sketch);
+                    // Only the dimensions whose value changed move anything
+                    const changed = (sketch.constraints || []).filter(function (c, i) {
+                        return c.value !== before[id][i];
+                    }).map(function (c) {
+                        return c.id;
+                    });
+                    const solved = s.solveChange(sketch, changed);
                     if (!solved.ok) {
                         (sketch.constraints || []).forEach(function (c, i) {
                             c.value = before[id][i];

@@ -11,7 +11,10 @@
 */
 
 import { init_planegcs_module, GcsWrapper } from '../../lib/planegcs/index.js';
-import { toPrimitives, applySolution } from './model.js';
+import { toPrimitives, applySolution, dimensionSides, measure, find, ORIGIN } from './model.js';
+
+// A point that ends up closer than this to where it was has not moved (mm)
+const STILL = 1e-6;
 
 let modulePromise = null;
 
@@ -78,10 +81,11 @@ export async function createSolver() {
     const wrapper = new GcsWrapper(new mod.GcsSystem());
     wrapper.debug_mode = 0; // DebugMode.NoDebug: keep the solver out of the console
 
-    // Push the sketch, minus the equations in `skip`, and solve it
-    function attempt(sketch, drag, skip) {
+    // Push the sketch and the `extra` primitives, minus the equations in
+    // `skip`, and solve it
+    function attempt(sketch, drag, skip, extra) {
         wrapper.clear_data();
-        const primitives = toPrimitives(sketch, drag).filter(function (p) {
+        const primitives = toPrimitives(sketch, drag).concat(extra || []).filter(function (p) {
             return !skip.has(String(p.id));
         });
         wrapper.push_primitives_and_params(primitives);
@@ -94,22 +98,29 @@ export async function createSolver() {
         };
     }
 
-    function solve(sketch, drag) {
+    // Each pass leaves out the parts of constraints found to be implied by
+    // the rest (see spareParts); one pass is the usual case. Throws when the
+    // solver does.
+    function passes(sketch, drag, extra) {
         const skip = new Set();
         let run = null;
-        try {
-            // Each pass leaves out the parts of constraints found to be implied
-            // by the rest (see spareParts); one pass is the usual case
-            for (let pass = 0; pass < 4; pass++) {
-                run = attempt(sketch, drag, skip);
-                const spare = run.conflicting.length ? [] : spareParts(sketch, run.primitives, run.redundant);
-                if (!spare.length) {
-                    break;
-                }
-                spare.forEach(function (id) {
-                    skip.add(id);
-                });
+        for (let pass = 0; pass < 4; pass++) {
+            run = attempt(sketch, drag, skip, extra);
+            const spare = run.conflicting.length ? [] : spareParts(sketch, run.primitives, run.redundant);
+            if (!spare.length) {
+                break;
             }
+            spare.forEach(function (id) {
+                skip.add(id);
+            });
+        }
+        return run;
+    }
+
+    function solve(sketch, drag) {
+        let run = null;
+        try {
+            run = passes(sketch, drag);
         } catch (err) {
             return { ok: false, dof: -1, conflicting: [], redundant: [], error: String(err && err.message ? err.message : err) };
         }
@@ -124,8 +135,168 @@ export async function createSolver() {
         return { ok: ok, dof: wrapper.gcs.dof(), conflicting: conflicting, redundant: redundant };
     }
 
+    /* ---------- changing a dimension ---------- */
+    // Holds for a change: each free point (not the origin, not projected
+    // from the model) gets a pair of coordinate equations keeping it where
+    // it is. Those of the points in `keep` are hard; the others are soft
+    // (planegcs temporary constraints, which the solver meets as closely as
+    // the real constraints allow, the way a dragged point follows the
+    // cursor). Circles keep their size softly as well.
+    function holds(sketch, keep) {
+        const out = [];
+        sketch.geometry.forEach(function (g, i) {
+            if (g.ref) {
+                return;
+            }
+            if (g.type === 'point') {
+                const soft = !keep.has(g.id);
+                out.push({ id: '$hx' + i, type: 'coordinate_x', p_id: g.id, x: g.x, temporary: soft });
+                out.push({ id: '$hy' + i, type: 'coordinate_y', p_id: g.id, y: g.y, temporary: soft });
+            } else if (g.type === 'circle') {
+                out.push({ id: '$hr' + i, type: 'circle_radius', c_id: g.id, radius: g.r, temporary: true });
+            }
+        });
+        return out;
+    }
+
+    // Solve `sketch` with the points in `keep` held and the rest held
+    // softly, then once more without the holds to make sure every constraint
+    // is met. True when both work; the sketch has then moved.
+    function holding(sketch, keep) {
+        let run = null;
+        try {
+            run = passes(sketch, null, holds(sketch, keep));
+        } catch (err) {
+            return false;
+        }
+        if ((run.status !== 0 && run.status !== 1) || run.conflicting.length) {
+            return false;
+        }
+        wrapper.apply_solution();
+        applySolution(sketch, wrapper.sketch_index.get_primitives());
+        return solve(sketch).ok;
+    }
+
+    // How many points (and circle sizes) differ between two copies
+    function moved(before, after) {
+        let count = 0;
+        after.geometry.forEach(function (g, i) {
+            const b = before.geometry[i];
+            const d = g.type === 'point' ? Math.hypot(g.x - b.x, g.y - b.y) : g.type === 'circle' ? Math.abs(g.r - b.r) : 0;
+            if (d > STILL) {
+                count++;
+            }
+        });
+        return count;
+    }
+
+    // How early an end of a dimension was drawn: the place of its first
+    // point in the geometry list; the origin and model edges come first
+    function age(sketch, side) {
+        let first = Infinity;
+        side.forEach(function (id) {
+            const g = id === ORIGIN ? null : find(sketch, id);
+            const at = !g || g.ref ? -1 : sketch.geometry.indexOf(g);
+            first = Math.min(first, at);
+        });
+        return first;
+    }
+
+    function copyPlaces(from, to) {
+        to.geometry.forEach(function (g, i) {
+            const s = from.geometry[i];
+            if (g.type === 'point') {
+                g.x = s.x;
+                g.y = s.y;
+            } else if (g.type === 'circle') {
+                g.r = s.r;
+            }
+        });
+    }
+
+    // Meet the new value of dimension `dim` moving as little as possible:
+    // hold each of its ends in turn, everything else held softly, and keep
+    // the answer that moves the fewest points. On a tie the end drawn first
+    // stays. When no end can be held, everything is held softly. False if
+    // nothing worked; the sketch is then untouched.
+    function settle(sketch, dim) {
+        const text = JSON.stringify({ geometry: sketch.geometry, constraints: sketch.constraints });
+        let best = null;
+        const tryKeeping = function (side) {
+            const copy = JSON.parse(text);
+            const keep = new Set(side.filter(function (id) {
+                const g = id === ORIGIN ? null : find(copy, id);
+                return g && !g.ref; // the origin and model edges never move anyway
+            }));
+            if (!holding(copy, keep)) {
+                return;
+            }
+            const score = [moved(sketch, copy), age(sketch, side)];
+            if (!best || score[0] < best.score[0] || (score[0] === best.score[0] && score[1] < best.score[1])) {
+                best = { copy: copy, score: score };
+            }
+        };
+        dimensionSides(sketch, dim).forEach(tryKeeping);
+        if (!best) {
+            tryKeeping([]);
+        }
+        if (best) {
+            copyPlaces(best.copy, sketch);
+        }
+        return !!best;
+    }
+
+    // solveChange(sketch, ids): solve after the value of the dimensions
+    // `ids` was edited. A plain solve shares a change out over the whole
+    // sketch: shortening a rectangle moved the edge it shares with the
+    // shapes beside it, dragging them along, or turned shapes over. Here the
+    // edited dimension moves only what it must, and an edge that is joined
+    // to others stays. Several dimensions are settled one at a time, each
+    // from the sizes the sketch has now; if that fails, all at once with
+    // everything held softly. Same result as solve().
+    function solveChange(sketch, ids) {
+        const wanted = new Set([].concat(ids || []));
+        const dims = sketch.constraints.filter(function (c) {
+            return wanted.has(c.id) && !c.driven;
+        });
+        if (!dims.length) {
+            return solve(sketch);
+        }
+        const start = JSON.stringify(sketch.geometry);
+        const values = dims.map(function (d) {
+            return d.value;
+        });
+        // The others wait at what they measure now, so each step changes one
+        dims.forEach(function (d) {
+            const now = measure(sketch, d);
+            if (isFinite(now)) {
+                d.value = now;
+            }
+        });
+        let ok = true;
+        dims.forEach(function (d, i) {
+            d.value = values[i];
+            ok = ok && settle(sketch, d);
+        });
+        dims.forEach(function (d, i) {
+            d.value = values[i];
+        });
+        if (!ok) {
+            copyPlaces({ geometry: JSON.parse(start) }, sketch);
+            if (dims.length > 1) {
+                ok = settle(sketch, { type: 'none' });
+            }
+            if (!ok) {
+                // Nothing held: the plain solve below decides on its own
+                copyPlaces({ geometry: JSON.parse(start) }, sketch);
+            }
+        }
+        return solve(sketch);
+    }
+
     return {
         solve: solve,
+        solveChange: solveChange,
         destroy: function () {
             wrapper.destroy_gcs_module();
         }

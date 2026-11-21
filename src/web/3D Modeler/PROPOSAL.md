@@ -806,6 +806,14 @@ Plan for stage 1:
   It runs on the main thread because a solve takes milliseconds and has to
   follow the cursor during a drag. The sketch is translated to its primitive
   list on every change; a drag is a temporary constraint on the dragged point.
+- A dimension whose value is edited (value box, Manage > Parameters) goes
+  through `solveChange` in `js/sketch/solver.js`, not a plain solve: each
+  end of the dimension is held in turn while every other point is held
+  softly (temporary constraints), and the answer that moves the fewest
+  points wins; on a tie the end drawn first stays. A plain solve shares the
+  change out, which moved an edge shared with the shapes beside it and
+  turned shapes over (owner's report: three rectangles on one bottom line,
+  shortening one lifted the line). Tests: `tests/dimension-change.test.mjs`.
 - Stage 1 constraints: coincident, point on line, horizontal, vertical,
   parallel, perpendicular, tangent, equal, fix, midpoint, symmetric. Stage 1
   dimensions: distance, horizontal and vertical distance, radius, diameter,
