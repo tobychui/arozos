@@ -2276,7 +2276,17 @@ var OfficeApp = (function () {
                 ao_module_closeHandler();
             }
         };
-        window.ao_module_close = function () { requestClose(reallyClose); };
+        // the X button again while the question (or the closing save) is
+        // still up: keep the one that is there instead of stacking another
+        var closing = false;
+        window.ao_module_close = function () {
+            if (closing) return;
+            closing = true;
+            requestClose(function () {
+                closing = false;
+                reallyClose();
+            }, function () { closing = false; });
+        };
     }
 
     /* ---------- public API ---------- */
