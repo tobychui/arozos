@@ -19,70 +19,59 @@ function handleFileShare(target, object){
              data: {path: fileData.Filepath},
              success: function(data){
                 if (data.IsShared == true){
-                    addContextMenuItem($("#subcontextmenu"), lcontex("Open Shared Link"), `<i class="external icon"></i>`, "openSharedLink", false, {
+                    addContextMenuItem($("#subcontextmenu"), lcontex("Open Shared Link"), undefined, "openSharedLink", false, {
                         payload: {
                             uuid: data.ShareUUID.UUID
                         }
                     });
-                    addContextMenuItem($("#subcontextmenu"),  lcontex("Copy Link"), `<i class="copy icon"></i>`, "copySharedLink", false, {
+                    addContextMenuItem($("#subcontextmenu"),  lcontex("Copy Link"), undefined, "copySharedLink", false, {
                         payload: {
                             uuid: data.ShareUUID.UUID
                         }
                     });
                     addContextMenuSeperator($("#subcontextmenu"));
-                    addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Change Share Settings", "Change Share Settings")}`));
+                    addContextMenuTitle($("#subcontextmenu"), lcontex("Change Share Settings"));
                 }else{
-                    addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Share this File", "Share this File")}`));
+                    addContextMenuTitle($("#subcontextmenu"), lcontex("Share this File"));
                 }
 
-                var checkmarkStyle = `style="color: #71ba68;"`;
-                var anyoneClass = "";
-                if (data.ShareUUID.Permission == "anyone"){
-                    anyoneClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
-                }
-                var signedinClass = "";
-                if (data.ShareUUID.Permission == "signedin"){
-                    signedinClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
-                }
+                //The current permission carries a check mark
+                var permission = data.IsShared ? data.ShareUUID.Permission : "";
+                var simplePermission = ["anyone", "signedin", "samegroup"].includes(permission);
 
-                var sameGroupClass = "";
-                if (data.ShareUUID.Permission == "samegroup"){
-                    sameGroupClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
-                }
-
-                var advanceShareClass = "";
-                if (data.IsShared && anyoneClass == "" && signedinClass == "" && sameGroupClass == ""){
-                    //None of the simple class this share is using. Assume advance share
-                    advanceShareClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
-                }
-
-                addContextMenuItem($("#subcontextmenu"), `<i class="globe icon"></i> ${applocale.getString("contextmenu/share/link","Anyone with Link")}`, anyoneClass, "shareWithThisPermission", false, {
+                addContextMenuItem($("#subcontextmenu"), applocale.getString("contextmenu/share/link","Anyone with Link"), undefined, "shareWithThisPermission", false, {
                     payload: {
                         type: "anyone"
-                    }
+                    },
+                    checked: permission == "anyone"
                 });
-                addContextMenuItem($("#subcontextmenu"), `<i class="user circle outline icon"></i> ${applocale.getString( "contextmenu/share/signedin","Anyone Signed In")}`, signedinClass, "shareWithThisPermission", false, {
+                addContextMenuItem($("#subcontextmenu"), applocale.getString( "contextmenu/share/signedin","Anyone Signed In"), undefined, "shareWithThisPermission", false, {
                     payload: {
                         type: "signedin"
-                    }
+                    },
+                    checked: permission == "signedin"
                 });
-                addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> ${applocale.getString("contextmenu/share/samegroup","Same user group")}`, sameGroupClass, "shareWithThisPermission", false,{
+                addContextMenuItem($("#subcontextmenu"), applocale.getString("contextmenu/share/samegroup","Same user group"), undefined, "shareWithThisPermission", false,{
                     payload: {
                         type: "samegroup"
-                    }
+                    },
+                    checked: permission == "samegroup"
                 });
-                addContextMenuItem($("#subcontextmenu"), `<i class="setting icon"></i> ${applocale.getString("contextmenu/share/openshare","Advance Share Settings")}`, advanceShareClass, "shareWithThisPermission", false,{
+                addContextMenuItem($("#subcontextmenu"), applocale.getString("contextmenu/share/openshare","Advance Share Settings"), undefined, "shareWithThisPermission", false,{
                     payload: {
                         action: "openshare"
-                    }
+                    },
+                    //None of the simple permissions: an advanced share
+                    checked: data.IsShared && !simplePermission
                 });
                 if (data.IsShared){
                     //This file is shared.
                     addContextMenuSeperator($("#subcontextmenu"));
-                    addContextMenuItem($("#subcontextmenu"), lcontex("Remove Share"), `<i style="color: #d97762;" class="trash icon"></i>`, "shareWithThisPermission", false,{
+                    addContextMenuItem($("#subcontextmenu"), lcontex("Remove Share"), undefined, "shareWithThisPermission", false,{
                         payload: {
                             type: "remove"
-                        }
+                        },
+                        danger: true
                     });
                 }
              }
@@ -118,13 +107,13 @@ function copySharedLink(target, event){
     document.body.removeChild(area);
 
     //Update status so it show the user it has been coped
-    $(target).html(`<i style="color: #71ba68;" class="checkmark icon"></i> ${lcontex("Copied")}`);
+    $(target).find(".label").text(lcontex("Copied"));
+    $(target).addClass("checked").find(".menuCheck").remove();
+    $(target).append(`<i class="menuCheck check icon"></i>`);
     setTimeout(function(){
         if ($(target).length > 0){
-            $(target).html(`${lcontex("Copy Link")}
-                <span class="description">
-                    <i class="copy icon"></i>
-                </span>`);
+            $(target).find(".label").text(lcontex("Copy Link"));
+            $(target).removeClass("checked").find(".menuCheck").remove();
         }
     }, 3000);
 }

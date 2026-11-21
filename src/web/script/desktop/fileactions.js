@@ -171,7 +171,7 @@ function handleOpenWith(target, event){
                 var thisModuleSupportExt = thisModule.SupportedExt;
                 if (thisModule.Name == "File Manager"){
                     //Exceptional case
-                    addContextMenuItem($("#subcontextmenu"), thisModule.Name, "", "openSelectedWith", false);
+                    addContextMenuItem($("#subcontextmenu"), escapeNotificationText(thisModule.Name), undefined, "openSelectedWith", false, {image: thisModule.IconPath || "img/system/service.png"});
                 }
                 if (thisModuleSupportExt == null || thisModuleSupportExt.length == 0){
                     //Not supporting anything
@@ -180,7 +180,7 @@ function handleOpenWith(target, event){
                 thisModuleSupportExt.forEach(supportedExt => {
                     if (exts.includes(supportedExt)){
                         //Add this to the menu
-                        addContextMenuItem($("#subcontextmenu"), thisModule.Name, "", "openSelectedWith", false);
+                        addContextMenuItem($("#subcontextmenu"), escapeNotificationText(thisModule.Name), undefined, "openSelectedWith", false, {image: thisModule.IconPath || "img/system/service.png"});
                     }
                 })
 
@@ -192,7 +192,7 @@ function handleOpenWith(target, event){
 
             //Add select more opener option
             addContextMenuSeperator($("#subcontextmenu"));
-            addContextMenuItem($("#subcontextmenu"), lcontex("Select Other WebApps"), ``, "openOpenSelector", false);
+            addContextMenuItem($("#subcontextmenu"), lcontex("Select Other WebApps"), undefined, "openOpenSelector", false);
         }
         showSubContextMenu(target);
     });
@@ -342,10 +342,13 @@ function enableRenameOnLaunchIconObject(object) {
 }
 
 //Handle enter keypress on the rename textarea
+//Set when Enter ends a rename, so its keyup does not open the selected icons (input.js)
+var renameEndedByEnter = false;
 function handleRenameKeydown(e){
     if (e.keyCode == 13){
         //Enter pressed
         e.preventDefault();
+        renameEndedByEnter = true;
         exitRenameMode();
     }
 }
@@ -481,6 +484,7 @@ function handleFileDelete(object, event){
                     alert(data.error);
                 }else{
                 refresh(undefined, true);
+                dockRefreshTrash();
                 }
             }
         });
@@ -573,7 +577,8 @@ function handlePasteOperation(){
 
 //Create new file item with that filename
 function newitem(object, event) {
-    var extension = $(object).find("i").attr("ext");
+    //The menu row carries the extension as its payload (older rows: an ext attribute)
+    var extension = getContextMenuPayload(object) || $(object).find("i").attr("ext");
 
     //Generate a newfile name
     var newfn = "NewFile" + "." + extension;

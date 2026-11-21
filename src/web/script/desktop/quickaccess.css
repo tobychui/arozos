@@ -1,189 +1,463 @@
 /*
-    ArozOS Desktop - Quick access panel
+    ArozOS Desktop - Quick access panel (control centre)
 
-    The quick access panel: profile, accounts, sliders and quick actions.
+    The panel the tray's server icon opens: a column of cards (status,
+    controls, storage) in the card style of the notification and background
+    task panels.
+
+    Every rule starts at #quickAccessPanel so it outranks the dark theme
+    rules of script/ao.css, which colour every div and span.
 
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
-/* Quick access panel css */
-
-#quickAccessPanel{
-    background-color:var(--body_background);
-    position:absolute;
-    bottom:calc(36px + 0.4em);
-    left:55px;
-    z-index:114;
-    width:720px;
-    border-radius: 6px;
-    overflow: hidden;
-    max-height: calc(100% - 136px);
-
-    scrollbar-width: thin;
-    border: 1px solid #ebebeb;
-    padding-top:8px;
-    padding-bottom:8px;
-
-    box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
-    -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
-    -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+#quickAccessPanel {
+    position: fixed;
+    z-index: 1114;
+    right: var(--dt-dock-gap);
+    bottom: var(--dt-reserved-bottom);
+    width: 360px;
+    max-width: calc(100% - 2 * var(--dt-dock-gap));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--dt-text);
+    letter-spacing: 0;
+    animation: qaIn .16s ease-out;
 }
 
-#quickAccessPanel .mxmenu{
-    border-right: 1px solid var(--divider);
-    padding-right: 0;
+@keyframes qaIn {
+    from { transform: translateY(10px); }
+    to { transform: none; }
 }
 
-#quickAccessPanel .viewutils{
-    padding-right: 2em !important;
+#quickAccessPanel .qaCard {
+    flex-shrink: 0;
+    padding: 12px;
+    border-radius: var(--dt-radius-l);
+    background-color: var(--dt-menu-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
 }
 
-#quickAccessPanel .item{
-    padding-left:12px;
-    padding-right:12px;
-    padding-top:4px;
-    padding-bottom:4px;
-    cursor:pointer;
-    border-left: 3px solid transparent;
+#quickAccessPanel .qaLink {
+    flex-shrink: 0;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--dt-accent);
 }
 
-#quickAccessPanel .item{
-    color: var(--text_color);
+#quickAccessPanel .qaLink:hover {
+    text-decoration: underline;
 }
 
-#quickAccessPanel #quickseach{
-    padding-top: 0.4em;
-}
+/* ---------------------------------------------------------------- Status */
 
-#quickAccessPanel .item:hover{
-   background-color:var(--body_background_active);
-}
-
-/* Fix for user icon */
-.usericon-wrapper{
-    width: 50px !important;
-}
-
-#quickAccessPanel .item.profile-row{
+#quickAccessPanel .qaStatusHead {
     display: flex;
     align-items: center;
+    gap: 10px;
+    padding: 0 2px 10px 2px;
 }
 
-#quickAccessPanel .item.profile-row .content{
+#quickAccessPanel .qaStatusIcon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    border-radius: 50%;
+    background-color: var(--qa-status);
 }
 
-/*
-    Handle dark theme for the quick access panel
-*/
-
-#quickAccessPanel{
-    background-color: var(--body_background);
-    color: var(--text_color);
-    border: 1px solid transparent;
+#quickAccessPanel .qaStatusIcon i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 15px;
+    color: #ffffff;
 }
 
-body.darkTheme #quickAccessPanel{
-    -webkit-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
-    -moz-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
-    box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+#quickAccessPanel .qaStatus.level0 { --qa-status: #2fa84f; }
+#quickAccessPanel .qaStatus.level1 { --qa-status: #e59a00; }
+#quickAccessPanel .qaStatus.level2 { --qa-status: var(--dt-danger); }
+
+#quickAccessPanel .qaStatusText {
+    flex: 1;
+    min-width: 0;
 }
 
-#quickAccessPanel .header{
-   color: var(--text_color);
+#quickAccessPanel .qaStatusTitle {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--qa-status, var(--dt-text));
 }
 
-#quickAccessPanel .meta{
-   color: var(--text_color_secondary);
+#quickAccessPanel .qaStatusDesc {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--dt-text-muted);
 }
 
-#quickAccessPanel .progress{
-   background-color: var(--body_background_active);
-}
-
-#quickAccessPanel .progress .bar :not(#diskrender, #diskrender .bar .progress){
-    background-color: var(--theme_color) !important;
-}
-
-#quickAccessPanel .button{
-   background-color: var(--body_background_secondary);
-   border: 1px solid var(--divider);
-   color: var(--text_color);
-}
-
-body.darkTheme #quickAccessPanel .ui.basic.button{
-    color: var(--text_color_secondary) !important;
-}
-
-/* Quick action grid */
-#quickAccessPanel .qap-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    padding: 4px 12px 10px 12px;
-}
-
-#quickAccessPanel .qap-btn {
+#quickAccessPanel .qaFacts {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--dt-divider);
+}
+
+#quickAccessPanel .qaFact {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    padding: 10px 10px 8px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    background-color: var(--body_background_secondary);
-    min-height: 58px;
-    transition: background-color 0.12s ease;
-    user-select: none;
-    -webkit-user-select: none;
+    gap: 12px;
+    min-height: 26px;
+    padding: 0 2px;
+    font-size: 12.5px;
 }
 
-#quickAccessPanel .qap-btn:hover {
-    background-color: var(--body_background_active);
+#quickAccessPanel .qaFactLabel {
+    flex-shrink: 0;
+    color: var(--dt-text-muted);
 }
 
-#quickAccessPanel .qap-btn i.icon {
-    font-size: 1.15em;
-    margin: 0 0 5px 0;
-    color: var(--text_color);
-}
-
-#quickAccessPanel .qap-btn .qap-label {
-    font-size: 0.76em;
-    color: var(--text_color);
-    white-space: nowrap;
+#quickAccessPanel .qaFactValue {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 100%;
-    line-height: 1.3;
+    white-space: nowrap;
+    text-align: right;
+    color: var(--dt-text);
+    user-select: text;
 }
 
-#quickAccessPanel .qap-btn.active {
-    background-color: var(--theme_color, #52C9FF);
+#quickAccessPanel .qaFactValue.qaSmall {
+    font-size: 11.5px;
+    color: var(--dt-text-muted);
 }
 
-#quickAccessPanel .qap-btn.active i.icon,
-#quickAccessPanel .qap-btn.active .qap-label {
-    color: white;
+/* The interface name opens a menu of the other interfaces */
+#quickAccessPanel .qaIfaceBtn {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 55%;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: -6px;
+    padding: 2px 4px 2px 6px;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
-#quickAccessPanel .qap-btn#poweroffBtn i.icon,
-#quickAccessPanel .qap-btn#poweroffBtn .qap-label {
-    color: #cf2828;
+#quickAccessPanel .qaIfaceBtn:hover {
+    background-color: var(--dt-hover);
 }
 
-body.darkTheme #quickAccessPanel .qap-btn {
-    background-color: var(--body_background_secondary);
+#quickAccessPanel .qaIfaceBtn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--dt-text-muted);
 }
 
-body.darkTheme #quickAccessPanel .qap-btn:hover {
-    background-color: var(--body_background_active);
-}
-
-.alternativeAccount.item{
-    padding-top: 0.6em !important;
-    padding-bottom: 0.6em !important;
+#quickAccessPanel .qaIfaceBtn i.icon {
+    flex-shrink: 0;
     margin: 0;
+    height: auto;
+    font-size: 11px;
+    color: var(--dt-text-muted);
+}
+
+#quickAccessPanel .qaIfaceBtn.single {
+    cursor: default;
+}
+
+#quickAccessPanel .qaIfaceBtn.single:hover {
+    background-color: transparent;
+}
+
+#quickAccessPanel .qaIfaceBtn.single i.icon {
+    display: none;
+}
+
+#quickAccessPanel .qaFirmware {
+    padding: 6px 2px 0 2px;
+    font-size: 11px;
+    color: var(--dt-text-muted);
+    opacity: .85;
+    user-select: text;
+}
+
+#quickAccessPanel .qaFirmware:empty {
+    display: none;
+}
+
+/* ---------------------------------------------------------------- Controls */
+
+#quickAccessPanel .qaTiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-bottom: 12px;
+}
+
+#quickAccessPanel .qaTile {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 4px 8px 4px;
+    border-radius: 12px;
+    background-color: var(--dt-field);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color .12s ease;
+}
+
+#quickAccessPanel .qaTile:hover {
+    background-color: var(--dt-hover);
+}
+
+#quickAccessPanel .qaTile i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 16px;
+    color: var(--dt-text);
+}
+
+#quickAccessPanel .qaTileLabel {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+    color: var(--dt-text);
+}
+
+#quickAccessPanel .qaTile.active {
+    background-color: var(--dt-accent);
+}
+
+#quickAccessPanel .qaTile.active i.icon,
+#quickAccessPanel .qaTile.active .qaTileLabel {
+    color: #ffffff;
+}
+
+/* The whole row takes the drag (quickaccess.js), not the range input */
+#quickAccessPanel .qaSlider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 30px;
+    padding: 0 2px;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+}
+
+#quickAccessPanel .qaSliderIcon {
+    flex-shrink: 0;
+    width: 18px;
+    margin: 0;
+    height: auto;
+    font-size: 14px;
+    text-align: center;
+    color: var(--dt-text-muted);
+}
+
+/* The brightness sun is drawn (desktop.html): the icon font's sun reads as a cog */
+#quickAccessPanel svg.qaSliderIcon {
+    width: 16px;
+    height: 16px;
+    margin: 0 1px;
+}
+
+#quickAccessPanel .qaSliderValue {
+    flex-shrink: 0;
+    width: 36px;
+    text-align: right;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--dt-text-muted);
+}
+
+#quickAccessPanel .qaSlider input[type=range] {
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    margin: 0;
+    border-radius: 3px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, var(--dt-accent) var(--qa-fill, 0%), var(--dt-divider) var(--qa-fill, 0%));
+    outline: none;
+    pointer-events: none;
+}
+
+#quickAccessPanel .qaSlider input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+#quickAccessPanel .qaSlider input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+#quickAccessPanel .qaSlider input[type=range]:focus-visible {
+    box-shadow: 0 0 0 3px var(--dt-accent-soft);
+}
+
+/* ---------------------------------------------------------------- Storage */
+
+#quickAccessPanel .qaCardTitle {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 2px 8px 2px;
+}
+
+#quickAccessPanel .qaCardTitle > span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+/* The list scrolls, not the panel, which would clip the cards' shadows */
+#quickAccessPanel .qaDiskList {
+    max-height: max(120px, calc(100vh - var(--dt-reserved-bottom) - 480px));
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    scrollbar-width: thin;
+}
+
+#quickAccessPanel .qaDisk {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 2px;
+}
+
+#quickAccessPanel .qaDiskIcon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background-color: var(--dt-field);
+}
+
+#quickAccessPanel .qaDiskIcon i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 14px;
+    color: var(--dt-text-muted);
+}
+
+#quickAccessPanel .qaDiskBody {
+    flex: 1;
+    min-width: 0;
+}
+
+#quickAccessPanel .qaDiskHead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+#quickAccessPanel .qaDiskName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#quickAccessPanel .qaDiskSide {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--dt-text-muted);
+}
+
+#quickAccessPanel .qaDiskSide.raidState {
+    padding: 0 6px;
+    border-radius: 6px;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: #2fa84f;
+}
+
+#quickAccessPanel .qaDiskSide.raidState.failing {
+    background-color: var(--dt-danger);
+}
+
+#quickAccessPanel .qaDiskBar {
+    height: 4px;
+    margin-top: 6px;
+    border-radius: 2px;
+    overflow: hidden;
+    background-color: var(--dt-divider);
+}
+
+#quickAccessPanel .qaDiskFill {
+    height: 100%;
+    width: 0;
+    border-radius: 2px;
+    background-color: var(--dt-accent);
+}
+
+#quickAccessPanel .qaDisk.warn .qaDiskFill {
+    background-color: #e59a00;
+}
+
+#quickAccessPanel .qaDisk.full .qaDiskFill,
+#quickAccessPanel .qaDisk.failing .qaDiskFill {
+    background-color: var(--dt-danger);
+}
+
+#quickAccessPanel .qaDisk.full .qaDiskSide:not(.raidState) {
+    color: var(--dt-danger);
+}
+
+#quickAccessPanel .qaDisk.unmounted .qaDiskName {
+    font-weight: normal;
+    color: var(--dt-text-muted);
+}
+
+/* ---------------------------------------------------------------- Fallbacks */
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    #quickAccessPanel .qaCard {
+        background-color: var(--dt-surface-solid);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #quickAccessPanel {
+        animation: none;
+    }
 }

@@ -109,7 +109,7 @@ function drop(ev) {
             }
         });
         // Close list menu after a successful drop
-        $("#listMenu").fadeOut("fast", function() { listMenuShown = false; });
+        hideListMenu();
         return;
     }
     // ────────────────────────────────────────────────────────────────────────
@@ -504,6 +504,7 @@ function recycleDroppedFiles(filepaths){
                     });
                 });
                 refresh(undefined, true);
+                dockRefreshTrash();
             }
         });
     });

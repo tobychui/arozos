@@ -7,6 +7,91 @@
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
+/*
+    Design tokens of the desktop chrome (dock, tray, panels, menus), see
+    PROPOSAL.md. Sizes are plain px so script can read them back
+    (getReservedBottom in dock.js).
+
+    --dt-reserved-bottom is the strip kept free for the dock: maximized and
+    docked windows, the icon grid and every bottom panel stop above it. It
+    must equal --dt-dock-height plus --dt-dock-gap on both sides, and the
+    dock height is the icon size plus 14 px. The dock icon sizes of the
+    Start Menu settings (body.dockIcons*, below) keep both rules.
+*/
+body {
+    --dt-dock-icon: 36px; /* "small", the default dock icon size */
+    --dt-dock-pad: 6px;
+    --dt-dock-gap: 6px;
+    --dt-dock-height: 50px;
+    --dt-reserved-bottom: 62px;
+    --dt-radius-l: 18px;
+    --dt-radius-m: 12px;
+    --dt-radius-s: 8px;
+    --dt-blur: saturate(180%) blur(24px);
+    --dt-accent: #2f7cf6;
+
+    --dt-surface: rgba(246, 246, 248, 0.74);
+    --dt-surface-solid: #f6f6f8;
+    --dt-menu-surface: rgba(250, 250, 252, 1);
+    --dt-field: rgba(0, 0, 0, 0.045);
+    --dt-accent-soft: color-mix(in srgb, var(--dt-accent) 20%, transparent);
+    --dt-danger: #e5484d;
+    --dt-border: rgba(0, 0, 0, 0.08);
+    --dt-divider: rgba(0, 0, 0, 0.14);
+    --dt-hover: rgba(0, 0, 0, 0.07);
+    --dt-text: #1d1d1f;
+    --dt-text-muted: #6e6e73;
+    --dt-indicator: rgba(0, 0, 0, 0.55);
+    --dt-tooltip-bg: rgba(28, 28, 30, 0.9);
+    --dt-tooltip-fg: #ffffff;
+    --dt-shadow: 0 10px 32px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.08);
+
+    /* script/ssdialog.js dialogs (ssConfirm, ...) take the desktop's colours */
+    --ss-surface: var(--dt-surface-solid);
+    --ss-field: var(--dt-surface-solid);
+    --ss-border-strong: var(--dt-divider);
+    --ss-text: var(--dt-text);
+    --ss-text-2: var(--dt-text-muted);
+    --ss-hover: var(--dt-hover);
+    --ss-accent: var(--dt-accent);
+    --ss-danger-solid: var(--dt-danger);
+}
+
+/* Dock icon size (System Settings > Desktop & Themes > Start Menu; dock.js) */
+body.dockIconsTiny {
+    --dt-dock-icon: 30px;
+    --dt-dock-height: 44px;
+    --dt-reserved-bottom: 56px;
+}
+
+body.dockIconsMedium {
+    --dt-dock-icon: 44px;
+    --dt-dock-height: 58px;
+    --dt-reserved-bottom: 70px;
+}
+
+body.dockIconsLarge {
+    --dt-dock-icon: 52px;
+    --dt-dock-height: 66px;
+    --dt-reserved-bottom: 78px;
+}
+
+body.darkTheme {
+    --dt-surface: rgba(34, 34, 38, 0.68);
+    --dt-surface-solid: #222226;
+    --dt-menu-surface: rgba(40, 40, 44, 1);
+    --dt-field: rgba(255, 255, 255, 0.07);
+    --dt-border: rgba(255, 255, 255, 0.10);
+    --dt-divider: rgba(255, 255, 255, 0.16);
+    --dt-hover: rgba(255, 255, 255, 0.10);
+    --dt-text: #f2f2f4;
+    --dt-text-muted: #a1a1a6;
+    --dt-indicator: rgba(255, 255, 255, 0.70);
+    --dt-tooltip-bg: rgba(240, 240, 242, 0.92);
+    --dt-tooltip-fg: #1d1d1f;
+    --dt-shadow: 0 10px 32px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.30);
+}
+
 body {
     background-repeat: no-repeat;
     background-size: cover;

@@ -120,26 +120,18 @@ function initDesktopHostInfo(){
         $(".hostname").text(hostInfo.Hostname);
         document.title = hostInfo.Hostname;
         $("#sysinfo").text(hostInfo.DeviceModel + " firmware:" + hostInfo.BuildVersion + " " + hostInfo.InternalVersion);
+        qaRenderFacts();
     });
 
-    //Setup volume bar
-    var currentGlobalVol = localStorage.getItem("global_volume");
-    if (currentGlobalVol != null && currentGlobalVol != undefined && currentGlobalVol != ""){
-        $("#volumebar").css("width", currentGlobalVol * 100 + "%");
-    }else{
-        currentGlobalVol = 0;
-        localStorage.setItem("global_volume",currentGlobalVol);
+    //Volume and brightness are kept in localStorage (0 to 1), which WebApps
+    //read too; the quick access sliders show and change them (quickaccess.js)
+    if (localStorage.getItem("global_volume") == null || localStorage.getItem("global_volume") === ""){
+        localStorage.setItem("global_volume", 0);
     }
-
-    //Setup brightness
-    var currentBrightness = localStorage.getItem("brightness");
-    if (currentBrightness != null && currentBrightness != undefined && currentBrightness != ""){
-        $("#brightnessbar").css("width", currentBrightness * 100 + "%");
-        $("body").css("filter", `brightness(${currentBrightness * 100}%)`);
-    }else{
-        currentBrightness = 1;
-        localStorage.setItem("brightness",currentBrightness);
+    if (localStorage.getItem("brightness") == null || localStorage.getItem("brightness") === ""){
+        localStorage.setItem("brightness", 1);
     }
+    qaSyncSliders();
 
 
     //Check if hardware management mode is enabled. Hide buttons if needed
@@ -149,7 +141,7 @@ function initDesktopHostInfo(){
             powerman = true;
         }else{
             //Hardware management mode is off
-            $(".item.powerman, .qap-btn.powerman").remove();
+            $(".item.powerman").remove();
             powerman = false;
         }   
     });
@@ -233,50 +225,55 @@ function shutdown(){
 /*
     Alternative account manager
 */
+/*
+    The other accounts signed in on this browser, listed in the launcher's
+    account panel (#alternativeAccountList). A row switches to its account
+    (switchAccount); an expired session opens the sign in window instead.
+    Avatars use their own class: initDesktopUserInfo sets every .usericon to
+    the signed in user's picture.
+*/
 function listAllStoredAccounts(){
-    $("#alternativeAccountList").empty();
+    var list = $("#alternativeAccountList");
+    list.empty();
+    var showNone = function(){
+        list.empty().append($('<div class="accountEmpty"></div>').text(applocale.getString("account/switch/noAlternative", "No other account stored on this browser")));
+        $("#signoutAllButton").addClass("disabled");
+    };
     //Request server side for the account pool
     $.get("system/auth/u/list", function(data){
-        if (data.error != undefined){
-            $("#alternativeAccountList").append(`<div style="padding: 0.4em; padding-left: 1em; padding-right: 1em;">
-                    <i class="ui green check circle icon"></i> ${applocale.getString("account/switch/noAlternative", "No other account stored on this browser")}
-            </div>`);
-            $("#signoutAllButton").addClass('disabled');
-        }else{
-            if (data.length > 1){
-                data.forEach(function(account){
-                    if (account.Username == userInfo.Username){
-                        //Skip
-                        return;
-                    }
-                    $.get("system/desktop/user?target=" + account.Username, function(data){
-                        let userIcon = data.UserIcon;
-                        if (userIcon == ""){
-                            userIcon = "img/desktop/system_icon/user.svg"
-                        }
-                        $("#alternativeAccountList").append(`
-                            <div class="alternativeAccount item ${account.IsExpired?"expired":""}" acname="${account.Username}" onclick="switchAccount(this);">
-                                <div class="ui header">
-                                    <img class="usericon ui circular image" src="${userIcon}">
-                                    <div class="content" style="font-size: 95% !important;">
-                                        <span class="username">${account.Username}</span> ${(data.IsAdmin)?'<i style="margin-left: 0.4em; color: rgb(38, 50, 56);" title="Admin" class="small shield alternate icon themed text"></i>':""}
-                                        <div class="sub header usergroup">${!account.IsExpired?"<i class='ui green check circle icon' style='margin-right: 0px;'></i> " + applocale.getString("account/switch/sessionValid", "Session Valid"):"<i class='ui red times circle icon' style='margin-right: 0px;'></i> " + applocale.getString("account/switch/sessionExpired", "Session Expired")}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `);
-                    });
-                });
-                $("#signoutAllButton").removeClass('disabled');
-            }else{
-                $("#signoutAllButton").addClass('disabled');
-                $("#alternativeAccountList").append(`<div style="padding: 0.4em; padding-left: 1em; padding-right: 1em;">
-                    <i class="ui green check circle icon"></i> ${applocale.getString("account/switch/noAlternative", "No other account stored on this browser")}
-                </div>`);
+        if (data.error != undefined || !Array.isArray(data) || data.length <= 1){
+            showNone();
+            return;
+        }
+        $("#signoutAllButton").removeClass("disabled");
+        data.forEach(function(account){
+            if (account.Username == userInfo.Username){
+                //Skip
                 return;
             }
+            var row = $('<div class="accountRow alternativeAccount" onclick="switchAccount(this);">' +
+                '<img class="accountAvatar" draggable="false"><div class="accountRowText">' +
+                '<div class="accountRowName"></div><div class="accountRowState"></div></div></div>');
+            row.attr("acname", account.Username).toggleClass("expired", account.IsExpired === true);
+            row.find(".accountAvatar").attr("src", "img/desktop/system_icon/user.svg");
+            row.find(".accountRowName").text(account.Username);
+            row.find(".accountRowState").text(account.IsExpired ?
+                applocale.getString("account/switch/sessionExpired", "Session Expired") :
+                applocale.getString("account/switch/sessionValid", "Session Valid"));
+            list.append(row);
+            $.get("system/desktop/user?target=" + encodeURIComponent(account.Username), function(info){
+                if (info && info.UserIcon){
+                    row.find(".accountAvatar").attr("src", info.UserIcon);
+                }
+                if (info && info.IsAdmin){
+                    row.find(".accountRowName").append($('<i class="shield alternate icon"></i>').attr("title", "Admin"));
+                }
+            });
+        });
+        if (list.children().length == 0){
+            showNone();
         }
-    })
+    });
 }
 
 function switchAccount(object){

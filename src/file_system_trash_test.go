@@ -220,6 +220,42 @@ func TestScanTrashOf(t *testing.T) {
 	}
 }
 
+// The trash counts as full only when a trashed item sits in a root's .trash folder
+func TestTrashHasItems(t *testing.T) {
+	tests := []struct {
+		name  string
+		roots [][]string
+		want  bool
+	}{
+		{"no roots", nil, false},
+		{"no trash folder", [][]string{{"Desktop/report.pdf"}}, false},
+		{"empty trash folder", [][]string{{".trash/"}}, false},
+		{"only leftovers", [][]string{{".trash/.DS_Store", ".trash/empty/", ".trash/foo/.metadata/.cache/a.txt.1712345678.jpg"}}, false},
+		{"trashed name outside the trash", [][]string{{"Desktop/report.pdf.1712345678"}}, false},
+		{"one item", [][]string{{".trash/report.pdf.1712345678"}}, true},
+		{"item inside a folder", [][]string{{".trash/foo/bar/deleteme.txt.1712345678"}}, true},
+		{"trashed folder", [][]string{{".trash/Photos.1712345678/a.jpg"}}, true},
+		{"item on a later root", [][]string{{".trash/"}, {"Desktop/a.txt"}, {".trash/a.txt.1712345678"}}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roots := []*filesystem.FileSystemHandler{}
+			for _, files := range tt.roots {
+				root := t.TempDir()
+				writeTrashFixture(t, root, files)
+				roots = append(roots, &filesystem.FileSystemHandler{
+					UUID:                  "test",
+					FileSystemAbstraction: localfs.NewLocalFileSystemAbstraction("test", root, "public", false),
+				})
+			}
+			if got := system_fs_trashHasItems(roots, "alice"); got != tt.want {
+				t.Errorf("system_fs_trashHasItems() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestScanTrashOfWithoutTrash(t *testing.T) {
 	fsh := &filesystem.FileSystemHandler{
 		UUID:                  "test",

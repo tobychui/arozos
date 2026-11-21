@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Apps">
+    <!--
+        Dock launcher button: a three by three grid of app tiles on a soft
+        blue tile, the first item of the desktop dock (see
+        script/desktop/dock.js).
+    -->
+    <defs>
+        <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#5aa2ff"/>
+            <stop offset="1" stop-color="#2f62e6"/>
+        </linearGradient>
+        <linearGradient id="dot" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="1" stop-color="#e3ecff"/>
+        </linearGradient>
+    </defs>
+    <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#tile)"/>
+    <rect x="8.5" y="8.5" width="111" height="111" rx="25.5" fill="none" stroke="#ffffff" stroke-opacity="0.25"/>
+    <g fill="url(#dot)">
+        <rect x="30" y="30" width="18" height="18" rx="5"/>
+        <rect x="55" y="30" width="18" height="18" rx="5"/>
+        <rect x="80" y="30" width="18" height="18" rx="5"/>
+        <rect x="30" y="55" width="18" height="18" rx="5"/>
+        <rect x="55" y="55" width="18" height="18" rx="5"/>
+        <rect x="80" y="55" width="18" height="18" rx="5"/>
+        <rect x="30" y="80" width="18" height="18" rx="5"/>
+        <rect x="55" y="80" width="18" height="18" rx="5"/>
+        <rect x="80" y="80" width="18" height="18" rx="5"/>
+    </g>
+</svg>

@@ -79,6 +79,7 @@ document.addEventListener('keydown', function(event) {
                     if (data.error !== undefined){
                         alert(data.error);
                     }else{
+                        dockRefreshTrash();
                         //Delete the file's desktop location
                         deleteFilenameList.forEach(file => {
                             $.ajax({
@@ -146,6 +147,11 @@ $(document).keyup(function(event) {
         resizingWindow = false;
         event.preventDefault();
     }else if (keycode == "13"){
+        if (renameEndedByEnter){
+            //This Enter confirmed a rename (fileactions.js), it must not open the file
+            renameEndedByEnter = false;
+            return;
+        }
         //Enter key. open the selected object if exists
         $(".launchIconWrapper.selected").each(function(){
             console.log($(this).parent());

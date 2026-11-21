@@ -1,25 +1,41 @@
 /*
-    ArozOS Desktop - Notifications
+    ArozOS Desktop - Notifications and calendar
 
-    The notification and calendar panel, desktop notifications sent by
-    WebApps (sendNotification), server side notifications polled from
-    /system/notification and the transient toasts / browser push messages.
+    The panel the tray clock opens: a column of two cards at the bottom
+    right, the notifications (newest first, each with its relative time) and
+    a month calendar that opens the Calendar app on a day. Also desktop
+    notifications sent by WebApps (sendNotification), server side
+    notifications polled from /system/notification and the transient toasts
+    and browser push messages.
+
+    Kept for other code: toggleNotification(action), sendNotification(title,
+    content, icon, windowOpenOption), openNotification, closeThisNotification,
+    clearAllNotification, and the .notification.object class the tray clock
+    counts for its dot (updateClockTime in dock.js).
 
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
+//Open ("show"), close ("hide") or flip the notification and calendar panel
 function toggleNotification(action=undefined){
-    if (typeof action == "undefined"){
-        $(".notificationbar").stop().finish().fadeToggle("fast", function(){
-
-        });
-    }else{
-        if (action == "hide"){
-            $(".notificationbar").stop().finish().fadeOut("fast");
-        }else if (action == "show"){
-            $(".notificationbar").stop().finish().fadeIn("fast");
-        }
+    var panel = $(".notificationbar");
+    if (action == undefined && typeof trayToggleAllowed == "function" && !trayToggleAllowed("notifications")){
+        return;
     }
+    var open = (action == "show") || (action == undefined && !panel.is(":visible"));
+    if (!open){
+        panel.stop(true, true).fadeOut(120);
+        return;
+    }
+    if (typeof trayClosePanels == "function"){
+        trayClosePanels(".notificationbar");
+    }
+    ncCalendarMonth = null;
+    ncRenderCalendar();
+    ncUpdateTimes();
+    ncUpdateHeader();
+    $("#ncOpenCalendar").toggle(getModuleInfoFromName("Calendar") != false);
+    panel.stop(true, true).fadeIn(120);
 }
 
 /*
@@ -33,20 +49,25 @@ function toggleNotification(action=undefined){
 */
 
 function sendNotification(title, content, icon="info circle", windowOpenOption=null){
-    if (content.length > 100){
-        shortenContent = content.substring(0,100) + "...";
-    }else{
-        shortenContent = content;
-    }
-    onClickOpenWindowOption = encodeURIComponent(JSON.parse(windowOpenOption));
-    $("#notificationlist").append(` <div class="notification object" originalcontent="${content}" redirect="${onClickOpenWindowOption}" onclick="openNotification(this);">
-            <p class="title"><i class="${icon} icon"></i> ${title}</p>
-            <p class="notifycontent">${shortenContent}</p>
-            <div class="closebtn" onclick="event.stopImmediatePropagation(); closeThisNotification(this);"><i class="remove icon"></i></div>
-            <div class="ui divider"></div>
-        </div>`);
+    content = String(content);
+    var shortenContent = content.length > 300 ? content.substring(0, 300) + "..." : content;
+    var onClickOpenWindowOption = encodeURIComponent(JSON.parse(windowOpenOption));
+    var card = $('<div class="notification object" onclick="openNotification(this);">' +
+        '<div class="notifyIcon"><i class="icon"></i></div>' +
+        '<div class="notifyBody"><div class="notifyHead"><span class="title"></span><span class="notifyTime"></span></div>' +
+        '<div class="notifycontent"></div></div>' +
+        '<div class="closebtn" onclick="event.stopImmediatePropagation(); closeThisNotification(this);"><i class="close icon"></i></div>' +
+        '</div>');
+    card.attr({"originalcontent": content, "redirect": onClickOpenWindowOption, "data-time": Date.now()});
+    card.find(".notifyIcon i").addClass(icon);
+    //Callers pass text, already escaped where it comes from the server
+    card.find(".title").html(title);
+    card.find(".notifycontent").html(shortenContent);
+    $("#notificationlist").prepend(card);
     $(".nonotification").hide();
-
+    ncUpdateTimes();
+    ncUpdateHeader();
+    updateClockTime();
 }
 
 function openNotification(obj){
@@ -57,6 +78,7 @@ function openNotification(obj){
     }else{
         //Start a floatWindow to the given target
         newFloatWindow(newWindowOpeningOption);
+        toggleNotification("hide");
     }
 
     //Clear the notiication
@@ -65,22 +87,172 @@ function openNotification(obj){
 }
 
 function closeThisNotification(obj){
-    $(obj).parent().slideUp("fast",function(data){
+    $(obj).parent().slideUp(150, function(){
         $(this).remove();
         if ($(".notification.object").length == 0){
             $(".nonotification").show();
         }
+        ncUpdateHeader();
+        updateClockTime();
     });
-
-
 }
 
 function clearAllNotification(){
-    $(".notification.object").slideUp('fast',function(data){
-        $(this).remove();
+    var cards = $(".notification.object");
+    if (cards.length == 0){
+        return;
+    }
+    cards.slideUp(150).promise().done(function(){
+        cards.remove();
         $(".nonotification").show();
+        ncUpdateHeader();
+        updateClockTime();
     });
 }
+
+//"Clear All" only when there is something to clear
+function ncUpdateHeader(){
+    $(".notificationbar .clearall").toggle($(".notification.object").length > 0);
+}
+
+/*
+    Relative times on the cards ("now", "5 minutes ago"), in the user's language
+*/
+function ncLanguage(){
+    if (typeof applocale != "undefined" && applocale.lang){
+        return applocale.lang;
+    }
+    return navigator.language || "en";
+}
+
+function ncRelativeTime(timestamp){
+    var seconds = Math.round((timestamp - Date.now()) / 1000);
+    try {
+        var rtf = new Intl.RelativeTimeFormat(ncLanguage(), {numeric: "auto"});
+        if (Math.abs(seconds) < 60){
+            return rtf.format(0, "second");
+        }
+        var minutes = Math.round(seconds / 60);
+        if (Math.abs(minutes) < 60){
+            return rtf.format(minutes, "minute");
+        }
+        var hours = Math.round(minutes / 60);
+        if (Math.abs(hours) < 24){
+            return rtf.format(hours, "hour");
+        }
+        return rtf.format(Math.round(hours / 24), "day");
+    } catch (ex) {
+        return new Date(timestamp).toLocaleTimeString();
+    }
+}
+
+function ncUpdateTimes(){
+    $("#notificationlist .notification.object").each(function(){
+        var time = parseInt($(this).attr("data-time"));
+        if (!isNaN(time)){
+            $(this).find(".notifyTime").text(ncRelativeTime(time));
+        }
+    });
+}
+
+setInterval(function(){
+    if ($(".notificationbar").is(":visible")){
+        ncUpdateTimes();
+    }
+}, 30000);
+
+/*
+    Calendar card: today's date and a month grid, weeks starting on Sunday,
+    names from the browser in the user's language. A day opens the Calendar
+    app on that day (it reads {"date": "YYYY-MM-DD", "view": "day"} from its
+    URL hash); without the app the days are only shown.
+*/
+var ncCalendarMonth = null; //First day of the month on screen, null for this month
+
+function ncDateKey(date){
+    return date.getFullYear() + "-" + zeropad(date.getMonth() + 1, 2) + "-" + zeropad(date.getDate(), 2);
+}
+
+function ncRenderCalendar(){
+    var today = new Date();
+    if (ncCalendarMonth == null){
+        ncCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    var lang = ncLanguage();
+    var format = function(date, options){
+        try {
+            return date.toLocaleDateString(lang, options);
+        } catch (ex) {
+            return date.toLocaleDateString(undefined, options);
+        }
+    };
+    $("#ncWeekday").text(format(today, {weekday: "long"}));
+    $("#ncDate").text(format(today, {year: "numeric", month: "long", day: "numeric"}));
+    $("#ncMonthLabel").text(format(ncCalendarMonth, {year: "numeric", month: "long"}));
+
+    var hasCalendarApp = getModuleInfoFromName("Calendar") != false;
+    var grid = $("#ncDays").empty().toggleClass("clickable", hasCalendarApp);
+    for (var i = 0; i < 7; i++){
+        //2023-01-01 was a Sunday
+        grid.append($('<div class="ncWeekday"></div>').text(format(new Date(2023, 0, 1 + i), {weekday: "narrow"})));
+    }
+    var first = ncCalendarMonth;
+    var start = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
+    var todayKey = ncDateKey(today);
+    //Always six weeks, so the card keeps its height from month to month
+    for (var d = 0; d < 42; d++){
+        var day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + d);
+        var cell = $('<div class="ncDay"></div>').text(day.getDate());
+        cell.attr({"data-date": ncDateKey(day), "title": format(day, {year: "numeric", month: "long", day: "numeric"})});
+        cell.toggleClass("otherMonth", day.getMonth() != first.getMonth());
+        cell.toggleClass("today", ncDateKey(day) == todayKey);
+        grid.append(cell);
+    }
+}
+
+function ncShiftMonth(delta){
+    if (ncCalendarMonth == null){
+        var today = new Date();
+        ncCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    ncCalendarMonth = new Date(ncCalendarMonth.getFullYear(), ncCalendarMonth.getMonth() + delta, 1);
+    ncRenderCalendar();
+}
+
+//Open the Calendar app, on a day (YYYY-MM-DD) when one is given
+function ncOpenCalendar(dateKey){
+    var mod = getModuleInfoFromName("Calendar");
+    if (!mod){
+        return;
+    }
+    var url = (mod.SupportFW && mod.LaunchFWDir) ? mod.LaunchFWDir : mod.StartDir;
+    if (dateKey){
+        url += "#" + encodeURIComponent(JSON.stringify({date: dateKey, view: "day"}));
+    }
+    var size = (mod.SupportFW && Array.isArray(mod.InitFWSize)) ? mod.InitFWSize : [undefined, undefined];
+    toggleNotification("hide");
+    newFloatWindow({
+        url: url,
+        width: size[0],
+        height: size[1],
+        appicon: mod.IconPath || "img/system/favicon.png",
+        title: mod.Name
+    });
+}
+
+$("#ncPrevMonth").on("click", function(){ ncShiftMonth(-1); });
+$("#ncNextMonth").on("click", function(){ ncShiftMonth(1); });
+//The month label brings the calendar back to this month
+$("#ncMonthLabel").on("click", function(){
+    ncCalendarMonth = null;
+    ncRenderCalendar();
+});
+$("#ncDays").on("click", ".ncDay", function(){
+    ncOpenCalendar($(this).attr("data-date"));
+});
+$("#ncOpenCalendar").on("click", function(){
+    ncOpenCalendar();
+});
 
 /*
     Server-side notification delivery (Notification Agent: desktop)

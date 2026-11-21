@@ -179,12 +179,15 @@
                 var hex = $(this).attr("data-hex");
                 if (!ao_module_virtualDesktop) return;
                 var pd = parent.window.document;
-                thmPrevColor.fw  = $(pd).find(".floatWindow .controls").css("background-color");
-                thmPrevColor.sb  = $(pd).find("#statusbar").css("background-color");
-                thmPrevColor.nav = $(pd).find("#navimenu").css("background-color");
+                //Without a theme colour the desktop set no colours inline: hand the
+                //elements back to its own styles afterwards instead of freezing them
+                var tinted = typeof parent.desktopThemeColor == "string" && parent.desktopThemeColor !== "";
+                thmPrevColor.fw  = tinted ? $(pd).find(".floatWindow .controls").css("background-color") : "";
+                thmPrevColor.sb  = tinted ? $(pd).find("#statusbar").css("background-color") : "";
+                thmPrevColor.nav = tinted ? $(pd).find("#navimenu, #dockTray").css("background-color") : "";
                 $(pd).find(".floatWindow .controls").css("background-color", hexToRgbA(hex, 0.25));
                 $(pd).find("#statusbar").css("background-color", hex);
-                $(pd).find("#navimenu").css("background-color", hexToRgbA(hex, 0.5));
+                $(pd).find("#navimenu, #dockTray").css("background-color", hexToRgbA(hex, 0.5));
             });
 
             $("#thm-color-grid").on("mouseleave", ".color-swatch", function () {
@@ -193,7 +196,7 @@
                 var pd = parent.window.document;
                 $(pd).find(".floatWindow .controls").css("background-color", thmPrevColor.fw || "");
                 $(pd).find("#statusbar").css("background-color", thmPrevColor.sb || "");
-                $(pd).find("#navimenu").css("background-color", thmPrevColor.nav || "");
+                $(pd).find("#navimenu, #dockTray").css("background-color", thmPrevColor.nav || "");
             });
 
             $("#thm-color-grid").on("click", ".color-swatch", function () {
@@ -211,13 +214,22 @@
     }
 
     window.thmRestoreDefault = function () {
+        //The colour is a desktop preference (see thmWritePreference), remove it there
         $.ajax({
-            url: "../../system/file_system/preference",
-            data: { key: "themecolor", remove: true },
+            url: "../../system/desktop/preference",
+            method: "POST",
+            data: { preference: "themecolor", remove: "true" },
             success: function (data) {
                 if (data && data.error) return;
                 $("#thm-color-grid .color-swatch").removeClass("selected");
-                if (ao_module_virtualDesktop) parent.setThemeColor("#262626");
+                if (ao_module_virtualDesktop) {
+                    if (typeof parent.resetThemeColor == "function") {
+                        parent.resetThemeColor();
+                    } else {
+                        //A desktop without resetThemeColor (mobile.html)
+                        parent.setThemeColor("#262626");
+                    }
+                }
             }
         });
     };

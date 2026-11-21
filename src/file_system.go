@@ -151,6 +151,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/preference", system_fs_handleUserPreference)
 	router.HandleFunc("/system/file_system/listTrash", system_fs_scanTrashBin)
 	router.HandleFunc("/system/file_system/ws/listTrash", system_fs_WebSocketScanTrashBin)
+	router.HandleFunc("/system/file_system/trashState", system_fs_handleTrashState)
 	router.HandleFunc("/system/file_system/clearTrash", system_fs_clearTrashBin)
 	router.HandleFunc("/system/file_system/trashSettings", system_fs_handleTrashSettings)
 	router.HandleFunc("/system/file_system/restoreTrash", system_fs_restoreFile)
@@ -1583,6 +1584,44 @@ func system_fs_listTrash(username string) []trashItem {
 		})
 	}
 	return items
+}
+
+// errTrashItemFound stops a trash scan at the first trashed item
+var errTrashItemFound = errors.New("trash item found")
+
+// Report whether any of the given roots holds a trashed item. The scan stops at
+// the first one, so a full trash is not walked to the end to answer this
+func system_fs_trashHasItems(roots []*filesystem.FileSystemHandler, username string) bool {
+	for _, fsh := range roots {
+		err := system_fs_scanTrashOf(fsh, username, func(item trashItem) error {
+			return errTrashItemFound
+		})
+		if errors.Is(err, errTrashItemFound) {
+			return true
+		}
+	}
+	return false
+}
+
+/*
+Tell whether the trash of the logged in user holds anything, without listing it.
+
+GET -> {"HasItems": true / false}
+
+The desktop dock asks this to pick its empty or full trash icon; the full
+listing (listTrash) describes every item and is far too heavy for that.
+*/
+func system_fs_handleTrashState(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	js, _ := json.Marshal(map[string]bool{
+		"HasItems": system_fs_trashHasItems(system_fs_trashRootsOf(userinfo), userinfo.Username),
+	})
+	utils.SendJSONResponse(w, string(js))
 }
 
 // Describe a trashed item to the client

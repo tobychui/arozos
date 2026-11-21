@@ -61,6 +61,7 @@ func DesktopInit() {
 		{Name: "Wallpaper", Desc: "Desktop Wallpaper Settings", StartDir: "SystemAO/desktop/settings/wallpaper.html"},
 		{Name: "Sounds", Desc: "System Sound Settings", StartDir: "SystemAO/desktop/settings/sounds.html"},
 		{Name: "Theme", Desc: "System Theme Color", StartDir: "SystemAO/desktop/settings/theme.html"},
+		{Name: "Start Menu", Desc: "Dock and app menu layout", StartDir: "SystemAO/desktop/settings/startmenu.html"},
 		{Name: "Mobile UX", Desc: "Mobile Desktop Shortcuts", StartDir: "SystemAO/desktop/settings/mobile_ux.html"},
 		{Name: "Startup Interface", Desc: "Workspace opened after sign in", StartDir: "SystemAO/desktop/settings/interface.html"},
 		{Name: "System Fonts", Desc: "Fonts of the system interface", StartDir: "SystemAO/desktop/settings/fonts.html"},

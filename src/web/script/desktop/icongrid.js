@@ -290,7 +290,7 @@ function getLocationFromGridIndex(x, y){
     var screenHeight = window.innerHeight;
     var screenWidth = window.innerWidth;
 
-    var vc = Math.floor((screenHeight - 20 - padding) / iheight);
+    var vc = Math.floor((screenHeight - getReservedBottom()) / iheight);
     var hc = Math.floor((screenWidth - padding) / iwidth);
 
     //Calculate the position of this icon on the grid

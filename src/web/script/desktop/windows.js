@@ -70,7 +70,7 @@ function min(object, event) {
         return;
     }
     var fw = $(object).parent().parent().parent();
-    $(fw).fadeOut(100);
+    $(fw).fadeOut(100, dockUpdateFocus);
 }
 
 function toggleMax(object, event) {
@@ -122,7 +122,7 @@ function toggleMax(object, event) {
         $(fw).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
         $(fw).css({
             width: "100%",
-            height: "calc(100% - 36px)",
+            height: "calc(100% - var(--dt-reserved-bottom))",
             left: "0px",
             top: "0px"
         });
@@ -163,7 +163,7 @@ function closeFloatWindow(object, event=null) {
 
     //Find the btn object that contains the windowID
     var closingWindowID = $(fw).attr("windowId");
-    $("#stackedWindowList").hide();
+    dockHideWindowList();
     resizeAllFloatWindowButtons();
     hideAllContextMenus();
 }
@@ -176,25 +176,8 @@ function closeFwProcess(windowID) {
         }
     });
 
-    //Remove the button from menu as well
-    var targetTab = findFloatWindowButtonWithID(windowID);
-    var originalIDlist = JSON.parse(decodeURIComponent($(targetTab).attr('windowIDGroup')));
-    originalIDlist = originalIDlist.map(String);
-    if (originalIDlist.length > 1) {
-        //There are more than 1 floatWindow in this tab.
-        var newIDList = [];
-        for (var i = 0; i < originalIDlist.length; i++) {
-            if (originalIDlist[i] != windowID) {
-                newIDList.push(originalIDlist[i]);
-            }
-        }
-        newIDListAttr = encodeURIComponent(JSON.stringify(newIDList));
-        //console.log("Newlist",newIDList);
-        $(targetTab).attr("windowIDGroup", newIDListAttr);
-    } else {
-        //This is the only floatWindow in this tab. Remove the tab itself.
-        $(targetTab).remove();
-    }
+    //Remove the window from its dock item as well
+    dockRemoveWindow(windowID);
 }
 
 function PinFloatWindowToTopMostMode(object){
@@ -302,6 +285,7 @@ function MoveFloatWindowToTop(object) {
     if ($(object).is(":hidden")) {
         $(object).fadeIn(100);
     }
+    dockUpdateFocus();
 
     //Focus on the top most floatWindow
     var iframe = focusedWindow.find("iframe")[0];
@@ -366,13 +350,15 @@ function newFloatWindow(config, callback=undefined) {
     if (width > window.innerWidth) {
         width = window.innerWidth;
     }
-    if (height > window.innerHeight) {
-        height = window.innerHeight;
+    //New windows open above the dock, like maximized ones
+    var availableHeight = window.innerHeight - getReservedBottom();
+    if (height > availableHeight) {
+        height = availableHeight;
     }
     if (left + width > window.innerWidth) {
         left = 0;
     }
-    if (top + height > window.innerHeight) {
+    if (top + height > availableHeight) {
         top = 0;
     }
 
@@ -439,68 +425,9 @@ function newFloatWindow(config, callback=undefined) {
     //console.log(newWindowObject);
     MoveFloatWindowToTop(newWindowObject);
 
-    //Append window to taskbar
-    var groupInfo = url.split("/");
-    var group = "";
-    if (groupInfo.length == 1) {
-        group = groupInfo[0];
-    } else {
-        groupInfo.pop();
-        group = groupInfo.join("/");
-    }
-
-    //File system windows require special grouping based on their filename
-    if (url.includes("SystemAO/file_system/")){
-        group = url.split("/").pop().split(".").join("_");
-    }else if (url.includes("SystemAO/utilities/")){
-        group = url.split("/").pop().split(".").join("_");
-        if (group.includes("#")){
-            group = group.split("#")[0];
-        }
-    }
-
-    //Check if the group already exists.
-    var groupExists = false;
-    var targetGroupingTab;
-    $(".floatWindowButton").each(function() {
-        if ($(this).attr("group") == group) {
-            groupExists = true;
-            targetGroupingTab = $(this);
-        }
-    });
-
-    //Check if the group is System Explorer and held special treatment if yes
-    if (group.split("/").shift() == "SystemAO") {
-        if (url.includes("file_explorer.html") && groupExists) {
-            //File Manager. Group them
-            group = "file_explorer";
-        }else if (url.includes("utilities") && groupExists){
-            //Allow grouping
-
-        } else {
-            //Do not group anything from SystemAO other than file explorer
-            groupExists = false;
-        }
-    }
-
-    if (groupExists == false) {
-        //Append the item to taskbar
-        var windowIDGroup = encodeURIComponent(JSON.stringify([uuid]));
-        var floatWindowButtonObject = ` <div class="item clickable floatWindowButton onscreen" group="${group}" windowIDGroup="${windowIDGroup}">
-                                                <img class="floatWindowAppIcon" src="${moduleIcon}"></img>
-                                                <p class="floatWindowTitle">${title}</p>
-                                            </div>`;
-        $(".navimenu").append(floatWindowButtonObject);
-    } else {
-        //Group already exists. Add tab into that group.
-        var originalIDlist = JSON.parse(decodeURIComponent($(targetGroupingTab).attr('windowIDGroup')));
-        originalIDlist.push(uuid);
-        //Encode and put the group list back to the object
-        var newIDList = encodeURIComponent(JSON.stringify(originalIDlist));
-        $(targetGroupingTab).attr("windowIDGroup", newIDList);
-    }
+    //Put the window on the dock (dock.js groups it with the module it belongs to)
+    dockAddWindow(uuid, url, moduleIcon, title);
     hookFloatWindowEvents();
-    resizeAllFloatWindowButtons();
 
     if (callback !== undefined){
         callback(uuid);
@@ -622,6 +549,7 @@ function applyFloatWindowMinSize(targetfw, minWidth, minHeight) {
 function setFloatWindowTitle(targetFWId, newTitle) {
     var targetfw = getFloatWindowByID(targetFWId);
     $(targetfw).find(".title").text(newTitle);
+    dockWindowTitleChanged(targetFWId);
 
 }
 

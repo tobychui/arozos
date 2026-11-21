@@ -1289,6 +1289,16 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
                 else render();
               }); return;
             }
+            // Opened on a given day, e.g. from the desktop's calendar card:
+            // #{"date":"2026-11-21","view":"day"} (view is optional)
+            if(payload&&typeof payload.date==='string'){
+              var ymd=/^(\d{4})-(\d{2})-(\d{2})$/.exec(payload.date);
+              if(ymd){
+                S.anchor=new Date(+ymd[1],+ymd[2]-1,+ymd[3]);
+                S.miniCalAnchor=new Date(+ymd[1],+ymd[2]-1,1);
+              }
+              if(['day','workweek','week','month'].indexOf(payload.view)>=0){ switchView(payload.view); return; }
+            }
           } catch(e){}
         }
         render();

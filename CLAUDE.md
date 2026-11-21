@@ -85,7 +85,7 @@ front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
   `Development` (Code Studio, GitApp, Terminal, SQLite Admin, …), `System Tools`
   or `Utilities`; anything else lands under *Other*. The desktop maps groups
   to categories in `listMenuCategories` ([`src/web/script/desktop/state.js`](src/web/script/desktop/state.js),
-  used by `listMenuCategoryOf` in `listmenu.js`),
+  used by `listMenuCategoryOf` in `launcher.js`),
   and adds a *Container Apps* category (published container apps, not
   modules) only when `/system/appproxy/apps` reports `Containers: true`.
   The group is also a **permission** decision: `Utilities`, `System Tools`

@@ -672,15 +672,18 @@
                             //Save the current color
                             var thisColorCode = $(this).attr("hex");
                             var parentDocument = parent.window.document;
-                            previousColorCode["floatWindow"] = $(parentDocument).find(".floatWindow .controls").css("background-color");
-                            previousColorCode["statusbar"] =  $(parentDocument).find("#statusbar").css("background-color");
-                            previousColorCode["navimenu"] =  $(parentDocument).find("#navimenu").css("background-color");
+                            //Without a theme colour the desktop set no colours inline: hand the
+                            //elements back to its own styles afterwards instead of freezing them
+                            var tinted = typeof parent.desktopThemeColor == "string" && parent.desktopThemeColor !== "";
+                            previousColorCode["floatWindow"] = tinted ? $(parentDocument).find(".floatWindow .controls").css("background-color") : "";
+                            previousColorCode["statusbar"] = tinted ? $(parentDocument).find("#statusbar").css("background-color") : "";
+                            previousColorCode["navimenu"] = tinted ? $(parentDocument).find("#navimenu, #dockTray").css("background-color") : "";
 
                             //Set the preview color
                             if (ao_module_virtualDesktop){
                                 $(parentDocument).find(".floatWindow .controls").css("background-color",hexToRgbA(thisColorCode, 0.25));
                                 $(parentDocument).find("#statusbar").css("background-color",thisColorCode );
-                                $(parentDocument).find("#navimenu").css("background-color",hexToRgbA(thisColorCode, 0.5));
+                                $(parentDocument).find("#navimenu, #dockTray").css("background-color",hexToRgbA(thisColorCode, 0.5));
                             }
                         },
                         mouseout: function() {
@@ -693,7 +696,7 @@
                             if (ao_module_virtualDesktop && !cancelColorRestore){
                                 $(parentDocument).find(".floatWindow .controls").css("background-color",previousColorCode["floatWindow"]);
                                 $(parentDocument).find("#statusbar").css("background-color",previousColorCode["statusbar"]);
-                                $(parentDocument).find("#navimenu").css("background-color",previousColorCode["navimenu"]);
+                                $(parentDocument).find("#navimenu, #dockTray").css("background-color",previousColorCode["navimenu"]);
                             }else if (cancelColorRestore){
                                 cancelColorRestore = false;
                             }
@@ -726,17 +729,22 @@
             }
 
             function restoreDefaultThemeColor(){
+                //The colour is a desktop preference (see writePreference), remove it there
                 $.ajax({
-                    url: "../../system/file_system/preference",
-                    data: {key: "themecolor", remove: true},
+                    url: "../../system/desktop/preference",
+                    method: "POST",
+                    data: {preference: "themecolor", remove: "true"},
                     success: function(data){
                         if (data.error !== undefined){
                             console.log(data.error);
                         }else{
                             if (ao_module_virtualDesktop){
-                                //Just emulate the restored effect first, 
-                                //The theme color will restore after refresh
-                                parent.setThemeColor("#262626");
+                                if (typeof parent.resetThemeColor == "function"){
+                                    parent.resetThemeColor();
+                                }else{
+                                    //A desktop without resetThemeColor (mobile.html)
+                                    parent.setThemeColor("#262626");
+                                }
                             }
                         }
                     }

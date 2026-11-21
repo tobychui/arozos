@@ -1,0 +1,436 @@
+/*
+    ArozOS Desktop - Launcher
+
+    The app launcher (#listMenu) above the dock's launcher button: search
+    field, category pills, app grid and a footer with the user and the power
+    menu. Placed and sized by launcherPlace (launcher.js).
+
+    Every rule starts at #listMenu so it outranks the dark theme rules of
+    script/ao.css, which colour every div and span.
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+#listMenu.launcher {
+    position: fixed;
+    z-index: 1113;
+    left: var(--dt-dock-gap);
+    bottom: var(--dt-reserved-bottom);
+    width: 660px;
+    height: 580px;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 14px 0 14px;
+    border-radius: var(--dt-radius-l);
+    background-color: var(--dt-menu-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    color: var(--dt-text);
+    letter-spacing: 0;
+    overflow: hidden;
+    transform-origin: bottom left;
+    animation: launcherIn .18s ease-out;
+}
+
+@keyframes launcherIn {
+    from { transform: translateY(12px) scale(.985); }
+    to { transform: none; }
+}
+
+/* ---------------------------------------------------------------- Search */
+
+#listMenu .launcherSearch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 11px;
+    background-color: var(--dt-field);
+    border: 1px solid var(--dt-border);
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+
+#listMenu .launcherSearch:focus-within {
+    border-color: var(--dt-accent);
+    box-shadow: 0 0 0 3px var(--dt-accent-soft);
+}
+
+#listMenu .launcherSearch i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 14px;
+    color: var(--dt-text-muted);
+}
+
+#listMenu .launcherSearch input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    font-size: 14px;
+    color: var(--dt-text);
+}
+
+#listMenu .launcherSearch input::placeholder {
+    color: var(--dt-text-muted);
+}
+
+/* ---------------------------------------------------------------- Categories */
+
+#listMenu .launcherCategories {
+    flex-shrink: 0;
+    display: flex;
+    gap: 6px;
+    margin: 12px 0 8px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+#listMenu .launcherCategories::-webkit-scrollbar {
+    display: none;
+}
+
+#listMenu .launcherPill {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    line-height: 16px;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--dt-text);
+    background-color: var(--dt-field);
+    transition: background-color .12s ease, color .12s ease;
+}
+
+#listMenu .launcherPill:hover {
+    background-color: var(--dt-hover);
+}
+
+#listMenu .launcherPill.selected {
+    color: #ffffff;
+    background-color: var(--dt-accent);
+}
+
+/* ---------------------------------------------------------------- Grid */
+
+#listMenu .launcherGrid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); /* "small", the default app icon size */
+    grid-auto-rows: max-content;
+    align-content: start;
+    gap: 4px;
+    margin: 0 -6px;
+    padding: 4px 6px 12px 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+}
+
+#listMenu .launcherTile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px 8px 4px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color .1s ease;
+}
+
+#listMenu .launcherTile:hover {
+    background-color: var(--dt-hover);
+}
+
+#listMenu .launcherTile.selected {
+    background-color: var(--dt-accent-soft);
+    box-shadow: inset 0 0 0 1.5px var(--dt-accent);
+}
+
+#listMenu .launcherTile img {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    pointer-events: none;
+    transition: transform .15s ease;
+}
+
+#listMenu .launcherTile:active img {
+    transform: scale(.93);
+}
+
+/* App icon size (Start Menu settings): medium and large, small above */
+body.appIconsMedium #listMenu .launcherGrid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+
+body.appIconsMedium #listMenu .launcherTile img {
+    width: 60px;
+    height: 60px;
+}
+
+body.appIconsLarge #listMenu .launcherGrid {
+    grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+}
+
+body.appIconsLarge #listMenu .launcherTile img {
+    width: 76px;
+    height: 76px;
+}
+
+#listMenu .launcherTile .name {
+    max-width: 100%;
+    font-size: 12px;
+    line-height: 1.25;
+    text-align: center;
+    word-break: break-word;
+    color: var(--dt-text);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+#listMenu .launcherEmpty {
+    grid-column: 1 / -1;
+    padding: 80px 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--dt-text-muted);
+}
+
+/* ---------------------------------------------------------------- Footer */
+
+#listMenu .launcherFooter {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 58px;
+    margin: 0 -14px;
+    padding: 0 12px;
+    border-top: 1px solid var(--dt-divider);
+    background-color: var(--dt-field);
+}
+
+#listMenu .launcherUser {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 5px 12px 5px 5px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+#listMenu .launcherUser:hover,
+#listMenu .launcherPower:hover {
+    background-color: var(--dt-hover);
+}
+
+#listMenu .launcherUser .usericon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#listMenu .launcherUsername {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#listMenu .launcherPower {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+#listMenu .launcherPower i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 16px;
+    color: var(--dt-text);
+}
+
+/* ---------------------------------------------------------------- Account panel */
+
+/* Opened by the user in the footer: who is signed in, the accounts stored
+   in this browser (switchAccount), adding one, signing out */
+#listMenu .accountPanel {
+    position: absolute;
+    z-index: 5;
+    left: 12px;
+    bottom: 66px;
+    width: 300px;
+    max-height: calc(100% - 90px);
+    overflow-y: auto;
+    padding: 8px;
+    border-radius: 14px;
+    background-color: var(--dt-menu-surface);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    font-size: 13px;
+    color: var(--dt-text);
+    animation: accountPanelIn .14s ease-out;
+}
+
+@keyframes accountPanelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+#listMenu .accountMe {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 6px 10px 6px;
+}
+
+#listMenu .accountMe .usericon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#listMenu .accountMeText {
+    min-width: 0;
+}
+
+#listMenu .accountName {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--dt-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#listMenu .accountName i.icon {
+    font-size: 12px;
+    color: var(--dt-text-muted);
+}
+
+#listMenu .accountGroups {
+    font-size: 12px;
+    color: var(--dt-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#listMenu .accountSectionTitle {
+    padding: 6px 8px 4px 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--dt-text-muted);
+}
+
+#listMenu .accountEmpty {
+    padding: 4px 8px 8px 8px;
+    font-size: 12.5px;
+    color: var(--dt-text-muted);
+}
+
+#listMenu .accountRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+#listMenu .accountRow .accountAvatar {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#listMenu .accountRowText {
+    min-width: 0;
+}
+
+#listMenu .accountRowName {
+    font-weight: 600;
+    color: var(--dt-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#listMenu .accountRowName i.icon {
+    margin-left: 4px;
+    font-size: 11px;
+    color: var(--dt-text-muted);
+}
+
+#listMenu .accountRowState {
+    font-size: 11.5px;
+    color: var(--dt-text-muted);
+}
+
+#listMenu .accountRow.expired .accountRowState {
+    color: var(--dt-danger);
+}
+
+#listMenu .accountAction {
+    padding: 7px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--dt-text);
+}
+
+#listMenu .accountRow:hover,
+#listMenu .accountAction:hover {
+    background-color: var(--dt-hover);
+}
+
+#listMenu .accountDivider {
+    height: 1px;
+    margin: 6px 8px;
+    background-color: var(--dt-divider);
+}
+
+#listMenu .launcherUser.open {
+    background-color: var(--dt-hover);
+}
+
+/* ---------------------------------------------------------------- Fallbacks */
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    #listMenu.launcher {
+        background-color: var(--dt-surface-solid);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #listMenu.launcher,
+    #listMenu .accountPanel,
+    #listMenu .launcherTile img {
+        animation: none;
+        transition: none;
+    }
+}

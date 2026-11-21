@@ -66,18 +66,10 @@ function toggleDesktopTheme(){
     }
 }
 
+//The Dark Mode tile of the quick access panel is lit while the dark theme is on
 function updateThemeToggleBtn(){
     var isDark = $("body").hasClass("darkTheme");
-    var btn = $("#themeToggleBtn");
-    if (isDark){
-        btn.addClass("active");
-        btn.find("i").removeClass("sun").addClass("moon");
-        btn.find(".qap-label").text("Dark Mode");
-    }else{
-        btn.removeClass("active");
-        btn.find("i").removeClass("moon").addClass("sun");
-        btn.find(".qap-label").text("Light Mode");
-    }
+    $("#themeToggleBtn").toggleClass("active", isDark).attr("aria-pressed", isDark ? "true" : "false");
 }
 
 function setThemeColor(newThemeColor){
@@ -86,7 +78,10 @@ function setThemeColor(newThemeColor){
 
     //Update the related elements
     $("#statusbar").css("background-color",hexToRgbA(newThemeColor, 0.8));
-    $("#navimenu").css("background-color",hexToRgbA(newThemeColor, 0.5));
+    $("#navimenu, #dockTray").css("background-color",hexToRgbA(newThemeColor, 0.5));
+    document.body.style.setProperty("--dt-accent", newThemeColor);
+    //The tinted dock and tray use light text, as the old taskbar did (dock.css)
+    $("body").addClass("themeTinted");
 
     var themeColorForBoarders = hexToRgbA(newThemeColor, 0.25);
     $(".floatWindow .controls").css("background-color",themeColorForBoarders);
@@ -96,14 +91,34 @@ function setThemeColor(newThemeColor){
         "border-bottom":"3px solid " + themeColorForBoarders,
     });
 
-    //List menu theme color bar
-    $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
-    $("#volumebar").css("background-color", newThemeColor);
-    $("#brightnessbar").css("background-color", newThemeColor);
     $(".themed.text").css("color", newThemeColor);
 
     //Connection lost notification css
     $("#connectionLost").find(".ui.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
+}
+
+/*
+    Back to the default look, undoing everything setThemeColor painted:
+    no tint on the dock and tray, the default accent, untinted windows.
+    System Settings calls it after "Restore Default" removed the saved
+    colour, so the desktop changes without a reload.
+*/
+function resetThemeColor(){
+    desktopThemeColor = "";
+    $("#statusbar, #navimenu, #dockTray").css("background-color", "");
+    document.body.style.removeProperty("--dt-accent");
+    $("body").removeClass("themeTinted");
+
+    $(".floatWindow .controls").css("background-color", "");
+    $(".floatWindow .iframewrapper").css({
+        "border-left": "",
+        "border-right": "",
+        "border-bottom": "",
+        "backdrop-filter": ""
+    });
+
+    $(".themed.text").css("color", "");
+    $("#connectionLost").find(".ui.card").css("background-color", "rgba(14,14,14,0.5)");
 }
 
 //Load the user define theme color to overwrite the default color if exists

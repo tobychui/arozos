@@ -1,0 +1,439 @@
+/*
+    ArozOS Desktop - Dock and tray
+
+    The dock (#navimenu, bottom centre), the tray (#dockTray, bottom right)
+    and the window list popover that opens above a dock item. Sizes come
+    from the design tokens in base.css; dock.js shrinks --dt-dock-icon on
+    #navimenu when the dock does not fit.
+
+    #navimenu keeps its old id: System Settings' theme colour pages preview
+    a colour by painting its background (and the tray's) in the parent page.
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+/* ---------------------------------------------------------------- Dock */
+
+#navimenu {
+    position: fixed;
+    z-index: 1110;
+    left: 50%;
+    bottom: var(--dt-dock-gap);
+    transform: translateX(-50%);
+    height: var(--dt-dock-height);
+    min-width: 50vw; /* dock.js narrows it when the tray needs the room */
+    max-width: calc(100% - 2 * var(--dt-dock-gap));
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 var(--dt-dock-pad);
+    border-radius: var(--dt-radius-l);
+    background-color: var(--dt-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    user-select: none;
+    -webkit-user-select: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+/* Too wide for the middle: dock.js places it left of the tray instead */
+#navimenu.offCentre {
+    transform: none;
+}
+
+/* Aligned to the left of the screen (Start Menu settings, dock.js) */
+body.dockAlignLeft #navimenu {
+    left: var(--dt-dock-gap);
+    transform: none;
+}
+
+#navimenu.dragOver {
+    border-color: var(--dt-accent);
+}
+
+#navimenu .dockSection {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Takes the free width: the launcher and open apps stay left, pinned apps and trash right */
+#navimenu .dockSpacer {
+    flex: 1 1 auto;
+    min-width: 0;
+    align-self: stretch;
+}
+
+#navimenu .dockDivider {
+    flex-shrink: 0;
+    width: 1px;
+    height: 56%;
+    margin: 0 4px;
+    background-color: var(--dt-divider);
+}
+
+#navimenu .dockItem {
+    flex-shrink: 0;
+    width: var(--dt-dock-icon);
+    height: var(--dt-dock-icon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: width .16s ease, height .16s ease, background-color .16s ease;
+}
+
+#navimenu .dockItem .dockIcon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    transition: transform .16s ease;
+}
+
+#navimenu .dockItem:hover .dockIcon,
+#navimenu .dockItem:hover > i.icon {
+    transform: translateY(-3px);
+}
+
+#navimenu .dockItem:active .dockIcon {
+    transform: translateY(-1px) scale(.94);
+}
+
+#navimenu .dockItem.dropTarget .dockIcon {
+    transform: translateY(-3px) scale(1.12);
+}
+
+#navimenu .dockItem.pressed {
+    background-color: var(--dt-hover);
+}
+
+#navimenu .dockItem.overflowed {
+    display: none;
+}
+
+#navimenu .dockItem.appearing {
+    animation: dockItemIn .18s ease-out;
+}
+
+@keyframes dockItemIn {
+    from { opacity: 0; transform: scale(.6); }
+    to { opacity: 1; transform: none; }
+}
+
+/* Running indicator under the icon: one dot, two dots, accent pill when focused */
+#navimenu .dockItem::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 4px;
+    height: 4px;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    background-color: var(--dt-indicator);
+    opacity: 0;
+    transition: width .16s ease, opacity .16s ease, background-color .16s ease;
+}
+
+#navimenu .dockItem.running::after {
+    opacity: 1;
+}
+
+#navimenu .dockItem.multi::after {
+    width: 10px;
+    background: radial-gradient(circle, var(--dt-indicator) 1.6px, transparent 2.2px) 0 0 / 5px 4px repeat-x;
+}
+
+#navimenu .dockItem.active::after {
+    width: 16px;
+    background: var(--dt-accent);
+    opacity: 1;
+}
+
+/* Name tooltip above the icon */
+#navimenu .dockItem::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 14px);
+    z-index: 1;
+    max-width: 260px;
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--dt-tooltip-fg);
+    background-color: var(--dt-tooltip-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 4px);
+    transition: opacity .12s ease, transform .12s ease;
+}
+
+#navimenu .dockItem:hover::before {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+#navimenu .dockItem[data-label=""]::before,
+#navimenu .dockItem.listOpen::before,
+#navimenu.dragOver .dockItem::before {
+    display: none;
+}
+
+/* The "more windows" item of an overfull dock */
+#navimenu #dockMore {
+    display: none;
+    background-color: var(--dt-hover);
+}
+
+#navimenu #dockMore.shown {
+    display: flex;
+}
+
+#navimenu #dockMore > i.icon {
+    margin: 0;
+    font-size: 18px;
+    color: var(--dt-text);
+    transition: transform .16s ease;
+}
+
+#navimenu #dockTrashSection.unavailable {
+    display: none;
+}
+
+/* ---------------------------------------------------------------- Tray */
+
+#dockTray {
+    position: fixed;
+    z-index: 1110;
+    right: var(--dt-dock-gap);
+    bottom: var(--dt-dock-gap);
+    height: var(--dt-dock-height);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+    border-radius: var(--dt-radius-l);
+    background-color: var(--dt-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    color: var(--dt-text);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#dockTray .trayItem {
+    height: calc(var(--dt-dock-height) - 14px);
+    min-width: 36px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color .15s ease;
+}
+
+#dockTray .trayItem:hover {
+    background-color: var(--dt-hover);
+}
+
+#dockTray .trayItem i.icon {
+    margin: 0;
+    font-size: 16px;
+    color: var(--dt-text);
+}
+
+/* Server status: a dot on the icon only when the disks need attention */
+#dockTray .trayStatusDot {
+    display: none;
+    position: absolute;
+    top: 7px;
+    right: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+#dockTray #trayStatus.warning .trayStatusDot {
+    display: block;
+    background-color: #f09600;
+}
+
+#dockTray #trayStatus.error .trayStatusDot {
+    display: block;
+    background-color: #e5484d;
+}
+
+#dockTray .clock {
+    flex-direction: column;
+    align-items: flex-end;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: 1.25;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#dockTray .clock .time {
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#dockTray .clock .date {
+    color: var(--dt-text-muted);
+}
+
+#dockTray .clock .trayBadge {
+    position: absolute;
+    top: 5px;
+    right: 3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #ff453a;
+}
+
+/* ---------------------------------------------------------------- Window list */
+
+#stackedWindowList {
+    position: fixed;
+    z-index: 1112;
+    left: 0;
+    bottom: calc(var(--dt-reserved-bottom) + 2px);
+    min-width: 220px;
+    max-width: 340px;
+    padding: 5px;
+    display: none;
+    border-radius: var(--dt-radius-m);
+    background-color: var(--dt-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    color: var(--dt-text);
+}
+
+#stackedWindowList .stackedWindowButton {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 6px 6px 8px;
+    border-radius: var(--dt-radius-s);
+    cursor: pointer;
+}
+
+#stackedWindowList .stackedWindowButton:hover {
+    background-color: var(--dt-hover);
+}
+
+#stackedWindowList .stackedWindowButton img {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+#stackedWindowList .stackedWindowButton .title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--dt-text);
+}
+
+#stackedWindowList .stackedWindowButton.focused .title {
+    font-weight: 600;
+}
+
+#stackedWindowList .stackedWindowButton.minimized .title {
+    color: var(--dt-text-muted);
+}
+
+#stackedWindowList .stackedWindowButton .closebtn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity .12s ease, background-color .12s ease;
+}
+
+#stackedWindowList .stackedWindowButton:hover .closebtn {
+    opacity: .7;
+}
+
+#stackedWindowList .stackedWindowButton .closebtn:hover {
+    opacity: 1;
+    background-color: var(--dt-hover);
+}
+
+#stackedWindowList .stackedWindowButton .closebtn i.icon {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1;
+    height: auto;
+    color: var(--dt-text);
+}
+
+/* ---------------------------------------------------------------- Fallbacks */
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    #navimenu,
+    #dockTray,
+    #stackedWindowList {
+        background-color: var(--dt-surface-solid);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #navimenu .dockItem,
+    #navimenu .dockItem .dockIcon,
+    #navimenu .dockItem::before,
+    #navimenu .dockItem::after,
+    #dockTray .trayItem {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* ---------------------------------------------------------------- Theme colour */
+
+/*
+    A user theme colour tints the dock and tray (setThemeColor in theme.js),
+    so their content switches to light, as on the old taskbar, and the focus
+    pill turns white because the accent is the tint itself.
+*/
+body.themeTinted #navimenu,
+body.themeTinted #dockTray {
+    --dt-text: #ffffff;
+    --dt-text-muted: rgba(255, 255, 255, 0.78);
+    --dt-divider: rgba(255, 255, 255, 0.35);
+    --dt-indicator: rgba(255, 255, 255, 0.85);
+    --dt-hover: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+body.themeTinted #navimenu .dockItem.active::after {
+    background: #ffffff;
+}

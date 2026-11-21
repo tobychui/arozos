@@ -1,162 +1,444 @@
 /*
-    ArozOS Desktop - Notifications
+    ArozOS Desktop - Notifications and calendar
 
-    Notification and calendar panel, notification toasts and the blur
-    fallback for browsers without backdrop-filter.
+    The panel the tray clock opens (#notificationCenter): a column of two cards
+    at the bottom right, the notifications and the month calendar; and the
+    toasts of incoming notifications, which use the same card look.
+
+    Every rule starts at an id (#notificationCenter is the .notificationbar)
+    so it outranks the dark theme rules of script/ao.css, which colour every
+    div and span.
 
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
-.notificationbar{
+#notificationCenter {
     position: fixed;
-    top:28px;
-    left: 0;
-    width:100%;
-    height: calc(100% - 28px);
-    z-index:1114;
+    z-index: 1114;
+    right: var(--dt-dock-gap);
+    bottom: var(--dt-reserved-bottom);
+    width: 360px;
+    max-width: calc(100% - 2 * var(--dt-dock-gap));
+    max-height: calc(100vh - var(--dt-reserved-bottom) - 16px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--dt-text);
+    letter-spacing: 0;
+    animation: ncIn .16s ease-out;
 }
 
-/* Notification toast (transient popup for incoming notifications) */
-#notificationToastContainer{
+@keyframes ncIn {
+    from { transform: translateY(10px); }
+    to { transform: none; }
+}
+
+#notificationCenter .ncCard {
+    padding: 12px;
+    border-radius: var(--dt-radius-l);
+    background-color: var(--dt-menu-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+}
+
+/* ---------------------------------------------------------------- Notifications */
+
+#notificationCenter .ncNotifications {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#notificationCenter .ncHeader {
+    flex-shrink: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 4px 8px 4px;
+}
+
+#notificationCenter .ncTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#notificationCenter .clearall {
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--dt-accent);
+}
+
+#notificationCenter .clearall:hover {
+    text-decoration: underline;
+}
+
+#notificationCenter #notificationlist {
+    min-height: 0;
+    max-height: 38vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scrollbar-width: thin;
+}
+
+#notificationCenter .nonotification {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 0 14px 0;
+    font-size: 12.5px;
+    color: var(--dt-text-muted);
+    user-select: none;
+}
+
+#notificationCenter .nonotification i.icon,
+#notificationCenter .nonotification span {
+    margin: 0;
+    color: var(--dt-text-muted);
+}
+
+#notificationCenter .nonotification i.icon {
+    font-size: 22px;
+    height: auto;
+    opacity: .7;
+}
+
+#notificationCenter .notification.object {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    background-color: var(--dt-field);
+    cursor: pointer;
+    transition: background-color .12s ease;
+}
+
+#notificationCenter .notification.object:hover {
+    background-color: var(--dt-hover);
+}
+
+#notificationCenter .notifyIcon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background-color: var(--dt-accent-soft);
+}
+
+#notificationCenter .notifyIcon i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 14px;
+    color: var(--dt-accent);
+}
+
+#notificationCenter .notifyBody {
+    flex: 1;
+    min-width: 0;
+}
+
+#notificationCenter .notifyHead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+#notificationCenter .notification.object .title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#notificationCenter .notifyTime {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--dt-text-muted);
+}
+
+#notificationCenter .notifycontent {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--dt-text-muted);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+
+#notificationCenter .notification.object .closebtn {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity .12s ease, background-color .12s ease;
+}
+
+#notificationCenter .notification.object:hover .closebtn {
+    opacity: .7;
+}
+
+#notificationCenter .notification.object .closebtn:hover {
+    opacity: 1;
+    background-color: var(--dt-hover);
+}
+
+#notificationCenter .notification.object .closebtn i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 10px;
+    line-height: 1;
+    color: var(--dt-text);
+}
+
+/* ---------------------------------------------------------------- Calendar */
+
+#notificationCenter .ncCalendar {
+    flex-shrink: 0;
+}
+
+#notificationCenter .ncToday {
+    padding: 0 4px 8px 4px;
+}
+
+#notificationCenter .ncWeekdayLong {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dt-accent);
+}
+
+#notificationCenter .ncDate {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#notificationCenter .ncMonthBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 6px 4px;
+    border-top: 1px solid var(--dt-divider);
+}
+
+#notificationCenter .ncMonthLabel {
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--dt-text);
+}
+
+#notificationCenter .ncNav {
+    display: flex;
+    gap: 2px;
+}
+
+#notificationCenter .ncNavBtn {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+#notificationCenter .ncNavBtn:hover {
+    background-color: var(--dt-hover);
+}
+
+#notificationCenter .ncNavBtn i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 11px;
+    color: var(--dt-text);
+}
+
+#notificationCenter .ncDays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+    user-select: none;
+}
+
+#notificationCenter .ncWeekday {
+    padding: 2px 0 4px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--dt-text-muted);
+}
+
+#notificationCenter .ncDay {
+    width: 30px;
+    height: 30px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--dt-text);
+}
+
+#notificationCenter .ncDays.clickable .ncDay {
+    cursor: pointer;
+}
+
+#notificationCenter .ncDays.clickable .ncDay:hover {
+    background-color: var(--dt-hover);
+}
+
+#notificationCenter .ncDay.otherMonth {
+    color: var(--dt-text-muted);
+    opacity: .55;
+}
+
+#notificationCenter .ncDay.today,
+#notificationCenter .ncDays.clickable .ncDay.today:hover {
+    font-weight: 600;
+    color: #ffffff;
+    background-color: var(--dt-accent);
+}
+
+#notificationCenter .ncFooter {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 8px;
+}
+
+#notificationCenter .ncButton {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    cursor: pointer;
+    color: var(--dt-text);
+    background-color: var(--dt-field);
+    border: 1px solid var(--dt-border);
+}
+
+#notificationCenter .ncButton:hover {
+    background-color: var(--dt-hover);
+}
+
+/* ---------------------------------------------------------------- Toasts */
+
+/* Transient popup for incoming notifications, above the tray */
+#notificationToastContainer {
     position: fixed;
-    right: 1em;
-    bottom: calc(36px + 1em);
-    width: 340px;
-    max-width: calc(100% - 2em);
+    right: var(--dt-dock-gap);
+    bottom: var(--dt-reserved-bottom);
+    width: 360px;
+    max-width: calc(100% - 2 * var(--dt-dock-gap));
     z-index: 1116;
     pointer-events: none;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
-.notificationToast{
+
+#notificationToastContainer .notificationToast {
     pointer-events: auto;
-    background-color: var(--body_background_secondary, #17161f);
-    color: var(--text_color, #ffffff);
-    border-radius: 8px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.28);
-    padding: 12px 14px;
     display: flex;
     align-items: flex-start;
     gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+    background-color: var(--dt-menu-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    color: var(--dt-text);
+    cursor: pointer;
     opacity: 0;
     transform: translateY(12px);
     transition: opacity .25s ease, transform .25s ease;
 }
-.notificationToast.show{ opacity: 1; transform: translateY(0); }
-.notificationToast .toastIcon{ flex-shrink:0; margin-top:2px; opacity:0.9; }
-.notificationToast .toastBody{ flex:1; min-width:0; }
-.notificationToast .toastTitle{ font-weight:600; font-size:13.5px; margin:0 0 2px 0; }
-.notificationToast .toastMessage{
-    font-size:12px; opacity:0.85; margin:0; line-height:1.4;
-    overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
-}
-.notificationToast .toastClose{ flex-shrink:0; cursor:pointer; opacity:0.6; }
-.notificationToast .toastClose:hover{ opacity:1; }
 
-.notificationbar .content{
-    position: fixed;
-    background-color:var(--body_background_secondary);
-    margin-top:6px;
-    width:30%;
-    right: 1em;
-    bottom: calc(36px + 1em);
-    min-width:650px;
-    height:400px;
-    padding: 3px;
-    border-radius: 5px;
-    pointer-events: auto;
+#notificationToastContainer .notificationToast.show {
+    opacity: 1;
+    transform: translateY(0);
 }
 
-.notificationbar #notificationlist{
-    position: relative;
-    width: calc(100% - 302px); 
-    padding:8px; 
-    margin-top:5px; 
-    padding-top:22px; 
-    overflow-y:auto; 
-    overflow-x:hidden; 
-    height: calc(100% - 12px);
+#notificationToastContainer .notificationToast .toastIcon {
+    flex-shrink: 0;
+    margin: 2px 0 0 0;
+    color: var(--dt-accent);
 }
 
-body.darkTheme .notificationbar .jsCalendar div:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *){
-    color:#242424 !important;
+#notificationToastContainer .notificationToast.priority-high .toastIcon {
+    color: var(--dt-danger);
 }
 
-.notificationbar .cover{
-    backdrop-filter: blur(0.5px);
-    -webkit-backdrop-filter: blur(0.5px);
-    background-color: rgba(0,0,0,0.15);
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height: calc(100%);
-    pointer-events: auto;
+#notificationToastContainer .notificationToast .toastBody {
+    flex: 1;
+    min-width: 0;
 }
 
-@supports not (backdrop-filter: blur(2px)) {
-    .notificationbar .cover{
-        /*
-        //Replaced with Javascript implementation on Firefox
-        background-color: rgba(24,24,24,0.3);
-        */
+#notificationToastContainer .notificationToast .toastTitle {
+    margin: 0 0 2px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#notificationToastContainer .notificationToast .toastMessage {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--dt-text-muted);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+#notificationToastContainer .notificationToast .toastClose {
+    flex-shrink: 0;
+    margin: 0;
+    cursor: pointer;
+    opacity: .6;
+    color: var(--dt-text);
+}
+
+#notificationToastContainer .notificationToast .toastClose:hover {
+    opacity: 1;
+}
+
+/* ---------------------------------------------------------------- Fallbacks */
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    #notificationCenter .ncCard,
+    #notificationToastContainer .notificationToast {
+        background-color: var(--dt-surface-solid);
     }
+}
 
-    #bgwrapper{
-        transition: all 0.5s ease;
+@media (prefers-reduced-motion: reduce) {
+    #notificationCenter,
+    #notificationToastContainer .notificationToast {
+        animation: none;
+        transition: none;
     }
-
-    #iconwrapper{
-        transition: all 0.5s ease;
-    }
-
-    #navimenu{
-        transition: all 0.5s ease;
-    }
-
-
-}
-
-.notification .title{
-    font-weight:bold;
-    font-size:120%;
-}
-
-.notification .notifycontent{
-    margin-top:-12px;
-}
-
-.notificationbar .clearall{
-    position:absolute;
-    top:0px;
-    right:4px;
-    cursor:pointer;
-}
-
-.nonotification{
-    opacity: 0.3;
-    pointer-events:none;
-    position:absolute;
-    margin-top:9em;
-    width:100%;
-    user-select: none;
-}
-
-.notification.object .closebtn{
-    position:absolute;
-    top:3px;
-    right:3px;
-    cursor:pointer;
-}
-
-.notification.object{
-    position: relative;
-    padding-left:7px;
-    border-left: 3px solid transparent;
-    cursor:pointer;
-}
-
-.blured{
-    filter: blur(2px);
 }

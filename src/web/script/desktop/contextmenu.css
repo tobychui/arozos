@@ -1,22 +1,173 @@
 /*
     ArozOS Desktop - Context menu
 
-    Desktop overrides of the shared context menu style (script/contextmenu.css).
+    The right click menu (#contextmenu) and its sub menu (#subcontextmenu).
+    Rows are built by addContextMenuItem (contextmenu.js). The desktop no
+    longer loads the shared script/contextmenu.css.
+
+    Highlight: .hot marks the row under the pointer or the keyboard focus,
+    .open the row whose sub menu is showing. Rows also carry .clickable so
+    the global ".item:not(.clickable):hover" rule in base.css leaves them be.
 
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
-.contextmenu {
+#contextmenu,
+#subcontextmenu {
     position: fixed;
-    z-index: 3000 !important;
+    z-index: 3000;
     left: 20px;
     top: 20px;
+    min-width: 210px;
+    max-width: 340px;
+    padding: 5px;
+    border-radius: var(--dt-radius-m);
+    background-color: var(--dt-menu-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    color: var(--dt-text);
+    font-size: 13px;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-align: left;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+    animation: dtMenuIn .12s ease-out;
 }
 
-#contextmenu .item {
-    padding: 0.6em 1em !important;
+@keyframes dtMenuIn {
+    from { opacity: 0; transform: translateY(-3px) scale(.985); }
+    to { opacity: 1; transform: none; }
 }
 
+/* ---------------------------------------------------------------- Rows */
+
+#contextmenu .item,
 #subcontextmenu .item {
-    padding: 0.6em 1em !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    color: var(--dt-text);
+}
+
+#contextmenu .item .label,
+#subcontextmenu .item .label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+}
+
+#contextmenu .item i.icon,
+#subcontextmenu .item i.icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: auto;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--dt-text-muted);
+}
+
+#contextmenu .item img.menuIcon,
+#subcontextmenu .item img.menuIcon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+/* Keep labels in line when only some rows of a menu have an icon */
+#contextmenu.withIcons .item:not(.withIcon),
+#subcontextmenu.withIcons .item:not(.withIcon) {
+    padding-left: 36px;
+}
+
+#contextmenu .item .shortcut,
+#subcontextmenu .item .shortcut {
+    margin-left: 18px;
+    font-size: 12px;
+    color: var(--dt-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+#contextmenu .item i.menuChevron,
+#subcontextmenu .item i.menuChevron {
+    width: auto;
+    margin-left: 12px;
+    font-size: 9px;
+}
+
+#contextmenu .item i.menuCheck,
+#subcontextmenu .item i.menuCheck {
+    width: auto;
+    margin-left: 12px;
+    color: var(--dt-accent);
+}
+
+#contextmenu .item.open,
+#subcontextmenu .item.open {
+    background-color: var(--dt-hover);
+}
+
+#contextmenu .item.hot,
+#subcontextmenu .item.hot {
+    background-color: var(--dt-accent);
+    color: #ffffff;
+}
+
+#contextmenu .item.hot i.icon,
+#subcontextmenu .item.hot i.icon,
+#contextmenu .item.hot .shortcut,
+#subcontextmenu .item.hot .shortcut {
+    color: #ffffff;
+}
+
+#contextmenu .item.danger.hot,
+#subcontextmenu .item.danger.hot {
+    background-color: var(--dt-danger);
+}
+
+#contextmenu .item.disabled,
+#subcontextmenu .item.disabled {
+    opacity: .45;
+}
+
+#contextmenu .header,
+#subcontextmenu .header {
+    padding: 6px 10px 3px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--dt-text-muted);
+}
+
+#contextmenu .menuDivider,
+#subcontextmenu .menuDivider {
+    height: 1px;
+    margin: 4px 8px;
+    background-color: var(--dt-divider);
+}
+
+/* ---------------------------------------------------------------- Fallbacks */
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    #contextmenu,
+    #subcontextmenu {
+        background-color: var(--dt-surface-solid);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #contextmenu,
+    #subcontextmenu {
+        animation: none;
+    }
 }

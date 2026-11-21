@@ -6,13 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="./script/semantic/semantic.min.css">
     <link id="fwcss" rel="stylesheet" href="./script/ao.css">
-    <link rel="stylesheet" href="./script/contextmenu.css">
-    <link rel="stylesheet" href="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
     <script type="text/javascript" src="./script/jquery.min.js"></script>
     <script type="text/javascript" src="./script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="./script/ao_module.js"></script>
-    <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
+    <!-- In-page alert / confirm / prompt (ssAlert, ssConfirm, ssPrompt) -->
+    <script type="text/javascript" src="./script/ssdialog.js"></script>
     <script type="text/javascript" src="./script/chunkupload.js"></script>
     <!-- Sentinel paths (%trashbin%, ...), shared with the File Manager -->
     <script type="text/javascript" src="./SystemAO/file_system/shared/specialpaths.js"></script>
@@ -21,9 +20,9 @@
     <!-- Desktop styles, see script/desktop/README.md -->
     <link rel="stylesheet" href="./script/desktop/base.css">
     <link rel="stylesheet" href="./script/desktop/icons.css">
-    <link rel="stylesheet" href="./script/desktop/taskbar.css">
+    <link rel="stylesheet" href="./script/desktop/dock.css">
     <link rel="stylesheet" href="./script/desktop/windows.css">
-    <link rel="stylesheet" href="./script/desktop/listmenu.css">
+    <link rel="stylesheet" href="./script/desktop/launcher.css">
     <link rel="stylesheet" href="./script/desktop/contextmenu.css">
     <link rel="stylesheet" href="./script/desktop/notifications.css">
     <link rel="stylesheet" href="./script/desktop/quickaccess.css">
@@ -45,28 +44,37 @@
     <!-- Transient notification toasts -->
     <div id="notificationToastContainer"></div>
 
-    <!-- Calendar and Notification -->
-    <div class="notificationbar" style="display:none;">
-        <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'></div>
-        <div class="content">
-            <div id="notificationlist">
-                <div class="nonotification">
-                    <h4 class="ui center aligned icon header">
-                        <i class="bell icon"></i><span locale="notification/nonotification">No Notification</span>
-                    </h4>
-                </div>
+    <!-- Notifications and calendar, opened by the tray clock (script/desktop/notifications.js) -->
+    <div id="notificationCenter" class="notificationbar" style="display:none;">
+        <div class="ncCard ncNotifications">
+            <div class="ncHeader">
+                <span class="ncTitle" locale="notification/title">Notifications</span>
                 <a class="clearall" onclick="clearAllNotification();" locale="notification/clear">Clear All</a>
             </div>
-            <div style="position:absolute; right:3px; top:3px; padding-top:8px;">
-                <div class="ui header" style="padding-left:22px;">
-                    <div id="dayofweek" class="sub header"></div>
-                    <span id="largedate" style="font-size:120%;"></span>
+            <div id="notificationlist">
+                <div class="nonotification">
+                    <i class="bell outline icon"></i>
+                    <span locale="notification/nonotification">No Notification</span>
                 </div>
-                <div class="auto-jsCalendar blue"></div>
             </div>
         </div>
-
-       
+        <div class="ncCard ncCalendar">
+            <div class="ncToday">
+                <div id="ncWeekday" class="ncWeekdayLong"></div>
+                <div id="ncDate" class="ncDate"></div>
+            </div>
+            <div class="ncMonthBar">
+                <span id="ncMonthLabel" class="ncMonthLabel"></span>
+                <div class="ncNav">
+                    <div class="ncNavBtn" id="ncPrevMonth" role="button"><i class="chevron left icon"></i></div>
+                    <div class="ncNavBtn" id="ncNextMonth" role="button"><i class="chevron right icon"></i></div>
+                </div>
+            </div>
+            <div id="ncDays" class="ncDays"></div>
+            <div class="ncFooter">
+                <div class="ncButton" id="ncOpenCalendar" role="button" locale="calendar/open">Open Calendar</div>
+            </div>
+        </div>
     </div>
     <!-- Desktop icons-->
     <div id="iconwrapper">
@@ -76,27 +84,42 @@
     <!-- File Descriptors -->
     <div id="fileDescriptor" class="fileDescription" style="font-size: 80%;display:none;z-index:101;">No Information</div>
 
-    <!-- Navigation Menu-->
-    <div id="navimenu" class="navimenu themeColor">
-        <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" style="margin-right: 0.5em;">
-            <img style="height:36px;" src="img/desktop/system_icon/list.png"></img>
+    <!-- Dock: launcher | open apps | pinned apps | trash (script/desktop/dock.js) -->
+    <div id="navimenu" class="dock">
+        <div class="dockSection" id="dockLauncherSection">
+            <div class="dockItem system" id="dockLauncherBtn" data-role="launcher" data-label="Apps">
+                <img class="dockIcon" src="img/desktop/dock/launcher.svg" draggable="false">
+            </div>
         </div>
-        <div class="item clickable system" onclick="showToolPanel();" ontouchend="showToolPanel();" style="border-left: 1px solid rgba(207, 207, 207, 0.37)">
-            <img style="height:36px;" src="img/desktop/system_icon/navi.png"></img>
+        <div class="dockDivider" id="dockDividerRunning"></div>
+        <div class="dockSection" id="dockRunning">
+            <div class="dockItem system" id="dockMore" data-role="more" data-label="More windows">
+                <i class="ellipsis horizontal icon"></i>
+            </div>
         </div>
-        <div class="item system" style="padding-top: 0.5em; padding-right: 1.3em; color: white; pointer-events: none;">
-            <span class="hostname">Welcome</span>
+        <div class="dockSpacer" id="dockSpacer"></div>
+        <div class="dockDivider" id="dockDividerPinned"></div>
+        <div class="dockSection" id="dockPinned"></div>
+        <div class="dockDivider" id="dockDividerTrash"></div>
+        <div class="dockSection" id="dockTrashSection">
+            <div class="dockItem system" id="dockTrash" data-role="trash" data-label="Trash Bin">
+                <img class="dockIcon" src="img/desktop/dock/trash_empty.svg" draggable="false">
+            </div>
         </div>
-     
+    </div>
 
-        <!-- Right fixed buttons-->
-        <div id="backgroundtaskBtn" class="item backgroundtasks clickable system" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
-            <i class="clone icon"></i>
+    <!-- Tray: background tasks, quick access, clock -->
+    <div id="dockTray">
+        <div id="backgroundtaskBtn" class="trayItem backgroundtasks" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
+            <i class="tasks icon"></i>
         </div>
-        <div class="item clock clickable system"  onclick="toggleNotification();" ontouchstart="toggleNotification();">
+        <div id="trayStatus" class="trayItem" onclick="showToolPanel();" ontouchend="showToolPanel();">
+            <i class="server icon"></i>
+            <span class="trayStatusDot"></span>
+        </div>
+        <div class="trayItem clock" onclick="toggleNotification();" ontouchstart="toggleNotification();">
 
         </div>
-        
     </div>
 
     <!--- floatWindow dock left/right indicator -->
@@ -110,45 +133,47 @@
     <div id="selectionPanel"></div>
 
     <!-- Stacked windows listing container-->
-    <div id="stackedWindowList" class="themeColor"></div>
+    <div id="stackedWindowList"></div>
 
-    <!-- List menu -->
-    <div id="listMenu" class="" style="display:none;">
-        <div class="searchBar" onkeydown="searchModule(event);">
-            <div class="ui icon fluid input" style="border-radius: 0px !important;">
-                <input id="searchBar" type="text" placeholder="Search" style="border: 0px solid transparent;">
-                <i class="search icon"></i>
-            </div>
+    <!-- Launcher: search, categories, app grid (script/desktop/launcher.js) -->
+    <div id="listMenu" class="launcher" role="dialog" aria-label="Apps" style="display:none;">
+        <div class="launcherSearch">
+            <i class="search icon"></i>
+            <input id="searchBar" type="text" placeholder="Search" autocomplete="off" spellcheck="false">
         </div>
-        <div class="listItemWrapper">
-            <div class="groups">
-                <div locale="listmenu/catergory/searchResults" id="searchResults" class="item" style="display:none;">Search Results</div>
-                <div locale="listmenu/catergory/all" class="item groupType selected" group="All">All</div>
-                <div locale="listmenu/catergory/media" class="item groupType" group="Media">Media</div>
-                <div locale="listmenu/catergory/office" class="item groupType" group="Office">Office</div>
-                <div locale="listmenu/catergory/network" class="item groupType" group="Network">Network</div>
-                <div locale="listmenu/catergory/engineering" class="item groupType" group="Engineering">Engineering</div>
-                <div locale="listmenu/catergory/development" class="item groupType" group="Development">Development</div>
-                <div locale="listmenu/catergory/system" class="item groupType" group="System">System</div>
-                <div locale="listmenu/catergory/utils" class="item groupType" group="Utilities">Utilities</div>
-                <div locale="listmenu/catergory/containerApps" id="containerAppsGroup" class="item groupType" group="Container Apps" style="display:none;">Container Apps</div>
-                <div locale="listmenu/catergory/other" class="item groupType" group="Other">Other</div>
-                <div class="poweroption">
-                    <img id="powerIcon" style="width:18px; vertical-align: top; margin-right:4px;" src="img/system/power.svg"></img> <span locale="listmenu/catergory/exit">Exit</span>
+        <div class="launcherCategories" id="launcherCategories" role="tablist"></div>
+        <div class="launcherGrid" id="listMenuItem" role="grid"></div>
+        <!-- Account panel: who is signed in and the accounts stored in this browser -->
+        <div id="accountPanel" class="accountPanel" style="display:none;">
+            <div class="accountMe">
+                <img class="usericon" src="img/desktop/system_icon/user.svg" draggable="false">
+                <div class="accountMeText">
+                    <div id="username" class="accountName">User</div>
+                    <div id="usergroups" class="accountGroups">@Users</div>
                 </div>
             </div>
-            <div id="listMenuItem" class="items">
-
-            </div>
+            <div class="accountSectionTitle" locale="account/panel/stored">Accounts on this browser</div>
+            <div id="alternativeAccountList" class="accountList"></div>
+            <div class="accountDivider"></div>
+            <div class="accountAction" id="addAccountButton"><span locale="account/switch/addAccount">Add another account</span></div>
+            <div class="accountAction" id="signoutAllButton"><span locale="account/switch/signoutAll">Sign-out all accounts</span></div>
+            <div class="accountDivider"></div>
+            <div class="accountAction" id="accountLogoutButton"><span locale="quickAccess/logout">Logout</span></div>
         </div>
+        <div class="launcherFooter">
+            <div class="launcherUser">
+                <img class="usericon" src="img/desktop/system_icon/user.svg" draggable="false">
+                <span class="launcherUsername"></span>
+            </div>
+            <div class="launcherPower" role="button"><i class="power off icon"></i></div>
+        </div>
+    </div>
+
+    <div id="contextmenu" class="dtMenu" role="menu" style="display:none;">
 
     </div>
 
-    <div id="contextmenu" class="aroz contextmenu" style="display:none;">
-
-    </div>
-
-    <div id="subcontextmenu" class="aroz contextmenu" style="display:none;">
+    <div id="subcontextmenu" class="dtMenu" role="menu" style="display:none;">
 
     </div>
 
@@ -173,125 +198,65 @@
 
     </div>
 
-    <!-- Background Task Panel -->
-    <div id="backgroundTaskPanel" class="" style="display:none;">
-        <!--
-        <div class="backgroundtaskObject">
-            <small>src > dest (test.mp4)</small>
-            <div class="ui grid">
-                <div class="twelve wide column" style="padding-right: 0.4em;">
-                    <div class="ui mini active progress">
-                        <div class="bar" style="width: 50%;">
-                            <div class="progress">50%</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="four wide column"  style="padding-top: 0.4em; padding-left: 0;" align="right">
-                    <button class="circular ui mini basic icon button">
-                        <i class="pause icon"></i>
-                    </button>
-                    <button class="circular ui mini basic red icon button">
-                        <i class="remove icon" style="color: red !important;"></i>
-                    </button>
-                </div>
-              </div>
-              <div class="ui divider" style="margin-top: 0;"></div>
+    <!-- Background tasks, opened by the tray (script/desktop/backgroundtasks.js) -->
+    <div id="backgroundTaskPanel" style="display:none;">
+        <div class="btHeader">
+            <span class="btPanelTitle" locale="tray/tasks">Background tasks</span>
+            <a class="btDetails" id="btShowDetails" locale="backgroundTasks/details" style="display:none;">Show details</a>
         </div>
-        -->
+        <div id="btList" class="btList"></div>
     </div>
 
-    <!-- Content / Quick Access Panel-->
-    <div id="quickAccessPanel" class="" style="display:none;">
-        <div class="ui grid">
-            <div class="seven wide column mxmenu">
-                <div class="ui small items" style="margin-bottom: 0;">
-                    <div class="item profile-row">
-                        <div class="ui mini circular image usericon-wrapper">
-                            <img class="usericon" src="img/desktop/system_icon/user.svg">
-                        </div>
-                        <div class="content" style="padding-left: 1em;">
-                            <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
-                            <div class="meta" style="margin-top: 0.15em;">
-                                <div id="usergroups">@Users</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="ui divider"  style="margin-left: 0.4em; margin-right: 0.4em;"></div>
-                    <div id="alternativeAccountList">
-                    
-                    </div>
-                    <div class="ui divider" style="margin-left: 3em; margin-right: 3em;"></div>
-                    <div class="item" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" onclick="openSwitchAccountPanel(); hideToolPanel();">
-                        <i class="ui user plus icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/addAccount">Add another account</span>
-                    </div>
-                    <div id="signoutAllButton" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" class="item" onclick="logoutAllAccounts();">
-                        <i class="log out icon icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/signoutAll">Sign-out all accounts</span>
-                    </div>
+    <!-- Quick access (control centre), opened by the tray's server icon (script/desktop/quickaccess.js) -->
+    <div id="quickAccessPanel" role="dialog" style="display:none;">
+        <div class="qaCard qaStatus level0">
+            <div class="qaStatusHead">
+                <div class="qaStatusIcon" id="qaStatusIcon"><i class="check icon"></i></div>
+                <div class="qaStatusText">
+                    <div class="qaStatusTitle" id="qaStatusTitle" locale="quickAccess/overview/status/healthy">Good</div>
+                    <div class="qaStatusDesc" id="qaStatusDesc" locale="quickAccess/overview/status/healthy/desc">Server seems to be operating well!</div>
                 </div>
-                <div class="ui divider" style="margin-left: 0.4em; margin-right: 0.4em;"></div>
-                <div class="item" style="padding-bottom:12px;">
-                    <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
-                    <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
-                        <div id="volumebar" class="bar" style="width: 0%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
-                    </div>
+                <a class="qaLink" id="qaDetails" locale="quickAccess/details">Details</a>
+            </div>
+            <div class="qaFacts">
+                <div class="qaFact">
+                    <span class="qaFactLabel" locale="quickAccess/overview/hostname">Host Name</span>
+                    <span class="qaFactValue hostname"></span>
                 </div>
-                <div class="item" style="padding-bottom:12px;">
-                    <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
-                    <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
-                        <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
-                    </div>
+                <div class="qaFact" id="qaNetworkRow" style="display:none;">
+                    <div class="qaIfaceBtn" id="qaIfaceBtn" role="button"><span id="qaIfaceName"></span><i class="dropdown icon"></i></div>
+                    <span class="qaFactValue" id="qaIfaceAddr"></span>
                 </div>
-                <div class="ui divider" style="margin: 0.4em;"></div>
-                <!-- Win11-style quick action grid -->
-                <div class="qap-grid">
-                    <div class="qap-btn" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
-                        <i class="setting icon"></i>
-                        <span class="qap-label" locale="quickAccess/settings">System Settings</span>
-                    </div>
-                    <div class="qap-btn" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-                        <i class="expand icon"></i>
-                        <span class="qap-label" locale="quickAccess/fullscreen">Fullscreen</span>
-                    </div>
-                    <div class="qap-btn" id="themeToggleBtn" onclick="toggleDesktopTheme();" ontouchend="toggleDesktopTheme();">
-                        <i class="sun icon"></i>
-                        <span class="qap-label">Light Mode</span>
-                    </div>
-                    <!-- 
-                    <div class="qap-btn" onclick="openModule('File Manager'); hideToolPanel();" ontouchend="openModule('File Manager'); hideToolPanel();">
-                        <i class="folder open icon"></i>
-                        <span class="qap-label">File Manager</span>
-                    </div>
-                    <div class="qap-btn" onclick="openModule('Serverless'); hideToolPanel();" ontouchend="openModule('Serverless'); hideToolPanel();">
-                        <i class="code icon"></i>
-                        <span class="qap-label">Serverless</span>
-                    </div>
-                    -->
-                    <div class="qap-btn" id="logoutBtn" onclick="logout(); hideToolPanel();" ontouchend="logout(); hideToolPanel();">
-                        <i class="log out icon"></i>
-                        <span class="qap-label" locale="quickAccess/logout">Logout</span>
-                    </div>
-                    <div class="qap-btn powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
-                        <i class="repeat icon"></i>
-                        <span class="qap-label" locale="quickAccess/restart">Restart</span>
-                    </div>
-                    <div class="qap-btn powerman" id="poweroffBtn" onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
-                        <i class="power icon"></i>
-                        <span class="qap-label" locale="quickAccess/poweroff">Power Off</span>
-                    </div>
-                </div>
-                <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
-                    <small id="sysinfo"></small>
+                <div class="qaFact">
+                    <span class="qaFactLabel" locale="quickAccess/overview/uuid">Dev. UUID</span>
+                    <span class="qaFactValue qaSmall" id="qaUUID"></span>
                 </div>
             </div>
-            <div class="nine wide column viewutils">
-                <div id="sysoverview">
-                    
-                </div>
-                <div class="ui divider"></div>
-                <div id="diskoverview">
-
-                </div>
+            <div class="qaFirmware" id="sysinfo"></div>
+        </div>
+        <div class="qaCard qaControls">
+            <div class="qaTiles">
+                <div class="qaTile" id="themeToggleBtn" role="button" aria-pressed="false"><i class="moon icon"></i><span class="qaTileLabel" locale="quickAccess/darkMode">Dark Mode</span></div>
+                <div class="qaTile" id="qaFullscreen" role="button" aria-pressed="false"><i class="expand icon"></i><span class="qaTileLabel" locale="quickAccess/fullscreenShort">Full Screen</span></div>
+                <div class="qaTile" id="settingButton" role="button"><i class="setting icon"></i><span class="qaTileLabel" locale="quickAccess/settings">System Settings</span></div>
             </div>
+            <div class="qaSlider">
+                <i class="volume off icon qaSliderIcon"></i>
+                <input type="range" id="qaVolume" min="0" max="100" step="1" value="0" aria-label="Volume">
+                <span class="qaSliderValue"></span>
+            </div>
+            <div class="qaSlider">
+                <svg class="qaSliderIcon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.4v1.5M8 13.1v1.5M1.4 8h1.5M13.1 8h1.5M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M3.3 12.7l1.1-1.1M11.6 4.4l1.1-1.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <input type="range" id="qaBrightness" min="3" max="100" step="1" value="100" aria-label="Brightness">
+                <span class="qaSliderValue"></span>
+            </div>
+        </div>
+        <div class="qaCard qaStorage" id="qaStorage" style="display:none;">
+            <div class="qaCardTitle">
+                <span locale="quickAccess/storage">Storage</span>
+                <a class="qaLink" id="qaStorageMore" style="display:none;"></a>
+            </div>
+            <div id="qaDiskList" class="qaDiskList"></div>
         </div>
     </div>
     <div>
@@ -302,10 +267,10 @@
     <script type="text/javascript" src="./script/desktop/utils.js"></script>
     <script type="text/javascript" src="./script/desktop/session.js"></script>
     <script type="text/javascript" src="./script/desktop/backgroundtasks.js"></script>
-    <script type="text/javascript" src="./script/desktop/taskbar.js"></script>
+    <script type="text/javascript" src="./script/desktop/dock.js"></script>
     <script type="text/javascript" src="./script/desktop/quickaccess.js"></script>
     <script type="text/javascript" src="./script/desktop/notifications.js"></script>
-    <script type="text/javascript" src="./script/desktop/listmenu.js"></script>
+    <script type="text/javascript" src="./script/desktop/launcher.js"></script>
     <script type="text/javascript" src="./script/desktop/launch.js"></script>
     <script type="text/javascript" src="./script/desktop/windows.js"></script>
     <script type="text/javascript" src="./script/desktop/windowmove.js"></script>

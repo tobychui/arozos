@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Trash">
+    <!--
+        Dock trash, holding items. Same bin as trash_empty.svg with crumpled
+        paper standing out of it. The paper is drawn before the bin body so
+        the body hides its lower part.
+    -->
+    <defs>
+        <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#c9d0d9"/>
+            <stop offset="0.45" stop-color="#f3f5f8"/>
+            <stop offset="1" stop-color="#b9c1cc"/>
+        </linearGradient>
+        <linearGradient id="inside" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#5b6675"/>
+            <stop offset="1" stop-color="#8994a3"/>
+        </linearGradient>
+    </defs>
+    <ellipse cx="64" cy="117" rx="30" ry="4" fill="#000000" fill-opacity="0.18"/>
+    <ellipse cx="64" cy="34" rx="40" ry="9" fill="url(#inside)"/>
+    <g stroke="#9aa4b2" stroke-width="1.5" stroke-linejoin="round">
+        <path d="M34 38 L40 14 L58 18 L55 40 Z" fill="#ffffff"/>
+        <path d="M52 40 L58 10 L78 13 L76 40 Z" fill="#f7f9fc"/>
+        <path d="M72 40 L80 17 L97 25 L90 41 Z" fill="#ffffff"/>
+        <path d="M45 22 L53 24 M62 18 L72 20 M60 26 L70 27 M82 25 L90 29" fill="none" stroke-opacity="0.7"/>
+    </g>
+    <path d="M24 34 L104 34 L94 110 Q93 116 86 116 L42 116 Q35 116 34 110 Z" fill="url(#body)" stroke="#7d8999" stroke-width="2.5" stroke-linejoin="round"/>
+    <g stroke="#7d8999" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round">
+        <line x1="46" y1="46" x2="49" y2="106"/>
+        <line x1="64" y1="46" x2="64" y2="106"/>
+        <line x1="82" y1="46" x2="79" y2="106"/>
+    </g>
+    <path d="M24 34 A40 9 0 0 0 104 34" fill="none" stroke="#e9edf2" stroke-width="3"/>
+    <path d="M22.5 34 A41.5 10.5 0 0 0 105.5 34" fill="none" stroke="#7d8999" stroke-width="1.5"/>
+</svg>

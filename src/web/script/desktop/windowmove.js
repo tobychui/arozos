@@ -226,46 +226,6 @@ function hookFloatWindowEvents() {
         }
     });
 
-    //Hook events on the floatWindow button
-    $(".floatWindowButton").off("click touchstart").on("click touchstart", function(event) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        $("#stackedWindowList").css("left", $(this).offset().left);
-        //Generate the stackedWindowList
-        var windowIdList = JSON.parse(decodeURIComponent($(this).attr("windowidgroup")));
-        if (windowIdList.length == 1) {
-            //There are only one window in this group. 
-
-            //Focus that floatWindow if it is in the back
-            var targetFW = getFloatWindowByID(windowIdList[0]);
-            if (FloatWindowIsTopped(targetFW) && !($(targetFW).css('display') == 'none')){
-                //Top Window. Hide it
-                $(targetFW).fadeOut(100);
-            }else{
-                //Bring it to front
-                $(targetFW).fadeIn(100);
-                MoveFloatWindowToTop(targetFW);
-                stackedFloatWindowListShown = false;
-            }
-
-            if (checkIfFloatWindowOutsideWindowArea(targetFW)){
-                //This floatWindow is outside of the display area.
-                resetFloatWindowPosition(targetFW);
-            }
-            $("#stackedWindowList").hide();
-        } else {
-            //Get icon for each windows and build the list objects
-            $("#stackedWindowList").html("");
-            for (var i = 0; i < windowIdList.length; i++) {
-                var iconURL = getFloatWindowIconByID(windowIdList[i]);
-                var title = getFloatWindowTitleByID(windowIdList[i]);
-                $("#stackedWindowList").append(`<div class="stackedWindowButton item clickable" windowId="${windowIdList[i]}" onclick="bringFloatWindowToFrontByFWB(this,event);"  ontouchstart="bringFloatWindowToFrontByFWB(this,event);"><span><img src="${iconURL}"></img>${title}</span><div class="closebtn" onclick="closeFWviaFWB(this,event);"><img src="img/system/close.png"></img></div></div>`);
-            }
-            $("#stackedWindowList").show();
-            stackedFloatWindowListShown = true;
-        }
-
-    });
 }
 
 //Handle floatWindow resize events
@@ -464,9 +424,8 @@ $("body").on("mousemove", function(evt) {
 //Hook body clicke vents
 $("body").on("click", function(evt) {
     if (stackedFloatWindowListShown == true) {
-        //Hide the stacked Float Window list if it is shown
-        $("#stackedWindowList").hide();
-        stackedFloatWindowListShown = false;
+        //Hide the dock's window list if it is shown
+        dockHideWindowList();
     }
 
     if (renameMode == true){
@@ -587,7 +546,7 @@ function dockWindowToLeft(object){
     $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
     $(object).css({
         width: "50%",
-        height: "calc(100% - 36px)",
+        height: "calc(100% - var(--dt-reserved-bottom))",
         left: "0px",
         right: "auto",
         top: "0px"
@@ -608,7 +567,7 @@ function dockWindowToRight(object){
     $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
     $(object).css({
         width: "50%",
-        height: "calc(100% - 36px)",
+        height: "calc(100% - var(--dt-reserved-bottom))",
         right: "0px",
         left: "auto",
         top: "0px"

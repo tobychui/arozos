@@ -48,12 +48,14 @@ function initDesktop(){
     initDesktopIconPreference()
     initUserDefinedThemeColor();
     initAssistiveAccess();
+    initStartMenuLayout();
     hookFloatWindowEvents();
     hookLaunchMenuEvents();
     initTheme();
     initStartupSounds();
     initUploadCuttoffValues();
     initFrameLoading();
+    dockInit();
 
     //Login cookie expire check
     setInterval(function() {

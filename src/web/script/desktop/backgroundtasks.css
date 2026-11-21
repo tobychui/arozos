@@ -1,64 +1,260 @@
 /*
     ArozOS Desktop - Background tasks
 
-    The background task panel listing running file operations.
+    The panel the tray's task icon opens: one row per running file
+    operation, with its progress bar, pause / resume and cancel.
+
+    Every rule starts at #backgroundTaskPanel so it outranks the dark theme
+    rules of script/ao.css, which colour every div and span.
 
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
-/* File operation progress tracker */
-#backgroundTaskPanel{
-    background-color: var(--body_background) !important;
-    color: var(--text_color);
-    border: var(--divider) !important;
+#backgroundTaskPanel {
+    position: fixed;
+    z-index: 1114;
+    right: var(--dt-dock-gap);
+    bottom: var(--dt-reserved-bottom);
+    width: 360px;
+    max-width: calc(100% - 2 * var(--dt-dock-gap));
+    max-height: calc(100vh - var(--dt-reserved-bottom) - 16px);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-radius: var(--dt-radius-l);
+    background-color: var(--dt-menu-surface);
+    -webkit-backdrop-filter: var(--dt-blur);
+    backdrop-filter: var(--dt-blur);
+    border: 1px solid var(--dt-border);
+    box-shadow: var(--dt-shadow);
+    color: var(--dt-text);
+    letter-spacing: 0;
+    animation: btIn .16s ease-out;
 }
 
-    /*
-        Background Task UI
-    */
-    #backgroundTaskPanel{
-        background-color:white;
-        position:absolute;
-        bottom:36px;
-        right:0;
-        z-index:115;
-        width:400px;
-        border: 1px solid #ebebeb;
-        padding-top:8px;
-        padding-bottom:8px;
-        max-height: 70vh;
-        overflow-y: auto;
-        overflow-x: hidden;
-    }
+@keyframes btIn {
+    from { transform: translateY(10px); }
+    to { transform: none; }
+}
 
-    .backgroundtaskObject{
-        padding: 0.4em;
-        padding-right: 0.8em;
-        padding-left: 1.2em;
-    }
+#backgroundTaskPanel .btHeader {
+    flex-shrink: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 4px 8px 4px;
+}
 
-    .backgroundtaskObject .progress, .backgroundtaskObject .bar{
-        height: 1em !important;
-    }
+#backgroundTaskPanel .btPanelTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
 
-    .backgroundtaskObject .bar{
-        min-width: 0px !important;
-    }
+#backgroundTaskPanel .btDetails,
+#backgroundTaskPanel .btRefresh {
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--dt-accent);
+}
 
-    .backgroundtaskObject .progress .bar{
-        background-color: #2b4871;
-    }
+#backgroundTaskPanel .btDetails:hover,
+#backgroundTaskPanel .btRefresh:hover {
+    text-decoration: underline;
+}
 
-    .backgroundtaskObject.paused .progress .bar{
-        background-color: #d6ba3e;
-    }
+#backgroundTaskPanel .btList {
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scrollbar-width: thin;
+}
 
-    .backgroundtaskObject.stopping .progress .bar{
-        background-color: #d63e3e;
-    }
+/* ---------------------------------------------------------------- Empty */
 
-    .backgroundtaskObject .circular.button i{
-        color: rgb(160, 160, 160) !important;
-        display: inline-block;
-        width: 10px !important;
+#backgroundTaskPanel .btEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 0 12px 0;
+    font-size: 12.5px;
+    text-align: center;
+    user-select: none;
+}
+
+#backgroundTaskPanel .btEmpty i.icon,
+#backgroundTaskPanel .btEmpty .btEmptyText {
+    margin: 0;
+    color: var(--dt-text-muted);
+}
+
+#backgroundTaskPanel .btEmpty i.icon {
+    height: auto;
+    font-size: 22px;
+    opacity: .7;
+}
+
+/* ---------------------------------------------------------------- Rows */
+
+#backgroundTaskPanel .btRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    background-color: var(--dt-field);
+    cursor: pointer;
+    transition: background-color .12s ease;
+}
+
+#backgroundTaskPanel .btRow:hover {
+    background-color: var(--dt-hover);
+}
+
+#backgroundTaskPanel .btIcon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background-color: var(--dt-accent-soft);
+}
+
+#backgroundTaskPanel .btIcon i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 14px;
+    color: var(--dt-accent);
+}
+
+#backgroundTaskPanel .btBody {
+    flex: 1;
+    min-width: 0;
+}
+
+#backgroundTaskPanel .btHead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+#backgroundTaskPanel .btName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#backgroundTaskPanel .btState {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--dt-text-muted);
+}
+
+#backgroundTaskPanel .btPath {
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre;
+    font-size: 11.5px;
+    color: var(--dt-text-muted);
+}
+
+#backgroundTaskPanel .btBar {
+    height: 4px;
+    margin-top: 7px;
+    border-radius: 2px;
+    overflow: hidden;
+    background-color: var(--dt-divider);
+}
+
+#backgroundTaskPanel .btFill {
+    height: 100%;
+    width: 0;
+    border-radius: 2px;
+    background-color: var(--dt-accent);
+    transition: width .4s ease;
+}
+
+#backgroundTaskPanel .btRow.paused .btFill {
+    background-color: #d6a21e;
+}
+
+#backgroundTaskPanel .btRow.stopping .btFill {
+    background-color: var(--dt-danger);
+}
+
+/* ---------------------------------------------------------------- Actions */
+
+#backgroundTaskPanel .btActions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 2px;
+}
+
+#backgroundTaskPanel .btAction {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color .12s ease;
+}
+
+#backgroundTaskPanel .btAction:hover {
+    background-color: var(--dt-surface-solid);
+}
+
+#backgroundTaskPanel .btAction i.icon {
+    margin: 0;
+    height: auto;
+    font-size: 11px;
+    line-height: 1;
+    color: var(--dt-text-muted);
+}
+
+#backgroundTaskPanel .btAction:hover i.icon {
+    color: var(--dt-text);
+}
+
+#backgroundTaskPanel .btAction.btCancel:hover i.icon {
+    color: var(--dt-danger);
+}
+
+/* Still takes the click, so it does not fall through and open the dialog */
+#backgroundTaskPanel .btAction.disabled {
+    cursor: default;
+    opacity: .45;
+}
+
+#backgroundTaskPanel .btAction.disabled:hover {
+    background-color: transparent;
+}
+
+/* ---------------------------------------------------------------- Fallbacks */
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    #backgroundTaskPanel {
+        background-color: var(--dt-surface-solid);
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #backgroundTaskPanel,
+    #backgroundTaskPanel .btFill {
+        animation: none;
+        transition: none;
+    }
+}

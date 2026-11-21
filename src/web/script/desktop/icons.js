@@ -104,7 +104,7 @@ function initDesktopFiles(optionObject = {}, callback = undefined) {
         var screenHeight = window.innerHeight;
         var screenWidth = window.innerWidth;
 
-        var vc = Math.floor((screenHeight - 20 - padding) / iheight);
+        var vc = Math.floor((screenHeight - getReservedBottom()) / iheight);
         var hc = Math.floor((screenWidth - padding) / iwidth);
 
         var slots = []; //A 2D array for storing relative to absolute locations
@@ -230,7 +230,7 @@ function redrawDesktopGrids() {
     var screenHeight = window.innerHeight;
     var screenWidth = window.innerWidth;
 
-    var vc = Math.floor((screenHeight - 20 - padding) / iheight);
+    var vc = Math.floor((screenHeight - getReservedBottom()) / iheight);
     var hc = Math.floor((screenWidth - padding) / iwidth);
 
     var slots = []; //A 2D array for storing relative to absolute locations

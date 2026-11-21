@@ -7,11 +7,32 @@
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
+/*
+    Windows an app switched to the white title bar (ao_module_setWindowTheme
+    ("white"), setFloatWindowTheme) keep it. The theme colour tints every
+    window with inline styles (newFloatWindow, setThemeColor), which beat the
+    white bar of script/ao.css and left its dark title on a dark tint; and
+    in the dark desktop theme ao.css colours every div light, the title too.
+*/
+.floatWindow.white .controls {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+body .floatWindow.white .controls .title {
+    color: rgb(20, 20, 20) !important;
+}
+
+.floatWindow.white .iframewrapper {
+    border-left-color: rgba(255, 255, 255, 0.6) !important;
+    border-right-color: rgba(255, 255, 255, 0.6) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.6) !important;
+}
+
 /* Float window docking indicator */
 .dockIndicator{
     position: fixed;
     width: calc(50% - 0.4em);
-    height: calc(100vh - 0.8em - 36px);
+    height: calc(100vh - 0.8em - var(--dt-reserved-bottom));
     border-radius: 6px;
     pointer-events: none;
     user-select: none;

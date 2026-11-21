@@ -1,0 +1,287 @@
+<!-- Start Menu settings: loaded into SystemAO/system_setting/index.html as a fragment -->
+<style>
+#smRoot {
+    font-family: var(--ss-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+    color: var(--ss-text);
+}
+
+#smRoot .ss-row .ss-segmented {
+    flex-shrink: 0;
+}
+
+/*
+    The previews draw a piece of the desktop: a strip of screen with the
+    dock and the tray, and a row of launcher tiles, at half size.
+*/
+#smRoot .sm-preview-row { display: block; min-height: 0; padding: 12px 14px 14px; }
+#smRoot .sm-screen {
+    position: relative;
+    max-width: 420px;
+    height: 64px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #8fb3d9 0%, #b9cfe6 55%, #dfe7ef 100%);
+    border: 1px solid var(--ss-border);
+}
+#smRoot .sm-dock,
+#smRoot .sm-tray {
+    position: absolute;
+    bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: rgba(246, 246, 248, 0.85);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+    box-sizing: border-box;
+}
+#smRoot .sm-dock {
+    left: 50%;
+    min-width: 50%;
+    transform: translateX(-50%);
+}
+#smRoot .sm-screen.left .sm-dock {
+    left: 4px;
+    transform: none;
+}
+#smRoot .sm-tray {
+    right: 4px;
+    width: 42px;
+}
+#smRoot .sm-spacer { flex: 1; }
+#smRoot .sm-dock span {
+    flex-shrink: 0;
+    width: var(--sm-icon);
+    height: var(--sm-icon);
+    border-radius: 4px;
+    background: #6f8fb8;
+}
+#smRoot .sm-dock span.sm-launch { background: #2f7cf6; }
+#smRoot .sm-dock span.sm-pin { background: #e6b34a; }
+#smRoot .sm-dock span.sm-trash { background: #a7b0ba; }
+#smRoot .sm-dock, #smRoot .sm-tray { height: calc(var(--sm-icon) + 7px); }
+
+#smRoot .sm-tiles {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    max-width: 420px;
+    min-height: 58px;
+    padding: 8px;
+    border-radius: 6px;
+    box-sizing: border-box;
+    background: var(--ss-surface-2, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--ss-border);
+}
+#smRoot .sm-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: calc(var(--sm-app) + 18px);
+}
+#smRoot .sm-tile span {
+    width: var(--sm-app);
+    height: var(--sm-app);
+    border-radius: 7px;
+    background: #6f8fb8;
+}
+#smRoot .sm-tile span.alt1 { background: #2fa84f; }
+#smRoot .sm-tile span.alt2 { background: #e5484d; }
+#smRoot .sm-tile span.alt3 { background: #e6b34a; }
+#smRoot .sm-tile i {
+    display: block;
+    width: 80%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ss-border);
+}
+
+@media (max-width: 560px) {
+    #smRoot .ss-row { flex-wrap: wrap; }
+}
+</style>
+
+<div id="smRoot">
+    <div class="ss-page-desc" locale="sm/desc">How the dock and the app menu look. Changes are saved as you make them.</div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.8" y="9.5" width="12.4" height="4" rx="1.5"/><path d="M4.5 11.5h.01M7 11.5h.01M9.5 11.5h.01"/><path d="M4 3h8M4 6h5"/></svg>
+            <span locale="sm/dock">Dock</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="sm/align">Alignment</div>
+                    <div class="ss-row-desc" locale="sm/align/desc">Where the dock sits at the bottom of the screen. The app menu opens above its button.</div>
+                </div>
+                <div class="ss-segmented" id="smAlign" role="radiogroup">
+                    <button type="button" data-value="left" locale="sm/align/left">Left</button>
+                    <button type="button" data-value="center" locale="sm/align/center">Center</button>
+                </div>
+            </div>
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="sm/iconsize">Icon size</div>
+                    <div class="ss-row-desc" locale="sm/iconsize/desc">Size of the icons in the dock. The dock and the tray grow or shrink with them.</div>
+                </div>
+                <div class="ss-segmented" id="smIconSize" role="radiogroup">
+                    <button type="button" data-value="tiny" locale="sm/size/tiny">Tiny</button>
+                    <button type="button" data-value="small" locale="sm/size/small">Small</button>
+                    <button type="button" data-value="medium" locale="sm/size/medium">Medium</button>
+                    <button type="button" data-value="large" locale="sm/size/large">Large</button>
+                </div>
+            </div>
+            <div class="ss-row sm-preview-row">
+                <div class="sm-screen" id="smDockPreview" aria-hidden="true">
+                    <div class="sm-dock">
+                        <span class="sm-launch"></span><span></span><span></span>
+                        <div class="sm-spacer"></div>
+                        <span class="sm-pin"></span><span class="sm-trash"></span>
+                    </div>
+                    <div class="sm-tray"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></svg>
+            <span locale="sm/launcher">App menu</span>
+        </div>
+        <div class="ss-card">
+            <div class="ss-row">
+                <div class="ss-row-text">
+                    <div class="ss-row-label" locale="sm/appiconsize">App icon size</div>
+                    <div class="ss-row-desc" locale="sm/appiconsize/desc">Size of the app icons in the app menu the dock's first button opens.</div>
+                </div>
+                <div class="ss-segmented" id="smAppIconSize" role="radiogroup">
+                    <button type="button" data-value="small" locale="sm/size/small">Small</button>
+                    <button type="button" data-value="medium" locale="sm/size/medium">Medium</button>
+                    <button type="button" data-value="large" locale="sm/size/large">Large</button>
+                </div>
+            </div>
+            <div class="ss-row sm-preview-row">
+                <div class="sm-tiles" id="smAppPreview" aria-hidden="true">
+                    <div class="sm-tile"><span></span><i></i></div>
+                    <div class="sm-tile"><span class="alt1"></span><i></i></div>
+                    <div class="sm-tile"><span class="alt2"></span><i></i></div>
+                    <div class="sm-tile"><span class="alt3"></span><i></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    /*
+        Start Menu settings: where the dock sits and how big its icons and the
+        app menu's icons are. Three desktop preferences, removed when set back
+        to the default so an account that never opened this page keeps it:
+            startmenu-align        left | center (default)
+            startmenu-iconsize     tiny | small (default) | medium | large
+            startmenu-appiconsize  small (default) | medium | large
+        The desktop reads them on start (initStartMenuLayout in
+        script/desktop/dock.js). A desktop that is already open is told at
+        once: through setStartMenuLayout when this page runs inside it, and
+        through localStorage (desktop/startMenuChanged) for one in another tab.
+    */
+    var smLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
+        init: function (f, cb) { cb(); },
+        translate: function () {},
+        getString: function (k, fallback) { return fallback; }
+    };
+
+    function smStr(key, fallback) {
+        return (smLocale && smLocale.getString) ? smLocale.getString(key, fallback) : fallback;
+    }
+
+    var PREF_URL = "../../system/desktop/preference";
+    var FIELDS = {
+        align: { key: "startmenu-align", group: "#smAlign", fallback: "center", values: ["left", "center"] },
+        iconSize: { key: "startmenu-iconsize", group: "#smIconSize", fallback: "small", values: ["tiny", "small", "medium", "large"] },
+        appIconSize: { key: "startmenu-appiconsize", group: "#smAppIconSize", fallback: "small", values: ["small", "medium", "large"] }
+    };
+    //Half of the desktop sizes (base.css and launcher.css)
+    var DOCK_ICON_PX = { tiny: 15, small: 18, medium: 22, large: 26 };
+    var APP_ICON_PX = { small: 22, medium: 30, large: 38 };
+    var smLayout = { align: "center", iconSize: "small", appIconSize: "small" };
+
+    function smShow() {
+        Object.keys(FIELDS).forEach(function (field) {
+            $(FIELDS[field].group).find("button").each(function () {
+                var on = $(this).attr("data-value") === smLayout[field];
+                $(this).toggleClass("active", on).attr("aria-checked", on ? "true" : "false");
+            });
+        });
+        $("#smDockPreview").toggleClass("left", smLayout.align === "left")
+            .css("--sm-icon", DOCK_ICON_PX[smLayout.iconSize] + "px");
+        $("#smAppPreview").css("--sm-app", APP_ICON_PX[smLayout.appIconSize] + "px");
+    }
+
+    function smReadPref(key, cb) {
+        $.ajax({ url: PREF_URL, method: "POST", data: { preference: key },
+            success: function (d) { cb(typeof d === "string" ? d : ""); },
+            error: function () { cb(""); } });
+    }
+
+    function smWritePref(field, value, done) {
+        var spec = FIELDS[field];
+        var data = (value === spec.fallback) ?
+            { preference: spec.key, remove: "true" } :
+            { preference: spec.key, value: value };
+        $.ajax({ url: PREF_URL, method: "POST", data: data,
+            success: function (d) { done(!(d != null && d.error !== undefined)); },
+            error: function () { done(false); } });
+    }
+
+    function smTellDesktop(change) {
+        try {
+            if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop &&
+                typeof parent.setStartMenuLayout === "function") {
+                parent.setStartMenuLayout(change);
+            }
+        } catch (e) {}
+        try {
+            localStorage.setItem("desktop/startMenuChanged", JSON.stringify({ layout: change, ts: Date.now() }));
+        } catch (e) {}
+    }
+
+    Object.keys(FIELDS).forEach(function (field) {
+        $(FIELDS[field].group).on("click", "button", function () {
+            var value = $(this).attr("data-value");
+            var before = smLayout[field];
+            if (value === before) return;
+            smLayout[field] = value;
+            smShow();
+            smWritePref(field, value, function (ok) {
+                if (!ok) {
+                    smLayout[field] = before;
+                    smShow();
+                    if (typeof msgbox === "function") msgbox(smStr("sm/savefailed", "Could not save"), false);
+                    return;
+                }
+                var change = {};
+                change[field] = value;
+                smTellDesktop(change);
+                if (typeof msgbox === "function") msgbox(smStr("sm/saved", "Saved"), true, 1500);
+            });
+        });
+    });
+
+    smLocale.init("../locale/system_settings/desktop.json", function () {
+        smLocale.translate();
+        smShow();
+        Object.keys(FIELDS).forEach(function (field) {
+            smReadPref(FIELDS[field].key, function (v) {
+                smLayout[field] = FIELDS[field].values.indexOf(v) >= 0 ? v : FIELDS[field].fallback;
+                smShow();
+            });
+        });
+    });
+})();
+</script>
