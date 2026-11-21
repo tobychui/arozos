@@ -107,4 +107,5 @@ var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 var isMacOS = (navigator.appVersion.indexOf("Mac")!=-1);
+if (isMacOS) document.documentElement.classList.add("isMacOS"); // dock.css: the backdrop blur fails on macOS browsers
 var isTouchScreen = window.matchMedia("(any-pointer: coarse)").matches;

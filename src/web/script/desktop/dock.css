@@ -38,6 +38,28 @@
     transition: border-color .15s ease, box-shadow .15s ease;
 }
 
+/* macOS browsers (Safari, Firefox) do not render the backdrop blur here, so a near solid dock only hides the
+   wallpaper: make the background mostly see-through (the class is set in state.js) */
+html.isMacOS #navimenu,
+html.isMacOS #dockTray {
+    background-color: color-mix(in srgb, var(--dt-surface) 20%, transparent);
+}
+
+/* Over the see-through tray the wallpaper decides the contrast: use the dark theme text */
+html.isMacOS #dockTray {
+    --dt-text: #f2f2f4;
+    --dt-text-muted: rgba(255, 255, 255, 0.85);
+    --dt-hover: rgba(255, 255, 255, 0.10);
+    color: var(--dt-text);
+}
+
+/* A soft shadow keeps the light text readable over bright wallpapers */
+html.isMacOS #dockTray .clock,
+html.isMacOS #dockTray .trayItem i.icon {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+
 /* Too wide for the middle: dock.js places it left of the tray instead */
 #navimenu.offCentre {
     transform: none;
