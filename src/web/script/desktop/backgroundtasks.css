@@ -1,0 +1,64 @@
+/*
+    ArozOS Desktop - Background tasks
+
+    The background task panel listing running file operations.
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+/* File operation progress tracker */
+#backgroundTaskPanel{
+    background-color: var(--body_background) !important;
+    color: var(--text_color);
+    border: var(--divider) !important;
+}
+
+    /*
+        Background Task UI
+    */
+    #backgroundTaskPanel{
+        background-color:white;
+        position:absolute;
+        bottom:36px;
+        right:0;
+        z-index:115;
+        width:400px;
+        border: 1px solid #ebebeb;
+        padding-top:8px;
+        padding-bottom:8px;
+        max-height: 70vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .backgroundtaskObject{
+        padding: 0.4em;
+        padding-right: 0.8em;
+        padding-left: 1.2em;
+    }
+
+    .backgroundtaskObject .progress, .backgroundtaskObject .bar{
+        height: 1em !important;
+    }
+
+    .backgroundtaskObject .bar{
+        min-width: 0px !important;
+    }
+
+    .backgroundtaskObject .progress .bar{
+        background-color: #2b4871;
+    }
+
+    .backgroundtaskObject.paused .progress .bar{
+        background-color: #d6ba3e;
+    }
+
+    .backgroundtaskObject.stopping .progress .bar{
+        background-color: #d63e3e;
+    }
+
+    .backgroundtaskObject .circular.button i{
+        color: rgb(160, 160, 160) !important;
+        display: inline-block;
+        width: 10px !important;
+    }

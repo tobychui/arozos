@@ -1,0 +1,189 @@
+/*
+    ArozOS Desktop - Quick access panel
+
+    The quick access panel: profile, accounts, sliders and quick actions.
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+/* Quick access panel css */
+
+#quickAccessPanel{
+    background-color:var(--body_background);
+    position:absolute;
+    bottom:calc(36px + 0.4em);
+    left:55px;
+    z-index:114;
+    width:720px;
+    border-radius: 6px;
+    overflow: hidden;
+    max-height: calc(100% - 136px);
+
+    scrollbar-width: thin;
+    border: 1px solid #ebebeb;
+    padding-top:8px;
+    padding-bottom:8px;
+
+    box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+    -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+    -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+}
+
+#quickAccessPanel .mxmenu{
+    border-right: 1px solid var(--divider);
+    padding-right: 0;
+}
+
+#quickAccessPanel .viewutils{
+    padding-right: 2em !important;
+}
+
+#quickAccessPanel .item{
+    padding-left:12px;
+    padding-right:12px;
+    padding-top:4px;
+    padding-bottom:4px;
+    cursor:pointer;
+    border-left: 3px solid transparent;
+}
+
+#quickAccessPanel .item{
+    color: var(--text_color);
+}
+
+#quickAccessPanel #quickseach{
+    padding-top: 0.4em;
+}
+
+#quickAccessPanel .item:hover{
+   background-color:var(--body_background_active);
+}
+
+/* Fix for user icon */
+.usericon-wrapper{
+    width: 50px !important;
+}
+
+#quickAccessPanel .item.profile-row{
+    display: flex;
+    align-items: center;
+}
+
+#quickAccessPanel .item.profile-row .content{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/*
+    Handle dark theme for the quick access panel
+*/
+
+#quickAccessPanel{
+    background-color: var(--body_background);
+    color: var(--text_color);
+    border: 1px solid transparent;
+}
+
+body.darkTheme #quickAccessPanel{
+    -webkit-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+    -moz-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+    box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+}
+
+#quickAccessPanel .header{
+   color: var(--text_color);
+}
+
+#quickAccessPanel .meta{
+   color: var(--text_color_secondary);
+}
+
+#quickAccessPanel .progress{
+   background-color: var(--body_background_active);
+}
+
+#quickAccessPanel .progress .bar :not(#diskrender, #diskrender .bar .progress){
+    background-color: var(--theme_color) !important;
+}
+
+#quickAccessPanel .button{
+   background-color: var(--body_background_secondary);
+   border: 1px solid var(--divider);
+   color: var(--text_color);
+}
+
+body.darkTheme #quickAccessPanel .ui.basic.button{
+    color: var(--text_color_secondary) !important;
+}
+
+/* Quick action grid */
+#quickAccessPanel .qap-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 4px 12px 10px 12px;
+}
+
+#quickAccessPanel .qap-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 10px 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    background-color: var(--body_background_secondary);
+    min-height: 58px;
+    transition: background-color 0.12s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#quickAccessPanel .qap-btn:hover {
+    background-color: var(--body_background_active);
+}
+
+#quickAccessPanel .qap-btn i.icon {
+    font-size: 1.15em;
+    margin: 0 0 5px 0;
+    color: var(--text_color);
+}
+
+#quickAccessPanel .qap-btn .qap-label {
+    font-size: 0.76em;
+    color: var(--text_color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    line-height: 1.3;
+}
+
+#quickAccessPanel .qap-btn.active {
+    background-color: var(--theme_color, #52C9FF);
+}
+
+#quickAccessPanel .qap-btn.active i.icon,
+#quickAccessPanel .qap-btn.active .qap-label {
+    color: white;
+}
+
+#quickAccessPanel .qap-btn#poweroffBtn i.icon,
+#quickAccessPanel .qap-btn#poweroffBtn .qap-label {
+    color: #cf2828;
+}
+
+body.darkTheme #quickAccessPanel .qap-btn {
+    background-color: var(--body_background_secondary);
+}
+
+body.darkTheme #quickAccessPanel .qap-btn:hover {
+    background-color: var(--body_background_active);
+}
+
+.alternativeAccount.item{
+    padding-top: 0.6em !important;
+    padding-bottom: 0.6em !important;
+    margin: 0;
+}

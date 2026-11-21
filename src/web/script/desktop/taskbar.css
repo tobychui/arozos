@@ -1,0 +1,212 @@
+/*
+    ArozOS Desktop - Taskbar
+
+    The bottom taskbar (navimenu), its float window buttons, clock and
+    background task button, and the stacked window list.
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+.navimenu {
+    position: fixed;
+    z-index: 1110;
+    width: 100%;
+    height: 36px;
+    left: 0px;
+    bottom: 0px;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.navimenu .item {
+    height: 36px;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.navimenu .item.padding {
+    display: inline-block;
+    width: 12px;
+}
+
+.navimenu .item.clickable:hover {
+    background-color: rgba(250, 250, 250, 0.2);
+    cursor: pointer;
+}
+/* Floatwindow control button related css*/
+
+.navimenu .item.floatWindowButton {
+    padding: 8px;
+    padding-top: 10px;
+    vertical-align: top;
+    width: 200px;
+    overflow: hidden;
+    font-size: 90%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: break-all;
+    color: white;
+}
+
+.navimenu .item.floatWindowButton .floatWindowAppIcon {
+    height: 20px;
+    margin-top: -2px;
+    margin-right: 8px;
+    display: inline-block;
+}
+
+.navimenu .item.floatWindowButton .floatWindowTitle {
+    display: inline;
+    color: white;
+    padding-top: 5px;
+    vertical-align: top;
+}
+
+.navimenu .item.floatWindowButton.hideText {
+    width: 36px;
+}
+
+.navimenu .item.floatWindowButton.hideText .floatWindowTitle {
+    display: none;
+}
+
+.navimenu .item.floatWindowButton.hideText .floatWindowAppIcon {
+    margin-right: 0px;
+}
+.navimenu .clock{
+    float: right;
+    text-align: center;
+    color: white;
+    font-size: 0.9em;
+    line-height: 1.3em;
+    padding-top: 1px;
+    padding-right: 0.5em;
+    padding-left: 0.5em;
+}
+.navimenu .backgroundtasks{
+    float: right;
+    border-right: 1px solid rgb(206, 206, 206, 0.4);
+    color: white;
+    padding-top: 0.5em;
+    padding-right: 0.5em;
+    padding-left: 0.7em;
+}
+
+#stackedWindowList {
+    position: fixed;
+    z-index: 1112;
+    left: 0px;
+    bottom: 36px;
+    width: 300px;
+    padding-bottom: 4px;
+    display: none;
+}
+
+#stackedWindowList .item {
+    padding: 6px;
+    display: inline-block;
+    color: white;
+    width: 100%;
+}
+
+#stackedWindowList .item img {
+    display: inline-block;
+    vertical-align: bottom;
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    margin-top: 0px;
+    margin-left: 4px;
+}
+
+#stackedWindowList .item span {
+    overflow: hidden;
+    word-break: break-all;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: calc(100% - 2em);
+    display: inline-block;
+}
+
+#stackedWindowList .item.clickable:hover {
+    background-color: rgba(250, 250, 250, 0.2);
+    cursor: pointer;
+}
+
+#stackedWindowList .item .closebtn {
+    position: absolute;
+    right: 0px;
+    top: 8px;
+}
+
+#stackedWindowList .item .closebtn>img {
+    height: 15px;
+    width: 15px;
+}
+
+#statusbar{
+    z-index:0;
+    width:100%;
+    height:28px;
+    position: absolute;
+    background-color: rgba(0,0,0,0.9);
+    color:white;
+    backdrop-filter: blur(4px);
+    text-align:center;
+    display: flex;
+    justify-content: space-between;
+}
+
+.statusbarpadding{
+    padding-top: 0.2em;
+}
+
+.hostname{
+    text-align:left; 
+    pointer-events:none;
+    padding-left:18px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.quicktools{
+    margin-top: -0.1em;
+    position: relative;
+    text-align:center; 
+    height: 100%;
+}
+
+.qtwrapper{
+    cursor:pointer;
+    display: inline-block;
+    border-radius: 0.4em;
+}
+
+.qtwrapper.backgroundtask{
+    padding-left:8px;
+    padding-right: 6px;
+    padding-top: 7px;
+    padding-bottom: 5px;
+}
+
+.qtwrapper.backgroundtask i{
+    margin-top: -5px;
+    margin-right: 1px;
+}
+
+.qtwrapper.content{
+    padding-left:6px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 8px;
+}
+
+.qtwrapper:hover{
+    background-color: rgba(240,240,240,0.2);
+}
+
+.stackedWindowButton{
+    text-overflow: ellipsis !important;
+    white-space: nowrap;
+    word-break: break-all;
+}

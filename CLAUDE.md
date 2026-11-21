@@ -84,7 +84,8 @@ front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
   (shown as *Network*), `Engineering` (e.g. Gerber Viewer, 3D Viewer),
   `Development` (Code Studio, GitApp, Terminal, SQLite Admin, …), `System Tools`
   or `Utilities`; anything else lands under *Other*. The desktop maps groups
-  to categories in `listMenuCategories` ([`src/web/desktop.html`](src/web/desktop.html)),
+  to categories in `listMenuCategories` ([`src/web/script/desktop/state.js`](src/web/script/desktop/state.js),
+  used by `listMenuCategoryOf` in `listmenu.js`),
   and adds a *Container Apps* category (published container apps, not
   modules) only when `/system/appproxy/apps` reports `Containers: true`.
   The group is also a **permission** decision: `Utilities`, `System Tools`
@@ -781,4 +782,5 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/subservice/`](src/mod/subservice/) — reverse-proxied binary subservices (see "What a SubService is"); wired up in [`src/subservice.go`](src/subservice.go).
 - [`src/mod/appproxy/`](src/mod/appproxy/) — Container Apps reverse proxy (see "What Container Apps are").
 - [`src/web/`](src/web/) — front-end assets and WebApps (one folder per module; see "What a WebApp is").
+- [`src/web/script/desktop/`](src/web/script/desktop/) — scripts and styles of the web desktop; `desktop.html` holds only its markup. Read its `README.md` (load order, the `parent.` API WebApps call) before changing it, and `PROPOSAL.md` for the planned redesign.
 - [`src/system/`](src/system/) — runtime data and config (not shipped in release).

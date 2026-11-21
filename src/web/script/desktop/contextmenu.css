@@ -1,0 +1,22 @@
+/*
+    ArozOS Desktop - Context menu
+
+    Desktop overrides of the shared context menu style (script/contextmenu.css).
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+.contextmenu {
+    position: fixed;
+    z-index: 3000 !important;
+    left: 20px;
+    top: 20px;
+}
+
+#contextmenu .item {
+    padding: 0.6em 1em !important;
+}
+
+#subcontextmenu .item {
+    padding: 0.6em 1em !important;
+}

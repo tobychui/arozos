@@ -1,0 +1,70 @@
+/*
+    ArozOS Desktop - Float windows
+
+    Desktop side float window helpers: docking indicators, drag planes
+    and the focus cover. The window frame itself is styled in script/ao.css.
+
+    Part of desktop.html, see README.md in this folder for the load order.
+*/
+
+/* Float window docking indicator */
+.dockIndicator{
+    position: fixed;
+    width: calc(50% - 0.4em);
+    height: calc(100vh - 0.8em - 36px);
+    border-radius: 6px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 100;
+    background-color: rgba(255,255,255,0.1);
+    border: 1px solid rgba(182, 182, 182, 0.37);
+    backdrop-filter: blur(0.5px);
+    display:none;
+}
+#fwdockLeftIndicator{
+    left: 0.4em;
+    top:  0.4em;
+}
+
+#fwdockRightIndicator{
+    right: 0.4em;
+    top: 0.4em;
+}
+
+/* Float window dragging plane */
+#fwdragpanel{
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0px;
+    left: 0px;
+    z-index: 100;
+    display: none;
+}
+
+#tfwdragpanel{
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0px;
+    left: 0px;
+    z-index: 500;
+    display: none;
+}
+
+.iframewrapper iframe{
+    border: 0px;
+}
+
+/* Click catcher over windows whose page does not load ao_module.js
+   (e.g. container apps), so a click on a background window can still
+   bring it to front. Shown only while the window is not focused. */
+.floatWindow .iframewrapper .focuscover{
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    display: none;
+    background: transparent;
+}
