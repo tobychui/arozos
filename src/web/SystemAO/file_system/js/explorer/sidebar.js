@@ -168,3 +168,93 @@ function getRootIconArt(foldername){
     };
     return map[key] || [FSIcons.folder, "#f0b429"];
 }
+
+
+/*
+    Quick Access context menu.
+
+    The right click handler in selection.js records the row it was opened on
+    here and marks it with .fmSideContext. The entries act on that folder
+    alone and leave the file selection in the folder view as it is.
+*/
+var quickAccessMenuRow = null;
+
+function setQuickAccessMenuRow(row){
+    $("#userroot .fmSideContext").removeClass("fmSideContext");
+    quickAccessMenuRow = row;
+    if (row != null){
+        $(row).addClass("fmSideContext");
+    }
+}
+
+function quickAccessMenuPath(){
+    if (quickAccessMenuRow == null){
+        return "";
+    }
+    return $(quickAccessMenuRow).attr("filepath") || "";
+}
+
+//Folder name as stored on disk ("Desktop"), for the share dialog
+function quickAccessMenuFolderName(){
+    let parts = quickAccessMenuPath().replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1];
+}
+
+//Name as shown in the sidebar, which may be translated
+function quickAccessMenuLabel(){
+    if (quickAccessMenuRow == null){
+        return "";
+    }
+    return $(quickAccessMenuRow).find(".fsSideLabel").text();
+}
+
+function openQuickAccessItem(){
+    if (quickAccessMenuRow != null){
+        openthis(quickAccessMenuRow);
+    }
+}
+
+function openQuickAccessInNewWindow(){
+    let path = quickAccessMenuPath();
+    if (path != ""){
+        openPathInNewWindow(path);
+    }
+}
+
+function shareQuickAccessItem(){
+    let path = quickAccessMenuPath();
+    if (path != ""){
+        openShareDialog(path, quickAccessMenuFolderName());
+    }
+}
+
+function pasteIntoQuickAccessItem(){
+    let path = quickAccessMenuPath();
+    if (path != ""){
+        paste(path);
+    }
+}
+
+function createQuickAccessShortcut(){
+    let path = quickAccessMenuPath();
+    if (path != ""){
+        requestDesktopShortcut(quickAccessMenuLabel(), path, "img/system/folder-shortcut.png");
+    }
+}
+
+function showQuickAccessProperties(){
+    let path = quickAccessMenuPath();
+    if (path != ""){
+        openFilePropertiesWindow([path]);
+    }
+}
+
+/*
+    Reachable from outside this file: inline on* attributes in the markup.
+*/
+window.openQuickAccessItem = openQuickAccessItem;
+window.openQuickAccessInNewWindow = openQuickAccessInNewWindow;
+window.shareQuickAccessItem = shareQuickAccessItem;
+window.pasteIntoQuickAccessItem = pasteIntoQuickAccessItem;
+window.createQuickAccessShortcut = createQuickAccessShortcut;
+window.showQuickAccessProperties = showQuickAccessProperties;

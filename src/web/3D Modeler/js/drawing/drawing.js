@@ -19,7 +19,10 @@
     - Export: PDF, DXF, SVG and PNG from the same layout.
 
     options: { viewport, kernel, files, ribbon, stage, sheetHost, tree,
-               setStatus, setPrompt, ask, tell, onChange, onShow3D(bool) }
+               setStatus, setPrompt, ask, tell, onChange, onShow3D(bool),
+               onProgress(info) }
+    onProgress hears how far reading the models and drawing the views is,
+    { text, fraction }, and null once all is done (the loading overlay).
 */
 
 import { createDrawingDocument } from './document.js';
@@ -34,7 +37,7 @@ import { formatLength, prefixOf, suffixOf, typePrefix, defaultStyle } from './fo
 import { toSVG, FONT_FAMILY } from '../io/drawsvg.js';
 import { toPDF, rasterizeText } from '../io/pdf.js';
 import { toDXF } from '../io/dxf.js';
-import { toPNG, sizeProblem } from '../io/png.js';
+import { toPNG, sizeProblem, toPreviewCanvas } from '../io/png.js';
 import { validate as validatePart } from '../document/document.js';
 import { validateAssembly, resolvePartPaths, PALETTE } from '../assembly/document.js';
 import { showRelink } from '../io/relink.js';
@@ -194,10 +197,46 @@ export function createDrawing(options) {
         });
     }
 
+    function isLoading() {
+        return queue.length > 0 || busy || Object.keys(sources).some(function (sid) {
+            return sources[sid] && sources[sid].status === 'loading';
+        });
+    }
+
+    // How far the drawing is (options.onProgress): its models first, then
+    // its views one by one (drawingNow: the name of the view being drawn)
+    let drawingNow = '';
+    function reportProgress() {
+        if (!options.onProgress) {
+            return;
+        }
+        const list = doc.data().sources;
+        const sids = Object.keys(sources).filter(function (sid) {
+            return list[sid];
+        });
+        const reading = sids.filter(function (sid) {
+            return sources[sid].status === 'loading';
+        }).length;
+        if (reading) {
+            const read = sids.length - reading;
+            options.onProgress({ text: 'Reading the models (' + Math.min(read + 1, sids.length) + ' of ' + sids.length + ')', fraction: read / sids.length });
+            return;
+        }
+        const pending = queue.length + (busy ? 1 : 0);
+        if (pending) {
+            const total = Math.max(pending, doc.data().views.length);
+            const done = total - pending;
+            options.onProgress({ text: 'Drawing ' + (drawingNow || 'the views') + ' (' + Math.min(done + 1, total) + ' of ' + total + ')', fraction: done / total });
+            return;
+        }
+        options.onProgress(null);
+    }
+
     function loadSource(sid, entry) {
         const mine = session;
         sources[sid] = { status: 'loading' };
         refreshBrowser();
+        reportProgress();
         return readModel(entry).then(function (model) {
             return buildModel(sid, model, entry.path);
         }).then(function (rt) {
@@ -208,12 +247,14 @@ export function createDrawing(options) {
             sources[sid] = rt;
             requestProjections();
             render();
+            reportProgress();
             return rt;
         }).catch(function (err) {
             if (mine === session) {
                 sources[sid] = { status: 'error', message: err.message, link: !!err.link };
                 requestProjections();
                 render();
+                reportProgress();
             }
             throw err;
         });
@@ -389,6 +430,8 @@ export function createDrawing(options) {
         const frame = frameOf(d, v);
         const started = performance.now();
         setStatus('Drawing ' + v.name + '...');
+        drawingNow = v.name;
+        reportProgress();
         kernel.call('drwProject', {
             items: itemsFor(v, src), dir: frame.dir, xdir: frame.xdir, hidden: !!v.hidden, smooth: v.smooth !== false,
             deflection: deflectionOf(scaleOf(d, v))
@@ -413,7 +456,11 @@ export function createDrawing(options) {
             }
         }).then(function () {
             busy = false;
+            drawingNow = '';
             pump();
+            if (!busy) {
+                reportProgress();
+            }
         });
     }
 
@@ -1694,6 +1741,13 @@ export function createDrawing(options) {
         return Promise.reject(new Error('Unknown export format'));
     }
 
+    // The sheet as the file's preview (io/preview.js): views still being
+    // drawn are left out
+    function previewCanvas(side) {
+        const d = doc.data();
+        return toPreviewCanvas(build(d, projections, {}), d.sheet, side);
+    }
+
     function exportDrawing(format) {
         stopTool();
         closePanel(false);
@@ -1869,6 +1923,7 @@ export function createDrawing(options) {
         command: command,
         handleKey: handleKey,
         exportContent: exportContent,
+        previewCanvas: previewCanvas,
         isActive: function () {
             return active;
         },
@@ -1895,6 +1950,8 @@ export function createDrawing(options) {
             checkOrphans();
             render();
         },
+        // Are models still being read or views drawn?
+        isLoading: isLoading,
         // The document tab whose kernel keys and projections are used
         setKeySpace: function (id) {
             space = id;

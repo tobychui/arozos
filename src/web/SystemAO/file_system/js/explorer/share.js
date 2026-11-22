@@ -42,13 +42,23 @@ function shareFile(){
         return
     }
 
+    openShareDialog(selectedFileObjects[0].filepath, selectedFileObjects[0].filename);
+}
+
+/*
+    The share dialog for one file or folder. Separate from shareFile() so the
+    sidebar's Quick Access menu can share a folder that is not selected.
+*/
+function openShareDialog(filepath, filename){
     //Close whatever is open first: hideAllPopupWindows() blanks the share
     //iframe if the share dialog was the one showing
     hideAllPopupWindows();
 
-    var selectedFileObject = selectedFileObjects[0];
-    selectedFileObject["Embedded"] = true;
-    var payload = encodeURIComponent(JSON.stringify([selectedFileObject]));
+    var payload = encodeURIComponent(JSON.stringify([{
+        "filepath": filepath,
+        "filename": filename,
+        "Embedded": true
+    }]));
     $("#shareFileEmbedded").attr("src", "file_share.html#" + payload);
 
     showPopupWrapper();

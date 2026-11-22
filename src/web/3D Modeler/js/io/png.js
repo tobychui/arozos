@@ -65,7 +65,9 @@ export function sizeProblem(sheet) {
     return null;
 }
 
-function draw(ctx, groups, H) {
+// minWidth: the thinnest line, in sheet units (a small picture keeps thin
+// lines visible)
+function draw(ctx, groups, H, minWidth) {
     const P = function (p) {
         return [p[0], H - p[1]];
     };
@@ -75,7 +77,7 @@ function draw(ctx, groups, H) {
     ctx.fillStyle = '#000';
     const stroke = function (layer) {
         const st = LAYERS[layer] || LAYERS.thin;
-        ctx.lineWidth = st.width;
+        ctx.lineWidth = Math.max(st.width, minWidth || 0);
         ctx.setLineDash(st.dash || []);
         ctx.stroke();
     };
@@ -129,6 +131,23 @@ function draw(ctx, groups, H) {
             }
         });
     });
+}
+
+// The sheet as a small picture, at most maxSide pixels on its longer side,
+// for the file's preview (io/preview.js). Lines are kept a pixel wide.
+export function toPreviewCanvas(groups, sheet, maxSide) {
+    const k = maxSide / Math.max(sheet.width, sheet.height, 1);
+    const w = Math.max(1, Math.round(sheet.width * k));
+    const h = Math.max(1, Math.round(sheet.height * k));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.scale(w / sheet.width, h / sheet.height);
+    draw(ctx, groups, sheet.height, 1 / k);
+    return canvas;
 }
 
 // Resolves to the PNG file as a Uint8Array

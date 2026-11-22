@@ -892,9 +892,20 @@ the AGI file functions read and write text directly, the file can be diffed
 and version controlled, and a part is small because it stores what was done,
 not the resulting shape.
 
+Preview image: parts, assemblies and drawings are saved with a 480 px JPEG
+of themselves as a data URL in the top level field `_ao_preview`, written
+first in the file (`js/io/preview.js`). Parts and assemblies picture the
+solids from the current view direction, framed on them, without helpers
+(`viewport.capturePreview`); drawings picture the sheet
+(`png.toPreviewCanvas`). Encoding runs in a worker (`io/previewworker.js`)
+and is given up after 2 s, so a save never waits long for it. The field is
+dropped when a file is read. The File Manager's thumbnailer reads it for any
+`.json`, `.aopart`, `.aoasm` or `.aodrw` file
+(`src/mod/filesystem/metadata/jsonpreview.go`).
+
 Considered and postponed: caching the last built shape in the file (the BREP
-format is text too, so it would fit as a string) and a preview image for a
-File Manager thumbnailer. Both only matter once parts get slow to rebuild.
+format is text too, so it would fit as a string). It only matters once parts
+get slow to rebuild.
 
 ### 6.9 ArozOS integration
 

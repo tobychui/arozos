@@ -1570,6 +1570,98 @@ export function createViewport(options) {
         flyTo(direction.toArray(), camera.up.toArray(), true);
     }
 
+    // A square picture of the solids for the file's preview (io/preview.js):
+    // seen from where the camera looks now, framed on the solids, without
+    // the grid, origin, sketches and other helpers. It is drawn in a corner
+    // of the view's own canvas, copied out and drawn over again in the same
+    // task, so the screen never shows it. A 2D canvas, or null with no solid.
+    function capturePreview(side) {
+        if (!bodies.length) {
+            return null;
+        }
+        bodyGroup.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(bodyGroup);
+        if (box.isEmpty()) {
+            return null;
+        }
+        const size = renderer.getSize(new THREE.Vector2());
+        const square = Math.floor(Math.min(size.x, size.y));
+        const device = Math.floor(square * renderer.getPixelRatio());
+        if (square < 16 || device > canvas.height) {
+            return null;
+        }
+        const sphere = box.getBoundingSphere(new THREE.Sphere());
+        const r = Math.max(sphere.radius, 1e-3);
+        const direction = camera.position.clone().sub(controls.target);
+        if (direction.lengthSq() < 1e-12) {
+            direction.copy(HOME_DIRECTION);
+        }
+        direction.normalize();
+        const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1);
+        cam.up.copy(camera.up);
+        cam.position.copy(sphere.center).addScaledVector(direction, r * 4);
+        cam.lookAt(sphere.center);
+        cam.updateMatrixWorld();
+        // The box's corners as seen from there decide the frame
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+        for (let i = 0; i < 8; i++) {
+            const p = new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y,
+                i & 4 ? box.max.z : box.min.z).applyMatrix4(cam.matrixWorldInverse);
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+            minZ = Math.min(minZ, p.z);
+            maxZ = Math.max(maxZ, p.z);
+        }
+        const half = Math.max(maxX - minX, maxY - minY, 1e-3) / 2 * 1.08;
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        cam.left = cx - half;
+        cam.right = cx + half;
+        cam.top = cy + half;
+        cam.bottom = cy - half;
+        // In front of the camera z is negative
+        cam.near = Math.max(1e-3, -maxZ - r * 0.1);
+        cam.far = -minZ + r * 0.1;
+        cam.updateProjectionMatrix();
+
+        const hidden = [];
+        scene.children.forEach(function (child) {
+            const keep = child === bodyGroup || child.isLight || child === headlight.target || child === sun.target;
+            if (!keep && child.visible) {
+                child.visible = false;
+                hidden.push(child);
+            }
+        });
+        const out = document.createElement('canvas');
+        try {
+            renderer.setScissorTest(true);
+            renderer.setViewport(0, 0, square, square);
+            renderer.setScissor(0, 0, square, square);
+            renderer.render(scene, cam);
+            const px = Math.max(1, Math.min(side || 480, device));
+            out.width = px;
+            out.height = px;
+            const ctx = out.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, px, px);
+            // The viewport's origin is the canvas's bottom left corner
+            ctx.drawImage(canvas, 0, canvas.height - device, device, device, 0, 0, px, px);
+        } finally {
+            hidden.forEach(function (child) {
+                child.visible = true;
+            });
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, size.x, size.y);
+            renderer.setScissor(0, 0, size.x, size.y);
+            renderer.render(scene, camera);
+            invalidate();
+        }
+        return out;
+    }
+
     function lookAtPlane(key) {
         const def = ORIGIN_PLANES[key];
         flyTo(def.normal, def.up, true);
@@ -3494,6 +3586,7 @@ export function createViewport(options) {
         },
         home: home,
         zoomAll: zoomAll,
+        capturePreview: capturePreview,
         lookAtPlane: lookAtPlane,
         startPlanePick: startPlanePick,
         stopPlanePick: stopPlanePick,

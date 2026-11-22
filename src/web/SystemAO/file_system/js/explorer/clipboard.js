@@ -7,6 +7,14 @@
     file_explorer.html - see the <script> block at the end of that file.
 */
 
+/*
+    Where the paste that raised the overwrite dialog was going. The dialog
+    pastes again once a rule is picked, and that second paste has to land in
+    the same folder - a drop on a folder or a Quick Access entry is not the
+    folder being shown.
+*/
+var pendingPasteTarget = "";
+
 function changeOverwriteRule(mode, doPasteAgain=false){
     switch (mode){
         case 0:
@@ -24,7 +32,7 @@ function changeOverwriteRule(mode, doPasteAgain=false){
 
     if (doPasteAgain){
         //Initiate paste without checking and close the overwritemode selector
-        paste(undefined, true);
+        paste(pendingPasteTarget, true);
     }
 }
 
@@ -102,6 +110,9 @@ function paste(redirectPasteTarget="", nocheck=false){
     if (redirectPasteTarget != ""){
         //Allow redirection of paste target if necessary
         targetDir = redirectPasteTarget;
+    }
+    if (!nocheck){
+        pendingPasteTarget = targetDir;
     }
     //Nothing is pasted into a drive whose files belong to others (share:/)
     if (getDriveView(targetDir) != null && driveViewBlocks("paste", [])){

@@ -2119,14 +2119,17 @@ body.dark #orbit-mark {
     dominant-baseline: central;
 }
 
+/* The loading overlay (js/loading.js): it covers the view, so the half
+   built model is not clicked while it loads */
 #splash {
     position: absolute;
     inset: 0;
+    z-index: 30;
     display: flex;
     align-items: center;
     justify-content: center;
-    pointer-events: none;
-    transition: opacity .25s;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    backdrop-filter: blur(2px);
 }
 
 #splash[hidden] {
@@ -2135,12 +2138,118 @@ body.dark #orbit-mark {
 
 .splash-box {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 280px;
+    max-width: calc(100% - 32px);
+    padding: 14px 16px;
     background: var(--overlay);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .18);
+}
+
+.splash-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 4px;
+    animation: splash-breathe 1.6s ease-in-out infinite alternate;
+}
+
+.splash-preview[hidden] {
+    display: none;
+}
+
+@keyframes splash-breathe {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: .72;
+    }
+}
+
+.splash-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.splash-head .spinner {
+    flex: 0 0 auto;
+}
+
+.splash-head .spinner[hidden] {
+    display: none;
+}
+
+.splash-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.splash-text {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.splash-text:empty {
+    display: none;
+}
+
+.splash-box.failed .splash-text {
+    color: var(--danger, #d04a3a);
+    white-space: normal;
+}
+
+.splash-bar {
+    position: relative;
+    height: 3px;
+    overflow: hidden;
+    background: var(--border);
+    border-radius: 2px;
+}
+
+.splash-bar[hidden] {
+    display: none;
+}
+
+.splash-bar i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    background: var(--accent);
+    transition: width .2s;
+}
+
+/* The amount is not known: a band that runs across */
+.splash-bar.busy i {
+    width: 35%;
+    transition: none;
+    animation: splash-run 1.1s ease-in-out infinite;
+}
+
+@keyframes splash-run {
+    from {
+        left: -35%;
+    }
+    to {
+        left: 100%;
+    }
 }
 
 .spinner {

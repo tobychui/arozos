@@ -2501,6 +2501,8 @@ i.blue{
     margin: 0 !important;
 }
 #directorySidebar .fsSideItem:hover { background: var(--fs-fill); }
+/* The Quick Access row a context menu is open on */
+#directorySidebar .fsSideItem.fmSideContext:not(.active) { background: var(--fs-fill); }
 #directorySidebar .fsSideItem.active {
     background: var(--fs-accent-soft);
     color: var(--fs-accent-strong);

@@ -19,7 +19,9 @@
       the document, until it is committed.
 
     options: viewport, kernel, files, ribbon, stage, canvas, tree (element),
-        setStatus(text), setPrompt(text), ask, tell, onChange(reason)
+        setStatus(text), setPrompt(text), ask, tell, onChange(reason),
+        onProgress(info): how far loading the parts is, { text, fraction },
+        null once every part is loaded (the loading overlay)
 */
 
 import { createAssemblyDocument, PALETTE } from './document.js';
@@ -81,7 +83,9 @@ export function createAssembly(options) {
     function buildPart(pid, data) {
         runtime[pid] = { status: 'loading' };
         const mine = session;
-        return kernel.call('partBuild', { key: partKey(pid), document: data }).then(function (result) {
+        return kernel.call('partBuild', { key: partKey(pid), document: data }, function (info) {
+            reportProgress(pid, info);
+        }).then(function (result) {
             if (mine !== session) {
                 return null;
             }
@@ -96,10 +100,12 @@ export function createAssembly(options) {
             const box = G.boundsOf(result.bodies);
             const rt = { status: 'ok', bodies: result.bodies, box: box, pivot: G.scale(G.add(box[0], box[1]), 0.5), data: data };
             runtime[pid] = rt;
+            reportProgress(null, null);
             return rt;
         }).catch(function (err) {
             if (mine === session) {
                 runtime[pid] = { status: 'error', message: err.message };
+                reportProgress(null, null);
             }
             throw err;
         });
@@ -118,6 +124,41 @@ export function createAssembly(options) {
             throw err;
         }).then(function (file) {
             return validatePart(file.data);
+        });
+    }
+
+    function isLoading() {
+        return Object.keys(runtime).some(function (pid) {
+            return runtime[pid] && runtime[pid].status === 'loading';
+        });
+    }
+
+    // How far loading the parts is (options.onProgress). building, info: the
+    // part being built in the kernel now and how far that is (rebuild.js)
+    function reportProgress(building, info) {
+        if (!options.onProgress) {
+            return;
+        }
+        const parts = doc.data().parts;
+        const pids = Object.keys(runtime).filter(function (pid) {
+            return parts[pid];
+        });
+        const waiting = pids.filter(function (pid) {
+            return runtime[pid].status === 'loading';
+        }).length;
+        if (!waiting) {
+            options.onProgress(null);
+            return;
+        }
+        const done = pids.length - waiting;
+        const name = building && parts[building] ? parts[building].name : '';
+        const feature = info && info.step === 'feature';
+        // How far the part being built is: its features, then its meshes
+        const step = feature && info.total ? 0.9 * info.index / info.total : info && info.step === 'mesh' ? 0.9 : 0;
+        options.onProgress({
+            text: (name ? 'Building ' + name + (feature ? ': ' + info.name : info && info.step === 'mesh' ? ': meshing' : '') : 'Reading the parts') +
+                ' (' + Math.min(done + 1, pids.length) + ' of ' + pids.length + ')',
+            fraction: (done + step) / pids.length
         });
     }
 
@@ -143,14 +184,17 @@ export function createAssembly(options) {
                     rt.key = key;
                 }
                 render();
+                reportProgress(null, null);
             }).catch(function (err) {
                 if (mine === session) {
                     runtime[pid] = { status: 'error', message: err.message, link: !!err.link, key: key };
                 }
+                reportProgress(null, null);
                 return err;
             });
         });
         refreshBrowser();
+        reportProgress(null, null);
         return Promise.all(jobs).then(function (results) {
             if (mine !== session) {
                 return;
@@ -1391,6 +1435,8 @@ export function createAssembly(options) {
         isActive: function () {
             return active;
         },
+        // Are parts still being read or built?
+        isLoading: isLoading,
         // The document tab whose parts the kernel keys belong to
         setKeySpace: function (id) {
             space = id;

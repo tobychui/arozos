@@ -181,10 +181,12 @@
                 <div id="navbar"></div>
                 <svg id="triad" viewBox="-40 -40 80 80" aria-hidden="true"></svg>
                 <svg id="orbit-mark" aria-hidden="true" hidden></svg>
+                <!-- The loading overlay (js/loading.js builds it again) -->
                 <div id="splash">
                     <div class="splash-box">
-                        <div class="spinner"></div>
-                        <div id="splash-text">Loading modelling kernel...</div>
+                        <div class="splash-head"><div class="spinner"></div><div class="splash-title">Starting the modelling kernel</div></div>
+                        <div class="splash-text">Downloading...</div>
+                        <div class="splash-bar busy"><i></i></div>
                     </div>
                 </div>
             </main>

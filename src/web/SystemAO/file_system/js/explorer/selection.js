@@ -268,6 +268,7 @@ function bindFileObjectEvents(){
         //Belongs to the sidebar's special views, not to a file or folder - and
         //a folder already has its own "create shortcut" entry above
         $("#contextmenu").find(".specialviewonly").hide();
+        $("#contextmenu").find(".quickaccessonly").hide();
         $("#contextmenu").find(".zipFileOnly").hide();
 
         //Hide general menu options for single / multiple
@@ -342,6 +343,7 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".noSelectionOnly").show();
             $("#contextmenu").find(".allowNoSelection").show();
             $("#contextmenu").find(".vroothide").show();
+            $("#contextmenu").find(".quickaccessonly").hide();
             $("#contextmenu").find(".zipFileOnly").hide();
 
             //These entries act on the directory, so the drive view judges that
@@ -404,6 +406,7 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".item").hide();
             $("#contextmenu").find(".vroothide").hide();
             $("#contextmenu").find(".specialviewonly").hide();
+            $("#contextmenu").find(".quickaccessonly").hide();
             $("#contextmenu").find(".vrootonly").show();
 
             //Show context menu, then place it (it must be rendered to be measured)
@@ -412,8 +415,34 @@ function bindFileObjectEvents(){
         }
     });
 
+    //Handle right click on the Quick Access folders
+    $("#userroot").off("contextmenu").on("contextmenu", function(e){
+        //The row wraps its icon and label in spans, see #storageroot above
+        let row = $(e.target).closest(".userrootfolder")[0];
+        if (row == undefined){
+            return;
+        }
+        e.preventDefault();
+        setQuickAccessMenuRow(row);
+
+        $("#contextmenu").find(".item").hide();
+        $("#contextmenu").find(".divider").hide();
+        $("#contextmenu").find(".quickaccessonly").show();
+
+        $("#contextmenu").addClass("visible");
+        calculateContextMenuOffsets(e);
+    });
+
+    //A right click anywhere else moves the menu off the Quick Access row
+    $(document).off("contextmenu.quickaccess").on("contextmenu.quickaccess", function(evt){
+        if ($(evt.target).closest("#userroot").length == 0){
+            setQuickAccessMenuRow(null);
+        }
+    });
+
     $(document).on("click",function(evt){
         $(".contextmenu").removeClass("visible");
+        setQuickAccessMenuRow(null);
         //Record what has been clicked
         lastClickedElement = evt.target;
     });

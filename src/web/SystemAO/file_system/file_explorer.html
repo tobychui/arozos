@@ -517,6 +517,30 @@
             <div class="item vrootonly" onclick="showVrootProperties();">
                 <span locale="contextmenu/properties">Properties</span>
             </div>
+            <!-- Quick Access folders in the sidebar. Same order as a folder's
+                 own menu; they act on the row right clicked, not the selection
+                 (sidebar.js) -->
+            <div class="item quickaccessonly" onclick="openQuickAccessItem();">
+                <span locale="contextmenu/open">Open</span>
+            </div>
+            <div class="item quickaccessonly" onclick="openQuickAccessInNewWindow();">
+                <span locale="contextmenu/openNewWindow">Open In New Window</span> <i class="external icon"></i>
+            </div>
+            <div class="item quickaccessonly" onclick="shareQuickAccessItem();">
+                <span locale="contextmenu/Share">Share</span> <i class="share alternate icon"></i>
+            </div>
+            <div class="divider quickaccessonly"></div>
+            <div class="item quickaccessonly" onclick="pasteIntoQuickAccessItem();">
+                <span locale="contextmenu/paste">Paste</span>
+            </div>
+            <div class="divider quickaccessonly"></div>
+            <div class="item quickaccessonly" onclick="createQuickAccessShortcut();">
+                <span locale="opr/shortcut/title">Create Shortcut on Desktop</span> <i class="external square icon"></i>
+            </div>
+            <div class="divider quickaccessonly"></div>
+            <div class="item quickaccessonly" onclick="showQuickAccessProperties();">
+                <span locale="contextmenu/properties">Properties</span>
+            </div>
         </div>
 
         <!--

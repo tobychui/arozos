@@ -78,7 +78,12 @@ function geometryKey(feature) {
     return JSON.stringify(copy);
 }
 
-export function createRebuilder(oc) {
+// hooks.progress(info), optional: told before each feature that is really
+// built (not found in the cache) { step: "feature", index, total, name },
+// and before solids are meshed { step: "mesh" }, so a long rebuild can say
+// how far it is (worker.js passes it on to the page)
+export function createRebuilder(oc, hooks) {
+    const progress = hooks && typeof hooks.progress === 'function' ? hooks.progress : function () {};
     let cache = new Map(); // key -> { bodies: [TopoDS_Shape], status }
     let latest = [];       // the solids of the last full rebuild
     // shape -> its description, so a body no feature changed is not meshed
@@ -250,6 +255,7 @@ export function createRebuilder(oc) {
             } else if (feature.suppressed) {
                 entry = { bodies: bodies, status: { status: 'suppressed' } };
             } else {
+                progress({ step: 'feature', index: i, total: last < -1 ? features.length : Math.min(features.length, last + 1), name: feature.name || feature.type });
                 try {
                     const notes = [];
                     entry = { bodies: applyFeature(feature, bodies, byId, features, notes), status: { status: 'ok' } };
@@ -378,6 +384,11 @@ export function createRebuilder(oc) {
     }
 
     function describeAll(bodies, names) {
+        if (bodies.some(function (shape) {
+            return !described.has(shape);
+        })) {
+            progress({ step: 'mesh', total: bodies.length });
+        }
         return bodies.map(function (shape, index) {
             let d = described.get(shape);
             if (!d) {

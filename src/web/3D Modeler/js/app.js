@@ -42,6 +42,8 @@ import { askMeshExport } from './io/exportdialog.js';
 import { createOffsetBox } from './offsetbox.js';
 import * as files from './io/files.js';
 import * as native from './io/native.js';
+import * as preview from './io/preview.js';
+import { createLoading, megabytes, buildText } from './loading.js';
 import { toSTL, toSTLText, toOBJ, to3MF, meshCheck, scaled, parseSTL, parseOBJ, encodeMesh, decodeMesh, meshInfo } from './io/exchange.js';
 import * as solver from './sketch/solver.js';
 import { createSketcher } from './sketch/sketcher.js';
@@ -85,6 +87,52 @@ const state = {
 };
 
 const doc = createDocument();
+
+/* ================= loading overlay ================= */
+// The kernel's start, and each document being opened, from reading its
+// file to its first build (loading.js), with the picture saved in the file
+const loading = createLoading($('splash'));
+const kernelTask = loading.start({ title: 'Starting the modelling kernel', text: 'Downloading...', delay: 0, blocking: true });
+let opening = null;     // { task, tab, kind } while a document is being opened
+let restoring = null;   // the task of an assembly or drawing shown again, reading its models
+
+function beginOpening(name) {
+    endOpening();
+    opening = { task: loading.start({ title: 'Opening ' + name, text: 'Reading the file' }), tab: null, kind: '' };
+    return opening;
+}
+
+// which: only that opening (a later one may have taken its place)
+function endOpening(which) {
+    if (opening && (!which || opening === which)) {
+        opening.task.done();
+        opening = null;
+    }
+}
+
+// How far the assembly or drawing on show is with its models: { text,
+// fraction }, or null when everything is loaded
+function documentProgress(info) {
+    const tab = activeTab;
+    if (opening && (!opening.tab || opening.tab === tab)) {
+        opening.tab = tab;
+        if (info) {
+            opening.task.update(info);
+        } else {
+            endOpening(opening);
+        }
+        return;
+    }
+    if (info) {
+        if (!restoring) {
+            restoring = loading.start({ title: 'Loading ' + (tab ? tabName(tab) : ''), delay: 400 });
+        }
+        restoring.update(info);
+    } else if (restoring) {
+        restoring.done();
+        restoring = null;
+    }
+}
 
 /* ================= status bar ================= */
 function setStatus(text) {
@@ -1285,7 +1333,16 @@ function requestRebuild() {
     rebuildWanted = false;
     state.rebuildDeferred = false;
     const asked = doc.data();
-    kernel.call('rebuild', { document: asked }).then(function (result) {
+    // The first build of a part that is being opened shows how far it is
+    // (the document's reset asks for it before the tab is known)
+    const shown = opening && opening.kind === 'part' && (!opening.tab || opening.tab === activeTab) ? opening : null;
+    if (shown) {
+        shown.tab = activeTab;
+        shown.task.update({ text: 'Building the part', fraction: null });
+    }
+    kernel.call('rebuild', { document: asked }, shown ? function (info) {
+        shown.task.update(buildText(info));
+    } : null).then(function (result) {
         if (state.env !== 'part') {
             return; // an assembly is on show; the (empty) part waits
         }
@@ -1342,6 +1399,9 @@ function requestRebuild() {
     }).catch(function (err) {
         setStatus('Rebuild failed: ' + err.message);
     }).then(function () {
+        if (shown) {
+            endOpening(shown);
+        }
         rebuildRunning = false;
         if (rebuildWanted) {
             requestRebuild();
@@ -1510,20 +1570,46 @@ function showSheetChrome(sheet) {
     $('stage').classList.toggle('sheet-mode', !!sheet);
 }
 
-// A part, an assembly or a drawing, by its format, in a tab of its own
-function loadDocument(data, name, path) {
+// A part, an assembly or a drawing, by its format, in a tab of its own.
+// picture: the one saved in the file (io/preview.js), shown while it loads
+function loadDocument(data, name, path, picture) {
     const kind = data && data.format === 'aodrw' ? 'drawing' : data && data.format === 'aoasm' ? 'assembly' : 'part';
     let clean = null;
     try {
         if (data) {
-            const copy = JSON.parse(JSON.stringify(data));
+            const copy = preview.stripPreview(JSON.parse(JSON.stringify(data)));
             clean = kind === 'drawing' ? validateDrawing(copy) : kind === 'assembly' ? validateAssembly(copy) : validatePart(copy);
         }
     } catch (err) {
+        endOpening();
         fail('The ' + KIND_NAMES[kind] + ' could not be opened', err);
         return false;
     }
-    openTab(kind, clean, name, path);
+    // A file open in a tab already only shows that tab; an empty part has
+    // nothing to build
+    const already = path && tabs.some(function (t) {
+        return tabPath(t) === path;
+    });
+    if (clean && !already) {
+        if (!opening) {
+            beginOpening(name + EXT[kind]);
+        }
+        opening.task.update({ title: 'Opening ' + name + EXT[kind], text: 'Building the ' + KIND_NAMES[kind], fraction: null, preview: picture || '' });
+        opening.tab = null; // the tab openTab gives
+        opening.kind = kind;
+    } else {
+        endOpening();
+    }
+    const which = opening;
+    const tab = openTab(kind, clean, name, path);
+    if (which && which === opening) {
+        which.tab = tab;
+        // An assembly or drawing with nothing to read is there at once
+        const env = kind === 'assembly' ? assembly : kind === 'drawing' ? drawing : null;
+        if (env && !env.isLoading()) {
+            endOpening(which);
+        }
+    }
     return true;
 }
 
@@ -1567,24 +1653,49 @@ function newDocument() {
 }
 
 function openDocument() {
-    files.open().then(function (file) {
-        if (file && loadDocument(file.data, file.name, file.path)) {
+    let reading = null;
+    files.open(function (name) {
+        reading = beginOpening(name);
+    }).then(function (file) {
+        if (file && loadDocument(file.data, file.name, file.path, file.preview)) {
             setStatus('Opened ' + (files.displayPath(file.path) || file.name));
+        } else if (!file) {
+            endOpening(reading);
         }
     }).catch(function (err) {
+        endOpening(reading);
         fail('The part could not be opened', err);
     });
+}
+
+// The picture saved in the file, which the ArozOS File Manager shows as
+// its thumbnail (io/preview.js): a drawing's sheet, else the solids as the
+// view looks at them. Resolves to a JPEG data URL, or null without one.
+function documentPreview() {
+    let canvas = null;
+    try {
+        canvas = state.env === 'drawing' ? drawing.previewCanvas(preview.PREVIEW_SIDE)
+            : viewport.capturePreview(preview.PREVIEW_SIDE);
+    } catch (err) {
+        canvas = null; // the file is saved without its picture
+    }
+    return preview.encode(canvas);
 }
 
 // Resolves to true when the part (or assembly) was written
 function saveDocument(askWhere) {
     const d = activeDoc();
     const ext = EXT[state.env];
-    // Assemblies and drawings write their links relative to where they land
-    const text = d.serializeFor ? function (target) {
-        return d.serializeFor(target);
-    } : d.serialize();
-    return files.save(text, d.name, d.path, askWhere, ext).then(function (saved) {
+    const kind = state.env;
+    // The picture is taken now, as the document is on screen; encoding it
+    // runs in a worker and gives up rather than hold the save up for long
+    return documentPreview().then(function (picture) {
+        // Assemblies and drawings write their links relative to where they land
+        const text = d.serializeFor ? function (target) {
+            return preview.withPreview(d.serializeFor(target), picture);
+        } : preview.withPreview(d.serialize(), picture);
+        return files.save(text, d.name, d.path, askWhere, ext);
+    }).then(function (saved) {
         if (!saved) {
             return false;
         }
@@ -1594,7 +1705,7 @@ function saveDocument(askWhere) {
         setStatus(saved.path ? 'Saved to ' + files.displayPath(saved.path) : 'Downloaded ' + saved.name + ext);
         return true;
     }).catch(function (err) {
-        fail('The ' + KIND_NAMES[state.env] + ' could not be saved', err);
+        fail('The ' + KIND_NAMES[kind] + ' could not be saved', err);
         return false;
     });
 }
@@ -2435,15 +2546,25 @@ document.addEventListener('keyup', function (event) {
 
 /* ================= engines ================= */
 const kernel = createKernel({
+    onProgress: function (info) {
+        if (info.step === 'download') {
+            kernelTask.update({
+                text: 'Downloading the modelling kernel: ' + megabytes(info.loaded, info.total),
+                fraction: info.total > 0 ? info.loaded / info.total : null
+            });
+        } else if (info.step === 'compile') {
+            kernelTask.update({ text: 'Preparing the modelling kernel', fraction: null });
+        }
+    },
     onReady: function (ms) {
         state.kernelReady = true;
         setEngine('status-kernel', 'ok', 'OpenCascade geometry kernel ready (started in ' + (ms / 1000).toFixed(1) + ' s)');
-        $('splash').hidden = true;
+        kernelTask.done();
     },
     onFailed: function (error) {
         setEngine('status-kernel', 'bad', 'The geometry kernel failed to start: ' + error);
-        $('splash-text').textContent = 'The modelling kernel could not be loaded';
-        document.querySelector('#splash .spinner').style.display = 'none';
+        endOpening();
+        kernelTask.update({ title: 'The modelling kernel could not be loaded', text: error, error: true });
         setStatus('The modelling kernel could not be loaded: ' + error);
     }
 });
@@ -2513,17 +2634,21 @@ const assembly = createAssembly({
     tell: tell,
     onChange: refreshChrome,
     // Open Part: the part's file in a tab of this window
+    onProgress: documentProgress,
     openPath: function (path) {
+        const reading = beginOpening(String(path).split('/').pop());
         files.readPath(path).then(function (file) {
-            if (loadDocument(file.data, file.name, file.path)) {
+            if (loadDocument(file.data, file.name, file.path, file.preview)) {
                 setStatus('Opened ' + files.displayPath(path) + ' in a tab. Changes show in the assembly when its tab is shown again.');
             }
         }).catch(function (err) {
+            endOpening(reading);
             fail('The part could not be opened', err);
         });
     }
 });
 const drawing = createDrawing({
+    onProgress: documentProgress,
     viewport: viewport,
     kernel: kernel,
     files: files,
@@ -2832,11 +2957,13 @@ function openHandedOver(path) {
         });
     }
     // A part, an assembly or a drawing: loadDocument goes by the file's format
+    const reading = beginOpening(String(path).split('/').pop());
     return files.readPath(path).then(function (file) {
-        if (loadDocument(file.data, file.name, file.path)) {
+        if (loadDocument(file.data, file.name, file.path, file.preview)) {
             setStatus('Opened ' + files.displayPath(file.path));
         }
     }).catch(function (err) {
+        endOpening(reading);
         fail('The file could not be opened', err);
     });
 }

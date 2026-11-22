@@ -4115,8 +4115,15 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		filetype := http.DetectContentType(thumbnailBytes)
-		w.Header().Add("Content-Type", filetype)
+		//Only ever sent as a picture: a cache file that is not one (put into
+		//.metadata/.cache by hand) must not be served as a page of this site
+		filetype, ok := metadata.SafeThumbnailContentType(thumbnailBytes)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", filetype)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Write(thumbnailBytes)
 	} else {
 		thumbnailPath, err := thumbRenderHandler.LoadCache(fsh, rpath, false)

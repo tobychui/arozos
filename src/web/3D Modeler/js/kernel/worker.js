@@ -5,6 +5,10 @@
     touches the kernel directly; it sends { id, op, args } and gets back
     { id, ok, result } or { id, ok: false, error }. One unsolicited message,
     { event: "ready" | "failed" }, reports the end of the WASM start-up.
+    { event: "progress", id, info } tells how far a call is while it runs
+    (rebuild.js progress), and with id 0 how far the start-up is:
+    { step: "download", loaded, total } while the WASM file comes in (total
+    0 when unknown), then { step: "compile" }.
 
     The single-threaded build is used on purpose: the multi-threaded one needs
     SharedArrayBuffer, which needs cross-origin isolation headers that ArozOS
@@ -46,9 +50,76 @@ function meshTransfer(list) {
 }
 const started = performance.now();
 
-const ready = initOpenCascade().then(function (module) {
+// The call running now; its progress goes to the page under its id
+let runningId = 0;
+const hooks = {
+    progress: function (info) {
+        self.postMessage({ event: 'progress', id: runningId, info: info });
+    }
+};
+
+function newRebuilder() {
+    return createRebuilder(oc, hooks);
+}
+
+// The WASM file, read here rather than by the Emscripten glue so the page
+// can show how much of it has come in. It is still compiled while it
+// downloads (instantiateStreaming); without that, or when the server does
+// not answer as expected, the glue's own loading is used.
+function instantiateWithProgress(imports, receive) {
+    const url = new URL('../../lib/occt/replicad_single.wasm', import.meta.url).href;
+    const report = function (info) {
+        self.postMessage({ event: 'progress', id: 0, info: info });
+    };
+    fetch(url, { credentials: 'same-origin' }).then(function (res) {
+        if (!res.ok || !res.body) {
+            throw new Error('The geometry kernel could not be downloaded (' + res.status + ')');
+        }
+        // A compressed answer gives the compressed size; then the total is unknown
+        const encoded = res.headers.get('Content-Encoding');
+        const total = encoded && encoded !== 'identity' ? 0 : Number(res.headers.get('Content-Length')) || 0;
+        let loaded = 0;
+        let said = 0;
+        report({ step: 'download', loaded: 0, total: total });
+        const counted = res.body.pipeThrough(new TransformStream({
+            transform: function (chunk, controller) {
+                loaded += chunk.byteLength;
+                const now = performance.now();
+                if (now - said > 100) {
+                    said = now;
+                    report({ step: 'download', loaded: loaded, total: total });
+                }
+                controller.enqueue(chunk);
+            },
+            flush: function () {
+                report({ step: 'compile' });
+            }
+        }));
+        const body = new Response(counted, { headers: { 'Content-Type': 'application/wasm' } });
+        return WebAssembly.instantiateStreaming(body, imports).catch(function () {
+            // A server that names the file wrongly cannot stop streaming here
+            // (the type is set above), but an engine without streaming can
+            return fetch(url, { credentials: 'same-origin' }).then(function (again) {
+                return again.arrayBuffer();
+            }).then(function (bytes) {
+                report({ step: 'compile' });
+                return WebAssembly.instantiate(bytes, imports);
+            });
+        });
+    }).then(function (result) {
+        receive(result.instance);
+    }).catch(function (err) {
+        self.postMessage({ event: 'failed', error: String(err && err.message ? err.message : err) });
+    });
+    return {};
+}
+
+const canStream = typeof WebAssembly.instantiateStreaming === 'function' && typeof TransformStream === 'function' &&
+    typeof ReadableStream === 'function' && typeof ReadableStream.prototype.pipeThrough === 'function';
+
+const ready = initOpenCascade(canStream ? { instantiateWasm: instantiateWithProgress } : {}).then(function (module) {
     oc = module;
-    rebuilder = createRebuilder(oc);
+    rebuilder = newRebuilder();
     rebuilders.set('default', rebuilder);
     self.postMessage({ event: 'ready', ms: Math.round(performance.now() - started) });
 }).catch(function (err) {
@@ -60,7 +131,7 @@ const operations = {
     // Make the rebuilder of a part tab the current one (made on first use)
     useRebuilder: function (args) {
         if (!rebuilders.has(args.key)) {
-            rebuilders.set(args.key, createRebuilder(oc));
+            rebuilders.set(args.key, newRebuilder());
         }
         rebuilder = rebuilders.get(args.key);
         return { result: { rebuilders: rebuilders.size } };
@@ -334,7 +405,7 @@ const operations = {
     partBuild: function (args) {
         let part = parts.get(args.key);
         if (!part) {
-            part = createRebuilder(oc);
+            part = newRebuilder();
             parts.set(args.key, part);
         }
         const result = part.rebuild(args.document);
@@ -452,7 +523,13 @@ self.onmessage = function (event) {
         if (!op) {
             throw new Error('Unknown kernel operation: ' + msg.op);
         }
-        const out = op(msg.args || {});
+        runningId = msg.id;
+        let out;
+        try {
+            out = op(msg.args || {});
+        } finally {
+            runningId = 0;
+        }
         self.postMessage({ id: msg.id, ok: true, result: out.result }, out.transfer || []);
     }).catch(function (err) {
         // OpenCascade failures surface as WebAssembly.Exception without a message

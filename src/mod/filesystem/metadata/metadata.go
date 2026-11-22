@@ -180,7 +180,7 @@ var (
 func ThumbnailSupported(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
 	for _, formats := range [][]string{audioThumbnailFormats, imageThumbnailFormats,
-		videoThumbnailFormats, modelThumbnailFormats, gcodeThumbnailFormats} {
+		videoThumbnailFormats, modelThumbnailFormats, gcodeThumbnailFormats, jsonPreviewFormats} {
 		if utils.StringInArray(formats, ext) {
 			return true
 		}
@@ -236,6 +236,9 @@ func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpat
 	case ext == ".pdf":
 		//First page, drawn by the built-in PDF renderer
 		return generateThumbnailForPDF(fsh, cacheFolder, rpath, generateOnly)
+	case utils.StringInArray(jsonPreviewFormats, ext):
+		//JSON documents carrying their own preview in "_ao_preview" (jsonpreview.go)
+		return generateThumbnailForJSONPreview(fsh, cacheFolder, rpath, generateOnly)
 	}
 
 	//Folder preview renderer

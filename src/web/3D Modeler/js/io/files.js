@@ -14,6 +14,7 @@
 
 import { toHex, fromHex } from './exchange.js';
 import * as native from './native.js';
+import { stripPreview, PREVIEW_KEY } from './preview.js';
 
 const SCRIPT = '3D Modeler/backend/file.agi';
 // Documents open in tabs of this window: a read of their path gets what the
@@ -110,8 +111,21 @@ function parse(text) {
     }
 }
 
+// A document file as read: { data, name, path, preview }. The file's
+// picture (io/preview.js) is taken out of the data, which is saved with a
+// new one, and handed out apart as a JPEG data URL ("" when there is none)
+// for the loading overlay.
+function fileOf(text, name, path) {
+    const data = parse(text);
+    // Only a picture as a data URL is shown (never a link or an SVG), and
+    // only as an <img> source (loading.js)
+    const picture = data && typeof data[PREVIEW_KEY] === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(data[PREVIEW_KEY]) ? data[PREVIEW_KEY] : '';
+    return { data: stripPreview(data), name: name, path: path, preview: picture };
+}
+
 // Read one part, assembly or drawing by its ArozOS path. Resolves to
-// { data, name, path } (data.format tells which: "aopart", "aoasm", "aodrw").
+// { data, name, path, preview } (data.format tells which: "aopart",
+// "aoasm", "aodrw").
 
 export function readPath(path) {
     const open = openLookup && path ? openLookup(path) : null;
@@ -120,11 +134,11 @@ export function readPath(path) {
     }
     if (native.available()) {
         return nativeText(path).then(function (text) {
-            return { data: parse(text), name: baseName(path), path: path };
+            return fileOf(text, baseName(path), path);
         });
     }
     return agi({ opr: 'read', path: path }).then(function (reply) {
-        return { data: parse(reply.content), name: baseName(path), path: path };
+        return fileOf(reply.content, baseName(path), path);
     });
 }
 
@@ -140,7 +154,7 @@ function browserPick(accept) {
                 return;
             }
             file.text().then(function (text) {
-                resolve({ data: parse(text), name: baseName(file.name), path: '' });
+                resolve(fileOf(text, baseName(file.name), ''));
             }).catch(reject);
         });
         input.addEventListener('cancel', function () {
@@ -151,11 +165,18 @@ function browserPick(accept) {
 }
 
 // Let the user choose a part or an assembly and read it. Resolves to
-// { data, name, path }, or null when cancelled.
-export function open() {
+// { data, name, path, preview }, or null when cancelled. onReading(name),
+// optional: the file was chosen and is being read now.
+export function open(onReading) {
+    const reading = function (path) {
+        if (onReading) {
+            onReading(String(path).split('/').pop());
+        }
+        return readPath(path);
+    };
     if (native.available()) {
         return nativePick(EXTENSIONS, 'open').then(function (file) {
-            return file ? readPath(file.path) : null;
+            return file ? reading(file.path) : null;
         });
     }
     return hasBackend().then(function (ok) {
@@ -163,7 +184,7 @@ export function open() {
             return browserPick();
         }
         return select('file', 'user:/Desktop', { path_memory_key: 'part', filter: ['aopart', 'aoasm', 'aodrw'] }).then(function (file) {
-            return file ? readPath(file.filepath) : null;
+            return file ? reading(file.filepath) : null;
         });
     });
 }
@@ -247,7 +268,7 @@ export function openForPlace() {
                     }
                     file.text().then(function (text) {
                         resolve(/\.(step|stp)$/i.test(file.name) ? { step: text, name: file.name.replace(/\.[^.]+$/, ''), path: '' }
-                            : { data: parse(text), name: baseName(file.name), path: '' });
+                            : fileOf(text, baseName(file.name), ''));
                     }).catch(reject);
                 });
                 input.addEventListener('cancel', function () {

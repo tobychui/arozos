@@ -4,8 +4,12 @@
     Main-thread side of the kernel worker: starts it, and turns the message
     protocol of worker.js into promises.
 
-        const kernel = createKernel({ onReady, onFailed });
+        const kernel = createKernel({ onReady, onFailed, onProgress });
         const { bodies, stats } = await kernel.call('selftest');
+
+    onProgress(info) hears how far the start-up is ({ step: "download",
+    loaded, total } then { step: "compile" }); call(op, args, onProgress)
+    hears how far that call is (rebuild.js progress).
 */
 
 export function createKernel(handlers) {
@@ -25,6 +29,23 @@ export function createKernel(handlers) {
         if (msg.event === 'ready') {
             if (handlers && handlers.onReady) {
                 handlers.onReady(msg.ms);
+            }
+            return;
+        }
+        if (msg.event === 'progress') {
+            if (!msg.id) {
+                if (handlers && handlers.onProgress) {
+                    handlers.onProgress(msg.info || {});
+                }
+                return;
+            }
+            const running = pending.get(msg.id);
+            if (running && running.onProgress) {
+                try {
+                    running.onProgress(msg.info || {});
+                } catch (err) {
+                    // a progress display must never fail the call
+                }
             }
             return;
         }
@@ -57,10 +78,10 @@ export function createKernel(handlers) {
     };
 
     return {
-        call: function (op, args) {
+        call: function (op, args, onProgress) {
             return new Promise(function (resolve, reject) {
                 const id = nextId++;
-                pending.set(id, { resolve: resolve, reject: reject });
+                pending.set(id, { resolve: resolve, reject: reject, onProgress: onProgress || null });
                 worker.postMessage({ id: id, op: op, args: args || {} });
             });
         },

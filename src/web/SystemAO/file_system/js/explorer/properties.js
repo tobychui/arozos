@@ -7,16 +7,20 @@
     file_explorer.html - see the <script> block at the end of that file.
 */
 
+//The File Properties window for a list of paths
+function openFilePropertiesWindow(fileList){
+    var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
+    ao_module_newfw({
+        url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
+        width: 440,
+        height: 560,
+        appicon: "SystemAO/file_system/img/properties.png",
+        title: "File Properties",
+    });
+}
+
 function showCurrentDirectoryProperties(){
-var fileList = [currentPath];
-var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
-ao_module_newfw({
-    url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
-    width: 440,
-    height: 560,
-    appicon: "SystemAO/file_system/img/properties.png",
-    title: "File Properties",
-});
+    openFilePropertiesWindow([currentPath]);
 }
 
 function showVrootProperties(){
@@ -57,14 +61,7 @@ if ($(".fileObject.selected").length > 0){
         fileList.push(filepath);
     });
 
-    var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
-    ao_module_newfw({
-        url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
-        width: 440,
-        height: 560,
-        appicon: "SystemAO/file_system/img/properties.png",
-        title: "File Properties",
-    });
+    openFilePropertiesWindow(fileList);
 }
 
 
