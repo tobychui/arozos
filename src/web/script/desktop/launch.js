@@ -8,7 +8,21 @@
     Part of desktop.html, see README.md in this folder for the load order.
 */
 
+//Module names that are now a place in the File Manager. Desktop shortcuts
+//made for the old Trash Bin app still name it.
+var LEGACY_MODULE_FOLDERS = {
+    "Trash Bin": "%trashbin%"
+};
+
 function openModule(moduleName, callback=undefined) {
+    if (LEGACY_MODULE_FOLDERS[moduleName] !== undefined) {
+        openFolder(LEGACY_MODULE_FOLDERS[moduleName]);
+        if (callback !== undefined){
+            callback();
+        }
+        hideListMenu();
+        return;
+    }
     $.get("system/modules/getLaunchPara?module=" + moduleName, function(data) {
         if (data.error !== undefined) {
             //Something went wrong.

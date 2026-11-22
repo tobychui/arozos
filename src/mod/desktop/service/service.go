@@ -55,6 +55,7 @@ type HostInfo struct {
 	InternalVersion string
 	DeviceVendor    string
 	DeviceModel     string
+	RAIDSupported   bool //The RAID manager runs, so /system/disk/raid/* exists
 }
 
 // Options configures a desktop service. Database, Users and ResolveVirtualPath

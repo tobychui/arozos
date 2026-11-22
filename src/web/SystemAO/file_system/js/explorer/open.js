@@ -74,7 +74,10 @@ function openthis(object,evt=null, isDoubleClick=false){
                 2: Shortcut target 
                 3: Shortcut icon image
             */
-            if (shortcutInfo[0] == "module"){
+            if (shortcutInfo[0] == "module" && shortcutInfo[2] == "Trash Bin"){
+                //A shortcut of the old Trash Bin app: the trash is a view of this window now
+                listDirectory("%trashbin%");
+            }else if (shortcutInfo[0] == "module"){
                 //This is a module
                 if (ao_module_virtualDesktop){
                     //Open Module with VDI API

@@ -75,7 +75,7 @@
             return [];
         }
         return S().modules.filter(function (m) {
-            if (!m.SupportedExt || m.Group == "Interface Module" || m.Name == "Trash Bin") {
+            if (!m.SupportedExt || m.Group == "Interface Module") {
                 return false;
             }
             if (!launchURL(m)) {
@@ -123,6 +123,9 @@
             var type = lines[0], name = lines[1], target = lines[2], icon = lines[3];
             if (type == "folder") {
                 location.hash = Drive.folderRoute(target);
+            } else if (type == "module" && target == "Trash Bin") {
+                //A shortcut of the old Trash Bin app
+                location.hash = "#/trash";
             } else if (type == "module") {
                 var m = Drive.module(target);
                 if (m) {

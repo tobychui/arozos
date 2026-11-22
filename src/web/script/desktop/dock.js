@@ -780,7 +780,7 @@ function dockPinFromDesktopIcon(icon){
     }
     var target = fd.ShortcutPath;
     if (fd.ShortcutType == "module"){
-        //The trash already has its own place on the dock
+        //A shortcut of the old Trash Bin app: the trash already has its own place on the dock
         return target == "Trash Bin" ? null : target;
     }else if (fd.ShortcutType == "folder"){
         var special = getSpecialPathInfo(target);

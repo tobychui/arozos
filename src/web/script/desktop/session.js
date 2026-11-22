@@ -121,6 +121,7 @@ function initDesktopHostInfo(){
         document.title = hostInfo.Hostname;
         $("#sysinfo").text(hostInfo.DeviceModel + " firmware:" + hostInfo.BuildVersion + " " + hostInfo.InternalVersion);
         qaRenderFacts();
+        qaHostInfoLoaded();
     });
 
     //Volume and brightness are kept in localStorage (0 to 1), which WebApps

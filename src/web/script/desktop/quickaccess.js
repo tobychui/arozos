@@ -34,6 +34,8 @@ var qaHealth = {smart: 0, raid: 0};     //0 good, 1 warning, 2 failing
 var qaNics = [];
 var qaDisks = [];
 var qaShowAllDisks = false;
+var qaRaidWaiting = false;              //RAID overview waits for the host info (session.js)
+var qaRaidLogged = false;               //"no RAID on this host" was logged once
 
 /*
     Open and close
@@ -460,7 +462,28 @@ function qaParseLinuxDisks(data){
     return disks;
 }
 
+/*
+    /system/disk/raid/* only exists while the server runs its RAID manager
+    (Linux with mdadm and -enable_hwman), which the host info tells as
+    RAIDSupported. Asking anyway would put a 404 in the console on every
+    refresh, so a host without it is skipped with one debug line.
+*/
 function qaLoadRaid(){
+    if (typeof hostInfo == "undefined" || hostInfo == null || hostInfo.RAIDSupported === undefined){
+        //The host info is not in yet: qaHostInfoLoaded asks again
+        qaRaidWaiting = true;
+        return;
+    }
+    qaRaidWaiting = false;
+    if (hostInfo.RAIDSupported !== true){
+        if (!qaRaidLogged){
+            qaRaidLogged = true;
+            console.debug("[Desktop] RAID is not supported on this host (needs Linux with mdadm and -enable_hwman), skipping the RAID overview");
+        }
+        qaHealth.raid = 0;
+        qaRenderHealth();
+        return;
+    }
     $.ajax({
         url: "system/disk/raid/overview",
         success: function(data){
@@ -496,6 +519,13 @@ function qaLoadRaid(){
             qaRenderHealth();
         }
     });
+}
+
+//Called by initDesktopHostInfo (session.js) once the host info is in
+function qaHostInfoLoaded(){
+    if (qaRaidWaiting){
+        qaLoadRaid();
+    }
 }
 
 function qaRenderDisks(){

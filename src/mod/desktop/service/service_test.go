@@ -401,6 +401,8 @@ func TestHandleHostInfo(t *testing.T) {
 	}{
 		{"no provider", nil, `"Hostname":""`},
 		{"provider", func() HostInfo { return HostInfo{Hostname: "NAS", DeviceModel: "AR100"} }, `"Hostname":"NAS"`},
+		{"no raid", func() HostInfo { return HostInfo{Hostname: "PC"} }, `"RAIDSupported":false`},
+		{"raid", func() HostInfo { return HostInfo{RAIDSupported: true} }, `"RAIDSupported":true`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

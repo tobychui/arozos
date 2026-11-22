@@ -34,6 +34,7 @@ func DesktopInit() {
 				InternalVersion: internal_version,
 				DeviceVendor:    deviceVendor,
 				DeviceModel:     deviceModel,
+				RAIDSupported:   raidManager != nil,
 			}
 		},
 	}

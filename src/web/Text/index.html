@@ -1341,12 +1341,74 @@ function onRichKeydown(e){
     if (e.key === "Backspace" && backspaceAtBlockStart()){ e.preventDefault(); return; }
     if ((e.key === "Backspace" || e.key === "Delete") && deleteInCode(e.key === "Delete")){ e.preventDefault(); return; }
     if (e.key === "ArrowDown" && !e.shiftKey && exitCodeBlockDown()){ e.preventDefault(); return; }
+    if (e.key === "ArrowRight" && !e.shiftKey && escapeInlineMark()){ e.preventDefault(); return; }
     if (e.key === "Enter" && activeCodeBlock()){ e.preventDefault(); insertNewlineInCode(); return; }
     if (e.key === " "){
         if (blockTransformOnSpace()) e.preventDefault();
     } else if (e.key === "Enter"){
-        if (blockTransformOnEnter()) e.preventDefault();
+        if (blockTransformOnEnter()){ e.preventDefault(); return; }
+        // Enter at the very end of a block while still inside `code` / **bold**
+        // / … : step out of the marks first, so the browser's native paragraph
+        // split does not carry the formatting onto the new line
+        var eb = currentBlock() || rich;
+        if (!e.shiftKey && eb.tagName !== "PRE" && textAfterCaret(eb).replace(/​/g, "") === ""){
+            var escaped = false;
+            while (escapeInlineMark()) escaped = true;
+            // the spacer at the line end makes the browser pad the line it
+            // leaves behind with a placeholder <br>, which would save as a
+            // trailing hard break: drop it once the split is done
+            if (escaped && eb !== rich) setTimeout(function(){ dropPlaceholderBr(eb); }, 0);
+        }
     }
+}
+
+function dropPlaceholderBr(block){
+    if (!rich.contains(block)) return;
+    var last = block.lastChild;
+    if (!last || last.nodeName !== "BR") return;
+    if (block.textContent.replace(/​/g, "").trim() === "") return;   // an empty line needs it
+    block.removeChild(last);
+}
+
+// ── Leaving inline marks with the Right arrow ───────────────────────────
+// At the end of an inline mark (`code`, **bold**, *italic*, ~~strike~~, a
+// link, …) the caret is still inside the element, and when nothing follows it
+// in the block the browser has nowhere to move it — so everything typed keeps
+// the formatting. Right then steps out one level instead: the caret moves to a
+// zero-width spacer placed right after the element (the same spacer
+// applyInline() leaves), which serialization strips again.
+var INLINE_MARK_TAGS = /^(STRONG|B|EM|I|DEL|S|STRIKE|CODE|A|U|MARK|SUB|SUP)$/;
+function escapeInlineMark(){
+    var sel = getSel();
+    if (!sel.rangeCount || !sel.isCollapsed) return false;
+    // loose text typed straight into the editor has no block: the editor
+    // itself is then the boundary
+    var block = currentBlock() || rich;
+    if (block.tagName === "PRE" || activeCodeBlock()) return false;
+    if (!rich.contains(sel.anchorNode)) return false;
+    var n = sel.getRangeAt(0).startContainer;
+    if (n.nodeType === 3) n = n.parentNode;
+    var el = null;
+    while (n && n !== block && n !== rich){
+        if (n.nodeType === 1 && INLINE_MARK_TAGS.test(n.tagName)){ el = n; break; }
+        n = n.parentNode;
+    }
+    if (!el) return false;
+    if (textAfterCaret(el).replace(/​/g, "") !== "") return false;   // not at its end yet
+    // a link's editable "](url)" mark sits right after it: step past that too
+    var ref = el;
+    var nx = ref.nextSibling;
+    if (nx && nx.nodeType === 1 && nx.classList && nx.classList.contains("md-linksyn")) ref = nx;
+    var spacer = ref.nextSibling;
+    if (!(spacer && spacer.nodeType === 3 && spacer.data.charAt(0) === "​")){
+        spacer = document.createTextNode("​");
+        ref.parentNode.insertBefore(spacer, ref.nextSibling);
+    }
+    var r = document.createRange();
+    r.setStart(spacer, 1); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+    updateToolbarState();
+    return true;
 }
 
 // caret sits at the very start of the block (ignoring the ZWSP spacer)?
@@ -2260,7 +2322,7 @@ function syncImgFromSyn(syn){
         img.removeAttribute("data-rel");
         img.setAttribute("src", rawSrc);
     } else {
-        var rel = rawSrc.replace(/^\.?\/+/, "");
+        var rel = decodeRel(rawSrc);
         img.setAttribute("data-rel", rel);
         img.setAttribute("src", filepath ? mediaURLFor(rel) : rel);
     }
@@ -2395,6 +2457,15 @@ function docName(){
 function relDir(){
     return settings.imgDir.replace(/\{name\}/g, docName()).replace(/^\.?\/+/, "");
 }
+// a markdown image destination is a URL: the parser hands back a path with
+// spaces as "%20" (and a hand-typed one may carry escapes too), while files
+// are looked up by their real name. Without this a reopened image under
+// "img/Hello World/" was requested as "Hello%2520World" and never loaded.
+function decodeRel(rel){
+    rel = (rel || "").replace(/^\.?\/+/, "");
+    if (rel.indexOf("%") < 0) return rel;
+    try { return decodeURIComponent(rel); } catch(e){ return rel; }   // a literal "%" in a name
+}
 function mediaURLFor(rel){
     rel = rel.replace(/^\.?\/+/, "");
     return ao_root + "media?file=" + encodeURIComponent(docDir() + "/" + rel);
@@ -2404,7 +2475,7 @@ function rewriteImageSrcs(root){
     $(root).find("img").each(function(){
         var src = this.getAttribute("src") || "";
         if (/^(https?:|data:|blob:)/i.test(src) || src.indexOf("media?file=") >= 0) return;
-        var rel = src.replace(/^\.?\/+/, "");
+        var rel = decodeRel(src);
         this.setAttribute("data-rel", rel);
         this.setAttribute("src", mediaURLFor(rel));
     });
@@ -2673,7 +2744,7 @@ function collectDocImages(){
     var seen = {}, out = [];
     function add(p){
         if (!p) return;
-        p = p.replace(/^\.?\/+/, "");
+        p = decodeRel(p);
         if (/^(https?:|data:)/i.test(p) || p.indexOf("media?file=") >= 0) return;
         if (!seen[p]){ seen[p] = 1; out.push(p); }
     }

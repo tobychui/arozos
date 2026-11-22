@@ -185,19 +185,9 @@ func FileSystemInit() {
 		SupportEmb:  false,
 	})
 
-	//Register the Trashbin module
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "Trash Bin",
-		Group:        "System Tools",
-		IconPath:     "SystemAO/file_system/trashbin_img/small_icon.png",
-		Version:      "1.0",
-		StartDir:     "SystemAO/file_system/trashbin.html",
-		SupportFW:    true,
-		InitFWSize:   []int{400, 200},
-		LaunchFWDir:  "SystemAO/file_system/trashbin.html",
-		SupportEmb:   false,
-		SupportedExt: []string{"*"},
-	})
+	//The trash bin is a view of the File Manager (js/explorer/trash.js) and the
+	//dock's trash; the old "Trash Bin" app is gone. Desktop shortcuts made for
+	//it still open that view (openModule in web/script/desktop/launch.js).
 
 	//Register the Zip Extractor module
 	moduleHandler.RegisterModule(module.ModuleInfo{
