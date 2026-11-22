@@ -7,6 +7,21 @@
     #st-admin .st-sub { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ss-text-3); overflow-wrap: anywhere; }
     #st-admin .st-mono { font-family: var(--ss-mono); }
     #st-admin .fsp-table td.fsp-action .ss-btn { height: 24px; padding: 0 8px; font-size: 11.5px; }
+
+    /* Narrow windows (phones): the button column never wraps, so a long
+       device ID squeezed the name column to one letter. Stack every row. */
+    @container (max-width: 560px) {
+        #st-admin .fsp-table thead { display: none; }
+        #st-admin .fsp-table, #st-admin .fsp-table tbody, #st-admin .fsp-table tr, #st-admin .fsp-table td { display: block; width: 100%; }
+        #st-admin .fsp-table tr { padding: 8px 0; border-bottom: 1px solid var(--ss-border); }
+        #st-admin .fsp-table tr:last-child { border-bottom: none; }
+        #st-admin .fsp-table td { padding: 2px 0; border-bottom: none; }
+        #st-admin .fsp-table td.fsp-action { width: 100%; padding-top: 6px; text-align: left; white-space: normal; }
+        #st-admin .fsp-table td.fsp-action .ss-btn { margin: 0 4px 4px 0; }
+        /* The owner column loses its header, so show it as a small caption. */
+        #st-admin #st-all-devices td:first-child, #st-admin #st-all-folders td:first-child { font-size: 11.5px; color: var(--ss-text-3); }
+        #st-admin .fsp-table td:empty { display: none; }
+    }
 </style>
 
 <div id="st-admin" class="fsp">

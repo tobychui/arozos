@@ -26,6 +26,19 @@
     #st-user .ui.form { max-width: 560px; }
     #st-user .st-modes .field { margin-bottom: 8px !important; }
     #st-user .st-devices-pick .ui.checkbox { display: block; margin-bottom: 6px; }
+
+    /* Narrow windows (phones): the button column never wraps, so a long
+       device ID squeezed the name column to one letter. Stack every row. */
+    @container (max-width: 560px) {
+        #st-user .fsp-table thead { display: none; }
+        #st-user .fsp-table, #st-user .fsp-table tbody, #st-user .fsp-table tr, #st-user .fsp-table td { display: block; width: 100%; }
+        #st-user .fsp-table tr { padding: 8px 0; border-bottom: 1px solid var(--ss-border); }
+        #st-user .fsp-table tr:last-child { border-bottom: none; }
+        #st-user .fsp-table td { padding: 2px 0; border-bottom: none; }
+        #st-user .fsp-table td.fsp-action { width: 100%; padding-top: 6px; text-align: left; white-space: normal; }
+        #st-user .fsp-table td.fsp-action .ss-btn { margin: 0 4px 4px 0; }
+        #st-user .fsp-table td:empty { display: none; }
+    }
 </style>
 
 <div id="st-user" class="fsp">
