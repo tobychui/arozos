@@ -130,6 +130,29 @@ func TestEngineRunsSyncthingAsThePlanSays(t *testing.T) {
 		t.Errorf("local bytes = %d, %v", bytes, ok)
 	}
 
+	//A restart stops the folder and starts it again, and leaves the
+	//configuration as it was
+	waitFor(t, "the rescan to finish", 60*time.Second, func() bool {
+		return eng.FolderStatus("abcde-fghij").State == "idle"
+	})
+	before = eng.cfg.RawCopy()
+	changed := eng.FolderStatus("abcde-fghij").Changed
+	//Syncthing reports state changes to the second
+	time.Sleep(time.Until(changed.Add(time.Second)) + 100*time.Millisecond)
+	if err := eng.RestartFolder("abcde-fghij"); err != nil {
+		t.Fatalf("restart folder: %v", err)
+	}
+	if after := eng.cfg.RawCopy(); !reflect.DeepEqual(before.Folders, after.Folders) {
+		t.Errorf("restarting the folder changed its configuration")
+	}
+	waitFor(t, "the restarted folder to be idle again", 60*time.Second, func() bool {
+		st := eng.FolderStatus("abcde-fghij")
+		return st.State == "idle" && st.Changed.After(changed)
+	})
+	if err := eng.RestartFolder("no-such-folder"); err == nil {
+		t.Errorf("restarting a folder Syncthing does not have did not fail")
+	}
+
 	//Changes reach Syncthing
 	p.Folders[0].Mode = ModeTwoWay
 	p.Folders[0].VersionDays = 0

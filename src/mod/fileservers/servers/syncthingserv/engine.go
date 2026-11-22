@@ -46,6 +46,9 @@ type engine interface {
 	//Offers lists the folders a device wants to share with the server
 	Offers(deviceID string) []Offer
 	Rescan(folderID string) error
+	//RestartFolder stops a folder and starts it again, like pausing and
+	//resuming it, which gives up the requests a device never answered
+	RestartFolder(folderID string) error
 	//LocalBytes is the size of a folder as Syncthing counts it
 	LocalBytes(folderID string) (int64, bool)
 	//UnknownDevices tried to connect but nobody added them
@@ -62,6 +65,7 @@ type FolderStatus struct {
 	GlobalBytes int64
 	NeedFiles   int
 	NeedBytes   int64
+	PulledBytes int64 //What arrived of the files being pulled right now
 	Changed     time.Time
 }
 

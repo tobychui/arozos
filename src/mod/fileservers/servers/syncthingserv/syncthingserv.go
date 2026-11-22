@@ -74,6 +74,7 @@ type Manager struct {
 	result    planResult
 	lastPath  map[string]string
 	quotas    map[string]quotaWatch
+	stalls    *stallWatch
 }
 
 // NewManager prepares the manager and starts Syncthing if it was left on.
@@ -95,6 +96,7 @@ func NewManager(opt *ManagerOption) (*Manager, error) {
 		eng:      eng,
 		lastPath: map[string]string{},
 		quotas:   map[string]quotaWatch{},
+		stalls:   newStallWatch(),
 		result: planResult{
 			DeviceReasons: map[string]Reason{},
 			FolderReasons: map[string]Reason{},
@@ -189,6 +191,7 @@ func (m *Manager) startLocked() error {
 	}
 	m.running = true
 	m.result = result
+	m.stalls = newStallWatch()
 	m.gen++
 	m.quit = make(chan struct{})
 	go m.loop(m.gen, m.quit)
@@ -208,10 +211,13 @@ func (m *Manager) stopLocked() {
 }
 
 // loop applies the records again once a minute, which notices users who
-// lost their access, full quotas, and drives that went away.
+// lost their access, full quotas, and drives that went away, and restarts
+// folders that stopped receiving while syncing (watchdog.go).
 func (m *Manager) loop(gen int, quit chan struct{}) {
 	ticker := time.NewTicker(reconcileInterval)
 	defer ticker.Stop()
+	stalls := time.NewTicker(stallCheckInterval)
+	defer stalls.Stop()
 	for {
 		select {
 		case <-quit:
@@ -220,6 +226,12 @@ func (m *Manager) loop(gen int, quit chan struct{}) {
 			m.mu.Lock()
 			if m.running && m.gen == gen {
 				m.applyLocked()
+			}
+			m.mu.Unlock()
+		case <-stalls.C:
+			m.mu.Lock()
+			if m.running && m.gen == gen {
+				m.checkStallsLocked(time.Now())
 			}
 			m.mu.Unlock()
 		}

@@ -25,6 +25,8 @@ type fakeEngine struct {
 	applied  []plan
 	offers   map[string][]Offer
 	bytes    map[string]int64
+	status   map[string]FolderStatus
+	restarts []string
 	startErr error
 }
 
@@ -61,7 +63,14 @@ func (e *fakeEngine) ParseDeviceID(s string) (string, error) {
 	}
 	return s, nil
 }
-func (e *fakeEngine) FolderStatus(id string) FolderStatus { return FolderStatus{State: "idle"} }
+func (e *fakeEngine) FolderStatus(id string) FolderStatus {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if st, ok := e.status[id]; ok {
+		return st
+	}
+	return FolderStatus{State: "idle"}
+}
 func (e *fakeEngine) DeviceStatus(id string) DeviceStatus { return DeviceStatus{} }
 func (e *fakeEngine) Offers(deviceID string) []Offer {
 	e.mu.Lock()
@@ -69,6 +78,12 @@ func (e *fakeEngine) Offers(deviceID string) []Offer {
 	return e.offers[deviceID]
 }
 func (e *fakeEngine) Rescan(folderID string) error { return nil }
+func (e *fakeEngine) RestartFolder(folderID string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.restarts = append(e.restarts, folderID)
+	return nil
+}
 func (e *fakeEngine) LocalBytes(folderID string) (int64, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -106,7 +121,7 @@ func newEnv(t *testing.T) *testEnv {
 		t.Fatalf("database: %v", err)
 	}
 	t.Cleanup(db.Close)
-	env := &testEnv{eng: &fakeEngine{offers: map[string][]Offer{}, bytes: map[string]int64{}}, db: db, root: filepath.Join(dir, "drives"), password: true}
+	env := &testEnv{eng: &fakeEngine{offers: map[string][]Offer{}, bytes: map[string]int64{}, status: map[string]FolderStatus{}}, db: db, root: filepath.Join(dir, "drives"), password: true}
 	groups := map[string][]string{"alice": {"administrator"}, "bob": {"family"}, "carol": {"guests"}}
 	opt := &ManagerOption{
 		Sysdb:    db,

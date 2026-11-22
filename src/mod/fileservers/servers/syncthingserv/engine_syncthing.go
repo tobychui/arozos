@@ -244,6 +244,7 @@ func (e *stEngine) FolderStatus(id string) FolderStatus {
 	if need, err := in.NeedSize(id, protocol.LocalDeviceID); err == nil {
 		status.NeedFiles, status.NeedBytes = need.Files+need.Deleted, need.Bytes
 	}
+	status.PulledBytes = in.FolderProgressBytesCompleted(id)
 	return status
 }
 
@@ -298,6 +299,41 @@ func (e *stEngine) Rescan(folderID string) error {
 		return errors.New("Syncthing is not running")
 	}
 	return in.ScanFolderSubdirs(folderID, nil)
+}
+
+// RestartFolder pauses a folder and resumes it. Syncthing only gives up a
+// block request when the folder stops, and has no restart of its own short
+// of a configuration change. Should the resume fail, the next applyConfig
+// unpauses the folder again.
+func (e *stEngine) RestartFolder(folderID string) error {
+	e.mu.Lock()
+	wrapper := e.cfg
+	e.mu.Unlock()
+	if wrapper == nil {
+		return errors.New("Syncthing is not running")
+	}
+	f, ok := wrapper.Folder(folderID)
+	if !ok {
+		return errors.New("no such folder")
+	}
+	if f.Paused {
+		return nil
+	}
+	for _, paused := range []bool{true, false} {
+		waiter, err := wrapper.Modify(func(c *config.Configuration) {
+			for i := range c.Folders {
+				if c.Folders[i].ID == folderID {
+					c.Folders[i].Paused = paused
+				}
+			}
+		})
+		if err != nil {
+			return err
+		}
+		//Returns once the folder stopped, or started again
+		waiter.Wait()
+	}
+	return nil
 }
 
 func (e *stEngine) LocalBytes(folderID string) (int64, bool) {
