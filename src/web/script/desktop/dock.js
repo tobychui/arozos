@@ -858,23 +858,45 @@ function dockSetTrashFull(full){
     $("#contextmenu .item.emptyTrash").toggleClass("disabled", !full);
 }
 
-//Delete everything in the trash for good, after the user confirmed it
+//Delete everything in the trash for good (the user confirmed it in the trash menu)
 function dockEmptyTrash(){
-    ssConfirm({
-        title: applocale.getString("dock/emptyTrash/title", "Empty the trash bin?"),
-        text: applocale.getString("dock/emptyTrash/text", "Everything in the trash bin is deleted permanently. This cannot be undone."),
-        confirmLabel: lcontex("Empty Trash Bin"),
-        danger: true
-    }, function(){
-        $.get("system/file_system/clearTrash", function(data){
-            if (data && data.error !== undefined){
-                ssAlert({title: lcontex("Empty Trash Bin"), text: data.error});
-            }
-            dockRefreshTrash();
-        }).fail(function(){
-            dockRefreshTrash();
-        });
+    $.get("system/file_system/clearTrash", function(data){
+        if (data && data.error !== undefined){
+            ssAlert({title: lcontex("Empty Trash Bin"), text: data.error});
+        }
+        dockRefreshTrash();
+    }).fail(function(){
+        dockRefreshTrash();
     });
+}
+
+/*
+    Ask before emptying the trash inside the trash menu itself, instead of a
+    dialog in the middle of the screen: the confirm row opens right where the
+    pointer already is. The menu stays anchored above the trash icon.
+    fromKeyboard puts the keyboard focus on Cancel, the safe choice.
+*/
+var dockEmptyTrashAskedAt = 0;
+function dockShowEmptyTrashConfirm(fromKeyboard){
+    var menu = $("#contextmenu");
+    dockEmptyTrashAskedAt = Date.now();
+    contextMenuHideSub();
+    menu.empty();
+    var ask = $('<div class="menuConfirm"></div>');
+    ask.append($('<div class="menuConfirmTitle"></div>').text(applocale.getString("dock/emptyTrash/title", "Empty the trash bin?")));
+    ask.append($('<div class="menuConfirmText"></div>').text(applocale.getString("dock/emptyTrash/text", "Everything in the trash bin is deleted permanently. This cannot be undone.")));
+    menu.append(ask);
+    addContextMenuSeperator(menu);
+    var cancel = addContextMenuItem(menu, escapeNotificationText(applocale.getString("dock/emptyTrash/cancel", "Cancel")), undefined, "dockMenuCancelEmptyTrash", false);
+    addContextMenuItem(menu, lcontex("Empty Trash Bin"), undefined, "dockMenuConfirmEmptyTrash", false, {
+        danger: true,
+        disabled: !$("#dockTrash").hasClass("full")
+    }).addClass("emptyTrash");
+    contextMenuRefreshLayout(menu);
+    dockPlaceContextMenu($("#dockTrash"));
+    if (fromKeyboard){
+        contextMenuSetHot(cancel[0]);
+    }
 }
 
 /*
@@ -1054,6 +1076,8 @@ function dockMenuPinApp(target, event){
 //Put the open context menu above a dock item, centred on it
 function dockPlaceContextMenu(item){
     var menu = $("#contextmenu");
+    //Measure away from the screen edge: there wrapping text makes the menu taller
+    menu.css({left: 0, top: 0});
     var itemRect = $(item)[0].getBoundingClientRect();
     var dockTop = $("#navimenu")[0].getBoundingClientRect().top;
     var left = itemRect.left + itemRect.width / 2 - menu.outerWidth() / 2;
@@ -1100,8 +1124,23 @@ function dockMenuOpenTrash(target, event){
 }
 
 function dockMenuEmptyTrash(target, event){
+    //A click carries a pointer position, Enter on the row does not
+    var fromKeyboard = event == undefined || event.detail === 0;
+    dockShowEmptyTrashConfirm(fromKeyboard);
+}
+
+function dockMenuConfirmEmptyTrash(target, event){
+    //The confirm row opens under the pointer: the second click of a double
+    //click on Empty Trash Bin must not answer the question
+    if ((event && event.detail > 1) || Date.now() - dockEmptyTrashAskedAt < 400){
+        return;
+    }
     hideAllContextMenus();
     dockEmptyTrash();
+}
+
+function dockMenuCancelEmptyTrash(target, event){
+    hideAllContextMenus();
 }
 
 /*

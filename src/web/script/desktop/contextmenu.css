@@ -149,6 +149,25 @@
     color: var(--dt-text-muted);
 }
 
+/* A question asked inside the menu (the dock trash: Empty Trash Bin) */
+#contextmenu .menuConfirm {
+    max-width: 260px;
+    padding: 6px 10px 4px 10px;
+    white-space: normal;
+}
+
+#contextmenu .menuConfirmTitle {
+    font-weight: 600;
+    color: var(--dt-text);
+}
+
+#contextmenu .menuConfirmText {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--dt-text-muted);
+}
+
 #contextmenu .menuDivider,
 #subcontextmenu .menuDivider {
     height: 1px;

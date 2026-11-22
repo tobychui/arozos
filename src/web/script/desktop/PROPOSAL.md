@@ -111,8 +111,8 @@ As built in phase 1:
   lift and a name tooltip.
 - **Right click** on a dock icon: its windows, *New Window* (or *Open*),
   *Keep in Dock* / *Remove from Dock*, *Close* / *Close All*; the menu opens
-  above the dock. The trash has *Open* and *Empty Trash Bin* (confirmed in
-  an in-page dialog, greyed out while the trash is empty).
+  above the dock. The trash has *Open* and *Empty Trash Bin* (confirmed inside
+  the trash menu itself, greyed out while the trash is empty).
 - **Tray** (D1), a smaller capsule at the bottom right: background tasks, a
   server icon and the clock (notifications and calendar). The server icon
   opens the quick access panel (section 5): server status, quick settings

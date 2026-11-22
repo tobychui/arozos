@@ -154,6 +154,7 @@
                 "tray/tasks": "背景任務",
                 "dock/emptyTrash/title": "要清空垃圾箱嗎？",
                 "dock/emptyTrash/text": "垃圾箱中的所有項目將被永久刪除，且無法復原。",
+                "dock/emptyTrash/cancel": "取消",
                 "": ""
             },
             "placeholder": {
@@ -312,6 +313,7 @@
                 "tray/tasks": "背景任務",
                 "dock/emptyTrash/title": "要清空垃圾箱嗎？",
                 "dock/emptyTrash/text": "垃圾箱中的所有項目將被永久刪除，且無法復原。",
+                "dock/emptyTrash/cancel": "取消",
                 "": ""
             },
             "placeholder": {
@@ -470,6 +472,7 @@
                 "tray/tasks": "后台任务",
                 "dock/emptyTrash/title": "要清空回收站吗？",
                 "dock/emptyTrash/text": "回收站中的所有项目将被永久删除，且无法恢复。",
+                "dock/emptyTrash/cancel": "取消",
                 "": ""
             },
             "placeholder": {
@@ -629,6 +632,7 @@
                 "tray/tasks": "Background tasks",
                 "dock/emptyTrash/title": "Empty the trash bin?",
                 "dock/emptyTrash/text": "Everything in the trash bin is deleted permanently. This cannot be undone.",
+                "dock/emptyTrash/cancel": "Cancel",
                 "": ""
             },
             "placeholder": {
@@ -788,6 +792,7 @@
                 "tray/tasks": "バックグラウンドタスク",
                 "dock/emptyTrash/title": "ごみ箱を空にしますか？",
                 "dock/emptyTrash/text": "ごみ箱の項目はすべて完全に削除されます。この操作は元に戻せません。",
+                "dock/emptyTrash/cancel": "キャンセル",
                 "": ""
             },
             "placeholder": {
@@ -947,6 +952,7 @@
                 "tray/tasks": "백그라운드 작업",
                 "dock/emptyTrash/title": "휴지통을 비우시겠습니까?",
                 "dock/emptyTrash/text": "휴지통의 모든 항목이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+                "dock/emptyTrash/cancel": "취소",
                 "": ""
             },
             "placeholder": {
