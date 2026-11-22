@@ -5,6 +5,8 @@
 // There is one endpoint for every user. A request names its user in the
 // Username header and signs in with that user's sync password (or, if the
 // user chose so, their login password) as Authorization: Bearer <password>.
+// Behind a proxy that removes or replaces Authorization, the X-User-Name and
+// X-User-Cred headers carry the same, the password alone.
 // Each user picks the folder of their drives uploads go to, whether they are
 // sorted into type folders (Photo, Video, ...) and date folders (2026,
 // 2026_08 or 2026/08, by the date the file was taken or the upload date),

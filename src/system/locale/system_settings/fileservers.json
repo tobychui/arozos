@@ -517,7 +517,8 @@
                 "fileservers/syncserver/revoke_title": "為此使用者關閉",
                 "fileservers/syncserver/revoke_confirm": "在 {user} 重新開啟同步伺服器之前，其上傳都會被拒絕。其檔案會保留。",
                 "fileservers/syncserver/not_allowed": "已不在允許的群組中",
-                "fileservers/syncserver/never": "從未"
+                "fileservers/syncserver/never": "從未",
+                "fileservers/syncserver/headers_alt": "若伺服器位於 Cloudflare Access、通道或其他會移除或取代 Authorization 標題的代理之後，請改為傳送 X-User-Name（你的使用者名稱）及 X-User-Cred（只填密碼，不加 Bearer）。"
             },
             "titles": {},
             "placeholder": {}
@@ -1037,7 +1038,8 @@
                 "fileservers/syncserver/revoke_title": "為此用戶關閉",
                 "fileservers/syncserver/revoke_confirm": "在 {user} 重新開啟同步伺服器之前，其上傳都會被拒絕。其檔案會保留。",
                 "fileservers/syncserver/not_allowed": "已不在允許的群組中",
-                "fileservers/syncserver/never": "從未"
+                "fileservers/syncserver/never": "從未",
+                "fileservers/syncserver/headers_alt": "若伺服器位於 Cloudflare Access、通道或其他會移除或取代 Authorization 標題的代理之後，請改為傳送 X-User-Name（你的用戶名稱）及 X-User-Cred（只填密碼，不加 Bearer）。"
             },
             "titles": {},
             "placeholder": {}
@@ -1556,7 +1558,8 @@
                 "fileservers/syncserver/revoke_title": "为此用户关闭",
                 "fileservers/syncserver/revoke_confirm": "在 {user} 重新开启同步服务器之前，其上传都会被拒绝。其文件会保留。",
                 "fileservers/syncserver/not_allowed": "已不在允许的组中",
-                "fileservers/syncserver/never": "从未"
+                "fileservers/syncserver/never": "从未",
+                "fileservers/syncserver/headers_alt": "如果服务器位于 Cloudflare Access、隧道或其他会移除或替换 Authorization 请求头的代理之后，请改为发送 X-User-Name（你的用户名）和 X-User-Cred（只填密码，不加 Bearer）。"
             },
             "titles": {},
             "placeholder": {}
@@ -2076,7 +2079,8 @@
                 "fileservers/syncserver/revoke_title": "Turn off for this user",
                 "fileservers/syncserver/revoke_confirm": "Uploads of {user} are refused until they turn the sync server on again. Their files stay.",
                 "fileservers/syncserver/not_allowed": "No longer in an allowed group",
-                "fileservers/syncserver/never": "Never"
+                "fileservers/syncserver/never": "Never",
+                "fileservers/syncserver/headers_alt": "Behind Cloudflare Access, a tunnel or another proxy that removes or replaces the Authorization header, send X-User-Name with your user name and X-User-Cred with the password alone (without Bearer) instead."
             },
             "titles": {},
             "placeholder": {}
@@ -2596,7 +2600,8 @@
                 "fileservers/syncserver/revoke_title": "このユーザーでオフにする",
                 "fileservers/syncserver/revoke_confirm": "{user} が再びオンにするまで、そのアップロードは拒否されます。ファイルは残ります。",
                 "fileservers/syncserver/not_allowed": "許可されたグループに属していません",
-                "fileservers/syncserver/never": "なし"
+                "fileservers/syncserver/never": "なし",
+                "fileservers/syncserver/headers_alt": "Cloudflare Access、トンネル、または Authorization ヘッダを削除・置換するプロキシを経由する場合は、代わりに X-User-Name（ユーザー名）と X-User-Cred（Bearer を付けないパスワードのみ）を送ってください。"
             },
             "titles": {},
             "placeholder": {}
@@ -3116,7 +3121,8 @@
                 "fileservers/syncserver/revoke_title": "이 사용자에서 끄기",
                 "fileservers/syncserver/revoke_confirm": "{user}이(가) 다시 켤 때까지 업로드가 거부됩니다. 파일은 남습니다.",
                 "fileservers/syncserver/not_allowed": "허용된 그룹에 더 이상 속하지 않음",
-                "fileservers/syncserver/never": "없음"
+                "fileservers/syncserver/never": "없음",
+                "fileservers/syncserver/headers_alt": "Cloudflare Access, 터널 또는 Authorization 헤더를 제거하거나 바꾸는 프록시를 거치는 경우에는 대신 X-User-Name(사용자 이름)과 X-User-Cred(Bearer 없이 비밀번호만)를 보내세요."
             },
             "titles": {},
             "placeholder": {}

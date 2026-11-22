@@ -87,11 +87,17 @@ type incoming struct {
 	size        int64
 }
 
+// reply answers with JSON. < > & stay as they are: the answer is read by
+// people in the result view of a shortcut, never put into a page.
 func reply(w http.ResponseWriter, status int, value interface{}) {
-	js, _ := json.Marshal(value)
+	buf := &bytes.Buffer{}
+	encoder := json.NewEncoder(buf)
+	encoder.SetEscapeHTML(false)
+	encoder.Encode(value)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(status)
-	w.Write(js)
+	w.Write(bytes.TrimRight(buf.Bytes(), "\n"))
 }
 
 func replyError(w http.ResponseWriter, status int, text string) {
@@ -124,11 +130,11 @@ func (m *Manager) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	username, password := credentials(r)
 	if username == "" {
-		askForPassword(w, http.StatusUnauthorized, "Send your user name in the Username header")
+		askForPassword(w, http.StatusUnauthorized, "Send your user name in the Username header (or X-User-Name)")
 		return
 	}
 	if password == "" {
-		askForPassword(w, http.StatusUnauthorized, "Send your password in the Authorization header, as Bearer <password>")
+		askForPassword(w, http.StatusUnauthorized, "Send your password in the Authorization header, as Bearer <password>. If a proxy in front of the server removes that header, send the password alone in X-User-Cred")
 		return
 	}
 	now := time.Now()

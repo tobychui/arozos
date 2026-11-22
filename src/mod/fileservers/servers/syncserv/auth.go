@@ -38,16 +38,36 @@ func firstHeader(r *http.Request, names ...string) string {
 	return ""
 }
 
-// credentials reads the user name and password of an upload request.
-func credentials(r *http.Request) (string, string) {
-	if username, password, ok := r.BasicAuth(); ok {
-		return strings.TrimSpace(username), password
+// stripBearer drops a "Bearer " in front of a password.
+func stripBearer(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if len(value) > 7 && strings.EqualFold(value[:7], "bearer ") {
+		return strings.TrimSpace(value[7:]), true
 	}
-	username := firstHeader(r, "Username", "X-Username")
-	password := ""
-	auth := strings.TrimSpace(r.Header.Get("Authorization"))
-	if len(auth) > 7 && strings.EqualFold(auth[:7], "bearer ") {
-		password = strings.TrimSpace(auth[7:])
+	return value, false
+}
+
+// credentials reads the user name and password of an upload request.
+//
+// X-User-Name and X-User-Cred come first: a proxy in front of the server
+// (Cloudflare Access, a tunnel) may remove the Authorization header or put
+// its own in it, and these headers pass untouched. X-User-Cred holds the
+// password alone; a "Bearer " in front is tolerated.
+func credentials(r *http.Request) (string, string) {
+	username := firstHeader(r, "X-User-Name", "Username", "X-Username")
+	if cred := r.Header.Get("X-User-Cred"); strings.TrimSpace(cred) != "" {
+		password, _ := stripBearer(cred)
+		return username, password
+	}
+	if basicUser, basicPassword, ok := r.BasicAuth(); ok {
+		if strings.TrimSpace(basicUser) != "" {
+			username = strings.TrimSpace(basicUser)
+		}
+		return username, basicPassword
+	}
+	password, bearer := stripBearer(r.Header.Get("Authorization"))
+	if !bearer {
+		password = ""
 	}
 	return username, password
 }

@@ -69,6 +69,7 @@
                     <tr><td>Authorization</td><td><code>Bearer <span id="sy-h-pass"></span></code></td></tr>
                 </tbody>
             </table>
+            <div class="fsp-hint" locale="fileservers/syncserver/headers_alt">Behind Cloudflare Access, a tunnel or another proxy that removes or replaces the Authorization header, send X-User-Name with your user name and X-User-Cred with the password alone (without Bearer) instead.</div>
             <div class="fsp-hint" locale="fileservers/syncserver/request_hint">Send the files with POST, as file fields of a form. An optional text field named date carries when the photo was taken (ISO 8601). Without it, the date is read from the file.</div>
 
             <div class="fsp-subtitle" locale="fileservers/syncserver/activity">Activity</div>
@@ -243,12 +244,22 @@
         if (!second) return first;
         return /[。！．]$/.test(first) ? first + second : first + ' ' + second;
     }
+    // Text of an element, written only when it changed, so the five-second
+    // refresh never touches what is already right
+    function setText(selector, text) {
+        var $el = $(selector);
+        if ($el.text() !== text) $el.text(text);
+    }
+    var shownState = '';
     function state(icon, text) {
+        if (shownState === icon + '|' + text) return;
+        shownState = icon + '|' + text;
         $('#sy-state').empty().append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
     }
 
     var status = null;
-    var formLoaded = false;
+    var layout = '';         // Which form is shown: '', 'setup' or 'on'
+    var shownActivity = '';
     var timer = null;
 
     /* Form */
@@ -439,7 +450,6 @@
             $.post(api('deactivate'), function (res) {
                 if (failed(res)) return ssAlert({ title: t('title', 'Sync Server'), text: res && res.error ? res.error : T('part/failed', 'The request failed.') });
                 $('#sy-saved-pw').prop('hidden', true);
-                formLoaded = false;
                 refresh();
             });
         });
@@ -458,6 +468,9 @@
     /* Status */
 
     function renderActivity(a) {
+        var key = JSON.stringify(a || {});
+        if (key === shownActivity) return;
+        shownActivity = key;
         var $box = $('#sy-activity').empty();
         if (!a || !a.Last) {
             $box.append($('<div></div>').text(t('no_activity', 'Nothing has been uploaded yet.')));
@@ -470,6 +483,29 @@
         }
         $box.append($('<div></div>').text(fill(t('totals', '{saved} saved, {skipped} skipped, {failed} failed in all'), { saved: a.Saved, skipped: a.Skipped, failed: a.Failed })));
         if (a.LastError) $box.append($('<div class="sy-error"></div>').text(a.LastError));
+    }
+
+    // Shows the setup form or the settings of an account that is on. Runs
+    // when that changes, not on every refresh, so the fields keep what is
+    // being typed.
+    function applyLayout(activated) {
+        var next = activated ? 'on' : 'setup';
+        if (layout === next) return;
+        layout = next;
+        $('#sy-connect, #sy-manage').prop('hidden', !activated);
+        if (activated) {
+            $('#sy-form-title').text(t('settings_title', 'Where uploads go'));
+            $('#sy-save-label').text(t('save', 'Save'));
+            closePasswordPanel();
+            $('#sy-pw-block').appendTo('#sy-pw-slot-panel');
+        } else {
+            $('#sy-form-title').text(t('setup_title', 'Turn it on for your account'));
+            $('#sy-save-label').text(t('turn_on', 'Turn on for my account'));
+            closePasswordPanel();
+            $('#sy-pw-block').appendTo('#sy-pw-slot-setup');
+            resetPasswordBlock('sync');
+        }
+        settingsOf(status.Settings);
     }
 
     function render() {
@@ -487,35 +523,20 @@
         } else {
             state('yellow info circle', sentences(t('state_inactive', 'The sync server is not on for your account yet. Pick a folder and a password below.'), limit));
         }
+        applyLayout(status.Activated);
 
         var url = window.location.origin + status.Path;
-        $('#sy-url').text(url);
+        setText('#sy-url', url);
         $('#sy-url-copy').attr('data-clipboard-text', url);
-        $('#sy-h-user').text(status.Username);
-        $('#sy-h-pass').text(status.Settings.LoginPassword ? t('your_login_password', '<your login password>') : t('your_sync_password', '<your sync password>'));
-
-        $('#sy-connect, #sy-manage').prop('hidden', !status.Activated);
+        setText('#sy-h-user', status.Username);
+        setText('#sy-h-pass', status.Settings.LoginPassword ? t('your_login_password', '<your login password>') : t('your_sync_password', '<your sync password>'));
         if (status.Activated) {
             renderActivity(status.Activity);
-            $('#sy-pw-state').text(status.Settings.LoginPassword
+            setText('#sy-pw-state', status.Settings.LoginPassword
                 ? t('pw_state_login', 'Uploads sign in with your ArozOS login password.')
                 : t('pw_state_sync', 'Uploads sign in with your sync password.'));
-            $('#sy-remembered').text(fill(t('remembered', '{count} file names received in the last 30 days are remembered.'), { count: status.Remembered }));
+            setText('#sy-remembered', fill(t('remembered', '{count} file names received in the last 30 days are remembered.'), { count: status.Remembered }));
             $('#sy-forget').prop('disabled', status.Remembered === 0);
-            $('#sy-form-title').text(t('settings_title', 'Where uploads go'));
-            $('#sy-save-label').text(t('save', 'Save'));
-            if ($('#sy-pw-panel').prop('hidden')) $('#sy-pw-block').appendTo('#sy-pw-slot-panel');
-        } else {
-            $('#sy-form-title').text(t('setup_title', 'Turn it on for your account'));
-            $('#sy-save-label').text(t('turn_on', 'Turn on for my account'));
-            $('#sy-pw-block').appendTo('#sy-pw-slot-setup');
-            closePasswordPanel();
-        }
-        //The form keeps what the user is typing over later refreshes
-        if (!formLoaded) {
-            settingsOf(status.Settings);
-            if (!status.Activated) resetPasswordBlock('sync');
-            formLoaded = true;
         }
     }
 

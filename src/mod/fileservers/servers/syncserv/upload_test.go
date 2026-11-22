@@ -764,6 +764,51 @@ func TestPruneSeen(t *testing.T) {
 	}
 }
 
+func TestCredentialsHeaders(t *testing.T) {
+	cases := []struct {
+		name               string
+		headers            map[string]string
+		wantUser, wantPass string
+	}{
+		{"username and bearer", map[string]string{"Username": "bob", "Authorization": "Bearer pw 1"}, "bob", "pw 1"},
+		{"x-username", map[string]string{"X-Username": "bob", "Authorization": "bearer pw"}, "bob", "pw"},
+		{"x-user-name and x-user-cred", map[string]string{"X-User-Name": "bob", "X-User-Cred": "pass word"}, "bob", "pass word"},
+		{"x-user-cred with bearer in front", map[string]string{"X-User-Name": "bob", "X-User-Cred": "Bearer pass"}, "bob", "pass"},
+		//A proxy put its own credential in Authorization: ours still wins
+		{"x-user-cred over a proxy's authorization", map[string]string{"X-User-Name": "bob", "X-User-Cred": "mine", "Authorization": "Bearer proxy-token"}, "bob", "mine"},
+		{"x-user-name wins over username", map[string]string{"X-User-Name": "bob", "Username": "other", "X-User-Cred": "pw"}, "bob", "pw"},
+		{"authorization without bearer", map[string]string{"Username": "bob", "Authorization": "pw"}, "bob", ""},
+		{"nothing", map[string]string{}, "", ""},
+	}
+	for _, c := range cases {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		for k, v := range c.headers {
+			r.Header.Set(k, v)
+		}
+		user, pass := credentials(r)
+		if user != c.wantUser || pass != c.wantPass {
+			t.Errorf("%s: got %q %q, want %q %q", c.name, user, pass, c.wantUser, c.wantPass)
+		}
+	}
+}
+
+func TestUploadWithProxyHeaders(t *testing.T) {
+	env := newTestEnv(t)
+	env.activate(t, "alice", DefaultSettings())
+	r := formRequest(t, []upFile{{"IMG_5.JPG", []byte("jpeg")}}, nil)
+	r.Header.Set("X-User-Name", "alice")
+	r.Header.Set("X-User-Cred", testSyncPassword)
+	r.Header.Set("Authorization", "Bearer some-proxy-token")
+	if w, _ := env.do(r); w.Code != http.StatusOK {
+		t.Errorf("X-User-Name and X-User-Cred: %d %s", w.Code, w.Body.String())
+	}
+	r = httptest.NewRequest(http.MethodGet, UploadPath, nil)
+	r.Header.Set("X-User-Name", "alice")
+	if w, _ := env.do(r); w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "X-User-Cred") {
+		t.Errorf("no password: %d %s", w.Code, w.Body.String())
+	}
+}
+
 func TestCredentialsBasicHeader(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("bob:pass word:with colon")))
