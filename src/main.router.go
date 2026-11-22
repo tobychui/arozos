@@ -250,7 +250,7 @@ func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Re
 }
 
 // serveDisabledModuleFolder answers a request for a file of a WebApp whose
-// modules are all disabled, and reports whether it did. The Setup Wizard goes
+// modules are all disabled, and reports whether it did. The Setup module goes
 // back to the startup interface once it is finished, other apps are not found.
 // Images stay reachable, so the module manager can still show the app's icon.
 func serveDisabledModuleFolder(w http.ResponseWriter, r *http.Request) bool {
@@ -265,7 +265,7 @@ func serveDisabledModuleFolder(w http.ResponseWriter, r *http.Request) bool {
 	case ".png", ".svg", ".jpg", ".jpeg", ".gif", ".webp", ".ico":
 		return false
 	}
-	if strings.EqualFold(folder, permission.SetupWizardModule) {
+	if strings.EqualFold(folder, setupWizardFolder) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return true
 	}

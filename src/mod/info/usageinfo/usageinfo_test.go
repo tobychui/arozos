@@ -2,7 +2,9 @@ package usageinfo
 
 import (
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
 
 // TestGetCPUUsage tests the top-level GetCPUUsage function.
@@ -257,5 +259,40 @@ func TestGetNumericRAMUsageDarwin(t *testing.T) {
 	}
 	if used > total {
 		t.Errorf("used=%d > total=%d", used, total)
+	}
+}
+
+// windowsCPUUsage measures over half a second without a recent sample, and
+// since the previous call otherwise
+func TestWindowsCPUUsage(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	for i := 0; i < 2; i++ {
+		start := time.Now()
+		usage := windowsCPUUsage()
+		took := time.Since(start)
+		if usage < 0 || usage > 100 {
+			t.Errorf("call %d: windowsCPUUsage = %v, want 0 to 100", i, usage)
+		}
+		if i == 1 && took > 100*time.Millisecond {
+			t.Errorf("second call took %v, want it to use the previous sample", took)
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+}
+
+// GetRAMUsage and GetNumericRAMUsage answer from the Win32 API on Windows
+func TestWindowsRAMUsage(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	used, total := GetNumericRAMUsage()
+	if total <= 0 || used <= 0 || used > total {
+		t.Errorf("GetNumericRAMUsage = %d, %d, want 0 < used <= total", used, total)
+	}
+	usedText, totalText, pct := GetRAMUsage()
+	if !strings.HasSuffix(usedText, " MB") || !strings.HasSuffix(totalText, " MB") || pct <= 0 || pct > 100 {
+		t.Errorf("GetRAMUsage = %q, %q, %v", usedText, totalText, pct)
 	}
 }

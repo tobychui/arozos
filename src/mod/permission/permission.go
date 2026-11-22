@@ -27,7 +27,7 @@ type PermissionGroup struct {
 // SetupWizardModule is the interface module the administrator group of a new
 // installation boots into. Finishing or skipping the wizard sets the group back
 // to a normal interface (see setupwizard.go in the main package).
-const SetupWizardModule = "Setup Wizard"
+const SetupWizardModule = "Setup"
 
 type PermissionHandler struct {
 	database         *db.Database
@@ -44,7 +44,7 @@ func NewPermissionHandler(database *db.Database) (*PermissionHandler, error) {
 
 	//Check if administrator permission group exists. If not, create one. That
 	//only happens on a new installation, whose first admin is then guided
-	//through the Setup Wizard. Upgraded systems keep their interface.
+	//through the Setup module. Upgraded systems keep their interface.
 	if !database.KeyExists("permission", "group/administrator") {
 		database.Write("permission", "group/administrator", "[\"*\"]")
 		database.Write("permission", "isadmin/administrator", "true")

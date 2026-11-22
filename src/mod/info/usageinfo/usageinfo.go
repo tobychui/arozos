@@ -6,6 +6,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
+
+	"imuslab.com/arozos/mod/info/wininfo"
 )
 
 /*
@@ -13,11 +17,14 @@ import (
 	author: tobychui
 
 	This module get the CPU information on different platform using
-	native terminal commands
+	native terminal commands. On Windows it asks the Win32 API instead
+	(mod/info/wininfo), so no child process shares the console ArozOS runs
+	in.
 */
 
 const query_cpuproc_command = "ps -eo pcpu,pid,user,args | sort -k 1 -r | head -10"
 const query_freemem_command = "top -d1 | sed '4q;d' | awk '{print $(NF-1)}'"
+
 // Sum of per-process %mem (0–100+), not a 0–1 fraction and not free memory.
 const query_freemem_command_darwin = "ps -A -o %mem | awk '{mem += $1} END {print mem}'"
 const query_phymem_command = "sysctl hw.physmem | awk '{print $NF}'"
@@ -44,17 +51,7 @@ func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) int64
 func GetCPUUsage() float64 {
 	usage := float64(0)
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("system/hardware/windows/getCPUload.exe")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			usage = 0
-		}
-		percentageOnly := strings.Split(string(out), " ")[0]
-		s, err := strconv.ParseFloat(percentageOnly, 64)
-		if err != nil {
-			usage = 0
-		}
-		usage = s
+		usage = windowsCPUUsage()
 	} else if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" || runtime.GOOS == "darwin" {
 		/*
 			Updated shortcut method
@@ -144,36 +141,11 @@ func GetNumericRAMUsage() (int64, int64) {
 	usedRam := int64(-1)
 	totalRam := int64(-1)
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("system/hardware/windows/RAMUsage.exe")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
+		m, err := wininfo.MemoryStatus()
+		if err != nil || m.Total == 0 {
 			return -1, -1
 		}
-		raminfo := strings.Split(strings.TrimSpace(string(out)), ",")
-		if len(raminfo) == 3 {
-
-			//The returned value is something like this
-			//7639 MB,16315 MB,0.468219429972418
-			tmp := strings.Split(raminfo[0], " ")[0]
-			used, err := strconv.ParseInt(tmp, 10, 64)
-			if err != nil {
-				return -1, -1
-			}
-
-			tmp = strings.Split(raminfo[1], " ")[0]
-			total, err := strconv.ParseInt(tmp, 10, 64)
-			if err != nil {
-				return -1, -1
-			}
-
-			usedRam = used * 1024 * 1024   //From MB to Bytes
-			totalRam = total * 1024 * 1024 //From MB to Bytes
-
-			return usedRam, totalRam
-		} else {
-			return -1, -1
-		}
-
+		return int64(m.Total - m.Available), int64(m.Total)
 	} else if runtime.GOOS == "linux" {
 		cmd := exec.Command("bash", "-c", "free -m | grep Mem:")
 		out, err := cmd.CombinedOutput()
@@ -278,25 +250,12 @@ func GetRAMUsage() (string, string, float64) {
 	totalRam := "Unknown"
 	usedPercentage := float64(0)
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("system/hardware/windows/RAMUsage.exe")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
+		m, err := wininfo.MemoryStatus()
+		if err != nil || m.Total == 0 {
 			return usedRam, totalRam, usedPercentage
 		}
-		raminfo := strings.Split(strings.TrimSpace(string(out)), ",")
-		if len(raminfo) == 3 {
-			usedRam = raminfo[0]
-			totalRam = raminfo[1]
-			s, err := strconv.ParseFloat(raminfo[2], 64)
-			if err != nil {
-				return usedRam, totalRam, usedPercentage
-			}
-			usedPercentage = s * float64(100)
-		} else {
-			return usedRam, totalRam, usedPercentage
-		}
-
-		return usedRam, totalRam, usedPercentage
+		used := m.Total - m.Available
+		return strconv.FormatUint(used>>20, 10) + " MB", strconv.FormatUint(m.Total>>20, 10) + " MB", float64(used) / float64(m.Total) * 100
 	} else if runtime.GOOS == "linux" {
 		cmd := exec.Command("bash", "-c", "free -m | grep Mem:")
 		out, err := cmd.CombinedOutput()
@@ -411,4 +370,36 @@ func GetRAMUsage() (string, string, float64) {
 	}
 
 	return usedRam, totalRam, usedPercentage
+}
+
+// windowsCPUSample is the last GetSystemTimes sample, so the load can be
+// measured since the previous call instead of waiting for a new interval
+var windowsCPUSample struct {
+	sync.Mutex
+	times wininfo.CPUTimes
+	at    time.Time
+	ok    bool
+}
+
+// windowsCPUUsage is the CPU load since the previous call. When there is no
+// recent sample (the first call, or calls too close together or too far
+// apart to mean much) it measures over half a second.
+func windowsCPUUsage() float64 {
+	windowsCPUSample.Lock()
+	defer windowsCPUSample.Unlock()
+	now, err := wininfo.SystemTimes()
+	if err != nil {
+		return 0
+	}
+	age := time.Since(windowsCPUSample.at)
+	prev := windowsCPUSample.times
+	if !windowsCPUSample.ok || age < 200*time.Millisecond || age > 10*time.Second {
+		prev = now
+		time.Sleep(500 * time.Millisecond)
+		if now, err = wininfo.SystemTimes(); err != nil {
+			return 0
+		}
+	}
+	windowsCPUSample.times, windowsCPUSample.at, windowsCPUSample.ok = now, time.Now(), true
+	return wininfo.CPULoad(prev, now)
 }

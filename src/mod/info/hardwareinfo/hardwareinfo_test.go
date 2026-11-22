@@ -165,12 +165,9 @@ func TestIfconfigHandler(t *testing.T) {
 	_ = w.Body.String()
 }
 
-// TestGetDriveStatHandler exercises GetDriveStat; skips when running as
-// an unprivileged user on non-Linux systems where df may not be available.
+// TestGetDriveStatHandler exercises GetDriveStat; df may not be available
+// to an unprivileged user on some Unix systems.
 func TestGetDriveStatHandler(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping GetDriveStat on Windows")
-	}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	GetDriveStat(w, req)
@@ -179,8 +176,8 @@ func TestGetDriveStatHandler(t *testing.T) {
 
 // TestGetUSBHandler exercises GetUSB; the hardware may not be present in CI.
 func TestGetUSBHandler(t *testing.T) {
-	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" && runtime.GOOS != "freebsd" {
-		t.Skip("skipping GetUSB on non-Unix platform")
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" && runtime.GOOS != "freebsd" && runtime.GOOS != "windows" {
+		t.Skip("GetUSB is not implemented on this platform")
 	}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
@@ -199,119 +196,23 @@ func TestGetRamInfoHandler(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// wmicGetinfo – Windows only (compile-guarded by build tags)
-// ---------------------------------------------------------------------------
-
-// TestWmicGetinfoNonWindows verifies that wmicGetinfo returns a default
-// "Undefined" slice when wmic/CIM are not available (i.e., non-Windows).
-func TestWmicGetinfoNonWindows(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping non-Windows wmic test on Windows")
-	}
-	result := wmicGetinfo("os", "Caption")
-	// On non-Windows, wmic/CIM don't apply; the function should return ["Undefined"]
-	if len(result) == 0 {
-		t.Error("wmicGetinfo() returned empty slice, expected at least one element")
-	}
-	if result[0] != "Undefined" {
-		t.Errorf("wmicGetinfo() = %v, want [Undefined] on non-Windows", result)
-	}
-}
-
-// TestWmicGetinfoWindowsOsCaption verifies hardware info works on modern
-// Windows 11 where wmic.exe is removed: CIM must still return OS Caption.
-func TestWmicGetinfoWindowsOsCaption(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("windows only")
-	}
-	result := wmicGetinfo("os", "Caption")
-	if len(result) == 0 || result[0] == "Undefined" || result[0] == "" {
-		t.Fatalf("wmicGetinfo(os, Caption) = %v, want a real OS caption (CIM fallback)", result)
-	}
-	if !strings.Contains(strings.ToLower(result[0]), "windows") {
-		t.Errorf("unexpected Caption %q, expected it to mention Windows", result[0])
-	}
-}
-
-// TestWmicGetinfoWindowsCpuAndDisk covers the other aliases used by
-// PrintSystemHardwareDebugMessage / sysinfo_window.go.
-func TestWmicGetinfoWindowsCpuAndDisk(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("windows only")
-	}
-	cpu := wmicGetinfo("cpu", "Name")
-	if len(cpu) == 0 || cpu[0] == "Undefined" || cpu[0] == "" {
-		t.Fatalf("wmicGetinfo(cpu, Name) = %v", cpu)
-	}
-	mem := wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")
-	if len(mem) == 0 || mem[0] == "Undefined" || mem[0] == "" {
-		t.Fatalf("wmicGetinfo(ComputerSystem, TotalPhysicalMemory) = %v", mem)
-	}
-	disk := wmicGetinfo("diskdrive", "Model")
-	if len(disk) == 0 || disk[0] == "Undefined" || disk[0] == "" {
-		t.Fatalf("wmicGetinfo(diskdrive, Model) = %v", disk)
-	}
-	win32 := wmicGetinfo("Win32_USBHub", "Description")
-	if len(win32) == 0 {
-		t.Fatalf("wmicGetinfo(Win32_USBHub, Description) returned empty")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// wmicGetinfoRows – grouped multi property query
-// ---------------------------------------------------------------------------
-
-// TestWmicGetinfoRowsShape verifies that every returned row carries exactly one
-// column per requested property, so callers can index them without bound
-// checks even when a device disappears mid-query.
-func TestWmicGetinfoRowsShape(t *testing.T) {
+func TestOrUndefined(t *testing.T) {
 	tests := []struct {
-		name      string
-		className string
-		items     []string
+		in   string
+		want string
 	}{
-		{"no items", "logicaldisk", nil},
-		{"single item", "logicaldisk", []string{"DeviceID"}},
-		{"drive stat", "logicaldisk", []string{"DeviceID", "FileSystem", "FreeSpace"}},
-		{"unknown class", "definitely_not_a_wmi_class", []string{"DeviceID"}},
+		{"AMD Ryzen 5 5600X 6-Core Processor", "AMD Ryzen 5 5600X 6-Core Processor"},
+		{"", "Undefined"},
+		{"   ", "Undefined"},
 	}
-
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rows := wmicGetinfoRows(tt.className, tt.items...)
-			if runtime.GOOS != "windows" && rows != nil {
-				t.Fatalf("wmicGetinfoRows() = %v, want nil on non-Windows", rows)
-			}
-			if len(tt.items) == 0 && rows != nil {
-				t.Fatalf("wmicGetinfoRows() = %v, want nil when no property is requested", rows)
-			}
-			for i, row := range rows {
-				if len(row) != len(tt.items) {
-					t.Errorf("row %d has %d columns, want %d", i, len(row), len(tt.items))
-				}
-			}
-		})
-	}
-}
-
-// TestWmicGetinfoRowsLogicalDisk checks that the logical disk query used by
-// GetDriveStat actually returns usable, aligned rows on Windows.
-func TestWmicGetinfoRowsLogicalDisk(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("windows only")
-	}
-	rows := wmicGetinfoRows("logicaldisk", "DeviceID", "FileSystem", "FreeSpace")
-	if len(rows) == 0 {
-		t.Fatal("wmicGetinfoRows(logicaldisk, ...) returned no row, want at least the system drive")
-	}
-	foundDriveLetter := false
-	for _, row := range rows {
-		if strings.Contains(row[0], ":") {
-			foundDriveLetter = true
+		if got := orUndefined(tt.in); got != tt.want {
+			t.Errorf("orUndefined(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
-	if !foundDriveLetter {
-		t.Errorf("no drive letter found in %v", rows)
-	}
+}
+
+// PrintSystemHardwareDebugMessage only logs; it must not panic on any platform
+func TestPrintSystemHardwareDebugMessage(t *testing.T) {
+	PrintSystemHardwareDebugMessage()
 }

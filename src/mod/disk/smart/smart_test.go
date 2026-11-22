@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"imuslab.com/arozos/mod/info/wininfo"
 )
 
 // TestGetBinary verifies getBinary returns expected paths per platform.
@@ -163,35 +165,6 @@ func TestNewSmartListenerUnsupported(t *testing.T) {
 	_, err := NewSmartListener()
 	if err == nil {
 		t.Error("expected error on unsupported platform, got nil")
-	}
-}
-
-// TestWmicGetinfoWindowsOnly runs wmic/CIM helper only on Windows.
-func TestWmicGetinfoWindowsOnly(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("wmicGetinfo is Windows-only")
-	}
-	result := wmicGetinfo("os", "Caption")
-	if len(result) == 0 {
-		t.Error("expected at least one result from wmicGetinfo")
-	}
-	if result[0] == "Undefined" || result[0] == "" {
-		t.Fatalf("wmicGetinfo(os, Caption) = %v; CIM fallback should return a real caption when wmic.exe is missing", result)
-	}
-}
-
-// TestWmicGetinfoWindowsDiskDrive covers the diskdrive Model/Size path used by fillCapacity.
-func TestWmicGetinfoWindowsDiskDrive(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("windows only")
-	}
-	models := wmicGetinfo("diskdrive", "Model")
-	if len(models) == 0 || models[0] == "Undefined" || models[0] == "" {
-		t.Fatalf("wmicGetinfo(diskdrive, Model) = %v", models)
-	}
-	sizes := wmicGetinfo("diskdrive", "Size")
-	if len(sizes) == 0 || sizes[0] == "Undefined" || sizes[0] == "" {
-		t.Fatalf("wmicGetinfo(diskdrive, Size) = %v", sizes)
 	}
 }
 
@@ -360,6 +333,9 @@ func TestScanAvailableDevicesEmptyOutput(t *testing.T) {
 // TestExecCommandSuccessfulBinary verifies execCommand returns non-empty output
 // for a command that succeeds (e.g. echo).
 func TestExecCommandSuccessfulBinary(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no echo binary in bin")
+	}
 	result := execCommand("/bin/echo", "hello")
 	if result == "" {
 		t.Error("expected non-empty result from /bin/echo")
@@ -377,49 +353,12 @@ func TestExecCommandReturnsOutputOnError(t *testing.T) {
 
 // TestExecCommandWithArgs verifies execCommand passes arguments correctly.
 func TestExecCommandWithArgs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no echo binary in bin")
+	}
 	result := execCommand("/bin/echo", "arg1", "arg2")
 	if result == "" {
 		t.Error("expected non-empty output from /bin/echo with args")
-	}
-}
-
-// TestWmicGetinfoNonWindows verifies wmicGetinfo on non-Windows runs without
-// panicking (wmic does not exist so wmic will fail gracefully).
-func TestWmicGetinfoNonWindows(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test only for non-Windows: wmic is not available")
-	}
-	// wmicGetinfo always returns a slice of at least one element; no panic.
-	result := wmicGetinfo("os", "Caption")
-	if len(result) == 0 {
-		t.Error("expected at least one element from wmicGetinfo (even on non-Windows)")
-	}
-	// On non-Windows, wmic doesn't exist --> result should be ["Undefined"]
-	if result[0] != "Undefined" {
-		t.Logf("wmicGetinfo returned %v (expected Undefined on non-Windows)", result)
-	}
-}
-
-// TestWmicGetinfoWin32Path verifies wmicGetinfo handles Win32_ prefix paths.
-func TestWmicGetinfoWin32Path(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("this test only covers non-Windows wmic stub path")
-	}
-	// Win32_ prefix triggers a different exec path; should not panic.
-	result := wmicGetinfo("Win32_DiskDrive", "Size")
-	if len(result) == 0 {
-		t.Error("expected at least one element")
-	}
-}
-
-// TestWmicGetinfoOsPath verifies wmicGetinfo handles "os" path specifically.
-func TestWmicGetinfoOsPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("this test only covers non-Windows wmic stub path")
-	}
-	result := wmicGetinfo("os", "Caption")
-	if len(result) == 0 {
-		t.Error("expected at least one element")
 	}
 }
 
@@ -675,32 +614,6 @@ func TestNewSmartListenerSmartExecField(t *testing.T) {
 	}
 }
 
-// TestWmicGetinfoWin32PrefixHandled verifies the Win32_ prefix branch is
-// exercised (even if wmic doesn't exist on non-Windows it should return
-// ["Undefined"] without panicking).
-func TestWmicGetinfoWin32PrefixHandled(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("live windows wmic tested elsewhere")
-	}
-	result := wmicGetinfo("Win32_DiskDrive", "Model")
-	if len(result) == 0 {
-		t.Error("expected at least one element from wmicGetinfo")
-	}
-}
-
-// TestWmicGetinfoShortName verifies a wmicName shorter than 6 chars doesn't
-// hit the Win32_ branch (no index-out-of-range panic).
-func TestWmicGetinfoShortName(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("live windows wmic tested elsewhere")
-	}
-	// "disk" is 4 chars, shorter than 6 — exercises the non-Win32_ path.
-	result := wmicGetinfo("disk", "Name")
-	if len(result) == 0 {
-		t.Error("expected at least one element")
-	}
-}
-
 // TestFillHealthyStatusPreservesExistingNormal verifies that a device whose
 // attributes are all "" for WhenFailed ends up as Normal at all levels.
 func TestFillHealthyStatusPreservesExistingNormal(t *testing.T) {
@@ -835,5 +748,38 @@ func TestScanAvailableDevicesFiltersCsmiDevice(t *testing.T) {
 		if strings.Contains(device.Name, "/dev/csmi") {
 			t.Errorf("csmi device was not filtered out: %s", device.Name)
 		}
+	}
+}
+
+// applyDiskCapacities fills only the devices smartctl gave no capacity, by
+// model name, ignoring the " SCSI Disk Device" suffix Intel drivers add
+func TestApplyDiskCapacities(t *testing.T) {
+	disks := []wininfo.PhysicalDisk{
+		{Model: "Samsung SSD 970 EVO 1TB", Size: 1000204886016},
+		{Model: "ST2000DM008-2FR102 SCSI Disk Device", Size: 2000398934016},
+		{Model: "Card Reader", Size: 0},
+	}
+	tests := []struct {
+		name  string
+		model string
+		have  int64
+		want  int64
+	}{
+		{name: "matched by model", model: "Samsung SSD 970 EVO 1TB", have: 0, want: 1000204886016},
+		{name: "intel suffix removed", model: "ST2000DM008-2FR102", have: 0, want: 2000398934016},
+		{name: "known capacity kept", model: "Samsung SSD 970 EVO 1TB", have: 42, want: 42},
+		{name: "unknown model", model: "Other Disk", have: 0, want: 0},
+		{name: "disk without size", model: "Card Reader", have: 0, want: 0},
+		{name: "empty model never matches", model: "", have: 0, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dl := buildDevicesList("", tt.model)
+			dl.Devices[0].Smart.UserCapacity.Bytes = tt.have
+			applyDiskCapacities(&dl, disks)
+			if got := dl.Devices[0].Smart.UserCapacity.Bytes; got != tt.want {
+				t.Errorf("capacity = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }

@@ -4,15 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Setup Wizard</title>
+    <title>Setup</title>
     <link rel="icon" type="image/svg+xml" href="img/module_icon.svg">
-    <link rel="stylesheet" href="css/wizard.css?v=1.0">
+    <link rel="stylesheet" href="css/wizard.css?v=1.1">
     <script>
-        //Apply a light or dark choice made with the toggle before the first paint
+        //Light unless the toggle picked dark, applied before the first paint
         try {
             var wzTheme = localStorage.getItem("aroz_setup_theme");
-            if (wzTheme === "light" || wzTheme === "dark") {
-                document.documentElement.setAttribute("data-theme", wzTheme);
+            if (wzTheme === "dark") {
+                document.documentElement.setAttribute("data-theme", "dark");
             }
         } catch (e) { }
     </script>
@@ -70,8 +70,9 @@
 
     <div class="wz-toast" id="wzToast" role="status"></div>
 
-    <script src="js/icons.js?v=1.0"></script>
-    <script src="js/core.js?v=1.0"></script>
+    <script src="js/icons.js?v=1.1"></script>
+    <script src="js/core.js?v=1.1"></script>
+    <script src="js/step.name.js?v=1.1"></script>
     <script src="js/step.welcome.js?v=1.0"></script>
     <script src="js/step.interface.js?v=1.0"></script>
     <script src="js/step.storage.js?v=1.0"></script>
@@ -79,7 +80,7 @@
     <script src="js/step.people.js?v=1.0"></script>
     <script src="js/step.accounts.js?v=1.0"></script>
     <script src="js/step.sharing.js?v=1.0"></script>
-    <script src="js/step.done.js?v=1.0"></script>
+    <script src="js/step.done.js?v=1.1"></script>
     <script>
         Wizard.start();
     </script>

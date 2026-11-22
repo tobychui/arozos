@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/info/wininfo"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -56,17 +55,33 @@ func NewInfoServer(a ArOZInfo) *Server {
 }
 
 /*
-PrintSystemHardwareDebugMessage print system information on Windows.
-Which is lagging but helpful for debugging wmic on Windows
+PrintSystemHardwareDebugMessage logs the Windows version, memory, processor
+and disks, read through the Win32 API (mod/info/wininfo). Other platforms
+log "Undefined".
 */
 func PrintSystemHardwareDebugMessage() {
-	logger.PrintAndLog("Hardwareinfo", "Windows Version: "+wmicGetinfo("os", "Caption")[0], nil)
-	logger.PrintAndLog("Hardwareinfo", "Total Memory: "+wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")[0]+"B", nil)
-	logger.PrintAndLog("Hardwareinfo", "Processor: "+wmicGetinfo("cpu", "Name")[0], nil)
-	logger.PrintAndLog("Hardwareinfo", "Following disk was detected:", nil)
-	for _, info := range wmicGetinfo("diskdrive", "Model") {
-		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(info), nil)
+	osName, _ := wininfo.OSName()
+	memory := "Undefined"
+	if m, err := wininfo.MemoryStatus(); err == nil {
+		memory = fmt.Sprint(m.Total) + "B"
 	}
+	processor, _ := wininfo.ProcessorInfo()
+	logger.PrintAndLog("Hardwareinfo", "Windows Version: "+orUndefined(osName), nil)
+	logger.PrintAndLog("Hardwareinfo", "Total Memory: "+memory, nil)
+	logger.PrintAndLog("Hardwareinfo", "Processor: "+orUndefined(processor.Name), nil)
+	logger.PrintAndLog("Hardwareinfo", "Following disk was detected:", nil)
+	disks, _ := wininfo.PhysicalDisks()
+	for _, disk := range disks {
+		logger.PrintAndLog("Hardwareinfo", orUndefined(disk.Model), nil)
+	}
+}
+
+// orUndefined is how the hardware pages show a value Windows did not report
+func orUndefined(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "Undefined"
+	}
+	return value
 }
 
 func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
@@ -88,100 +103,6 @@ func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(jsonData))
 }
 
-// wmicClassName maps classic `wmic` aliases to CIM / Win32 class names.
-func wmicClassName(wmicName string) string {
-	if len(wmicName) > 6 && wmicName[0:6] == "Win32_" {
-		return wmicName
-	}
-	switch strings.ToLower(wmicName) {
-	case "cpu":
-		return "Win32_Processor"
-	case "os":
-		return "Win32_OperatingSystem"
-	case "computersystem":
-		return "Win32_ComputerSystem"
-	case "diskdrive":
-		return "Win32_DiskDrive"
-	case "nic":
-		return "Win32_NetworkAdapter"
-	case "logicaldisk":
-		return "Win32_LogicalDisk"
-	case "memorychip":
-		return "Win32_PhysicalMemory"
-	default:
-		return "Win32_" + wmicName
-	}
-}
-
-// cimGetinfo reads a WMI property via PowerShell Get-CimInstance.
-// Modern Windows 11 (24H2+) no longer ships `wmic.exe` by default; CIM is the
-// supported replacement and exposes the same Win32_* properties.
-func cimGetinfo(wmicName string, itemName string) []string {
-	className := wmicClassName(wmicName)
-	psClass := strings.ReplaceAll(className, "'", "''")
-	psItem := strings.ReplaceAll(itemName, "'", "''")
-	script := fmt.Sprintf(
-		"Get-CimInstance -ClassName '%s' | ForEach-Object { $p = $_.PSObject.Properties['%s']; if ($null -ne $p -and $null -ne $p.Value) { [string]$p.Value } }",
-		psClass, psItem,
-	)
-	cmd := exec.Command("powershell.exe",
-		"-NoProfile",
-		"-NonInteractive",
-		"-WindowStyle", "Hidden",
-		"-ExecutionPolicy", "Bypass",
-		"-Command", script,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil
-	}
-	var info []string
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(strings.ReplaceAll(line, "\r", ""))
-		if line != "" {
-			info = append(info, line)
-		}
-	}
-	return info
-}
-
-// legacyWmicGetinfo keeps the original `wmic` path for older Windows hosts
-// that still ship the binary (pre-removal / optional Feature on Demand).
-func legacyWmicGetinfo(wmicName string, itemName string) []string {
-	var info []string
-
-	cmd := exec.Command("wmic", wmicName, "list", "full", "/format:list")
-	if wmicName == "os" {
-		cmd = exec.Command("wmic", wmicName, "get", "*", "/format:list")
-	}
-	if len(wmicName) > 6 && wmicName[0:6] == "Win32_" {
-		cmd = exec.Command("wmic", "path", wmicName, "get", "*", "/format:list")
-	}
-	out, _ := cmd.CombinedOutput()
-	for _, strConfig := range strings.Split(string(out), "\n") {
-		if strings.Contains(strConfig, "=") {
-			parts := strings.SplitN(strConfig, "=", 2)
-			if parts[0] == itemName {
-				info = append(info, strings.Replace(parts[1], "\r", "", -1))
-			}
-		}
-	}
-	return info
-}
-
-func wmicGetinfo(wmicName string, itemName string) []string {
-	if runtime.GOOS == "windows" {
-		// Prefer CIM: wmic.exe was removed from many Windows 11 installs.
-		if info := cimGetinfo(wmicName, itemName); len(info) > 0 {
-			return info
-		}
-		if info := legacyWmicGetinfo(wmicName, itemName); len(info) > 0 {
-			return info
-		}
-	}
-	return []string{"Undefined"}
-}
-
 func filterGrepResults(result string, sep string) string {
 	if strings.Contains(result, sep) == false {
 		return result
@@ -189,86 +110,4 @@ func filterGrepResults(result string, sep string) string {
 	tmp := strings.Split(result, sep)
 	resultString := tmp[1]
 	return strings.TrimSpace(resultString)
-}
-
-// cimGetinfoRows reads multiple WMI properties of the same class in a single
-// query, keeping the values of one instance together on one row. Properties
-// that are null (or missing on that instance) come back as an empty string so
-// every row always has len(itemNames) columns.
-func cimGetinfoRows(wmicName string, itemNames []string) [][]string {
-	className := wmicClassName(wmicName)
-	psClass := strings.ReplaceAll(className, "'", "''")
-	quotedItems := make([]string, 0, len(itemNames))
-	for _, itemName := range itemNames {
-		quotedItems = append(quotedItems, "'"+strings.ReplaceAll(itemName, "'", "''")+"'")
-	}
-	script := fmt.Sprintf(
-		"Get-CimInstance -ClassName '%s' | ForEach-Object { $o = $_; (@(%s) | ForEach-Object { $p = $o.PSObject.Properties[$_]; if ($null -ne $p -and $null -ne $p.Value) { [string]$p.Value } else { '' } }) -join \"`t\" }",
-		psClass, strings.Join(quotedItems, ","),
-	)
-	cmd := exec.Command("powershell.exe",
-		"-NoProfile",
-		"-NonInteractive",
-		"-WindowStyle", "Hidden",
-		"-ExecutionPolicy", "Bypass",
-		"-Command", script,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil
-	}
-	var rows [][]string
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.ReplaceAll(line, "\r", "")
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		cols := strings.Split(line, "\t")
-		if len(cols) != len(itemNames) {
-			//Unexpected output shape, discard this row instead of misaligning it
-			continue
-		}
-		for i := range cols {
-			cols[i] = strings.TrimSpace(cols[i])
-		}
-		rows = append(rows, cols)
-	}
-	return rows
-}
-
-/*
-wmicGetinfoRows returns the requested properties grouped per instance, so the
-caller never has to zip together separately queried slices. Querying each
-property on its own is racy: hardware can appear or disappear (e.g. a USB drive
-being unplugged) between two queries, and null values are skipped by CIM, both
-of which used to misalign the resulting slices.
-*/
-func wmicGetinfoRows(wmicName string, itemNames ...string) [][]string {
-	if len(itemNames) == 0 || runtime.GOOS != "windows" {
-		return nil
-	}
-	if rows := cimGetinfoRows(wmicName, itemNames); len(rows) > 0 {
-		return rows
-	}
-
-	//CIM unavailable, fall back to the legacy per-property wmic queries and
-	//trim everything down to the shortest result to stay in bounds.
-	columns := make([][]string, 0, len(itemNames))
-	shortest := -1
-	for _, itemName := range itemNames {
-		values := legacyWmicGetinfo(wmicName, itemName)
-		if shortest == -1 || len(values) < shortest {
-			shortest = len(values)
-		}
-		columns = append(columns, values)
-	}
-	var rows [][]string
-	for i := 0; i < shortest; i++ {
-		row := make([]string, 0, len(columns))
-		for _, column := range columns {
-			row = append(row, column[i])
-		}
-		rows = append(rows, row)
-	}
-	return rows
 }

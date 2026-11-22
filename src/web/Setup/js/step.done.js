@@ -53,6 +53,7 @@
                 '<h1 class="wz-title">' + esc(T("done/title", "You're all set")) + "</h1>" +
                 '<p class="wz-lead">' + esc(T("done/lead", "Here is how your server is set up. You can change any of it later in System Settings.")) + "</p>" +
                 '<div class="wz-summary">' +
+                item("server", T("done/name", "Server name"), W.state.hostname || "") +
                 item("desktop", T("done/interface", "Your workspace"), W.interfaceTitle(W.progress.interface)) +
                 item("disk", T("done/storage", "Storage"), local.length ? names(local) : T("done/storage/builtin", "Built-in storage (user:/)")) +
                 item("cloud", T("done/network", "Network drives"), network.length ? names(network) : T("done/none", "None")) +
@@ -63,7 +64,7 @@
                 item("share", T("done/sharing", "File sharing"), sharingText()) +
                 "</div>" +
                 '<div class="wz-note" style="margin-top:22px">' + W.icon("info") + "<div>" +
-                esc(T("done/note", "The Setup Wizard turns itself off when you finish. To run it again, switch it on in System Settings > Add & Remove Module and open it from there.")) +
+                esc(T("done/note", "Setup turns itself off when you finish. To run it again, switch Setup on in System Settings > Add & Remove Module and open it from there.")) +
                 "</div></div>";
             el.innerHTML = html;
         },

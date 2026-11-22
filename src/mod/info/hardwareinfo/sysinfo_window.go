@@ -10,93 +10,85 @@ import (
 	"strconv"
 
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/info/wininfo"
 	"imuslab.com/arozos/mod/utils"
 )
 
-func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
+/*
+	Host information on Windows
 
-	CPUInfo := CPUInfo{
-		Freq:        wmicGetinfo("cpu", "CurrentClockSpeed")[0],
+	Read through the Win32 API (mod/info/wininfo). These handlers used to ask
+	PowerShell or wmic, and a console program started by ArozOS shares its
+	console: PowerShell's -WindowStyle Hidden hid the window ArozOS was started
+	from. No child process is started here.
+*/
+
+func sendJSON(w http.ResponseWriter, value interface{}) {
+	jsonData, err := json.Marshal(value)
+	if err != nil {
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
+	}
+	utils.SendTextResponse(w, string(jsonData))
+}
+
+func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
+	info := CPUInfo{
+		Freq:        "Undefined",
 		Hardware:    "unknown",
-		Instruction: wmicGetinfo("cpu", "Caption")[0],
-		Model:       wmicGetinfo("cpu", "Name")[0],
+		Instruction: "Undefined",
+		Model:       "Undefined",
 		Revision:    "unknown",
 	}
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(CPUInfo)
-	if err != nil {
-		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
+	if p, err := wininfo.ProcessorInfo(); err == nil {
+		info.Model = orUndefined(p.Name)
+		info.Instruction = orUndefined(p.Identifier)
+		if p.MHz > 0 {
+			info.Freq = strconv.FormatUint(uint64(p.MHz), 10)
+		}
 	}
-	utils.SendTextResponse(w, string(jsonData))
+	sendJSON(w, info)
 }
 
+// Ifconfig lists the product names of the network adapters
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
-	var arr []string
-	for _, info := range wmicGetinfo("nic", "ProductName") {
-		arr = append(arr, info)
+	names := []string{}
+	adapters, _ := wininfo.NetAdapters()
+	for _, adapter := range adapters {
+		if !adapter.Loopback && adapter.Description != "" {
+			names = append(names, adapter.Description)
+		}
 	}
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(arr)
-	if err != nil {
-		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
-	}
-	utils.SendTextResponse(w, string(jsonData))
+	sendJSON(w, names)
 }
 
+// GetDriveStat lists the drive letters; a drive without a readable volume
+// has an empty file system and free space
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
-
-	//Query all three properties in one go, otherwise a drive appearing or
-	//disappearing (e.g. an USB drive being unplugged) in between the queries
-	//would misalign the results
-	var arr []LogicalDisk
-	for _, disk := range wmicGetinfoRows("logicaldisk", "DeviceID", "FileSystem", "FreeSpace") {
-		if disk[0] == "" {
-			//Drive without a device id, skip it
-			continue
+	drives := []LogicalDisk{}
+	disks, _ := wininfo.LogicalDisks()
+	for _, disk := range disks {
+		drive := LogicalDisk{DriveLetter: disk.Root, FileSystem: disk.FileSystem}
+		if disk.Ready {
+			drive.FreeSpace = strconv.FormatUint(disk.Free, 10)
 		}
-		LogicalDisk := LogicalDisk{
-			DriveLetter: disk[0],
-			FileSystem:  disk[1],
-			FreeSpace:   disk[2],
-		}
-		arr = append(arr, LogicalDisk)
+		drives = append(drives, drive)
 	}
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(arr)
-	if err != nil {
-		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
-	}
-	utils.SendTextResponse(w, string(jsonData))
+	sendJSON(w, drives)
 }
 
 func GetUSB(w http.ResponseWriter, r *http.Request) {
-	var arr []string
-	for _, info := range wmicGetinfo("Win32_USBHub", "Description") {
-		arr = append(arr, info)
+	devices, err := wininfo.USBDevices()
+	if err != nil || devices == nil {
+		devices = []string{}
 	}
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(arr)
-	if err != nil {
-		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
-	}
-	utils.SendTextResponse(w, string(jsonData))
+	sendJSON(w, devices)
 }
 
+// GetRamInfo is the installed memory in bytes
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
-	var RAMsize int = 0
-	for _, info := range wmicGetinfo("memorychip", "Capacity") {
-		DIMMCapacity, _ := strconv.Atoi(info)
-		RAMsize += DIMMCapacity
-	}
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(RAMsize)
+	installed, err := wininfo.InstalledMemory()
 	if err != nil {
-		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
+		installed = 0
 	}
-	utils.SendTextResponse(w, string(jsonData))
+	sendJSON(w, int64(installed))
 }

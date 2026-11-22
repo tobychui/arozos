@@ -586,7 +586,7 @@ func TestHandleGroupRemove_MissingGroupname(t *testing.T) {
 	}
 }
 
-// A new installation boots its administrators into the Setup Wizard, while a
+// A new installation boots its administrators into Setup, while a
 // system whose administrator group already exists keeps its interface.
 func TestNewPermissionHandler_FirstRunInterface(t *testing.T) {
 	tests := []struct {

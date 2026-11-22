@@ -19,7 +19,7 @@
   <rect x="18" y="117" width="26" height="4" rx="2" fill="#c9c9cf"/>
   <rect x="18" y="133" width="32" height="4" rx="2" fill="#c9c9cf"/>
   <rect x="10" y="176" width="56" height="3" rx="1.5" fill="#e1e1e6"/>
-  <rect x="10" y="176" width="34" height="3" rx="1.5" fill="#e3000f"/>
+  <rect x="10" y="176" width="34" height="3" rx="1.5" fill="#1a73e8"/>
 
   <rect x="88" y="42" width="64" height="6" rx="3" fill="#1c1c1e"/>
 
@@ -44,7 +44,7 @@
   </g>
   <rect x="93" y="116" width="59" height="46" rx="3" fill="#ececf0"/>
   <polygon points="98,158 114,138 126,150 134,142 147,158" fill="#b9b9c0"/>
-  <circle cx="137" cy="127" r="5" fill="#e3000f"/>
+  <circle cx="137" cy="127" r="5" fill="#1a73e8"/>
   <rect x="94" y="170" width="40" height="4" rx="2" fill="#c9c9cf"/>
 
   <rect x="169" y="116" width="59" height="46" rx="3" fill="#f5f5f7"/>

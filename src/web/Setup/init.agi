@@ -1,5 +1,5 @@
 /*
-	Setup Wizard
+	Setup
 
 	The first-run guide of a new ArozOS installation. The administrator group
 	of a new installation boots into it (see setupwizard.go) until the guide
@@ -8,9 +8,9 @@
 	to run it once more. See README.md in this folder.
 */
 
-var root = "Setup Wizard/";
+var root = "Setup/";
 var moduleLaunchInfo = {
-	Name: "Setup Wizard",
+	Name: "Setup",
 	Desc: "Guides the first administrator through setting up this server",
 	Group: "Interface Module",
 	IconPath: root + "img/module_icon.svg",

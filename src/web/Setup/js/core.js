@@ -1,5 +1,5 @@
 /*
-    Setup Wizard core
+    Setup core
 
     Holds the state, the step list and the navigation. Each step lives in its
     own js/step.*.js file and registers itself with Wizard.register({...}):
@@ -359,7 +359,7 @@
         var last = W.index === steps.length - 1;
 
         W.renderStepList();
-        document.title = W.T("app/title", "Setup Wizard") + " - " + step.title();
+        document.title = W.T("app/title", "Setup") + " - " + step.title();
 
         //Navigation
         $("#wzBack").html(W.icon("arrowLeft") + "<span>" + W.esc(W.T("nav/back", "Back")) + "</span>").toggleClass("wz-hidden", W.index === 0);
@@ -446,12 +446,9 @@
 
     var THEME_KEY = "aroz_setup_theme"; //shared with the first-user page (user.html)
 
+    //Light unless the toggle picked dark
     function isDark() {
-        var picked = document.documentElement.getAttribute("data-theme");
-        if (picked) {
-            return picked === "dark";
-        }
-        return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        return document.documentElement.getAttribute("data-theme") === "dark";
     }
 
     //The button shows the theme it switches to
@@ -474,7 +471,7 @@
 
     function defaultProgress() {
         return {
-            step: "welcome",
+            step: "name",
             done: [],
             interface: "",
             drives: [],      //drives the wizard added: {uuid, name, kind, path}
@@ -536,11 +533,6 @@
             toggleTheme();
         });
         renderThemeButton();
-        if (window.matchMedia) {
-            //Until the toggle is used, the page follows the browser
-            var scheme = window.matchMedia("(prefers-color-scheme: dark)");
-            (scheme.addEventListener ? scheme.addEventListener.bind(scheme, "change") : scheme.addListener.bind(scheme))(renderThemeButton);
-        }
         $(".wz-lang-select").on("change", function () {
             changeLanguage($(this).val());
         });

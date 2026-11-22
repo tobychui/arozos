@@ -1,5 +1,5 @@
 /*
-    Setup Wizard icons
+    Setup icons
 
     Line icons drawn for the wizard on a 24 x 24 grid, in currentColor.
     WizardIcon(name) returns the markup, and any element with a data-icon
@@ -24,6 +24,7 @@
         globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
         terminal: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 10l3 2.5L7 15M12.5 15H17"/>',
         check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+        chevron: '<path d="M6 9l6 6 6-6"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
         trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5h10L18 7M9 7V4h6v3"/>',
         refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/>',

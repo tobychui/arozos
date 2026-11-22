@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
 	"errors"
@@ -23,6 +22,7 @@ import (
 	"runtime"
 
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/info/wininfo"
 	"imuslab.com/arozos/mod/utils"
 	//"time"
 )
@@ -112,21 +112,33 @@ func fillHealthyStatus(devicesList *DevicesList) {
 	}
 }
 
-// fill the capacity if windows
+// fillCapacity fills the capacity smartctl left at zero on Windows from the
+// disk drives Windows reports (mod/info/wininfo, no wmic or PowerShell)
 func fillCapacity(devicesList *DevicesList) {
-	if runtime.GOOS == "windows" {
-		DiskNames := wmicGetinfo("diskdrive", "Model")
-		DiskSizes := wmicGetinfo("diskdrive", "Size")
-		for i, device := range devicesList.Devices {
-			for j := range DiskNames {
-				//since Intel driver will alter drive name to "XXXX SCSI Disk Device"
-				//so remove the string to increase the match probability
-				DiskNames[j] = strings.ReplaceAll(DiskNames[j], " SCSI Disk Device", "")
-				//if the name match && capacity == 0
-				if device.Smart.ModelName == DiskNames[j] && devicesList.Devices[i].Smart.UserCapacity.Bytes == 0 {
-					capacity, _ := strconv.ParseInt(DiskSizes[j], 10, 64)
-					devicesList.Devices[i].Smart.UserCapacity.Bytes = capacity
-				}
+	if runtime.GOOS != "windows" {
+		return
+	}
+	disks, err := wininfo.PhysicalDisks()
+	if err != nil {
+		return
+	}
+	applyDiskCapacities(devicesList, disks)
+}
+
+// applyDiskCapacities gives each device without a capacity the size of the
+// disk with the same model name
+func applyDiskCapacities(devicesList *DevicesList, disks []wininfo.PhysicalDisk) {
+	for i, device := range devicesList.Devices {
+		if device.Smart.UserCapacity.Bytes != 0 {
+			continue
+		}
+		for _, disk := range disks {
+			//Intel drivers rename drives to "XXXX SCSI Disk Device", which
+			//smartctl does not report
+			model := strings.ReplaceAll(disk.Model, " SCSI Disk Device", "")
+			if disk.Size > 0 && model != "" && device.Smart.ModelName == model {
+				devicesList.Devices[i].Smart.UserCapacity.Bytes = int64(disk.Size)
+				break
 			}
 		}
 	}

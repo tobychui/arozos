@@ -1,10 +1,10 @@
 package main
 
 /*
-	Setup Wizard backend
+	Setup backend
 
-	The administrator group of a new installation boots into the Setup Wizard
-	WebApp (web/Setup Wizard, see its README.md) instead of the desktop. Most
+	The administrator group of a new installation boots into the Setup
+	WebApp (web/Setup, see its README.md) instead of the desktop. Most
 	of its steps call the endpoints the System Settings pages use (storage
 	pools, permission groups, accounts, file servers); this file adds what
 	the wizard needs on top of them:
@@ -43,11 +43,12 @@ const (
 	setupProgressKey   = "progress"
 	setupProgressLimit = 32 << 10 //The saved progress is a small JSON object
 	interfaceModGroup  = "Interface Module"
+	setupWizardFolder  = "Setup" //web/ folder of the module named permission.SetupWizardModule
 )
 
 func SetupWizardInit() {
 	if err := sysdb.NewTable(setupWizardTable); err != nil {
-		systemWideLogger.PrintAndLog("Setup Wizard", "Could not create the setup wizard table", err)
+		systemWideLogger.PrintAndLog("Setup", "Could not create the setup wizard table", err)
 		return
 	}
 
@@ -107,6 +108,7 @@ type setupStateInfo struct {
 	Groups         []setupGroupInfo      `json:"groups"`
 	Users          []string              `json:"users"`
 	FileServers    []setupFileServerInfo `json:"fileServers"`
+	Runtime        bootFlagsReport       `json:"runtime"` //Host name and the other Runtime settings, saved through /system/bootflags
 	Progress       json.RawMessage       `json:"progress"`
 }
 
@@ -148,6 +150,7 @@ func handleSetupState(w http.ResponseWriter, r *http.Request) {
 		Groups:       []setupGroupInfo{},
 		Users:        authAgent.ListUsers(),
 		FileServers:  []setupFileServerInfo{},
+		Runtime:      currentBootFlagsReport(),
 		Progress:     json.RawMessage("null"),
 	}
 	state.CanMountDisks, state.DiskNote = setupDiskSupport()
@@ -339,13 +342,13 @@ func handleSetupDiskFormat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username, _ := authAgent.GetUserName(w, r)
-	systemWideLogger.PrintAndLog("Setup Wizard", username+" is formatting "+device+" as "+fstype, nil)
+	systemWideLogger.PrintAndLog("Setup", username+" is formatting "+device+" as "+fstype, nil)
 	if err := setupwizard.Format(device, fstype, label, setupUsedDrives()); err != nil {
-		systemWideLogger.PrintAndLog("Setup Wizard", "Formatting "+device+" failed", err)
+		systemWideLogger.PrintAndLog("Setup", "Formatting "+device+" failed", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	systemWideLogger.PrintAndLog("Setup Wizard", device+" formatted as "+fstype, nil)
+	systemWideLogger.PrintAndLog("Setup", device+" formatted as "+fstype, nil)
 	utils.SendOK(w)
 }
 
@@ -441,12 +444,12 @@ func handleSetupDiskAdd(w http.ResponseWriter, r *http.Request) {
 			//Only removes the folder if it is still empty
 			os.Remove(mountpoint)
 		}
-		systemWideLogger.PrintAndLog("Setup Wizard", "Adding "+device+" as "+id+":/ failed", err)
+		systemWideLogger.PrintAndLog("Setup", "Adding "+device+" as "+id+":/ failed", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	systemWideLogger.PrintAndLog("Setup Wizard", device+" added as drive "+id+":/", nil)
+	systemWideLogger.PrintAndLog("Setup", device+" added as drive "+id+":/", nil)
 	js, _ := json.Marshal(map[string]string{"uuid": id, "path": option.Path})
 	utils.SendJSONResponse(w, string(js))
 }
@@ -472,7 +475,7 @@ func handleSetupFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username, _ := authAgent.GetUserName(w, r)
-	systemWideLogger.PrintAndLog("Setup Wizard", "Setup finished by "+username+", interface: "+target, nil)
+	systemWideLogger.PrintAndLog("Setup", "Setup finished by "+username+", interface: "+target, nil)
 	utils.SendOK(w)
 }
 

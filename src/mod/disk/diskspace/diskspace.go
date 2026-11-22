@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/info/wininfo"
 )
 
 /*
@@ -36,62 +37,12 @@ func HandleDiskSpaceList(w http.ResponseWriter, r *http.Request) {
 
 func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 	if runtime.GOOS == "windows" {
-		//Check window disk info, wip
-		cmd := exec.Command("wmic", "logicaldisk", "get", "caption,size,freespace")
-		out, err := cmd.CombinedOutput()
+		disks, err := wininfo.LogicalDisks()
 		if err != nil {
-			logger.PrintAndLog("Diskspace", "wmic not supported.", nil)
+			logger.PrintAndLog("Diskspace", "Could not list the drives", err)
 			return []LogicalDiskSpaceInfo{}
 		}
-		lines := strings.Split(string(out), "\n")
-		var results []LogicalDiskSpaceInfo
-		for _, line := range lines {
-			if strings.Contains(line, ":") {
-				//This is a valid drive
-
-				line = strings.TrimSpace(line)
-				//Tidy the line
-				for strings.Contains(line, "  ") {
-					line = strings.Replace(line, "  ", " ", -1)
-				}
-
-				//Split by space
-				infoChunk := strings.Split(line, " ")
-				if len(infoChunk) == 1 {
-					//Drive reserved and not mounted, like SD card adapters
-					results = append(results, LogicalDiskSpaceInfo{
-						Device:         infoChunk[0],
-						Volume:         0,
-						Used:           0,
-						Available:      0,
-						UsedPercentage: "Not Mounted",
-						MountPoint:     infoChunk[0],
-					})
-				} else if len(infoChunk) > 2 {
-					size, err := stringToInt64(infoChunk[2])
-					if err != nil {
-						size = 0
-					}
-					freespace, err := stringToInt64(infoChunk[1])
-					if err != nil {
-						size = 0
-					}
-					usedSpace := size - freespace
-					percentage := int64(float64(usedSpace) / float64(size) * 100)
-
-					results = append(results, LogicalDiskSpaceInfo{
-						Device:         infoChunk[0],
-						Volume:         size,
-						Used:           usedSpace,
-						Available:      freespace,
-						UsedPercentage: strconv.Itoa(int(percentage)) + "%",
-						MountPoint:     infoChunk[0],
-					})
-				}
-			}
-		}
-
-		return results
+		return logicalDiskSpace(disks)
 	} else {
 		//Get drive status using df command
 		cmdin := `df -k | sed -e /Filesystem/d`
@@ -148,4 +99,33 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 func stringToInt64(value string) (int64, error) {
 	n, err := strconv.Atoi(value)
 	return int64(n), err
+}
+
+// logicalDiskSpace words the Windows drive letters for the disk space page.
+// A drive without a readable volume (an empty card reader) is "Not Mounted".
+func logicalDiskSpace(disks []wininfo.LogicalDisk) []LogicalDiskSpaceInfo {
+	results := []LogicalDiskSpaceInfo{}
+	for _, disk := range disks {
+		if !disk.Ready || disk.Size == 0 {
+			results = append(results, LogicalDiskSpaceInfo{
+				Device:         disk.Root,
+				UsedPercentage: "Not Mounted",
+				MountPoint:     disk.Root,
+			})
+			continue
+		}
+		used := disk.Size - disk.Free
+		if disk.Free > disk.Size {
+			used = 0
+		}
+		results = append(results, LogicalDiskSpaceInfo{
+			Device:         disk.Root,
+			Volume:         int64(disk.Size),
+			Used:           int64(used),
+			Available:      int64(disk.Free),
+			UsedPercentage: strconv.Itoa(int(float64(used)/float64(disk.Size)*100)) + "%",
+			MountPoint:     disk.Root,
+		})
+	}
+	return results
 }

@@ -122,12 +122,13 @@ front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
   (`serveDisabledModuleFolder`, `ScriptFolderDisabled`). System Setting, System
   Tools, the Desktop and any module a group boots into cannot be disabled.
 
-## What the Setup Wizard is
+## What Setup is
 
 The first-run guide. On a new installation the `administrator` group boots into
-the **Setup Wizard** interface module
-([`src/web/Setup Wizard/`](src/web/Setup%20Wizard/), read its `README.md`)
-instead of the desktop: workspace (Desktop or Drive), disks and folders,
+the **Setup** interface module (`permission.SetupWizardModule`, folder
+[`src/web/Setup/`](src/web/Setup/), read its `README.md`)
+instead of the desktop: server name (with the Runtime settings under Advanced
+settings, saved through `/system/bootflags`), workspace (Desktop or Drive), disks and folders,
 network drives, who uses the server (just me, everyone admin, or a limited
 group), accounts and drive access, and file sharing. Finishing or skipping it
 calls `/system/setup/finish`, which sets the admins' interface and disables the
@@ -774,11 +775,12 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/) — the built-in SMB server (see "What the built-in SMB server is").
 - [`src/mod/network/wsd/`](src/mod/network/wsd/) — WS-Discovery and LLMNR responder that lists the built-in SMB server in the Windows Network view.
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices, plus disabling modules (see "What a WebApp is").
-- [`src/mod/setupwizard/`](src/mod/setupwizard/) — disk inspection and format checks of the first-run Setup Wizard (see "What the Setup Wizard is").
+- [`src/mod/setupwizard/`](src/mod/setupwizard/) — disk inspection and format checks of the first-run Setup module (see "What Setup is").
 - [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/office/`](src/mod/office/) — converters behind the `office` AGI library and the Office suite ([`src/web/Office/`](src/web/Office/), read its `README.md` first): one package per format — `docx` / `xlsx` / `pptx` and `odf` import and export, import-only `doc` / `xls` / `ppt` for Office 97-2003 (converted to OOXML), `pdf`; the map is in [`doc.go`](src/mod/office/doc.go).
 - [`src/mod/filesystem/metadata/pdfrender/`](src/mod/filesystem/metadata/pdfrender/) — pure Go PDF page renderer behind the File Manager's PDF thumbnails (`mod/filesystem/metadata/pdf.go`); parses untrusted files, so read its `README.md` rules before changing it.
 - [`src/mod/locale/`](src/mod/locale/) — serves [`src/system/locale/`](src/system/locale/) at `/SystemAO/locale/` and the system font library (see "System locale files and fonts").
+- [`src/mod/info/wininfo/`](src/mod/info/wininfo/) — Windows hardware and system information (CPU, memory, drives, disks, USB, network adapters) through the Win32 API. Use it instead of starting PowerShell, `wmic` or helper programs: a console program ArozOS starts shares its console window, and PowerShell's `-WindowStyle Hidden` once hid the window ArozOS was started from.
 - [`src/mod/subservice/`](src/mod/subservice/) — reverse-proxied binary subservices (see "What a SubService is"); wired up in [`src/subservice.go`](src/subservice.go).
 - [`src/mod/appproxy/`](src/mod/appproxy/) — Container Apps reverse proxy (see "What Container Apps are").
 - [`src/web/`](src/web/) — front-end assets and WebApps (one folder per module; see "What a WebApp is").

@@ -1,13 +1,14 @@
 /*
-    Setup Wizard
+    Setup
 
     Swiss (International Typographic Style) layout in a macOS-like window:
     flush-left content on a strict column, one large headline per step, step
-    numerals in signal red, hairline rules instead of shadows and tiles, and
-    native-feeling controls. Colour only carries meaning (selection, state,
-    danger). On a desktop the window floats on a neutral backdrop with room
-    around it; below 860px it fills the screen and the step list turns into
-    a progress bar at the top.
+    numerals in the accent blue (File Manager's #1a73e8), hairline rules
+    instead of shadows and tiles, and native-feeling controls. Colour only
+    carries meaning (selection, state, danger). The page is light unless the
+    toggle picked dark. On a desktop the window floats on a neutral backdrop
+    with room around it; below 860px it fills the screen and the step list
+    turns into a progress bar at the top.
 */
 
 :root {
@@ -25,9 +26,9 @@
     --wz-muted: #8a8a90;
     --wz-ink: #111113;
     --wz-on-ink: #ffffff;
-    --wz-signal: #e3000f;
-    --wz-control: #007aff;
-    --wz-focus: rgba(0, 122, 255, 0.38);
+    --wz-accent: #1a73e8;
+    --wz-control: #1a73e8;
+    --wz-focus: rgba(26, 115, 232, 0.38);
     --wz-success: #248a3d;
     --wz-warn: #a35200;
     --wz-danger: #d70015;
@@ -43,37 +44,7 @@
     color-scheme: light;
 }
 
-/* Dark: follows the browser unless the toggle picked light; the toggle can force it */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --wz-desk: #0b0b0c;
-        --wz-window: #1c1c1e;
-        --wz-side: rgba(38, 38, 41, 0.86);
-        --wz-surface: #1c1c1e;
-        --wz-surface-2: #2a2a2d;
-        --wz-hover: rgba(255, 255, 255, 0.06);
-        --wz-select: rgba(255, 255, 255, 0.09);
-        --wz-rule: #333336;
-        --wz-rule-strong: #48484c;
-        --wz-text: #f5f5f7;
-        --wz-text-2: #c7c7cc;
-        --wz-muted: #8e8e93;
-        --wz-ink: #f5f5f7;
-        --wz-on-ink: #111113;
-        --wz-signal: #ff453a;
-        --wz-control: #0a84ff;
-        --wz-focus: rgba(10, 132, 255, 0.5);
-        --wz-success: #30d158;
-        --wz-warn: #ff9f0a;
-        --wz-danger: #ff453a;
-        --wz-window-edge: rgba(255, 255, 255, 0.1);
-        --wz-window-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.6), 0 24px 64px rgba(0, 0, 0, 0.6);
-        --wz-sheet-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 24px 72px rgba(0, 0, 0, 0.7);
-        --wz-hud: rgba(58, 58, 60, 0.94);
-        color-scheme: dark;
-    }
-}
-
+/* Dark: only when the toggle picked it */
 :root[data-theme="dark"] {
     --wz-desk: #0b0b0c;
     --wz-window: #1c1c1e;
@@ -89,9 +60,9 @@
     --wz-muted: #8e8e93;
     --wz-ink: #f5f5f7;
     --wz-on-ink: #111113;
-    --wz-signal: #ff453a;
-    --wz-control: #0a84ff;
-    --wz-focus: rgba(10, 132, 255, 0.5);
+    --wz-accent: #4a9eff;
+    --wz-control: #4a9eff;
+    --wz-focus: rgba(74, 158, 255, 0.5);
     --wz-success: #30d158;
     --wz-warn: #ff9f0a;
     --wz-danger: #ff453a;
@@ -129,16 +100,6 @@ select {
 
 .for-dark {
     display: none !important;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .for-light {
-        display: none !important;
-    }
-
-    :root:not([data-theme="light"]) .for-dark {
-        display: inline-block !important;
-    }
 }
 
 :root[data-theme="dark"] .for-light {
@@ -278,7 +239,7 @@ body {
 }
 
 .wz-steps li.current .wz-step-dot {
-    color: var(--wz-signal);
+    color: var(--wz-accent);
 }
 
 .wz-side-foot {
@@ -399,7 +360,7 @@ body {
 }
 
 .wz-eyebrow-num {
-    color: var(--wz-signal);
+    color: var(--wz-accent);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
 }
@@ -748,13 +709,7 @@ body {
     object-fit: cover;
 }
 
-/* The previews are drawn in greys and one red: inverted they suit the dark theme */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .wz-choice-preview img {
-        filter: invert(0.92) hue-rotate(180deg);
-    }
-}
-
+/* The previews are drawn in greys and one blue: inverted they suit the dark theme */
 :root[data-theme="dark"] .wz-choice-preview img {
     filter: invert(0.92) hue-rotate(180deg);
 }
@@ -805,7 +760,7 @@ body {
 /* ── Labels, chips and notes ───────────────────────────────── */
 
 .wz-badge {
-    color: var(--wz-signal);
+    color: var(--wz-accent);
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -1252,7 +1207,7 @@ body {
 .wz-welcome-item::before {
     counter-increment: wz-item;
     content: counter(wz-item, decimal-leading-zero);
-    color: var(--wz-signal);
+    color: var(--wz-accent);
     font-size: 12px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -1425,6 +1380,167 @@ body {
     background: var(--wz-danger);
 }
 
+/* ── Advanced settings (name step) ─────────────────────────── */
+
+.wz-accordion {
+    margin-top: 32px;
+    border-top: 1px solid var(--wz-rule);
+    border-bottom: 1px solid var(--wz-rule);
+}
+
+.wz-accordion summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    cursor: pointer;
+    list-style: none;
+    border-radius: var(--wz-radius-control);
+}
+
+.wz-accordion summary::-webkit-details-marker {
+    display: none;
+}
+
+.wz-accordion summary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3.5px var(--wz-focus);
+}
+
+.wz-accordion-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.wz-accordion-title {
+    display: block;
+    font-weight: 600;
+    font-size: 14.5px;
+    letter-spacing: -0.01em;
+}
+
+.wz-accordion-sub {
+    display: block;
+    color: var(--wz-muted);
+    font-size: 12.5px;
+}
+
+.wz-accordion-chevron {
+    width: 16px;
+    height: 16px;
+    color: var(--wz-muted);
+    transition: transform 0.18s;
+}
+
+.wz-accordion[open] .wz-accordion-chevron {
+    transform: rotate(180deg);
+}
+
+.wz-accordion-body {
+    padding: 2px 0 22px;
+}
+
+.wz-setting-group {
+    margin: 18px 0 8px;
+    color: var(--wz-muted);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.wz-settings {
+    background: var(--wz-surface-2);
+    border-radius: var(--wz-radius);
+    padding: 0 18px;
+    margin-bottom: 8px;
+}
+
+.wz-setting {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--wz-rule);
+}
+
+.wz-setting:last-child {
+    border-bottom: none;
+}
+
+.wz-setting-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.wz-setting-title {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.wz-setting-desc {
+    color: var(--wz-muted);
+    font-size: 12.5px;
+}
+
+.wz-unit-input {
+    display: inline-flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    height: 34px;
+    border: 1px solid var(--wz-rule-strong);
+    border-radius: var(--wz-radius-control);
+    background: var(--wz-surface);
+    overflow: hidden;
+    transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.wz-unit-input:focus-within {
+    border-color: var(--wz-control);
+    box-shadow: 0 0 0 3.5px var(--wz-focus);
+}
+
+.wz-unit-input.invalid {
+    border-color: var(--wz-danger);
+}
+
+.wz-unit-input input {
+    width: 92px;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0 10px;
+    text-align: right;
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.wz-unit-input span {
+    display: flex;
+    align-items: center;
+    min-width: 48px;
+    justify-content: center;
+    padding: 0 10px;
+    border-left: 1px solid var(--wz-rule);
+    color: var(--wz-muted);
+    font-size: 12.5px;
+}
+
+.wz-accordion .wz-note {
+    margin: 16px 0 0;
+}
+
+.wz-accordion .wz-hint {
+    margin-top: 14px;
+}
+
+.wz-field .wz-chip {
+    margin-left: 6px;
+}
+
 /* ── Medium screens: less room around the window ───────────── */
 
 @media (max-width: 1100px) {
@@ -1512,7 +1628,7 @@ body {
         display: block;
         height: 100%;
         width: 0;
-        background: var(--wz-signal);
+        background: var(--wz-accent);
         transition: width 0.3s;
     }
 
@@ -1550,11 +1666,20 @@ body {
     .wz-summary-item .wz-grow {
         grid-template-columns: 1fr;
     }
+
+    .wz-settings {
+        padding: 0 14px;
+    }
 }
 
 @media (max-width: 560px) {
     .wz-welcome-list {
         grid-template-columns: 1fr;
+    }
+
+    .wz-setting {
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .wz-app-list {

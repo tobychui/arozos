@@ -1,9 +1,9 @@
 package setupwizard
 
 /*
-	Setup Wizard disk inspection
+	Setup disk inspection
 
-	The first-run Setup Wizard lists the disks of the host so a beginner can
+	The first-run Setup module lists the disks of the host so a beginner can
 	add one as storage. This file holds the platform independent part: parsing
 	the lsblk listing, deciding what each disk and partition is used for and
 	building the format command. Running lsblk, mkfs and preparing the mount

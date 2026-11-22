@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"net/http"
+	"sort"
 	"strings"
 
 	prout "imuslab.com/arozos/mod/prouter"
@@ -105,6 +106,29 @@ func explicitStartFlags() map[string]bool {
 	return set
 }
 
+// bootFlagsReport is what the Runtime page and the setup module show: the
+// boot flags, and the fields given as start parameters this boot (those
+// replace the saved value again on the next boot).
+type bootFlagsReport struct {
+	bootFlags
+	FromStartFlag []string
+}
+
+func currentBootFlagsReport() bootFlagsReport {
+	return newBootFlagsReport(currentBootFlags(), explicitStartFlags())
+}
+
+func newBootFlagsReport(flags bootFlags, explicit map[string]bool) bootFlagsReport {
+	fromStartFlag := []string{}
+	for field, name := range bootFlagNames {
+		if explicit[name] {
+			fromStartFlag = append(fromStartFlag, field)
+		}
+	}
+	sort.Strings(fromStartFlag)
+	return bootFlagsReport{bootFlags: flags, FromStartFlag: fromStartFlag}
+}
+
 /*
 mergeBootFlags decides the boot flags to run with. Fields whose flag was given
 explicitly keep the runtime value, other fields take the stored value when one
@@ -198,21 +222,7 @@ func StartupFlagsInit() {
 func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
-		//List the current boot flags, together with the fields that were
-		//given as start parameters this boot (they override the stored value)
-		explicit := explicitStartFlags()
-		fromStartFlag := []string{}
-		for field, name := range bootFlagNames {
-			if explicit[name] {
-				fromStartFlag = append(fromStartFlag, field)
-			}
-		}
-
-		js, _ := json.Marshal(struct {
-			bootFlags
-			FromStartFlag []string
-		}{currentBootFlags(), fromStartFlag})
-
+		js, _ := json.Marshal(currentBootFlagsReport())
 		utils.SendJSONResponse(w, string(js))
 	} else if opr == "set" {
 		//Set and update the boot flags

@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"runtime"
 	"testing"
+
+	"imuslab.com/arozos/mod/info/wininfo"
 )
 
 // TestGetAllLogicDiskInfo verifies that GetAllLogicDiskInfo returns at least
@@ -72,7 +74,7 @@ func TestGetAllLogicDiskInfo_Windows(t *testing.T) {
 	}
 
 	disks := GetAllLogicDiskInfo()
-	// wmic should always find at least the system drive.
+	// The Win32 API should always find at least the system drive.
 	if len(disks) == 0 {
 		t.Fatal("expected at least one disk entry on Windows")
 	}
@@ -342,5 +344,46 @@ func TestGetAllLogicDiskInfo_MountPointNotEmpty(t *testing.T) {
 	}
 	if !foundRoot {
 		t.Log("root filesystem not found in disk list (may be inside container)")
+	}
+}
+
+// logicalDiskSpace turns the Windows drive letters into disk space rows
+func TestLogicalDiskSpace(t *testing.T) {
+	tests := []struct {
+		name string
+		disk wininfo.LogicalDisk
+		want LogicalDiskSpaceInfo
+	}{
+		{
+			name: "ready drive",
+			disk: wininfo.LogicalDisk{Root: "C:", FileSystem: "NTFS", Size: 1000, Free: 250, Ready: true},
+			want: LogicalDiskSpaceInfo{Device: "C:", Volume: 1000, Used: 750, Available: 250, UsedPercentage: "75%", MountPoint: "C:"},
+		},
+		{
+			name: "empty card reader",
+			disk: wininfo.LogicalDisk{Root: "E:"},
+			want: LogicalDiskSpaceInfo{Device: "E:", UsedPercentage: "Not Mounted", MountPoint: "E:"},
+		},
+		{
+			name: "ready but no size",
+			disk: wininfo.LogicalDisk{Root: "F:", Ready: true},
+			want: LogicalDiskSpaceInfo{Device: "F:", UsedPercentage: "Not Mounted", MountPoint: "F:"},
+		},
+		{
+			name: "free larger than size",
+			disk: wininfo.LogicalDisk{Root: "G:", Size: 100, Free: 200, Ready: true},
+			want: LogicalDiskSpaceInfo{Device: "G:", Volume: 100, Used: 0, Available: 200, UsedPercentage: "0%", MountPoint: "G:"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := logicalDiskSpace([]wininfo.LogicalDisk{tt.disk})
+			if len(got) != 1 || got[0] != tt.want {
+				t.Errorf("logicalDiskSpace = %+v, want [%+v]", got, tt.want)
+			}
+		})
+	}
+	if got := logicalDiskSpace(nil); got == nil || len(got) != 0 {
+		t.Errorf("logicalDiskSpace(nil) = %#v, want an empty list", got)
 	}
 }

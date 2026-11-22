@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"strings"
 	"testing"
 )
 
@@ -166,5 +167,41 @@ func TestBootFlagNamesCoverFlags(t *testing.T) {
 	}
 	if len(bootFlagNames) != 8 {
 		t.Errorf("expected 8 mapped fields, got %d", len(bootFlagNames))
+	}
+}
+
+// The report lists the fields set by a start parameter, in a stable order, and
+// keeps the flat JSON shape the Runtime page and the setup module read.
+func TestNewBootFlagsReport(t *testing.T) {
+	tests := []struct {
+		name     string
+		explicit map[string]bool
+		want     string
+	}{
+		{name: "no start parameters", explicit: map[string]bool{}, want: ""},
+		{name: "host name given", explicit: map[string]bool{"hostname": true}, want: "Hostname"},
+		{name: "sorted and unrelated flags ignored", explicit: map[string]bool{"gzip": true, "port": true, "hostname": true}, want: "EnableGzip,Hostname"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := newBootFlagsReport(testDefaultBootFlags(), tt.explicit)
+			if got := strings.Join(report.FromStartFlag, ","); got != tt.want {
+				t.Errorf("FromStartFlag = %q, want %q", got, tt.want)
+			}
+			js, err := json.Marshal(report)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			decoded := map[string]interface{}{}
+			if err := json.Unmarshal(js, &decoded); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if decoded["Hostname"] != "My ArOZ" {
+				t.Errorf("Hostname = %v, want it at the top level", decoded["Hostname"])
+			}
+			if _, ok := decoded["FromStartFlag"].([]interface{}); !ok {
+				t.Errorf("FromStartFlag = %v, want a list (never null)", decoded["FromStartFlag"])
+			}
+		})
 	}
 }

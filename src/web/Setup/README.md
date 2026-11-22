@@ -1,14 +1,14 @@
-# Setup Wizard
+# Setup
 
-The first-run guide of a new ArozOS installation. The administrator group of a
-new installation boots into this interface module instead of the desktop, so
+The first-run guide of a new ArozOS installation (module **Setup**, folder
+`web/Setup/`). The administrator group of a new installation boots into this interface module instead of the desktop, so
 the first admin is walked through setting up their server right after they
 create their account and sign in.
 
 ## How it starts and stops
 
 - `permission.NewPermissionHandler` creates the `administrator` group on a new
-  installation with `interfaceModule/administrator = "Setup Wizard"`
+  installation with `interfaceModule/administrator = "Setup"`
   (`permission.SetupWizardModule`). Installations whose administrator group
   already exists keep their interface.
 - `/` sends the admin to the wizard like any interface module
@@ -31,7 +31,8 @@ reachable for the module manager), and its AGI scripts are refused. See
 
 | Step | What it does | Endpoints |
 |---|---|---|
-| Welcome | What the guide covers, language picker | |
+| Name | Server name; the other Runtime settings (upload size and buffers, gzip, IP resolver, home pages, directory listing) folded under Advanced settings. A setting given as a start parameter is marked with it | `system/bootflags` (saved on Continue) |
+| Welcome | What the guide covers | |
 | Workspace | Desktop or Drive (other interface modules listed below them) | applied on finish |
 | Storage | Lists disks (Linux), formats a disk nothing uses, mounts a partition at `/media/<id>` or uses one the host already mounts; any platform can add a folder | `system/setup/disks`, `system/setup/disk/format`, `system/setup/disk/add`, `system/storage/pool/{test,edit,removeHandler}` |
 | Network drives | Optional SMB / WebDAV / SFTP / FTP / S3 drive, with a connection test | `system/storage/pool/{test,edit}` |
@@ -40,7 +41,8 @@ reachable for the module manager), and its AGI scripts are refused. See
 | File sharing | Built-in SMB server (or Samba), WebDAV, SFTP; the SMB password of the admin | `system/network/server/{toggle,endpoints}`, `system/storage/smb/{status,activate}` |
 | Finish | Summary, then finish | `system/setup/finish` |
 
-`system/setup/state` returns everything the wizard shows in one read, and
+`system/setup/state` returns everything the wizard shows in one read (the
+Runtime settings under `runtime`, as `system/bootflags` reports them), and
 `system/setup/progress` saves the step and the choices (never a password), so a
 closed tab resumes where it was. All `system/setup/*` endpoints are admin only
 (`src/setupwizard.go`).
@@ -48,22 +50,26 @@ closed tab resumes where it was. All `system/setup/*` endpoints are admin only
 ## Look
 
 Swiss (International Typographic Style) layout in a macOS-like window
-(`css/wizard.css`, all colours are tokens on `:root` with a dark set):
+(`css/wizard.css`, all colours are tokens on `:root` with a dark set). The
+page is light unless the theme toggle picked dark; the choice is kept in
+`localStorage` (`aroz_setup_theme`) and shared with the first-user page
+(`web/user.html`). The accent is File Manager's blue (`#1a73e8`, `#4a9eff` in
+dark):
 
 - On a desktop the wizard is a rounded window floating on a neutral backdrop,
   with 32px around it (16px below 1100px); below 860px it fills the screen and
   the step list becomes a progress bar.
 - Content sits flush left on one column (840px including padding); the
   navigation buttons line up with that column's right edge.
-- Each step opens with a numbered eyebrow (`03  STORAGE`, the number in signal
-  red, added by `core.js`), one large tight headline and a lead paragraph.
+- Each step opens with a numbered eyebrow (`03  STORAGE`, the number in the
+  accent blue, added by `core.js`), one large tight headline and a lead paragraph.
   Sections are separated by hairline rules with small uppercase labels.
 - No shadows or coloured tiles inside the window: choices are hairline cards
   whose selection is a black (white in dark mode) outline, notes are a rule on
   the left, forms sit on a grey group like macOS settings.
 - Controls follow macOS: 7px radius push buttons, blue focus rings, blue
   switches and checkboxes, a HUD toast and a sheet for the format dialog.
-- The workspace previews are grey wireframes with one red accent, inverted in
+- The workspace previews are grey wireframes with one blue accent, inverted in
   dark mode.
 
 ## Usernames

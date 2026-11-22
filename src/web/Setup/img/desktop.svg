@@ -12,7 +12,7 @@
 
   <rect x="56.5" y="20.5" width="180" height="126" rx="6" fill="#ffffff" stroke="#c9c9cf"/>
   <line x1="57" y1="38.5" x2="236" y2="38.5" stroke="#e1e1e6"/>
-  <circle cx="68" cy="29.5" r="3" fill="#e3000f"/>
+  <circle cx="68" cy="29.5" r="3" fill="#1a73e8"/>
   <circle cx="78" cy="29.5" r="3" fill="#d6d6db"/>
   <circle cx="88" cy="29.5" r="3" fill="#d6d6db"/>
   <rect x="66" y="48" width="42" height="88" rx="3" fill="#f2f2f4"/>
@@ -35,7 +35,7 @@
   <circle cx="208" cy="80.5" r="2.6" fill="#d6d6db"/>
   <rect x="200" y="96" width="96" height="44" rx="3" fill="#1c1c1e"/>
   <polygon points="242,108 242,128 258,118" fill="#ffffff"/>
-  <rect x="200" y="145" width="64" height="3" rx="1.5" fill="#e3000f"/>
+  <rect x="200" y="145" width="64" height="3" rx="1.5" fill="#1a73e8"/>
 
   <rect x="0" y="176" width="320" height="24" fill="#1c1c1e"/>
   <rect x="10" y="182" width="12" height="12" rx="3" fill="#ffffff"/>

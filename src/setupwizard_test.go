@@ -15,7 +15,7 @@ import (
 
 // newSetupWizardTestEnv points the globals the wizard uses at a fresh
 // installation: the administrator group boots into the wizard and the
-// Desktop, Drive, Setup Wizard and Photo modules are loaded.
+// Desktop, Drive, Setup and Photo modules are loaded.
 func newSetupWizardTestEnv(t *testing.T, withWizard bool) {
 	t.Helper()
 	oldDB, oldPerm, oldMod := sysdb, permissionHandler, moduleHandler
@@ -50,7 +50,7 @@ func newSetupWizardTestEnv(t *testing.T, withWizard bool) {
 	mh.RegisterModuleFromAGI("web/Drive", `{"Name":"Drive","Group":"Interface Module","StartDir":"Drive/index.html"}`)
 	mh.RegisterModuleFromAGI("web/Photo", `{"Name":"Photo","Group":"Media","StartDir":"Photo/index.html"}`)
 	if withWizard {
-		mh.RegisterModuleFromAGI("web/Setup Wizard", `{"Name":"Setup Wizard","Group":"Interface Module","StartDir":"Setup Wizard/index.html"}`)
+		mh.RegisterModuleFromAGI("web/Setup", `{"Name":"Setup","Group":"Interface Module","StartDir":"Setup/index.html"}`)
 	}
 	moduleHandler = mh
 }
@@ -168,10 +168,10 @@ func TestServeDisabledModuleFolder(t *testing.T) {
 		wantStatus int
 		wantLoc    string
 	}{
-		{path: "/Setup%20Wizard/index.html", wantServed: true, wantStatus: http.StatusTemporaryRedirect, wantLoc: "/"},
+		{path: "/Setup/index.html", wantServed: true, wantStatus: http.StatusTemporaryRedirect, wantLoc: "/"},
 		{path: "/Photo/index.html", wantServed: true, wantStatus: http.StatusNotFound},
 		{path: "/Photo/img/icon.png", wantServed: false}, //icons stay visible in the module manager
-		{path: "/Setup%20Wizard/img/module_icon.svg", wantServed: false},
+		{path: "/Setup/img/module_icon.svg", wantServed: false},
 		{path: "/Drive/index.html", wantServed: false},
 		{path: "/desktop.html", wantServed: false},
 		{path: "/", wantServed: false},
