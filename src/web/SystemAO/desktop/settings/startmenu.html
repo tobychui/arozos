@@ -98,6 +98,18 @@
     background: var(--ss-border);
 }
 
+#smRoot .sm-section-desc {
+    margin: -3px 0 8px 2px;
+    font-size: 11.5px;
+    line-height: 16px;
+    color: var(--ss-text-3);
+}
+#smRoot .sm-sc-icon {
+    width: 16px;
+    margin: 0;
+    color: var(--ss-text-2);
+}
+
 @media (max-width: 560px) {
     #smRoot .ss-row { flex-wrap: wrap; }
 }
@@ -174,6 +186,15 @@
             </div>
         </div>
     </div>
+
+    <div class="ss-section">
+        <div class="ss-section-title">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.2v5"/><path d="M4.6 4.4a5 5 0 1 0 6.8 0"/></svg>
+            <span locale="sm/shortcuts">Shortcuts</span>
+        </div>
+        <div class="sm-section-desc" locale="sm/shortcuts/desc">Buttons next to the power button of the app menu.</div>
+        <div class="ss-card" id="smShortcuts"></div>
+    </div>
 </div>
 
 <script>
@@ -189,6 +210,12 @@
         script/desktop/dock.js). A desktop that is already open is told at
         once: through setStartMenuLayout when this page runs inside it, and
         through localStorage (desktop/startMenuChanged) for one in another tab.
+
+        Also the shortcuts next to the app menu's power button: the desktop
+        preference startmenu-shortcuts, a JSON list of the ids in SC_ITEMS,
+        removed when it holds the default (File Manager and System Settings).
+        script/desktop/launcher.js keeps the same ids and folder names, reads
+        it on start and is told through launcherSetShortcuts or localStorage.
     */
     var smLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
         init: function (f, cb) { cb(); },
@@ -273,9 +300,130 @@
         });
     });
 
+    /*
+        Shortcuts. A folder can be chosen once the home folder holds one of
+        its names (any case); one that is chosen can always be switched off.
+    */
+    var SC_PREF = "startmenu-shortcuts";
+    var SC_DEFAULT = ["filemanager", "settings"];
+    var SC_ITEMS = [
+        { id: "filemanager", icon: "folder", label: ["sm/sc/filemanager", "File Manager"] },
+        { id: "settings", icon: "setting", label: ["sm/sc/settings", "System Settings"] },
+        { id: "document", icon: "file alternate", label: ["sm/sc/document", "Documents"], folders: ["Document", "Documents"] },
+        { id: "download", icon: "download", label: ["sm/sc/download", "Downloads"], folders: ["Download", "Downloads"] },
+        { id: "music", icon: "music", label: ["sm/sc/music", "Music"], folders: ["Music"] },
+        { id: "photo", icon: "image", label: ["sm/sc/photo", "Pictures"], folders: ["Photo", "Photos", "Picture", "Pictures"] },
+        { id: "video", icon: "film", label: ["sm/sc/video", "Videos"], folders: ["Video", "Videos"] }
+    ];
+    var scChosen = SC_DEFAULT.slice();
+    var scFolders = null; //lower case name -> folder name in user:/, null until listed
+
+    function scFolderOf(item) {
+        if (!item.folders || scFolders === null) return "";
+        for (var i = 0; i < item.folders.length; i++) {
+            var name = scFolders[item.folders[i].toLowerCase()];
+            if (name !== undefined) return name;
+        }
+        return "";
+    }
+
+    function scRender() {
+        var card = $("#smShortcuts").empty();
+        SC_ITEMS.forEach(function (item) {
+            var row = $('<div class="ss-row compact">' +
+                '<div class="ss-row-text"><div class="ss-row-label"><i class="icon sm-sc-icon"></i><span></span></div><div class="ss-row-desc"></div></div>' +
+                '<label class="ss-switch"><input type="checkbox"><span class="ss-track"></span></label>' +
+            '</div>');
+            var on = scChosen.indexOf(item.id) >= 0;
+            row.find("i").addClass(item.icon);
+            row.find(".ss-row-label span").text(smStr(item.label[0], item.label[1]));
+            var input = row.find("input").attr("data-id", item.id).prop("checked", on)
+                .attr("aria-label", smStr(item.label[0], item.label[1]));
+            var desc = row.find(".ss-row-desc");
+            if (item.folders && scFolders !== null) {
+                var folder = scFolderOf(item);
+                if (folder !== "") {
+                    desc.text(smStr("sm/sc/opens", "Opens {folder} in the File Manager").replace("{folder}", "user:/" + folder));
+                } else {
+                    desc.text(smStr("sm/sc/missing", "There is no {folder} folder in your home folder").replace("{folder}", item.folders[0]));
+                    input.prop("disabled", !on);
+                }
+            } else if (item.folders) {
+                //Not listed yet
+                input.prop("disabled", !on);
+            }
+            if (desc.text() === "") desc.remove();
+            card.append(row);
+        });
+    }
+
+    function scSameAsDefault(list) {
+        return list.length === SC_DEFAULT.length && SC_DEFAULT.every(function (id) { return list.indexOf(id) >= 0; });
+    }
+
+    function scTellDesktop(list) {
+        try {
+            if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop &&
+                typeof parent.launcherSetShortcuts === "function") {
+                parent.launcherSetShortcuts(list);
+            }
+        } catch (e) {}
+        try {
+            localStorage.setItem("desktop/startMenuChanged", JSON.stringify({ shortcuts: list, ts: Date.now() }));
+        } catch (e) {}
+    }
+
+    $("#smShortcuts").on("change", "input", function () {
+        var before = scChosen.slice();
+        var list = [];
+        $("#smShortcuts input").each(function () {
+            if ($(this).prop("checked")) list.push($(this).attr("data-id"));
+        });
+        scChosen = list;
+        var data = scSameAsDefault(list) ?
+            { preference: SC_PREF, remove: "true" } :
+            { preference: SC_PREF, value: JSON.stringify(list) };
+        $.ajax({ url: PREF_URL, method: "POST", data: data,
+            success: function (d) {
+                if (d != null && d.error !== undefined) return scFailed(before);
+                scRender();
+                scTellDesktop(list);
+                if (typeof msgbox === "function") msgbox(smStr("sm/saved", "Saved"), true, 1500);
+            },
+            error: function () { scFailed(before); } });
+    });
+
+    function scFailed(before) {
+        scChosen = before;
+        scRender();
+        if (typeof msgbox === "function") msgbox(smStr("sm/savefailed", "Could not save"), false);
+    }
+
+    function scLoad() {
+        smReadPref(SC_PREF, function (v) {
+            var list = null;
+            try { list = v ? JSON.parse(v) : null; } catch (e) { list = null; }
+            scChosen = Array.isArray(list) ? list.filter(function (id) {
+                return SC_ITEMS.some(function (item) { return item.id === id; });
+            }) : SC_DEFAULT.slice();
+            scRender();
+        });
+        $.ajax({ url: "../../system/file_system/listDir", method: "POST", data: { dir: "user:/" },
+            success: function (files) {
+                scFolders = {};
+                (Array.isArray(files) ? files : []).forEach(function (f) {
+                    if (f && f.IsDir && typeof f.Filename === "string") scFolders[f.Filename.toLowerCase()] = f.Filename;
+                });
+                scRender();
+            },
+            error: function () { scFolders = {}; scRender(); } });
+    }
+
     smLocale.init("../locale/system_settings/desktop.json", function () {
         smLocale.translate();
         smShow();
+        scRender();
+        scLoad();
         Object.keys(FIELDS).forEach(function (field) {
             smReadPref(FIELDS[field].key, function (v) {
                 smLayout[field] = FIELDS[field].values.indexOf(v) >= 0 ? v : FIELDS[field].fallback;

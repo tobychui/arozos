@@ -52,6 +52,7 @@ function initModuleList() {
         success: function(data) {
             moduleInstalled = data;
             launcherRender();
+            launcherRenderShortcuts();
             dockModulesLoaded();
             checkFileSystemAccess();
 
@@ -353,6 +354,152 @@ function openContainerAppFromMenu(object) {
     });
 }
 
+/*
+    Footer shortcuts next to the power button. The user picks them in System
+    Settings > Desktop & Themes > Start Menu (SystemAO/desktop/settings/
+    startmenu.html, which keeps its own copy of the ids and folder names):
+    the desktop preference "startmenu-shortcuts" is a JSON list of ids, unset
+    means File Manager and System Setting. An app shows only when the user
+    may open it, a folder only when the home folder holds one of its names
+    (any case). The home folder is only listed while a folder is chosen.
+*/
+var LAUNCHER_SHORTCUT_PREF = "startmenu-shortcuts";
+var LAUNCHER_SHORTCUT_DEFAULT = ["filemanager", "settings"];
+var LAUNCHER_SHORTCUTS = [
+    {id: "document", folders: ["Document", "Documents"], icon: "file alternate", label: ["launcher/documents", "Documents"]},
+    {id: "download", folders: ["Download", "Downloads"], icon: "download", label: ["launcher/downloads", "Downloads"]},
+    {id: "music", folders: ["Music"], icon: "music", label: ["launcher/music", "Music"]},
+    {id: "photo", folders: ["Photo", "Photos", "Picture", "Pictures"], icon: "image", label: ["launcher/pictures", "Pictures"]},
+    {id: "video", folders: ["Video", "Videos"], icon: "film", label: ["launcher/videos", "Videos"]},
+    {id: "filemanager", module: "File Manager", icon: "folder", label: ["launcher/fileManager", "File Manager"]},
+    {id: "settings", module: "System Setting", icon: "setting", label: ["launcher/settings", "Settings"]}
+];
+var launcherShortcutIds = LAUNCHER_SHORTCUT_DEFAULT.slice();
+var launcherHomeFolders = {}; //lower case name -> folder name in user:/, from the last listing
+
+function launcherShortcutByID(id){
+    return LAUNCHER_SHORTCUTS.find(function(sc){
+        return sc.id == id;
+    });
+}
+
+function initLauncherShortcuts(){
+    $.ajax({
+        url: "system/desktop/preference",
+        method: "POST",
+        data: {preference: LAUNCHER_SHORTCUT_PREF},
+        success: function(data){
+            var list = null;
+            if (typeof data == "string" && data != ""){
+                try {
+                    list = JSON.parse(data);
+                } catch (ex) {
+                    list = null;
+                }
+            }
+            launcherSetShortcuts(list);
+        },
+        error: function(){
+            launcherSetShortcuts(null);
+        }
+    });
+}
+
+//Show these shortcuts (a list of ids; anything else means the default).
+//Also called by the Start Menu settings page.
+function launcherSetShortcuts(ids){
+    if (!Array.isArray(ids)){
+        ids = LAUNCHER_SHORTCUT_DEFAULT;
+    }
+    launcherShortcutIds = ids.filter(function(id){
+        return launcherShortcutByID(id) != undefined;
+    });
+    launcherRenderShortcuts();
+    launcherRefreshHomeFolders();
+}
+
+//The folder of user:/ a folder shortcut opens, "" when there is none
+function launcherShortcutFolder(sc){
+    for (var i = 0; i < sc.folders.length; i++){
+        var name = launcherHomeFolders[sc.folders[i].toLowerCase()];
+        if (name != undefined){
+            return "user:/" + name;
+        }
+    }
+    return "";
+}
+
+function launcherRefreshHomeFolders(){
+    var wantsFolder = launcherShortcutIds.some(function(id){
+        return launcherShortcutByID(id).folders != undefined;
+    });
+    if (!wantsFolder){
+        return;
+    }
+    $.ajax({
+        url: "system/file_system/listDir",
+        method: "POST",
+        data: {dir: "user:/"},
+        success: function(data){
+            if (!Array.isArray(data)){
+                //An empty home folder (null) or an error
+                data = [];
+            }
+            var folders = {};
+            data.forEach(function(file){
+                if (file && file.IsDir && typeof file.Filename == "string"){
+                    folders[file.Filename.toLowerCase()] = file.Filename;
+                }
+            });
+            launcherHomeFolders = folders;
+            launcherRenderShortcuts();
+        }
+    });
+}
+
+function launcherRenderShortcuts(){
+    var box = $("#listMenu .launcherShortcuts");
+    box.empty();
+    LAUNCHER_SHORTCUTS.forEach(function(sc){
+        if (launcherShortcutIds.indexOf(sc.id) < 0){
+            return;
+        }
+        var path = "";
+        if (sc.module){
+            var mod = getModuleInfoFromName(sc.module);
+            if (!mod || !isLaunchableModule(mod)){
+                return;
+            }
+        }else{
+            path = launcherShortcutFolder(sc);
+            if (path == ""){
+                return;
+            }
+        }
+        var label = applocale.getString(sc.label[0], sc.label[1]);
+        var button = $('<div class="launcherShortcut" role="button"><i class="icon"></i></div>');
+        button.find("i").addClass(sc.icon);
+        button.attr({"data-id": sc.id, "title": label, "aria-label": label});
+        if (path != ""){
+            button.attr("data-path", path);
+        }
+        box.append(button);
+    });
+}
+
+function launcherOpenShortcut(button){
+    var sc = launcherShortcutByID($(button).attr("data-id"));
+    if (sc == undefined){
+        return;
+    }
+    hideListMenu();
+    if (sc.module){
+        openModule(sc.module);
+    }else{
+        openFolder($(button).attr("data-path"));
+    }
+}
+
 function openModuleFromMenu(object) {
     var moduleName = $(object).attr("module");
     openModule(moduleName);
@@ -412,6 +559,8 @@ function launcherOpen(){
     $(".launcherUsername").text(userInfo.Username || "");
     $("#listMenu").stop(true, true).fadeIn(120);
     launcherPlace();
+    //A chosen folder may have been made or removed since the last opening
+    launcherRefreshHomeFolders();
     $("#dockLauncherBtn").addClass("pressed");
     listMenuShown = true;
     setTimeout(function(){
@@ -651,6 +800,9 @@ function hookLaunchMenuEvents(){
         if ($(event.target).closest("#accountPanel, .launcherUser").length == 0){
             launcherHideAccountPanel();
         }
+    });
+    $("#listMenu .launcherShortcuts").off(".launcher").on("click.launcher", ".launcherShortcut", function(){
+        launcherOpenShortcut(this);
     });
     $("#listMenu .launcherPower").off(".launcher").on("click.launcher", function(event){
         event.stopPropagation();

@@ -37,7 +37,7 @@ Scripts (at the end of `<body>`, after the markup):
 | `dock.js` | dock and tray: clock, window groups (`dockAddWindow` / `dockRemoveWindow` / `dockUpdateFocus`), pins, trash (empty / full, *Empty Trash Bin*), window list, dock menus, tray server status (`setTrayServerStatus`), tray panel rules (`trayClosePanels`: one open at a time, closed by a press elsewhere, a click into a window or Escape), start menu layout (`setStartMenuLayout`: dock alignment, dock and app icon sizes from the Start Menu settings page), `getReservedBottom` |
 | `quickaccess.js` | quick access panel opened by the tray's server icon: server health (SMART, RAID; feeds the tray dot), network interfaces, dark mode / full screen / settings tiles, volume and brightness sliders, disk usage, all rendered from JSON endpoints |
 | `notifications.js` | notification centre (`toggleNotification`, `sendNotification`, relative times), calendar card (opens the Calendar app on a day), server notification polling, toasts |
-| `launcher.js` | the app launcher opened by the dock: live search, categories, grid, keyboard selection, tile and power menus, the account panel (switch / add / sign out accounts), drag to desktop / dock |
+| `launcher.js` | the app launcher opened by the dock: live search, categories, grid, keyboard selection, tile and power menus, the footer shortcuts next to the power button (preference `startmenu-shortcuts`: File Manager, System Setting and home folders such as Document or Music, picked in the Start Menu settings page), the account panel (switch / add / sign out accounts), drag to desktop / dock |
 | `launch.js` | `openModule`, `openFileWithModule`, opening icons, folders and shortcuts |
 | `windows.js` | float window manager: `newFloatWindow`, focus / z-order, min / max / close, setters |
 | `windowmove.js` | window drag, resize, docking, title bar event hooks |
@@ -66,6 +66,7 @@ Scripts (at the end of `<body>`, after the markup):
    | `launch.js` | `openModule`, `openFileWithModule`, `openContainerAppShortcut` |
    | `theme.js` | `initTheme`, `setThemeColor`, `toggleDesktopTheme`, `setAssistiveTitles` |
    | `dock.js` | `setStartMenuLayout` (System Settings > Desktop & Themes > Start Menu) |
+   | `launcher.js` | `launcherSetShortcuts` (the same settings page) |
    | `wallpaper.js` | `changeDesktopTheme`, `initBackgroundSwitchingAnimation` |
    | `backgroundtasks.js` | `startFileOperation`, `openFileOperationDialog` |
    | `launcher.js` / `icons.js` / `session.js` / `utils.js` / `boot.js` | `initModuleList` / `refresh` / `logout` / `bindObjectToIMEEvents` / `initDesktop` |
@@ -105,7 +106,8 @@ Scripts (at the end of `<body>`, after the markup):
    (`SystemAO/desktop/settings/theme.html`, `personalization.html`) preview a
    theme colour by painting `#navimenu, #dockTray` in the parent page.
    Pins are the desktop preference `dock-pinned`: a JSON list of module
-   names (File Manager and System Setting when unset) and of objects for
+   names (empty when unset: File Manager and System Setting are shortcuts in
+   the launcher footer, next to the power button) and of objects for
    folders, web links and container apps (`dockPinKey`); the trash icon asks
    `/system/file_system/trashState`, which stops at the first trashed item,
    and falls back to `listTrash` on servers without it. The dock is at least

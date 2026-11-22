@@ -64,7 +64,6 @@ type Options struct {
 	TableName          string //Database table for desktop state, default "desktop"
 	WebRoot            string //Folder the web apps are served from, default "./web"
 	WallpaperRoot      string //Folder of the bundled wallpaper themes
-	TemplateFolder     string //Shortcuts copied onto a new user's desktop
 	Users              UserProvider
 	Shares             ShareChecker //Optional, nothing is shown as shared when nil
 	Modules            ModuleLookup //Optional, module shortcuts cannot be edited when nil
@@ -74,10 +73,9 @@ type Options struct {
 
 // Default values of Options
 const (
-	DefaultTableName      = "desktop"
-	DefaultWebRoot        = "./web"
-	DefaultWallpaperRoot  = "./web/img/desktop/bg"
-	DefaultTemplateFolder = "./system/desktop/template/"
+	DefaultTableName     = "desktop"
+	DefaultWebRoot       = "./web"
+	DefaultWallpaperRoot = "./web/img/desktop/bg"
 )
 
 // Service serves the desktop API
@@ -107,9 +105,6 @@ func New(opts Options) (*Service, error) {
 	}
 	if opts.WallpaperRoot == "" {
 		opts.WallpaperRoot = DefaultWallpaperRoot
-	}
-	if opts.TemplateFolder == "" {
-		opts.TemplateFolder = DefaultTemplateFolder
 	}
 
 	layoutManager, err := layout.NewManager(opts.Database, opts.TableName)

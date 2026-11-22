@@ -40,7 +40,7 @@
 */
 
 var DOCK_PINNED_PREF = "dock-pinned";
-var DOCK_DEFAULT_PINNED = ["File Manager", "System Setting"];
+var DOCK_DEFAULT_PINNED = []; //File Manager and System Setting sit in the launcher footer instead
 var DOCK_ICON_MAX = 36; //--dt-dock-icon of the chosen size, read back by setStartMenuLayout
 var DOCK_ICON_MIN = 30;
 var DOCK_TRASH_EMPTY = "img/desktop/dock/trash_empty.svg";
@@ -1260,7 +1260,14 @@ function initStartMenuLayout(){
             return;
         }
         try {
-            setStartMenuLayout(JSON.parse(e.newValue).layout);
+            var change = JSON.parse(e.newValue);
+            if (change.layout){
+                setStartMenuLayout(change.layout);
+            }
+            if (change.shortcuts !== undefined && typeof launcherSetShortcuts == "function"){
+                //The footer shortcuts of the launcher (launcher.js)
+                launcherSetShortcuts(change.shortcuts);
+            }
         } catch (err) {}
     });
 }

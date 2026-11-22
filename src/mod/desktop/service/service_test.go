@@ -128,10 +128,9 @@ func TestNewAppliesDefaults(t *testing.T) {
 		t.Fatalf("New returned unexpected error: %v", err)
 	}
 	checks := map[string][2]string{
-		"TableName":      {s.opts.TableName, DefaultTableName},
-		"WebRoot":        {s.opts.WebRoot, DefaultWebRoot},
-		"WallpaperRoot":  {s.opts.WallpaperRoot, DefaultWallpaperRoot},
-		"TemplateFolder": {s.opts.TemplateFolder, DefaultTemplateFolder},
+		"TableName":     {s.opts.TableName, DefaultTableName},
+		"WebRoot":       {s.opts.WebRoot, DefaultWebRoot},
+		"WallpaperRoot": {s.opts.WallpaperRoot, DefaultWallpaperRoot},
 	}
 	for field, got := range checks {
 		if got[0] != got[1] {

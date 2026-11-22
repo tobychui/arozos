@@ -233,6 +233,7 @@ body.appIconsLarge #listMenu .launcherTile img {
 }
 
 #listMenu .launcherUser:hover,
+#listMenu .launcherShortcut:hover,
 #listMenu .launcherPower:hover {
     background-color: var(--dt-hover);
 }
@@ -254,6 +255,15 @@ body.appIconsLarge #listMenu .launcherTile img {
     color: var(--dt-text);
 }
 
+#listMenu .launcherActions,
+#listMenu .launcherShortcuts {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+#listMenu .launcherShortcut,
 #listMenu .launcherPower {
     width: 38px;
     height: 38px;
@@ -264,6 +274,7 @@ body.appIconsLarge #listMenu .launcherTile img {
     cursor: pointer;
 }
 
+#listMenu .launcherShortcut i.icon,
 #listMenu .launcherPower i.icon {
     margin: 0;
     height: auto;

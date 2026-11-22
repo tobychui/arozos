@@ -18,6 +18,8 @@ if (typeof(applocale) != "undefined"){
     applocale.init("./SystemAO/locale/desktop.json", function(){
         applocale.translate();
         initDesktop();
+        //The early listing below may have been drawn before the locale was in
+        updateBackgroundgTaskList();
     });
 }else{
     //Applocale not found. Is this a trim down version of ArozOS?
@@ -51,6 +53,7 @@ function initDesktop(){
     initStartMenuLayout();
     hookFloatWindowEvents();
     hookLaunchMenuEvents();
+    initLauncherShortcuts();
     initTheme();
     initStartupSounds();
     initUploadCuttoffValues();

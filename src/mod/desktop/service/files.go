@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
@@ -45,7 +43,9 @@ type desktopObject struct {
 	IconY          int
 }
 
-// initUserFolderStructure creates the user's desktop, seeded from the template folder, on first use
+// initUserFolderStructure creates the user's (empty) desktop folder on first use.
+// File Manager, System Setting and the trash are reached from the launcher and
+// the dock, so a new desktop no longer gets shortcuts to them.
 func (s *Service) initUserFolderStructure(userinfo *user.User) {
 	userfsh, err := userinfo.GetHomeFileSystemHandler()
 	if err != nil {
@@ -59,19 +59,7 @@ func (s *Service) initUserFolderStructure(userinfo *user.User) {
 		return
 	}
 
-	//Desktop directory not exists. Create one and copy a template desktop
 	userFsa.MkdirAll(userDesktopPath, 0755)
-	if !utils.FileExists(s.opts.TemplateFolder) {
-		return
-	}
-	templateFiles, _ := filepath.Glob(filepath.Join(s.opts.TemplateFolder, "*"))
-	for _, tfile := range templateFiles {
-		input, err := os.ReadFile(tfile)
-		if err != nil {
-			continue
-		}
-		userFsa.WriteFile(arozfs.ToSlash(filepath.Join(userDesktopPath, filepath.Base(tfile))), input, 0755)
-	}
 }
 
 // isHiddenFile reports whether a desktop entry should be skipped

@@ -178,12 +178,15 @@ function renderBackgroundTasks(tasks){
 
     if (tasks.length == 0){
         backgroundTaskBusy = {};
-        if (list.children(".btEmpty").length == 0){
-            var empty = $('<div class="btEmpty"><i class="check circle outline icon"></i><span class="btEmptyText"></span><a class="btRefresh"></a></div>');
-            empty.find(".btEmptyText").text(applocale.getString("backgroundTasks/noTasks", "No running background tasks"));
-            empty.find(".btRefresh").text(applocale.getString("backgroundTasks/refresh", "Refresh"));
+        var empty = list.children(".btEmpty");
+        if (empty.length == 0){
+            empty = $('<div class="btEmpty"><i class="check circle outline icon"></i><span class="btEmptyText"></span><a class="btRefresh"></a></div>');
             list.empty().append(empty);
         }
+        //Set on every render: the first listing (boot.js) can arrive before
+        //the locale file, and the placeholder would otherwise stay in English
+        setBackgroundTaskText(empty.find(".btEmptyText"), applocale.getString("backgroundTasks/noTasks", "No running background tasks"));
+        setBackgroundTaskText(empty.find(".btRefresh"), applocale.getString("backgroundTasks/refresh", "Refresh"));
         return;
     }
 
@@ -225,7 +228,6 @@ function createBackgroundTaskRow(oprid){
         '</div>' +
     '</div>');
     row.attr("data-oprid", oprid);
-    row.find(".btCancel").attr("title", applocale.getString("backgroundTasks/cancel", "Cancel"));
     return row;
 }
 
@@ -275,7 +277,8 @@ function updateBackgroundTaskRow(row, task){
         applocale.getString("backgroundTasks/pause", "Pause"));
     pauseBtn.attr("data-paused", state == "paused" ? "true" : "false");
     pauseBtn.toggleClass("disabled", busy || state == "stopping");
-    row.find(".btCancel").toggleClass("disabled", busy || state == "stopping");
+    row.find(".btCancel").toggleClass("disabled", busy || state == "stopping")
+        .attr("title", applocale.getString("backgroundTasks/cancel", "Cancel"));
 }
 
 //Text that changes every second: only touch the DOM when it did
