@@ -1,0 +1,574 @@
+<!--
+    Sync Server: where a user turns the upload endpoint on for their account,
+    picks the folder uploads go to and how they are sorted, and finds what to
+    put into the automation on their phone. Loaded into services.html for
+    every user.
+-->
+<style>
+    #sy-user .sy-mono { font-family: var(--ss-mono); }
+    #sy-user .sy-sub { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ss-text-3); overflow-wrap: anywhere; }
+    #sy-user .ui.form { max-width: 560px; }
+    #sy-user .sy-headers { max-width: 560px; margin-top: 6px; }
+    #sy-user .sy-headers td:first-child { width: 34%; font-family: var(--ss-mono); }
+    #sy-user .sy-headers code { font-family: var(--ss-mono); font-size: 12px; overflow-wrap: anywhere; }
+    #sy-user .sy-radios .field { margin-bottom: 8px !important; }
+    #sy-user .sy-preview { margin-top: -4px; margin-bottom: 14px; padding: 8px 10px; font-size: 12px; border-radius: var(--ss-radius-sm); background: var(--ss-surface-2); color: var(--ss-text-2); overflow-wrap: anywhere; }
+    #sy-user .sy-preview code { font-family: var(--ss-mono); color: var(--ss-text); }
+    #sy-user .sy-panel { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--ss-border); border-radius: var(--ss-radius-sm); background: var(--ss-surface-2); max-width: 560px; }
+    #sy-user .sy-panel h4 { margin: 0 0 10px; font-size: 13px; }
+    #sy-user .sy-pw-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    #sy-user .sy-pw-row .ui.input { flex: 1 1 200px; min-width: 0; }
+    #sy-user .sy-pw-row .ss-btn { height: 32px; }
+    #sy-user .sy-activity { font-size: 12.5px; line-height: 1.6; color: var(--ss-text); }
+    #sy-user .sy-activity .sy-error { color: var(--ss-danger); }
+    #sy-user .sy-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; font-size: 12.5px; color: var(--ss-text); }
+    #sy-user .sy-line .ss-btn { height: 26px; padding: 0 10px; font-size: 12px; }
+    #sy-user .sy-saved-pw { max-width: 560px; }
+    #sy-user .sy-saved-pw code { font-family: var(--ss-mono); font-weight: 600; }
+    #sy-user .sy-steps { margin: 4px 0 0; padding-left: 20px; max-width: 640px; }
+    #sy-user .sy-steps li { margin-bottom: 8px; font-size: 12.5px; line-height: 1.6; color: var(--ss-text); }
+    #sy-user .sy-steps code, #sy-user .sy-notes code { font-family: var(--ss-mono); font-size: 12px; padding: 0 3px; border-radius: 3px; background: var(--ss-surface-2); }
+    #sy-user .sy-notes { margin: 8px 0 0; padding-left: 18px; max-width: 640px; }
+    #sy-user .sy-notes li { margin-bottom: 4px; font-size: 12px; line-height: 1.55; color: var(--ss-text-3); }
+</style>
+
+<div id="sy-user" class="fsp">
+    <div class="ui basic blue message">
+        <h4 class="ui header">
+            <i class="blue cloud upload icon"></i>
+            <div class="content" locale="fileservers/syncserver/intro_title">Send photos from your phone</div>
+        </h4>
+        <p locale="fileservers/syncserver/intro">An automation on your phone, such as an iOS Shortcut that runs every night, uploads your new photos and files to the address below. They go to a folder of your drives, sorted the way you pick. The phone may send the same files again on every run: files that are already here are skipped.</p>
+    </div>
+
+    <div class="fsp-state" id="sy-state"><i class="spinner loading icon"></i></div>
+
+    <div id="sy-main" hidden>
+        <div class="fsp-banner warn sy-saved-pw" id="sy-saved-pw" hidden>
+            <i class="key icon"></i>
+            <div>
+                <span locale="fileservers/syncserver/saved_password">Your sync password. Put it into the automation on your phone now: it is not shown again.</span>
+                <div class="fsp-key" style="margin-top:6px"><code id="sy-saved-pw-text"></code><button type="button" class="ss-btn fs-copy" id="sy-saved-pw-copy" locale="fileservers/copy">Copy</button></div>
+            </div>
+        </div>
+
+        <div id="sy-connect" hidden>
+            <div class="fsp-subtitle" locale="fileservers/syncserver/address">Upload address</div>
+            <div class="fsp-key">
+                <code id="sy-url"></code>
+                <button type="button" class="ss-btn fs-copy" id="sy-url-copy" locale="fileservers/copy">Copy</button>
+            </div>
+            <div class="fsp-hint" locale="fileservers/syncserver/address_hint">This is the address this browser reached the server on. Use one your phone can reach as well.</div>
+            <table class="fsp-table sy-headers">
+                <thead><tr>
+                    <th locale="fileservers/syncserver/col_header">Header</th>
+                    <th locale="fileservers/syncserver/col_value">Value</th>
+                </tr></thead>
+                <tbody>
+                    <tr><td>Username</td><td><code id="sy-h-user"></code></td></tr>
+                    <tr><td>Authorization</td><td><code>Bearer <span id="sy-h-pass"></span></code></td></tr>
+                </tbody>
+            </table>
+            <div class="fsp-hint" locale="fileservers/syncserver/request_hint">Send the files with POST, as file fields of a form. An optional text field named date carries when the photo was taken (ISO 8601). Without it, the date is read from the file.</div>
+
+            <div class="fsp-subtitle" locale="fileservers/syncserver/activity">Activity</div>
+            <div class="sy-activity" id="sy-activity"></div>
+        </div>
+
+        <div class="fsp-subtitle" id="sy-form-title"></div>
+        <form class="ui form" id="sy-form" autocomplete="off">
+            <div class="field">
+                <label locale="fileservers/syncserver/folder">Folder for uploads</label>
+                <div class="ui action input">
+                    <input type="text" id="sy-folder" placeholder="user:/Phone Uploads">
+                    <button type="button" class="ui button" id="sy-browse" locale="fileservers/syncserver/browse">Browse</button>
+                </div>
+                <small class="fsp-hint" locale="fileservers/syncserver/folder_hint">A folder of your drives that you can write to. A missing folder is created.</small>
+            </div>
+            <div class="field">
+                <div class="ui checkbox">
+                    <input type="checkbox" id="sy-bytype">
+                    <label for="sy-bytype"><span locale="fileservers/syncserver/bytype">Sort into folders by type</span>
+                        <small class="fsp-hint" locale="fileservers/syncserver/bytype_hint">Photo, Video, Audio, Document and Other.</small></label>
+                </div>
+            </div>
+            <div class="field">
+                <label locale="fileservers/syncserver/dates">Sort into folders by date</label>
+                <select class="ui dropdown" id="sy-dates">
+                    <option value="" locale="fileservers/syncserver/dates_none">No date folders</option>
+                    <option value="year" locale="fileservers/syncserver/dates_year">Year (2026)</option>
+                    <option value="month" locale="fileservers/syncserver/dates_month">Year and month (2026_08)</option>
+                    <option value="nested" locale="fileservers/syncserver/dates_nested">Year, then month (2026/08)</option>
+                </select>
+            </div>
+            <div class="grouped fields sy-radios" id="sy-source-field">
+                <label locale="fileservers/syncserver/source">Date to sort by</label>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="sy-source" value="created" id="sy-source-created">
+                        <label for="sy-source-created"><span locale="fileservers/syncserver/source_created">When the photo was taken or the file created</span>
+                            <small class="fsp-hint" locale="fileservers/syncserver/source_created_hint">From the date field of the request, else from the photo or video itself. Files without a date use the upload date.</small></label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="sy-source" value="upload" id="sy-source-upload">
+                        <label for="sy-source-upload"><span locale="fileservers/syncserver/source_upload">When the file was uploaded</span></label>
+                    </div>
+                </div>
+            </div>
+            <div class="sy-preview" id="sy-preview"></div>
+            <div class="grouped fields sy-radios">
+                <label locale="fileservers/syncserver/duplicates">When the file is already here</label>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="sy-dup" value="skip" id="sy-dup-skip">
+                        <label for="sy-dup-skip"><span locale="fileservers/syncserver/dup_skip">Skip it</span>
+                            <small class="fsp-hint" locale="fileservers/syncserver/dup_skip_hint">Files are matched by name. A name received in the last 30 days is skipped even after you move or delete that file here. A different file with a name already in the folder is kept beside it, as "IMG_0001 (1).HEIC".</small></label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="sy-dup" value="overwrite" id="sy-dup-overwrite">
+                        <label for="sy-dup-overwrite"><span locale="fileservers/syncserver/dup_overwrite">Replace it</span>
+                            <small class="fsp-hint" locale="fileservers/syncserver/dup_overwrite_hint">The file of the same name is replaced when its content differs, for example a photo edited on the phone. The replaced file is gone.</small></label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sy-pw-slot-setup"></div>
+
+            <div class="fsp-buttons">
+                <button type="submit" class="ui black button" id="sy-save"><i class="check icon"></i> <span id="sy-save-label"></span></button>
+            </div>
+            <div class="fsp-result" id="sy-result" role="status"></div>
+        </form>
+
+        <div id="sy-manage" hidden>
+            <div class="fsp-subtitle" locale="fileservers/syncserver/password">Password</div>
+            <div class="sy-line">
+                <span id="sy-pw-state"></span>
+                <button type="button" class="ss-btn" id="sy-pw-open" locale="fileservers/syncserver/change_password">Change</button>
+            </div>
+            <div class="sy-panel" id="sy-pw-panel" hidden>
+                <h4 locale="fileservers/syncserver/change_password_title">How uploads sign in</h4>
+                <form class="ui form" id="sy-pw-form" autocomplete="off">
+                    <div id="sy-pw-slot-panel"></div>
+                    <div class="fsp-buttons">
+                        <button type="submit" class="ui black button" id="sy-pw-save"><i class="check icon"></i> <span locale="fileservers/syncserver/save">Save</span></button>
+                        <button type="button" class="ui basic button" id="sy-pw-cancel" locale="fileservers/syncserver/cancel">Cancel</button>
+                    </div>
+                    <div class="fsp-result" id="sy-pw-result" role="status"></div>
+                </form>
+            </div>
+
+            <div class="sy-line">
+                <span id="sy-remembered"></span>
+                <button type="button" class="ss-btn" id="sy-forget" locale="fileservers/syncserver/forget">Forget them</button>
+            </div>
+            <div class="fsp-buttons">
+                <button type="button" class="ui basic button" id="sy-off"><i class="red times icon"></i> <span locale="fileservers/syncserver/turn_off">Turn off for my account</span></button>
+            </div>
+        </div>
+
+        <!-- Moved into the setup form or the password panel -->
+        <div id="sy-pw-block">
+            <div class="grouped fields sy-radios">
+                <label locale="fileservers/syncserver/sign_in_with">Uploads sign in with</label>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="sy-pwmode" value="sync" id="sy-pwmode-sync">
+                        <label for="sy-pwmode-sync"><span locale="fileservers/syncserver/pw_sync">A separate sync password (recommended)</span>
+                            <small class="fsp-hint" locale="fileservers/syncserver/pw_sync_hint">The phone keeps it in the automation. It only lets files in, and you can change it here without changing your login.</small></label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="sy-pwmode" value="login" id="sy-pwmode-login">
+                        <label for="sy-pwmode-login"><span locale="fileservers/syncserver/pw_login">My ArozOS login password</span></label>
+                    </div>
+                </div>
+            </div>
+            <div class="field" id="sy-syncpw-field">
+                <label locale="fileservers/syncserver/sync_password">Sync password</label>
+                <div class="sy-pw-row">
+                    <div class="ui input"><input type="password" id="sy-syncpw" class="sy-mono" maxlength="72" autocomplete="new-password" spellcheck="false" autocapitalize="off"></div>
+                    <button type="button" class="ss-btn" id="sy-syncpw-show" locale="fileservers/syncserver/show">Show</button>
+                    <button type="button" class="ss-btn" id="sy-syncpw-generate" locale="fileservers/syncserver/generate">Generate</button>
+                </div>
+                <small class="fsp-hint" locale="fileservers/syncserver/sync_password_hint">At least 8 characters.</small>
+            </div>
+            <div class="field">
+                <label locale="fileservers/part/login_password">Your ArozOS login password</label>
+                <input type="password" id="sy-login" autocomplete="current-password">
+            </div>
+        </div>
+
+        <div class="fsp-subtitle" locale="fileservers/syncserver/guide_title">Set up an iPhone or iPad</div>
+        <ol class="sy-steps">
+            <li locale="fileservers/syncserver/guide_1">Open Shortcuts, go to the Shortcuts tab and tap + to make a shortcut. Name it, for example, Sync Photos to ArozOS.</li>
+            <li locale="fileservers/syncserver/guide_2">Add the Find Photos action. Tap Add Filter and set Date Taken, is in the last, 3 days. A longer time than the automation needs does no harm: the server skips what it already has.</li>
+            <li locale="fileservers/syncserver/guide_3">Add Repeat with Each, which repeats with each item in Photos.</li>
+            <li locale="fileservers/syncserver/guide_4">Inside the repeat, above End Repeat, add Get Contents of URL with the upload address above. Open its options and set Method to POST.</li>
+            <li locale="fileservers/syncserver/guide_5">Under Headers add two headers: the key Username with your user name, and the key Authorization with the word Bearer, a space and your password. Both are in the table above.</li>
+            <li locale="fileservers/syncserver/guide_6">Set Request Body to Form, add a new field of the type File, name it file and pick Repeat Item as the file. No other field is needed.</li>
+            <li locale="fileservers/syncserver/guide_7">Run the shortcut once with the play button and allow it to use your photos and to connect to the server. The Activity above then shows what arrived.</li>
+            <li locale="fileservers/syncserver/guide_8">To run it every night, go to the Automation tab, tap +, choose Time of Day, pick a time when the phone is usually charging, Daily and Run Immediately, then choose the shortcut.</li>
+        </ol>
+        <ul class="sy-notes">
+            <li locale="fileservers/syncserver/note_date">Optional: add a Text field named date, insert the Repeat Item variable, tap it, choose Date Taken and set its date format to ISO 8601. The server reads the date from photos and videos itself, so this only matters for files without one.</li>
+            <li locale="fileservers/syncserver/note_video">Long videos can stop a shortcut that runs in the background. If that happens, add the filter Media Type is Image to Find Photos.</li>
+            <li locale="fileservers/syncserver/note_proxy">A proxy in front of this server may refuse large uploads before they arrive. Cloudflare refuses requests over 100 MB.</li>
+            <li locale="fileservers/syncserver/note_test">To test your password, open the upload address in a browser and sign in with your user name and password. The answer starts with "ok": true.</li>
+            <li locale="fileservers/syncserver/note_android">On Android, automation apps such as HTTP Shortcuts, Tasker or Automate can send the same request.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+(function () {
+    var T = (typeof fsT === 'function') ? fsT : function (key, fallback) { return fallback; };
+    function t(key, fallback) { return T('syncserver/' + key, fallback); }
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name] === undefined ? all : values[name]; });
+    }
+    function api(path) { return '../../system/storage/syncserver/' + path; }
+    function failed(data) { return !data || data.error !== undefined; }
+    function when(seconds) { return seconds ? new Date(seconds * 1000).toLocaleString() : ''; }
+    function message($target, text, good) {
+        $target.text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+    // Two sentences: a space between them, except after a full-width full stop
+    function sentences(first, second) {
+        if (!second) return first;
+        return /[。！．]$/.test(first) ? first + second : first + ' ' + second;
+    }
+    function state(icon, text) {
+        $('#sy-state').empty().append($('<i></i>').addClass(icon + ' icon')).append($('<span></span>').text(text));
+    }
+
+    var status = null;
+    var formLoaded = false;
+    var timer = null;
+
+    /* Form */
+
+    function settingsOf(s) {
+        $('#sy-folder').val(s.Folder || '');
+        $('#sy-bytype').prop('checked', !!s.ByType);
+        $('#sy-dates').val(s.DateFolders || '');
+        $('#sy-form input[name="sy-source"]').prop('checked', false).filter('[value="' + (s.DateSource || 'created') + '"]').prop('checked', true);
+        $('#sy-form input[name="sy-dup"]').prop('checked', false).filter('[value="' + (s.Duplicates || 'skip') + '"]').prop('checked', true);
+        preview();
+    }
+
+    function formValues() {
+        return {
+            folder: $('#sy-folder').val().trim(),
+            bytype: $('#sy-bytype').is(':checked') ? 'true' : 'false',
+            datefolders: $('#sy-dates').val(),
+            datesource: $('#sy-form input[name="sy-source"]:checked').val() || 'created',
+            duplicates: $('#sy-form input[name="sy-dup"]:checked').val() || 'skip'
+        };
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function preview() {
+        var v = formValues();
+        var now = new Date();
+        var parts = [(v.folder || 'user:/Phone Uploads').replace(/\/+$/, '')];
+        if (v.bytype === 'true') parts.push('Photo');
+        if (v.datefolders === 'year') parts.push(String(now.getFullYear()));
+        if (v.datefolders === 'month') parts.push(now.getFullYear() + '_' + pad(now.getMonth() + 1));
+        if (v.datefolders === 'nested') parts.push(now.getFullYear() + '/' + pad(now.getMonth() + 1));
+        parts.push('IMG_1234.HEIC');
+        $('#sy-source-field').toggle(v.datefolders !== '');
+        $('#sy-preview').empty().append($('<span></span>').text(t('preview', 'A photo would go to') + ' '))
+            .append($('<code></code>').text(parts.join('/')));
+    }
+
+    /* Password fields */
+
+    function pwMode() { return $('input[name="sy-pwmode"]:checked').val() || 'sync'; }
+
+    function pwModeChanged() {
+        $('#sy-syncpw-field').prop('hidden', pwMode() !== 'sync');
+    }
+
+    function resetPasswordBlock(mode) {
+        $('input[name="sy-pwmode"]').prop('checked', false).filter('[value="' + mode + '"]').prop('checked', true);
+        $('#sy-syncpw, #sy-login').val('');
+        $('#sy-syncpw').attr('type', 'password');
+        $('#sy-syncpw-show').text(t('show', 'Show'));
+        pwModeChanged();
+    }
+
+    // Easy to type on a phone: lower case letters and digits without look-alikes, in groups of four
+    function generatePassword() {
+        var alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+        var bytes = new Uint32Array(16);
+        window.crypto.getRandomValues(bytes);
+        var out = '';
+        for (var i = 0; i < bytes.length; i++) {
+            if (i > 0 && i % 4 === 0) out += '-';
+            out += alphabet.charAt(bytes[i] % alphabet.length);
+        }
+        return out;
+    }
+
+    function passwordData() {
+        var data = { password: $('#sy-login').val() };
+        if (pwMode() === 'login') {
+            data.loginpassword = 'true';
+        } else {
+            data.loginpassword = 'false';
+            data.syncpassword = $('#sy-syncpw').val();
+        }
+        return data;
+    }
+
+    // Checks what can be checked before asking the server, and returns an error text or ''
+    function passwordProblem(data) {
+        if (data.loginpassword !== 'true' && (data.syncpassword || '').length < 8) return t('need_sync_password', 'The sync password must be at least 8 characters long.');
+        if (!data.password) return T('part/need_login', 'Enter your ArozOS login password.');
+        return '';
+    }
+
+    function showSavedPassword(data) {
+        if (data.loginpassword === 'true') {
+            $('#sy-saved-pw').prop('hidden', true);
+            return;
+        }
+        $('#sy-saved-pw-text').text(data.syncpassword);
+        $('#sy-saved-pw-copy').attr('data-clipboard-text', data.syncpassword);
+        $('#sy-saved-pw').prop('hidden', false);
+    }
+
+    function requestFailed(xhr, $result) {
+        if (xhr.status === 401 || xhr.status === 403) return message($result, T('part/wrong_login', 'Your ArozOS login password is not correct.'), false);
+        message($result, T('part/failed', 'The request failed.'), false);
+    }
+
+    /* Saving */
+
+    function save(event) {
+        event.preventDefault();
+        var $result = $('#sy-result');
+        var data = formValues();
+        if (!data.folder) return message($result, t('need_folder', 'Pick a folder for the uploads.'), false);
+        var activating = !(status && status.Activated);
+        if (activating) {
+            var pw = passwordData();
+            var problem = passwordProblem(pw);
+            if (problem) return message($result, problem, false);
+            $.extend(data, pw);
+        }
+        $('#sy-save').addClass('loading disabled');
+        $.ajax({ url: api(activating ? 'activate' : 'settings'), method: 'POST', data: data }).done(function (res) {
+            if (failed(res)) return message($result, res && res.error ? res.error : T('part/failed', 'The request failed.'), false);
+            if (activating) {
+                showSavedPassword(data);
+                $('#sy-login, #sy-syncpw').val('');
+                message($result, t('turned_on', 'The sync server is on for your account.'), true);
+            } else {
+                message($result, t('saved', 'Saved.'), true);
+            }
+            refresh();
+        }).fail(function (xhr) {
+            requestFailed(xhr, $result);
+        }).always(function () {
+            $('#sy-save').removeClass('loading disabled');
+            $('#sy-login').val('');
+        });
+    }
+
+    function openPasswordPanel() {
+        resetPasswordBlock(status && status.Settings.LoginPassword ? 'login' : 'sync');
+        $('#sy-pw-result').text('').removeClass('good bad');
+        $('#sy-pw-panel').prop('hidden', false);
+        $('#sy-pw-open').prop('hidden', true);
+    }
+
+    function closePasswordPanel() {
+        $('#sy-pw-panel').prop('hidden', true);
+        $('#sy-pw-open').prop('hidden', false);
+        $('#sy-login, #sy-syncpw').val('');
+    }
+
+    function savePassword(event) {
+        event.preventDefault();
+        var $result = $('#sy-pw-result');
+        var data = passwordData();
+        var problem = passwordProblem(data);
+        if (problem) return message($result, problem, false);
+        $('#sy-pw-save').addClass('loading disabled');
+        $.ajax({ url: api('password'), method: 'POST', data: data }).done(function (res) {
+            if (failed(res)) return message($result, res && res.error ? res.error : T('part/failed', 'The request failed.'), false);
+            showSavedPassword(data);
+            closePasswordPanel();
+            refresh();
+        }).fail(function (xhr) {
+            requestFailed(xhr, $result);
+        }).always(function () {
+            $('#sy-pw-save').removeClass('loading disabled');
+            $('#sy-login').val('');
+        });
+    }
+
+    function forget() {
+        ssConfirm({
+            title: t('forget_title', 'Forget received files'),
+            text: t('forget_confirm', 'Files you moved or deleted here are received again the next time the phone sends them.'),
+            confirmLabel: t('forget', 'Forget them')
+        }, function () {
+            $.post(api('forget'), function (res) {
+                if (failed(res)) return ssAlert({ title: t('title', 'Sync Server'), text: res && res.error ? res.error : T('part/failed', 'The request failed.') });
+                refresh();
+            });
+        });
+    }
+
+    function turnOff() {
+        ssConfirm({
+            title: t('turn_off', 'Turn off for my account'),
+            text: t('turn_off_confirm', 'Uploads from your phone are refused until you turn it on again. The files already received stay where they are.'),
+            confirmLabel: t('turn_off_button', 'Turn off'),
+            danger: true
+        }, function () {
+            $.post(api('deactivate'), function (res) {
+                if (failed(res)) return ssAlert({ title: t('title', 'Sync Server'), text: res && res.error ? res.error : T('part/failed', 'The request failed.') });
+                $('#sy-saved-pw').prop('hidden', true);
+                formLoaded = false;
+                refresh();
+            });
+        });
+    }
+
+    function browse() {
+        if (typeof ao_module_openFileSelector !== 'function') return;
+        ao_module_openFileSelector(function (files) {
+            if (files && files.length > 0) {
+                $('#sy-folder').val(files[0].filepath);
+                preview();
+            }
+        }, 'user:/', 'folder', false);
+    }
+
+    /* Status */
+
+    function renderActivity(a) {
+        var $box = $('#sy-activity').empty();
+        if (!a || !a.Last) {
+            $box.append($('<div></div>').text(t('no_activity', 'Nothing has been uploaded yet.')));
+            return;
+        }
+        $box.append($('<div></div>').text(fill(t('last_request', 'Last upload {time} from {address}'), { time: when(a.Last), address: a.Address || '?' })));
+        if (a.LastFile) {
+            $box.append($('<div></div>').append($('<span></span>').text(t('last_file', 'Last file saved:') + ' '))
+                .append($('<span class="sy-mono"></span>').text(a.LastFile)).append($('<span class="sy-sub"></span>').text(when(a.LastSaved))));
+        }
+        $box.append($('<div></div>').text(fill(t('totals', '{saved} saved, {skipped} skipped, {failed} failed in all'), { saved: a.Saved, skipped: a.Skipped, failed: a.Failed })));
+        if (a.LastError) $box.append($('<div class="sy-error"></div>').text(a.LastError));
+    }
+
+    function render() {
+        if (!status.Allowed) {
+            state('grey ban', t('state_not_allowed', 'Your account cannot use the sync server. An administrator can allow your group.'));
+            $('#sy-main').prop('hidden', true);
+            return;
+        }
+        $('#sy-main').prop('hidden', false);
+        var limit = status.MaxFileMB > 0 ? fill(t('limit', 'Files up to {size} MB.'), { size: status.MaxFileMB }) : '';
+        if (!status.Running) {
+            state('grey power off', t('state_off', 'The sync server is not running. An administrator can turn it on in the server list.'));
+        } else if (status.Activated) {
+            state('green check circle', sentences(t('state_on', 'The sync server is on for your account.'), limit));
+        } else {
+            state('yellow info circle', sentences(t('state_inactive', 'The sync server is not on for your account yet. Pick a folder and a password below.'), limit));
+        }
+
+        var url = window.location.origin + status.Path;
+        $('#sy-url').text(url);
+        $('#sy-url-copy').attr('data-clipboard-text', url);
+        $('#sy-h-user').text(status.Username);
+        $('#sy-h-pass').text(status.Settings.LoginPassword ? t('your_login_password', '<your login password>') : t('your_sync_password', '<your sync password>'));
+
+        $('#sy-connect, #sy-manage').prop('hidden', !status.Activated);
+        if (status.Activated) {
+            renderActivity(status.Activity);
+            $('#sy-pw-state').text(status.Settings.LoginPassword
+                ? t('pw_state_login', 'Uploads sign in with your ArozOS login password.')
+                : t('pw_state_sync', 'Uploads sign in with your sync password.'));
+            $('#sy-remembered').text(fill(t('remembered', '{count} file names received in the last 30 days are remembered.'), { count: status.Remembered }));
+            $('#sy-forget').prop('disabled', status.Remembered === 0);
+            $('#sy-form-title').text(t('settings_title', 'Where uploads go'));
+            $('#sy-save-label').text(t('save', 'Save'));
+            if ($('#sy-pw-panel').prop('hidden')) $('#sy-pw-block').appendTo('#sy-pw-slot-panel');
+        } else {
+            $('#sy-form-title').text(t('setup_title', 'Turn it on for your account'));
+            $('#sy-save-label').text(t('turn_on', 'Turn on for my account'));
+            $('#sy-pw-block').appendTo('#sy-pw-slot-setup');
+            closePasswordPanel();
+        }
+        //The form keeps what the user is typing over later refreshes
+        if (!formLoaded) {
+            settingsOf(status.Settings);
+            if (!status.Activated) resetPasswordBlock('sync');
+            formLoaded = true;
+        }
+    }
+
+    function refresh() {
+        if (!$('#sy-user').length) {
+            //The page moved on
+            if (timer) clearInterval(timer);
+            timer = null;
+            return;
+        }
+        $.get(api('status'), function (data) {
+            if (failed(data)) {
+                state('red exclamation circle', data && data.error ? data.error : T('part/load_failed', 'The status could not be loaded.'));
+                return;
+            }
+            status = data;
+            render();
+        }).fail(function () {
+            state('red exclamation circle', T('part/load_failed', 'The status could not be loaded.'));
+        });
+    }
+
+    function start() {
+        $('#sy-form').on('submit', save);
+        $('#sy-form').on('input change', 'input, select', preview);
+        $('#sy-browse').on('click', browse);
+        $('#sy-pw-open').on('click', openPasswordPanel);
+        $('#sy-pw-cancel').on('click', closePasswordPanel);
+        $('#sy-pw-form').on('submit', savePassword);
+        $('#sy-forget').on('click', forget);
+        $('#sy-off').on('click', turnOff);
+        $('input[name="sy-pwmode"]').on('change', pwModeChanged);
+        $('#sy-syncpw-show').on('click', function () {
+            var shown = $('#sy-syncpw').attr('type') === 'text';
+            $('#sy-syncpw').attr('type', shown ? 'password' : 'text');
+            $(this).text(shown ? t('show', 'Show') : t('hide', 'Hide'));
+        });
+        $('#sy-syncpw-generate').on('click', function () {
+            $('#sy-syncpw').val(generatePassword()).attr('type', 'text');
+            $('#sy-syncpw-show').text(t('hide', 'Hide'));
+        });
+        //The .fs-copy buttons are handled by the clipboard of the host page
+        //The switch in the server list belongs to the host page
+        $('#fs-list').off('.syuser').on('change.syuser', 'input', function () {
+            setTimeout(refresh, 700);
+        });
+        refresh();
+        //Shows what a shortcut sends while it is being tried out. Selecting
+        //the server again loads this part again, so one timer replaces another
+        if (window.syncServerStatusTimer) clearInterval(window.syncServerStatusTimer);
+        timer = window.syncServerStatusTimer = setInterval(refresh, 5000);
+    }
+
+    start();
+})();
+</script>

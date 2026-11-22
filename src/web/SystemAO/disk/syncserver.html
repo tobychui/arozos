@@ -1,0 +1,154 @@
+<!--
+    Settings of the Sync Server: which groups may use it, the largest file it
+    accepts, and who turned it on. Loaded into services.html for admins.
+-->
+<style>
+    #sy-admin .sy-groups .ui.checkbox { display: inline-block; margin: 0 16px 6px 0; }
+    #sy-admin .sy-sub { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ss-text-3); overflow-wrap: anywhere; }
+    #sy-admin .sy-mono { font-family: var(--ss-mono); }
+    #sy-admin .sy-error { color: var(--ss-danger); }
+    #sy-admin .sy-size .ui.input { max-width: 180px; }
+    #sy-admin .fsp-table td.fsp-action .ss-btn { height: 24px; padding: 0 8px; font-size: 11.5px; }
+
+    @container (max-width: 560px) {
+        #sy-admin .fsp-table thead { display: none; }
+        #sy-admin .fsp-table, #sy-admin .fsp-table tbody, #sy-admin .fsp-table tr, #sy-admin .fsp-table td { display: block; width: 100%; }
+        #sy-admin .fsp-table tr { padding: 8px 0; border-bottom: 1px solid var(--ss-border); }
+        #sy-admin .fsp-table tr:last-child { border-bottom: none; }
+        #sy-admin .fsp-table td { padding: 2px 0; border-bottom: none; }
+        #sy-admin .fsp-table td.fsp-action { width: 100%; padding-top: 6px; text-align: left; }
+    }
+</style>
+
+<div id="sy-admin" class="fsp">
+    <div class="fsp-note" locale="fileservers/syncserver/admin_note">Turn the server on in the list, then pick the groups whose members may use it. Administrators always can. Each user turns it on for their account, with a folder and a password of their own, in the Connect section above. Uploads arrive on the port of this web server, so no port has to be opened.</div>
+
+    <form class="ui form" id="sy-config">
+        <div class="field sy-groups">
+            <label locale="fileservers/syncserver/groups">Groups that may use the sync server</label>
+            <div id="sy-group-list"></div>
+            <small class="fsp-hint" locale="fileservers/syncserver/groups_hint">Taking a group away refuses the uploads of its members. Their settings and files stay.</small>
+        </div>
+        <div class="field sy-size">
+            <label locale="fileservers/syncserver/max_size">Largest file (MB)</label>
+            <div class="ui right labeled input">
+                <input id="sy-max" type="number" min="0" max="1048576" step="1">
+                <div class="ui basic label">MB</div>
+            </div>
+            <small class="fsp-hint" locale="fileservers/syncserver/max_size_hint">0 for no limit. Every upload is received into the tmp folder of the server before it goes to its place, so keep room there for the largest file.</small>
+        </div>
+        <button class="ui black button" type="submit" id="sy-apply" locale="fileservers/syncserver/save_changes">Save Changes</button>
+        <div class="fsp-result" id="sy-config-result" role="status"></div>
+    </form>
+
+    <div class="ui divider"></div>
+
+    <div class="fsp-head">
+        <h4 locale="fileservers/syncserver/users">Users who turned it on</h4>
+        <button type="button" class="ss-btn" id="sy-refresh" locale="fileservers/syncserver/refresh">Refresh</button>
+    </div>
+    <div class="fsp-empty" id="sy-no-users" locale="fileservers/syncserver/no_users" hidden>No user has turned the sync server on yet.</div>
+    <table class="fsp-table" id="sy-users" hidden>
+        <thead><tr>
+            <th locale="fileservers/syncserver/col_user">User</th>
+            <th locale="fileservers/syncserver/col_folder">Folder</th>
+            <th locale="fileservers/syncserver/col_last">Last upload</th>
+            <th></th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+(function () {
+    var T = (typeof fsT === 'function') ? fsT : function (key, fallback) { return fallback; };
+    function t(key, fallback) { return T('syncserver/' + key, fallback); }
+    function fill(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, name) { return values[name] === undefined ? all : values[name]; });
+    }
+    function api(path) { return '../../system/storage/syncserver/' + path; }
+    function failed(data) { return !data || data.error !== undefined; }
+    function when(seconds) { return seconds ? new Date(seconds * 1000).toLocaleString() : ''; }
+    function message($target, text, good) {
+        $target.text(text).toggleClass('good', !!good).toggleClass('bad', !good);
+    }
+    function cell(text, extra, extraClass) {
+        var $td = $('<td></td>').append($('<span></span>').text(text));
+        if (extra) $td.append($('<span class="sy-sub"></span>').addClass(extraClass || '').text(extra));
+        return $td;
+    }
+
+    function loadConfig() {
+        $.get(api('config'), function (config) {
+            if (failed(config)) return;
+            $('#sy-max').val(config.Config.MaxFileMB);
+            var picked = config.Config.Groups || [];
+            var $list = $('#sy-group-list').empty();
+            (config.AllGroups || []).forEach(function (name, i) {
+                var id = 'sy-group-' + i;
+                var $input = $('<input type="checkbox">').attr('id', id).val(name).prop('checked', picked.indexOf(name) >= 0);
+                $list.append($('<div class="ui checkbox"></div>').append($input).append($('<label></label>').attr('for', id).text(name)));
+            });
+        });
+    }
+
+    function save(event) {
+        event.preventDefault();
+        var $result = $('#sy-config-result');
+        var groups = [];
+        $('#sy-group-list input:checked').each(function () { groups.push($(this).val()); });
+        $('#sy-apply').addClass('loading disabled');
+        $.ajax({
+            url: api('config'),
+            method: 'POST',
+            data: { maxsize: $('#sy-max').val(), groups: JSON.stringify(groups) }
+        }).done(function (data) {
+            if (failed(data)) return message($result, data && data.error ? data.error : T('part/failed', 'The request failed.'), false);
+            message($result, T('common/applied', 'Settings applied.'), true);
+            loadConfig();
+            loadUsers();
+        }).fail(function () {
+            message($result, T('part/failed', 'The request failed.'), false);
+        }).always(function () { $('#sy-apply').removeClass('loading disabled'); });
+    }
+
+    function revoke(username) {
+        ssConfirm({
+            title: t('revoke_title', 'Turn off for this user'),
+            text: fill(t('revoke_confirm', 'Uploads of {user} are refused until they turn the sync server on again. Their files stay.'), { user: username }),
+            confirmLabel: t('turn_off_button', 'Turn off'),
+            danger: true
+        }, function () {
+            $.post(api('revoke'), { username: username }, function (data) {
+                if (failed(data)) return ssAlert({ title: t('title', 'Sync Server'), text: data && data.error ? data.error : T('part/failed', 'The request failed.') });
+                loadUsers();
+            });
+        });
+    }
+
+    function loadUsers() {
+        $.get(api('users'), function (users) {
+            if (failed(users)) return;
+            var $body = $('#sy-users tbody').empty();
+            users.forEach(function (u) {
+                var a = u.Activity || {};
+                var $who = cell(u.Username, u.Allowed ? '' : t('not_allowed', 'No longer in an allowed group'));
+                var $last = a.Last
+                    ? cell(when(a.Last), fill(t('totals', '{saved} saved, {skipped} skipped, {failed} failed in all'), { saved: a.Saved, skipped: a.Skipped, failed: a.Failed }))
+                    : cell(t('never', 'Never'));
+                if (a.LastError) $last.append($('<span class="sy-sub sy-error"></span>').text(a.LastError));
+                var $off = $('<button type="button" class="ss-btn"></button>').text(t('turn_off_button', 'Turn off')).on('click', function () { revoke(u.Username); });
+                $body.append($('<tr></tr>').append($who).append(cell(u.Folder).addClass('sy-mono')).append($last)
+                    .append($('<td class="fsp-action"></td>').append($off)));
+            });
+            $('#sy-users').prop('hidden', users.length === 0);
+            $('#sy-no-users').prop('hidden', users.length !== 0);
+        });
+    }
+
+    $('#sy-config').on('submit', save);
+    $('#sy-refresh').on('click', function () { loadConfig(); loadUsers(); });
+    loadConfig();
+    loadUsers();
+})();
+</script>
