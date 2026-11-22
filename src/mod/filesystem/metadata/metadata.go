@@ -185,7 +185,7 @@ func ThumbnailSupported(filename string) bool {
 			return true
 		}
 	}
-	return IsRawImageFile(filename) || ext == ".psd" || ext == ".psb" || ext == ".ora" || ext == ".svg" || ext == ".pdf"
+	return IsRawImageFile(filename) || IsHEICImageFile(filename) || ext == ".psd" || ext == ".psb" || ext == ".ora" || ext == ".svg" || ext == ".pdf"
 }
 
 // ThumbnailFeature names the host tool a thumbnail of this file needs, or ""
@@ -218,6 +218,9 @@ func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpat
 	case IsRawImageFile(rpath):
 		//RAW image formats (Sony, Canon, Nikon, etc.)
 		return generateThumbnailForRAW(fsh, cacheFolder, rpath, generateOnly)
+	case IsHEICImageFile(rpath):
+		//HEIC / HEIF photos (iPhone camera)
+		return generateThumbnailForHEIC(fsh, cacheFolder, rpath, generateOnly)
 	case utils.StringInArray(videoThumbnailFormats, ext):
 		return generateThumbnailForVideo(fsh, cacheFolder, rpath, generateOnly)
 	case utils.StringInArray(modelThumbnailFormats, ext):

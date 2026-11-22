@@ -433,12 +433,14 @@ var thumb = imagelib.loadThumbString("user:/img.jpg");
 ```
 
 ### `imagelib.hasExif(vpath)`
+Reads JPEG, TIFF based RAW and HEIC / HEIF (iPhone) photos.
+
 ```javascript
 if (imagelib.hasExif("user:/img.jpg")) echo("has exif");
 ```
 
 ### `imagelib.getExif(vpath)`
-Returns JSON string.
+Returns JSON string. JPEG, TIFF based RAW and HEIC / HEIF photos.
 
 ```javascript
 var exif = JSON.parse(imagelib.getExif("user:/img.jpg"));

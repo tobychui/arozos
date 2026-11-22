@@ -91,10 +91,7 @@ func generateThumbnailForORA(fsh *filesystem.FileSystemHandler, cacheFolder stri
 // white (JPEG has no alpha).
 func writeCroppedThumbnail(fsh *filesystem.FileSystemHandler, img image.Image, outputFile string) error {
 	b := img.Bounds()
-	flat := image.NewRGBA(b)
-	draw.Draw(flat, b, &image.Uniform{C: color.White}, image.Point{}, draw.Src)
-	draw.Draw(flat, b, img, b.Min, draw.Over)
-	img = flat
+	img = flattenOnWhite(img)
 	var m image.Image
 	if b.Dx() > b.Dy() {
 		m = resize.Resize(0, 480, img, resize.Lanczos3)
@@ -109,10 +106,21 @@ func writeCroppedThumbnail(fsh *filesystem.FileSystemHandler, img image.Image, o
 	if err != nil {
 		return err
 	}
-	outf, err := fsh.FileSystemAbstraction.Create(outputFile)
-	if err != nil {
+	//Encoded in memory and written with WriteFile, which works on every
+	//file system type, the buffered ones (S3, FTP, WebDAV) included
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, cropped, &jpeg.Options{Quality: 90}); err != nil {
 		return err
 	}
-	defer outf.Close()
-	return jpeg.Encode(outf, cropped, &jpeg.Options{Quality: 90})
+	return fsh.FileSystemAbstraction.WriteFile(outputFile, buf.Bytes(), 0644)
+}
+
+// flattenOnWhite draws img over a white background, for JPEG output (which
+// has no alpha)
+func flattenOnWhite(img image.Image) image.Image {
+	b := img.Bounds()
+	flat := image.NewRGBA(b)
+	draw.Draw(flat, b, &image.Uniform{C: color.White}, image.Point{}, draw.Src)
+	draw.Draw(flat, b, img, b.Min, draw.Over)
+	return flat
 }

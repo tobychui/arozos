@@ -16,7 +16,7 @@ var moduleLaunchInfo = {
 	LaunchEmb: "embedded.html",
 	InitFWSize: [1000, 700],
 	InitEmbSize: [900, 500],
-	SupportedExt: [".jpg",".jpeg",".gif",".png",".webp", ".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"]
+	SupportedExt: [".jpg",".jpeg",".gif",".png",".webp", ".heic", ".heif", ".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"]
 }
 
 //Register the module

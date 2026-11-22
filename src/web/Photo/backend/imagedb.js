@@ -35,7 +35,7 @@ var INDEX_DB_PATH = "user:/.appdata/photo/photoindex.db";
 var SCHEMA_VERSION = 1;
 
 // Image / RAW extension sets (kept in sync with constants.js + listFolder.js).
-var IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "arw", "cr2", "dng", "nef", "raf", "orf"];
+var IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "arw", "cr2", "dng", "nef", "raf", "orf"];
 var RAW_EXTENSIONS = ["arw", "cr2", "dng", "nef", "raf", "orf"];
 
 /* ------------------------------------------------------------------ *

@@ -71,18 +71,35 @@ function listNearby(){
     
     //Get nearby files and filter out the one that is web supported photo format
     var nearbyFiles = filelib.readdir(dirpath, "user")
+    var details = {};
     for (var i = 0; i < nearbyFiles.length; i++){
         var thisFile = nearbyFiles[i];
-        //console.log(JSON.stringify(nearbyFiles[i]));
         var ext = thisFile.Ext.substr(1);
         ext = ext.toLowerCase();
-        if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp" || isRawImage(thisFile.Filename)){
+        if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp" || ext == "heic" || ext == "heif" || isRawImage(thisFile.Filename)){
             result.push(thisFile.Filepath);
+            details[thisFile.Filepath] = thisFile;
         }
     }
 
     // Filter out JPG duplicates when RAW files exist
     result = filterDuplicates(result);
+
+    // detail=true answers with the size and date of every photo as well
+    if (typeof(detail) != "undefined" && (detail === true || detail === "true")){
+        var withDetail = [];
+        for (var j = 0; j < result.length; j++){
+            var f = details[result[j]];
+            withDetail.push({
+                filepath: result[j],
+                filename: f.Filename,
+                size: f.Filesize,
+                modtime: f.Modtime
+            });
+        }
+        sendJSONResp(JSON.stringify(withDetail));
+        return;
+    }
 
     sendJSONResp(JSON.stringify(result))
 }

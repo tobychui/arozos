@@ -1,6 +1,7 @@
 package mediaserver
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -171,8 +172,8 @@ func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// RAW images are served as JPEG
-	if metadata.IsRawImageFile(realFilepath) {
+	// RAW and HEIC images are served as JPEG
+	if metadata.IsRawImageFile(realFilepath) || metadata.IsHEICImageFile(realFilepath) {
 		utils.SendTextResponse(w, "image/jpeg")
 		return
 	}
@@ -236,6 +237,13 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 			w.Write(jpegData)
 			return
 		}
+	}
+
+	// HEIC photos (iPhone) only show in Safari, so they are decoded and sent
+	// as JPEG for preview. Downloads still get the original file.
+	if !downloadMode && metadata.IsHEICImageFile(realFilepath) {
+		s.serveHEICAsJPEG(w, r, targetFsh, realFilepath)
+		return
 	}
 
 	//A remote file system pays a round trip for the stat and its streaming
@@ -796,4 +804,31 @@ func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath st
 		return nil
 	}
 	return &layout
+}
+
+// serveHEICAsJPEG sends a HEIC photo decoded to JPEG. Decoding a 12 MP photo
+// takes a while, so the ETag of the source file is checked first: a browser
+// that already holds this version gets a 304 without a decode.
+func (s *Instance) serveHEICAsJPEG(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, realFilepath string) {
+	var modTime time.Time
+	if !fsh.RequireBuffer {
+		if info, err := fsh.FileSystemAbstraction.Stat(realFilepath); err == nil {
+			utils.SetRevalidationHeaders(w, info)
+			modTime = info.ModTime()
+			if etag := w.Header().Get("ETag"); etag != "" && r.Header.Get("If-None-Match") == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+	}
+
+	jpegData, err := metadata.RenderHEICImage(fsh, realFilepath)
+	if err != nil {
+		s.options.Logger.PrintAndLog("Media Server", "Failed to render HEIC image", err)
+		w.Header().Del("ETag")
+		http.Error(w, "Failed to render HEIC image", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	http.ServeContent(w, r, filepath.Base(realFilepath)+".jpg", modTime, bytes.NewReader(jpegData))
 }

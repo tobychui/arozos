@@ -348,14 +348,14 @@
         {
           "name": "imagelib.hasExif",
           "sig": "imagelib.hasExif(vpath)",
-          "desc": "Return true if the image has EXIF metadata.",
+          "desc": "Return true if the image has EXIF metadata. Reads JPEG, TIFF based RAW and HEIC / HEIF photos.",
           "ret": "bool",
           "example": "requirelib(\"imagelib\");\nif (imagelib.hasExif(\"user:/img.jpg\")) echo(\"has exif\");"
         },
         {
           "name": "imagelib.getExif",
           "sig": "imagelib.getExif(vpath)",
-          "desc": "Return EXIF data as a JSON string.",
+          "desc": "Return EXIF data as a JSON string. Reads JPEG, TIFF based RAW and HEIC / HEIF photos.",
           "ret": "string (JSON)",
           "example": "requirelib(\"imagelib\");\nvar exif = JSON.parse(imagelib.getExif(\"user:/img.jpg\"));"
         }

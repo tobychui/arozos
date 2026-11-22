@@ -55,6 +55,8 @@ require (
 	golang.org/x/text v0.42.0
 )
 
+require github.com/gen2brain/h265 v0.2.7 // indirect
+
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2 // indirect
 	buf.build/go/protovalidate v1.4.0 // indirect

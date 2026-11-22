@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/disintegration/imaging"
+	"github.com/gen2brain/h265/heic"
 	"github.com/oliamb/cutter"
 	"github.com/robertkrimen/otto"
 	"github.com/rwcarlsen/goexif/exif"
@@ -526,6 +527,10 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			defer file.Close()
 			reader = file
 		}
+		reader, err = exifSource(reader, imagePath)
+		if err != nil {
+			return otto.FalseValue()
+		}
 		_, err = exif.Decode(reader)
 		if err != nil {
 			return otto.FalseValue()
@@ -585,6 +590,11 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			}
 			defer file.Close()
 			reader = file
+		}
+		reader, err = exifSource(reader, imagePath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
 		}
 		x, err := exif.Decode(reader)
 		if err != nil {
@@ -668,6 +678,20 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		imagelib.getExif = _imagelib_getExif;
 		imagelib.rawToJPEG = _imagelib_rawToJPEG;
 	`)
+}
+
+// exifSource returns what exif.Decode should read for the image at path. A
+// HEIC file keeps its Exif as an item of the container, so its TIFF payload
+// is taken out first; other formats are read as they are.
+func exifSource(r io.Reader, path string) (io.Reader, error) {
+	if !metadata.IsHEICImageFile(path) {
+		return r, nil
+	}
+	tiff, err := heic.RawExif(r)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(tiff), nil
 }
 
 // convertRawToJPEG renders a RAW photo (ARW, CR2, DNG, NEF, RAF, ORF) into a

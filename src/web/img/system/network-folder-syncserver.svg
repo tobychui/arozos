@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="128px" height="128px" viewBox="0 0 128 128">
 	<!-- Folder, as the other network folder icons -->
-	<polygon fill="#DBAC50" points="110.998,23.424 110.998,84.064 17.001,84.064 17.001,13.652 48.449,13.469 55.315,23.669"/>
-	<polygon fill="#E5BD64" points="110.998,84.064 17.001,84.064 17.087,31.401 110.57,31.401"/>
+	<polygon fill="#9EDCAE" points="110.998,23.424 110.998,84.064 17.001,84.064 17.001,13.652 48.449,13.469 55.315,23.669"/>
+	<polygon fill="#6CC488" points="110.998,84.064 17.001,84.064 17.087,31.401 110.57,31.401"/>
 	<!-- Network stand -->
 	<rect x="17.001" y="103.51" fill="#443F5D" width="93.997" height="4.691"/>
 	<rect x="60.985" y="84.064" fill="#443F5D" width="6.029" height="19.445"/>

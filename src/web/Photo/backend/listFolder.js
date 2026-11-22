@@ -9,7 +9,7 @@ function getExt(filename){
 function isImage(filename){
     var ext = getExt(filename);
     ext = ext.toLowerCase();
-    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" ||
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" || ext == "heic" || ext == "heif" ||
         isRawImage(filename)){
         return true;
     }

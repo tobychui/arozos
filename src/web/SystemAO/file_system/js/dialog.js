@@ -64,7 +64,7 @@ function dlgGetTypeColor(ext){
     };
 
     var families = {
-        image: ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "psd", "tiff", "ico"],
+        image: ["jpg", "jpeg", "png", "gif", "bmp", "webp", "heic", "heif", "svg", "psd", "tiff", "ico"],
         audio: ["mp3", "wav", "flac", "aac", "ogg", "opus", "m4a", "mid"],
         video: ["mp4", "mkv", "webm", "avi", "mov", "wmv", "flv"],
         archive: ["zip", "7z", "rar", "tar", "gz", "bz2", "xz"],

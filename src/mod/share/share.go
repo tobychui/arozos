@@ -855,7 +855,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					previewTemplate = filepath.Join(templateRoot, "video.html")
 				} else if ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".ogg" {
 					previewTemplate = filepath.Join(templateRoot, "audio.html")
-				} else if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || metadata.IsRawImageFile(fileRuntimeAbsPath) {
+				} else if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || metadata.IsRawImageFile(fileRuntimeAbsPath) || metadata.IsHEICImageFile(fileRuntimeAbsPath) {
 					previewTemplate = filepath.Join(templateRoot, "image.html")
 				} else if ext == ".pdf" {
 					previewTemplate = filepath.Join(templateRoot, "iframe.html")
@@ -1036,6 +1036,16 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Failed to render RAW image: " + err.Error()))
+			return
+		}
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Write(jpegData)
+	} else if metadata.IsHEICImageFile(fileRuntimeAbsPath) {
+		// HEIC only shows in Safari: convert it to JPEG for every browser
+		jpegData, err := metadata.RenderHEICImage(targetFsh, fileRuntimeAbsPath)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("500 - Failed to render HEIC image: " + err.Error()))
 			return
 		}
 		w.Header().Set("Content-Type", "image/jpeg")
