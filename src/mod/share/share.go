@@ -1006,6 +1006,16 @@ func setShareRevalidation(w http.ResponseWriter, targetFsh *filesystem.FileSyste
 	utils.SetRevalidationHeaders(w, info)
 }
 
+// setPreviewContentType sets the type of a shared file shown inline. Anyone
+// with the link opens it on this site, often while signed in, so a file that
+// could be a page (HTML, SVG) is sandboxed (utils.SetUserContentHeaders).
+func setPreviewContentType(w http.ResponseWriter, contentType string, path string) {
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	utils.SetUserContentHeaders(w, path)
+}
+
 // servePreview streams a shared file inline for in-browser viewing
 func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh *filesystem.FileSystemHandler, fileRuntimeAbsPath string) {
 	targetFshAbs := targetFsh.FileSystemAbstraction
@@ -1031,7 +1041,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		w.Header().Set("Content-Type", "image/jpeg")
 		w.Write(jpegData)
 	} else if targetFsh.RequireBuffer {
-		w.Header().Set("Content-Type", contentType)
+		setPreviewContentType(w, contentType, fileRuntimeAbsPath)
 		f, err := targetFshAbs.ReadStream(fileRuntimeAbsPath)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -1041,7 +1051,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		defer f.Close()
 		io.Copy(w, f)
 	} else {
-		w.Header().Set("Content-Type", contentType)
+		setPreviewContentType(w, contentType, fileRuntimeAbsPath)
 		f, err := targetFshAbs.Open(fileRuntimeAbsPath)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

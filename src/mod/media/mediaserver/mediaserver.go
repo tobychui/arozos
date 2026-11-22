@@ -275,6 +275,9 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else {
+		//Shown inline on this site: a file that could be a page (HTML, SVG)
+		//is sandboxed, so it cannot act as the user who opens it
+		utils.SetUserContentHeaders(w, realFilepath)
 		if nocacheMode {
 			// Add no-cache headers to prevent browser caching, useful for development and testing
 			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")

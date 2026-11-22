@@ -159,8 +159,9 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 
 	//Check if remember me is clicked. If yes, set the maxage to 1 week.
 	session.Options = &sessions.Options{
-		MaxAge: 3600 * 1, //1 hour
-		Path:   "/",
+		MaxAge:   3600 * 1, //1 hour
+		Path:     "/",
+		HttpOnly: true,
 	}
 
 	session.Save(r, w)

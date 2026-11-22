@@ -378,9 +378,10 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 
 func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
-		Name:    name,
-		Value:   value,
-		Expires: time.Now().Add(ttl),
+		Name:     name,
+		Value:    value,
+		Expires:  time.Now().Add(ttl),
+		HttpOnly: true, //part of signing in: never readable from page scripts
 	})
 }
 

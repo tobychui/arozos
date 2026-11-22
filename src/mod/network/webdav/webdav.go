@@ -15,6 +15,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 type Handler struct {
@@ -228,7 +230,9 @@ func (h *Handler) handleGetHeadPost(w http.ResponseWriter, r *http.Request) (sta
 		return http.StatusInternalServerError, err
 	}
 	w.Header().Set("ETag", etag)
-	// Let ServeContent determine the Content-Type header.
+	// A browser opening a file here shows it on this site: a file that could
+	// be a page (HTML, SVG) is sandboxed. ServeContent sets the type otherwise.
+	utils.SetUserContentHeaders(w, reqPath)
 	http.ServeContent(w, r, reqPath, fi.ModTime(), f)
 	return 0, nil
 }

@@ -102,6 +102,9 @@ type AuthEndpoints struct {
 // Constructor
 func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, allowReg bool, loginRedirectionHandler func(http.ResponseWriter, *http.Request)) *AuthAgent {
 	store := sessions.NewCookieStore(key)
+	//The session cookie is never readable from page scripts, so a script
+	//that gets onto this site cannot carry the session away
+	store.Options.HttpOnly = true
 	err := sysdb.NewTable("auth")
 	if err != nil {
 		logger.PrintAndLog("Auth", "Failed to create auth database. Terminating.", nil)
@@ -341,12 +344,14 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 			MaxAge:   3600 * 24 * 7, //One week
 			Path:     "/",
 			SameSite: CookieSetSameSitePolicy,
+			HttpOnly: true,
 		}
 	} else {
 		session.Options = &sessions.Options{
 			MaxAge:   3600 * 1, //One hour
 			Path:     "/",
 			SameSite: CookieSetSameSitePolicy,
+			HttpOnly: true,
 		}
 	}
 	session.Save(r, w)
@@ -621,13 +626,15 @@ func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Reque
 		//Extend the session expire time
 		if rememberme {
 			session.Options = &sessions.Options{
-				MaxAge: 3600 * 24 * 7, //One week
-				Path:   "/",
+				MaxAge:   3600 * 24 * 7, //One week
+				Path:     "/",
+				HttpOnly: true,
 			}
 		} else {
 			session.Options = &sessions.Options{
-				MaxAge: 3600 * 1, //One hour
-				Path:   "/",
+				MaxAge:   3600 * 1, //One hour
+				Path:     "/",
+				HttpOnly: true,
 			}
 		}
 		session.Save(r, w)

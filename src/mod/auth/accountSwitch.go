@@ -55,8 +55,10 @@ func NewSwitchableAccountPoolManager(sysdb *database.Database, parent *AuthAgent
 	sysdb.NewTable("auth_acswitch")
 
 	//Create new session store
+	store := sessions.NewCookieStore(key)
+	store.Options.HttpOnly = true //never readable from page scripts
 	thisManager := SwitchableAccountPoolManager{
-		SessionStore: sessions.NewCookieStore(key),
+		SessionStore: store,
 		SessionName:  "ao_acc",
 		Database:     sysdb,
 		ExpireTime:   604800,
@@ -261,8 +263,9 @@ func (m *SwitchableAccountPoolManager) HandleAccountSwitch(w http.ResponseWriter
 
 		session.Values["poolid"] = poolid
 		session.Options = &sessions.Options{
-			MaxAge: 3600 * 24 * 30, //One month
-			Path:   "/",
+			MaxAge:   3600 * 24 * 30, //One month
+			Path:     "/",
+			HttpOnly: true,
 		}
 		session.Save(r, w)
 	}
