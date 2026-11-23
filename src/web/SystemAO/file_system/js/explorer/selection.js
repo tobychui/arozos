@@ -514,6 +514,23 @@ function exitMultiSelectMode(){
     }
 }
 
+/*
+    Ends mobile multi-select once a file operation (copy, cut, delete, ...) has
+    been started. Unlike exitMultiSelectMode() this also releases the sticky
+    Multi-select menu toggle, so the user is not left in a mode that makes every
+    later tap select instead of open. The selection itself is kept. Desktop is
+    left alone: there ctrlHold only mirrors the physical Ctrl/Shift keys.
+*/
+function endMultiSelectMode(){
+    if (!isMobile){
+        return;
+    }
+    stickyMultiSelect = false;
+    ctrlHold = false;
+    $("#fmMultiSelectItem").removeClass("checked");
+    updateCtrlDisplay();
+}
+
 function toggleCtrl(){
     ctrlHold = !ctrlHold;
     updateCtrlDisplay();
@@ -555,6 +572,7 @@ function updateCtrlDisplay(){
 */
 window.clearSelection = clearSelection;
 window.exitMultiSelectMode = exitMultiSelectMode;
+window.endMultiSelectMode = endMultiSelectMode;
 window.selectAll = selectAll;
 window.toggleCtrl = toggleCtrl;
 

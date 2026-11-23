@@ -43,10 +43,10 @@
                     <button class="fileoprSmallBtn" title="Cut" onclick="cut();" data-opr="cut"><i class="blue cut icon"></i> <span locale="fileopr/Cut">Cut</span></button><br>
                     <button class="fileoprSmallBtn" title="Rename" onclick="rename();" data-opr="rename"><i class="teal i cursor icon"></i> <span locale="fileopr/Rename">Rename</span></button>
                 </div>
-                <button class="fileOprBtn" title="Upload" onclick="upload(); exitMultiSelectMode();" data-opr="upload"><img class="opricon" src="img/opr/upload.svg"><p class="oprtxt" locale="fileopr/Upload">Upload</p></button>
-                <button class="fileOprBtn" title="Download" onclick="downloadFile(); exitMultiSelectMode();" data-opr="download"><img class="opricon" src="img/opr/download.svg"><p class="oprtxt" locale="fileopr/Download">Download</p></button>
+                <button class="fileOprBtn" title="Upload" onclick="upload(); endMultiSelectMode();" data-opr="upload"><img class="opricon" src="img/opr/upload.svg"><p class="oprtxt" locale="fileopr/Upload">Upload</p></button>
+                <button class="fileOprBtn" title="Download" onclick="downloadFile(); endMultiSelectMode();" data-opr="download"><img class="opricon" src="img/opr/download.svg"><p class="oprtxt" locale="fileopr/Download">Download</p></button>
                 <div class="fileoprGroupDivider"></div>
-                <button class="twolines fileOprBtn" title="New Folder" onclick="newFolder(); exitMultiSelectMode();" data-opr="newfolder"><img class="opricon" src="img/opr/new_folder.svg"><p class="oprtxt" locale="fileopr/New Folder">New<br>Folder</p></button>
+                <button class="twolines fileOprBtn" title="New Folder" onclick="newFolder(); endMultiSelectMode();" data-opr="newfolder"><img class="opricon" src="img/opr/new_folder.svg"><p class="oprtxt" locale="fileopr/New Folder">New<br>Folder</p></button>
                 <div class="fileoprGroupDivider">
                     <button class="fileoprSmallBtn" title="New File" onclick="newfile();" data-opr="newfile"><i class="file outline icon"></i> <span locale="fileopr/New File">New File</span></button><br>
                     <button class="fileoprSmallBtn" title="Create Zip" onclick="zipFile();" data-opr="zip"><i class="brown zip file icon"></i> <span locale="fileopr/Create Zip">Create Zip</span></button><br>

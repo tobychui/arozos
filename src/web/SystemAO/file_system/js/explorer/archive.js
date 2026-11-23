@@ -19,6 +19,8 @@ function zipFile(){
     });
 
 
+    endMultiSelectMode();
+
     //Request to create a zip file, named with the parent dir name
     ao_module_startFileOperation({
         opr: "zip",
@@ -49,6 +51,7 @@ function unzipHere(){
         msgbox("red remove", applocale.getString("opr/zip/nozipfile", "No zip file selected"));
         return;
     }
+    endMultiSelectMode();
 
     //Start unzip progress
 

@@ -42,6 +42,7 @@ function shareFile(){
         return
     }
 
+    endMultiSelectMode();
     openShareDialog(selectedFileObjects[0].filepath, selectedFileObjects[0].filename);
 }
 

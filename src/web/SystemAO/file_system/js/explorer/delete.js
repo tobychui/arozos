@@ -86,6 +86,7 @@ function deleteFile(confirmed = false){
         }
     }else{
         //Continue to delete files
+        endMultiSelectMode();
         let fdlistLength = deleteFileList.length;
         /*
             Kept aside before the list is cleared below, so the trash full

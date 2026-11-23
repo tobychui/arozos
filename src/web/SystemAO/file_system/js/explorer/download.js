@@ -29,6 +29,7 @@ function downloadFile(){
     if (driveViewBlocks("download")){
         return;
     }
+    endMultiSelectMode();
     var fileList = [];
     if ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "file"){
         //One file. Download directly.

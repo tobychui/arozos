@@ -81,6 +81,7 @@ function copy(){
         localStorage.setItem("ao/file_system/cutmode","false");
     }
     msgbox("copy",clipboard.length + applocale.getString("message/copy/success", " objects copied."))
+    endMultiSelectMode();
 }
 
 function cut(){
@@ -101,6 +102,7 @@ function cut(){
         localStorage.setItem("ao/file_system/cutmode","true");
     }
     msgbox("cut",clipboard.length + applocale.getString("message/move/success", " objects ready to be moved."))
+    endMultiSelectMode();
 }
 
 function paste(redirectPasteTarget="", nocheck=false){
@@ -134,6 +136,7 @@ function paste(redirectPasteTarget="", nocheck=false){
         msgbox("question",applocale.getString("message/paste/nothing", "There are nothing to paste."))
         return;
     }
+    endMultiSelectMode();
     if (thisOprCutMode == true){
         //Cut and paste
         $.ajax({

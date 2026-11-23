@@ -31,7 +31,8 @@ function rename(){
     }else if (renameFileObjects.length > 0){
         $("#renameBox").find(".multifileWarning").hide();
         oldname = filenames[0];
-    }   
+    }
+    endMultiSelectMode();
 
     //Override with rename input box
     renameMode = true;
