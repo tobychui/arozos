@@ -10,7 +10,16 @@
 //Intiiation functions
 $(document).ready(function(){
     $("#contextmenu").css("display", "hidden");
-    
+
+    //The context menu highlight follows the accent colour picked for the desktop
+    try{
+        if (typeof parent.desktopThemeColor == "string" && parent.desktopThemeColor !== ""){
+            document.body.style.setProperty("--ctx-accent", parent.desktopThemeColor);
+        }
+    }catch(ex){
+        //Not hosted by the desktop (or another origin): keep the default accent
+    }
+
     //Function to complete initialization after applocale is ready
     function completeInitialization(){
         //Fill the nav row's [data-fsicon] placeholders with their drawn SVGs.

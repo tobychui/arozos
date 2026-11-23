@@ -68,10 +68,6 @@ body.whiteTheme {
     --modulelist_bg: white;
     --modulelist_hover: rgba(35, 35, 35, 0.06);
 
-    --contextmenu_background: #ffffff;
-    --contextmenu_hover: #f9f9f9;
-    --contextmenu_textcolor: rgb(78, 78, 78);
-
     /* Transfer panel bars. The pale legacy greens/reds washed out against the
        new card surface, so these are the saturated status colours. */
     --upload_progressbar: var(--fs-accent);
@@ -163,10 +159,6 @@ body.darkTheme{
 
     --modulelist_bg: transparent;
     --modulelist_hover: rgba(122, 138, 160, 0.18);
-
-    --contextmenu_background: #1c2129;
-    --contextmenu_hover: #2a3039;
-    --contextmenu_textcolor: #e6e9ee;
 
     --upload_progressbar: var(--fs-accent);
     --upload_progresstext: #0d1014;
@@ -1001,91 +993,132 @@ body.fmResizing *{
 */
 
 /*
-    Styled to match the .fsMenu component in shared/fs-components.css so the
-    right click menu, the "..." menu and the sort menu all read as the same
-    control: rounded card, inset rows that round on hover, and icons a step
-    dimmer than the label text.
+    The right click menu is the desktop's own (script/desktop/contextmenu.css):
+    same card, the same text-only rows and the same accent coloured highlight
+    under the pointer. The File Manager runs in its own frame, where the
+    desktop's --dt-* tokens do not exist, so they are repeated here as --ctx-*
+    with the same values; keep the two in step. boot.js replaces --ctx-accent
+    with the accent colour the user picked for the desktop.
 */
+body{
+    --ctx-surface: rgba(250, 250, 252, 1);
+    --ctx-border: rgba(0, 0, 0, 0.08);
+    --ctx-divider: rgba(0, 0, 0, 0.14);
+    --ctx-text: #1d1d1f;
+    --ctx-text-muted: #6e6e73;
+    --ctx-accent: #2f7cf6;
+    --ctx-danger: #e5484d;
+    --ctx-shadow: 0 10px 32px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body.darkTheme{
+    --ctx-surface: rgba(40, 40, 44, 1);
+    --ctx-border: rgba(255, 255, 255, 0.10);
+    --ctx-divider: rgba(255, 255, 255, 0.16);
+    --ctx-text: #f2f2f4;
+    --ctx-text-muted: #a1a1a6;
+    --ctx-shadow: 0 10px 32px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.30);
+}
+
 .contextmenu{
     position: fixed;
     display: none;
-    width: 200px;
-    padding: 4px;
-    background-color: var(--contextmenu_background);
-    border: 1px solid var(--divider);
-    border-radius: 10px;
-    -webkit-box-shadow: 0px 8px 28px var(--fs-shadow);
-    -moz-box-shadow: 0px 8px 28px var(--fs-shadow);
-    box-shadow: 0px 8px 28px var(--fs-shadow);
+    min-width: 210px;
+    max-width: 340px;
+    padding: 5px;
+    background-color: var(--ctx-surface);
+    border: 1px solid var(--ctx-border);
+    border-radius: 12px;
+    box-shadow: var(--ctx-shadow);
     z-index: 999;
     max-height: calc(100vh - 16px);
     overflow-y: auto;
+    color: var(--ctx-text);
+    font-size: 13px;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-align: left;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .contextmenu.visible{
     display: block;
+    animation: fmCtxMenuIn .12s ease-out;
 }
 
-.contextmenu .item{
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 7px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13.5px;
-    white-space: nowrap;
-    color: var(--contextmenu_textcolor);
-}
-
-.contextmenu .item:hover{
-    background-color: var(--contextmenu_hover);
-}
-
-/* Label expands to fill the row so the trailing element is always right-aligned */
-.contextmenu .item > span:not(.description){
-    flex-grow: 1;
+@keyframes fmCtxMenuIn {
+    from { opacity: 0; transform: translateY(-3px) scale(.985); }
+    to { opacity: 1; transform: none; }
 }
 
 /*
-    The rows carry semantic-ui font icons. Pin to a fixed box and push to the
-    trailing edge with margin-left: auto.  Items that carry a .description
-    (Copy / Paste / Cut) hide their icon — the hotkey text is the indicator.
-
-    The colour needs !important: ao.css styles every <i> and <span> under a
-    themed body with a blanket rule whose :not() chain scores higher than any
-    reasonable selector here, so it would otherwise repaint the icons to the
-    same colour as the label and flatten the two-tone look.
+    The colours need !important: ao.css paints every <div>, <span> and <i>
+    under body.darkTheme with a blanket rule whose :not() chain scores higher
+    than any selector that could reasonably be written here.
 */
-.contextmenu .item > i.icon{
-    width: 16px;
-    min-width: 16px;
-    height: auto;
-    margin-left: auto;
-    font-size: 14px;
-    text-align: center;
-    color: var(--fs-icon) !important;
-    opacity: 0.6;
+.contextmenu .item{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    color: var(--ctx-text) !important;
 }
 
-/* Items that already show a hotkey — no icon needed */
-.contextmenu .item.hasHotkey > i.icon {
+/* The label takes the row's colour and fills it, so a trailing hotkey sits at the edge */
+.contextmenu .item > span:not(.description){
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit !important;
+}
+
+.contextmenu .item:hover{
+    background-color: var(--ctx-accent);
+    color: #ffffff !important;
+}
+
+.contextmenu .item.danger:hover{
+    background-color: var(--ctx-danger);
+}
+
+/*
+    Like the desktop menu, rows are text only. Some rows still carry a
+    semantic-ui icon in the markup; it is not drawn.
+*/
+.contextmenu .item > i.icon{
     display: none;
 }
 
-/* Keyboard hint, pushed to the trailing edge */
-.contextmenu .description{
-    margin-left: auto;
-    color: var(--fs-text-faint) !important;
+/* Hotkey hint, pushed to the trailing edge */
+.contextmenu .item .description{
+    margin-left: 18px;
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ctx-text-muted) !important;
+}
+
+.contextmenu .item:hover .description{
+    color: #ffffff !important;
 }
 
 .contextmenu .divider{
     width: auto;
     height: 1px;
-    margin: 3px;
-    background-color: var(--fs-line-soft);
+    margin: 4px 8px;
+    background-color: var(--ctx-divider);
     border-bottom: 0px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contextmenu.visible{
+        animation: none;
+    }
 }
 
 /*

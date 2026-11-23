@@ -429,7 +429,7 @@
         </div>
 
         <!-- Context Menu -->
-        <div id="contextmenu" class="contextmenu" style="min-width:250px;">
+        <div id="contextmenu" class="contextmenu">
             <div class="item" onclick="openViaButton();" data-opr="open">
                 <span locale="contextmenu/open">Open</span>
             </div>
@@ -484,7 +484,7 @@
             <div class="item" onclick="rename();" data-opr="rename">
                 <span locale="contextmenu/rename">Rename</span>
             </div>
-            <div class="item" onclick="deleteFile();" data-opr="delete">
+            <div class="item danger" onclick="deleteFile();" data-opr="delete">
                 <span locale="contextmenu/delete">Delete</span> <i class="trash icon"></i>
             </div>
             <div class="item folderonly singleObjectOnlyHide" onclick="createDesktopShortcut();" data-opr="shortcut">
