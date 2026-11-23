@@ -66,7 +66,8 @@
 
 <script>
 (function () {
-    var MIN_LENGTH = 8;
+    //The server says how short a password may be: an admin can lift the 8 character minimum
+    var minLength = 8;
     var L = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
     function t(key, fallback) {
         try { return (L && L.getString('smb/' + key, fallback)) || fallback; } catch (e) { return fallback; }
@@ -111,6 +112,7 @@
                 return;
             }
             activated = status.Activated;
+            if (status.MinPasswordLength) minLength = status.MinPasswordLength;
             if (!status.Running) {
                 state('grey power off', t('state_off', 'The SMB server is not running. An administrator can turn it on in the server list.'));
             } else if (activated) {
@@ -153,7 +155,8 @@
         var login = $('#smb-login').val();
         var password = $('#smb-new').val();
         if (!login) return result(t('need_login', 'Enter your ArozOS login password.'), false);
-        if (password.length < MIN_LENGTH) return result(fill(t('too_short', 'The SMB password must be at least {count} characters.'), { count: MIN_LENGTH }), false);
+        if (!password) return result(t('need_password', 'Enter an SMB password.'), false);
+        if (password.length < minLength) return result(fill(t('too_short', 'The SMB password must be at least {count} characters.'), { count: minLength }), false);
         if (password !== $('#smb-repeat').val()) return result(t('mismatch', 'The two SMB passwords are different.'), false);
 
         $('#smb-save').addClass('loading disabled');

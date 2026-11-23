@@ -89,20 +89,22 @@
         var $panel = $card.find("[data-panel]");
         W.api("GET", "system/storage/smb/status").then(function (status) {
             var activated = status && status.Activated;
+            //An admin may have lifted the 8 character minimum; the server then checks alone
+            var strict = !status || !status.MinPasswordLength || status.MinPasswordLength >= 8;
             $panel.removeClass("wz-hidden").html(
                 '<div class="wz-row-sub" style="margin-bottom:10px">' + esc(activated
                     ? T("share/smb/hasPassword", "You already have an SMB password. Set a new one here if you like.")
                     : T("share/smb/needPassword", "Windows signs in with a separate SMB password. Set yours now; each person sets their own in System Settings > File Servers.")) + "</div>" +
                 '<div class="wz-form">' +
-                '<div class="wz-field"><label>' + esc(T("share/smb/password", "New SMB password")) + '</label><input class="wz-input" type="password" data-field="smbpassword" autocomplete="new-password" minlength="8"></div>' +
+                '<div class="wz-field"><label>' + esc(T("share/smb/password", "New SMB password")) + '</label><input class="wz-input" type="password" data-field="smbpassword" autocomplete="new-password"' + (strict ? ' minlength="8"' : '') + '></div>' +
                 '<div class="wz-field"><label>' + esc(T("share/smb/login", "Your ArozOS password")) + '</label><input class="wz-input" type="password" data-field="password" autocomplete="current-password"></div>' +
                 '<div class="wz-form-actions"><button type="button" class="wz-btn primary small" data-action="smbpw">' + esc(T("share/smb/save", "Save SMB password")) + "</button>" +
-                '<span class="wz-hint">' + esc(T("share/smb/rule", "At least 8 characters")) + "</span></div></div>");
+                (strict ? '<span class="wz-hint">' + esc(T("share/smb/rule", "At least 8 characters")) + "</span>" : "") + "</div></div>");
             $panel.find("[data-action=smbpw]").on("click", function () {
                 var button = this;
                 var smbpassword = $panel.find("[data-field=smbpassword]").val();
                 var password = $panel.find("[data-field=password]").val();
-                if (smbpassword.length < 8) {
+                if (strict && smbpassword.length < 8) {
                     $panel.find("[data-field=smbpassword]").addClass("invalid").trigger("focus");
                     W.toast(T("share/smb/short", "The SMB password must be at least 8 characters"), true);
                     return;

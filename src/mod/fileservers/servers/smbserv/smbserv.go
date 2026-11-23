@@ -133,6 +133,26 @@ func (m *Manager) Port() int {
 	return port
 }
 
+// allowShortPasswords lifts the 8 character minimum of SMB passwords. Off by
+// default: SMB keeps the password as an NT hash, which a short password does
+// not survive if it is ever taken. Passwords already set are not touched when
+// the minimum comes back.
+func (m *Manager) allowShortPasswords() bool {
+	allow := false
+	if m.opt.Sysdb.KeyExists(settingsTable, "shortpw") {
+		m.opt.Sysdb.Read(settingsTable, "shortpw", &allow)
+	}
+	return allow
+}
+
+// minPasswordLength is the shortest SMB password a user may set now.
+func (m *Manager) minPasswordLength() int {
+	if m.allowShortPasswords() {
+		return 1
+	}
+	return minPasswordLength
+}
+
 func (m *Manager) allowPublic() bool {
 	allow := false
 	if m.opt.Sysdb.KeyExists(settingsTable, "public") {
@@ -397,6 +417,8 @@ type UserStatus struct {
 	Username  string
 	Activated bool
 	Shares    []ShareRow
+
+	MinPasswordLength int //What the page checks before sending a password
 }
 
 // HandleStatus reports the service as the signed in user sees it.
@@ -412,6 +434,8 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		Username:  username,
 		Activated: m.creds.Has(username),
 		Shares:    []ShareRow{},
+
+		MinPasswordLength: m.minPasswordLength(),
 	}
 	if backend, err := m.backend(); err == nil {
 		if view, err := backend.Login(username); err == nil {
@@ -423,10 +447,17 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, status)
 }
 
-func validPassword(password string) error {
+// validPassword checks a new SMB password against the shortest length allowed.
+// Even with the minimum lifted, a password cannot be empty.
+func validPassword(password string, minLength int) error {
+	if minLength < 1 {
+		minLength = 1
+	}
 	switch {
-	case len(password) < minPasswordLength:
-		return fmt.Errorf("The SMB password must be at least %d characters", minPasswordLength)
+	case password == "":
+		return errors.New("The SMB password cannot be empty")
+	case len(password) < minLength:
+		return fmt.Errorf("The SMB password must be at least %d characters", minLength)
 	case len(password) > maxPasswordLength:
 		return fmt.Errorf("The SMB password must be at most %d characters", maxPasswordLength)
 	}
@@ -447,7 +478,7 @@ func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	password := postOnly(r, "smbpassword")
-	if err := validPassword(password); err != nil {
+	if err := validPassword(password, m.minPasswordLength()); err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -491,16 +522,17 @@ func (m *Manager) revoke(w http.ResponseWriter, username string) {
 
 // AdminConfig is what the settings page shows.
 type AdminConfig struct {
-	Running      bool
-	Port         int
-	AllowPublic  bool
-	Encrypt      bool
-	Discover     bool
-	Trash        bool
-	StageLimitMB int64 //Zero is no limit
-	LastError    string
-	LastErrorKey string //Names the translation, empty for anything unexpected
-	CanImport    bool
+	Running        bool
+	Port           int
+	AllowPublic    bool
+	Encrypt        bool
+	Discover       bool
+	Trash          bool
+	ShortPasswords bool  //Users may set SMB passwords under 8 characters
+	StageLimitMB   int64 //Zero is no limit
+	LastError      string
+	LastErrorKey   string //Names the translation, empty for anything unexpected
+	CanImport      bool
 }
 
 // HandleConfig reads or changes the settings.
@@ -515,6 +547,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		config.Encrypt = m.requireEncryption()
 		config.Discover = m.discoverable()
 		config.Trash = m.useTrash()
+		config.ShortPasswords = m.allowShortPasswords()
 		config.CanImport = m.opt.SambaHashes != nil
 		sendJSON(w, config)
 		return
@@ -526,6 +559,8 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	public := postOnly(r, "public") == "true"
+	//Off unless the box is ticked, like public addresses
+	shortPasswords := postOnly(r, "shortpw") == "true"
 	//A form without a field keeps that setting's default (on)
 	encrypt := postOnly(r, "encrypt") != "false"
 	discover := postOnly(r, "discover") != "false"
@@ -551,6 +586,8 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	m.opt.Sysdb.Write(settingsTable, "discover", discover)
 	//Asked on every delete, like the size limit
 	m.opt.Sysdb.Write(settingsTable, "trash", trash)
+	//Only asked when a password is set
+	m.opt.Sysdb.Write(settingsTable, "shortpw", shortPasswords)
 	if m.server == nil || (port == oldPort && public == oldPublic && encrypt == oldEncrypt) {
 		if m.server != nil && discover != oldDiscover {
 			m.announcer.stop()

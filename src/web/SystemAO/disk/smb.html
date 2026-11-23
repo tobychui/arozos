@@ -58,6 +58,13 @@
             </div>
         </div>
         <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="smb-shortpw" type="checkbox">
+                <label locale="smb/shortpw">Allow SMB passwords shorter than 8 characters</label>
+                <small locale="smb/shortpw_hint">Lets users set an SMB password of any length. SMB keeps passwords in a weaker form than the login, so a short one is easy to guess or crack. Passwords already set stay as they are when this is turned off again.</small>
+            </div>
+        </div>
+        <div class="field">
             <label locale="smb/stage_limit">Largest file on cloud and remote drives (MB)</label>
             <div class="ui input"><input id="smb-stage-limit" type="number" min="0" step="1" placeholder="4096"></div>
             <small locale="smb/stage_limit_hint">S3, FTP, WebDAV and cluster drives only move whole files, so a file opened over SMB is first copied to this server's temporary folder. Larger files are refused. 0 means no limit.</small>
@@ -130,6 +137,7 @@
             $('#smb-encrypt').prop('checked', config.Encrypt);
             $('#smb-discover').prop('checked', config.Discover);
             $('#smb-trash').prop('checked', config.Trash);
+            $('#smb-shortpw').prop('checked', config.ShortPasswords);
             //Known failures have a translation, and anything else is shown as it came
             var reason = config.LastError || '';
             if (config.LastErrorKey) reason = fill(t('error_' + config.LastErrorKey, reason), { port: config.Port });
@@ -204,6 +212,7 @@
                 encrypt: $('#smb-encrypt').is(':checked') ? 'true' : 'false',
                 discover: $('#smb-discover').is(':checked') ? 'true' : 'false',
                 trash: $('#smb-trash').is(':checked') ? 'true' : 'false',
+                shortpw: $('#smb-shortpw').is(':checked') ? 'true' : 'false',
                 stagelimit: $('#smb-stage-limit').val()
             },
             success: function (data) {

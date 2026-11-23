@@ -316,6 +316,77 @@ func TestActivateChecksTheNewPassword(t *testing.T) {
 	}
 }
 
+func TestShortPasswordSetting(t *testing.T) {
+	r := newRig(t)
+	minLength := func() int {
+		var status UserStatus
+		json.Unmarshal(get(r.m.HandleStatus).Body.Bytes(), &status)
+		return status.MinPasswordLength
+	}
+	var config AdminConfig
+	json.Unmarshal(get(r.m.HandleConfig).Body.Bytes(), &config)
+	if config.ShortPasswords || minLength() != minPasswordLength {
+		t.Fatalf("the 8 character minimum must hold by default: %+v", config)
+	}
+
+	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}, "shortpw": {"true"}}))
+	json.Unmarshal(get(r.m.HandleConfig).Body.Bytes(), &config)
+	if !config.ShortPasswords || minLength() != 1 {
+		t.Fatalf("the setting must stick: %+v", config)
+	}
+	cases := []struct {
+		password string
+		ok       bool
+	}{
+		{"", false},
+		{"a", true},
+		{"short", true},
+		{strings.Repeat("x", maxPasswordLength), true},
+		{strings.Repeat("x", maxPasswordLength+1), false},
+	}
+	for _, c := range cases {
+		msg := errorOf(activate(r, "login", c.password))
+		if (msg == "") != c.ok {
+			t.Errorf("password of length %d: ok = %v, error %q", len(c.password), c.ok, msg)
+		}
+	}
+
+	//A password set meanwhile is kept, but a new one must be long again
+	isOK(t, post(r.m.HandleConfig, url.Values{"port": {"1445"}}))
+	if minLength() != minPasswordLength {
+		t.Error("a form without the field turns the override off")
+	}
+	if !r.m.creds.Has("alice") {
+		t.Error("turning the override off must not remove passwords")
+	}
+	if msg := errorOf(activate(r, "login", "short")); msg == "" {
+		t.Error("a short password accepted after the override was turned off")
+	}
+}
+
+func TestValidPassword(t *testing.T) {
+	cases := []struct {
+		name      string
+		password  string
+		minLength int
+		ok        bool
+	}{
+		{"empty with the minimum", "", 8, false},
+		{"empty without it", "", 1, false},
+		{"empty with a zero minimum", "", 0, false},
+		{"one short", "1234567", 8, false},
+		{"exactly the minimum", "12345678", 8, true},
+		{"short without the minimum", "1", 1, true},
+		{"longest", strings.Repeat("x", maxPasswordLength), 8, true},
+		{"too long", strings.Repeat("x", maxPasswordLength+1), 1, false},
+	}
+	for _, c := range cases {
+		if err := validPassword(c.password, c.minLength); (err == nil) != c.ok {
+			t.Errorf("%s: err = %v", c.name, err)
+		}
+	}
+}
+
 func TestPasswordsAreNotTakenFromTheURL(t *testing.T) {
 	r := newRig(t)
 	req := httptest.NewRequest(http.MethodPost, "/?smbpassword=a+good+password&password=login", nil)
