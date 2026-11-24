@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
 // bufferedFS behaves like S3 or FTP: no random access, only whole streams.
@@ -78,7 +78,7 @@ func (b *bufferedFS) WriteStream(p string, r io.Reader, mode os.FileMode) error 
 
 type stagedRig struct {
 	fs    *bufferedFS
-	share smbserver.Share
+	share smbsrv.Share
 	root  string
 	stage string
 }
@@ -321,7 +321,7 @@ func TestStagedFailedUploadKeepsTheData(t *testing.T) {
 func TestStagedLimit(t *testing.T) {
 	r := newStagedRig(t, 1000)
 	os.WriteFile(filepath.Join(r.root, "big.bin"), make([]byte, 2000), 0644)
-	if _, err := r.share.Open("big.bin", os.O_RDONLY); !errors.Is(err, smbserver.ErrFileTooLarge) {
+	if _, err := r.share.Open("big.bin", os.O_RDONLY); !errors.Is(err, smbsrv.ErrFileTooLarge) {
 		t.Errorf("err = %v", err)
 	}
 	//A new file is not refused for a size it does not have yet
@@ -350,7 +350,7 @@ func TestStagedPendingSize(t *testing.T) {
 	r := newStagedRig(t, 0)
 	os.WriteFile(filepath.Join(r.root, "doc.txt"), []byte("abc"), 0644)
 	f, _ := r.share.Open("doc.txt", os.O_RDWR)
-	pf, ok := f.(smbserver.PendingFile)
+	pf, ok := f.(smbsrv.PendingFile)
 	if !ok {
 		t.Fatal("a staged file must report its pending size")
 	}

@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/database"
-	"imuslab.com/arozos/mod/storage/smbserver/auth"
 )
 
 /*
@@ -186,7 +186,7 @@ func (c *CredentialDB) Set(username, password string) error {
 
 	owner := credentialKey(username)
 	record := storedCredential{Name: username, Salt: salt, Iterations: kerberosIterations, Changed: time.Now().Unix()}
-	if record.NTHash, err = c.seal.seal(owner, auth.NTHash(password)); err != nil {
+	if record.NTHash, err = c.seal.seal(owner, smbsrv.NTHash(password)); err != nil {
 		return err
 	}
 	if record.AES128, err = c.seal.seal(owner, aes128); err != nil {

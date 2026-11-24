@@ -1,5 +1,6 @@
-// Package aroz is the smbserver backend over ArozOS accounts and drives. It is
-// the only part of the SMB server that imports ArozOS packages.
+// Package aroz is the backend of the SMB server (github.com/tobychui/smbsrv)
+// over ArozOS accounts and drives. It is the only part of the SMB server that
+// imports ArozOS packages.
 package aroz
 
 import (
@@ -11,14 +12,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/info/logger"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
 // ErrOutsideDrive is returned for a link that leads off the drive.
 var ErrOutsideDrive = os.ErrPermission
+
+// internalFolder is the folder ArozOS keeps its own data in, in every folder
+// of a drive. smbsrv hides it and refuses writes into it (InternalFolder).
+const internalFolder = ".metadata"
 
 // Account is what a session asks of a user. *user.User provides the first
 // three. CanRead and CanWrite are asked on every operation, so that a change of
@@ -88,7 +93,7 @@ type Options struct {
 // SMB client cannot be asked what to do instead.
 var ErrTrashFull = errors.New("smbserver/aroz: the trash bin is full")
 
-// Backend implements smbserver.Backend.
+// Backend implements smbsrv.Backend.
 type Backend struct {
 	opt Options
 }
@@ -101,13 +106,13 @@ func New(opt Options) (*Backend, error) {
 	return &Backend{opt: opt}, nil
 }
 
-// LookupHash implements smbserver.Backend.
+// LookupHash implements smbsrv.Backend.
 func (b *Backend) LookupHash(username string) (string, []byte, bool) {
 	return b.opt.Credentials.Lookup(username)
 }
 
-// Login implements smbserver.Backend.
-func (b *Backend) Login(username string) (smbserver.UserView, error) {
+// Login implements smbsrv.Backend.
+func (b *Backend) Login(username string) (smbsrv.UserView, error) {
 	account, quota, err := b.opt.LookupUser(username)
 	if err != nil {
 		return nil, err
@@ -115,7 +120,7 @@ func (b *Backend) Login(username string) (smbserver.UserView, error) {
 	return &view{username: username, account: account, quota: quota, capacity: b.opt.Capacity, opt: &b.opt}, nil
 }
 
-// Allow implements smbserver.Backend.
+// Allow implements smbsrv.Backend.
 func (b *Backend) Allow(ip net.IP) bool {
 	if ip == nil {
 		return false
@@ -129,7 +134,7 @@ func (b *Backend) Allow(ip net.IP) bool {
 	return true
 }
 
-// AuthLog implements smbserver.Backend.
+// AuthLog implements smbsrv.Backend.
 func (b *Backend) AuthLog(username, remote string, ok bool) time.Duration {
 	if b.opt.LogAuth != nil {
 		b.opt.LogAuth(username, remote, ok)
@@ -163,8 +168,8 @@ const usageCacheTTL = 5 * time.Second
 func (v *view) Username() string { return v.username }
 
 // Shares lists one share per drive.
-func (v *view) Shares() []smbserver.Share {
-	out := []smbserver.Share{}
+func (v *view) Shares() []smbsrv.Share {
+	out := []smbsrv.Share{}
 	for _, fsh := range v.account.GetAllFileSystemHandler() {
 		if fsh.Closed {
 			continue
@@ -202,6 +207,11 @@ func (s *share) Key() string {
 }
 
 func (s *share) ReadOnly() bool { return s.fsh.ReadOnly }
+
+// InternalFolder implements smbsrv.InternalShare. ArozOS keeps version
+// history and named streams in .metadata folders, so they are left out of
+// listings and refused to writes over SMB.
+func (s *share) InternalFolder() string { return internalFolder }
 
 func (s *share) vpath(p string) string { return s.fsh.UUID + ":/" + p }
 
@@ -284,8 +294,8 @@ func (s *share) confine(rpath string) error {
 	}
 }
 
-func infoOf(name string, fi os.FileInfo) smbserver.FileInfo {
-	out := smbserver.FileInfo{
+func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
+	out := smbsrv.FileInfo{
 		Name:    name,
 		Size:    fi.Size(),
 		IsDir:   fi.IsDir(),
@@ -298,14 +308,14 @@ func infoOf(name string, fi os.FileInfo) smbserver.FileInfo {
 	return out
 }
 
-func (s *share) Stat(p string) (smbserver.FileInfo, error) {
+func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 	rpath, err := s.real(p)
 	if err != nil {
-		return smbserver.FileInfo{}, err
+		return smbsrv.FileInfo{}, err
 	}
 	fi, err := s.fsh.FileSystemAbstraction.Stat(rpath)
 	if err != nil {
-		return smbserver.FileInfo{}, err
+		return smbsrv.FileInfo{}, err
 	}
 	name := p
 	if i := strings.LastIndexByte(p, '/'); i >= 0 {
@@ -314,7 +324,7 @@ func (s *share) Stat(p string) (smbserver.FileInfo, error) {
 	return infoOf(name, fi), nil
 }
 
-func (s *share) ReadDir(p string) ([]smbserver.FileInfo, error) {
+func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err
@@ -323,7 +333,7 @@ func (s *share) ReadDir(p string) ([]smbserver.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]smbserver.FileInfo, 0, len(entries))
+	out := make([]smbsrv.FileInfo, 0, len(entries))
 	for _, e := range entries {
 		fi, err := e.Info()
 		if err != nil {
@@ -370,7 +380,7 @@ func (s *share) stage() stageConfig {
 	return c
 }
 
-func (s *share) Open(p string, flag int) (smbserver.File, error) {
+func (s *share) Open(p string, flag int) (smbsrv.File, error) {
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err

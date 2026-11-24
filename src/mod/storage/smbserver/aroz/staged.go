@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/info/logger"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
 /*
@@ -85,7 +85,7 @@ func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int
 			return nil, errors.New("smbserver/aroz: a folder cannot be opened as a file")
 		}
 		if cfg.limit > 0 && info.Size() > cfg.limit {
-			return nil, smbserver.ErrFileTooLarge
+			return nil, smbsrv.ErrFileTooLarge
 		}
 	}
 

@@ -6,8 +6,8 @@ import (
 	"runtime"
 
 	"github.com/grandcat/zeroconf"
+	"github.com/tobychui/smbsrv/wsd"
 	"imuslab.com/arozos/mod/info/logger"
-	"imuslab.com/arozos/mod/network/wsd"
 )
 
 /*
@@ -52,7 +52,14 @@ func (m *Manager) announce(port int) *announcer {
 	//The Network view opens \\NAME on port 445 and knows no other port.
 	//A Windows host announces itself already.
 	if port == DefaultPort && runtime.GOOS != "windows" && !m.opt.NoWSD {
-		r, err := wsd.Start(wsd.Config{Name: m.opt.ServerName, Workgroup: "WORKGROUP", UUID: m.discoveryUUID()})
+		r, err := wsd.Start(wsd.Config{
+			Name:         m.opt.ServerName,
+			Workgroup:    "WORKGROUP",
+			UUID:         m.discoveryUUID(),
+			Manufacturer: "ArozOS",
+			Model:        "ArozOS",
+			Logger:       logger.NewSlog("WSD"),
+		})
 		if err != nil {
 			logger.PrintAndLog(logTitle, "Could not join the Windows Network view", err)
 		} else {

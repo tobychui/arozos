@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,11 +15,11 @@ import (
 	"time"
 
 	"github.com/hirochachacha/go-smb2"
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
 	"imuslab.com/arozos/mod/storage/smbserver/aroz"
-	"imuslab.com/arozos/mod/storage/smbserver/auth"
 )
 
 type testAccount struct {
@@ -288,7 +289,7 @@ func TestActivateStoresThePassword(t *testing.T) {
 	r := newRig(t)
 	isOK(t, activate(r, "login", "a good password"))
 	_, hash, ok := r.m.creds.Lookup("alice")
-	if !ok || string(hash) != string(auth.NTHash("a good password")) {
+	if !ok || string(hash) != string(smbsrv.NTHash("a good password")) {
 		t.Error("the password must be stored")
 	}
 }
@@ -453,6 +454,61 @@ func TestActivatedUserLogsInOverSMB(t *testing.T) {
 	}
 }
 
+// TestMetadataFolderIsProtected checks that the .metadata folder ArozOS keeps
+// version history and streams in stays out of SMB listings and cannot be
+// written over SMB. smbsrv protects it only because aroz shares name it
+// (smbsrv.InternalShare), so this fails if that method is lost.
+func TestMetadataFolderIsProtected(t *testing.T) {
+	r := newRig(t)
+	port := running(t, r)
+	isOK(t, activate(r, "login", "a good password"))
+	if err := os.MkdirAll(filepath.Join(r.dir, ".metadata", ".localver"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(r.dir, "visible.txt"), []byte("hi"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s, nc, err := dialAs(t, port, "alice", "a good password")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	defer nc.Close()
+	share, err := s.Mount("media")
+	if err != nil {
+		t.Fatalf("mount: %v", err)
+	}
+	defer share.Umount()
+
+	list, err := share.ReadDir("")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, fi := range list {
+		seen[fi.Name()] = true
+	}
+	if !seen["visible.txt"] {
+		t.Errorf("visible.txt missing from %v", seen)
+	}
+	if seen[".metadata"] {
+		t.Error(".metadata is listed over SMB")
+	}
+
+	if err := share.WriteFile(".metadata/planted.txt", []byte("x"), 0644); err == nil {
+		t.Error("a file was written into .metadata over SMB")
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, ".metadata", "planted.txt")); err == nil {
+		t.Error("planted.txt reached the drive")
+	}
+	if err := share.RemoveAll(".metadata"); err == nil {
+		t.Error(".metadata was deleted over SMB")
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, ".metadata", ".localver")); err != nil {
+		t.Errorf(".metadata was damaged: %v", err)
+	}
+}
+
 func waitForNoClients(t *testing.T, r *rig) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -602,9 +658,9 @@ func TestImport(t *testing.T) {
 	isOK(t, activate(r, "login", "keep this one"))
 	r.opt.SambaHashes = func() (map[string][]byte, error) {
 		return map[string][]byte{
-			"alice":    auth.NTHash("from samba"),
-			"bob":      auth.NTHash("bob's samba password"),
-			"stranger": auth.NTHash("not an arozos account"),
+			"alice":    smbsrv.NTHash("from samba"),
+			"bob":      smbsrv.NTHash("bob's samba password"),
+			"stranger": smbsrv.NTHash("not an arozos account"),
 		}, nil
 	}
 	w := post(r.m.HandleImport, nil)
@@ -612,7 +668,7 @@ func TestImport(t *testing.T) {
 	if strings.TrimSpace(w.Body.String()) != "1" {
 		t.Errorf("imported %s", w.Body.String())
 	}
-	if _, hash, _ := r.m.creds.Lookup("alice"); string(hash) != string(auth.NTHash("keep this one")) {
+	if _, hash, _ := r.m.creds.Lookup("alice"); string(hash) != string(smbsrv.NTHash("keep this one")) {
 		t.Error("an existing SMB password must win")
 	}
 	if !r.m.creds.Has("bob") {

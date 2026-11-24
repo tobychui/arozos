@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
-func versionShare(t *testing.T) (smbserver.Share, string) {
+func versionShare(t *testing.T) (smbsrv.Share, string) {
 	t.Helper()
 	fsh, root := drive(t, "media", "public")
 	v := loginAs(t, "alice", &fakeAccount{fshs: []*filesystem.FileSystemHandler{fsh}, levels: map[string]string{"media": "rw"}}, nil)
@@ -27,7 +27,7 @@ func TestVersionsFromLocalver(t *testing.T) {
 	os.WriteFile(filepath.Join(docs, ".metadata/.localver/2026-11-07_09-30-15/other.txt"), []byte("o"), 0644)
 	os.MkdirAll(filepath.Join(docs, ".metadata/.localver/not-a-time"), 0755)
 
-	ss := s.(smbserver.SnapshotShare)
+	ss := s.(smbsrv.SnapshotShare)
 	want := time.Date(2026, 11, 8, 10, 0, 0, 0, time.Local)
 	got := ss.Snapshots("docs/report.docx")
 	if len(got) != 1 || !got[0].Equal(want) {

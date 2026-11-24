@@ -10,9 +10,9 @@ import (
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/spf13/afero"
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/ftpfs"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
 // strictFs refuses a folder whose parent is missing, as a real FTP server
@@ -41,7 +41,7 @@ func (d *ftpDriver) AuthUser(_ ftpserver.ClientContext, user, pass string) (ftps
 }
 func (d *ftpDriver) GetTLSConfig() (*tls.Config, error) { return nil, errors.New("no tls") }
 
-func ftpShare(t *testing.T) (smbserver.Share, afero.Fs) {
+func ftpShare(t *testing.T) (smbsrv.Share, afero.Fs) {
 	t.Helper()
 	mem := afero.NewMemMapFs()
 	srv := ftpserver.NewFtpServer(&ftpDriver{fs: mem})
@@ -91,7 +91,7 @@ func TestStreamsOnAnFTPDrive(t *testing.T) {
 			t.Errorf("%s: read back %q", tt.name, got)
 		}
 	}
-	if n := len(s.(smbserver.StreamShare).Streams("docs/a.txt")); n != 2 {
+	if n := len(s.(smbsrv.StreamShare).Streams("docs/a.txt")); n != 2 {
 		t.Errorf("%d streams on the file", n)
 	}
 	if got, _ := afero.ReadFile(mem, "/docs/a.txt"); string(got) != "data" {

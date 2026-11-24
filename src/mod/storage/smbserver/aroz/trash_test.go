@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
 // fakeBin stands in for the File Manager's trash bin.
@@ -26,7 +26,7 @@ func (b *fakeBin) move(fsh *filesystem.FileSystemHandler, subpath, rpath, userna
 	return os.Rename(rpath, target)
 }
 
-func trashShare(t *testing.T, bin *fakeBin) (smbserver.Share, string) {
+func trashShare(t *testing.T, bin *fakeBin) (smbsrv.Share, string) {
 	t.Helper()
 	fsh, root := drive(t, "media", "public")
 	account := &fakeAccount{fshs: []*filesystem.FileSystemHandler{fsh}, levels: map[string]string{"media": "rw"}}

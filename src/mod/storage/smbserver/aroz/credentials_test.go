@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/database"
-	"imuslab.com/arozos/mod/storage/smbserver/auth"
 )
 
 func openStore(t *testing.T) (*CredentialDB, *database.Database, string) {
@@ -75,7 +75,7 @@ func TestSetAndLookup(t *testing.T) {
 	if name != "Alice" {
 		t.Errorf("name = %q, the account's spelling must come back", name)
 	}
-	if !bytes.Equal(hash, auth.NTHash("correct horse")) {
+	if !bytes.Equal(hash, smbsrv.NTHash("correct horse")) {
 		t.Error("wrong hash")
 	}
 	if !c.Has("alice") {
@@ -91,7 +91,7 @@ func TestPasswordChangeReplacesTheHash(t *testing.T) {
 	c.Set("alice", "first")
 	c.Set("alice", "second")
 	_, hash, _ := c.Lookup("alice")
-	if !bytes.Equal(hash, auth.NTHash("second")) {
+	if !bytes.Equal(hash, smbsrv.NTHash("second")) {
 		t.Error("the old password still works")
 	}
 }
@@ -119,7 +119,7 @@ func TestNoSecretIsReadableInTheDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := record.NTHash + record.AES128 + record.AES256
-	if strings.Contains(raw, hex.EncodeToString(auth.NTHash("correct horse"))) {
+	if strings.Contains(raw, hex.EncodeToString(smbsrv.NTHash("correct horse"))) {
 		t.Error("the NT hash is stored in the clear")
 	}
 	if record.Salt == "" || record.Iterations != kerberosIterations {
@@ -222,7 +222,7 @@ func TestLostKeyOnlyCostsThePasswords(t *testing.T) {
 
 func TestSetHash(t *testing.T) {
 	c, _, _ := openStore(t)
-	hash := auth.NTHash("from samba")
+	hash := smbsrv.NTHash("from samba")
 	if err := c.SetHash("bob", hash); err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestStoreWorksAsABackend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, hash, ok := b.LookupHash("Alice"); !ok || !bytes.Equal(hash, auth.NTHash("pw")) {
+	if _, hash, ok := b.LookupHash("Alice"); !ok || !bytes.Equal(hash, smbsrv.NTHash("pw")) {
 		t.Error("the backend must read the store")
 	}
 }

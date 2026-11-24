@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
-	"imuslab.com/arozos/mod/storage/smbserver"
 )
 
 // fakeAccount stands in for the signed in user. levels holds what the user may
@@ -64,7 +64,7 @@ func drive(t *testing.T, uuid, hierarchy string) (*filesystem.FileSystemHandler,
 	}, dir
 }
 
-func loginAs(t *testing.T, username string, account *fakeAccount, quota Quota) smbserver.UserView {
+func loginAs(t *testing.T, username string, account *fakeAccount, quota Quota) smbsrv.UserView {
 	t.Helper()
 	b, err := New(Options{
 		Credentials: noCredentials{},
@@ -80,7 +80,7 @@ func loginAs(t *testing.T, username string, account *fakeAccount, quota Quota) s
 	return v
 }
 
-func onlyShare(t *testing.T, v smbserver.UserView) smbserver.Share {
+func onlyShare(t *testing.T, v smbsrv.UserView) smbsrv.Share {
 	t.Helper()
 	shares := v.Shares()
 	if len(shares) != 1 {

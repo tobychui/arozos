@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"imuslab.com/arozos/mod/storage/smbserver"
+	"github.com/tobychui/smbsrv"
 )
 
 /*
@@ -81,7 +81,7 @@ func decodeStream(enc string) (string, bool) {
 
 // sharePath turns a stream path into the share path of its sidecar file.
 func sharePath(p string) string {
-	base, stream, ok := strings.Cut(p, smbserver.StreamSeparator)
+	base, stream, ok := strings.Cut(p, smbsrv.StreamSeparator)
 	if !ok {
 		return p
 	}
@@ -90,17 +90,17 @@ func sharePath(p string) string {
 
 // basePath strips the stream, for questions about the file it belongs to.
 func basePath(p string) string {
-	base, _, _ := strings.Cut(p, smbserver.StreamSeparator)
+	base, _, _ := strings.Cut(p, smbsrv.StreamSeparator)
 	return base
 }
 
 // Streams lists the streams of a file or folder.
-func (s *share) Streams(p string) []smbserver.FileInfo {
+func (s *share) Streams(p string) []smbsrv.FileInfo {
 	entries, err := s.ReadDir(streamDir(basePath(p)))
 	if err != nil {
 		return nil
 	}
-	out := []smbserver.FileInfo{}
+	out := []smbsrv.FileInfo{}
 	for _, e := range entries {
 		if e.IsDir {
 			continue

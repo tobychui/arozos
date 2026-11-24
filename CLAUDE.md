@@ -400,47 +400,54 @@ per pool "other permission" and bridging a drive into another pool.
 A pure Go SMB 2.1 to 3.1.1 server, so Windows Explorer can open ArozOS drives
 with no Samba install. It is experimental and off by default: an admin turns it
 on in System Settings > File Servers, and each user then sets their own SMB
-password there. The design and its state are in
-[`src/mod/storage/SMB_PROPOSAL.md`](src/mod/storage/SMB_PROPOSAL.md); read it,
-especially sections 13 and 14, before changing protocol behaviour.
+password there.
 
-- **Where it lives:** [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/):
-  `wire` (messages), `crypt` (signing, and encryption with its own AES-CCM),
-  `auth` (SPNEGO and NTLMv2), `rpc` (`IPC$`: srvsvc, lsarpc, dssetup, wkssvc),
-  `state` (share modes and locks across all clients), the core (`lease.go`,
-  `durable.go`, `notify.go`, `copy.go` beside the command handlers), and `aroz`,
-  the only package that imports ArozOS code, in the same split as
-  `sftpserver.Access`; it stages files of WebDAV, FTP and S3 drives, which have
-  no random access (`aroz/staged.go`), keeps named streams in
-  `.metadata/.streams` and maps Previous Versions onto `.metadata/.localver`.
-  The Windows Network view announcement (WS-Discovery and LLMNR) is in
-  [`src/mod/network/wsd/`](src/mod/network/wsd/). `.metadata` is left out of SMB
-  listings on purpose. The file server entry, settings and endpoints are in
+- **Where it lives:** the protocol is the separate MIT-licensed module
+  [`github.com/tobychui/smbsrv`](https://github.com/tobychui/smbsrv) (its
+  `internal/` holds `wire`, `crypt`, `auth`, `rpc` and `state`; `wsd` is the
+  WS-Discovery and LLMNR responder for the Windows Network view), required in
+  [`src/go.mod`](src/go.mod). ArozOS keeps only the parts that import ArozOS
+  code: the backend [`src/mod/storage/smbserver/aroz/`](src/mod/storage/smbserver/aroz/),
+  in the same split as `sftpserver.Access`, which stages files of WebDAV, FTP
+  and S3 drives that have no random access (`staged.go`), keeps named streams
+  in `.metadata/.streams` and maps Previous Versions onto `.metadata/.localver`;
+  and the file server entry, settings, endpoints and announcements in
   [`src/mod/fileservers/servers/smbserv/`](src/mod/fileservers/servers/smbserv/),
-  wired in [`src/smbserver.go`](src/smbserver.go).
-- **Rules that are easy to break:** a lease is a promise to break before
-  anything makes the client's cache wrong, so every new way to change a file
-  (a new command, a new write path) must call `breakForWrite`, `breakForOpen`
-  or `breakHandles` first, and leases stay limited to drives the validator can
-  check for changes made around the server (`PollableShare`). Ask `CanRead` /
-  `CanWrite` on every operation, not once at connect. Every request on a session
-  must be signed or arrive encrypted. Interim `STATUS_PENDING` responses and
-  lease break notifications stay unsigned. Grant credits as charge plus request
-  minus one: Windows only asks for what a read costs, so repaying exactly that
-  holds it to one read in flight (`TestWindowsStyleCopyPipelines`).
+  wired in [`src/smbserver.go`](src/smbserver.go). smbsrv logs through
+  `log/slog`; ArozOS passes `logger.NewSlog("SMB")` / `logger.NewSlog("WSD")`.
+- **`.metadata` must stay hidden:** smbsrv only hides a folder and refuses
+  writes into it when the share names it through `smbsrv.InternalShare`, which
+  the aroz share does (`InternalFolder`). Keep that method;
+  `TestMetadataFolderIsProtected` fails without it.
+- **Changing the protocol:** fix it in the smbsrv repository, tag a release
+  and bump it here with `go get github.com/tobychui/smbsrv@vX.Y.Z`. To try an
+  untagged smbsrv checkout against ArozOS, point a `go.work` outside the
+  repository at both (`GOWORK=/path/go.work`) rather than committing a
+  `replace` line. Rules that are easy to break there: a lease is a promise to
+  break before anything makes the client's cache wrong, so every new way to
+  change a file must call `breakForWrite`, `breakForOpen` or `breakHandles`
+  first, and leases stay limited to drives the validator can check for changes
+  made around the server (`PollableShare`). Ask `CanRead` / `CanWrite` on every
+  operation, not once at connect. Every request on a session must be signed or
+  arrive encrypted; interim `STATUS_PENDING` responses and lease break
+  notifications stay unsigned. Grant credits as charge plus request minus one
+  (`TestWindowsStyleCopyPipelines`).
 - **Passwords:** NTLM needs the NT hash, which cannot come from the stored login
   hash, so SMB has its own password per user, sealed in the system database with
-  a key in `system/smb/` (`aroz/credentials.go`). Changing or revoking it drops
-  that user's live sessions.
+  a key in `system/smb/` (`aroz/credentials.go`, hashed with `smbsrv.NTHash`).
+  Changing or revoking it drops that user's live sessions.
 - **Debugging:** `-smb_capture <folder>` writes a pcap and a trace log with no
   root. Windows sends a login derived from the signed in user's real password on
   its own, so captures blank every NTLM response: keep it that way, and never
   commit a raw capture.
-- **Testing:** real clients count most. `go test ./mod/storage/smbserver/...`
-  runs `go-smb2`, `smbclient` (every dialect and cipher), `rpcclient` and
-  Wireshark where installed. The macOS client (`mount_smbfs`) asks for leases and
-  durable handles, which makes it a good check of breaks. Windows cannot host it
-  on 445, so test from a Windows client against another machine.
+- **Testing:** real clients count most. Protocol tests (`go-smb2`, `smbclient`
+  on every dialect and cipher, `rpcclient`, Wireshark where installed) run in
+  the smbsrv repository with `go test ./...`; here,
+  `go test ./mod/storage/smbserver/... ./mod/fileservers/servers/smbserv/...`
+  covers the backend and the file server entry. The macOS client
+  (`mount_smbfs`) asks for leases and durable handles, which makes it a good
+  check of breaks. Windows cannot host it on 445, so test from a Windows client
+  against another machine.
 
 ## What Container Apps are
 
@@ -613,7 +620,8 @@ log.Println("could not open config", err)   // and log.Printf/Fatal/Panic
 
 The package-level `logger.PrintAndLog` delegates to the system-wide logger wired
 up in [`src/main.go`](src/main.go); you do not need your own `*logger.Logger`
-instance. The only file allowed to wrap the standard `log` package is the logger
+instance. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
+which writes its records through `PrintAndLog`. The only file allowed to wrap the standard `log` package is the logger
 implementation itself ([`src/mod/info/logger/`](src/mod/info/logger/)).
 
 *Enforced as an ERROR* (blocks CI) on added `log.Print*` / `log.Fatal*` /
@@ -772,8 +780,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/prouter/`](src/mod/prouter/) — permission/auth router (rule 4).
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
 - [`src/mod/storage/access/`](src/mod/storage/access/) — drive access lists (see "Who can use a drive").
-- [`src/mod/storage/smbserver/`](src/mod/storage/smbserver/) — the built-in SMB server (see "What the built-in SMB server is").
-- [`src/mod/network/wsd/`](src/mod/network/wsd/) — WS-Discovery and LLMNR responder that lists the built-in SMB server in the Windows Network view.
+- [`src/mod/storage/smbserver/aroz/`](src/mod/storage/smbserver/aroz/) — the ArozOS backend of the built-in SMB server; the protocol itself is the `github.com/tobychui/smbsrv` module (see "What the built-in SMB server is").
 - [`src/mod/fileservers/servers/syncserv/`](src/mod/fileservers/servers/syncserv/) — the Sync Server file server: `/api/syncserver/upload` for phone automations (an iOS Shortcut every night). It is deliberately outside the session router and signs every request in itself (`Username` header plus `Authorization: Bearer`, or `X-User-Name` plus `X-User-Cred` behind proxies that strip `Authorization`, with a per user sync password or the login password). Each user picks a folder, type and date folders, and skip or replace; files are matched by name, and names received in the last 30 days are remembered. Wired in [`src/syncserver.go`](src/syncserver.go).
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices, plus disabling modules (see "What a WebApp is").
 - [`src/mod/setupwizard/`](src/mod/setupwizard/) — disk inspection and format checks of the first-run Setup module (see "What Setup is").

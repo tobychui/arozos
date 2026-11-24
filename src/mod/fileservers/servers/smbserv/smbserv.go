@@ -15,11 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tobychui/smbsrv"
 	"imuslab.com/arozos/mod/auth/explogin"
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/info/logger"
-	"imuslab.com/arozos/mod/storage/smbserver"
 	"imuslab.com/arozos/mod/storage/smbserver/aroz"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -86,7 +86,7 @@ type Manager struct {
 	delays *explogin.ExpLoginHandler
 
 	mu           sync.Mutex
-	server       *smbserver.Server
+	server       *smbsrv.Server
 	announcer    *announcer
 	lastError    string
 	lastErrorKey string
@@ -293,12 +293,13 @@ func (m *Manager) start() error {
 	sum := sha256.Sum256([]byte("arozos-smb-" + m.opt.DeviceID))
 	copy(guid[:], sum[:])
 
-	server, err := smbserver.New(smbserver.Config{
+	server, err := smbsrv.New(smbsrv.Config{
 		Address:    ":" + strconv.Itoa(port),
 		ServerName: m.opt.ServerName,
 		DNSName:    m.opt.DNSName,
 		GUID:       guid,
 		Backend:    backend,
+		Logger:     logger.NewSlog(logTitle),
 		CaptureDir: m.opt.CaptureDir,
 
 		RequireEncryption: m.requireEncryption(),
@@ -622,7 +623,7 @@ func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
 	m.mu.Lock()
 	server := m.server
 	m.mu.Unlock()
-	clients := []smbserver.Client{}
+	clients := []smbsrv.Client{}
 	if server != nil {
 		clients = server.Clients()
 	}

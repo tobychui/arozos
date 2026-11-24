@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"imuslab.com/arozos/mod/storage/smbserver"
+	"github.com/tobychui/smbsrv"
 )
 
-func streamOf(base, stream string) string { return base + smbserver.StreamSeparator + stream }
+func streamOf(base, stream string) string { return base + smbsrv.StreamSeparator + stream }
 
 func TestStreamsLiveBesideTheirFile(t *testing.T) {
 	s, root := versionShare(t)
@@ -34,7 +34,7 @@ func TestStreamsLiveBesideTheirFile(t *testing.T) {
 	f, _ = s.Open(streamOf("docs/a.txt", "com.apple.metadata:_kMDItemUserTags"), os.O_RDWR|os.O_CREATE)
 	f.WriteAt([]byte("tags"), 0)
 	f.Close()
-	list := s.(smbserver.StreamShare).Streams("docs/a.txt")
+	list := s.(smbsrv.StreamShare).Streams("docs/a.txt")
 	names := map[string]int64{}
 	for _, e := range list {
 		names[e.Name] = e.Size
@@ -62,7 +62,7 @@ func TestStreamsLiveBesideTheirFile(t *testing.T) {
 	if err := s.Remove(streamOf("docs/b.txt", "Zone.Identifier")); err != nil {
 		t.Fatal(err)
 	}
-	if len(s.(smbserver.StreamShare).Streams("docs/b.txt")) != 1 {
+	if len(s.(smbsrv.StreamShare).Streams("docs/b.txt")) != 1 {
 		t.Error("removing one stream must keep the others")
 	}
 	if err := s.Remove("docs/b.txt"); err != nil {
@@ -127,7 +127,7 @@ func TestFolderDeleteTakesItsMetadata(t *testing.T) {
 	}
 }
 
-func writeStream(t *testing.T, s smbserver.Share, p, content string) {
+func writeStream(t *testing.T, s smbsrv.Share, p, content string) {
 	t.Helper()
 	f, err := s.Open(p, os.O_RDWR|os.O_CREATE)
 	if err != nil {
@@ -137,7 +137,7 @@ func writeStream(t *testing.T, s smbserver.Share, p, content string) {
 	f.Close()
 }
 
-func readStream(t *testing.T, s smbserver.Share, p string) string {
+func readStream(t *testing.T, s smbsrv.Share, p string) string {
 	t.Helper()
 	f, err := s.Open(p, os.O_RDONLY)
 	if err != nil {
@@ -151,7 +151,7 @@ func readStream(t *testing.T, s smbserver.Share, p string) string {
 // A file named like the root's sidecar folder must not share its streams.
 func TestRootStreamsAreApartFromFiles(t *testing.T) {
 	s, root := versionShare(t)
-	streams := s.(smbserver.StreamShare)
+	streams := s.(smbsrv.StreamShare)
 	for _, name := range []string{".root", ".rootstreams"} {
 		os.WriteFile(filepath.Join(root, name), nil, 0644)
 	}
@@ -190,7 +190,7 @@ func TestRenameOverAFileDropsItsStreams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s, root := versionShare(t)
-			streams := s.(smbserver.StreamShare)
+			streams := s.(smbsrv.StreamShare)
 			os.WriteFile(filepath.Join(root, "new.txt"), []byte("new"), 0644)
 			os.WriteFile(filepath.Join(root, "old.txt"), []byte("old"), 0644)
 			writeStream(t, s, streamOf("old.txt", "AFP_Resource"), "old fork")
