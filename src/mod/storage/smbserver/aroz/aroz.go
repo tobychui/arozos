@@ -81,6 +81,12 @@ type Options struct {
 	//DefaultStageLimit, and a negative number has no limit.
 	StageLimit func() int64
 
+	//TimeMachine returns the drive a user picked for Time Machine backups and
+	//the most they may take, 0 for no limit. It is asked at every login and
+	//whenever a Mac asks for the free space, so a new limit applies at once.
+	//Nil, or ok false, gives the user no TimeMachine share (timemachine.go)
+	TimeMachine func(username string) (drive string, maxSize uint64, ok bool)
+
 	//UseTrash reports whether deleted files go to the trash bin, asked on
 	//every delete. Trash moves one file there the way the File Manager does,
 	//and returns ErrTrashFull when the user's bin has no room left.
@@ -176,6 +182,9 @@ func (v *view) Shares() []smbsrv.Share {
 		}
 		out = append(out, newShare(fsh, v))
 	}
+	if tm := v.timeMachineShare(); tm != nil {
+		out = append(out, tm)
+	}
 	return out
 }
 
@@ -186,24 +195,44 @@ type share struct {
 	local bool
 
 	rootOnce sync.Once
-	root     string //The real location of the drive root, links resolved
+	root     string //The real location of the share root, links resolved
+
+	//sub is the folder of the drive the share starts at, "" for the drive
+	//root. Only the TimeMachine share has one
+	sub         string
+	timeMachine bool
+	tmMaxSize   uint64
 }
 
 func newShare(fsh *filesystem.FileSystemHandler, v *view) *share {
 	return &share{fsh: fsh, v: v, local: !fsh.IsNetworkDrive()}
 }
 
-func (s *share) Name() string { return s.fsh.UUID }
+func (s *share) Name() string {
+	if s.timeMachine {
+		return TimeMachineShareName
+	}
+	return s.fsh.UUID
+}
 
-func (s *share) Comment() string { return s.fsh.Name }
+func (s *share) Comment() string {
+	if s.timeMachine {
+		return "Time Machine backups on " + s.fsh.Name
+	}
+	return s.fsh.Name
+}
 
 // Key tells drives apart. user:/ and the like resolve to another folder for
 // every user, so their files are only the same files within one user.
 func (s *share) Key() string {
+	key := s.fsh.UUID
 	if s.fsh.Hierarchy == "user" {
-		return s.fsh.UUID + "/" + strings.ToLower(s.v.username)
+		key += "/" + strings.ToLower(s.v.username)
 	}
-	return s.fsh.UUID
+	if s.sub != "" {
+		key += "/" + strings.ToLower(s.sub)
+	}
+	return key
 }
 
 func (s *share) ReadOnly() bool { return s.fsh.ReadOnly }
@@ -213,7 +242,15 @@ func (s *share) ReadOnly() bool { return s.fsh.ReadOnly }
 // listings and refused to writes over SMB.
 func (s *share) InternalFolder() string { return internalFolder }
 
-func (s *share) vpath(p string) string { return s.fsh.UUID + ":/" + p }
+func (s *share) vpath(p string) string {
+	switch {
+	case s.sub == "":
+		return s.fsh.UUID + ":/" + p
+	case p == "":
+		return s.fsh.UUID + ":/" + s.sub
+	}
+	return s.fsh.UUID + ":/" + s.sub + "/" + p
+}
 
 // CanPoll lets watched folders of local drives be listed every few seconds.
 func (s *share) CanPoll() bool { return s.local }
@@ -242,8 +279,9 @@ func (s *share) driveRoot() string {
 		if err != nil {
 			return
 		}
-		//A user folder may not exist before the first use
-		if s.fsh.Hierarchy == "user" {
+		//A user folder, or the Time Machine folder, may not exist before the
+		//first use
+		if s.fsh.Hierarchy == "user" || s.sub != "" {
 			s.fsh.FileSystemAbstraction.MkdirAll(root, 0775)
 		}
 		if resolved, err := filepath.EvalSymlinks(root); err == nil {

@@ -18,6 +18,7 @@
     #smb-user .smb-result { margin-top: 10px; font-size: 12.5px; min-height: 1.4em; }
     #smb-user .smb-result.good { color: var(--ss-success); }
     #smb-user .smb-result.bad { color: var(--ss-danger); }
+    #smb-user .smb-tm-select { max-width: 420px; }
     #smb-user [hidden] { display: none !important; }
 </style>
 
@@ -62,6 +63,23 @@
         </div>
         <div class="smb-result" id="smb-result" role="status"></div>
     </form>
+
+    <div id="smb-tm" hidden>
+        <div class="smb-section" locale="smb/tm_title">Time Machine backups</div>
+        <div class="smb-hint" locale="smb/tm_desc">Pick a drive to back up your Mac to. It appears as the TimeMachine share, and the backups are kept in a Time Machine folder on that drive.</div>
+        <form class="ui form" id="smb-tm-form">
+            <div class="field smb-tm-select">
+                <label locale="smb/tm_drive">Back up to</label>
+                <select id="smb-tm-drive"></select>
+            </div>
+            <div class="smb-hint" id="smb-tm-info" hidden></div>
+            <div class="smb-hint" id="smb-tm-steps" hidden></div>
+            <div class="smb-buttons">
+                <button type="submit" class="ui black button" id="smb-tm-save"><i class="check icon"></i> <span locale="smb/tm_save">Save</span></button>
+            </div>
+            <div class="smb-result" id="smb-tm-result" role="status"></div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -77,6 +95,8 @@
     }
 
     var activated = false;
+    var currentUser = '';
+    var serverPort = 445;
 
     function result(text, good) {
         $('#smb-result').text(text).toggleClass('good', !!good).toggleClass('bad', !good);
@@ -112,6 +132,8 @@
                 return;
             }
             activated = status.Activated;
+            currentUser = status.Username;
+            serverPort = status.Port;
             if (status.MinPasswordLength) minLength = status.MinPasswordLength;
             if (!status.Running) {
                 state('grey power off', t('state_off', 'The SMB server is not running. An administrator can turn it on in the server list.'));
@@ -126,9 +148,51 @@
             renderShares(status);
             $('#smb-save-label').text(activated ? t('change', 'Change SMB password') : t('enable', 'Enable SMB on my account'));
             $('#smb-disable').prop('hidden', !activated);
+            loadTimeMachine();
         }).fail(function () {
             state('red exclamation circle', t('load_failed', 'The status could not be loaded.'));
         });
+    }
+
+    function loadTimeMachine() {
+        $.get('../../system/storage/smb/timemachine', function (status) {
+            if (!status || status.error !== undefined || !status.Enabled) {
+                $('#smb-tm').prop('hidden', true);
+                return;
+            }
+            var $select = $('#smb-tm-drive').empty();
+            $select.append($('<option value=""></option>').text(t('tm_off', 'Do not back up here')));
+            status.Drives.forEach(function (d) {
+                $select.append($('<option></option>').val(d.Name).text((d.Comment || d.Name) + ' (' + d.Name + ':/)'));
+            });
+            $select.val(status.Drive || '');
+            var info = [];
+            if (status.Drive) info.push(fill(t('tm_folder', 'Backups are kept in {folder}.'), { folder: status.Folder }));
+            if (status.LimitGB > 0) info.push(fill(t('tm_limit_note', 'They may take up to {limit} GB; Time Machine then deletes the oldest ones.'), { limit: status.LimitGB }));
+            if (status.Drives.length === 0) info.push(t('tm_no_drive', 'None of your drives can hold backups. Time Machine needs a local drive you can write to.'));
+            $('#smb-tm-info').prop('hidden', info.length === 0).text(info.join(' '));
+            $('#smb-tm-steps').prop('hidden', !status.Drive).text(fill(t('tm_steps', 'On your Mac, open System Settings, General, Time Machine, choose Add Backup Disk and pick {share} on this server. Sign in as {user} with your SMB password. If it is not listed, connect to smb://{host}/{share} in Finder first.'), {
+                //smb:// addresses on Macs take the port after the host
+                share: status.ShareName, user: currentUser, host: window.location.hostname + (serverPort === 445 ? '' : ':' + serverPort)
+            }));
+            $('#smb-tm').prop('hidden', false);
+        });
+    }
+
+    function saveTimeMachine(event) {
+        event.preventDefault();
+        var $result = $('#smb-tm-result');
+        $('#smb-tm-save').addClass('loading disabled');
+        $.post('../../system/storage/smb/timemachine', { drive: $('#smb-tm-drive').val() }, function (data) {
+            if (data && data.error !== undefined) {
+                $result.text(data.error).removeClass('good').addClass('bad');
+                return;
+            }
+            $result.text(t('tm_saved', 'Saved.')).removeClass('bad').addClass('good');
+            refresh();
+        }).fail(function () {
+            $result.text(t('failed', 'The request failed.')).removeClass('good').addClass('bad');
+        }).always(function () { $('#smb-tm-save').removeClass('loading disabled'); });
     }
 
     function clearPasswords() {
@@ -198,6 +262,7 @@
         $('#smb-form').on('submit', save);
         $('#smb-generate').on('click', generate);
         $('#smb-disable').on('click', disable);
+        $('#smb-tm-form').on('submit', saveTimeMachine);
         //The switch in the server list belongs to the host page, so its effect
         //is only known here by asking again
         $('#fs-list').off('.smbuser').on('change.smbuser', 'input', function () {

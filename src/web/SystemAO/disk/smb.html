@@ -65,6 +65,18 @@
             </div>
         </div>
         <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="smb-apple" type="checkbox">
+                <label locale="smb/apple">macOS support and Time Machine</label>
+                <small locale="smb/apple_hint">Answers the Apple extensions of macOS, so Finder lists folders faster and Macs can back up here with Time Machine. Each user picks the drive for their backups in the Connect section above. Saving a change disconnects connected clients.</small>
+            </div>
+        </div>
+        <div class="field" id="smb-tm-field" hidden>
+            <label locale="smb/tm_limit">Time Machine size limit per user (GB)</label>
+            <div class="ui input"><input id="smb-tm-limit" type="number" min="0" step="1" placeholder="0"></div>
+            <small locale="smb/tm_limit_hint">Macs are told the backup disk has this size, so Time Machine deletes its oldest backups when a user's backups reach it. 0 means no limit other than the drive and the user's storage quota.</small>
+        </div>
+        <div class="field">
             <label locale="smb/stage_limit">Largest file on cloud and remote drives (MB)</label>
             <div class="ui input"><input id="smb-stage-limit" type="number" min="0" step="1" placeholder="4096"></div>
             <small locale="smb/stage_limit_hint">S3, FTP, WebDAV and cluster drives only move whole files, so a file opened over SMB is first copied to this server's temporary folder. Larger files are refused. 0 means no limit.</small>
@@ -138,6 +150,9 @@
             $('#smb-discover').prop('checked', config.Discover);
             $('#smb-trash').prop('checked', config.Trash);
             $('#smb-shortpw').prop('checked', config.ShortPasswords);
+            $('#smb-apple').prop('checked', config.Apple);
+            $('#smb-tm-limit').val(config.TimeMachineGB);
+            $('#smb-tm-field').prop('hidden', !config.Apple);
             //Known failures have a translation, and anything else is shown as it came
             var reason = config.LastError || '';
             if (config.LastErrorKey) reason = fill(t('error_' + config.LastErrorKey, reason), { port: config.Port });
@@ -213,6 +228,8 @@
                 discover: $('#smb-discover').is(':checked') ? 'true' : 'false',
                 trash: $('#smb-trash').is(':checked') ? 'true' : 'false',
                 shortpw: $('#smb-shortpw').is(':checked') ? 'true' : 'false',
+                apple: $('#smb-apple').is(':checked') ? 'true' : 'false',
+                tmlimit: $('#smb-tm-limit').val() || '0',
                 stagelimit: $('#smb-stage-limit').val()
             },
             success: function (data) {
@@ -242,6 +259,7 @@
 
     function start() {
         $('#smb-config').on('submit', save);
+        $('#smb-apple').on('change', function () { $('#smb-tm-field').prop('hidden', !this.checked); });
         $('#smb-refresh').on('click', function () { loadClients(); loadUsers(); });
         $('#smb-import').on('click', importHashes);
         $('#smb-admin .ui.checkbox').checkbox();

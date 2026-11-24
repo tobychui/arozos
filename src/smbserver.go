@@ -126,6 +126,7 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 	router.HandleFunc("/system/storage/smb/status", SMBManager.HandleStatus)
 	router.HandleFunc("/system/storage/smb/activate", SMBManager.HandleActivate)
 	router.HandleFunc("/system/storage/smb/deactivate", SMBManager.HandleDeactivate)
+	router.HandleFunc("/system/storage/smb/timemachine", SMBManager.HandleTimeMachine)
 	adminRouter.HandleFunc("/system/storage/smb/config", SMBManager.HandleConfig)
 	adminRouter.HandleFunc("/system/storage/smb/clients", SMBManager.HandleClients)
 	adminRouter.HandleFunc("/system/storage/smb/users", SMBManager.HandleUsers)

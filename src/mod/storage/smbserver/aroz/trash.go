@@ -24,6 +24,10 @@ func (s *share) wantsTrash(p string) bool {
 	if opt == nil || opt.Trash == nil || opt.UseTrash == nil || !opt.UseTrash() {
 		return false
 	}
+	//Time Machine removes old backups by itself, a band file at a time
+	if s.timeMachine {
+		return false
+	}
 	//A stream is deleted with its file, or on its own for good
 	if basePath(p) != p {
 		return false

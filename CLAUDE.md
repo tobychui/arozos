@@ -419,6 +419,17 @@ password there.
   writes into it when the share names it through `smbsrv.InternalShare`, which
   the aroz share does (`InternalFolder`). Keep that method;
   `TestMetadataFolderIsProtected` fails without it.
+- **macOS and Time Machine:** the admin toggle "macOS support and Time
+  Machine" (setting `apple`, off by default; changing it restarts the server)
+  turns on smbsrv's AAPL answers (`smbsrv.Config.Apple`): Finder info in
+  listings and zero file ids for Macs. Each user picks one of their writable
+  local drives for backups (`tm/<username>`, endpoint
+  `/system/storage/smb/timemachine`); it is served to them as the
+  `TimeMachine` share rooted at `Time Machine` on their user drive or
+  `Time Machine/<username>` on a shared one (`aroz/timemachine.go`), with full
+  sync, the admin's per user size limit (`tmlimit`, GB, reported as the disk
+  size through `smbsrv.TimeMachineShare`), and no trash bin. Bonjour announces
+  it as `_adisk._tcp` while anyone has picked a drive (`discovery.go`).
 - **Changing the protocol:** fix it in the smbsrv repository, tag a release
   and bump it here with `go get github.com/tobychui/smbsrv@vX.Y.Z`. To try an
   untagged smbsrv checkout against ArozOS, point a `go.work` outside the

@@ -221,6 +221,7 @@ func (m *Manager) backend() (*aroz.Backend, error) {
 		StageLimit:           m.stageLimit,
 		UseTrash:             m.useTrash,
 		Trash:                m.opt.Trash,
+		TimeMachine:          m.timeMachinePick,
 	})
 }
 
@@ -303,6 +304,7 @@ func (m *Manager) start() error {
 		CaptureDir: m.opt.CaptureDir,
 
 		RequireEncryption: m.requireEncryption(),
+		Apple:             m.appleOn(),
 	})
 	if err != nil {
 		return err
@@ -531,6 +533,8 @@ type AdminConfig struct {
 	Trash          bool
 	ShortPasswords bool  //Users may set SMB passwords under 8 characters
 	StageLimitMB   int64 //Zero is no limit
+	Apple          bool  //macOS extensions and Time Machine
+	TimeMachineGB  int64 //Most each user's backups may take, zero for no limit
 	LastError      string
 	LastErrorKey   string //Names the translation, empty for anything unexpected
 	CanImport      bool
@@ -549,6 +553,8 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		config.Discover = m.discoverable()
 		config.Trash = m.useTrash()
 		config.ShortPasswords = m.allowShortPasswords()
+		config.Apple = m.appleOn()
+		config.TimeMachineGB = m.timeMachineLimitGB()
 		config.CanImport = m.opt.SambaHashes != nil
 		sendJSON(w, config)
 		return
@@ -566,6 +572,16 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	encrypt := postOnly(r, "encrypt") != "false"
 	discover := postOnly(r, "discover") != "false"
 	trash := postOnly(r, "trash") != "false"
+	//Off unless ticked: macOS works without it, and it changes listings
+	apple := postOnly(r, "apple") == "true"
+	tmLimit := m.timeMachineLimitGB()
+	if v := postOnly(r, "tmlimit"); v != "" {
+		var ok bool
+		if tmLimit, ok = parseTimeMachineLimit(v); !ok {
+			utils.SendErrorResponse(w, "The Time Machine size limit must be a number of GB, or 0 for no limit")
+			return
+		}
+	}
 	stageLimit := m.stageLimitMB()
 	if v := postOnly(r, "stagelimit"); v != "" {
 		stageLimit, err = strconv.ParseInt(v, 10, 64)
@@ -577,10 +593,13 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	oldPort, oldPublic, oldEncrypt := m.Port(), m.allowPublic(), m.requireEncryption()
+	oldPort, oldPublic, oldEncrypt, oldApple := m.Port(), m.allowPublic(), m.requireEncryption(), m.appleOn()
 	m.opt.Sysdb.Write(settingsTable, "port", port)
 	m.opt.Sysdb.Write(settingsTable, "public", public)
 	m.opt.Sysdb.Write(settingsTable, "encrypt", encrypt)
+	m.opt.Sysdb.Write(settingsTable, "apple", apple)
+	//Asked when a Mac asks for the free space, so it applies at once
+	m.opt.Sysdb.Write(settingsTable, "tmlimit", tmLimit)
 	//Asked on every open, so it applies without listening again
 	m.opt.Sysdb.Write(settingsTable, "stagelimit", stageLimit)
 	oldDiscover := m.discoverable()
@@ -589,7 +608,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	m.opt.Sysdb.Write(settingsTable, "trash", trash)
 	//Only asked when a password is set
 	m.opt.Sysdb.Write(settingsTable, "shortpw", shortPasswords)
-	if m.server == nil || (port == oldPort && public == oldPublic && encrypt == oldEncrypt) {
+	if m.server == nil || (port == oldPort && public == oldPublic && encrypt == oldEncrypt && apple == oldApple) {
 		if m.server != nil && discover != oldDiscover {
 			m.announcer.stop()
 			m.announcer = m.announce(port)
@@ -605,6 +624,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		m.opt.Sysdb.Write(settingsTable, "port", oldPort)
 		m.opt.Sysdb.Write(settingsTable, "public", oldPublic)
 		m.opt.Sysdb.Write(settingsTable, "encrypt", oldEncrypt)
+		m.opt.Sysdb.Write(settingsTable, "apple", oldApple)
 		m.recordError(m.start())
 		utils.SendErrorResponse(w, err.Error())
 		return

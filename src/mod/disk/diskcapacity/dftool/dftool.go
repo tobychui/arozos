@@ -3,13 +3,9 @@ package dftool
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
-
-	"imuslab.com/arozos/mod/disk/diskspace"
 )
 
 type Capacity struct {
@@ -44,7 +40,7 @@ func (c *Capacity) String() string {
 	return fmt.Sprintf("%s: used=%d available=%d total=%d", c.PhysicalDevice, c.Used, c.Available, c.Total)
 }
 
-// parseDFOutput parses the last data line from `df -P` output and returns a
+// parseDFOutput parses the last data line from `df -kP` output and returns a
 // Capacity struct. Capacity values are reported by df in 1024-byte blocks and
 // are converted to bytes before being returned.
 func parseDFOutput(output string) (*Capacity, error) {
@@ -86,43 +82,12 @@ func parseDFOutput(output string) (*Capacity, error) {
 	}, nil
 }
 
+// GetCapacityInfoFromPath reports the size of the disk holding realpath.
+// How it is found depends on the platform (dftool_windows.go, dftool_unix.go).
 func GetCapacityInfoFromPath(realpath string) (*Capacity, error) {
 	rpathAbs, err := filepath.Abs(realpath)
 	if err != nil {
 		return nil, err
 	}
-
-	if runtime.GOOS == "windows" {
-		//Windows
-		//Extract disk ID from path
-		rpathAbs = filepath.ToSlash(filepath.Clean(rpathAbs))
-		diskRoot := strings.Split(rpathAbs, "/")[0]
-
-		//Match the disk space info generated from diskspace
-		logicDiskInfo := diskspace.GetAllLogicDiskInfo()
-		for _, ldi := range logicDiskInfo {
-			if strings.TrimSpace(ldi.Device) == strings.TrimSpace(diskRoot) {
-				//Matching device ID
-				return &Capacity{
-					PhysicalDevice: ldi.Device,
-					Used:           ldi.Used,
-					Available:      ldi.Available,
-					Total:          ldi.Volume,
-				}, nil
-			}
-		}
-
-	} else {
-		//Assume Linux or Mac
-		//Use command: df -P {abs_path}
-		cmd := exec.Command("df", "-P", rpathAbs)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return nil, err
-		}
-
-		return parseDFOutput(string(out))
-	}
-
-	return nil, errors.New("Unable to resolve matching disk capacity information")
+	return capacityOf(rpathAbs)
 }
