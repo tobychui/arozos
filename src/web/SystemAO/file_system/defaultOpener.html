@@ -177,13 +177,9 @@
             }
 
             function openDefaultOpenerSettings(){
-                ao_module_newfw({
-                    url: "SystemAO/modules/defaultOpener.html",
-                    width: 720,
-                    height: 560,
-                    appicon: "SystemAO/modules/img/small_icon.png",
-                    title: "Default Openers"
-                });
+                //Open System Setting on the Module > Default Module page
+                //instead of the bare page in its own window
+                ao_module_openSetting("Module", "Default Module");
             }
 
             function confirmSelection(){

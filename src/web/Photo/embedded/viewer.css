@@ -171,7 +171,9 @@ button[disabled] { opacity: 0.3; cursor: default; }
 .vTitle { flex: 1; min-width: 0; text-align: center; line-height: 1.2; }
 .vTitle b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vTitle span { display: block; font-size: 12px; color: var(--pv-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#vCount { position: absolute; right: calc(16px + var(--sa-right)); font-size: 13px; color: var(--pv-dim); }
+/* In flow (not absolute) so a long file name ellipsizes next to the
+   "x of y" label instead of running underneath it. */
+#vCount { flex: 0 0 auto; font-size: 13px; color: var(--pv-dim); white-space: nowrap; }
 
 #vBottom {
     position: absolute;
@@ -693,7 +695,6 @@ button[disabled] { opacity: 0.3; cursor: default; }
 
 #app.desktop #vTop { gap: 16px; }
 #app.desktop .vTitle { text-align: left; }
-#app.desktop #vCount { position: static; flex: 0 0 auto; }
 #app.desktop #vBar { height: auto; padding: 0; gap: 4px; justify-content: flex-end; }
 #app.desktop #vBar button {
     width: 36px;
