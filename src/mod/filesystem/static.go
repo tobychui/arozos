@@ -110,6 +110,7 @@ arozfs.ErrPathEscapesRoot.
 */
 func GetIDFromVirtualPath(vpath string) (string, string, error) {
 	if !strings.Contains(vpath, ":") {
+		logger.Debugf("Filesystem", "[Vpath] %q has no drive id", vpath)
 		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
 	}
 
@@ -117,6 +118,7 @@ func GetIDFromVirtualPath(vpath string) (string, string, error) {
 	//Older code passed paths through filepath.Clean, which prefixes "./"
 	vdID = strings.TrimPrefix(vdID, "./")
 	if arozfs.SubpathEscapesRoot(subpath) {
+		logger.Debugf("Filesystem", "[Vpath] %q climbs above the root of %s:/, refused", vpath, vdID)
 		return "", "", arozfs.ErrPathEscapesRoot
 	}
 	if subpath != "" {
@@ -127,6 +129,7 @@ func GetIDFromVirtualPath(vpath string) (string, string, error) {
 }
 
 func GetFileDataFromPath(fsh *FileSystemHandler, vpath string, realpath string, sizeRounding int) FileData {
+	fsh.debugf("Reading file data of %q (%q)", vpath, realpath)
 	fileSize := fsh.FileSystemAbstraction.GetFileSize(realpath)
 	displaySize := GetFileDisplaySize(fileSize, sizeRounding)
 	modtime, _ := fsh.FileSystemAbstraction.GetModTime(realpath)
@@ -198,6 +201,7 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 		//Check if device exists
 		if !FileExists(mountdev) {
 			//Device driver not exists.
+			logger.Debugf("Filesystem", "[Mount] device %q does not exist", mountdev)
 			return errors.New("Device not exists: " + mountdev)
 		}
 		//Mount the device
@@ -208,12 +212,16 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 			cmd := exec.Command("mount", "-t", filesystem, mountdev, filepath.Clean(mountpt))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			cmd.Run()
+			err := cmd.Run()
+			if logger.IsDebugMode() {
+				logger.Debugf("Filesystem", "[Mount] mount -t %s %s %s returned: %v (mounted now: %v)", filesystem, mountdev, filepath.Clean(mountpt), err, CheckMounted(mountpt))
+			}
 		}
 
 		//Check if the path exists
 		if !FileExists(mountpt) {
 			//Mounted but path still not found. Skip this device
+			logger.Debugf("Filesystem", "[Mount] mount point %q does not exist after mounting", mountpt)
 			return errors.New("Unable to find " + mountpt)
 		}
 
@@ -236,6 +244,7 @@ func ResolveDeviceByUUID(partUUID string) (string, error) {
 	cmd := exec.Command("blkid", "-U", partUUID)
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	logger.Debugf("Filesystem", "[Mount] looking up partition UUID %s with blkid", partUUID)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("device with UUID %s not found: %v", partUUID, err)
 	}

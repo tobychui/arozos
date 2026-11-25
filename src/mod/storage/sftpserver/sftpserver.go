@@ -167,7 +167,10 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 
 // serve runs one client connection until it ends or the server closes
 func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *SFTPConfig) {
+	//Each client has its own goroutine, where a panic ends the whole process
+	defer logger.TracePanic("Sftpserver", "serving the SFTP client "+nConn.RemoteAddr().String())
 	defer nConn.Close()
+	logger.Debug("Sftpserver", "[SFTP] connection from "+nConn.RemoteAddr().String())
 	if !AddressAllowed(nConn.RemoteAddr(), sftpConfig.AllowPublic) {
 		return
 	}
@@ -176,6 +179,7 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 	nConn.SetDeadline(time.Now().Add(2 * time.Minute))
 	cx, chans, reqs, err := ssh.NewServerConn(nConn, config)
 	if err != nil {
+		logger.Debug("Sftpserver", "[SFTP] handshake with "+nConn.RemoteAddr().String()+" failed: "+err.Error())
 		return
 	}
 	nConn.SetDeadline(time.Time{})
@@ -230,6 +234,8 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 		sessions.Add(1)
 		go func(channel ssh.Channel) {
 			defer sessions.Done()
+			defer logger.TracePanic("Sftpserver", "serving an SFTP session of "+cx.User())
+			logger.Debug("Sftpserver", "[SFTP] "+cx.User()+": session started")
 			server := sftp.NewRequestServer(channel, GetNewSFTPRoot(cx.User(), access))
 			if err := server.Serve(); err != nil && !errors.Is(err, net.ErrClosed) && err.Error() != "EOF" {
 				logger.PrintAndLog("Sftpserver", "sftp session of "+cx.User()+" ended with an error", err)

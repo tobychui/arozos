@@ -56,6 +56,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // First segment of every real path on this drive, see above
@@ -232,19 +233,24 @@ func (s *ShareFileSystem) findItem(username string, name string) *Item {
 func (s *ShareFileSystem) resolve(rpath string) (*location, error) {
 	username, name, sub, err := parseRealPath(rpath)
 	if err != nil {
+		s.debugf("resolve %q: not a real path of this drive: %v", rpath, err)
 		return nil, err
 	}
 	loc := &location{username: username, sub: sub}
 	if name == "" {
+		s.debugf("resolve %q: drive root of %s", rpath, username)
 		return loc, nil
 	}
 	loc.item = s.findItem(username, name)
 	if loc.item == nil || loc.item.Fsh == nil || loc.item.Fsh.FileSystemAbstraction == nil {
+		s.debugf("resolve %q: %q is not shared with %s, or its drive is gone (item found %v)", rpath, name, username, loc.item != nil)
 		return nil, os.ErrNotExist
 	}
 	if sub != "" && !(loc.item.IsDir && loc.item.CanBrowse) {
+		s.debugf("resolve %q: %s may not browse inside %q", rpath, username, name)
 		return nil, os.ErrNotExist
 	}
+	s.debugf("resolve %q: %s's %q (owner %s) on %s:/ at %q", rpath, username, name, loc.item.Owner, loc.item.Fsh.UUID, loc.target())
 	return loc, nil
 }
 
@@ -272,6 +278,14 @@ func (s *ShareFileSystem) ItemOf(vpath string, username string) (*Item, error) {
 		return nil, err
 	}
 	return loc.item, nil
+}
+
+// debugf writes a DEBUG record about an operation on this drive (-debug flag).
+func (s *ShareFileSystem) debugf(format string, args ...interface{}) {
+	if !logger.IsDebugMode() {
+		return
+	}
+	logger.Debug("Sharefs", "[Share FS] "+s.UUID+":/ "+fmt.Sprintf(format, args...))
 }
 
 /*
@@ -347,6 +361,7 @@ func (s *ShareFileSystem) Heartbeat() error {
 */
 
 func (s *ShareFileSystem) Open(rpath string) (arozfs.File, error) {
+	s.debugf("Open %q", rpath)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
 		return nil, err
@@ -365,6 +380,7 @@ func (s *ShareFileSystem) OpenFile(rpath string, flag int, perm os.FileMode) (ar
 }
 
 func (s *ShareFileSystem) Stat(rpath string) (os.FileInfo, error) {
+	s.debugf("Stat %q", rpath)
 	loc, err := s.resolve(rpath)
 	if err != nil {
 		return nil, err
@@ -443,6 +459,7 @@ func (s *ShareFileSystem) GetModTime(rpath string) (int64, error) {
 }
 
 func (s *ShareFileSystem) ReadFile(rpath string) ([]byte, error) {
+	s.debugf("ReadFile %q", rpath)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
 		return nil, err
@@ -451,6 +468,7 @@ func (s *ShareFileSystem) ReadFile(rpath string) ([]byte, error) {
 }
 
 func (s *ShareFileSystem) ReadStream(rpath string) (io.ReadCloser, error) {
+	s.debugf("ReadStream %q", rpath)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
 		return nil, err
@@ -459,6 +477,7 @@ func (s *ShareFileSystem) ReadStream(rpath string) (io.ReadCloser, error) {
 }
 
 func (s *ShareFileSystem) ReadDir(rpath string) ([]fs.DirEntry, error) {
+	s.debugf("ReadDir %q", rpath)
 	loc, err := s.resolve(rpath)
 	if err != nil {
 		return nil, err
@@ -498,6 +517,7 @@ func (s *ShareFileSystem) readRoot(username string) []fs.DirEntry {
 // Glob matches like filepath.Glob: the item segment against the names on the
 // drive root, everything below it on the drive the item lives on.
 func (s *ShareFileSystem) Glob(wildcard string) ([]string, error) {
+	s.debugf("Glob %q", wildcard)
 	username, namePattern, subPattern, err := parseRealPath(wildcard)
 	if err != nil {
 		return nil, err
@@ -555,6 +575,7 @@ func relativeTo(root string, p string) (string, bool) {
 // Walk walks the drive like filepath.Walk, handing walkFn real paths of this
 // drive. Folders whose owner does not allow listing them are not entered.
 func (s *ShareFileSystem) Walk(root string, walkFn filepath.WalkFunc) error {
+	s.debugf("Walk %q", root)
 	loc, err := s.resolve(root)
 	if err != nil {
 		return walkFn(root, nil, err)
@@ -634,6 +655,7 @@ func (f *stagedFile) Close() error {
 }
 
 func (s *ShareFileSystem) openBuffered(abs filesystem.FileSystemAbstraction, rpath string) (arozfs.File, error) {
+	s.debugf("Open %q: the item's drive needs a buffer, staging a local copy", rpath)
 	src, err := abs.ReadStream(rpath)
 	if err != nil {
 		return nil, err
@@ -694,6 +716,7 @@ func (s *ShareFileSystem) ThumbnailKey(rpath string) (string, error) {
 
 // RenderThumbnail renders the thumbnail of a shared file where it lives.
 func (s *ShareFileSystem) RenderThumbnail(rpath string) ([]byte, error) {
+	s.debugf("RenderThumbnail %q", rpath)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
 		return nil, err

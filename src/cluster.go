@@ -24,6 +24,7 @@ import (
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/clusterfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/neighbour"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -344,6 +345,7 @@ func nightlyShouldMaintainFsh(fsh *fs.FileSystemHandler) bool {
 
 // clusterSyncDrive mounts or unmounts cluster:/ to match clusterDriveWanted.
 func clusterSyncDrive() {
+	logger.Debugf("Cluster", "[Drive] syncing cluster:/ (wanted %v)", clusterDriveWanted())
 	if clusterDriveWanted() {
 		clusterMountDrive()
 	} else {
@@ -381,7 +383,11 @@ func clusterMountDrive() {
 		return
 	}
 	systemWideLogger.PrintAndLog("Cluster", "cluster:/ mounted", nil)
-	go clusterRemoveThumbnailFolders()
+	go func() {
+		//A panic here is in no request: it ends the whole process
+		defer logger.TracePanic("Cluster", "removing thumbnail folders from cluster:/")
+		clusterRemoveThumbnailFolders()
+	}()
 }
 
 func clusterUnmountDrive() {
@@ -390,6 +396,7 @@ func clusterUnmountDrive() {
 	if baseStoragePool == nil || !baseStoragePool.ContainDiskID("cluster") {
 		return
 	}
+	logger.Debug("Cluster", "[Drive] unmounting cluster:/; it is detached, not closed, requests holding it keep using its backend")
 	baseStoragePool.DetachFsHandler("cluster")
 	systemWideLogger.PrintAndLog("Cluster", "cluster:/ unmounted", nil)
 }

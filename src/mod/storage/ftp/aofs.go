@@ -5,6 +5,7 @@ package ftp
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/spf13/afero"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -58,6 +60,7 @@ func (a aofs) rootFs() afero.Fs {
 }
 
 func (a aofs) Create(name string) (afero.File, error) {
+	a.debugf("Create %q", name)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -80,6 +83,7 @@ func (a aofs) Chown(name string, uid, gid int) error {
 }
 
 func (a aofs) Mkdir(name string, perm os.FileMode) error {
+	a.debugf("Mkdir %q", name)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -91,6 +95,7 @@ func (a aofs) Mkdir(name string, perm os.FileMode) error {
 }
 
 func (a aofs) MkdirAll(path string, perm os.FileMode) error {
+	a.debugf("MkdirAll %q", path)
 	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
 		return err
@@ -102,6 +107,7 @@ func (a aofs) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (a aofs) Open(name string) (afero.File, error) {
+	a.debugf("Open %q", name)
 	//fmt.Println("FTP OPEN")
 	if isVirtualRootPath(name) {
 		return a.rootFs().Open(name)
@@ -119,6 +125,7 @@ func (a aofs) Open(name string) (afero.File, error) {
 }
 
 func (a aofs) Stat(name string) (os.FileInfo, error) {
+	a.debugf("Stat %q", name)
 	//fmt.Println("FTP STAT")
 	if isVirtualRootPath(name) {
 		return a.rootFs().Stat(name)
@@ -134,6 +141,7 @@ func (a aofs) Stat(name string) (os.FileInfo, error) {
 }
 
 func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
+	a.debugf("OpenFile %q flag=%#x", name, flag)
 	//fmt.Println("FTP OPEN FILE")
 	if isVirtualRootPath(name) {
 		return a.rootFs().OpenFile(name, flag, perm)
@@ -160,6 +168,7 @@ func (a aofs) AllocateSpace(size int) error {
 }
 
 func (a aofs) Remove(name string) error {
+	a.debugf("Remove %q", name)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
@@ -172,6 +181,7 @@ func (a aofs) Remove(name string) error {
 }
 
 func (a aofs) RemoveAll(path string) error {
+	a.debugf("RemoveAll %q", path)
 	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
 		return err
@@ -183,6 +193,7 @@ func (a aofs) RemoveAll(path string) error {
 }
 
 func (a aofs) Rename(oldname, newname string) error {
+	a.debugf("Rename %q -> %q", oldname, newname)
 	fshsrc, rewritePathsrc, err := a.pathRewrite(oldname)
 	if err != nil {
 		return err
@@ -253,6 +264,18 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	return fsh.FileSystemAbstraction.Chtimes(rewritePath, atime, mtime)
 }
 
+// debugf writes a DEBUG record about a request of this FTP user (-debug flag).
+func (a aofs) debugf(format string, args ...interface{}) {
+	if !logger.IsDebugMode() {
+		return
+	}
+	username := "<no user>"
+	if a.userinfo != nil {
+		username = a.userinfo.Username
+	}
+	logger.Debug("Ftp", "[FTP] "+username+": "+fmt.Sprintf(format, args...))
+}
+
 // arozos adaptive functions
 // This function rewrite the path from ftp representation to real filepath on disk
 func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, error) {
@@ -271,13 +294,16 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 
 		fsh, err := a.userinfo.GetFileSystemHandlerFromVirtualPath(fsHandlerUUID + ":")
 		if err != nil {
+			a.debugf("%q: drive %s:/ is not open to this user", path, fsHandlerUUID)
 			return nil, "", errors.New("File System Abstraction not found")
 		}
 
 		rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(fsh.UUID+":/"+strings.Join(remainingPaths, "/"), a.userinfo.Username)
 		if err != nil {
+			a.debugf("%q did not translate on %s:/: %v", path, fsh.UUID, err)
 			return nil, "", errors.New("File System Handler Hierarchy not supported by FTP driver")
 		}
+		a.debugf("%q -> %s:/ (%s) real path %q", path, fsh.UUID, fsh.Filesystem, rpath)
 		return fsh, rpath, nil
 	} else {
 		//fsh not found.

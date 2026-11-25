@@ -1,8 +1,13 @@
 package nightly
 
 import (
+	"reflect"
+	"runtime"
+	"strconv"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -67,9 +72,14 @@ func NewNightlyTaskManager(nightlyTaskRunTime int) *TaskManager {
 }
 
 func (tm *TaskManager) NightlyTaskRun() {
-	for _, nightlyTask := range tm.NightlTasks {
+	//Runs on the nightly timer, where a panic ends the whole process
+	defer logger.TracePanic("Nightly", "running the nightly tasks")
+	logger.Debug("Nightly", "running "+strconv.Itoa(len(tm.NightlTasks))+" nightly task(s)")
+	for i, nightlyTask := range tm.NightlTasks {
+		logger.Debug("Nightly", "nightly task "+strconv.Itoa(i+1)+" of "+strconv.Itoa(len(tm.NightlTasks)))
 		nightlyTask()
 	}
+	logger.Debug("Nightly", "nightly tasks done")
 }
 
 func (tm *TaskManager) RegisterNightlyTask(task func()) {
@@ -78,12 +88,31 @@ func (tm *TaskManager) RegisterNightlyTask(task func()) {
 
 // Register a nightly task that only runs where its option allows it
 func (tm *TaskManager) RegisterNightlyTaskWithOption(option TaskOption, task func()) {
+	name := taskName(option, task)
 	tm.NightlTasks = append(tm.NightlTasks, func() {
 		if !tm.ShouldRun(option) {
+			logger.Debug("Nightly", "skipping "+name+", it belongs to the cluster master node")
 			return
 		}
+		logger.Debug("Nightly", "starting "+name)
 		task()
+		logger.Debug("Nightly", "finished "+name)
 	})
+}
+
+// taskName names a nightly task in debug records: its option name, or the
+// name of the function that was registered.
+func taskName(option TaskOption, task func()) string {
+	if option.Name != "" {
+		return option.Name
+	}
+	if task == nil {
+		return "<nil task>"
+	}
+	if fn := runtime.FuncForPC(reflect.ValueOf(task).Pointer()); fn != nil {
+		return fn.Name()
+	}
+	return "<unnamed task>"
 }
 
 /*

@@ -269,6 +269,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Serve all storages of the user under one virtual root, like the FTP server
+	logger.Debug("Webdav", "[WebDAV] "+userinfo.Username+" "+r.Method+" "+r.URL.Path)
 	fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite)
 
 	//Serve the content
@@ -341,8 +342,11 @@ func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string
 			return
 		}
 		go func() {
+			//Outside the request: a panic here ends the whole process
+			defer logger.TracePanic("Webdav", "building the thumbnails of "+vpath+" for "+username)
 			isHidden, _ := hidden.IsHidden(vpath, false)
 			if !isHidden {
+				logger.Debug("Webdav", "[WebDAV] "+username+": building the thumbnails of "+vpath+" in the background")
 				metadata.NewRenderHandler().BuildCacheForFolder(fsh, vpath, username)
 			}
 

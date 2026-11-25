@@ -35,6 +35,7 @@ type WebDAVFileSystem struct {
 
 func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, password string) (*WebDAVFileSystem, error) {
 	//Connect to webdav server
+	logger.Debug("Webdavfs", "[WebDAV FS] "+UUID+":/ connecting to "+root+" (user "+user+", hierarchy "+Hierarchy+")")
 	c := gowebdav.NewClient(root, user, password)
 	err := c.Connect()
 	if err != nil {
@@ -67,10 +68,12 @@ func (e WebDAVFileSystem) Create(filename string) (arozfs.File, error) {
 }
 func (e WebDAVFileSystem) Mkdir(filename string, mode os.FileMode) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("Mkdir %q", filename)
 	return e.c.Mkdir(filename, mode)
 }
 func (e WebDAVFileSystem) MkdirAll(filename string, mode os.FileMode) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("MkdirAll %q", filename)
 	return e.c.MkdirAll(filename, mode)
 }
 func (e WebDAVFileSystem) Name() string {
@@ -88,25 +91,31 @@ func (e WebDAVFileSystem) OpenFile(filename string, flag int, perm os.FileMode) 
 }
 func (e WebDAVFileSystem) Remove(filename string) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("Remove %q", filename)
 	return classify(e.c.Remove(filename))
 }
 func (e WebDAVFileSystem) RemoveAll(filename string) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("RemoveAll %q", filename)
 	return e.c.RemoveAll(filename)
 }
 func (e WebDAVFileSystem) Rename(oldname, newname string) error {
 	oldname = filterFilepath(filepath.ToSlash(filepath.Clean(oldname)))
 	newname = filterFilepath(filepath.ToSlash(filepath.Clean(newname)))
+	e.debugf("Rename %q -> %q", oldname, newname)
 	err := e.c.Rename(oldname, newname, true)
 	if err != nil {
 		//Unable to rename due to reverse proxy issue. Use Copy and Delete
+		e.debugf("Rename %q -> %q: server side move failed (%v), copying and deleting instead", oldname, newname, err)
 		f, err := e.c.ReadStream(oldname)
 		if err != nil {
+			e.debugf("Rename %q -> %q: reading the source failed: %v", oldname, newname, err)
 			return err
 		}
 
 		err = e.c.WriteStream(newname, f, 0775)
 		if err != nil {
+			e.debugf("Rename %q -> %q: writing the copy failed: %v", oldname, newname, err)
 			return err
 		}
 		f.Close()
@@ -116,6 +125,7 @@ func (e WebDAVFileSystem) Rename(oldname, newname string) error {
 }
 func (e WebDAVFileSystem) Stat(filename string) (os.FileInfo, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("Stat %q", filename)
 	info, err := e.c.Stat(filename)
 	return info, classify(err)
 }
@@ -158,6 +168,7 @@ func (e WebDAVFileSystem) RealPathToVirtualPath(rpath string, username string) (
 }
 func (e WebDAVFileSystem) FileExists(filename string) bool {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("FileExists %q", filename)
 	_, err := e.c.Stat(filename)
 	if os.IsNotExist(err) || err != nil {
 		return false
@@ -167,6 +178,7 @@ func (e WebDAVFileSystem) FileExists(filename string) bool {
 }
 func (e WebDAVFileSystem) IsDir(filename string) bool {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("IsDir %q", filename)
 	s, err := e.c.Stat(filename)
 	if err != nil {
 		return false
@@ -177,6 +189,7 @@ func (e WebDAVFileSystem) IsDir(filename string) bool {
 // Notes: This is not actual Glob function. This just emulate Glob using ReadDir with max depth 1 layer
 func (e WebDAVFileSystem) Glob(wildcard string) ([]string, error) {
 	wildcard = filepath.ToSlash(filepath.Clean(wildcard))
+	e.debugf("Glob %q", wildcard)
 
 	if !strings.HasPrefix(wildcard, "/") {
 		//Handle case for listing root, "*"
@@ -189,6 +202,7 @@ func (e WebDAVFileSystem) Glob(wildcard string) ([]string, error) {
 
 func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("GetFileSize %q", filename)
 	s, err := e.Stat(filename)
 	if err != nil {
 		logger.PrintAndLog("Webdavfs", fmt.Sprint(err), nil)
@@ -200,6 +214,7 @@ func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
 
 func (e WebDAVFileSystem) GetModTime(filename string) (int64, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("GetModTime %q", filename)
 	s, err := e.Stat(filename)
 	if err != nil {
 		return 0, err
@@ -210,11 +225,13 @@ func (e WebDAVFileSystem) GetModTime(filename string) (int64, error) {
 
 func (e WebDAVFileSystem) WriteFile(filename string, content []byte, mode os.FileMode) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("WriteFile %q (%d bytes)", filename, len(content))
 	return e.c.Write(filename, content, mode)
 }
 
 func (e WebDAVFileSystem) ReadFile(filename string) ([]byte, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("ReadFile %q", filename)
 	bytes, err := e.c.Read(filename)
 	if err != nil {
 		return []byte(""), classify(err)
@@ -224,6 +241,7 @@ func (e WebDAVFileSystem) ReadFile(filename string) ([]byte, error) {
 
 func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("ReadDir %q", filename)
 	fis, err := e.c.ReadDir(filename)
 	if err != nil {
 		return []fs.DirEntry{}, classify(err)
@@ -237,18 +255,24 @@ func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 }
 func (e WebDAVFileSystem) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("WriteStream %q", filename)
 	return e.c.WriteStream(filename, stream, mode)
 
 }
 func (e WebDAVFileSystem) ReadStream(filename string) (io.ReadCloser, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
+	e.debugf("ReadStream %q", filename)
 	rc, err := e.c.ReadStream(filename)
 	return rc, classify(err)
 }
 
 func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error {
 	rootpath = filepath.ToSlash(filepath.Clean(rootpath))
+	e.debugf("Walk %q", rootpath)
 	rootStat, err := e.Stat(rootpath)
+	if err != nil {
+		e.debugf("Walk %q: stat of the root failed (%v), the walk callback gets a nil FileInfo", rootpath, err)
+	}
 	err = walkFn(rootpath, rootStat, err)
 	if err != nil {
 		return err
@@ -257,12 +281,17 @@ func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error 
 }
 
 func (e WebDAVFileSystem) Close() error {
+	e.debugf("Close")
 	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
 func (e WebDAVFileSystem) Heartbeat() error {
+	e.debugf("Heartbeat")
 	_, err := e.c.ReadDir("/")
+	if err != nil {
+		e.debugf("Heartbeat failed: %v", err)
+	}
 	return err
 }
 
@@ -271,8 +300,10 @@ func (e WebDAVFileSystem) Heartbeat() error {
 */
 
 func (e WebDAVFileSystem) walk(thisPath string, walkFun filepath.WalkFunc) error {
+	e.debugf("Walk: listing %q", thisPath)
 	files, err := e.c.ReadDir(thisPath)
 	if err != nil {
+		e.debugf("Walk: listing %q failed: %v", thisPath, err)
 		return err
 	}
 
@@ -357,6 +388,20 @@ func (e WebDAVFileSystem) globpath(currentPath string, pathSegments []string, de
 			return []string{}, nil
 		}
 	}
+}
+
+// debugf writes a DEBUG record about an operation on this drive (-debug flag).
+// It says so when the drive holds no client, because any call on it would
+// then panic with a nil pointer.
+func (e WebDAVFileSystem) debugf(format string, args ...interface{}) {
+	if !logger.IsDebugMode() {
+		return
+	}
+	state := ""
+	if e.c == nil {
+		state = " [client is nil: the drive is not connected, this call will panic]"
+	}
+	logger.Debug("Webdavfs", "[WebDAV FS] "+e.UUID+":/ ("+e.root+") "+fmt.Sprintf(format, args...)+state)
 }
 
 func filterFilepath(rawpath string) string {

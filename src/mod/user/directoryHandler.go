@@ -1,8 +1,11 @@
 package user
 
 import (
+	"strings"
+
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/storage/access"
 )
@@ -25,6 +28,9 @@ func (u *User) GetHomeDirectory() (string, error) {
 
 // Get the user home file system handler, aka user:/
 func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
+	if u.HomeDirectories == nil {
+		logger.Debug("User", "[Drive] "+u.Username+" has no home storage pool, reading its drives will panic")
+	}
 	return getHandlerFromID(u.HomeDirectories.Storages, "user")
 }
 
@@ -118,6 +124,9 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	subject := u.accessSubject()
 	for _, dp := range u.drivePools() {
 		for _, store := range dp.pool.Storages {
+			if store == nil {
+				logger.Debugf("User", "[Drive] %s: the pool of group %q holds a nil drive handler, this will panic", u.Username, dp.home)
+			}
 			if store.Closed || listed[store.UUID] {
 				continue
 			}
@@ -129,6 +138,13 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 		}
 	}
 
+	if logger.IsDebugMode() {
+		ids := []string{}
+		for _, fsh := range results {
+			ids = append(ids, fsh.UUID)
+		}
+		logger.Debugf("User", "[Drive] %s may use %d drive(s): %s", u.Username, len(results), strings.Join(ids, ", "))
+	}
 	return results
 }
 
@@ -290,6 +306,11 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, error) {
 	fsHandlers := u.GetAllFileSystemHandler()
 	handler, err := getHandlerFromVirtualPath(fsHandlers, vpath)
+	if err != nil {
+		logger.Debugf("User", "[Drive] %s: no usable drive for %q (%v), the caller gets an empty handler whose abstraction is nil", u.Username, vpath, err)
+	} else {
+		logger.Debugf("User", "[Drive] %s: %q is on %s:/ (%s, %s)", u.Username, vpath, handler.UUID, handler.Name, handler.Filesystem)
+	}
 	return handler, err
 }
 

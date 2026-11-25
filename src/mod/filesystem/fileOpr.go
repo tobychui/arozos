@@ -49,12 +49,15 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 
 // A basic file unzip function
 func Unzip(source, destination string) error {
+	logger.Debugf("Filesystem", "[Unzip] %q -> %q", source, destination)
 	archive, err := zip.OpenReader(source)
 	if err != nil {
+		logger.Debugf("Filesystem", "[Unzip] opening %q failed: %v", source, err)
 		return err
 	}
 	defer archive.Close()
 	for _, file := range archive.Reader.File {
+		logger.Debugf("Filesystem", "[Unzip] %q: extracting entry %q (%d bytes)", source, file.Name, file.UncompressedSize64)
 		reader, err := file.Open()
 		if err != nil {
 			return err
@@ -94,9 +97,11 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 	//Gether the total number of files in all zip files
 	totalFileCounts := 0
 	unzippedFileCount := 0
+	logger.Debugf("Filesystem", "[Unzip] %d archive(s) %q -> %q", len(filelist), filelist, outputfile)
 	for _, srcFile := range filelist {
 		archive, err := zip.OpenReader(srcFile)
 		if err != nil {
+			logger.Debugf("Filesystem", "[Unzip] opening %q failed: %v", srcFile, err)
 			return err
 		}
 
@@ -117,8 +122,10 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 		}
 		defer archive.Close()
 		for _, file := range archive.Reader.File {
+			logger.Debugf("Filesystem", "[Unzip] %q: extracting entry %q (%d bytes)", srcFile, file.Name, file.UncompressedSize64)
 			reader, err := file.Open()
 			if err != nil {
+				logger.Debugf("Filesystem", "[Unzip] %q: opening entry %q failed: %v", srcFile, file.Name, err)
 				return err
 			}
 			defer reader.Close()
@@ -160,6 +167,7 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 			reporter.currentFile = file.Name
 			_, err = io.Copy(writer, newProgressReader(reader, reporter, 0))
 			if err != nil {
+				logger.Debugf("Filesystem", "[Unzip] %q: writing entry %q to %q failed: %v", srcFile, file.Name, path, err)
 				//Extraction failed. Remove this file if exists
 				writer.Close()
 				if FileExists(path) {
@@ -226,6 +234,20 @@ instead of only once the scan or the current file is done. An archive that is
 cancelled or fails half way is removed rather than left behind half written.
 */
 func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int, progressHandler func(string, int, int, float64) int) error {
+	if logger.IsDebugMode() {
+		sources := make([]string, len(filelist))
+		for i, srcpath := range filelist {
+			if i < len(sourceFshs) {
+				sources[i] = fshDebugName(sourceFshs[i]) + " " + srcpath
+			} else {
+				sources[i] = "<no handler given> " + srcpath
+			}
+		}
+		logger.Debugf("Filesystem", "[Zip] %d source(s) %q -> %s %q (top level folder %v, level %d)", len(filelist), sources, fshDebugName(outputFsh), outputfile, includeTopLevelFolder, compressionLevel)
+		if len(sourceFshs) < len(filelist) {
+			logger.Debugf("Filesystem", "[Zip] only %d handler(s) for %d source(s): indexing the handlers will panic", len(sourceFshs), len(filelist))
+		}
+	}
 	//The archive progress is counted in files. It goes through a progressReporter
 	//so the handler calls are rate limited and its pause / cancel signal applied
 	currentFileCount := 0
@@ -279,6 +301,7 @@ func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, file
 		file, err = os.Create(outputfile)
 	}
 	if err != nil {
+		logger.Debugf("Filesystem", "[Zip] creating %q on %s failed: %v", outputfile, fshDebugName(outputFsh), err)
 		return err
 	}
 
@@ -308,9 +331,14 @@ func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, file
 
 			//This is a directory
 			topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+			logger.Debugf("Filesystem", "[Zip] adding folder %q", srcpath)
 			err := fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
+					logger.Debugf("Filesystem", "[Zip] walking %q: error at %q, stopping: %v", srcpath, path, err)
 					return err
+				}
+				if info == nil {
+					logger.Debugf("Filesystem", "[Zip] walking %q: no FileInfo for %q, the next call on it will panic", srcpath, path)
 				}
 				if info.IsDir() {
 					return nil
@@ -347,6 +375,7 @@ func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, file
 		err = closeErr
 	}
 	if err != nil {
+		logger.Debugf("Filesystem", "[Zip] %q failed, removing the half written archive: %v", outputfile, err)
 		//Never leave a half written archive behind
 		if outputFsh != nil {
 			outputFsh.FileSystemAbstraction.Remove(outputfile)
@@ -377,8 +406,10 @@ func addZipEntry(writer *zip.Writer, fshAbs FileSystemAbstraction, path string, 
 		reporter.currentFile = arozfs.Base(path)
 	}
 
+	logger.Debugf("Filesystem", "[Zip] adding %q as %q", path, relativePath)
 	thisFile, err := fshAbs.ReadStream(path)
 	if err != nil {
+		logger.Debugf("Filesystem", "[Zip] reading %q failed: %v", path, err)
 		return err
 	}
 	defer thisFile.Close()
@@ -421,10 +452,12 @@ func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 // FileCopyWithProgress copies a file or folder and reports how many of its bytes
 // are already done, see FileOperationProgressHandler.
 func FileCopyWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressHandler FileOperationProgressHandler) error {
+	logger.Debugf("Filesystem", "[Copy] %s %q -> %s %q (exists rule %q)", fshDebugName(srcFsh), src, fshDebugName(destFsh), dest, mode)
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	if srcFshAbs.IsDir(src) && strings.HasPrefix(dest, src) {
 		//Recursive operation. Reject
+		logger.Debugf("Filesystem", "[Copy] %q into itself (%q) refused", src, dest)
 		return errors.New("Recursive copy operation.")
 	}
 
@@ -477,6 +510,7 @@ func FileCopyWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 		realDest := filepath.Join(dest, copiedFilename)
 		err := dirCopy(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
+			logger.Debugf("Filesystem", "[Copy] folder %q -> %q failed: %v", src, realDest, err)
 			return err
 		}
 
@@ -485,9 +519,11 @@ func FileCopyWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 		realDest := filepath.Join(dest, copiedFilename)
 		err := streamFileWithProgress(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
+			logger.Debugf("Filesystem", "[Copy] file %q -> %q failed: %v", src, realDest, err)
 			return err
 		}
 	}
+	logger.Debugf("Filesystem", "[Copy] %q -> %q done", src, filepath.Join(dest, copiedFilename))
 	return nil
 }
 
@@ -507,14 +543,17 @@ func streamFileWithProgress(srcFsh *FileSystemHandler, src string, destFsh *File
 		return err
 	}
 
+	logger.Debugf("Filesystem", "[Stream] %s %q (%d bytes) -> %s %q", fshDebugName(srcFsh), src, reporter.totalBytes, fshDebugName(destFsh), realDest)
 	f, err := srcFshAbs.ReadStream(src)
 	if err != nil {
+		logger.Debugf("Filesystem", "[Stream] opening %q for reading failed: %v", src, err)
 		return err
 	}
 	defer f.Close()
 
 	err = destFshAbs.WriteStream(realDest, newProgressReader(f, reporter, 0), 0775)
 	if err != nil {
+		logger.Debugf("Filesystem", "[Stream] writing %q failed (cancelled %v): %v", realDest, reporter.cancelled, err)
 		if reporter.cancelled {
 			//Do not leave a truncated file behind at the destination
 			destFshAbs.Remove(realDest)
@@ -561,6 +600,7 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 // FileMoveWithProgress moves a file or folder and reports how many of its bytes
 // are already done, see FileOperationProgressHandler.
 func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressHandler FileOperationProgressHandler) error {
+	logger.Debugf("Filesystem", "[Move] %s %q -> %s %q (exists rule %q, fast move %v)", fshDebugName(srcFsh), src, fshDebugName(destFsh), dest, mode, fastMove)
 	srcAbst := srcFsh.FileSystemAbstraction
 	destAbst := destFsh.FileSystemAbstraction
 
@@ -633,9 +673,12 @@ func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 
 		if SameFileSystem(srcFsh, destFsh) {
 			//One storage, both ends. Let it move the file on its own.
+			logger.Debugf("Filesystem", "[Move] same drive, renaming %q -> %q", src, realDest)
 			if err := srcAbst.Rename(src, realDest); err == nil {
 				//Moved by the storage itself, nothing was streamed
 				return nil
+			} else {
+				logger.Debugf("Filesystem", "[Move] renaming %q failed: %v", src, err)
 			}
 			//The storage could not do it. Back to the copy and delete method.
 			logger.PrintAndLog("Filesystem", "Storage side move unavailable for "+src+", falling back to copy and delete", nil)
@@ -646,8 +689,11 @@ func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 				A rename still finishes instantly whenever the two happen to sit
 				on the same volume, and simply fails when they do not.
 			*/
+			logger.Debugf("Filesystem", "[Move] two local drives, trying an os rename %q -> %q", src, realDest)
 			if err := os.Rename(src, realDest); err == nil {
 				return nil
+			} else {
+				logger.Debugf("Filesystem", "[Move] os rename failed, copying and deleting instead: %v", err)
 			}
 		}
 	}
@@ -660,9 +706,11 @@ func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 
 		err := dirCopy(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
+			logger.Debugf("Filesystem", "[Move] copying folder %q -> %q failed, the source is kept: %v", src, realDest, err)
 			return err
 		} else {
 			//Move completed. Remove source file.
+			logger.Debugf("Filesystem", "[Move] folder copied, removing the source %q", src)
 			srcAbst.RemoveAll(src)
 			return nil
 		}
@@ -672,10 +720,12 @@ func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 		realDest := filepath.Join(dest, movedFilename)
 		err := streamFileWithProgress(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
+			logger.Debugf("Filesystem", "[Move] copying file %q -> %q failed, the source is kept: %v", src, realDest, err)
 			return err
 		}
 
 		//Delete the source file after copy
+		logger.Debugf("Filesystem", "[Move] file copied, removing the source %q", src)
 		err = srcAbst.Remove(src)
 		counter := 0
 		for err != nil {
@@ -697,6 +747,21 @@ func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSy
 	return nil
 }
 
+// fshDebugName names a drive handler in a debug record. A nil handler or
+// abstraction is called out, since using it panics.
+func fshDebugName(fsh *FileSystemHandler) string {
+	if fsh == nil {
+		return "<nil handler>"
+	}
+	if fsh.FileSystemAbstraction == nil {
+		return fsh.UUID + ":/ <nil abstraction>"
+	}
+	if fsh.Closed {
+		return fsh.UUID + ":/ <closed>"
+	}
+	return fsh.UUID + ":/"
+}
+
 // Copy a given directory, with no progress udpate
 func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string) error {
 	return dirCopy(srcFsh, src, destFsh, dest, nil)
@@ -704,12 +769,16 @@ func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 
 // Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
 func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressHandler FileOperationProgressHandler) error {
+	logger.Debugf("Filesystem", "[Copy folder] %s %q -> %s %q", fshDebugName(srcFsh), src, fshDebugName(destFsh), realDest)
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	//Get the total size of this folder. Progress is counted in bytes so a folder
 	//holding one large file does not jump straight from nothing to done.
 	totalBytes := int64(0)
 	srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil {
+			logger.Debugf("Filesystem", "[Copy folder] sizing %q: error at %q (%v), FileInfo is nil: %v, a nil FileInfo panics on the next line", src, path, err, info == nil)
+		}
 		if !info.IsDir() {
 			totalBytes += info.Size()
 		}
@@ -727,6 +796,9 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 	copiedBytes := int64(0)
 	src = filepath.ToSlash(src)
 	err := srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil {
+			logger.Debugf("Filesystem", "[Copy folder] copying %q: error at %q (%v), FileInfo is nil: %v, a nil FileInfo panics below", src, path, err, info == nil)
+		}
 		path = filepath.ToSlash(path)
 		var folderRootRelative string = strings.TrimPrefix(path, src)
 		if folderRootRelative == "" {
@@ -735,11 +807,13 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 
 		if info.IsDir() {
 			//Mkdir base on relative path
+			logger.Debugf("Filesystem", "[Copy folder] making folder %q", filepath.Join(realDest, folderRootRelative))
 			return destFshAbs.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
 		} else {
 			//Move file base on relative path
 			fileSrc := filepath.ToSlash(filepath.Join(filepath.Clean(src), folderRootRelative))
 			fileDest := filepath.ToSlash(filepath.Join(filepath.Clean(realDest), folderRootRelative))
+			logger.Debugf("Filesystem", "[Copy folder] copying %q (%d bytes) -> %q", fileSrc, info.Size(), fileDest)
 
 			//Report where this folder actually is before starting on this file,
 			//the bytes of this one are only counted once they are written

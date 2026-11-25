@@ -102,6 +102,7 @@ func main() {
 	//Parse startup flags and paramters
 	flag.Parse()
 	logger.SetGlobalJSONOutput(*log_format == "json")
+	logger.SetDebugMode(*enable_debug_log)
 
 	//Handle version printing
 	if *show_version {
@@ -128,6 +129,9 @@ func main() {
 	//Print copyRight information
 	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)
 	systemWideLogger.PrintAndLog("System", "ArozOS "+build_version+" Revision "+internal_version, nil)
+	if *enable_debug_log {
+		systemWideLogger.PrintAndLog("System", "Debug logging is on (-debug): DEBUG records are written to the console and the system log", nil)
+	}
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020
@@ -165,6 +169,11 @@ func main() {
 	//Setup handler for Ctrl +C
 	SetupCloseHandler()
 
+	//In debug mode a panic in any request is also written to the system log
+	//with its stack. Otherwise this is http.DefaultServeMux, which is what a
+	//nil handler means to ListenAndServe
+	rootHandler := logger.TracePanicHandler("HTTP", http.DefaultServeMux)
+
 	//Start http server
 	go func() {
 		if *use_tls {
@@ -172,16 +181,16 @@ func main() {
 				go func() {
 					address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
 					systemWideLogger.PrintAndLog("System", fmt.Sprint("Standard (HTTP) Web server listening at", address), nil)
-					http.ListenAndServe(address, nil)
+					http.ListenAndServe(address, rootHandler)
 				}()
 			}
 			address := fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
 			systemWideLogger.PrintAndLog("System", fmt.Sprint("Secure (HTTPS) Web server listening at", address), nil)
-			http.ListenAndServeTLS(address, *tls_cert, *tls_key, nil)
+			http.ListenAndServeTLS(address, *tls_cert, *tls_key, rootHandler)
 		} else {
 			address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
 			systemWideLogger.PrintAndLog("System", fmt.Sprint("Web server listening at", address), nil)
-			http.ListenAndServe(address, nil)
+			http.ListenAndServe(address, rootHandler)
 		}
 	}()
 

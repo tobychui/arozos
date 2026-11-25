@@ -5,6 +5,7 @@ package aroz
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -204,6 +205,28 @@ type share struct {
 	tmMaxSize   uint64
 }
 
+// debugf writes a DEBUG record about an SMB request on this share (-debug
+// flag). It says so when the drive has no abstraction, since using it panics.
+func (s *share) debugf(format string, args ...interface{}) {
+	if !logger.IsDebugMode() {
+		return
+	}
+	drive := "<nil drive>"
+	if s.fsh != nil {
+		drive = s.fsh.UUID + ":/"
+		if s.fsh.FileSystemAbstraction == nil {
+			drive += " <nil abstraction, this call will panic>"
+		} else if s.fsh.Closed {
+			drive += " <closed>"
+		}
+	}
+	username := "<no user>"
+	if s.v != nil {
+		username = s.v.username
+	}
+	logger.Debug("SMB", fmt.Sprintf("[SMB] %s on %s (share %q) ", username, drive, s.sub)+fmt.Sprintf(format, args...))
+}
+
 func newShare(fsh *filesystem.FileSystemHandler, v *view) *share {
 	return &share{fsh: fsh, v: v, local: !fsh.IsNetworkDrive()}
 }
@@ -265,9 +288,11 @@ func (s *share) real(p string) (string, error) {
 	p = sharePath(p)
 	rpath, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(p), s.v.username)
 	if err != nil {
+		s.debugf("%q (%q) did not translate: %v", p, s.vpath(p), err)
 		return "", err
 	}
 	if err := s.confine(rpath); err != nil {
+		s.debugf("%q -> %q refused, it leads off the drive: %v", p, rpath, err)
 		return "", err
 	}
 	return rpath, nil
@@ -347,6 +372,7 @@ func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
 }
 
 func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
+	s.debugf("Stat %q", p)
 	rpath, err := s.real(p)
 	if err != nil {
 		return smbsrv.FileInfo{}, err
@@ -363,6 +389,7 @@ func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 }
 
 func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
+	s.debugf("ReadDir %q", p)
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err
@@ -419,6 +446,7 @@ func (s *share) stage() stageConfig {
 }
 
 func (s *share) Open(p string, flag int) (smbsrv.File, error) {
+	s.debugf("Open %q flag=%#x (buffered %v)", p, flag, s.fsh.RequireBuffer)
 	rpath, err := s.real(p)
 	if err != nil {
 		return nil, err
@@ -439,6 +467,7 @@ func (s *share) Open(p string, flag int) (smbsrv.File, error) {
 }
 
 func (s *share) Mkdir(p string) error {
+	s.debugf("Mkdir %q", p)
 	rpath, err := s.real(p)
 	if err != nil {
 		return err
@@ -447,6 +476,7 @@ func (s *share) Mkdir(p string) error {
 }
 
 func (s *share) Remove(p string) error {
+	s.debugf("Remove %q", p)
 	rpath, err := s.real(p)
 	if err != nil {
 		return err
@@ -492,6 +522,7 @@ func (s *share) Remove(p string) error {
 }
 
 func (s *share) Rename(oldPath, newPath string) error {
+	s.debugf("Rename %q -> %q", oldPath, newPath)
 	source, err := s.real(oldPath)
 	if err != nil {
 		return err
@@ -520,6 +551,7 @@ func (s *share) Rename(oldPath, newPath string) error {
 }
 
 func (s *share) SetModTime(p string, t time.Time) error {
+	s.debugf("SetModTime %q %v", p, t)
 	rpath, err := s.real(p)
 	if err != nil {
 		return err

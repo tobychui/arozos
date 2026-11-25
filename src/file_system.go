@@ -37,6 +37,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/localversion"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/share"
@@ -300,6 +301,8 @@ func FileSystemInit() {
 
 	//Clear file version history that is more than 30 days
 	go func() {
+		//A panic here is in no request: it ends the whole process
+		defer logger.TracePanic("File System", "cleaning the file version histories at startup")
 		//Start version history cleaning in background
 		system_fs_clearVersionHistories()
 		systemWideLogger.PrintAndLog("File System", "Startup File Version History Cleaning Completed", nil)
@@ -536,6 +539,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("500 - Path translation failed"))
 		return
 	}
+	logger.Debugf("File System", "[Upload WS] %s uploads into %q on %s:/ (%s, buffered %v) real path %q", userinfo.Username, uploadTarget, fsh.UUID, fsh.Filesystem, fsh.RequireBuffer, realUploadPath)
 
 	//Check if it is huge file upload mode
 	isHugeFile := false
@@ -1023,6 +1027,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	storeFilename := handler.Filename //Filename of the uploaded file
+	logger.Debugf("File System", "[Upload] %s uploads %q (%d bytes) into %q on %s:/ (%s, buffered %v) real path %q", userinfo.Username, storeFilename, handler.Size, uploadTarget, fsh.UUID, fsh.Filesystem, fsh.RequireBuffer, realUploadPath)
 
 	//Get request time
 	uploadStartTime := time.Now().UnixNano() / int64(time.Millisecond)
@@ -2298,6 +2303,10 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 
 	oprId := task.ID
 	operation := task.Operation
+	//The async endpoint runs this outside any request, where a panic ends the
+	//whole process
+	defer logger.TracePanic("File System", "running file operation "+oprId+" ("+operation+") for "+userinfo.Username)
+	logger.Debugf("File System", "[Opr %s] %s by %s: %q -> %q (exists rule %q)", oprId, operation, userinfo.Username, sourceFiles, vdestFile, existsOpr)
 
 	pushUpdate := func(update fileOprProgressUpdate) {
 		if onUpdate != nil {
@@ -2306,6 +2315,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 	}
 
 	failTask := func(filename string, errmsg string) {
+		logger.Debugf("File System", "[Opr %s] failed at %q: %s", oprId, filename, errmsg)
 		SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Error, errmsg)
 		pushUpdate(fileOprProgressUpdate{
 			LatestFile: filename,
@@ -2322,7 +2332,11 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		return
 	}
 	destFshAbs := destFsh.FileSystemAbstraction
-	rdestFile, _ := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	rdestFile, err := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		logger.Debugf("File System", "[Opr %s] destination %q did not translate (%v), going on with an empty real path", oprId, vdestFile, err)
+	}
+	logger.Debugf("File System", "[Opr %s] destination %s:/ (%s, buffered %v) real path %q", oprId, destFsh.UUID, destFsh.Filesystem, destFsh.RequireBuffer, rdestFile)
 
 	if !userinfo.CanWrite(vdestFile) {
 		failTask(filepath.Base(vdestFile), "Access Denied: No Write Permission")
@@ -2380,6 +2394,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			zipDestPath = getFsBufferFilepath(outputFilename, false)
 			zipDestFsh = nil
 		}
+		logger.Debugf("File System", "[Opr %s] zipping %q into %q (written at %q)", oprId, realSourceFiles, outputFilename, zipDestPath)
 
 		//Create the zip file
 		err = filesystem.ArozZipFileWithProgress(sourceFileFsh, realSourceFiles, zipDestFsh, zipDestPath, false, func(currentFilename string, _ int, _ int, progress float64) int {
@@ -2405,6 +2420,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			}
 		} else if destFsh.RequireBuffer {
 			//Move the buffer result to remote
+			logger.Debugf("File System", "[Opr %s] uploading the buffered archive %q to %s:/ %q", oprId, zipDestPath, destFsh.UUID, outputFilename)
 			f, _ := os.Open(zipDestPath)
 			err = destFshAbs.WriteStream(outputFilename, f, 0775)
 			if err != nil {
@@ -2450,9 +2466,10 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		if destFsh.RequireBuffer {
 			unzipDest = getFsBufferFilepath(rdestFile, true)
 		}
+		logger.Debugf("File System", "[Opr %s] unzipping %q into %q", oprId, realSourceFiles, unzipDest)
 
 		//Unzip the files
-		filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) int {
+		unzipErr := filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) int {
 			//Generate the status update struct
 			sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(progress))
 			pushUpdate(fileOprProgressUpdate{
@@ -2464,15 +2481,23 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 
 			return sig
 		})
+		if unzipErr != nil {
+			logger.Debugf("File System", "[Opr %s] unzipping failed: %v", oprId, unzipErr)
+		}
 
 		if destFsh.RequireBuffer {
 			//Push the unzip results back to remote fs
+			logger.Debugf("File System", "[Opr %s] uploading the unzipped files from %q to %s:/ %q", oprId, unzipDest, destFsh.UUID, rdestFile)
 			filepath.Walk(unzipDest, func(path string, info os.FileInfo, err error) error {
+				if err != nil || info == nil {
+					logger.Debugf("File System", "[Opr %s] uploading unzipped files: error at %q (%v), FileInfo is nil: %v, a nil FileInfo panics below", oprId, path, err, info == nil)
+				}
 				path = filepath.ToSlash(path)
 				relpath := strings.TrimPrefix(path, filepath.ToSlash(unzipDest))
 				if info.IsDir() {
 					destFshAbs.MkdirAll(filepath.Join(rdestFile, relpath), 0775)
 				} else {
+					logger.Debugf("File System", "[Opr %s] uploading %q", oprId, relpath)
 					f, _ := os.Open(path)
 					destFshAbs.WriteStream(filepath.Join(rdestFile, relpath), f, 0775)
 					f.Close()
@@ -2497,6 +2522,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
 			rsrcFile, _ := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+			logger.Debugf("File System", "[Opr %s] item %d/%d: %q on %s:/ (%s) real path %q", oprId, i+1, len(sourceFiles), vsrcFile, thisSrcFsh.UUID, thisSrcFsh.Filesystem, rsrcFile)
 
 			if !thisSrcFshAbs.FileExists(rsrcFile) {
 				//This source file not exists. Report Error and Stop
@@ -2554,6 +2580,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		endingSignal = filesystem.FsOpr_Cancel
 	}
 
+	logger.Debugf("File System", "[Opr %s] finished (cancelled %v)", oprId, endingSignal == filesystem.FsOpr_Cancel)
 	SetFileOperationTaskEnded(oprId, endingSignal, "")
 }
 
@@ -2593,6 +2620,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	vsrcFiles, _ := utils.PostPara(r, "src")
 	vdestFile, _ := utils.PostPara(r, "dest")
 	vnfilenames, _ := utils.PostPara(r, "new") //Only use when rename or create new file / folder
+	logger.Debugf("File System", "[Opr] %s by %s: src %s -> %q (new names %s)", operation, userinfo.Username, vsrcFiles, vdestFile, vnfilenames)
 
 	//Check if operation valid.
 	if operation == "" {
@@ -2734,6 +2762,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				destFshAbs = destFsh.FileSystemAbstraction
 				rdestFile, _ = destFshAbs.VirtualPathToRealPath(destSubpath, userinfo.Username)
 			}
+			logger.Debugf("File System", "[Opr] %s item %d/%d: %q on %s:/ real path %q, destination %q (resolved %v, real path %q); a nil destination is only safe for rename, delete and recycle", operation, i+1, len(sourceFiles), vsrcFile, srcFsh.UUID, rsrcFile, vdestFile, destFshAbs != nil, rdestFile)
 
 			//Check if the source file exists
 			if operation == "rename" {
@@ -3493,6 +3522,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasSuffix(currentDir, "/") {
 		currentDir = currentDir + "/"
 	}
+	logger.Debugf("File System", "[List] %s lists %q (sort %q, show hidden %q)", userinfo.Username, currentDir, sortMode, showHidden)
 
 	//The handler below is looked up among every loaded storage, not only
 	//the ones this user may open
@@ -3873,6 +3903,9 @@ stops and reports the cancellation as an error, and finishTmpZipTask turns that
 back into a cancelled record.
 */
 func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, realSourcePaths []string, zipDestFsh *filesystem.FileSystemHandler, zipOutput string, destFsh *filesystem.FileSystemHandler, rdest string) {
+	//Runs in its own goroutine, where a panic ends the whole process
+	defer logger.TracePanic("File System", "building the temporary zip "+oprId)
+	logger.Debugf("File System", "[Zip %s] %q -> %q (destination buffered %v)", oprId, realSourcePaths, zipOutput, destFsh != nil && destFsh.RequireBuffer)
 	err := filesystem.ArozZipFileWithProgress(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false, func(currentFilename string, _ int, _ int, progress float64) int {
 		sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
 		return sig

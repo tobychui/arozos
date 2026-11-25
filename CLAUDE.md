@@ -635,6 +635,24 @@ instance. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
 which writes its records through `PrintAndLog`. The only file allowed to wrap the standard `log` package is the logger
 implementation itself ([`src/mod/info/logger/`](src/mod/info/logger/)).
 
+**DEBUG level.** `logger.Debug(title, message)` / `logger.Debugf(title, format,
+args...)` write a `[DEBUG]` record only when ArozOS runs with `-debug`; with
+the flag off they cost one atomic load, so they can stay in hot paths (wrap a
+message that is expensive to build in `if logger.IsDebugMode()`). Debug records
+are written to the log file before the call returns and carry the goroutine id
+(`[g42]`, the number a panic prints as `goroutine 42 [running]:`), so the trail
+of a crashing goroutine can be picked out of `system/logs/system/`. Use them
+for traces, never for passwords or secrets. Defer `logger.TracePanic(title,
+context)` at the top of a goroutine that runs outside a request, where a panic
+ends the whole process: in debug mode it logs the panic and its stack, then
+lets the panic go on unchanged. Debug mode also wraps every HTTP request the
+same way (`logger.TracePanicHandler`) and has the Go runtime copy its crash
+report to `system/logs/system/system_crash.log` (`EnableCrashLog`). `NewSlog`
+loggers pass their debug records to this level too. Storage code (the drive
+abstractions, `mod/filesystem`, `mod/storage` and its file servers, pool
+loading, the drive heartbeat and file operations) is traced this way already;
+keep new storage code traced the same way.
+
 *Enforced as an ERROR* (blocks CI) on added `log.Print*` / `log.Fatal*` /
 `log.Panic*` calls.
 

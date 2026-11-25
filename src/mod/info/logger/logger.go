@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -49,6 +50,7 @@ type Logger struct {
 	LogFolder      string   //Folder to store the log  file
 	CurrentLogFile string   //Current writing filename
 	file           *os.File //File, empty if LogToFile is false
+	mu             sync.Mutex
 }
 
 type jsonLogEntry struct {
@@ -106,11 +108,17 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 	go func() {
 		l.Log(title, message, originalError)
 	}()
-	if l.PrintJSON || globalPrintJSON {
-		level := "info"
-		if originalError != nil {
-			level = "error"
-		}
+	level := "info"
+	if originalError != nil {
+		level = "error"
+	}
+	consolePrint(title, level, message, l.PrintJSON)
+}
+
+// consolePrint writes one record to STDOUT, as a JSON line when JSON output is
+// on and as "[title] message" otherwise.
+func consolePrint(title string, level string, message string, printJSON bool) {
+	if printJSON || globalPrintJSON {
 		entry := jsonLogEntry{
 			Time:    time.Now().Format("2006-01-02T15:04:05.000000Z07:00"),
 			Level:   level,
@@ -118,26 +126,42 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 			Message: message,
 		}
 		b, err := json.Marshal(entry)
-		if err != nil {
-			log.Println("[" + title + "] " + message)
+		if err == nil {
+			fmt.Println(string(b))
 			return
 		}
-		fmt.Println(string(b))
-	} else {
-		log.Println("[" + title + "] " + message)
 	}
+	if level == "debug" {
+		message = "[DEBUG] " + message
+	}
+	log.Println("[" + title + "] " + message)
 }
 
 func (l *Logger) Log(title string, errorMessage string, originalError error) {
-	if l != nil && l.LogToFile {
-		l.ValidateAndUpdateLogFilepath()
-		if originalError == nil {
-			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [INFO]" + errorMessage + "\n")
-		} else {
-			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [ERROR]" + errorMessage + " " + originalError.Error() + "\n")
-		}
+	if l == nil {
+		return
 	}
+	if originalError == nil {
+		l.writeLine(title, "[INFO]", errorMessage)
+	} else {
+		l.writeLine(title, "[ERROR]", errorMessage+" "+originalError.Error())
+	}
+}
 
+// writeLine appends one record to the log file, if logging to file is on.
+// Records are written one at a time so lines of different goroutines never mix.
+func (l *Logger) writeLine(title string, levelTag string, message string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if !l.LogToFile {
+		return
+	}
+	l.ValidateAndUpdateLogFilepath()
+	if !l.LogToFile {
+		//Rotating to a new file failed and turned file logging off
+		return
+	}
+	l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " " + levelTag + message + "\n")
 }
 
 // Validate if the logging target is still valid (detect any months change)
@@ -158,5 +182,7 @@ func (l *Logger) ValidateAndUpdateLogFilepath() {
 }
 
 func (l *Logger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.file.Close()
 }

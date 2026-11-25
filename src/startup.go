@@ -61,6 +61,14 @@ func loadVendorInfo() {
 func RunStartup() {
 	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
 	logger.SetDefaultLogger(systemWideLogger)
+	if *enable_debug_log {
+		crashLogPath, err := systemWideLogger.EnableCrashLog()
+		if err != nil {
+			systemWideLogger.PrintAndLog("System", "Debug mode: unable to set up the crash log", err)
+		} else {
+			systemWideLogger.PrintAndLog("System", "Debug mode: a crash report will also be written to "+crashLogPath, nil)
+		}
+	}
 	loadVendorInfo()
 	//1. Initiate the main system database
 
