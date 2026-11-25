@@ -16,23 +16,28 @@ import (
 */
 
 // NewSlog returns a *slog.Logger whose records go to PrintAndLog under title.
-// Debug records are dropped. The first attribute holding an error is passed
+// Debug records are dropped unless debug logging is on (SetDebug), in which
+// case they are logged at the DEBUG level. The first attribute holding an error is passed
 // as the error, the others are added to the message as key=value. A
 // "component" attribute is left out, because the title already names the
 // part of the system that logged.
 func NewSlog(title string) *slog.Logger {
-	return slog.New(&slogHandler{title: title, emit: PrintAndLog})
+	return slog.New(&slogHandler{title: title, emit: PrintAndLog, emitDebug: Debug})
 }
 
 type slogHandler struct {
-	title  string
-	emit   func(title string, message string, originalError error)
-	prefix string      //Group prefix of later attributes, such as "req."
-	attrs  []slog.Attr //Attributes added by WithAttrs, keys already prefixed
+	title     string
+	emit      func(title string, message string, originalError error)
+	emitDebug func(title string, message string) //Records below Info, only called while debug logging is on
+	prefix    string                             //Group prefix of later attributes, such as "req."
+	attrs     []slog.Attr                        //Attributes added by WithAttrs, keys already prefixed
 }
 
 func (h *slogHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= slog.LevelInfo
+	if level >= slog.LevelInfo {
+		return true
+	}
+	return h.emitDebug != nil && IsDebug()
 }
 
 func (h *slogHandler) Handle(_ context.Context, r slog.Record) error {
@@ -47,6 +52,17 @@ func (h *slogHandler) Handle(_ context.Context, r slog.Record) error {
 		origErr = appendAttr(&b, a, h.prefix, origErr)
 		return true
 	})
+	if r.Level < slog.LevelInfo {
+		if h.emitDebug == nil || !IsDebug() {
+			return nil
+		}
+		message := b.String()
+		if origErr != nil {
+			message += " err=" + origErr.Error()
+		}
+		h.emitDebug(h.title, message)
+		return nil
+	}
 	h.emit(h.title, b.String(), origErr)
 	return nil
 }

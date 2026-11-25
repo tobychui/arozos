@@ -37,6 +37,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/localversion"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/share"
@@ -134,43 +135,43 @@ func FileSystemInit() {
 	})
 
 	//Upload related functions
-	router.HandleFunc("/system/file_system/upload", system_fs_handleUpload)
-	router.HandleFunc("/system/file_system/lowmemUpload", system_fs_handleLowMemoryUpload)
+	router.HandleFunc("/system/file_system/upload", fsDebugHandler("/system/file_system/upload", system_fs_handleUpload))
+	router.HandleFunc("/system/file_system/lowmemUpload", fsDebugHandler("/system/file_system/lowmemUpload", system_fs_handleLowMemoryUpload))
 
 	//Other file operations
-	router.HandleFunc("/system/file_system/validateFileOpr", system_fs_validateFileOpr)
-	router.HandleFunc("/system/file_system/fileOpr", system_fs_handleOpr)
-	router.HandleFunc("/system/file_system/ws/fileOpr", system_fs_handleWebSocketOpr)
-	router.HandleFunc("/system/file_system/fileOprAsync", system_fs_handleAsyncOpr)
-	router.HandleFunc("/system/file_system/ws/fileOprStatus", system_fs_handleFileOprStatusWebSocket)
-	router.HandleFunc("/system/file_system/listDir", system_fs_handleList)
-	router.HandleFunc("/system/file_system/listDirHash", system_fs_handleDirHash)
-	router.HandleFunc("/system/file_system/listRoots", system_fs_listRoot)
-	router.HandleFunc("/system/file_system/listDrives", system_fs_listDrives)
-	router.HandleFunc("/system/file_system/newItem", system_fs_handleNewObjects)
-	router.HandleFunc("/system/file_system/preference", system_fs_handleUserPreference)
-	router.HandleFunc("/system/file_system/listTrash", system_fs_scanTrashBin)
-	router.HandleFunc("/system/file_system/ws/listTrash", system_fs_WebSocketScanTrashBin)
-	router.HandleFunc("/system/file_system/trashState", system_fs_handleTrashState)
-	router.HandleFunc("/system/file_system/clearTrash", system_fs_clearTrashBin)
-	router.HandleFunc("/system/file_system/trashSettings", system_fs_handleTrashSettings)
-	router.HandleFunc("/system/file_system/restoreTrash", system_fs_restoreFile)
-	router.HandleFunc("/system/file_system/zipHandler", system_fs_zipHandler)
-	router.HandleFunc("/system/file_system/getProperties", system_fs_getFileProperties)
-	router.HandleFunc("/system/file_system/getStorageInfo", system_fs_getStorageInfo)
-	router.HandleFunc("/system/file_system/versionHistory", system_fs_FileVersionHistory)
+	router.HandleFunc("/system/file_system/validateFileOpr", fsDebugHandler("/system/file_system/validateFileOpr", system_fs_validateFileOpr))
+	router.HandleFunc("/system/file_system/fileOpr", fsDebugHandler("/system/file_system/fileOpr", system_fs_handleOpr))
+	router.HandleFunc("/system/file_system/ws/fileOpr", fsDebugHandler("/system/file_system/ws/fileOpr", system_fs_handleWebSocketOpr))
+	router.HandleFunc("/system/file_system/fileOprAsync", fsDebugHandler("/system/file_system/fileOprAsync", system_fs_handleAsyncOpr))
+	router.HandleFunc("/system/file_system/ws/fileOprStatus", fsDebugHandler("/system/file_system/ws/fileOprStatus", system_fs_handleFileOprStatusWebSocket))
+	router.HandleFunc("/system/file_system/listDir", fsDebugHandler("/system/file_system/listDir", system_fs_handleList))
+	router.HandleFunc("/system/file_system/listDirHash", fsDebugHandler("/system/file_system/listDirHash", system_fs_handleDirHash))
+	router.HandleFunc("/system/file_system/listRoots", fsDebugHandler("/system/file_system/listRoots", system_fs_listRoot))
+	router.HandleFunc("/system/file_system/listDrives", fsDebugHandler("/system/file_system/listDrives", system_fs_listDrives))
+	router.HandleFunc("/system/file_system/newItem", fsDebugHandler("/system/file_system/newItem", system_fs_handleNewObjects))
+	router.HandleFunc("/system/file_system/preference", fsDebugHandler("/system/file_system/preference", system_fs_handleUserPreference))
+	router.HandleFunc("/system/file_system/listTrash", fsDebugHandler("/system/file_system/listTrash", system_fs_scanTrashBin))
+	router.HandleFunc("/system/file_system/ws/listTrash", fsDebugHandler("/system/file_system/ws/listTrash", system_fs_WebSocketScanTrashBin))
+	router.HandleFunc("/system/file_system/trashState", fsDebugHandler("/system/file_system/trashState", system_fs_handleTrashState))
+	router.HandleFunc("/system/file_system/clearTrash", fsDebugHandler("/system/file_system/clearTrash", system_fs_clearTrashBin))
+	router.HandleFunc("/system/file_system/trashSettings", fsDebugHandler("/system/file_system/trashSettings", system_fs_handleTrashSettings))
+	router.HandleFunc("/system/file_system/restoreTrash", fsDebugHandler("/system/file_system/restoreTrash", system_fs_restoreFile))
+	router.HandleFunc("/system/file_system/zipHandler", fsDebugHandler("/system/file_system/zipHandler", system_fs_zipHandler))
+	router.HandleFunc("/system/file_system/getProperties", fsDebugHandler("/system/file_system/getProperties", system_fs_getFileProperties))
+	router.HandleFunc("/system/file_system/getStorageInfo", fsDebugHandler("/system/file_system/getStorageInfo", system_fs_getStorageInfo))
+	router.HandleFunc("/system/file_system/versionHistory", fsDebugHandler("/system/file_system/versionHistory", system_fs_FileVersionHistory))
 
-	router.HandleFunc("/system/file_system/handleFilePermission", system_fs_handleFilePermission)
-	router.HandleFunc("/system/file_system/search", system_fs_handleFileSearch)
+	router.HandleFunc("/system/file_system/handleFilePermission", fsDebugHandler("/system/file_system/handleFilePermission", system_fs_handleFilePermission))
+	router.HandleFunc("/system/file_system/search", fsDebugHandler("/system/file_system/search", system_fs_handleFileSearch))
 
 	//Thumbnail caching functions
-	router.HandleFunc("/system/file_system/handleFolderCache", system_fs_handleFolderCache)
-	router.HandleFunc("/system/file_system/handleCacheRender", system_fs_handleCacheRender)
-	router.HandleFunc("/system/file_system/loadThumbnail", system_fs_handleThumbnailLoad)
+	router.HandleFunc("/system/file_system/handleFolderCache", fsDebugHandler("/system/file_system/handleFolderCache", system_fs_handleFolderCache))
+	router.HandleFunc("/system/file_system/handleCacheRender", fsDebugHandler("/system/file_system/handleCacheRender", system_fs_handleCacheRender))
+	router.HandleFunc("/system/file_system/loadThumbnail", fsDebugHandler("/system/file_system/loadThumbnail", system_fs_handleThumbnailLoad))
 
 	//Directory specific config
-	router.HandleFunc("/system/file_system/sortMode", system_fs_handleFolderSortModePreference)
-	router.HandleFunc("/system/file_system/viewMode", system_fs_handleFolderViewModePreference)
+	router.HandleFunc("/system/file_system/sortMode", fsDebugHandler("/system/file_system/sortMode", system_fs_handleFolderSortModePreference))
+	router.HandleFunc("/system/file_system/viewMode", fsDebugHandler("/system/file_system/viewMode", system_fs_handleFolderViewModePreference))
 
 	//Register the module
 	moduleHandler.RegisterModule(module.ModuleInfo{
@@ -272,7 +273,7 @@ func FileSystemInit() {
 	*/
 	//Create a sync map for file operation opened connections
 	wsConnectionStore = sync.Map{}
-	router.HandleFunc("/system/file_system/ongoing", system_fs_HandleOnGoingTasks)
+	router.HandleFunc("/system/file_system/ongoing", fsDebugHandler("/system/file_system/ongoing", system_fs_HandleOnGoingTasks))
 
 	/*
 		Nighly Tasks
@@ -300,6 +301,8 @@ func FileSystemInit() {
 
 	//Clear file version history that is more than 30 days
 	go func() {
+		//A panic in this goroutine stops the whole server, log where it was
+		defer logger.TracePanic("File System", "startup version history cleaning")
 		//Start version history cleaning in background
 		system_fs_clearVersionHistories()
 		systemWideLogger.PrintAndLog("File System", "Startup File Version History Cleaning Completed", nil)
@@ -2298,6 +2301,9 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 
 	oprId := task.ID
 	operation := task.Operation
+	//Runs in its own goroutine: a panic here stops the whole server
+	defer logger.TracePanic("File System", "file operation "+oprId+" ("+operation+") by "+userinfo.Username+" into "+vdestFile)
+	logger.Debugf("File System", "File operation %s: %s by %s, %d source(s) %q -> %q, exists=%s", oprId, operation, userinfo.Username, len(sourceFiles), sourceFiles, vdestFile, existsOpr)
 
 	pushUpdate := func(update fileOprProgressUpdate) {
 		if onUpdate != nil {
@@ -2306,6 +2312,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 	}
 
 	failTask := func(filename string, errmsg string) {
+		logger.Debugf("File System", "File operation %s failed on %q: %s", oprId, filename, errmsg)
 		SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Error, errmsg)
 		pushUpdate(fileOprProgressUpdate{
 			LatestFile: filename,
@@ -2323,6 +2330,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 	}
 	destFshAbs := destFsh.FileSystemAbstraction
 	rdestFile, _ := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	logger.Debugf("File System", "File operation %s: destination %s:/ (%s, buffered=%v) real path %q", oprId, destFsh.UUID, destFsh.Filesystem, destFsh.RequireBuffer, rdestFile)
 
 	if !userinfo.CanWrite(vdestFile) {
 		failTask(filepath.Base(vdestFile), "Access Denied: No Write Permission")
@@ -2497,6 +2505,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
 			rsrcFile, _ := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+			logger.Debugf("File System", "File operation %s: source %d/%d %q on %s:/ (%s, buffered=%v) real path %q", oprId, i+1, len(sourceFiles), vsrcFile, thisSrcFsh.UUID, thisSrcFsh.Filesystem, thisSrcFsh.RequireBuffer, rsrcFile)
 
 			if !thisSrcFshAbs.FileExists(rsrcFile) {
 				//This source file not exists. Report Error and Stop
@@ -2544,6 +2553,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			}
 
 			//This source file is done. Mark it as completed
+			logger.Debugf("File System", "File operation %s: source %d/%d %q done", oprId, i+1, len(sourceFiles), vsrcFile)
 			MarkFileOperationSubtaskEnded(oprId, i, "")
 		}
 	}
@@ -2554,6 +2564,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		endingSignal = filesystem.FsOpr_Cancel
 	}
 
+	logger.Debugf("File System", "File operation %s ended, signal %d (cancelled=%v)", oprId, endingSignal, endingSignal == filesystem.FsOpr_Cancel)
 	SetFileOperationTaskEnded(oprId, endingSignal, "")
 }
 
@@ -3873,6 +3884,9 @@ stops and reports the cancellation as an error, and finishTmpZipTask turns that
 back into a cancelled record.
 */
 func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, realSourcePaths []string, zipDestFsh *filesystem.FileSystemHandler, zipOutput string, destFsh *filesystem.FileSystemHandler, rdest string) {
+	//Runs in its own goroutine: a panic here stops the whole server
+	defer logger.TracePanic("File System", "tmp zip task "+oprId+" -> "+zipOutput)
+	logger.Debugf("File System", "Tmp zip %s: %d source(s) %q -> %q (buffered dest=%v)", oprId, len(realSourcePaths), realSourcePaths, zipOutput, zipDestFsh == nil)
 	err := filesystem.ArozZipFileWithProgress(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false, func(currentFilename string, _ int, _ int, progress float64) int {
 		sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
 		return sig
@@ -4965,6 +4979,8 @@ func startFinishedFileOperationJanitor() {
 	}
 
 	go func() {
+		//A panic in this goroutine stops the whole server, log where it was
+		defer logger.TracePanic("File System", "finished file operation janitor")
 		for {
 			time.Sleep(fileOprJanitorInterval)
 			clearExpiredFileOperationRecords()

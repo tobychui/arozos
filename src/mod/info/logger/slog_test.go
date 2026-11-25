@@ -62,7 +62,8 @@ func TestSlogMessages(t *testing.T) {
 	}
 }
 
-// TestSlogDropsDebug checks that debug records never reach the system log.
+// TestSlogDropsDebug checks that debug records stay out of the system log
+// while debug logging is off.
 func TestSlogDropsDebug(t *testing.T) {
 	l, lines := captureSlog("WSD")
 	l.Debug("noise")

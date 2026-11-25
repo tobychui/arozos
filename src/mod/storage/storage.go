@@ -16,6 +16,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // StoragePool is where the drives of the system or of one permission group are
@@ -36,9 +37,13 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 	//Move all fshandler into the storageHandler
 	storageHandlers := []*fs.FileSystemHandler{}
 	for _, fsHandler := range fsHandlers {
+		if fsHandler == nil {
+			logger.Debugf("Storage", "NewStoragePool: pool %q was given a nil drive, readers of this pool will panic", owner)
+		}
 		//Move the handler pointer to the target
 		storageHandlers = append(storageHandlers, fsHandler)
 	}
+	logger.Debugf("Storage", "NewStoragePool: pool %q created with %d drive(s)", owner, len(storageHandlers))
 
 	return &StoragePool{
 		Owner:    owner,
@@ -61,11 +66,13 @@ func (s *StoragePool) ContainDiskID(diskID string) bool {
 func (s *StoragePool) GetFSHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, string, error) {
 	fshid, subpath, err := filesystem.GetIDFromVirtualPath(vpath)
 	if err != nil {
+		logger.Debugf("Storage", "Pool %q: cannot parse virtual path %q: %v", s.Owner, vpath, err)
 		return nil, subpath, err
 	}
 
 	fsh, err := s.GetFsHandlerByUUID(fshid)
 	if err != nil {
+		logger.Debugf("Storage", "Pool %q: no drive %q for %q", s.Owner, fshid, vpath)
 		return nil, subpath, err
 	}
 
@@ -89,11 +96,16 @@ func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, er
 
 // Attach a file system handler to this pool
 func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
+	if fsh == nil {
+		logger.Debugf("Storage", "Pool %q: AttachFsHandler called with a nil drive, panics below", s.Owner)
+	}
 	if s.ContainDiskID(fsh.UUID) {
+		logger.Debugf("Storage", "Pool %q: refused to attach %s:/ twice", s.Owner, fsh.UUID)
 		return errors.New("file system handler with same uuid already exists in this pool")
 	}
 
 	s.Storages = append(s.Storages, fsh)
+	logger.Debugf("Storage", "Pool %q: attached %s:/ (%s, handler %p), now %d drive(s)", s.Owner, fsh.UUID, fsh.Filesystem, fsh, len(s.Storages))
 	return nil
 }
 
@@ -106,13 +118,22 @@ func (s *StoragePool) DetachFsHandler(uuid string) {
 		}
 	}
 
+	logger.Debugf("Storage", "Pool %q: detached %s:/, %d -> %d drive(s)", s.Owner, uuid, len(s.Storages), len(newFshList))
 	s.Storages = newFshList
 }
 
 // Close all fsHandler under this storage pool
 func (s *StoragePool) Close() {
+	if s == nil {
+		logger.Debug("Storage", "StoragePool.Close called on a nil pool, panics below")
+	} else {
+		logger.Debugf("Storage", "Pool %q: closing %d drive(s)", s.Owner, len(s.Storages))
+	}
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
+		if fsh == nil {
+			logger.Debugf("Storage", "Pool %q: holds a nil drive, panics below", s.Owner)
+		}
 		if !fsh.Closed {
 			fsh.Close()
 		}

@@ -631,7 +631,18 @@ log.Println("could not open config", err)   // and log.Printf/Fatal/Panic
 
 The package-level `logger.PrintAndLog` delegates to the system-wide logger wired
 up in [`src/main.go`](src/main.go); you do not need your own `*logger.Logger`
-instance. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
+instance. Tracing goes through the **DEBUG** level, which is off unless
+ArozOS starts with `-debug`: `logger.Debug(title, msg)` / `logger.Debugf(title,
+format, args...)` cost one atomic load when off, and when on each line names
+its goroutine and source line and is written to the log file before the call
+returns (so the last lines survive a crash). Guard arguments that are costly to
+build, or that dereference something possibly nil, with `if logger.IsDebug()`,
+because Go evaluates them even when the line is dropped. `defer
+logger.TracePanic(title, context)` at the top of a goroutine logs a panic with
+its stack and context, then panics again unchanged. With `-debug`, every drive
+opened by `filesystem.NewFileSystemHandler` is wrapped so its calls are logged
+(`mod/filesystem/debugfsa.go`): type-assert a drive's abstraction through
+`filesystem.UnwrapAbstraction`. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
 which writes its records through `PrintAndLog`. The only file allowed to wrap the standard `log` package is the logger
 implementation itself ([`src/mod/info/logger/`](src/mod/info/logger/)).
 

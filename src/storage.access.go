@@ -9,6 +9,7 @@ import (
 
 	"imuslab.com/arozos/mod/cluster/metadata"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage/access"
 )
 
@@ -36,12 +37,16 @@ func (driveRuleSource) Rule(uuid string) (access.Rule, bool) {
 	if uuid == access.ClusterDriveID {
 		return clusterDriveRule()
 	}
+	if driveAccessStore == nil {
+		logger.Debugf("Storage", "driveRuleSource: rule of %s:/ asked before DriveAccessInit, the store is nil", uuid)
+	}
 	return driveAccessStore.Rule(uuid)
 }
 
 // DriveAccessInit opens the rules. It runs once every pool is loaded, since
 // converting the old bridges needs to know where each drive lives.
 func DriveAccessInit() {
+	logger.Debugf("Storage", "DriveAccessInit: opening %q", filepath.Join("system", driveAccessRuleFile))
 	driveAccessStore = access.NewStore(filepath.Join("system", driveAccessRuleFile))
 	if err := driveAccessStore.Err(); err != nil {
 		systemWideLogger.PrintAndLog("Storage", "Unable to read the drive access rules, every drive is closed to non admins until "+driveAccessRuleFile+" is repaired", err)
@@ -84,9 +89,12 @@ func drivePoolHome(uuid string) (string, bool) {
 // drive. Requests read the rules directly; these are the parts that keep a
 // copy of the outcome.
 func driveAccessChanged() {
+	logger.Debugf("Storage", "driveAccessChanged: resetting quota managers, samba sync=%v", SambaShareManager != nil)
 	userHandler.ResetQuotaManagers()
 	if SambaShareManager != nil {
 		go func() {
+			//A panic in this goroutine stops the whole server, log where it was
+			defer logger.TracePanic("Storage", "samba share sync after a drive access change")
 			if err := SambaShareManager.SyncDriveAccess(); err != nil {
 				systemWideLogger.PrintAndLog("Storage", "Unable to update the Samba shares after a drive access change", err)
 			}

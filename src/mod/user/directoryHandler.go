@@ -3,6 +3,7 @@ package user
 import (
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/storage/access"
 )
@@ -69,6 +70,8 @@ func (u *User) drivePools() []drivePool {
 	pools := []drivePool{}
 	if u.HomeDirectories != nil {
 		pools = append(pools, drivePool{pool: u.HomeDirectories})
+	} else {
+		logger.Debugf("User", "drivePools: %s has no system pool (HomeDirectories nil)", u.Username)
 	}
 
 	listed := map[string]bool{}
@@ -76,6 +79,8 @@ func (u *User) drivePools() []drivePool {
 		listed[pg.Name] = true
 		if pg.StoragePool != nil {
 			pools = append(pools, drivePool{home: pg.Name, pool: pg.StoragePool})
+		} else {
+			logger.Debugf("User", "drivePools: group %q of %s has no storage pool, skipped", pg.Name, u.Username)
 		}
 	}
 
@@ -118,6 +123,9 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	subject := u.accessSubject()
 	for _, dp := range u.drivePools() {
 		for _, store := range dp.pool.Storages {
+			if store == nil {
+				logger.Debugf("User", "GetAllFileSystemHandler: pool of %q holds a nil drive (user %s), panics below", dp.home, u.Username)
+			}
 			if store.Closed || listed[store.UUID] {
 				continue
 			}
@@ -127,6 +135,9 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 			results = append(results, store)
 			listed[store.UUID] = true
 		}
+	}
+	if logger.IsDebug() {
+		logger.Debugf("User", "GetAllFileSystemHandler: %s may use %d drive(s)", u.Username, len(results))
 	}
 
 	return results

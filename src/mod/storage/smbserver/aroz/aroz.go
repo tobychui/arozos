@@ -119,10 +119,16 @@ func (b *Backend) LookupHash(username string) (string, []byte, bool) {
 
 // Login implements smbsrv.Backend.
 func (b *Backend) Login(username string) (smbsrv.UserView, error) {
+	if logger.IsDebug() {
+		//smbsrv does not recover panics: one here stops the whole server
+		defer logger.TracePanic("SMB", "login of "+username)
+	}
 	account, quota, err := b.opt.LookupUser(username)
 	if err != nil {
+		logger.Debugf("SMB", "Login: %s refused: %v", username, err)
 		return nil, err
 	}
+	logger.Debugf("SMB", "Login: %s signed in (quota manager nil=%v)", username, quota == nil)
 	return &view{username: username, account: account, quota: quota, capacity: b.opt.Capacity, opt: &b.opt}, nil
 }
 
@@ -175,6 +181,9 @@ func (v *view) Username() string { return v.username }
 
 // Shares lists one share per drive.
 func (v *view) Shares() []smbsrv.Share {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", "share list of "+v.username)
+	}
 	out := []smbsrv.Share{}
 	for _, fsh := range v.account.GetAllFileSystemHandler() {
 		if fsh.Closed {
@@ -185,7 +194,15 @@ func (v *view) Shares() []smbsrv.Share {
 	if tm := v.timeMachineShare(); tm != nil {
 		out = append(out, tm)
 	}
+	logger.Debugf("SMB", "Shares: %s gets %d share(s)", v.username, len(out))
 	return out
+}
+
+// traceContext names a share operation for a debug line or a panic trace.
+// Every share method defers logger.TracePanic itself, because recover only
+// works in the deferred function.
+func (s *share) traceContext(op string, p string) string {
+	return op + " " + s.Name() + "/" + p + " by " + s.v.username
 }
 
 // share is one drive for one user.
@@ -347,8 +364,14 @@ func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
 }
 
 func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("Stat", p))
+	}
 	rpath, err := s.real(p)
 	if err != nil {
+		if logger.IsDebug() {
+			logger.Debugf("SMB", "Stat: %s refused: %v", s.traceContext("", p), err)
+		}
 		return smbsrv.FileInfo{}, err
 	}
 	fi, err := s.fsh.FileSystemAbstraction.Stat(rpath)
@@ -363,11 +386,20 @@ func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 }
 
 func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("ReadDir", p))
+	}
 	rpath, err := s.real(p)
 	if err != nil {
+		if logger.IsDebug() {
+			logger.Debugf("SMB", "ReadDir: %s refused: %v", s.traceContext("", p), err)
+		}
 		return nil, err
 	}
 	entries, err := s.fsh.FileSystemAbstraction.ReadDir(rpath)
+	if logger.IsDebug() {
+		logger.Debugf("SMB", "ReadDir: %s -> %q, %d entries, err=%v", s.traceContext("", p), rpath, len(entries), err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +451,13 @@ func (s *share) stage() stageConfig {
 }
 
 func (s *share) Open(p string, flag int) (smbsrv.File, error) {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("Open", p))
+	}
 	rpath, err := s.real(p)
+	if logger.IsDebug() {
+		logger.Debugf("SMB", "Open: %s flag=%#x -> %q (staged=%v) err=%v", s.traceContext("", p), flag, rpath, s.fsh.RequireBuffer, err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +477,13 @@ func (s *share) Open(p string, flag int) (smbsrv.File, error) {
 }
 
 func (s *share) Mkdir(p string) error {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("Mkdir", p))
+	}
 	rpath, err := s.real(p)
+	if logger.IsDebug() {
+		logger.Debugf("SMB", "Mkdir: %s -> %q err=%v", s.traceContext("", p), rpath, err)
+	}
 	if err != nil {
 		return err
 	}
@@ -447,7 +491,13 @@ func (s *share) Mkdir(p string) error {
 }
 
 func (s *share) Remove(p string) error {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("Remove", p))
+	}
 	rpath, err := s.real(p)
+	if logger.IsDebug() {
+		logger.Debugf("SMB", "Remove: %s -> %q (to trash=%v) err=%v", s.traceContext("", p), rpath, err == nil && s.wantsTrash(p), err)
+	}
 	if err != nil {
 		return err
 	}
@@ -492,13 +542,25 @@ func (s *share) Remove(p string) error {
 }
 
 func (s *share) Rename(oldPath, newPath string) error {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("Rename", oldPath)+" to "+newPath)
+	}
 	source, err := s.real(oldPath)
 	if err != nil {
+		if logger.IsDebug() {
+			logger.Debugf("SMB", "Rename: %s refused source: %v", s.traceContext("", oldPath), err)
+		}
 		return err
 	}
 	target, err := s.real(newPath)
 	if err != nil {
+		if logger.IsDebug() {
+			logger.Debugf("SMB", "Rename: %s refused target %q: %v", s.traceContext("", oldPath), newPath, err)
+		}
 		return err
+	}
+	if logger.IsDebug() {
+		logger.Debugf("SMB", "Rename: %s %q -> %q", s.traceContext("", oldPath), source, target)
 	}
 	//A rename can replace a file, whose space comes back
 	replaced := int64(0)
@@ -520,6 +582,9 @@ func (s *share) Rename(oldPath, newPath string) error {
 }
 
 func (s *share) SetModTime(p string, t time.Time) error {
+	if logger.IsDebug() {
+		defer logger.TracePanic("SMB", s.traceContext("SetModTime", p))
+	}
 	rpath, err := s.real(p)
 	if err != nil {
 		return err

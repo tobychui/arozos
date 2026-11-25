@@ -102,6 +102,7 @@ func main() {
 	//Parse startup flags and paramters
 	flag.Parse()
 	logger.SetGlobalJSONOutput(*log_format == "json")
+	logger.SetDebug(*enable_debug)
 
 	//Handle version printing
 	if *show_version {
@@ -128,6 +129,9 @@ func main() {
 	//Print copyRight information
 	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)
 	systemWideLogger.PrintAndLog("System", "ArozOS "+build_version+" Revision "+internal_version, nil)
+	if *enable_debug {
+		systemWideLogger.PrintAndLog("System", "Debug logging is on (-debug). DEBUG lines name the goroutine and source line that logged them", nil)
+	}
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020

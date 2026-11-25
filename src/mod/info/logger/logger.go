@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -49,13 +50,16 @@ type Logger struct {
 	LogFolder      string   //Folder to store the log  file
 	CurrentLogFile string   //Current writing filename
 	file           *os.File //File, empty if LogToFile is false
+	fileMu         sync.Mutex
 }
 
 type jsonLogEntry struct {
-	Time    string `json:"time"`
-	Level   string `json:"level"`
-	Title   string `json:"title"`
-	Message string `json:"message"`
+	Time      string `json:"time"`
+	Level     string `json:"level"`
+	Title     string `json:"title"`
+	Message   string `json:"message"`
+	Caller    string `json:"caller,omitempty"`    //Debug lines only: file:line that logged
+	Goroutine string `json:"goroutine,omitempty"` //Debug lines only: id of the goroutine that logged
 }
 
 // Create a default logger
@@ -129,15 +133,29 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 }
 
 func (l *Logger) Log(title string, errorMessage string, originalError error) {
-	if l != nil && l.LogToFile {
-		l.ValidateAndUpdateLogFilepath()
-		if originalError == nil {
-			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [INFO]" + errorMessage + "\n")
-		} else {
-			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [ERROR]" + errorMessage + " " + originalError.Error() + "\n")
-		}
+	if originalError == nil {
+		l.writeLine(time.Now(), title, "[INFO]", errorMessage)
+	} else {
+		l.writeLine(time.Now(), title, "[ERROR]", errorMessage+" "+originalError.Error())
 	}
+}
 
+// writeLine appends one line to the log file, if this logger has one. Lines
+// are written one at a time, so lines logged at once do not interleave.
+func (l *Logger) writeLine(t time.Time, title string, level string, message string) {
+	if l == nil {
+		return
+	}
+	l.fileMu.Lock()
+	defer l.fileMu.Unlock()
+	if !l.LogToFile || l.file == nil {
+		return
+	}
+	l.ValidateAndUpdateLogFilepath()
+	if !l.LogToFile {
+		return
+	}
+	l.file.WriteString(formatFileLine(t, title, level, message))
 }
 
 // Validate if the logging target is still valid (detect any months change)
@@ -158,5 +176,9 @@ func (l *Logger) ValidateAndUpdateLogFilepath() {
 }
 
 func (l *Logger) Close() {
-	l.file.Close()
+	l.fileMu.Lock()
+	defer l.fileMu.Unlock()
+	if l.file != nil {
+		l.file.Close()
+	}
 }

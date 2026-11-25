@@ -548,7 +548,8 @@ func isLocalFileSystem(fsh *FileSystemHandler) bool {
 	if fsh == nil {
 		return false
 	}
-	_, isLocal := fsh.FileSystemAbstraction.(localfs.LocalFileSystemAbstraction)
+	//The debug wrapper (-debug) stands in front of the real abstraction
+	_, isLocal := UnwrapAbstraction(fsh.FileSystemAbstraction).(localfs.LocalFileSystemAbstraction)
 	return isLocal
 }
 

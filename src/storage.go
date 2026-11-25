@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/permission"
 
 	fs "imuslab.com/arozos/mod/filesystem"
@@ -24,6 +25,7 @@ var (
 )
 
 func StorageInit() {
+	logger.Debugf("Storage", "StorageInit: root=%q tmp=%q config=%q", *root_directory, *tmp_directory, *storage_config_file)
 	//Load the default handler for the user storage root
 	if !fs.FileExists(filepath.Clean(*root_directory) + "/") {
 		os.MkdirAll(filepath.Clean(*root_directory)+"/", 0755)
@@ -37,6 +39,7 @@ func StorageInit() {
 }
 
 func LoadBaseStoragePool() error {
+	logger.Debug("Storage", "LoadBaseStoragePool: building the system pool")
 	//All fsh for the base pool
 	fsHandlers := []*fs.FileSystemHandler{}
 	//Use for Debian buster local file system
@@ -60,6 +63,7 @@ func LoadBaseStoragePool() error {
 		systemWideLogger.PrintAndLog("Storage", "Failed to initiate user root storage directory: "+*root_directory+err.Error(), err)
 		return err
 	}
+	logger.Debugf("Storage", "LoadBaseStoragePool: user:/ ready at %q (fs=%s)", baseHandler.Path, baseHandler.Filesystem)
 	fsHandlers = append(fsHandlers, baseHandler)
 
 	//Load the tmp folder as storage unit
@@ -78,6 +82,7 @@ func LoadBaseStoragePool() error {
 		systemWideLogger.PrintAndLog("Storage", "Failed to initiate tmp storage directory: "+*tmp_directory+err.Error(), err)
 		return err
 	}
+	logger.Debugf("Storage", "LoadBaseStoragePool: tmp:/ ready at %q (fs=%s)", tmpHandler.Path, tmpHandler.Filesystem)
 	fsHandlers = append(fsHandlers, tmpHandler)
 
 	//Load all the storage config from file
@@ -87,6 +92,7 @@ func LoadBaseStoragePool() error {
 		systemWideLogger.PrintAndLog("Storage", "Storage configuration file not found. Using internal storage only.", err)
 	} else {
 		//Configuration loaded. Initializing handler
+		logger.Debugf("Storage", "LoadBaseStoragePool: read %d bytes of drive config from %q", len(rawConfig), *storage_config_file)
 		externalHandlers, err := fs.NewFileSystemHandlersFromJSON(rawConfig, fs.RuntimePersistenceConfig{
 			LocalBufferPath: *tmp_directory,
 		})
@@ -103,6 +109,7 @@ func LoadBaseStoragePool() error {
 
 	//Files other users shared with each user, see file_system.share.go
 	fsHandlers = sharedDriveAttach(fsHandlers)
+	logger.Debugf("Storage", "LoadBaseStoragePool: %d drive(s) in the system pool: %s", len(fsHandlers), describeFshList(fsHandlers))
 
 	//Create a base storage pool for all users
 	sp, err := storage.NewStoragePool(fsHandlers, "system")
@@ -112,6 +119,7 @@ func LoadBaseStoragePool() error {
 	}
 
 	baseStoragePool = sp
+	logger.Debug("Storage", "LoadBaseStoragePool: system pool swapped in")
 
 	//A reload lands here too and cluster:/ is not in any config, so put it
 	//back. During boot the cluster is not up yet and this changes nothing.
@@ -125,9 +133,12 @@ func storageHeartbeatTickerInit() {
 	ticker := time.NewTicker(60 * time.Second)
 	done := make(chan bool)
 	go func() {
+		//A panic in this goroutine stops the whole server, log where it was
+		defer logger.TracePanic("Storage", "storage heartbeat ticker")
 		for {
 			select {
 			case <-done:
+				logger.Debug("Storage", "Heartbeat ticker stopped")
 				return
 			case <-ticker.C:
 				StoragePerformFileSystemAbstractionConnectionHeartbeat()
@@ -141,12 +152,17 @@ func storageHeartbeatTickerInit() {
 // Blocking function, use with go routine if needed
 func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 	allFsh := GetAllLoadedFsh()
+	logger.Debugf("Storage", "Heartbeat: checking %d drive(s)", len(allFsh))
 	for _, thisFsh := range allFsh {
 		if isClusterOrShareDrive(thisFsh) {
 			//Built by code and followed by its own subsystem. There are no
 			//start options to reconnect it from
 			continue
 		}
+		if thisFsh.FileSystemAbstraction == nil {
+			logger.Debugf("Storage", "Heartbeat: %s:/ (%s, closed=%v) has a nil FileSystemAbstraction, the call below will panic", thisFsh.UUID, thisFsh.Filesystem, thisFsh.Closed)
+		}
+		logger.Debugf("Storage", "Heartbeat: %s:/ (%s, closed=%v)", thisFsh.UUID, thisFsh.Filesystem, thisFsh.Closed)
 		err := thisFsh.FileSystemAbstraction.Heartbeat()
 		if err != nil {
 			systemWideLogger.PrintAndLog("System", "[Storage] File System Abstraction from "+thisFsh.Name+" report an error: "+err.Error(), nil)
@@ -164,6 +180,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 				continue
 			} else {
 				//New fsh created. Close the old one
+				logger.Debugf("Storage", "Heartbeat: reconnected %s:/, closing the old handler %p and swapping in %p", originalStartOption.Uuid, thisFsh, newfsh)
 				thisFsh.Close()
 			}
 
@@ -172,6 +189,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 			parentsp := []*storage.StoragePool{}
 			for _, thissp := range sp {
 				if thissp.ContainDiskID(originalStartOption.Uuid) {
+					logger.Debugf("Storage", "Heartbeat: detaching %s:/ from pool %q", originalStartOption.Uuid, thissp.Owner)
 					parentsp = append(parentsp, thissp)
 					thissp.DetachFsHandler(originalStartOption.Uuid)
 				}
@@ -195,6 +213,7 @@ func GroupStoragePoolInit() {
 		//For each group, check does this group has a config file
 		err := LoadStoragePoolForGroup(pg)
 		if err != nil {
+			logger.Debugf("Storage", "GroupStoragePoolInit: group %q has no pool after a load error (StoragePool nil=%v): %v", pg.Name, pg.StoragePool == nil, err)
 			continue
 		}
 
@@ -207,6 +226,9 @@ func GroupStoragePoolInit() {
 
 func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 	expectedConfigPath := "./system/storage/" + pg.Name + ".json"
+	if logger.IsDebug() {
+		logger.Debugf("Storage", "LoadStoragePoolForGroup: group %q, config %q exists=%v", pg.Name, expectedConfigPath, fs.FileExists(expectedConfigPath))
+	}
 	if fs.FileExists(expectedConfigPath) {
 		//Read the config file
 		pgStorageConfig, err := os.ReadFile(expectedConfigPath)
@@ -239,6 +261,7 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 
 		//Assign storage pool to group
 		pg.StoragePool = sp
+		logger.Debugf("Storage", "LoadStoragePoolForGroup: group %q pool ready with %d drive(s): %s", pg.Name, len(sp.Storages), describeFshList(sp.Storages))
 
 	} else {
 		//Storage configuration not exists. Fill in the basic information and move to next storage pool
@@ -262,10 +285,16 @@ func StoragePoolExists(poolOwner string) bool {
 
 func GetAllStoragePools() []*storage.StoragePool {
 	//Append the base pool
+	if baseStoragePool == nil {
+		logger.Debug("Storage", "GetAllStoragePools: the system pool is nil, callers that read its drives will panic")
+	}
 	results := []*storage.StoragePool{baseStoragePool}
 
 	//Add each permissionGroup's pool
 	for _, pg := range permissionHandler.PermissionGroups {
+		if pg.StoragePool == nil {
+			logger.Debugf("Storage", "GetAllStoragePools: group %q has a nil storage pool, callers that read its drives will panic", pg.Name)
+		}
 		results = append(results, pg.StoragePool)
 	}
 
@@ -285,21 +314,28 @@ func GetStoragePoolByOwner(owner string) (*storage.StoragePool, error) {
 func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, error) {
 	VirtualRootID, subpath, err := fs.GetIDFromVirtualPath(vpath)
 	if err != nil {
+		logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath: cannot parse %q: %v", vpath, err)
 		return nil, "", errors.New("Unable to resolve requested path: " + err.Error())
 	}
 
 	fsh, err := GetFsHandlerByUUID(VirtualRootID)
 	if err != nil {
+		logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath: no drive %q for %q: %v", VirtualRootID, vpath, err)
 		return nil, "", errors.New("Unable to resolve requested path: " + err.Error())
 	}
 
 	if fsh == nil || fsh.FileSystemAbstraction == nil {
 		//err is nil on this branch, do not dereference it for a message
+		logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath: drive %q for %q is not loaded (fsh nil=%v)", VirtualRootID, vpath, fsh == nil)
 		return nil, "", errors.New("Unable to resolve requested path: file system handler not loaded")
 	}
 
 	if fsh.Closed {
+		logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath: drive %q for %q is closed", VirtualRootID, vpath)
 		return nil, "", errors.New("Target file system handler already closed")
+	}
+	if logger.IsDebug() {
+		logger.Debugf("Storage", "GetFSHandlerSubpathFromVpath: %q -> %s:/ (%s) subpath %q", vpath, fsh.UUID, fsh.Filesystem, subpath)
 	}
 
 	return fsh, subpath, nil
@@ -318,6 +354,7 @@ func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
 		}
 	}
 	if resultFsh == nil {
+		logger.Debugf("Storage", "GetFsHandlerByUUID: %q not found among %d open drive(s)", uuid, len(allFsh))
 		return nil, errors.New("Filesystem handler with given UUID not found")
 	} else {
 		return resultFsh, nil
@@ -329,7 +366,14 @@ func GetAllLoadedFsh() []*fs.FileSystemHandler {
 	allFsh := []*fs.FileSystemHandler{}
 	allStoragePools := GetAllStoragePools()
 	for _, thisSP := range allStoragePools {
+		if thisSP == nil {
+			//GetAllStoragePools has logged which pool; the line below panics
+			logger.Debug("Storage", "GetAllLoadedFsh: reading the drives of a nil storage pool")
+		}
 		for _, thisFsh := range thisSP.Storages {
+			if thisFsh == nil {
+				logger.Debugf("Storage", "GetAllLoadedFsh: pool %q holds a nil drive", thisSP.Owner)
+			}
 			fshPointer := thisFsh
 			fshTmp[thisFsh.UUID] = fshPointer
 		}
@@ -363,10 +407,38 @@ func CloseAllStorages() {
 
 func closeAllStoragePools() {
 	//Stop the storage pool heartbeat
+	logger.Debug("Storage", "closeAllStoragePools: stopping the heartbeat ticker")
 	storageHeartbeatTickerChan <- true
 
 	//Close all storage pools
 	for _, sp := range GetAllStoragePools() {
+		if sp == nil {
+			logger.Debug("Storage", "closeAllStoragePools: a pool is nil, Close below panics")
+		} else {
+			logger.Debugf("Storage", "closeAllStoragePools: closing pool %q", sp.Owner)
+		}
 		sp.Close()
 	}
+	logger.Debug("Storage", "closeAllStoragePools: done")
+}
+
+// describeFshList names the drives of a list for a debug line, such as
+// "user:/(ext4) tmp:/(ext4)". Only called while debug logging is on.
+func describeFshList(fshs []*fs.FileSystemHandler) string {
+	if !logger.IsDebug() {
+		return ""
+	}
+	parts := []string{}
+	for _, fsh := range fshs {
+		if fsh == nil {
+			parts = append(parts, "<nil>")
+			continue
+		}
+		state := ""
+		if fsh.Closed {
+			state = ",closed"
+		}
+		parts = append(parts, fsh.UUID+":/("+fsh.Filesystem+state+")")
+	}
+	return strings.Join(parts, " ")
 }
