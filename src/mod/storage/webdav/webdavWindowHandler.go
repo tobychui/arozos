@@ -102,7 +102,6 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 
 			} else {
 				//This client is not logged in but connected before
-				//log.Println("Windows client with assigned UUID: " + clientUUID + " try to access becore login validation")
 				///Rewrite the r.URL
 
 				//Update last connection timestamp

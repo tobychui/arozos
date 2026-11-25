@@ -61,7 +61,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 
 	if runtime.GOOS == "linux" {
 		//Only allow Linux to do power operation
-		cmd := exec.Command("/sbin/shutdown")
+		cmd := exec.Command("/sbin/shutdown") // arozos-lint-ignore: fixed Linux system tool, only run when runtime.GOOS is linux
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			logger.DebugErr("Core", err)

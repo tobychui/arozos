@@ -35,7 +35,6 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 		_, err := cmd.CombinedOutput()
 		if err != nil {
 			logger.DebugErr("filesystem/metadata", err)
-			//log.Println(err.Error())
 			return "", err
 		}
 
@@ -46,7 +45,6 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 			img, _, err := image.Decode(bytes.NewReader(imageBytes))
 			if err != nil {
 				logger.DebugErr("filesystem/metadata", err)
-				//log.Println(err.Error())
 			} else {
 				//Crop out the center
 				croppedImg, err := cutter.Crop(img, cutter.Config{
@@ -62,7 +60,6 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 					out.Close()
 
 				} else {
-					//log.Println(err)
 				}
 			}
 

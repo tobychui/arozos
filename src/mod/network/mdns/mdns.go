@@ -156,7 +156,6 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 					macAddrs = strings.Split(properties["mac_addr"], ",")
 				}
 
-				//log.Println(properties)
 				discoveredHost = append(discoveredHost, &NetworkHost{
 					HostName:     entry.HostName,
 					Port:         entry.Port,
@@ -193,7 +192,6 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 						macAddrs = strings.Split(properties["mac_addr"], ",")
 					}
 
-					//log.Println(properties)
 					discoveredHost = append(discoveredHost, &NetworkHost{
 						HostName:     entry.HostName,
 						Port:         entry.Port,

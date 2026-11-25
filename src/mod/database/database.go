@@ -147,10 +147,10 @@ func (d *Database) WriteBatch(ops []BatchOp) (out0 error) {
 		panic(err)
 	}
 	for _, keypairs := range entries{
-		log.Println(string(keypairs[0]))
+		fmt.Println(string(keypairs[0]))
 		group := new(groupstruct)
 		json.Unmarshal(keypairs[1], &group)
-		log.Println(group);
+		fmt.Println(group)
 	}
 
 */

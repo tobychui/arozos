@@ -62,17 +62,33 @@ func getPageHeader(pathname string) (out0 string) {
 		`
 }
 
+/*
+	Icons of the listing, drawn as inline SVG (no emoji, rule 6). They use
+	currentColor so they follow the page's text colour.
+*/
+
+const (
+	svgOpen = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true">`
+
+	iconFile   = svgOpen + `<path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M9.5 1.5v3h3"/></svg>`
+	iconFolder = svgOpen + `<path d="M1.5 3.5h5l1.5 1.5h6.5v8.5h-13z"/></svg>`
+	iconAudio  = svgOpen + `<path d="M6 12V3.5l7-1.5v8.5"/><circle cx="4.5" cy="12" r="1.5"/><circle cx="11.5" cy="10.5" r="1.5"/></svg>`
+	iconVideo  = svgOpen + `<rect x="1.5" y="3.5" width="13" height="9" rx="1"/><path d="M6.5 6v4l3.5-2z"/></svg>`
+	iconImage  = svgOpen + `<rect x="1.5" y="2.5" width="13" height="11" rx="1"/><circle cx="5.5" cy="6" r="1.2"/><path d="M1.5 12l4-4 3 3 2-2 4 4"/></svg>`
+	iconText   = svgOpen + `<path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3"/></svg>`
+)
+
 func getItemHTML(displayText string, link string, isDir bool, modTime string, size string) (out0 string) {
 	defer logger.Out1(logger.In5("fileservers/servers/dirserv", "getItemHTML", "displayText", displayText, "link", link, "isDir", isDir, "modTime", modTime, "size", size), &out0)
-	icon := "📄"
+	icon := iconFile
 	downloadBtn := ""
 	hiddenStyle := ""
 	if isDir {
-		icon = "📁"
+		icon = iconFolder
 		isHidden, _ := hidden.IsHidden(link, true)
 		if isHidden {
 			//Hidden folder
-			icon = "📁"
+			icon = iconFolder
 			hiddenStyle = "filter: alpha(opacity=50); opacity: 0.5;  zoom: 1;"
 		}
 
@@ -80,13 +96,13 @@ func getItemHTML(displayText string, link string, isDir bool, modTime string, si
 	} else {
 		fileMime := mime.TypeByExtension(filepath.Ext(link))
 		if strings.HasPrefix(fileMime, "audio/") {
-			icon = "♫"
+			icon = iconAudio
 		} else if strings.HasPrefix(fileMime, "video/") {
-			icon = "🎞"
+			icon = iconVideo
 		} else if strings.HasPrefix(fileMime, "image/") {
-			icon = "🖼️"
+			icon = iconImage
 		} else if strings.HasPrefix(fileMime, "text/") {
-			icon = "📝"
+			icon = iconText
 		}
 		//fmt.Println(fileMime, filepath.Ext(displayText))
 

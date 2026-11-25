@@ -42,14 +42,14 @@ func NewSambaShareManager(userHandler *user.UserHandler) (out0 *ShareManager, ou
 	defer logger.Out2(logger.In1("fileservers/servers/samba", "NewSambaShareManager", "userHandler", userHandler), &out0, &out1)
 	if runtime.GOOS == "linux" {
 		//Check if samba installed
-		if !utils.FileExists("/bin/smbcontrol") {
+		if !utils.FileExists("/bin/smbcontrol") { // arozos-lint-ignore: Samba install check, inside the runtime.GOOS linux branch
 			return nil, errors.New("samba not installed")
 		}
 	} else {
 		return nil, errors.New("platform not supported")
 	}
 	return &ShareManager{
-		SambaConfigPath: "/etc/samba/smb.conf",
+		SambaConfigPath: "/etc/samba/smb.conf", // arozos-lint-ignore: the Samba config location on Linux, the only platform this manager starts on
 		UserHandler:     userHandler,
 	}, nil
 }

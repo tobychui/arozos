@@ -73,7 +73,6 @@ func (r *Renderer) RenderModel(filename string) (out0 image.Image, out1 error) {
 
 	// fit mesh in a bi-unit cube centered at the origin
 	mesh.UnitCube()
-	//log.Println(mesh.BoundingBox(), filename)
 	// smooth the normals
 	mesh.SmoothNormalsThreshold(Radians(30))
 

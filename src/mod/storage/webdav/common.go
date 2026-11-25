@@ -71,7 +71,6 @@ func mv(r *http.Request, getParamter string, postMode bool) (out0 string, out1 e
 		keys, ok := r.URL.Query()[getParamter]
 
 		if !ok || len(keys[0]) < 1 {
-			//log.Println("Url Param " + getParamter +" is missing")
 			return "", errors.New("GET paramter " + getParamter + " not found or it is empty")
 		}
 

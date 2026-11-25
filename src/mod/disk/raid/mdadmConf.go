@@ -102,7 +102,7 @@ func (m *Manager) UpdateMDADMConfig() (out0 error) {
 	}
 
 	//Load the config from system
-	currentConfigBytes, err := os.ReadFile("/etc/mdadm/mdadm.conf")
+	currentConfigBytes, err := os.ReadFile("/etc/mdadm/mdadm.conf") // arozos-lint-ignore: the mdadm config location on Linux; RAID management is Linux only
 	if err != nil {
 		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("unable to open mdadm.conf: %w", err)

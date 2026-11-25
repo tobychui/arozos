@@ -46,7 +46,6 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 		logger.PrintAndLog("Apt", err.Error(), nil)
 	}
 
-	//log.Println(packageInfo)
 	if installed {
 		return nil
 	}

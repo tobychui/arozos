@@ -3,7 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -116,8 +116,8 @@ func (r *vmRegistry) forceStop(execID, requesterUsername string, isAdmin bool) (
 	}
 	select {
 	case rec.interruptCh <- func() { panic(errForceStop) }:
-		log.Printf("[AGI] VM %s (script: %s, user: %s) force-stopped by %s",
-			execID, rec.ScriptFile, rec.Username, requesterUsername)
+		logger.PrintAndLog("Agi", fmt.Sprintf("VM %s (script: %s, user: %s) force-stopped by %s",
+			execID, rec.ScriptFile, rec.Username, requesterUsername), nil)
 		return nil
 	default:
 		return errors.New("interrupt channel full — VM may already be stopping")

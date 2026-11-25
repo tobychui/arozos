@@ -55,7 +55,7 @@ type StorageDevicesMeta struct {
 // if a format is supported, mkfs.(format) should be symlinked under /sbin
 func FormatPackageInstalled(fsType string) (out0 bool) {
 	defer logger.Out1(logger.In1("disk/diskfs", "FormatPackageInstalled", "fsType", fsType), &out0)
-	return utils.FileExists("/sbin/mkfs." + fsType)
+	return utils.FileExists("/sbin/mkfs." + fsType) // arozos-lint-ignore: where Linux installs mkfs drivers; disk formatting is Linux only
 }
 
 // Create file system, support ntfs, ext4 and fat32 only

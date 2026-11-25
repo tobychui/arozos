@@ -297,7 +297,6 @@ func (a *AuthAgent) ValidateUsernameAndPasswordWithReason(username string, passw
 	if err != nil {
 		logger.DebugErr("auth", err)
 		//User not found or db exception
-		//log.Println("[System Auth] " + username + " login with incorrect password")
 		return false, "Invalid username or password"
 	}
 

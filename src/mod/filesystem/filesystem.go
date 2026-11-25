@@ -130,7 +130,6 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 		if err != nil {
 			logger.DebugErr("filesystem", err)
 			logger.PrintAndLog("Filesystem", "[File System] Failed to create system handler for "+option.Name, nil)
-			//log.Println(err.Error())
 			continue
 		}
 		resultingHandlers = append(resultingHandlers, thisHandler)

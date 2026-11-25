@@ -74,7 +74,6 @@ func GetNetworkInterfaceStats() (out0 int64, out1 int64, out2 error) {
 				tx = s
 			}
 
-			//log.Println(rx, tx)
 			return rx * 4, tx * 4, nil
 		} else {
 			//Invalid data

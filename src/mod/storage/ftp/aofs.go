@@ -293,7 +293,6 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) (out0 error
 func (a aofs) pathRewrite(path string) (out0 *filesystem.FileSystemHandler, out1 string, out2 error) {
 	defer logger.Out3(logger.In2("storage/ftp", "aofs.pathRewrite", "&a", &a, "path", path), &out0, &out1, &out2)
 	path = filepath.ToSlash(filepath.Clean(path))
-	//log.Println("Original path: ", path)
 	if isVirtualRootPath(path) {
 		//The root is an in-memory read-only listing, see rootFs
 		return nil, "", errors.New("FTP root directory is read only")

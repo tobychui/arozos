@@ -40,7 +40,6 @@ func (u *User) SetOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) (out0 err
 	}
 	//Check if it is user structured. If yes, add the filesize to user's quota
 	if fsh.Hierarchy == "user" {
-		//log.Println("Setting user ownership on: " + realpath)
 		u.StorageQuota.AllocateSpace(fsh.FileSystemAbstraction.GetFileSize(rpath))
 	}
 
@@ -57,7 +56,6 @@ func (u *User) RemoveOwnershipFromFile(fsh *fs.FileSystemHandler, vpath string) 
 
 	//Check if it is user structured. If yes, add the filesize to user's quota
 	if fsh.Hierarchy == "user" {
-		//log.Println("Removing user ownership on: " + realpath)
 		u.StorageQuota.ReclaimSpace(fsh.FileSystemAbstraction.GetFileSize(realpath))
 	}
 	return err

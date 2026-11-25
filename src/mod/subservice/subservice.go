@@ -82,7 +82,6 @@ func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string) {
 			if err != nil {
 				arozlog.DebugErr("subservice", err)
 				sr.logger.PrintAndLog("Subservice", "Failed to start subservice: "+filepath.Base(servicePath)+" "+err.Error(), err)
-				//log.Println(err)
 			}
 		}
 
@@ -106,7 +105,6 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) (out0 e
 	if fileExists(servicePath + "/.startscript") {
 		//Launch from start.bat or start.sh
 		if !(fileExists(servicePath+"/start.sh") || fileExists(servicePath+"/start.bat")) {
-			//log.Println("Failed to load subservice: " + serviceRoot + ", .startscript flag is TRUE but no start script found")
 			return errors.New(".startscript flag is TRUE but no start script found")
 		}
 
@@ -120,7 +118,6 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) (out0 e
 		//No startscript defined. Start from binary files if exists
 		if runtime.GOOS == "windows" && !fileExists(servicePath+"/"+binaryExecPath) {
 			if startupMode {
-				//log.Println("Failed to load subservice: " + serviceRoot)
 				return errors.New("Subservice executable not exists " + servicePath + "/" + binaryExecPath + ". Skipping this service")
 			} else {
 				return errors.New("Subservice executable " + servicePath + "/" + binaryExecPath + ". Skipping this service")
@@ -134,7 +131,6 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) (out0 e
 				//This is not installed. Check if it exists as a binary (aka ./myservice)
 				if !fileExists(servicePath + "/" + binaryExecPath) {
 					if startupMode {
-						//log.Println("Package not installed. " + serviceRoot)
 						return errors.New("Package not installed")
 					} else {
 						return errors.New("Package not installed")
@@ -292,7 +288,6 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) (out0 e
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Dir = filepath.ToSlash(servicePath + "/")
-		//log.Println(cmd.Dir,binaryExecPath)
 
 		//Spawn a new go routine to run this subservice
 		go func(cmd *exec.Cmd) {
