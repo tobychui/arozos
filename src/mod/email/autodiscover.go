@@ -54,8 +54,8 @@ var srvLookup = func(ctx context.Context, service string, domain string) ([]*net
 }
 
 // Discover suggests server settings for an address.
-func (m *Manager) Discover(ctx context.Context, p Principal, address string) (*DiscoverResult, error) {
-	logger.Debug("email", "Manager.Discover")
+func (m *Manager) Discover(ctx context.Context, p Principal, address string) (out0 *DiscoverResult, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.Discover", "m", m, "ctx", ctx, "&p", &p, "address", address), &out0, &out1)
 	address = strings.TrimSpace(address)
 	domain := domainOf(address)
 	if domain == "" || strings.ContainsAny(domain, " /\\") {
@@ -124,10 +124,8 @@ type autoconfigServer struct {
 	Authentication []string `xml:"authentication"`
 }
 
-func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address string, domain string) *DiscoverResult {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.discoverAutoconfig: domain=%.120q", domain)
-	}
+func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address string, domain string) (out0 *DiscoverResult) {
+	defer logger.Out1(logger.In5("email", "Manager.discoverAutoconfig", "m", m, "ctx", ctx, "&p", &p, "address", address, "domain", domain), &out0)
 	type source struct {
 		url     string
 		guarded bool
@@ -157,10 +155,12 @@ func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address s
 			defer cancel()
 			request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, src.url, nil)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return
 			}
 			response, err := client.Do(request)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return
 			}
 			defer response.Body.Close()
@@ -169,6 +169,7 @@ func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address s
 			}
 			body, err := io.ReadAll(io.LimitReader(response.Body, 256*1024))
 			if err != nil {
+				logger.DebugErr("email", err)
 				return
 			}
 			if result := parseAutoconfig(body, address); result != nil {
@@ -187,8 +188,8 @@ func (m *Manager) discoverAutoconfig(ctx context.Context, p Principal, address s
 }
 
 // parseAutoconfig reads a Thunderbird autoconfig XML document.
-func parseAutoconfig(body []byte, address string) *DiscoverResult {
-	logger.Debug("email", "parseAutoconfig")
+func parseAutoconfig(body []byte, address string) (out0 *DiscoverResult) {
+	defer logger.Out1(logger.In2("email", "parseAutoconfig", "body", body, "address", address), &out0)
 	document := autoconfigDocument{}
 	if err := xml.Unmarshal(body, &document); err != nil || len(document.Providers) == 0 {
 		return nil
@@ -254,10 +255,8 @@ func parseAutoconfig(body []byte, address string) *DiscoverResult {
 	return result
 }
 
-func substituteAutoconfig(value string, address string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "substituteAutoconfig: value=%.120q", value)
-	}
+func substituteAutoconfig(value string, address string) (out0 string) {
+	defer logger.Out1(logger.In2("email", "substituteAutoconfig", "value", value, "address", address), &out0)
 	local := address
 	if at := strings.LastIndex(address, "@"); at >= 0 {
 		local = address[:at]
@@ -269,10 +268,8 @@ func substituteAutoconfig(value string, address string) string {
 }
 
 // discoverSRV reads RFC 6186 service records.
-func discoverSRV(ctx context.Context, address string, domain string) *DiscoverResult {
-	if logger.IsDebug() {
-		logger.Debugf("email", "discoverSRV: domain=%.120q", domain)
-	}
+func discoverSRV(ctx context.Context, address string, domain string) (out0 *DiscoverResult) {
+	defer logger.Out1(logger.In3("email", "discoverSRV", "ctx", ctx, "address", address, "domain", domain), &out0)
 	lookupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	first := func(service string) *net.SRV {
@@ -302,10 +299,8 @@ func discoverSRV(ctx context.Context, address string, domain string) *DiscoverRe
 }
 
 // discoverByProbing tries the conventional host names and ports.
-func (m *Manager) discoverByProbing(ctx context.Context, p Principal, address string, domain string) *DiscoverResult {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.discoverByProbing: domain=%.120q", domain)
-	}
+func (m *Manager) discoverByProbing(ctx context.Context, p Principal, address string, domain string) (out0 *DiscoverResult) {
+	defer logger.Out1(logger.In5("email", "Manager.discoverByProbing", "m", m, "ctx", ctx, "&p", &p, "address", address, "domain", domain), &out0)
 	allowPrivate := m.allowPrivate(p)
 	type candidate struct {
 		host     string

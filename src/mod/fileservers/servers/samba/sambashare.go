@@ -9,13 +9,14 @@ import "encoding/json"
 
 // Wrapper to save changes to file. Note that the name cannot be changed
 // or otherwise there will be save issue. Use rename instead for name change
-func (s *ShareConfig) SaveToConfig() error {
-	logger.Debug("fileservers/servers/samba", "ShareConfig.SaveToConfig")
+func (s *ShareConfig) SaveToConfig() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "ShareConfig.SaveToConfig", "s", s), &out0)
 	//Deep copy of the current share config
 	newShareConfig := ShareConfig{}
 	originalConfigBytes, _ := json.Marshal(s)
 	err := json.Unmarshal(originalConfigBytes, &newShareConfig)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return err
 	}
 
@@ -23,6 +24,7 @@ func (s *ShareConfig) SaveToConfig() error {
 	shareManager := s.parent
 	err = shareManager.RemoveSambaShareConfig(s.Name)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return err
 	}
 
@@ -30,20 +32,19 @@ func (s *ShareConfig) SaveToConfig() error {
 }
 
 // Remove this share
-func (s *ShareConfig) Remove() error {
-	logger.DebugTrace("fileservers/servers/samba", "ShareConfig.Remove")
+func (s *ShareConfig) Remove() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "ShareConfig.Remove", "s", s), &out0)
 	return s.parent.RemoveSambaShareConfig(s.Name)
 }
 
-func (s *ShareConfig) Rename(newName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareConfig.Rename: newName=%.120q", newName)
-	}
+func (s *ShareConfig) Rename(newName string) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/samba", "ShareConfig.Rename", "s", s, "newName", newName), &out0)
 	//Deep copy of the current share config
 	newShareConfig := ShareConfig{}
 	originalConfigBytes, _ := json.Marshal(s)
 	err := json.Unmarshal(originalConfigBytes, &newShareConfig)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return err
 	}
 
@@ -51,6 +52,7 @@ func (s *ShareConfig) Rename(newName string) error {
 	newShareConfig.Name = newName
 	err = s.parent.CreateNewSambaShare(&newShareConfig)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return err
 	}
 	return s.Remove()

@@ -90,9 +90,7 @@ func (cc *colorCtx) resolveColor(n *xmltree.Node) string {
 
 // schemeHex maps a schemeClr val through the colour map into the theme
 func (cc *colorCtx) schemeHex(val string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "colorCtx.schemeHex: val=%.120q", val)
-	}
+	logger.DebugTrace("office/pptx", "colorCtx.schemeHex")
 	if val == "" {
 		return ""
 	}
@@ -172,9 +170,7 @@ func colorAlpha(n *xmltree.Node) float64 {
 // CSS, SVG and the PDF exporter's colour parser all read. A colour that is
 // all but transparent stays a colour: "none" is for a stated noFill.
 func withAlpha(hex string, a float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "withAlpha: hex=%.120q a=%g", hex, a)
-	}
+	logger.DebugTrace("office/pptx", "withAlpha")
 	if a >= 0.998 || len(hex) != 7 {
 		return hex
 	}
@@ -238,9 +234,7 @@ func (cc *colorCtx) fillColorOf(parent *xmltree.Node) string {
 // deliberately not applied here - the caller reads it separately, because
 // the editor model carries opacity on the object, not on the colour.
 func applyColorMods(r, g, b float64, n *xmltree.Node) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "applyColorMods: r=%g g=%g b=%g", r, g, b)
-	}
+	logger.DebugTrace("office/pptx", "applyColorMods")
 	for i := range n.Nodes {
 		ch := &n.Nodes[i]
 		v := units.AtofDefault(ch.Attr("val"), 0) / 100000.0
@@ -279,9 +273,7 @@ func applyColorMods(r, g, b float64, n *xmltree.Node) (float64, float64, float64
 // toLinear / fromLinear convert one sRGB channel (0..255) to linear light
 // (0..1) and back
 func toLinear(c float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "toLinear: c=%g", c)
-	}
+	logger.DebugTrace("office/pptx", "toLinear")
 	c = clamp01(c / 255)
 	if c <= 0.04045 {
 		return c / 12.92
@@ -290,9 +282,7 @@ func toLinear(c float64) float64 {
 }
 
 func fromLinear(l float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "fromLinear: l=%g", l)
-	}
+	logger.DebugTrace("office/pptx", "fromLinear")
 	l = clamp01(l)
 	if l <= 0.0031308 {
 		return l * 12.92 * 255
@@ -301,9 +291,7 @@ func fromLinear(l float64) float64 {
 }
 
 func hexToRGB(h string) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "hexToRGB: h=%.120q", h)
-	}
+	logger.DebugTrace("office/pptx", "hexToRGB")
 	h = strings.TrimPrefix(strings.TrimSpace(h), "#")
 	if len(h) == 3 {
 		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
@@ -313,15 +301,14 @@ func hexToRGB(h string) (float64, float64, float64) {
 	}
 	v, err := strconv.ParseUint(h, 16, 32)
 	if err != nil {
+		logger.DebugErr("office/pptx", err)
 		return 0, 0, 0
 	}
 	return float64((v >> 16) & 255), float64((v >> 8) & 255), float64(v & 255)
 }
 
 func rgbToHex(r, g, b float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "rgbToHex: r=%g g=%g b=%g", r, g, b)
-	}
+	logger.DebugTrace("office/pptx", "rgbToHex")
 	cl := func(v float64) int64 {
 		if v < 0 {
 			return 0
@@ -341,9 +328,7 @@ func rgbToHex(r, g, b float64) string {
 }
 
 func clamp01(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "clamp01: v=%g", v)
-	}
+	logger.DebugTrace("office/pptx", "clamp01")
 	if v < 0 {
 		return 0
 	}
@@ -354,9 +339,7 @@ func clamp01(v float64) float64 {
 }
 
 func rgbToHSL(r, g, b float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "rgbToHSL: r=%g g=%g b=%g", r, g, b)
-	}
+	logger.DebugTrace("office/pptx", "rgbToHSL")
 	r, g, b = r/255, g/255, b/255
 	mx := math.Max(r, math.Max(g, b))
 	mn := math.Min(r, math.Min(g, b))
@@ -387,9 +370,7 @@ func rgbToHSL(r, g, b float64) (float64, float64, float64) {
 }
 
 func hslToRGB(h, s, l float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "hslToRGB: h=%g s=%g l=%g", h, s, l)
-	}
+	logger.DebugTrace("office/pptx", "hslToRGB")
 	if s == 0 {
 		return l * 255, l * 255, l * 255
 	}

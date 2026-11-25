@@ -12,23 +12,17 @@ import "errors"
 
 // Toggle WiFi On Off. Only allow on sudo mode
 func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "WiFiManager.SetInterfacePower: wlanInterface=%.120q on=%t", wlanInterface, on)
-	}
+	logger.DebugTrace("network/wifi", "WiFiManager.SetInterfacePower")
 	return errors.New("Platform not supported")
 }
 
 func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "WiFiManager.GetInterfacePowerStatuts: wlanInterface=%.120q", wlanInterface)
-	}
+	logger.DebugTrace("network/wifi", "WiFiManager.GetInterfacePowerStatuts")
 	return false, errors.New("Platform not supported")
 }
 
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "WiFiManager.ScanNearbyWiFi: interfaceName=%.120q", interfaceName)
-	}
+	logger.DebugTrace("network/wifi", "WiFiManager.ScanNearbyWiFi")
 	return []WiFiInfo{}, errors.New("Platform not supported")
 }
 
@@ -38,9 +32,7 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 }
 
 func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string, identity string) (*WiFiConnectionResult, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "WiFiManager.ConnectWiFi: ssid=%.120q identity=%.120q", ssid, identity)
-	}
+	logger.DebugTrace("network/wifi", "WiFiManager.ConnectWiFi")
 	return &WiFiConnectionResult{}, errors.New("Platform not supported")
 }
 
@@ -50,9 +42,7 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 }
 
 func (w *WiFiManager) RemoveWifi(ssid string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "WiFiManager.RemoveWifi: ssid=%.120q", ssid)
-	}
+	logger.DebugTrace("network/wifi", "WiFiManager.RemoveWifi")
 	return errors.New("Platform not supported")
 }
 

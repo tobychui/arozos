@@ -11,7 +11,7 @@ import (
 )
 
 func HardwarePowerInit() {
-	logger.Debug("Core", "HardwarePowerInit")
+	defer logger.Out0(logger.In0("Core", "HardwarePowerInit"))
 	if *allow_power_management {
 		//Only register these paths when hardware management is enabled
 		http.HandleFunc("/system/power/shutdown", hardware_power_poweroff)
@@ -32,9 +32,7 @@ func HardwarePowerInit() {
 }
 
 func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "hardware_power_checkIfHardware: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "hardware_power_checkIfHardware", "r", r))
 	if *allow_power_management {
 		utils.SendJSONResponse(w, "true")
 	} else {
@@ -43,9 +41,7 @@ func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
 }
 
 func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "hardware_power_poweroff: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "hardware_power_poweroff", "r", r))
 	//validate password using authreq.html
 	if !AuthValidateSecureRequest(w, r, true) {
 		return
@@ -56,6 +52,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("shutdown", "-s", "-t", "20")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Power", string(out), err)
 			utils.SendErrorResponse(w, string(out))
 		}
@@ -67,6 +64,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("/sbin/shutdown")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Power", string(out), err)
 			utils.SendErrorResponse(w, string(out))
 		}
@@ -78,6 +76,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("sudo", "shutdown", "-h", "+1")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Power", string(out), err)
 			utils.SendErrorResponse(w, string(out))
 		}
@@ -88,9 +87,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 }
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "hardware_power_restart: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "hardware_power_restart", "r", r))
 	//Validate password using authreq.html
 	if !AuthValidateSecureRequest(w, r, true) {
 		return
@@ -101,6 +98,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("shutdown", "-r", "-t", "20")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Power", string(out), err)
 			utils.SendErrorResponse(w, string(out))
 		}
@@ -112,6 +110,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("systemctl", "reboot")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Power", string(out), err)
 			utils.SendErrorResponse(w, string(out))
 		}
@@ -123,6 +122,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("shutdown", "-r", "+1")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Power", string(out), err)
 			utils.SendErrorResponse(w, string(out))
 		}

@@ -41,12 +41,11 @@ const HLSSegmentEndpoint = "/media/hls/segment"
 // transcodeResolutionFromRequest reads the optional "res" parameter.
 // An unrecognised value falls back to the source resolution, matching the
 // behaviour the MP4 endpoint has always had.
-func transcodeResolutionFromRequest(r *http.Request) transcoder.TranscodeOutputResolution {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "transcodeResolutionFromRequest: r=%s", logger.RequestSummary(r))
-	}
+func transcodeResolutionFromRequest(r *http.Request) (out0 transcoder.TranscodeOutputResolution) {
+	defer logger.Out1(logger.In1("media/mediaserver", "transcodeResolutionFromRequest", "r", r), &out0)
 	resolution, err := utils.GetPara(r, "res")
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return transcoder.TranscodeResolution_original
 	}
 	return transcoder.ParseTranscodeResolution(resolution)
@@ -56,12 +55,11 @@ func transcodeResolutionFromRequest(r *http.Request) transcoder.TranscodeOutputR
 // player. It lets a seek retire the transcode it replaces instead of leaving it
 // running (see transcoder.HLSManager.GetOrCreate); an absent id is not an
 // error, only a less precise answer to "which transcode is this replacing".
-func clientIDFromRequest(r *http.Request) string {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "clientIDFromRequest: r=%s", logger.RequestSummary(r))
-	}
+func clientIDFromRequest(r *http.Request) (out0 string) {
+	defer logger.Out1(logger.In1("media/mediaserver", "clientIDFromRequest", "r", r), &out0)
 	clientID, err := utils.GetPara(r, "client")
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return ""
 	}
 	//Only ever compared for equality, so anything unexpected can simply be
@@ -78,10 +76,8 @@ func clientIDFromRequest(r *http.Request) string {
 }
 
 // startTimeFromRequest reads the optional "start" seek offset in seconds.
-func startTimeFromRequest(r *http.Request) float64 {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "startTimeFromRequest: r=%s", logger.RequestSummary(r))
-	}
+func startTimeFromRequest(r *http.Request) (out0 float64) {
+	defer logger.Out1(logger.In1("media/mediaserver", "startTimeFromRequest", "r", r), &out0)
 	startTimeStr, _ := utils.GetPara(r, "start")
 	if startTimeStr == "" {
 		return 0
@@ -100,11 +96,10 @@ func startTimeFromRequest(r *http.Request) float64 {
 // decodability: an .mp4 holding HEVC or 10-bit H.264 looks directly playable
 // and then fails with a bare decode error.
 func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeMediaProbe: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeMediaProbe", "s", s, "r", r))
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -118,6 +113,7 @@ func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
 
 	info, err := transcoder.ProbeMediaCodecs(realFilepath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Media Server",
 			"Codec probe failed for "+filepath.Base(realFilepath), err)
 		utils.SendErrorResponse(w, "could not probe media codecs")
@@ -133,9 +129,7 @@ func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
 // ServeHLSPlaylist starts (or joins) an HLS transcode of the requested file and
 // returns its playlist once the first segment is ready.
 func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeHLSPlaylist: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeHLSPlaylist", "s", s, "r", r))
 	//Errors here are reported with an HTTP status rather than a JSON body: the
 	//caller is a <video> element or an HLS player, and a 200 carrying JSON is
 	//indistinguishable to it from a playlist it cannot parse - which surfaces to
@@ -147,6 +141,7 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, "User not logged in", http.StatusUnauthorized)
 		return
 	}
@@ -160,12 +155,14 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 	session, err := s.hlsManager.GetOrCreate(userinfo.Username, clientIDFromRequest(r), sourceFile,
 		transcodeResolutionFromRequest(r), startTimeFromRequest(r))
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Media Server", "Unable to start HLS session", err)
 		http.Error(w, "Unable to start HLS transcode", http.StatusInternalServerError)
 		return
 	}
 
 	if err := session.WaitForPlaylist(transcoder.HLSPlaylistWaitTimeout); err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		//ffmpeg's own last words explain a failed transcode - a seek past the
 		//end of the file, an unreadable stream - and nothing else does.
 		if tail := session.StderrTail(); tail != "" {
@@ -180,6 +177,7 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 	//has to be rewritten onto the segment endpoint before the client sees it.
 	playlist, err := s.hlsManager.ReadPlaylist(session)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Media Server", "Unable to read HLS playlist", err)
 		http.Error(w, "Unable to read the transcode playlist", http.StatusInternalServerError)
 		return
@@ -194,9 +192,7 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 // ServeHLSSegment serves one segment of a running HLS session. Segments are
 // readable only by the user whose session produced them.
 func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeHLSSegment: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeHLSSegment", "s", s, "r", r))
 	if s.hlsManager == nil {
 		http.Error(w, "HLS output is not available on this host", http.StatusNotFound)
 		return
@@ -204,17 +200,20 @@ func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
 
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, "User not logged in", http.StatusUnauthorized)
 		return
 	}
 
 	sessionID, err := utils.GetPara(r, "sid")
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, "Missing parameter 'sid'", http.StatusBadRequest)
 		return
 	}
 	segmentName, err := utils.GetPara(r, "name")
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, "Missing parameter 'name'", http.StatusBadRequest)
 		return
 	}
@@ -232,6 +231,7 @@ func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
 
 	segmentPath, err := session.SegmentPath(segmentName)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, "Invalid segment name", http.StatusBadRequest)
 		return
 	}
@@ -252,13 +252,12 @@ func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
 // It writes the error response itself and returns ok=false when the file cannot
 // be made available. Like the endpoints it serves, it answers with an HTTP
 // status rather than a JSON body, since the caller is always a media element.
-func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Request) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.resolveLocalTranscodeSource: r=%s", logger.RequestSummary(r))
-	}
+func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Request) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In2("media/mediaserver", "Instance.resolveLocalTranscodeSource", "s", s, "r", r), &out0, &out1)
 	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return "", false
 	}
@@ -267,6 +266,7 @@ func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Re
 		//Already on the local file system
 		absPath, err := filepath.Abs(realFilepath)
 		if err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return "", false
 		}
@@ -296,6 +296,7 @@ func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Re
 	os.MkdirAll(buffpool, 0775)
 	s.options.Logger.PrintAndLog("Media Server", "Buffering video from remote file system handler (might take a while)", nil)
 	if err := s.BufferRemoteFileToTmp(buffFile, targetFsh, realFilepath); err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return "", false
 	}

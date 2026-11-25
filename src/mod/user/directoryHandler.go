@@ -31,8 +31,8 @@ func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
 }
 
 // Get all user Acessible file system handlers (ignore special fsh like backups)
-func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
-	logger.Debug("user", "User.GetAllAccessibleFileSystemHandler")
+func (u *User) GetAllAccessibleFileSystemHandler() (out0 []*fs.FileSystemHandler) {
+	defer logger.Out1(logger.In1("user", "User.GetAllAccessibleFileSystemHandler", "u", u), &out0)
 	results := []*fs.FileSystemHandler{}
 	fshs := u.GetAllFileSystemHandler()
 	for _, fsh := range fshs {
@@ -45,10 +45,8 @@ func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
 }
 
 // Try to get the root file system handler from vpath where the root file system handler must be in user scope of permission
-func (u *User) GetRootFSHFromVpathInUserScope(vpath string) *fs.FileSystemHandler {
-	if logger.IsDebug() {
-		logger.Debugf("user", "User.GetRootFSHFromVpathInUserScope: vpath=%.120q", vpath)
-	}
+func (u *User) GetRootFSHFromVpathInUserScope(vpath string) (out0 *fs.FileSystemHandler) {
+	defer logger.Out1(logger.In2("user", "User.GetRootFSHFromVpathInUserScope", "u", u, "vpath", vpath), &out0)
 	allFsh := u.GetAllAccessibleFileSystemHandler()
 	var vpathSourceFsh *fs.FileSystemHandler
 	for _, thisFsh := range allFsh {
@@ -71,8 +69,8 @@ type drivePool struct {
 // all other groups, whose drives a user reaches through a row of the drive's
 // access list. The order matters only for a drive id used by two pools,
 // where the first one wins the same way it always did.
-func (u *User) drivePools() []drivePool {
-	logger.Debug("user", "User.drivePools")
+func (u *User) drivePools() (out0 []drivePool) {
+	defer logger.Out1(logger.In1("user", "User.drivePools", "u", u), &out0)
 	pools := []drivePool{}
 	if u.HomeDirectories != nil {
 		pools = append(pools, drivePool{pool: u.HomeDirectories})
@@ -103,10 +101,8 @@ func (u *User) accessSubject() access.Subject {
 }
 
 // driveRule returns the access list of a drive
-func (u *User) driveRule(uuid string, home string) access.Rule {
-	if logger.IsDebug() {
-		logger.Debugf("user", "User.driveRule: uuid=%.120q home=%.120q", uuid, home)
-	}
+func (u *User) driveRule(uuid string, home string) (out0 access.Rule) {
+	defer logger.Out1(logger.In3("user", "User.driveRule", "u", u, "uuid", uuid, "home", home), &out0)
 	if u.parent != nil && u.parent.driveRules != nil {
 		if rule, ok := u.parent.driveRules.Rule(uuid); ok {
 			return rule
@@ -116,18 +112,16 @@ func (u *User) driveRule(uuid string, home string) access.Rule {
 }
 
 // explainDrive works out what this user may do on one drive of one pool
-func (u *User) explainDrive(fsh *fs.FileSystemHandler, home string, subject access.Subject) access.Decision {
-	if logger.IsDebug() {
-		logger.Debugf("user", "User.explainDrive: home=%.120q", home)
-	}
+func (u *User) explainDrive(fsh *fs.FileSystemHandler, home string, subject access.Subject) (out0 access.Decision) {
+	defer logger.Out1(logger.In4("user", "User.explainDrive", "u", u, "fsh", fsh, "home", home, "&subject", &subject), &out0)
 	drive := access.Drive{UUID: fsh.UUID, HomeGroup: home, ReadOnly: fsh.ReadOnly}
 	return access.Explain(drive, subject, u.driveRule(fsh.UUID, home))
 }
 
 // GetAllFileSystemHandler lists the opened drives this user may use, whichever
 // pool they are configured in
-func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
-	logger.Debug("user", "User.GetAllFileSystemHandler")
+func (u *User) GetAllFileSystemHandler() (out0 []*fs.FileSystemHandler) {
+	defer logger.Out1(logger.In1("user", "User.GetAllFileSystemHandler", "u", u), &out0)
 	results := []*fs.FileSystemHandler{}
 	listed := map[string]bool{}
 	subject := u.accessSubject()
@@ -302,10 +296,8 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 */
 
 // Get a file system handler from a virtual path, this file system handler might not be the highest prioity one
-func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("user", "User.GetFileSystemHandlerFromVirtualPath: vpath=%.120q", vpath)
-	}
+func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (out0 *fs.FileSystemHandler, out1 error) {
+	defer logger.Out2(logger.In2("user", "User.GetFileSystemHandlerFromVirtualPath", "u", u, "vpath", vpath), &out0, &out1)
 	fsHandlers := u.GetAllFileSystemHandler()
 	handler, err := getHandlerFromVirtualPath(fsHandlers, vpath)
 	return handler, err

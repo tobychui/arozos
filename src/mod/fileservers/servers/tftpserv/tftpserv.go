@@ -29,8 +29,8 @@ type Manager struct {
 }
 
 // Create a new TFTP Manager
-func NewTFTPManager(option *ManagerOption) *Manager {
-	logger.Debug("fileservers/servers/tftpserv", "NewTFTPManager")
+func NewTFTPManager(option *ManagerOption) (out0 *Manager) {
+	defer logger.Out1(logger.In1("fileservers/servers/tftpserv", "NewTFTPManager", "option", option), &out0)
 	//Create database related tables
 	option.Sysdb.NewTable("tftp")
 	defaultEnable := false
@@ -53,8 +53,8 @@ func NewTFTPManager(option *ManagerOption) *Manager {
 	return &manager
 }
 
-func (m *Manager) StartTftpServer() error {
-	logger.Debug("fileservers/servers/tftpserv", "Manager.StartTftpServer")
+func (m *Manager) StartTftpServer() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/tftpserv", "Manager.StartTftpServer", "m", m), &out0)
 	if m.option.TftpServer != nil {
 		//If the previous tftp server is not closed, close it and open a new one
 		m.option.TftpServer.Close()
@@ -69,6 +69,7 @@ func (m *Manager) StartTftpServer() error {
 	//Create a new TFTP Handler
 	h, err := tftp.NewTFTPHandler(m.option.UserManager, m.option.Hostname, serverPort, m.option.TmpFolder)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/tftpserv", err)
 		return err
 	}
 	h.Start()
@@ -81,7 +82,7 @@ func (m *Manager) StartTftpServer() error {
 }
 
 func (m *Manager) StopTftpServer() {
-	logger.Debug("fileservers/servers/tftpserv", "Manager.StopTftpServer")
+	defer logger.Out0(logger.In1("fileservers/servers/tftpserv", "Manager.StopTftpServer", "m", m))
 	if m.option.TftpServer != nil {
 		m.option.TftpServer.Close()
 	}
@@ -90,8 +91,8 @@ func (m *Manager) StopTftpServer() {
 	m.option.Logger.PrintAndLog("TFTP", "TFTP Server Stopped", nil)
 }
 
-func (m *Manager) GetTftpServerStatus() (*ServerStatus, error) {
-	logger.Debug("fileservers/servers/tftpserv", "Manager.GetTftpServerStatus")
+func (m *Manager) GetTftpServerStatus() (out0 *ServerStatus, out1 error) {
+	defer logger.Out2(logger.In1("fileservers/servers/tftpserv", "Manager.GetTftpServerStatus", "m", m), &out0, &out1)
 	enabled := false
 	if m.option.TftpServer != nil && m.option.TftpServer.ServerRunning {
 		enabled = true
@@ -121,15 +122,13 @@ func (m *Manager) GetTftpServerStatus() (*ServerStatus, error) {
 	return &currentStatus, nil
 }
 
-func (m *Manager) IsTftpServerEnabled() bool {
-	logger.DebugTrace("fileservers/servers/tftpserv", "Manager.IsTftpServerEnabled")
+func (m *Manager) IsTftpServerEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/tftpserv", "Manager.IsTftpServerEnabled", "m", m), &out0)
 	return m.option.TftpServer != nil && m.option.TftpServer.ServerRunning
 }
 
-func (m *Manager) TFTPServerToggle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/tftpserv", "Manager.TFTPServerToggle: enabled=%t", enabled)
-	}
+func (m *Manager) TFTPServerToggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/tftpserv", "Manager.TFTPServerToggle", "m", m, "enabled", enabled), &out0)
 	if m.option.TftpServer != nil && m.option.TftpServer.ServerRunning {
 		//Enabled
 		if !enabled {
@@ -143,8 +142,8 @@ func (m *Manager) TFTPServerToggle(enabled bool) error {
 	return nil
 }
 
-func (m *Manager) TFTPGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	logger.Debug("fileservers/servers/tftpserv", "Manager.TFTPGetEndpoints")
+func (m *Manager) TFTPGetEndpoints(userinfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/tftpserv", "Manager.TFTPGetEndpoints", "m", m, "userinfo", userinfo), &out0)
 	tftpEndpoints := []*fileservers.Endpoint{}
 	port := 69
 	if m.option.TftpServer != nil {

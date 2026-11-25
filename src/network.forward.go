@@ -20,7 +20,7 @@ import (
 */
 
 func portForwardInit() {
-	logger.Debug("Core", "portForwardInit")
+	defer logger.Out0(logger.In0("Core", "portForwardInit"))
 
 	//Create database table if not exists
 	sysdb.NewTable("portforward")
@@ -37,6 +37,7 @@ func portForwardInit() {
 			//Forward the recorded port
 			err := UPNP.ForwardPort(portNumber, policyName)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("UpnP", "Port Fordware Failed: "+err.Error()+". Skipping "+policyName, err)
 			}
 
@@ -65,9 +66,7 @@ func portForwardInit() {
 }
 
 func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "portforward_handleForward: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "portforward_handleForward", "r", r))
 	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
 		if UPNP == nil {
@@ -110,6 +109,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 	} else if opr == "add" {
 		port, err := utils.PostPara(r, "port")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
@@ -117,6 +117,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 		//Convert port to int
 		portNumberic, err := strconv.Atoi(port)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
@@ -124,6 +125,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 		//Get the policy name
 		policyName, err := utils.PostPara(r, "name")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			policyName = "Unnamed Forward Policy"
 		}
 
@@ -134,6 +136,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 			//Forward the port
 			err := UPNP.ForwardPort(portNumberic, policyName)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				utils.SendErrorResponse(w, err.Error())
 			} else {
 				utils.SendOK(w)
@@ -145,6 +148,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 	} else if opr == "remove" {
 		port, err := utils.PostPara(r, "port")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
@@ -152,6 +156,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 		//Convert port to int
 		portNumberic, err := strconv.Atoi(port)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
@@ -165,6 +170,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 		if UPNP != nil {
 			err := UPNP.ClosePort(portNumberic)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				utils.SendErrorResponse(w, err.Error())
 			} else {
 				utils.SendOK(w)

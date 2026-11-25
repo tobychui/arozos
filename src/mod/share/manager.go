@@ -21,10 +21,8 @@ import (
 )
 
 // Craete a new file or folder share, or return the existing first share of the path
-func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSystemHandler, vpath string) (*shareEntry.ShareOption, error) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.CreateNewShare: vpath=%.120q", vpath)
-	}
+func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSystemHandler, vpath string) (out0 *shareEntry.ShareOption, out1 error) {
+	defer logger.Out2(logger.In4("share", "Manager.CreateNewShare", "s", s, "userinfo", userinfo, "srcFsh", srcFsh, "vpath", vpath), &out0, &out1)
 	if srcFsh == nil {
 		return nil, errors.New("Invalid vpath given")
 	}
@@ -44,10 +42,8 @@ func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSys
 var errReshare = errors.New("Files shared with you cannot be shared again")
 
 // CreateShare always adds a new share with the given settings to the path
-func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareEntry.ShareSettings) (*shareEntry.ShareOption, error) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.CreateShare: vpath=%.120q", vpath)
-	}
+func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareEntry.ShareSettings) (out0 *shareEntry.ShareOption, out1 error) {
+	defer logger.Out2(logger.In4("share", "Manager.CreateShare", "s", s, "userinfo", userinfo, "vpath", vpath, "&settings", &settings), &out0, &out1)
 	srcFsh := userinfo.GetRootFSHFromVpathInUserScope(vpath)
 	if srcFsh == nil {
 		return nil, errors.New("Invalid vpath given")
@@ -58,11 +54,13 @@ func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareE
 
 	settings, err := s.resolveRecipients(userinfo, settings)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return nil, err
 	}
 
 	so, err := s.options.ShareEntryTable.CreateShare(srcFsh, vpath, userinfo.Username, settings)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return nil, err
 	}
 	s.driveCache.clear()
@@ -73,10 +71,8 @@ func (s *Manager) CreateShare(userinfo *user.User, vpath string, settings shareE
 }
 
 // UpdateShare changes the settings of an existing share
-func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEntry.ShareSettings) (*shareEntry.ShareOption, error) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.UpdateShare: uuid=%.120q", uuid)
-	}
+func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEntry.ShareSettings) (out0 *shareEntry.ShareOption, out1 error) {
+	defer logger.Out2(logger.In4("share", "Manager.UpdateShare", "s", s, "userinfo", userinfo, "uuid", uuid, "&settings", &settings), &out0, &out1)
 	so := s.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		return nil, errors.New("Share UUID not exists")
@@ -89,15 +85,18 @@ func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEn
 	//Same group shares snapshot the groups of the share owner, not the editor
 	owner, err := s.options.UserHandler.GetUserInfoFromUsername(so.Owner)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return nil, errors.New("Share owner not exists")
 	}
 	settings, err = s.resolveRecipients(owner, settings)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return nil, err
 	}
 
 	updated, err := s.options.ShareEntryTable.UpdateShare(uuid, settings)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return nil, err
 	}
 	s.driveCache.clear()
@@ -109,8 +108,8 @@ func (s *Manager) UpdateShare(userinfo *user.User, uuid string, settings shareEn
 
 // resolveRecipients fills in the owner's groups for same group shares and
 // checks that invited users and groups exist.
-func (s *Manager) resolveRecipients(owner *user.User, settings shareEntry.ShareSettings) (shareEntry.ShareSettings, error) {
-	logger.Debug("share", "Manager.resolveRecipients")
+func (s *Manager) resolveRecipients(owner *user.User, settings shareEntry.ShareSettings) (out0 shareEntry.ShareSettings, out1 error) {
+	defer logger.Out2(logger.In3("share", "Manager.resolveRecipients", "s", s, "owner", owner, "&settings", &settings), &out0, &out1)
 	if settings.Permission == nil {
 		return settings, nil
 	}
@@ -143,14 +142,15 @@ There are two conditions where the user can open the file in file manager
 1. If the user is the owner of the file
 2. If the user is NOT the owner of the file but the target fsh is public accessible and in user's fsh list
 */
-func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, userinfo *user.User) bool {
-	logger.Debug("share", "Manager.UserCanOpenShareInFileManager")
+func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, userinfo *user.User) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "Manager.UserCanOpenShareInFileManager", "s", s, "share", share, "userinfo", userinfo), &out0)
 	if share.Owner == userinfo.Username {
 		return true
 	}
 
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(share.FileVirtualPath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		//User do not have permission to access this fsh
 		return false
 	}
@@ -163,10 +163,8 @@ func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, u
 	return false
 }
 
-func (s *Manager) ListAllShareByFshId(fshId string, userinfo *user.User) []*shareEntry.ShareOption {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.ListAllShareByFshId: fshId=%.120q", fshId)
-	}
+func (s *Manager) ListAllShareByFshId(fshId string, userinfo *user.User) (out0 []*shareEntry.ShareOption) {
+	defer logger.Out1(logger.In3("share", "Manager.ListAllShareByFshId", "s", s, "fshId", fshId, "userinfo", userinfo), &out0)
 	results := []*shareEntry.ShareOption{}
 	for _, thisShareOption := range s.options.ShareEntryTable.ListAllShares() {
 		if userinfo.IsAdmin() || thisShareOption.IsAccessibleBy(userinfo.Username, userinfo.GetUserPermissionGroupNames()) {
@@ -181,12 +179,11 @@ func (s *Manager) ListAllShareByFshId(fshId string, userinfo *user.User) []*shar
 
 // ListSharesOfPath returns the shares on the given path that the user can
 // manage, oldest first.
-func (s *Manager) ListSharesOfPath(userinfo *user.User, vpath string) []*shareEntry.ShareOption {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.ListSharesOfPath: vpath=%.120q", vpath)
-	}
+func (s *Manager) ListSharesOfPath(userinfo *user.User, vpath string) (out0 []*shareEntry.ShareOption) {
+	defer logger.Out1(logger.In3("share", "Manager.ListSharesOfPath", "s", s, "userinfo", userinfo, "vpath", vpath), &out0)
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return []*shareEntry.ShareOption{}
 	}
 
@@ -203,15 +200,17 @@ func (s *Manager) ListSharesOfPath(userinfo *user.User, vpath string) []*shareEn
 	return results
 }
 
-func (s *Manager) ShareIsValid(thisShareOption *shareEntry.ShareOption) bool {
-	logger.Debug("share", "Manager.ShareIsValid")
+func (s *Manager) ShareIsValid(thisShareOption *shareEntry.ShareOption) (out0 bool) {
+	defer logger.Out1(logger.In2("share", "Manager.ShareIsValid", "s", s, "thisShareOption", thisShareOption), &out0)
 	vpath := thisShareOption.FileVirtualPath
 	userinfo, err := s.options.UserHandler.GetUserInfoFromUsername(thisShareOption.Owner)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return false
 	}
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return false
 	}
 
@@ -225,15 +224,17 @@ func (s *Manager) ShareIsValid(thisShareOption *shareEntry.ShareOption) bool {
 	return true
 }
 
-func (s *Manager) GetPathHashFromShare(thisShareOption *shareEntry.ShareOption) (string, error) {
-	logger.Debug("share", "Manager.GetPathHashFromShare")
+func (s *Manager) GetPathHashFromShare(thisShareOption *shareEntry.ShareOption) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("share", "Manager.GetPathHashFromShare", "s", s, "thisShareOption", thisShareOption), &out0, &out1)
 	vpath := thisShareOption.FileVirtualPath
 	userinfo, err := s.options.UserHandler.GetUserInfoFromUsername(thisShareOption.Owner)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return "", err
 	}
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return "", err
 	}
 	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
@@ -246,7 +247,7 @@ Nightly share maintenance. Registered on the system nightly task ticker.
 2. Remove shares whose shared file no longer exists in the system
 */
 func (s *Manager) ValidateAndClearShares() {
-	logger.Debug("share", "Manager.ValidateAndClearShares")
+	defer logger.Out0(logger.In1("share", "Manager.ValidateAndClearShares", "s", s))
 	defer s.driveCache.clear()
 	for _, expired := range s.options.ShareEntryTable.RemoveExpiredShares(time.Now()) {
 		logger.PrintAndLog("Share", "Removing expired share "+expired.UUID+" to file: "+expired.FileVirtualPath, nil)
@@ -255,6 +256,7 @@ func (s *Manager) ValidateAndClearShares() {
 	//Iterate through all shares within the system
 	for _, thisShareOption := range s.options.ShareEntryTable.ListAllShares() {
 		if _, err := s.GetPathHashFromShare(thisShareOption); err != nil {
+			logger.DebugErr("share", err)
 			//Unable to resolve path hash. Filesystem handler (or owner) is gone,
 			//maybe only temporarily (e.g. an unmounted drive). Keep the share.
 			continue
@@ -263,6 +265,7 @@ func (s *Manager) ValidateAndClearShares() {
 			//This share source file don't exists anymore. Remove it
 			err := s.options.ShareEntryTable.DeleteShareByUUID(thisShareOption.UUID)
 			if err != nil {
+				logger.DebugErr("share", err)
 				logger.PrintAndLog("Share", fmt.Sprint("Failed to remove share ", thisShareOption.UUID), err)
 				continue
 			}
@@ -272,10 +275,8 @@ func (s *Manager) ValidateAndClearShares() {
 }
 
 // Check if the user has the permission to modify the shares on this path
-func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.CanModifyShareEntry: vpath=%.120q", vpath)
-	}
+func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "Manager.CanModifyShareEntry", "s", s, "userinfo", userinfo, "vpath", vpath), &out0)
 	shareEntry := s.GetShareObjectFromUserAndVpath(userinfo, vpath)
 	if shareEntry == nil {
 		//Share entry not found
@@ -286,8 +287,8 @@ func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) bool {
 
 // CanModifyShare reports whether the user can edit or remove the given share:
 // admins, the share owner, and writers of a public storage the file sits on.
-func (s *Manager) CanModifyShare(userinfo *user.User, so *shareEntry.ShareOption) bool {
-	logger.Debug("share", "Manager.CanModifyShare")
+func (s *Manager) CanModifyShare(userinfo *user.User, so *shareEntry.ShareOption) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "Manager.CanModifyShare", "s", s, "userinfo", userinfo, "so", so), &out0)
 	//Check if the user is the share owner or the user is admin
 	if userinfo.IsAdmin() {
 		return true
@@ -299,6 +300,7 @@ func (s *Manager) CanModifyShare(userinfo *user.User, so *shareEntry.ShareOption
 	vpath := so.FileVirtualPath
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return false
 	}
 	rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, userinfo.Username)
@@ -310,10 +312,8 @@ func (s *Manager) CanModifyShare(userinfo *user.User, so *shareEntry.ShareOption
 }
 
 // Remove all the shares on the given path that the user can modify
-func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.DeleteShareByVpath: vpath=%.120q", vpath)
-	}
+func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) (out0 error) {
+	defer logger.Out1(logger.In3("share", "Manager.DeleteShareByVpath", "s", s, "userinfo", userinfo, "vpath", vpath), &out0)
 	shares := s.ListSharesOfPath(userinfo, vpath)
 	if len(shares) == 0 {
 		if s.FileIsShared(userinfo, vpath) {
@@ -324,16 +324,15 @@ func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) error {
 	defer s.driveCache.clear()
 	for _, so := range shares {
 		if err := s.options.ShareEntryTable.DeleteShareByUUID(so.UUID); err != nil {
+			logger.DebugErr("share", err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) error {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.DeleteShareByUUID: uuid=%.120q", uuid)
-	}
+func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) (out0 error) {
+	defer logger.Out1(logger.In3("share", "Manager.DeleteShareByUUID", "s", s, "userinfo", userinfo, "uuid", uuid), &out0)
 	so := s.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		return errors.New("Invalid share uuid")
@@ -347,53 +346,46 @@ func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) error {
 	return s.options.ShareEntryTable.DeleteShareByUUID(uuid)
 }
 
-func (s *Manager) GetShareUUIDFromUserAndVpath(userinfo *user.User, vpath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.GetShareUUIDFromUserAndVpath: vpath=%.120q", vpath)
-	}
+func (s *Manager) GetShareUUIDFromUserAndVpath(userinfo *user.User, vpath string) (out0 string) {
+	defer logger.Out1(logger.In3("share", "Manager.GetShareUUIDFromUserAndVpath", "s", s, "userinfo", userinfo, "vpath", vpath), &out0)
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return ""
 	}
 	return s.options.ShareEntryTable.GetShareUUIDFromPathHash(ps)
 }
 
 // GetShareObjectFromUserAndVpath returns the first share on the path, or nil
-func (s *Manager) GetShareObjectFromUserAndVpath(userinfo *user.User, vpath string) *shareEntry.ShareOption {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.GetShareObjectFromUserAndVpath: vpath=%.120q", vpath)
-	}
+func (s *Manager) GetShareObjectFromUserAndVpath(userinfo *user.User, vpath string) (out0 *shareEntry.ShareOption) {
+	defer logger.Out1(logger.In3("share", "Manager.GetShareObjectFromUserAndVpath", "s", s, "userinfo", userinfo, "vpath", vpath), &out0)
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return nil
 	}
 	return s.options.ShareEntryTable.GetShareObjectFromPathHash(ps)
 }
 
 func (s *Manager) GetShareObjectFromUUID(uuid string) *shareEntry.ShareOption {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("share", "Manager.GetShareObjectFromUUID: uuid=%.120q", uuid)
-	}
+	logger.DebugTrace("share", "Manager.GetShareObjectFromUUID")
 	return s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
 }
 
 // FileIsShared reports whether the path has at least one active share
-func (s *Manager) FileIsShared(userinfo *user.User, vpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.FileIsShared: vpath=%.120q", vpath)
-	}
+func (s *Manager) FileIsShared(userinfo *user.User, vpath string) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "Manager.FileIsShared", "s", s, "userinfo", userinfo, "vpath", vpath), &out0)
 	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return false
 	}
 
 	return s.options.ShareEntryTable.FileIsShared(ps)
 }
 
-func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) error {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.RemoveShareByUUID: uuid=%.120q", uuid)
-	}
+func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) (out0 error) {
+	defer logger.Out1(logger.In3("share", "Manager.RemoveShareByUUID", "s", s, "userinfo", userinfo, "uuid", uuid), &out0)
 	shareObject := s.GetShareObjectFromUUID(uuid)
 	if shareObject == nil {
 		return errors.New("Share entry not found")
@@ -405,12 +397,11 @@ func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) error {
 	return s.options.ShareEntryTable.RemoveShareByUUID(uuid)
 }
 
-func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "getPathHashFromUsernameAndVpath: vpath=%.120q", vpath)
-	}
+func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("share", "getPathHashFromUsernameAndVpath", "userinfo", userinfo, "vpath", vpath), &out0, &out1)
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return "", err
 	}
 	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)

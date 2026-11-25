@@ -22,8 +22,8 @@ var newEngine func() engine
 var qrCode func(text string) ([]byte, error)
 
 // Available reports whether this build carries Syncthing.
-func Available() bool {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "Available")
+func Available() (out0 bool) {
+	defer logger.Out1(logger.In0("fileservers/servers/syncthingserv", "Available"), &out0)
 	return newEngine != nil
 }
 

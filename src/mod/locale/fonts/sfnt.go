@@ -53,17 +53,13 @@ type Font struct {
 
 // Table returns the bytes of a table, nil when the font has no such table
 func (f *Font) Table(tag string) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "Font.Table: tag=%.120q", tag)
-	}
+	logger.DebugTrace("locale/fonts", "Font.Table")
 	return f.Tables[tag]
 }
 
 // Has reports whether the font has a table, transformed or not
 func (f *Font) Has(tag string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "Font.Has: tag=%.120q", tag)
-	}
+	logger.DebugTrace("locale/fonts", "Font.Has")
 	_, ok := f.Tables[tag]
 	return ok || f.Transformed[tag]
 }
@@ -77,9 +73,7 @@ func (f *Font) IsCFF() bool {
 /* ── Bounds checked readers ── */
 
 func u16(b []byte, off int) (uint16, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "u16: len(b)=%d off=%d", len(b), off)
-	}
+	logger.DebugTrace("locale/fonts", "u16")
 	if off < 0 || off > len(b)-2 {
 		return 0, errTruncated
 	}
@@ -87,9 +81,7 @@ func u16(b []byte, off int) (uint16, error) {
 }
 
 func u32(b []byte, off int) (uint32, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "u32: len(b)=%d off=%d", len(b), off)
-	}
+	logger.DebugTrace("locale/fonts", "u32")
 	if off < 0 || off > len(b)-4 {
 		return 0, errTruncated
 	}
@@ -98,9 +90,7 @@ func u32(b []byte, off int) (uint32, error) {
 
 // sub returns b[off:off+n] when the whole range lies inside b
 func sub(b []byte, off int64, n int64) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "sub: len(b)=%d off=%d n=%d", len(b), off, n)
-	}
+	logger.DebugTrace("locale/fonts", "sub")
 	if off < 0 || n < 0 || off > int64(len(b)) || n > int64(len(b))-off {
 		return nil, errTruncated
 	}
@@ -109,9 +99,7 @@ func sub(b []byte, off int64, n int64) ([]byte, error) {
 
 // tagString turns a 4 byte tag into its string, refusing unprintable bytes
 func tagString(b []byte) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "tagString: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("locale/fonts", "tagString")
 	if len(b) < 4 {
 		return "", errTruncated
 	}
@@ -128,6 +116,7 @@ func sniff(data []byte) (uint32, error) {
 	logger.DebugTrace("locale/fonts", "sniff")
 	sig, err := u32(data, 0)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return 0, errNotFont
 	}
 	switch sig {
@@ -141,10 +130,11 @@ func sniff(data []byte) (uint32, error) {
 
 // ParseSFNT reads the table directory of an uncompressed font. The returned
 // tables share data with the given slice.
-func ParseSFNT(data []byte) (*Font, error) {
-	logger.Debug("locale/fonts", "ParseSFNT")
+func ParseSFNT(data []byte) (out0 *Font, out1 error) {
+	defer logger.Out2(logger.In1("locale/fonts", "ParseSFNT", "data", data), &out0, &out1)
 	flavor, err := sniff(data)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	if flavor == sigWOFF || flavor == sigWOFF2 {
@@ -152,6 +142,7 @@ func ParseSFNT(data []byte) (*Font, error) {
 	}
 	numTables, err := u16(data, 4)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	if numTables == 0 || numTables > maxTables {
@@ -166,6 +157,7 @@ func ParseSFNT(data []byte) (*Font, error) {
 		rec := data[12+16*i : 12+16*i+16]
 		tag, err := tagString(rec)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		if _, dup := font.Tables[tag]; dup {
@@ -175,6 +167,7 @@ func ParseSFNT(data []byte) (*Font, error) {
 		length := binary.BigEndian.Uint32(rec[12:])
 		table, err := sub(data, int64(offset), int64(length))
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, fmt.Errorf("table %q: %w", tag, err)
 		}
 		font.Tables[tag] = table
@@ -184,10 +177,11 @@ func ParseSFNT(data []byte) (*Font, error) {
 
 // Decode reads any supported font file (TTF, OTF, WOFF, WOFF2). It returns
 // the parsed font and the container it came in: "sfnt", "woff" or "woff2".
-func Decode(data []byte) (*Font, string, error) {
-	logger.Debug("locale/fonts", "Decode")
+func Decode(data []byte) (out0 *Font, out1 string, out2 error) {
+	defer logger.Out3(logger.In1("locale/fonts", "Decode", "data", data), &out0, &out1, &out2)
 	sig, err := sniff(data)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, "", err
 	}
 	switch sig {
@@ -205,9 +199,7 @@ func Decode(data []byte) (*Font, string, error) {
 /* ── Writing ── */
 
 func checksum(b []byte) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "checksum: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("locale/fonts", "checksum")
 	var sum uint32
 	for i := 0; i < len(b); i += 4 {
 		var word [4]byte
@@ -218,17 +210,13 @@ func checksum(b []byte) uint32 {
 }
 
 func pad4(n int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "pad4: n=%d", n)
-	}
+	logger.DebugTrace("locale/fonts", "pad4")
 	return (n + 3) &^ 3
 }
 
 // sortedTags returns the table tags in the order an sfnt stores them
 func sortedTags(tables map[string][]byte) []string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "sortedTags: len(tables)=%d", len(tables))
-	}
+	logger.DebugTrace("locale/fonts", "sortedTags")
 	tags := make([]string, 0, len(tables))
 	for tag := range tables {
 		tags = append(tags, tag)
@@ -239,9 +227,7 @@ func sortedTags(tables map[string][]byte) []string {
 
 // sfntSize is the size of the sfnt AssembleSFNT builds from these tables
 func sfntSize(tables map[string][]byte) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "sfntSize: len(tables)=%d", len(tables))
-	}
+	logger.DebugTrace("locale/fonts", "sfntSize")
 	size := 12 + 16*len(tables)
 	for _, t := range tables {
 		size += pad4(len(t))
@@ -252,10 +238,8 @@ func sfntSize(tables map[string][]byte) int {
 // AssembleSFNT writes a font file from its tables and fills in the checksums,
 // including the head table's checkSumAdjustment. The tables map is updated
 // with the head table carrying that adjustment.
-func AssembleSFNT(flavor uint32, tables map[string][]byte) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("locale/fonts", "AssembleSFNT: flavor=%d len(tables)=%d", flavor, len(tables))
-	}
+func AssembleSFNT(flavor uint32, tables map[string][]byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("locale/fonts", "AssembleSFNT", "flavor", flavor, "tables", tables), &out0, &out1)
 	if len(tables) == 0 || len(tables) > maxTables {
 		return nil, fmt.Errorf("cannot write a font with %d tables", len(tables))
 	}

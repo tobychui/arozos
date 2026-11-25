@@ -30,17 +30,17 @@ const ignoreHeader = "# Added by GitApp"
 // AddIgnoreRules appends the given patterns to the repository's .gitignore,
 // skipping any rule that is already there. The patterns actually written are
 // returned so the caller can report precisely what changed.
-func (m *Manager) AddIgnoreRules(realpath string, patterns []string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.AddIgnoreRules: realpath=%.120q len(patterns)=%d", realpath, len(patterns))
-	}
+func (m *Manager) AddIgnoreRules(realpath string, patterns []string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.AddIgnoreRules", "m", m, "realpath", realpath, "patterns", patterns), &out0, &out1)
 	root, err := m.RepoRoot(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	wanted, err := normaliseIgnorePatterns(patterns)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -69,6 +69,7 @@ func (m *Manager) AddIgnoreRules(realpath string, patterns []string) ([]string, 
 	}
 
 	if err := os.WriteFile(ignorePath, []byte(appendIgnoreRules(existing, added)), 0664); err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 	return added, nil
@@ -81,10 +82,8 @@ The existing content is never rewritten, only extended: the separating newlines
 are added as needed so appending to a file with or without a trailing newline
 both give a well formed result.
 */
-func appendIgnoreRules(existing string, added []string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "appendIgnoreRules: existing=%.120q len(added)=%d", existing, len(added))
-	}
+func appendIgnoreRules(existing string, added []string) (out0 string) {
+	defer logger.Out1(logger.In2("git", "appendIgnoreRules", "existing", existing, "added", added), &out0)
 	builder := strings.Builder{}
 	builder.WriteString(existing)
 
@@ -117,8 +116,8 @@ func appendIgnoreRules(existing string, added []string) string {
 // existingIgnoreRules indexes the rules already in a .gitignore. Comments and
 // blank lines are skipped so a rule that only appears inside a comment is not
 // mistaken for an active one.
-func existingIgnoreRules(content string) map[string]struct{} {
-	logger.Debug("git", "existingIgnoreRules")
+func existingIgnoreRules(content string) (out0 map[string]struct{}) {
+	defer logger.Out1(logger.In1("git", "existingIgnoreRules", "content", content), &out0)
 	rules := map[string]struct{}{}
 
 	for _, line := range strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n") {
@@ -134,10 +133,8 @@ func existingIgnoreRules(content string) map[string]struct{} {
 // normaliseIgnorePatterns cleans the patterns coming from the browser and
 // rejects anything that cannot be a gitignore rule. Duplicates within one call
 // are collapsed so a single request never writes the same line twice.
-func normaliseIgnorePatterns(patterns []string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "normaliseIgnorePatterns: len(patterns)=%d", len(patterns))
-	}
+func normaliseIgnorePatterns(patterns []string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("git", "normaliseIgnorePatterns", "patterns", patterns), &out0, &out1)
 	results := []string{}
 	seen := map[string]struct{}{}
 

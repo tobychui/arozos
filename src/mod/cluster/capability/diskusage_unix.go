@@ -7,11 +7,10 @@ import "golang.org/x/sys/unix"
 
 // DiskUsage returns the free and total bytes of the file system holding path.
 func DiskUsage(path string) (free int64, total int64, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/capability", "DiskUsage: path=%.120q", path)
-	}
+	defer logger.Out3(logger.In1("cluster/capability", "DiskUsage", "path", path), &free, &total, &err)
 	var st unix.Statfs_t
 	if err := unix.Statfs(path, &st); err != nil {
+		logger.DebugErr("cluster/capability", err)
 		return 0, 0, err
 	}
 	bsize := int64(st.Bsize)

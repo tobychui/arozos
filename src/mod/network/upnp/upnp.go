@@ -24,20 +24,20 @@ type UPnPClient struct {
 	PolicyNames   sync.Map  //Name for the required port nubmer
 }
 
-func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/upnp", "NewUPNPClient: basePort=%d hostname=%.120q", basePort, hostname)
-	}
+func NewUPNPClient(basePort int, hostname string) (out0 *UPnPClient, out1 error) {
+	defer logger.Out2(logger.In2("network/upnp", "NewUPNPClient", "basePort", basePort, "hostname", hostname), &out0, &out1)
 	//Create uPNP forwarding in the NAT router
 	logger.PrintAndLog("Upnp", "Discovering UPnP router in Local Area Network...", nil)
 	d, err := upnp.Discover()
 	if err != nil {
+		logger.DebugErr("network/upnp", err)
 		return &UPnPClient{}, err
 	}
 
 	// discover external IP
 	ip, err := d.ExternalIP()
 	if err != nil {
+		logger.DebugErr("network/upnp", err)
 		return &UPnPClient{}, err
 	}
 
@@ -51,16 +51,15 @@ func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 	//Require the port that is running ArOZ Online Host
 	err = newUPnPObject.ForwardPort(basePort, hostname)
 	if err != nil {
+		logger.DebugErr("network/upnp", err)
 		return &UPnPClient{}, err
 	}
 
 	return newUPnPObject, nil
 }
 
-func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/upnp", "UPnPClient.ForwardPort: portNumber=%d ruleName=%.120q", portNumber, ruleName)
-	}
+func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) (out0 error) {
+	defer logger.Out1(logger.In3("network/upnp", "UPnPClient.ForwardPort", "u", u, "portNumber", portNumber, "ruleName", ruleName), &out0)
 	logger.PrintAndLog("Upnp", fmt.Sprint("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service"), nil)
 
 	//Check if port already forwarded
@@ -73,6 +72,7 @@ func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
 	// forward a port
 	err := u.Connection.Forward(uint16(portNumber), ruleName)
 	if err != nil {
+		logger.DebugErr("network/upnp", err)
 		return err
 	}
 
@@ -81,10 +81,8 @@ func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
 	return nil
 }
 
-func (u *UPnPClient) ClosePort(portNumber int) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/upnp", "UPnPClient.ClosePort: portNumber=%d", portNumber)
-	}
+func (u *UPnPClient) ClosePort(portNumber int) (out0 error) {
+	defer logger.Out1(logger.In2("network/upnp", "UPnPClient.ClosePort", "u", u, "portNumber", portNumber), &out0)
 	//Check if port is opened
 	portOpened := false
 	newRequiredPort := []int{}
@@ -108,6 +106,7 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 		u.PolicyNames.Delete(portNumber)
 
 		if err != nil {
+			logger.DebugErr("network/upnp", err)
 			logger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
 			return err
 		}
@@ -117,7 +116,7 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 
 // Renew forward rules, prevent router lease time from flushing the Upnp config
 func (u *UPnPClient) RenewForwardRules() {
-	logger.Debug("network/upnp", "UPnPClient.RenewForwardRules")
+	defer logger.Out0(logger.In1("network/upnp", "UPnPClient.RenewForwardRules", "u", u))
 	portsToRenew := u.RequiredPorts
 	for _, thisPort := range portsToRenew {
 		ruleName, ok := u.PolicyNames.Load(thisPort)
@@ -132,12 +131,13 @@ func (u *UPnPClient) RenewForwardRules() {
 }
 
 func (u *UPnPClient) Close() {
-	logger.Debug("network/upnp", "UPnPClient.Close")
+	defer logger.Out0(logger.In1("network/upnp", "UPnPClient.Close", "u", u))
 	//Shutdown the default UPnP Object
 	if u != nil {
 		for _, portNumber := range u.RequiredPorts {
 			err := u.Connection.Clear(uint16(portNumber))
 			if err != nil {
+				logger.DebugErr("network/upnp", err)
 				logger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
 			}
 		}

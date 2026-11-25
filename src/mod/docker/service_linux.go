@@ -20,15 +20,15 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func systemctlAvailable() bool {
-	logger.Debug("docker", "systemctlAvailable")
+func systemctlAvailable() (out0 bool) {
+	defer logger.Out1(logger.In0("docker", "systemctlAvailable"), &out0)
 	_, err := exec.LookPath("systemctl")
 	return err == nil
 }
 
 // dockerServiceStatus reports the docker unit's active/enabled state.
-func dockerServiceStatus() ServiceStatus {
-	logger.Debug("docker", "dockerServiceStatus")
+func dockerServiceStatus() (out0 ServiceStatus) {
+	defer logger.Out1(logger.In0("docker", "dockerServiceStatus"), &out0)
 	st := ServiceStatus{}
 	if !systemctlAvailable() {
 		st.Message = "systemctl is not available on this host"
@@ -49,15 +49,14 @@ func dockerServiceStatus() ServiceStatus {
 }
 
 // dockerServiceAction runs `systemctl <action> docker` for a whitelisted action.
-func dockerServiceAction(action string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "dockerServiceAction: action=%.120q", action)
-	}
+func dockerServiceAction(action string) (out0 error) {
+	defer logger.Out1(logger.In1("docker", "dockerServiceAction", "action", action), &out0)
 	if !systemctlAvailable() {
 		return errors.New("systemctl is not available on this host")
 	}
 	out, err := exec.Command("systemctl", action, "docker").CombinedOutput()
 	if err != nil {
+		logger.DebugErr("docker", err)
 		msg := strings.TrimSpace(string(out))
 		if msg == "" {
 			msg = err.Error()

@@ -37,9 +37,7 @@ import (
 // srgbClrXML writes a colour as <a:srgbClr>, with an <a:alpha> child when
 // it is "#rrggbbaa" and less than opaque
 func srgbClrXML(c, fallback string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "srgbClrXML: c=%.120q fallback=%.120q", c, fallback)
-	}
+	logger.DebugTrace("office/pptx", "srgbClrXML")
 	hex := htmlutil.HexColor(c, fallback)
 	a := htmlutil.HexAlpha(c)
 	if a >= 0.998 {
@@ -124,9 +122,7 @@ func (sc *slideCtx) backgroundRef(ref *xmltree.Node) (string, *model.BgImage, *m
 // backgroundFill reads one fill container as a background. ok is false
 // when it states nothing usable, so the next part down gets its turn.
 func (sc *slideCtx) backgroundFill(pr *xmltree.Node, rels map[string]string, dir string, cc colorCtx) (string, *model.BgImage, *model.Gradient, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "slideCtx.backgroundFill: len(rels)=%d dir=%.120q", len(rels), dir)
-	}
+	logger.DebugTrace("office/pptx", "slideCtx.backgroundFill")
 	if pr.First("noFill") != nil {
 		return "#ffffff", nil, nil, true
 	}
@@ -159,9 +155,7 @@ func (sc *slideCtx) backgroundFill(pr *xmltree.Node, rels map[string]string, dir
 // into the slide inset by <a:fillRect> (negative insets reach past the
 // edges), the source first cropped by <a:srcRect>, or tiled
 func (sc *slideCtx) backgroundPicture(bf *xmltree.Node, rels map[string]string, dir string) *model.BgImage {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "slideCtx.backgroundPicture: len(rels)=%d dir=%.120q", len(rels), dir)
-	}
+	logger.DebugTrace("office/pptx", "slideCtx.backgroundPicture")
 	blip := bf.First("blip")
 	src, pxW, pxH, ok := sc.doc.blipSource(blip, rels, dir)
 	if !ok {
@@ -222,9 +216,7 @@ func (sc *slideCtx) backgroundPicture(bf *xmltree.Node, rels map[string]string, 
 // given part's relationships, as a data URL the browser can show, plus its
 // size in pixels when the format says (0 otherwise)
 func (d *pptxDoc) blipSource(blip *xmltree.Node, rels map[string]string, dir string) (string, int, int, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "pptxDoc.blipSource: len(rels)=%d dir=%.120q", len(rels), dir)
-	}
+	logger.DebugTrace("office/pptx", "pptxDoc.blipSource")
 	if blip == nil || rels == nil {
 		return "", 0, 0, false
 	}
@@ -306,9 +298,7 @@ func (cc *colorCtx) gradientOf(gf *xmltree.Node) *model.Gradient {
 
 // opaqueHex drops the alpha of a "#rrggbbaa" colour
 func opaqueHex(c string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "opaqueHex: c=%.120q", c)
-	}
+	logger.DebugTrace("office/pptx", "opaqueHex")
 	if len(c) == 9 && c[0] == '#' {
 		return c[:7]
 	}
@@ -404,9 +394,7 @@ func hasFillChoice(spPr *xmltree.Node) bool {
 // (insets of the frame, negative ones reaching past it) after <a:srcRect>
 // cropped its source; both fold into the editor's single crop.
 func (sc *slideCtx) pictureFillObject(bf *xmltree.Node, prst string, box xfrmBox, stroke string, strokeW float64, dash bool) *model.Object {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "slideCtx.pictureFillObject: prst=%.120q stroke=%.120q strokeW=%g dash=%t", prst, stroke, strokeW, dash)
-	}
+	logger.DebugTrace("office/pptx", "slideCtx.pictureFillObject")
 	blip := bf.First("blip")
 	src, _, _, ok := sc.doc.blipSource(blip, sc.partRels(), sc.partDir())
 	if !ok {
@@ -582,9 +570,7 @@ func gradFillXML(g *model.Gradient) string {
 // bgPictureXML writes a picture background, stretched to where the slide
 // places it (fillRect insets, negative past the edges)
 func bgPictureXML(im *model.BgImage, rid string, p *model.Presentation) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "bgPictureXML: rid=%.120q", rid)
-	}
+	logger.DebugTrace("office/pptx", "bgPictureXML")
 	W, H := p.Dims()
 	w, h := float64(W), float64(H)
 	blip := `<a:blip r:embed="` + rid + `">`

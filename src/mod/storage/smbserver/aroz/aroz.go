@@ -105,8 +105,8 @@ type Backend struct {
 }
 
 // New returns a Backend.
-func New(opt Options) (*Backend, error) {
-	logger.Debug("storage/smbserver/aroz", "New")
+func New(opt Options) (out0 *Backend, out1 error) {
+	defer logger.Out2(logger.In1("storage/smbserver/aroz", "New", "&opt", &opt), &out0, &out1)
 	if opt.Credentials == nil || opt.LookupUser == nil {
 		return nil, errors.New("smbserver/aroz: credentials and a user lookup are required")
 	}
@@ -114,28 +114,25 @@ func New(opt Options) (*Backend, error) {
 }
 
 // LookupHash implements smbsrv.Backend.
-func (b *Backend) LookupHash(username string) (string, []byte, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/smbserver/aroz", "Backend.LookupHash: username=%.120q", username)
-	}
+func (b *Backend) LookupHash(username string) (out0 string, out1 []byte, out2 bool) {
+	defer logger.Out3(logger.In2("storage/smbserver/aroz", "Backend.LookupHash", "b", b, "username", username), &out0, &out1, &out2)
 	return b.opt.Credentials.Lookup(username)
 }
 
 // Login implements smbsrv.Backend.
-func (b *Backend) Login(username string) (smbsrv.UserView, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "Backend.Login: username=%.120q", username)
-	}
+func (b *Backend) Login(username string) (out0 smbsrv.UserView, out1 error) {
+	defer logger.Out2(logger.In2("storage/smbserver/aroz", "Backend.Login", "b", b, "username", username), &out0, &out1)
 	account, quota, err := b.opt.LookupUser(username)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	return &view{username: username, account: account, quota: quota, capacity: b.opt.Capacity, opt: &b.opt}, nil
 }
 
 // Allow implements smbsrv.Backend.
-func (b *Backend) Allow(ip net.IP) bool {
-	logger.Debug("storage/smbserver/aroz", "Backend.Allow")
+func (b *Backend) Allow(ip net.IP) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "Backend.Allow", "b", b, "&ip", &ip), &out0)
 	if ip == nil {
 		return false
 	}
@@ -149,10 +146,8 @@ func (b *Backend) Allow(ip net.IP) bool {
 }
 
 // AuthLog implements smbsrv.Backend.
-func (b *Backend) AuthLog(username, remote string, ok bool) time.Duration {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "Backend.AuthLog: username=%.120q remote=%.120q ok=%t", username, remote, ok)
-	}
+func (b *Backend) AuthLog(username, remote string, ok bool) (out0 time.Duration) {
+	defer logger.Out1(logger.In4("storage/smbserver/aroz", "Backend.AuthLog", "b", b, "username", username, "remote", remote, "ok", ok), &out0)
 	if b.opt.LogAuth != nil {
 		b.opt.LogAuth(username, remote, ok)
 	}
@@ -182,14 +177,14 @@ type usageEntry struct {
 
 const usageCacheTTL = 5 * time.Second
 
-func (v *view) Username() string {
-	logger.DebugTrace("storage/smbserver/aroz", "view.Username")
+func (v *view) Username() (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "view.Username", "v", v), &out0)
 	return v.username
 }
 
 // Shares lists one share per drive.
-func (v *view) Shares() []smbsrv.Share {
-	logger.Debug("storage/smbserver/aroz", "view.Shares")
+func (v *view) Shares() (out0 []smbsrv.Share) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "view.Shares", "v", v), &out0)
 	out := []smbsrv.Share{}
 	for _, fsh := range v.account.GetAllFileSystemHandler() {
 		if fsh.Closed {
@@ -219,21 +214,21 @@ type share struct {
 	tmMaxSize   uint64
 }
 
-func newShare(fsh *filesystem.FileSystemHandler, v *view) *share {
-	logger.DebugTrace("storage/smbserver/aroz", "newShare")
+func newShare(fsh *filesystem.FileSystemHandler, v *view) (out0 *share) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "newShare", "fsh", fsh, "v", v), &out0)
 	return &share{fsh: fsh, v: v, local: !fsh.IsNetworkDrive()}
 }
 
-func (s *share) Name() string {
-	logger.DebugTrace("storage/smbserver/aroz", "share.Name")
+func (s *share) Name() (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.Name", "s", s), &out0)
 	if s.timeMachine {
 		return TimeMachineShareName
 	}
 	return s.fsh.UUID
 }
 
-func (s *share) Comment() string {
-	logger.Debug("storage/smbserver/aroz", "share.Comment")
+func (s *share) Comment() (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.Comment", "s", s), &out0)
 	if s.timeMachine {
 		return "Time Machine backups on " + s.fsh.Name
 	}
@@ -242,8 +237,8 @@ func (s *share) Comment() string {
 
 // Key tells drives apart. user:/ and the like resolve to another folder for
 // every user, so their files are only the same files within one user.
-func (s *share) Key() string {
-	logger.Debug("storage/smbserver/aroz", "share.Key")
+func (s *share) Key() (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.Key", "s", s), &out0)
 	key := s.fsh.UUID
 	if s.fsh.Hierarchy == "user" {
 		key += "/" + strings.ToLower(s.v.username)
@@ -254,23 +249,21 @@ func (s *share) Key() string {
 	return key
 }
 
-func (s *share) ReadOnly() bool {
-	logger.DebugTrace("storage/smbserver/aroz", "share.ReadOnly")
+func (s *share) ReadOnly() (out0 bool) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.ReadOnly", "s", s), &out0)
 	return s.fsh.ReadOnly
 }
 
 // InternalFolder implements smbsrv.InternalShare. ArozOS keeps version
 // history and named streams in .metadata folders, so they are left out of
 // listings and refused to writes over SMB.
-func (s *share) InternalFolder() string {
-	logger.DebugTrace("storage/smbserver/aroz", "share.InternalFolder")
+func (s *share) InternalFolder() (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.InternalFolder", "s", s), &out0)
 	return internalFolder
 }
 
-func (s *share) vpath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.vpath: p=%.120q", p)
-	}
+func (s *share) vpath(p string) (out0 string) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.vpath", "s", s, "p", p), &out0)
 	switch {
 	case s.sub == "":
 		return s.fsh.UUID + ":/" + p
@@ -281,47 +274,44 @@ func (s *share) vpath(p string) string {
 }
 
 // CanPoll lets watched folders of local drives be listed every few seconds.
-func (s *share) CanPoll() bool {
-	logger.DebugTrace("storage/smbserver/aroz", "share.CanPoll")
+func (s *share) CanPoll() (out0 bool) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.CanPoll", "s", s), &out0)
 	return s.local
 }
 
-func (s *share) CanRead(p string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/smbserver/aroz", "share.CanRead: p=%.120q", p)
-	}
+func (s *share) CanRead(p string) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.CanRead", "s", s, "p", p), &out0)
 	return s.v.account.CanRead(s.vpath(basePath(p)))
 }
 
-func (s *share) CanWrite(p string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/smbserver/aroz", "share.CanWrite: p=%.120q", p)
-	}
+func (s *share) CanWrite(p string) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.CanWrite", "s", s, "p", p), &out0)
 	return s.v.account.CanWrite(s.vpath(basePath(p)))
 }
 
 // real turns a share path into one for the abstraction, after making sure no
 // link along the way leads off the drive.
-func (s *share) real(p string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.real: p=%.120q", p)
-	}
+func (s *share) real(p string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("storage/smbserver/aroz", "share.real", "s", s, "p", p), &out0, &out1)
 	p = sharePath(p)
 	rpath, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(p), s.v.username)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return "", err
 	}
 	if err := s.confine(rpath); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return "", err
 	}
 	return rpath, nil
 }
 
-func (s *share) driveRoot() string {
-	logger.Debug("storage/smbserver/aroz", "share.driveRoot")
+func (s *share) driveRoot() (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.driveRoot", "s", s), &out0)
 	s.rootOnce.Do(func() {
 		root, err := s.fsh.FileSystemAbstraction.VirtualPathToRealPath(s.vpath(""), s.v.username)
 		if err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			return
 		}
 		//A user folder, or the Time Machine folder, may not exist before the
@@ -342,10 +332,8 @@ func (s *share) driveRoot() string {
 // deepest part that exists is checked, so a new file below a link is caught
 // too, and a dangling link is refused because writing through it would create
 // the target somewhere else.
-func (s *share) confine(rpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.confine: rpath=%.120q", rpath)
-	}
+func (s *share) confine(rpath string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.confine", "s", s, "rpath", rpath), &out0)
 	if !s.local {
 		return nil
 	}
@@ -358,6 +346,7 @@ func (s *share) confine(rpath string) error {
 		if err == nil {
 			abs, err := filepath.Abs(resolved)
 			if err != nil {
+				logger.DebugErr("storage/smbserver/aroz", err)
 				return err
 			}
 			if abs != root && !strings.HasPrefix(abs, root+string(filepath.Separator)) {
@@ -380,10 +369,8 @@ func (s *share) confine(rpath string) error {
 	}
 }
 
-func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "infoOf: name=%.120q", name)
-	}
+func infoOf(name string, fi os.FileInfo) (out0 smbsrv.FileInfo) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "infoOf", "name", name, "fi", fi), &out0)
 	out := smbsrv.FileInfo{
 		Name:    name,
 		Size:    fi.Size(),
@@ -397,16 +384,16 @@ func infoOf(name string, fi os.FileInfo) smbsrv.FileInfo {
 	return out
 }
 
-func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Stat: p=%.120q", p)
-	}
+func (s *share) Stat(p string) (out0 smbsrv.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/smbserver/aroz", "share.Stat", "s", s, "p", p), &out0, &out1)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return smbsrv.FileInfo{}, err
 	}
 	fi, err := s.fsh.FileSystemAbstraction.Stat(rpath)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return smbsrv.FileInfo{}, err
 	}
 	name := p
@@ -416,22 +403,23 @@ func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 	return infoOf(name, fi), nil
 }
 
-func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.ReadDir: p=%.120q", p)
-	}
+func (s *share) ReadDir(p string) (out0 []smbsrv.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/smbserver/aroz", "share.ReadDir", "s", s, "p", p), &out0, &out1)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	entries, err := s.fsh.FileSystemAbstraction.ReadDir(rpath)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	out := make([]smbsrv.FileInfo, 0, len(entries))
 	for _, e := range entries {
 		fi, err := e.Info()
 		if err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			continue //Gone since the listing was read
 		}
 		if fi.Mode()&os.ModeSymlink != 0 {
@@ -442,6 +430,7 @@ func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
 			}
 			target, err := s.Stat(child)
 			if err != nil {
+				logger.DebugErr("storage/smbserver/aroz", err)
 				continue
 			}
 			out = append(out, target)
@@ -453,8 +442,8 @@ func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
 }
 
 // stage says where this drive keeps local copies, and where failed ones go.
-func (s *share) stage() stageConfig {
-	logger.Debug("storage/smbserver/aroz", "share.stage")
+func (s *share) stage() (out0 stageConfig) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.stage", "s", s), &out0)
 	c := stageConfig{limit: DefaultStageLimit}
 	switch {
 	case s.v.opt != nil && s.v.opt.StageDir != "":
@@ -476,16 +465,16 @@ func (s *share) stage() stageConfig {
 	return c
 }
 
-func (s *share) Open(p string, flag int) (smbsrv.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Open: p=%.120q flag=%d", p, flag)
-	}
+func (s *share) Open(p string, flag int) (out0 smbsrv.File, out1 error) {
+	defer logger.Out2(logger.In3("storage/smbserver/aroz", "share.Open", "s", s, "p", p, "flag", flag), &out0, &out1)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	if flag&os.O_CREATE != 0 && basePath(p) != p {
 		if err := s.makeStreamDir(p); err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			return nil, err
 		}
 	}
@@ -494,28 +483,27 @@ func (s *share) Open(p string, flag int) (smbsrv.File, error) {
 	}
 	file, err := s.fsh.FileSystemAbstraction.OpenFile(rpath, flag, 0775)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	return file, nil
 }
 
-func (s *share) Mkdir(p string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Mkdir: p=%.120q", p)
-	}
+func (s *share) Mkdir(p string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.Mkdir", "s", s, "p", p), &out0)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	return s.fsh.FileSystemAbstraction.Mkdir(rpath, 0775)
 }
 
-func (s *share) Remove(p string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Remove: p=%.120q", p)
-	}
+func (s *share) Remove(p string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.Remove", "s", s, "p", p), &out0)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	if s.wantsTrash(p) {
@@ -547,6 +535,7 @@ func (s *share) Remove(p string) error {
 		}
 	}
 	if err := s.fsh.FileSystemAbstraction.Remove(rpath); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	if size > 0 {
@@ -558,16 +547,16 @@ func (s *share) Remove(p string) error {
 	return nil
 }
 
-func (s *share) Rename(oldPath, newPath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Rename: oldPath=%.120q newPath=%.120q", oldPath, newPath)
-	}
+func (s *share) Rename(oldPath, newPath string) (out0 error) {
+	defer logger.Out1(logger.In3("storage/smbserver/aroz", "share.Rename", "s", s, "oldPath", oldPath, "newPath", newPath), &out0)
 	source, err := s.real(oldPath)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	target, err := s.real(newPath)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	//A rename can replace a file, whose space comes back
@@ -578,6 +567,7 @@ func (s *share) Rename(oldPath, newPath string) error {
 		}
 	}
 	if err := s.fsh.FileSystemAbstraction.Rename(source, target); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	if replaced > 0 {
@@ -589,12 +579,11 @@ func (s *share) Rename(oldPath, newPath string) error {
 	return nil
 }
 
-func (s *share) SetModTime(p string, t time.Time) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.SetModTime: p=%.120q", p)
-	}
+func (s *share) SetModTime(p string, t time.Time) (out0 error) {
+	defer logger.Out1(logger.In3("storage/smbserver/aroz", "share.SetModTime", "s", s, "p", p, "&t", &t), &out0)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	err = s.fsh.FileSystemAbstraction.Chtimes(rpath, t, t)
@@ -607,13 +596,13 @@ func (s *share) SetModTime(p string, t time.Time) error {
 }
 
 // tracksQuota reports whether this drive counts against the user's quota.
-func (s *share) tracksQuota() bool {
-	logger.DebugTrace("storage/smbserver/aroz", "share.tracksQuota")
+func (s *share) tracksQuota() (out0 bool) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "share.tracksQuota", "s", s), &out0)
 	return s.fsh.Hierarchy == "user" && s.v.quota != nil
 }
 
-func (s *share) Usage() (uint64, uint64) {
-	logger.Debug("storage/smbserver/aroz", "share.Usage")
+func (s *share) Usage() (out0 uint64, out1 uint64) {
+	defer logger.Out2(logger.In1("storage/smbserver/aroz", "share.Usage", "s", s), &out0, &out1)
 	var total, free uint64
 	key := s.vpath("")
 	s.v.usageMu.Lock()
@@ -639,10 +628,8 @@ func (s *share) Usage() (uint64, uint64) {
 	return total, free
 }
 
-func (s *share) HaveSpace(extra int64) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.HaveSpace: extra=%d", extra)
-	}
+func (s *share) HaveSpace(extra int64) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.HaveSpace", "s", s, "extra", extra), &out0)
 	if !s.tracksQuota() {
 		return true
 	}
@@ -650,9 +637,7 @@ func (s *share) HaveSpace(extra int64) bool {
 }
 
 func (s *share) FileChanged(p string, oldSize, newSize int64) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.FileChanged: p=%.120q oldSize=%d newSize=%d", p, oldSize, newSize)
-	}
+	defer logger.Out0(logger.In4("storage/smbserver/aroz", "share.FileChanged", "s", s, "p", p, "oldSize", oldSize, "newSize", newSize))
 	if !s.tracksQuota() {
 		return
 	}

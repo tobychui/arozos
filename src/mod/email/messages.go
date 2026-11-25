@@ -61,7 +61,7 @@ type ListQuery struct {
 }
 
 func (q *ListQuery) normalise() {
-	logger.Debug("email", "ListQuery.normalise")
+	defer logger.Out0(logger.In1("email", "ListQuery.normalise", "q", q))
 	if q.Folder == "" {
 		q.Folder = "INBOX"
 	}
@@ -87,8 +87,8 @@ func (q *ListQuery) normalise() {
 }
 
 // criteria builds the SEARCH criteria of a query, nil when everything matches.
-func (q *ListQuery) criteria() *imap.SearchCriteria {
-	logger.Debug("email", "ListQuery.criteria")
+func (q *ListQuery) criteria() (out0 *imap.SearchCriteria) {
+	defer logger.Out1(logger.In1("email", "ListQuery.criteria", "q", q), &out0)
 	criteria := &imap.SearchCriteria{}
 	used := false
 	switch q.Filter {
@@ -136,10 +136,8 @@ func (q *ListQuery) criteria() *imap.SearchCriteria {
 var quotedTermPattern = regexp.MustCompile(`"([^"]+)"|(\S+)`)
 
 // splitSearchTerms honours "quoted phrases" and drops very short noise.
-func splitSearchTerms(search string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "splitSearchTerms: search=%.120q", search)
-	}
+func splitSearchTerms(search string) (out0 []string) {
+	defer logger.Out1(logger.In1("email", "splitSearchTerms", "search", search), &out0)
 	terms := []string{}
 	for _, match := range quotedTermPattern.FindAllStringSubmatch(search, 8) {
 		term := match[1]
@@ -169,12 +167,11 @@ var listFetchOptions = &imap.FetchOptions{
 }
 
 // ListMessages returns a page of a mailbox.
-func (m *Manager) ListMessages(ctx context.Context, p Principal, accountID string, query ListQuery) (*MessageList, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.ListMessages: accountID=%.120q", accountID)
-	}
+func (m *Manager) ListMessages(ctx context.Context, p Principal, accountID string, query ListQuery) (out0 *MessageList, out1 error) {
+	defer logger.Out2(logger.In5("email", "Manager.ListMessages", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "&query", &query), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	query.normalise()
@@ -186,6 +183,7 @@ func (m *Manager) ListMessages(ctx context.Context, p Principal, accountID strin
 		return err
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.clearAuthError(p, account)
@@ -193,12 +191,11 @@ func (m *Manager) ListMessages(ctx context.Context, p Principal, accountID strin
 	return result, nil
 }
 
-func selectFolder(c *imapclient.Client, folder string) (*imap.SelectData, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "selectFolder: folder=%.120q", folder)
-	}
+func selectFolder(c *imapclient.Client, folder string) (out0 *imap.SelectData, out1 error) {
+	defer logger.Out2(logger.In2("email", "selectFolder", "c", c, "folder", folder), &out0, &out1)
 	data, err := c.Select(folder, nil).Wait()
 	if err != nil {
+		logger.DebugErr("email", err)
 		var statusErr *imap.Error
 		if errors.As(err, &statusErr) && (statusErr.Code == imap.ResponseCodeNonExistent ||
 			strings.Contains(strings.ToLower(statusErr.Text), "doesn't exist") ||
@@ -211,10 +208,11 @@ func selectFolder(c *imapclient.Client, folder string) (*imap.SelectData, error)
 	return data, nil
 }
 
-func (m *Manager) listMessages(c *imapclient.Client, p Principal, account *Account, query ListQuery) (*MessageList, error) {
-	logger.Debug("email", "Manager.listMessages")
+func (m *Manager) listMessages(c *imapclient.Client, p Principal, account *Account, query ListQuery) (out0 *MessageList, out1 error) {
+	defer logger.Out2(logger.In5("email", "Manager.listMessages", "m", m, "c", c, "&p", &p, "account", account, "&query", &query), &out0, &out1)
 	selected, err := selectFolder(c, query.Folder)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	result := &MessageList{Page: query.Page, PageSize: query.PageSize, Messages: []MessageSummary{}}
@@ -250,6 +248,7 @@ func (m *Manager) listMessages(c *imapclient.Client, p Principal, account *Accou
 		seqSet.AddRange(start, stop)
 		buffers, err = c.Fetch(seqSet, listFetchOptions).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		sort.Slice(buffers, func(i, j int) bool {
@@ -261,6 +260,7 @@ func (m *Manager) listMessages(c *imapclient.Client, p Principal, account *Accou
 	} else {
 		uids, sortUnsupported, err := m.orderedUIDs(c, criteria, query)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		result.SortUnsupported = sortUnsupported
@@ -279,6 +279,7 @@ func (m *Manager) listMessages(c *imapclient.Client, p Principal, account *Accou
 		}
 		buffers, err = c.Fetch(imap.UIDSetNum(pageUIDs...), listFetchOptions).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		sort.Slice(buffers, func(i, j int) bool { return order[buffers[i].UID] < order[buffers[j].UID] })
@@ -294,8 +295,8 @@ func (m *Manager) listMessages(c *imapclient.Client, p Principal, account *Accou
 }
 
 // orderedUIDs runs SEARCH / SORT for a filtered or re-sorted listing.
-func (m *Manager) orderedUIDs(c *imapclient.Client, criteria *imap.SearchCriteria, query ListQuery) ([]imap.UID, bool, error) {
-	logger.Debug("email", "Manager.orderedUIDs")
+func (m *Manager) orderedUIDs(c *imapclient.Client, criteria *imap.SearchCriteria, query ListQuery) (out0 []imap.UID, out1 bool, out2 error) {
+	defer logger.Out3(logger.In4("email", "Manager.orderedUIDs", "m", m, "c", c, "criteria", criteria, "&query", &query), &out0, &out1, &out2)
 	searchCriteria := criteria
 	if searchCriteria == nil {
 		searchCriteria = &imap.SearchCriteria{}
@@ -324,6 +325,7 @@ func (m *Manager) orderedUIDs(c *imapclient.Client, criteria *imap.SearchCriteri
 
 	data, err := c.UIDSearch(searchCriteria, nil).Wait()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, false, err
 	}
 	uids := data.AllUIDs()
@@ -348,6 +350,7 @@ func (m *Manager) orderedUIDs(c *imapclient.Client, criteria *imap.SearchCriteri
 	}
 	buffers, err := c.Fetch(imap.UIDSetNum(uids...), &imap.FetchOptions{UID: true, Envelope: true, RFC822Size: true}).Collect()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, false, err
 	}
 	keyOf := func(buffer *imapclient.FetchMessageBuffer) string {
@@ -382,9 +385,7 @@ func (m *Manager) orderedUIDs(c *imapclient.Client, criteria *imap.SearchCriteri
 }
 
 func reverseUIDs(uids []imap.UID) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "reverseUIDs: len(uids)=%d", len(uids))
-	}
+	defer logger.Out0(logger.In1("email", "reverseUIDs", "uids", uids))
 	for i, j := 0, len(uids)-1; i < j; i, j = i+1, j-1 {
 		uids[i], uids[j] = uids[j], uids[i]
 	}
@@ -399,10 +400,8 @@ func baseSubject(subject string) string {
 }
 
 // summaryFromBuffer converts a FETCH response into a list row.
-func summaryFromBuffer(accountID string, folder string, uidValidity uint32, buffer *imapclient.FetchMessageBuffer) MessageSummary {
-	if logger.IsDebug() {
-		logger.Debugf("email", "summaryFromBuffer: accountID=%.120q folder=%.120q uidValidity=%d", accountID, folder, uidValidity)
-	}
+func summaryFromBuffer(accountID string, folder string, uidValidity uint32, buffer *imapclient.FetchMessageBuffer) (out0 MessageSummary) {
+	defer logger.Out1(logger.In4("email", "summaryFromBuffer", "accountID", accountID, "folder", folder, "uidValidity", uidValidity, "buffer", buffer), &out0)
 	summary := MessageSummary{
 		AccountID:   accountID,
 		Folder:      folder,
@@ -447,9 +446,7 @@ func summaryFromBuffer(accountID string, folder string, uidValidity uint32, buff
 }
 
 func applyFlags(summary *MessageSummary, flags []imap.Flag) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "applyFlags: len(flags)=%d", len(flags))
-	}
+	defer logger.Out0(logger.In2("email", "applyFlags", "summary", summary, "flags", flags))
 	for _, flag := range flags {
 		switch strings.ToLower(string(flag)) {
 		case strings.ToLower(string(imap.FlagSeen)):
@@ -466,10 +463,8 @@ func applyFlags(summary *MessageSummary, flags []imap.Flag) {
 	}
 }
 
-func convertAddresses(list []imap.Address) []Address {
-	if logger.IsDebug() {
-		logger.Debugf("email", "convertAddresses: len(list)=%d", len(list))
-	}
+func convertAddresses(list []imap.Address) (out0 []Address) {
+	defer logger.Out1(logger.In1("email", "convertAddresses", "list", list), &out0)
 	results := []Address{}
 	for _, address := range list {
 		if address.IsGroupStart() || address.IsGroupEnd() {
@@ -485,19 +480,18 @@ func convertAddresses(list []imap.Address) []Address {
 }
 
 // priorityFromHeader reads X-Priority / Importance / Priority.
-func priorityFromHeader(raw []byte) int {
-	logger.Debug("email", "priorityFromHeader")
+func priorityFromHeader(raw []byte) (out0 int) {
+	defer logger.Out1(logger.In1("email", "priorityFromHeader", "raw", raw), &out0)
 	header, err := textproto.ReadHeader(bufio.NewReader(bytes.NewReader(append(raw, '\r', '\n'))))
 	if err != nil {
+		logger.DebugErr("email", err)
 		return 3
 	}
 	return priorityFromFields(header.Get("X-Priority"), header.Get("Importance"), header.Get("Priority"))
 }
 
-func priorityFromFields(xPriority string, importance string, priority string) int {
-	if logger.IsDebug() {
-		logger.Debugf("email", "priorityFromFields: xPriority=%.120q importance=%.120q priority=%.120q", xPriority, importance, priority)
-	}
+func priorityFromFields(xPriority string, importance string, priority string) (out0 int) {
+	defer logger.Out1(logger.In3("email", "priorityFromFields", "xPriority", xPriority, "importance", importance, "priority", priority), &out0)
 	if value := strings.TrimSpace(xPriority); value != "" {
 		if n, err := strconv.Atoi(value[:1]); err == nil && n >= 1 && n <= 5 {
 			switch {
@@ -527,9 +521,7 @@ func priorityFromFields(xPriority string, importance string, priority string) in
 // fillPreviews fetches the first bytes of each message's main text part.
 func (m *Manager) fillPreviews(c *imapclient.Client, owner string, accountID string, folder string, uidValidity uint32,
 	buffers []*imapclient.FetchMessageBuffer, summaries []MessageSummary) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.fillPreviews: owner=%.120q accountID=%.120q folder=%.120q uidValidity=%d len(buffers)=%d len(summaries)=%d", owner, accountID, folder, uidValidity, len(buffers), len(summaries))
-	}
+	defer logger.Out0(logger.In8("email", "Manager.fillPreviews", "m", m, "c", c, "owner", owner, "accountID", accountID, "folder", folder, "uidValidity", uidValidity, "buffers", buffers, "summaries", summaries))
 
 	type wanted struct {
 		index int
@@ -564,6 +556,7 @@ func (m *Manager) fillPreviews(c *imapclient.Client, owner string, accountID str
 		section := &imap.FetchItemBodySection{Part: partNumbers(path), Peek: true, Partial: &imap.SectionPartial{Offset: 0, Size: previewBytes}}
 		fetched, err := c.Fetch(imap.UIDSetNum(uids...), &imap.FetchOptions{UID: true, BodySection: []*imap.FetchItemBodySection{section}}).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			continue
 		}
 		byUID := map[imap.UID][]byte{}
@@ -590,10 +583,8 @@ func (m *Manager) fillPreviews(c *imapclient.Client, owner string, accountID str
 }
 
 // partNumbers turns "1.2" into []int{1, 2}.
-func partNumbers(path string) []int {
-	if logger.IsDebug() {
-		logger.Debugf("email", "partNumbers: path=%.120q", path)
-	}
+func partNumbers(path string) (out0 []int) {
+	defer logger.Out1(logger.In1("email", "partNumbers", "path", path), &out0)
 	if path == "" {
 		return nil
 	}
@@ -602,6 +593,7 @@ func partNumbers(path string) []int {
 	for _, field := range fields {
 		n, err := strconv.Atoi(field)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil
 		}
 		numbers = append(numbers, n)
@@ -616,12 +608,11 @@ type GetOptions struct {
 }
 
 // GetMessage loads one message for the reading pane.
-func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string, folder string, uid uint32, options GetOptions) (*Message, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.GetMessage: accountID=%.120q folder=%.120q uid=%d", accountID, folder, uid)
-	}
+func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string, folder string, uid uint32, options GetOptions) (out0 *Message, out1 error) {
+	defer logger.Out2(logger.In7("email", "Manager.GetMessage", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uid", uid, "&options", &options), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	settings := m.store.getSettings(p.Username)
@@ -630,6 +621,7 @@ func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string,
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		selected, err := selectFolder(c, folder)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uidSet := imap.UIDSetNum(imap.UID(uid))
@@ -640,6 +632,7 @@ func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string,
 			BodySection:   []*imap.FetchItemBodySection{headerSection},
 		}).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if len(buffers) == 0 {
@@ -675,6 +668,7 @@ func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string,
 			}
 			fetched, err := c.Fetch(uidSet, &imap.FetchOptions{UID: true, BodySection: sections}).Collect()
 			if err != nil {
+				logger.DebugErr("email", err)
 				return err
 			}
 			if len(fetched) > 0 {
@@ -712,6 +706,7 @@ func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string,
 		return nil
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.clearAuthError(p, account)
@@ -722,23 +717,22 @@ func (m *Manager) GetMessage(ctx context.Context, p Principal, accountID string,
 }
 
 // parseHeaderBytes parses a raw header block, tolerating junk.
-func parseHeaderBytes(raw []byte) gomail.Header {
-	logger.Debug("email", "parseHeaderBytes")
+func parseHeaderBytes(raw []byte) (out0 gomail.Header) {
+	defer logger.Out1(logger.In1("email", "parseHeaderBytes", "raw", raw), &out0)
 	if len(raw) == 0 {
 		return gomail.Header{}
 	}
 	header, err := textproto.ReadHeader(bufio.NewReader(bytes.NewReader(raw)))
 	if err != nil {
+		logger.DebugErr("email", err)
 		return gomail.Header{Header: gomessage.Header{Header: header}}
 	}
 	return gomail.Header{Header: gomessage.Header{Header: header}}
 }
 
 // buildMessage assembles the reading-pane message from fetched parts.
-func buildMessage(summary MessageSummary, header gomail.Header, parts displayParts, bodies map[string][]byte, allowRemote bool) *Message {
-	if logger.IsDebug() {
-		logger.Debugf("email", "buildMessage: len(bodies)=%d allowRemote=%t", len(bodies), allowRemote)
-	}
+func buildMessage(summary MessageSummary, header gomail.Header, parts displayParts, bodies map[string][]byte, allowRemote bool) (out0 *Message) {
+	defer logger.Out1(logger.In5("email", "buildMessage", "&summary", &summary, "&header", &header, "&parts", &parts, "bodies", bodies, "allowRemote", allowRemote), &out0)
 	message := &Message{
 		MessageSummary: summary,
 		ReplyTo:        headerAddresses(header, "Reply-To"),
@@ -812,11 +806,12 @@ func buildMessage(summary MessageSummary, header gomail.Header, parts displayPar
 	return message
 }
 
-func headerAddresses(header gomail.Header, key string) []Address {
-	logger.Debug("email", "headerAddresses")
+func headerAddresses(header gomail.Header, key string) (out0 []Address) {
+	defer logger.Out1(logger.In2("email", "headerAddresses", "&header", &header, "!key", key), &out0)
 	results := []Address{}
 	list, err := header.AddressList(key)
 	if err != nil {
+		logger.DebugErr("email", err)
 		//Fall back to a lenient split for malformed lists
 		for _, piece := range strings.Split(header.Get(key), ",") {
 			if parsed, perr := mail.ParseAddress(strings.TrimSpace(piece)); perr == nil {
@@ -832,8 +827,8 @@ func headerAddresses(header gomail.Header, key string) []Address {
 }
 
 // pickUnsubscribe prefers an https unsubscribe link over mailto.
-func pickUnsubscribe(header string) string {
-	logger.Debug("email", "pickUnsubscribe")
+func pickUnsubscribe(header string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "pickUnsubscribe", "header", header), &out0)
 	if header == "" {
 		return ""
 	}
@@ -854,10 +849,8 @@ func pickUnsubscribe(header string) string {
 var authResultPattern = regexp.MustCompile(`(?i)\b(spf|dkim|dmarc)\s*=\s*([a-z]+)`)
 
 // parseAuthResults keeps the verdicts of the first (receiving) server.
-func parseAuthResults(values []string) *AuthResults {
-	if logger.IsDebug() {
-		logger.Debugf("email", "parseAuthResults: len(values)=%d", len(values))
-	}
+func parseAuthResults(values []string) (out0 *AuthResults) {
+	defer logger.Out1(logger.In1("email", "parseAuthResults", "values", values), &out0)
 	if len(values) == 0 {
 		return nil
 	}
@@ -886,10 +879,8 @@ func parseAuthResults(values []string) *AuthResults {
 }
 
 // unflowText reverses format=flowed soft line breaks (RFC 3676).
-func unflowText(text string, delSpace bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "unflowText: delSpace=%t", delSpace)
-	}
+func unflowText(text string, delSpace bool) (out0 string) {
+	defer logger.Out1(logger.In2("email", "unflowText", "text", text, "delSpace", delSpace), &out0)
 	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	var builder strings.Builder
 	for i, line := range lines {
@@ -916,17 +907,17 @@ func unflowText(text string, delSpace bool) string {
 }
 
 // GetRaw downloads the full RFC 822 source of a message.
-func (m *Manager) GetRaw(ctx context.Context, p Principal, accountID string, folder string, uid uint32) (*RawMessage, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.GetRaw: accountID=%.120q folder=%.120q uid=%d", accountID, folder, uid)
-	}
+func (m *Manager) GetRaw(ctx context.Context, p Principal, accountID string, folder string, uid uint32) (out0 *RawMessage, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.GetRaw", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uid", uid), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	var raw *RawMessage
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		section := &imap.FetchItemBodySection{Peek: true}
@@ -934,6 +925,7 @@ func (m *Manager) GetRaw(ctx context.Context, p Principal, accountID string, fol
 			UID: true, Envelope: true, InternalDate: true, RFC822Size: true, BodySection: []*imap.FetchItemBodySection{section},
 		}).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if len(buffers) == 0 {
@@ -953,8 +945,8 @@ func (m *Manager) GetRaw(ctx context.Context, p Principal, accountID string, fol
 }
 
 // emlFilename names a saved message after its subject.
-func emlFilename(subject string, date time.Time) string {
-	logger.Debug("email", "emlFilename")
+func emlFilename(subject string, date time.Time) (out0 string) {
+	defer logger.Out1(logger.In2("email", "emlFilename", "subject", subject, "&date", &date), &out0)
 	name := strings.TrimSpace(subject)
 	if name == "" {
 		name = "Message"
@@ -969,12 +961,11 @@ func emlFilename(subject string, date time.Time) string {
 }
 
 // GetPart downloads one attachment by its part number.
-func (m *Manager) GetPart(ctx context.Context, p Principal, accountID string, folder string, uid uint32, partID string) (*PartData, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.GetPart: accountID=%.120q folder=%.120q uid=%d partID=%.120q", accountID, folder, uid, partID)
-	}
+func (m *Manager) GetPart(ctx context.Context, p Principal, accountID string, folder string, uid uint32, partID string) (out0 *PartData, out1 error) {
+	defer logger.Out2(logger.In7("email", "Manager.GetPart", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uid", uid, "partID", partID), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	numbers := partNumbers(partID)
@@ -984,11 +975,13 @@ func (m *Manager) GetPart(ctx context.Context, p Principal, accountID string, fo
 	var data *PartData
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uidSet := imap.UIDSetNum(imap.UID(uid))
 		structure, err := c.Fetch(uidSet, &imap.FetchOptions{UID: true, BodyStructure: &imap.FetchItemBodyStructure{Extended: true}}).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if len(structure) == 0 {
@@ -1002,6 +995,7 @@ func (m *Manager) GetPart(ctx context.Context, p Principal, accountID string, fo
 		section := &imap.FetchItemBodySection{Part: numbers, Peek: true}
 		buffers, err := c.Fetch(uidSet, &imap.FetchOptions{UID: true, BodySection: []*imap.FetchItemBodySection{section}}).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if len(buffers) == 0 {

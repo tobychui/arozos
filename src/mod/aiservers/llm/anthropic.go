@@ -67,10 +67,8 @@ type anthropicResponse struct {
 
 // chatAnthropic performs an Anthropic Messages API call and maps the result
 // back into the unified ChatResponse shape.
-func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (*ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "Client.chatAnthropic: len(messages)=%d", len(messages))
-	}
+func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (out0 *ChatResponse, out1 error) {
+	defer logger.Out2(logger.In3("aiservers/llm", "Client.chatAnthropic", "c", c, "messages", messages, "&opt", &opt), &out0, &out1)
 	//Anthropic takes the system prompt as a top-level field, not a message.
 	system := ""
 	amsgs := []anthropicMessage{}
@@ -102,11 +100,13 @@ func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (*ChatRespon
 	}
 	body, err := json.Marshal(reqStruct)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", anthropicURL(c.Endpoint), bytes.NewReader(body))
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -118,17 +118,20 @@ func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (*ChatRespon
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, errors.New("request to AI endpoint failed: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 
 	parsed := &anthropicResponse{}
 	if err := json.Unmarshal(respBody, parsed); err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, fmt.Errorf("unexpected response (HTTP %d): %s", resp.StatusCode, truncate(string(respBody), 300))
 	}
 	if parsed.Error != nil && parsed.Error.Message != "" {
@@ -196,10 +199,8 @@ type anthropicStreamEvent struct {
 // for each text/thinking delta and assembling the unified response. Anthropic
 // splits usage across message_start (input tokens) and message_delta (output
 // tokens), so both are accumulated before computing the total.
-func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "Client.chatAnthropicStream: len(messages)=%d", len(messages))
-	}
+func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb StreamCallback) (out0 *ChatResponse, out1 error) {
+	defer logger.Out2(logger.In4("aiservers/llm", "Client.chatAnthropicStream", "c", c, "messages", messages, "&opt", &opt, "&cb", &cb), &out0, &out1)
 	system := ""
 	amsgs := []anthropicMessage{}
 	for _, m := range messages {
@@ -230,11 +231,13 @@ func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb Str
 	}
 	body, err := json.Marshal(reqStruct)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", anthropicURL(c.Endpoint), bytes.NewReader(body))
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -247,6 +250,7 @@ func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb Str
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, errors.New("request to AI endpoint failed: " + err.Error())
 	}
 	defer resp.Body.Close()
@@ -311,6 +315,7 @@ func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb Str
 			}
 		}
 		if readErr != nil {
+			logger.DebugErr("aiservers/llm", readErr)
 			break
 		}
 	}
@@ -330,8 +335,8 @@ func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb Str
 }
 
 // listModelsAnthropic lists model IDs from the Anthropic /v1/models endpoint.
-func (c *Client) listModelsAnthropic() ([]string, error) {
-	logger.Debug("aiservers/llm", "Client.listModelsAnthropic")
+func (c *Client) listModelsAnthropic() (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("aiservers/llm", "Client.listModelsAnthropic", "c", c), &out0, &out1)
 	base := strings.TrimRight(c.Endpoint, "/")
 	var requestURL string
 	if strings.HasSuffix(base, "/models") {
@@ -344,6 +349,7 @@ func (c *Client) listModelsAnthropic() ([]string, error) {
 
 	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	if c.APIKey != "" {
@@ -353,6 +359,7 @@ func (c *Client) listModelsAnthropic() ([]string, error) {
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, errors.New("connection failed: " + err.Error())
 	}
 	defer resp.Body.Close()
@@ -379,10 +386,8 @@ func (c *Client) listModelsAnthropic() ([]string, error) {
 
 // anthropicURL builds the Messages endpoint URL from a base URL, tolerating
 // bases with or without a trailing /v1 or /messages.
-func anthropicURL(endpoint string) string {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "anthropicURL: endpoint=%.120q", endpoint)
-	}
+func anthropicURL(endpoint string) (out0 string) {
+	defer logger.Out1(logger.In1("aiservers/llm", "anthropicURL", "endpoint", endpoint), &out0)
 	base := strings.TrimRight(endpoint, "/")
 	if strings.HasSuffix(base, "/messages") {
 		return base
@@ -395,8 +400,8 @@ func anthropicURL(endpoint string) string {
 
 // toAnthropicContent converts unified message content (a plain string or an
 // array of OpenAI-style content parts) into Anthropic content blocks.
-func toAnthropicContent(content interface{}) interface{} {
-	logger.Debug("aiservers/llm", "toAnthropicContent")
+func toAnthropicContent(content interface{}) (out0 interface{}) {
+	defer logger.Out1(logger.In1("aiservers/llm", "toAnthropicContent", "content", content), &out0)
 	switch v := content.(type) {
 	case string:
 		return v
@@ -437,8 +442,8 @@ func toAnthropicContent(content interface{}) interface{} {
 
 // anthropicImageBlock converts an image URL (data URI or remote) into an
 // Anthropic image content block.
-func anthropicImageBlock(url string) anthropicContentBlock {
-	logger.Debug("aiservers/llm", "anthropicImageBlock")
+func anthropicImageBlock(url string) (out0 anthropicContentBlock) {
+	defer logger.Out1(logger.In1("aiservers/llm", "anthropicImageBlock", "url", url), &out0)
 	if strings.HasPrefix(url, "data:") {
 		meta := url[len("data:"):]
 		if comma := strings.Index(meta, ","); comma >= 0 {

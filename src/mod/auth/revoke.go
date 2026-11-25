@@ -45,8 +45,8 @@ type sessionRevoker struct {
 
 // newSessionRevoker loads the revoked session ids still in effect from the
 // system database.
-func newSessionRevoker(sysdb *db.Database) *sessionRevoker {
-	logger.Debug("auth", "newSessionRevoker")
+func newSessionRevoker(sysdb *db.Database) (out0 *sessionRevoker) {
+	defer logger.Out1(logger.In1("auth", "newSessionRevoker", "sysdb", sysdb), &out0)
 	r := &sessionRevoker{
 		revoked:  map[string]int64{},
 		database: sysdb,
@@ -55,11 +55,13 @@ func newSessionRevoker(sysdb *db.Database) *sessionRevoker {
 		return r
 	}
 	if err := sysdb.NewTable(revokedSessionTable); err != nil {
+		logger.DebugErr("auth", err)
 		logger.PrintAndLog("Auth", "Unable to create the revoked session table", err)
 		return r
 	}
 	entries, err := sysdb.ListTable(revokedSessionTable)
 	if err != nil {
+		logger.DebugErr("auth", err)
 		logger.PrintAndLog("Auth", "Unable to load revoked sessions", err)
 		return r
 	}
@@ -77,9 +79,7 @@ func newSessionRevoker(sysdb *db.Database) *sessionRevoker {
 
 // Revoke marks a session id as logged out.
 func (r *sessionRevoker) Revoke(sid string) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "sessionRevoker.Revoke: sid=%.120q", sid)
-	}
+	defer logger.Out0(logger.In2("auth", "sessionRevoker.Revoke", "r", r, "sid", sid))
 	if r == nil || sid == "" {
 		return
 	}
@@ -89,16 +89,15 @@ func (r *sessionRevoker) Revoke(sid string) {
 	r.mutex.Unlock()
 	if r.database != nil {
 		if err := r.database.Write(revokedSessionTable, sid, expire); err != nil {
+			logger.DebugErr("auth", err)
 			logger.PrintAndLog("Auth", "Unable to store a revoked session", err)
 		}
 	}
 }
 
 // IsRevoked tells if a session id was logged out.
-func (r *sessionRevoker) IsRevoked(sid string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "sessionRevoker.IsRevoked: sid=%.120q", sid)
-	}
+func (r *sessionRevoker) IsRevoked(sid string) (out0 bool) {
+	defer logger.Out1(logger.In2("auth", "sessionRevoker.IsRevoked", "r", r, "sid", sid), &out0)
 	if r == nil || sid == "" {
 		return false
 	}
@@ -110,7 +109,7 @@ func (r *sessionRevoker) IsRevoked(sid string) bool {
 
 // Prune forgets the revoked ids no cookie can hold any more.
 func (r *sessionRevoker) Prune() {
-	logger.Debug("auth", "sessionRevoker.Prune")
+	defer logger.Out0(logger.In1("auth", "sessionRevoker.Prune", "r", r))
 	if r == nil {
 		return
 	}
@@ -132,15 +131,17 @@ func (r *sessionRevoker) Prune() {
 		ops = append(ops, db.BatchOp{Table: revokedSessionTable, Key: sid, Delete: true})
 	}
 	if err := r.database.WriteBatch(ops); err != nil {
+		logger.DebugErr("auth", err)
 		logger.PrintAndLog("Auth", "Unable to prune revoked sessions", err)
 	}
 }
 
 // newSessionID returns a random session id.
-func newSessionID() string {
-	logger.Debug("auth", "newSessionID")
+func newSessionID() (out0 string) {
+	defer logger.Out1(logger.In0("auth", "newSessionID"), &out0)
 	buf := make([]byte, sessionIDBytes)
 	if _, err := rand.Read(buf); err != nil {
+		logger.DebugErr("auth", err)
 		//crypto/rand does not fail on supported platforms
 		panic(err)
 	}
@@ -148,8 +149,8 @@ func newSessionID() string {
 }
 
 // sessionIDOf returns the session id held by a session, empty when it has none.
-func sessionIDOf(session *sessions.Session) string {
-	logger.Debug("auth", "sessionIDOf")
+func sessionIDOf(session *sessions.Session) (out0 string) {
+	defer logger.Out1(logger.In1("auth", "sessionIDOf", "!session", session), &out0)
 	sid, _ := session.Values[sessionIDKey].(string)
 	return sid
 }

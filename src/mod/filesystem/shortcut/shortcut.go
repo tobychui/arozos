@@ -56,8 +56,8 @@ const (
 	MaxWindowSize = 10000
 )
 
-func ReadShortcut(shortcutContent []byte) (*arozfs.ShortcutData, error) {
-	logger.Debug("filesystem/shortcut", "ReadShortcut")
+func ReadShortcut(shortcutContent []byte) (out0 *arozfs.ShortcutData, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/shortcut", "ReadShortcut", "shortcutContent", shortcutContent), &out0, &out1)
 	//Split the content of the shortcut files into lines
 	fileContent := strings.ReplaceAll(strings.TrimSpace(string(shortcutContent)), "\r\n", "\n")
 	lines := strings.Split(fileContent, "\n")
@@ -109,10 +109,8 @@ func ReadShortcut(shortcutContent []byte) (*arozfs.ShortcutData, error) {
 }
 
 // NormalizeOpenIn maps a user supplied open-in value to a known one, or "" for default
-func NormalizeOpenIn(value string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/shortcut", "NormalizeOpenIn: value=%.120q", value)
-	}
+func NormalizeOpenIn(value string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/shortcut", "NormalizeOpenIn", "value", value), &out0)
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case OpenInFloatWindow:
 		return OpenInFloatWindow
@@ -123,10 +121,8 @@ func NormalizeOpenIn(value string) string {
 }
 
 // NormalizeWindowSize parses a window dimension, returning 0 (use default) when invalid
-func NormalizeWindowSize(value string) int {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/shortcut", "NormalizeWindowSize: value=%.120q", value)
-	}
+func NormalizeWindowSize(value string) (out0 int) {
+	defer logger.Out1(logger.In1("filesystem/shortcut", "NormalizeWindowSize", "value", value), &out0)
 	size, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil || size <= 0 {
 		return 0
@@ -141,18 +137,16 @@ func NormalizeWindowSize(value string) int {
 }
 
 // singleLine keeps a value on one line so it cannot break the file layout
-func singleLine(value string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/shortcut", "singleLine: value=%.120q", value)
-	}
+func singleLine(value string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/shortcut", "singleLine", "value", value), &out0)
 	value = strings.ReplaceAll(value, "\r", " ")
 	value = strings.ReplaceAll(value, "\n", " ")
 	return strings.TrimSpace(value)
 }
 
 // EncodeShortcut serializes shortcut data (including launch options) into file content
-func EncodeShortcut(data *arozfs.ShortcutData) []byte {
-	logger.Debug("filesystem/shortcut", "EncodeShortcut")
+func EncodeShortcut(data *arozfs.ShortcutData) (out0 []byte) {
+	defer logger.Out1(logger.In1("filesystem/shortcut", "EncodeShortcut", "data", data), &out0)
 	lines := []string{
 		singleLine(data.Type),
 		singleLine(data.Name),
@@ -191,10 +185,8 @@ func EncodeShortcut(data *arozfs.ShortcutData) []byte {
 }
 
 // IsWebURL reports whether target is an absolute http(s) URL, the only kind a url shortcut may open
-func IsWebURL(target string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/shortcut", "IsWebURL: target=%.120q", target)
-	}
+func IsWebURL(target string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/shortcut", "IsWebURL", "target", target), &out0)
 	u, err := url.Parse(strings.TrimSpace(target))
 	if err != nil || u.Host == "" {
 		return false
@@ -204,7 +196,7 @@ func IsWebURL(target string) bool {
 
 // ClearLaunchOptions drops the launch options, used for types that do not support them
 func ClearLaunchOptions(data *arozfs.ShortcutData) {
-	logger.Debug("filesystem/shortcut", "ClearLaunchOptions")
+	defer logger.Out0(logger.In1("filesystem/shortcut", "ClearLaunchOptions", "data", data))
 	data.WindowTitle = ""
 	data.OpenIn = ""
 	data.WindowWidth = 0
@@ -212,10 +204,8 @@ func ClearLaunchOptions(data *arozfs.ShortcutData) {
 }
 
 // Generate the content of a shortcut base the the four important field of shortcut information
-func GenerateShortcutBytes(shortcutTarget string, shortcutType string, shortcutText string, shortcutIcon string) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/shortcut", "GenerateShortcutBytes: shortcutTarget=%.120q shortcutType=%.120q shortcutText=%.120q shortcutIcon=%.120q", shortcutTarget, shortcutType, shortcutText, shortcutIcon)
-	}
+func GenerateShortcutBytes(shortcutTarget string, shortcutType string, shortcutText string, shortcutIcon string) (out0 []byte) {
+	defer logger.Out1(logger.In4("filesystem/shortcut", "GenerateShortcutBytes", "shortcutTarget", shortcutTarget, "shortcutType", shortcutType, "shortcutText", shortcutText, "shortcutIcon", shortcutIcon), &out0)
 	//Check if there are desktop icon. If yes, override icon on module
 	if shortcutType == "module" && utils.FileExists(arozfs.ToSlash(filepath.Join("./web/", filepath.Dir(shortcutIcon), "/desktop_icon.png"))) {
 		shortcutIcon = arozfs.ToSlash(filepath.Join(filepath.Dir(shortcutIcon), "/desktop_icon.png"))

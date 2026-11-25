@@ -42,9 +42,7 @@ type field struct {
 
 // scanFields finds every field of [cp1, cp2), nested ones included
 func (d *docFile) scanFields(cp1, cp2 int) map[int]*field {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.scanFields: cp1=%d cp2=%d", cp1, cp2)
-	}
+	logger.DebugTrace("office/doc", "docFile.scanFields")
 	out := map[int]*field{}
 	var stack []*field
 	for cp := cp1; cp < cp2; cp++ {
@@ -93,9 +91,7 @@ func (d *docFile) scanFields(cp1, cp2 int) map[int]*field {
 
 // hyperlinkTarget reads HYPERLINK "url" [\l "bookmark"]
 func hyperlinkTarget(instr string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "hyperlinkTarget: instr=%.120q", instr)
-	}
+	logger.DebugTrace("office/doc", "hyperlinkTarget")
 	fs := splitInstr(instr)
 	if len(fs) == 0 || !strings.EqualFold(fs[0], "HYPERLINK") {
 		return ""
@@ -128,9 +124,7 @@ func hyperlinkTarget(instr string) string {
 
 // splitInstr splits a field instruction into words, quoted ones whole
 func splitInstr(s string) []string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "splitInstr: s=%.120q", s)
-	}
+	logger.DebugTrace("office/doc", "splitInstr")
 	var out []string
 	var cur strings.Builder
 	quoted := false
@@ -182,9 +176,7 @@ type markers struct {
 }
 
 func (m *markers) take(set map[int][]string, cp int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "markers.take: len(set)=%d cp=%d", len(set), cp)
-	}
+	logger.DebugTrace("office/doc", "markers.take")
 	if m == nil {
 		return ""
 	}
@@ -204,9 +196,7 @@ type fieldRun struct {
 
 // paraXML writes one paragraph (extraPPr goes into its pPr - a section)
 func (w *writer) paraXML(pg *para, st *storyState, extraPPr string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.paraXML: extraPPr=%.120q", extraPPr)
-	}
+	logger.DebugTrace("office/doc", "writer.paraXML")
 	var body strings.Builder
 	var after []string // text boxes anchored in the paragraph
 	toggles := w.d.styles.toggles(pg.istd, -1)
@@ -403,9 +393,7 @@ func (w *writer) paraXML(pg *para, st *storyState, extraPPr string) string {
 
 // wrapRev puts a run inside the tracked change it belongs to
 func (w *writer) wrapRev(c *chp, r string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.wrapRev: r=%.120q", r)
-	}
+	logger.DebugTrace("office/doc", "writer.wrapRev")
 	switch {
 	case c.rmDel:
 		w.revID++
@@ -418,9 +406,7 @@ func (w *writer) wrapRev(c *chp, r string) string {
 }
 
 func (w *writer) author(i int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.author: i=%d", i)
-	}
+	logger.DebugTrace("office/doc", "writer.author")
 	if i >= 0 && i < len(w.d.revAuthors) {
 		return w.d.revAuthors[i]
 	}
@@ -429,9 +415,7 @@ func (w *writer) author(i int) string {
 
 // dttm renders a DTTM as a w:date attribute
 func dttm(v uint32) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "dttm: v=%d", v)
-	}
+	logger.DebugTrace("office/doc", "dttm")
 	if v == 0 {
 		return ""
 	}
@@ -453,9 +437,7 @@ func dttm(v uint32) string {
 }
 
 func hex4(v int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "hex4: v=%d", v)
-	}
+	logger.DebugTrace("office/doc", "hex4")
 	s := strings.ToUpper(strings.TrimLeft(hexRGB(uint32(v)), "0"))
 	for len(s) < 4 {
 		s = "0" + s
@@ -465,9 +447,7 @@ func hex4(v int) string {
 
 // xmlText escapes characters for a w:t, dropping what XML cannot hold
 func xmlText(u []uint16) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "xmlText: len(u)=%d", len(u))
-	}
+	logger.DebugTrace("office/doc", "xmlText")
 	s := string(utf16.Decode(u))
 	var sb strings.Builder
 	for _, r := range s {
@@ -489,9 +469,7 @@ func xmlText(u []uint16) string {
 // hyperlinkOpen starts a w:hyperlink: external targets by relationship,
 // "#bookmark" by anchor
 func (w *writer) hyperlinkOpen(target string, part *partCtx) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.hyperlinkOpen: target=%.120q", target)
-	}
+	logger.DebugTrace("office/doc", "writer.hyperlinkOpen")
 	if strings.HasPrefix(target, "#") {
 		return `<w:hyperlink w:anchor="` + xmltree.Escape(target[1:]) + `" w:history="1">`
 	}

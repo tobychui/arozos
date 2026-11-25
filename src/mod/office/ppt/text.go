@@ -23,9 +23,7 @@ import (
 )
 
 func decodeUTF16(u []uint16) []rune {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "decodeUTF16: len(u)=%d", len(u))
-	}
+	logger.DebugTrace("office/ppt", "decodeUTF16")
 	return utf16.Decode(u)
 }
 
@@ -495,9 +493,7 @@ func interactiveRef(ii *officeart.Record) string {
 }
 
 func itoaU(v uint32) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "itoaU: v=%d", v)
-	}
+	logger.DebugTrace("office/ppt", "itoaU")
 	if v == 0 {
 		return "0"
 	}
@@ -512,9 +508,7 @@ func itoaU(v uint32) string {
 // readStyleProps reads a StyleTextPropAtom: paragraph runs, then
 // character runs, each covering the text plus one character
 func (t *textBlock) readStyleProps(b []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "textBlock.readStyleProps: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/ppt", "textBlock.readStyleProps")
 	r := &rd{b: b}
 	n := len(t.text) + 1
 	for got := 0; got < n && !r.bad && r.p < len(b); {
@@ -540,9 +534,7 @@ func (t *textBlock) readStyleProps(b []byte) {
 
 // readRuler reads a TextRulerAtom: per level margins and indents
 func readRuler(b []byte) *ruler {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "readRuler: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/ppt", "readRuler")
 	r := &rd{b: b}
 	m := r.u32()
 	ru := &ruler{}
@@ -580,9 +572,7 @@ var baseCF = cf{size: 18, color: colorIdx{index: 1}}
 // the basic type (title, body, notes, other) and the master's own style
 // for a derived type (centre title, centre / half / quarter body)
 func (p *pres) styleChain(m *slideRec, typ int) []*masterStyle {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "pres.styleChain: typ=%d", typ)
-	}
+	logger.DebugTrace("office/ppt", "pres.styleChain")
 	var out []*masterStyle
 	if p.envStyle != nil {
 		out = append(out, p.envStyle)
@@ -612,9 +602,7 @@ func (p *pres) styleChain(m *slideRec, typ int) []*masterStyle {
 // resolve gives the paragraph and character formatting a run of text of
 // type typ at an indent level ends up with
 func resolve(chain []*masterStyle, level int) (pf, cf) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "resolve: len(chain)=%d level=%d", len(chain), level)
-	}
+	logger.DebugTrace("office/ppt", "resolve")
 	p, c := basePF, baseCF
 	if level > 4 {
 		level = 4

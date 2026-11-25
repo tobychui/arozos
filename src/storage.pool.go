@@ -53,7 +53,7 @@ const (
 var driveIDFormat = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func StoragePoolEditorInit() {
-	logger.Debug("Core", "StoragePoolEditorInit")
+	defer logger.Out0(logger.In0("Core", "StoragePoolEditorInit"))
 
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Settings",
@@ -67,6 +67,7 @@ func StoragePoolEditorInit() {
 	//Create the required folder structure
 	err := os.MkdirAll("./system/storage", 0775)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("System", "Create storage pool setting folder failed: ", nil)
 		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
@@ -87,18 +88,14 @@ func StoragePoolEditorInit() {
 */
 
 // storagePoolKnown reports whether a pool of this name exists
-func storagePoolKnown(pool string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "storagePoolKnown: pool=%.120q", pool)
-	}
+func storagePoolKnown(pool string) (out0 bool) {
+	defer logger.Out1(logger.In1("Core", "storagePoolKnown", "pool", pool), &out0)
 	return pool == storagePoolSystem || permissionHandler.GroupExists(pool)
 }
 
 // poolConfigFile returns the config file of a pool
-func poolConfigFile(pool string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "poolConfigFile: pool=%.120q", pool)
-	}
+func poolConfigFile(pool string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "poolConfigFile", "pool", pool), &out0)
 	if pool == storagePoolSystem {
 		return *storage_config_file
 	}
@@ -107,10 +104,8 @@ func poolConfigFile(pool string) string {
 
 // readPoolConfig returns the drives configured in a pool. A pool with no
 // config file has none.
-func readPoolConfig(pool string) ([]fs.FileSystemOption, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "readPoolConfig: pool=%.120q", pool)
-	}
+func readPoolConfig(pool string) (out0 []fs.FileSystemOption, out1 error) {
+	defer logger.Out2(logger.In1("Core", "readPoolConfig", "pool", pool), &out0, &out1)
 	options := []fs.FileSystemOption{}
 	configFile := poolConfigFile(pool)
 	if !fs.FileExists(configFile) {
@@ -118,9 +113,11 @@ func readPoolConfig(pool string) ([]fs.FileSystemOption, error) {
 	}
 	content, err := os.ReadFile(configFile)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	if err := json.Unmarshal(content, &options); err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Storage", "Unable to parse storage config "+configFile, err)
 		return nil, err
 	}
@@ -128,10 +125,8 @@ func readPoolConfig(pool string) ([]fs.FileSystemOption, error) {
 }
 
 // writePoolConfig replaces the drives configured in a pool
-func writePoolConfig(pool string, options []fs.FileSystemOption) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "writePoolConfig: pool=%.120q len(options)=%d", pool, len(options))
-	}
+func writePoolConfig(pool string, options []fs.FileSystemOption) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "writePoolConfig", "pool", pool, "options", options), &out0)
 	configFile := poolConfigFile(pool)
 	if len(options) == 0 {
 		err := os.Remove(configFile)
@@ -142,16 +137,15 @@ func writePoolConfig(pool string, options []fs.FileSystemOption) error {
 	}
 	js, err := json.MarshalIndent(options, "", " ")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	return os.WriteFile(configFile, js, 0775)
 }
 
 // findPoolOption returns the config row of a drive in a pool, or nil
-func findPoolOption(options []fs.FileSystemOption, uuid string) *fs.FileSystemOption {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "findPoolOption: len(options)=%d uuid=%.120q", len(options), uuid)
-	}
+func findPoolOption(options []fs.FileSystemOption, uuid string) (out0 *fs.FileSystemOption) {
+	defer logger.Out1(logger.In2("Core", "findPoolOption", "options", options, "uuid", uuid), &out0)
 	for i := range options {
 		if options[i].Uuid == uuid {
 			return &options[i]
@@ -161,11 +155,12 @@ func findPoolOption(options []fs.FileSystemOption, uuid string) *fs.FileSystemOp
 }
 
 // Constract a fsoption from form
-func buildOptionFromRequestForm(payload string) (fs.FileSystemOption, error) {
-	logger.Debug("Core", "buildOptionFromRequestForm")
+func buildOptionFromRequestForm(payload string) (out0 fs.FileSystemOption, out1 error) {
+	defer logger.Out2(logger.In1("Core", "buildOptionFromRequestForm", "payload", payload), &out0, &out1)
 	newFsOption := fs.FileSystemOption{}
 	err := json.Unmarshal([]byte(payload), &newFsOption)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return fs.FileSystemOption{}, err
 	}
 
@@ -182,8 +177,8 @@ func buildOptionFromRequestForm(payload string) (fs.FileSystemOption, error) {
 }
 
 // localFilesystemType names the file system of a local folder on this host
-func localFilesystemType() string {
-	logger.Debug("Core", "localFilesystemType")
+func localFilesystemType() (out0 string) {
+	defer logger.Out1(logger.In0("Core", "localFilesystemType"), &out0)
 	if runtime.GOOS == "windows" {
 		return "ntfs"
 	}
@@ -196,21 +191,22 @@ func localFilesystemType() string {
 	Saving a drive mounts it right away, so most changes need no pool reload.
 */
 
-func mountDrive(poolOwner string, option fs.FileSystemOption) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "mountDrive: poolOwner=%.120q", poolOwner)
-	}
+func mountDrive(poolOwner string, option fs.FileSystemOption) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "mountDrive", "poolOwner", poolOwner, "&option", &option), &out0)
 	pool, err := GetStoragePoolByOwner(poolOwner)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	handler, err := fs.NewFileSystemHandler(option, fs.RuntimePersistenceConfig{
 		LocalBufferPath: *tmp_directory,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	if err := pool.AttachFsHandler(handler); err != nil {
+		logger.DebugErr("Core", err)
 		handler.Close()
 		return err
 	}
@@ -219,15 +215,15 @@ func mountDrive(poolOwner string, option fs.FileSystemOption) error {
 }
 
 func unmountDrive(poolOwner string, uuid string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "unmountDrive: poolOwner=%.120q uuid=%.120q", poolOwner, uuid)
-	}
+	defer logger.Out0(logger.In2("Core", "unmountDrive", "poolOwner", poolOwner, "uuid", uuid))
 	pool, err := GetStoragePoolByOwner(poolOwner)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return
 	}
 	fsh, err := pool.GetFsHandlerByUUID(uuid)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return
 	}
 	pool.DetachFsHandler(uuid)
@@ -239,14 +235,13 @@ func unmountDrive(poolOwner string, uuid string) {
 // sendMountResult reports a saved drive. The config is kept when the mount
 // fails, so the drive shows as offline and can be fixed from the page.
 func sendMountResult(w http.ResponseWriter, mountErr error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sendMountResult: mountErr=%v", mountErr)
-	}
+	defer logger.Out0(logger.In1("Core", "sendMountResult", "mountErr", mountErr))
 	result := struct {
 		Mounted bool   `json:"mounted"`
 		Reason  string `json:"reason,omitempty"`
 	}{Mounted: mountErr == nil}
 	if mountErr != nil {
+		logger.DebugErr("Core", mountErr)
 		result.Reason = mountErr.Error()
 	}
 	js, _ := json.Marshal(result)
@@ -259,12 +254,11 @@ func sendMountResult(w http.ResponseWriter, mountErr error) {
 
 // Handle editing of a given File System Handler
 func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleFSHEdit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleFSHEdit", "r", r))
 	opr, _ := utils.PostPara(r, "opr")
 	group, err := utils.PostPara(r, "group")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid group given")
 		return
 	}
@@ -286,17 +280,17 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDriveGet(w http.ResponseWriter, r *http.Request, group string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleDriveGet: r=%s group=%.120q", logger.RequestSummary(r), group)
-	}
+	defer logger.Out0(logger.In2("Core", "handleDriveGet", "r", r, "group", group))
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid UUID")
 		return
 	}
 
 	fshOption, err := getFSHConfigFromGroupAndUUID(group, uuid)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -309,21 +303,22 @@ func handleDriveGet(w http.ResponseWriter, r *http.Request, group string) {
 }
 
 func handleDriveSet(w http.ResponseWriter, r *http.Request, group string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleDriveSet: r=%s group=%.120q", logger.RequestSummary(r), group)
-	}
+	defer logger.Out0(logger.In2("Core", "handleDriveSet", "r", r, "group", group))
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid UUID")
 		return
 	}
 	config, err := utils.PostPara(r, "config")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid config")
 		return
 	}
 	newFsOption, err := buildOptionFromRequestForm(config)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -341,6 +336,7 @@ func handleDriveSet(w http.ResponseWriter, r *http.Request, group string) {
 
 	err = setFSHConfigByGroupAndId(group, uuid, &newFsOption)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -352,16 +348,16 @@ func handleDriveSet(w http.ResponseWriter, r *http.Request, group string) {
 }
 
 func handleDriveNew(w http.ResponseWriter, r *http.Request, group string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleDriveNew: r=%s group=%.120q", logger.RequestSummary(r), group)
-	}
+	defer logger.Out0(logger.In2("Core", "handleDriveNew", "r", r, "group", group))
 	config, err := utils.PostPara(r, "config")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid config")
 		return
 	}
 	newFsOption, err := buildOptionFromRequestForm(config)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -372,10 +368,12 @@ func handleDriveNew(w http.ResponseWriter, r *http.Request, group string) {
 	if ruleJSON, _ := utils.PostPara(r, "access"); ruleJSON != "" {
 		rule = &access.Rule{}
 		if err := json.Unmarshal([]byte(ruleJSON), rule); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid access list")
 			return
 		}
 		if err := rule.Validate(); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -383,6 +381,7 @@ func handleDriveNew(w http.ResponseWriter, r *http.Request, group string) {
 
 	mountErr, err := addDrive(group, newFsOption, rule)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -393,22 +392,24 @@ func handleDriveNew(w http.ResponseWriter, r *http.Request, group string) {
 // drive was not saved; mountErr when it was saved but could not be mounted,
 // in which case it shows as offline. rule, if given, is its access list.
 func addDrive(group string, option fs.FileSystemOption, rule *access.Rule) (mountErr error, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "addDrive: group=%.120q", group)
-	}
+	defer logger.Out2(logger.In3("Core", "addDrive", "group", group, "&option", &option, "rule", rule), &mountErr, &err)
 	if err := validateNewDrive(&option, collectPoolStates()); err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 
 	options, err := readPoolConfig(group)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	if err := writePoolConfig(group, append(options, option)); err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	if rule != nil {
 		if err := driveAccessStore.Set(option.Uuid, *rule); err != nil {
+			logger.DebugErr("Core", err)
 			return nil, err
 		}
 	}
@@ -420,11 +421,10 @@ func addDrive(group string, option fs.FileSystemOption, rule *access.Rule) (moun
 
 // validateNewDrive checks a drive about to be added. Drive ids are global:
 // the access list and every path lookup find a drive by its id alone.
-func validateNewDrive(option *fs.FileSystemOption, pools []poolState) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "validateNewDrive: len(pools)=%d", len(pools))
-	}
+func validateNewDrive(option *fs.FileSystemOption, pools []poolState) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "validateNewDrive", "option", option, "pools", pools), &out0)
 	if err := fs.ValidateOption(option); err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	if !driveIDFormat.MatchString(option.Uuid) {
@@ -439,12 +439,11 @@ func validateNewDrive(option *fs.FileSystemOption, pools []poolState) error {
 }
 
 // Get the FSH configuration for the given group and uuid
-func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOption, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "getFSHConfigFromGroupAndUUID: group=%.120q uuid=%.120q", group, uuid)
-	}
+func getFSHConfigFromGroupAndUUID(group string, uuid string) (out0 *fs.FileSystemOption, out1 error) {
+	defer logger.Out2(logger.In2("Core", "getFSHConfigFromGroupAndUUID", "group", group, "uuid", uuid), &out0, &out1)
 	options, err := readPoolConfig(group)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	option := findPoolOption(options, uuid)
@@ -457,12 +456,11 @@ func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOpti
 // setFSHConfigByGroupAndId replaces a config row in place, keeping the stored
 // login when the form left it empty. The stored login is written back into
 // options, which the caller goes on to mount.
-func setFSHConfigByGroupAndId(group string, uuid string, options *fs.FileSystemOption) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "setFSHConfigByGroupAndId: group=%.120q uuid=%.120q", group, uuid)
-	}
+func setFSHConfigByGroupAndId(group string, uuid string, options *fs.FileSystemOption) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "setFSHConfigByGroupAndId", "group", group, "uuid", uuid, "options", options), &out0)
 	loadedConfig, err := readPoolConfig(group)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	current := findPoolOption(loadedConfig, uuid)
@@ -477,6 +475,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options *fs.FileSystemO
 		options.Password = current.Password
 	}
 	if err := fs.ValidateOption(options); err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 
@@ -486,9 +485,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options *fs.FileSystemO
 
 // Handle Storage Pool toggle on-off
 func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleFSHToggle: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleFSHToggle", "r", r))
 	fsh, _ := utils.PostPara(r, "fsh")
 	if fsh == "" {
 		utils.SendErrorResponse(w, "Invalid File System Handler ID")
@@ -515,11 +512,13 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 
 	storagePool, err := GetStoragePoolByOwner(group)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	targetFSH, err := storagePool.GetFsHandlerByUUID(fsh)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Target File System Handler not found, given: "+fsh)
 		return
 	}
@@ -533,7 +532,7 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 
 // reloadBasePool closes and reopens the system pool, built-in drives included
 func reloadBasePool() {
-	logger.Debug("Core", "reloadBasePool")
+	defer logger.Out0(logger.In0("Core", "reloadBasePool"))
 	baseStoragePool.Close()
 	emptyPool := storage.StoragePool{}
 	baseStoragePool = &emptyPool
@@ -541,6 +540,7 @@ func reloadBasePool() {
 	//Start BasePool again
 	err := LoadBaseStoragePool()
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Storage", err.Error(), err)
 		return
 	}
@@ -550,9 +550,7 @@ func reloadBasePool() {
 
 // Handle reload of storage pool
 func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleStoragePoolReload: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleStoragePoolReload", "r", r))
 	pool, _ := utils.PostPara(r, "pool")
 
 	switch pool {
@@ -588,7 +586,7 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 // WebDAV, SFTP, FTP, etc.) see the re-mounted drives.  Failures are
 // logged to systemWideLogger but never block the reload response.
 func restartAllEnabledServers() {
-	logger.Debug("Core", "restartAllEnabledServers")
+	defer logger.Out0(logger.In0("Core", "restartAllEnabledServers"))
 	for _, fserv := range networkFileServerDaemon {
 		if fserv.EnableCheck == nil || fserv.ToggleFunc == nil {
 			continue
@@ -601,6 +599,7 @@ func restartAllEnabledServers() {
 
 		// Stop
 		if err := fserv.ToggleFunc(false); err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("Failed to stop file server %s: %v", fserv.Name, err), nil)
 			continue
 		}
@@ -611,6 +610,7 @@ func restartAllEnabledServers() {
 
 		// Start
 		if err := fserv.ToggleFunc(true); err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", fmt.Sprintf("Failed to restart file server %s: %v", fserv.Name, err), nil)
 			continue
 		}
@@ -621,9 +621,7 @@ func restartAllEnabledServers() {
 
 // reloadGroupPool closes and reopens the pool of a permission group
 func reloadGroupPool(group string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "reloadGroupPool: group=%.120q", group)
-	}
+	defer logger.Out0(logger.In1("Core", "reloadGroupPool", "group", group))
 	systemWideLogger.PrintAndLog("Storage", "Reloading Storage Pool for: "+group, nil)
 	pg := permissionHandler.GetPermissionGroupByName(group)
 
@@ -640,17 +638,17 @@ func reloadGroupPool(group string) {
 }
 
 func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleStoragePoolRemove: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleStoragePoolRemove", "r", r))
 	groupname, err := utils.PostPara(r, "group")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "group not defined")
 		return
 	}
 
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "File system handler UUID not defined")
 		return
 	}
@@ -665,6 +663,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := removeDrive(groupname, uuid); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -673,13 +672,12 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 
 // removeDrive takes a drive out of a pool's config, unmounts it and drops its
 // access rule once no pool holds that id any more
-func removeDrive(groupname string, uuid string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "removeDrive: groupname=%.120q uuid=%.120q", groupname, uuid)
-	}
+func removeDrive(groupname string, uuid string) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "removeDrive", "groupname", groupname, "uuid", uuid), &out0)
 	//Generate new confic by filtering
 	oldConfigs, err := readPoolConfig(groupname)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return errors.New("Failed to parse original config file")
 	}
 	newConfigs := []fs.FileSystemOption{}
@@ -689,6 +687,7 @@ func removeDrive(groupname string, uuid string) error {
 		}
 	}
 	if err := writePoolConfig(groupname, newConfigs); err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 
@@ -697,6 +696,7 @@ func removeDrive(groupname string, uuid string) error {
 	//The rule goes with the last drive of that id
 	if _, stillUsed := drivePoolHome(uuid); !stillUsed {
 		if err := driveAccessStore.Remove(uuid); err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", "Unable to remove the access rule of "+uuid+":/", err)
 		}
 	}
@@ -710,16 +710,16 @@ func removeDrive(groupname string, uuid string) error {
 
 // HandleFSHTest tries the settings of the add and edit drive form
 func HandleFSHTest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleFSHTest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleFSHTest", "r", r))
 	config, err := utils.PostPara(r, "config")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid config")
 		return
 	}
 	option, err := buildOptionFromRequestForm(config)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -743,6 +743,7 @@ func HandleFSHTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := testNetworkDrive(option); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -752,8 +753,8 @@ func HandleFSHTest(w http.ResponseWriter, r *http.Request) {
 // testNetworkDrive connects to a network drive and disconnects again. A server
 // that does not answer must not hold the request up for as long as its
 // connection attempt takes.
-func testNetworkDrive(option fs.FileSystemOption) error {
-	logger.Debug("Core", "testNetworkDrive")
+func testNetworkDrive(option fs.FileSystemOption) (out0 error) {
+	defer logger.Out1(logger.In1("Core", "testNetworkDrive", "&option", &option), &out0)
 	if option.Uuid == "" {
 		option.Uuid = "connectiontest"
 	}
@@ -794,10 +795,8 @@ type poolState struct {
 }
 
 // holds reports whether this pool runs or configures a drive
-func (p poolState) holds(uuid string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "poolState.holds: uuid=%.120q", uuid)
-	}
+func (p poolState) holds(uuid string) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "poolState.holds", "&p", &p, "uuid", uuid), &out0)
 	for _, fsh := range p.live {
 		if fsh.UUID == uuid {
 			return true
@@ -807,8 +806,8 @@ func (p poolState) holds(uuid string) bool {
 }
 
 // collectPoolStates reads every pool, the system pool first
-func collectPoolStates() []poolState {
-	logger.Debug("Core", "collectPoolStates")
+func collectPoolStates() (out0 []poolState) {
+	defer logger.Out1(logger.In0("Core", "collectPoolStates"), &out0)
 	states := []poolState{}
 	for _, pool := range GetAllStoragePools() {
 		state := poolState{owner: pool.Owner, live: pool.Storages}
@@ -821,10 +820,8 @@ func collectPoolStates() []poolState {
 }
 
 // duplicateDriveIDs lists the drive ids used by more than one pool
-func duplicateDriveIDs(pools []poolState) []string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "duplicateDriveIDs: len(pools)=%d", len(pools))
-	}
+func duplicateDriveIDs(pools []poolState) (out0 []string) {
+	defer logger.Out1(logger.In1("Core", "duplicateDriveIDs", "pools", pools), &out0)
 	useCount := map[string]int{}
 	for _, pool := range pools {
 		seen := map[string]bool{}
@@ -866,10 +863,8 @@ type driveInfo struct {
 	Replicated bool        `json:"ruleReplicated"`
 }
 
-func driveKindOf(uuid string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "driveKindOf: uuid=%.120q", uuid)
-	}
+func driveKindOf(uuid string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "driveKindOf", "uuid", uuid), &out0)
 	switch {
 	case access.IsFixed(uuid):
 		return driveKindFixed
@@ -881,10 +876,8 @@ func driveKindOf(uuid string) string {
 }
 
 // homeOfPool turns a pool owner into the home group of its drives
-func homeOfPool(owner string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "homeOfPool: owner=%.120q", owner)
-	}
+func homeOfPool(owner string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "homeOfPool", "owner", owner), &out0)
 	if owner == storagePoolSystem {
 		return ""
 	}
@@ -892,10 +885,8 @@ func homeOfPool(owner string) string {
 }
 
 // buildDriveList lists every drive of the given pools with its state and rule
-func buildDriveList(pools []poolState, rules access.Source) []driveInfo {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "buildDriveList: len(pools)=%d", len(pools))
-	}
+func buildDriveList(pools []poolState, rules access.Source) (out0 []driveInfo) {
+	defer logger.Out1(logger.In2("Core", "buildDriveList", "pools", pools, "&rules", &rules), &out0)
 	duplicates := map[string]bool{}
 	for _, uuid := range duplicateDriveIDs(pools) {
 		duplicates[uuid] = true
@@ -957,10 +948,8 @@ func buildDriveList(pools []poolState, rules access.Source) []driveInfo {
 // applyClusterDriveState completes the row of cluster:/. Its rule belongs to
 // the cluster, and a node that is not in one has nowhere to save it. Without
 // a mounted drive it is listed anyway, so an admin can tell it exists.
-func applyClusterDriveState(drives []driveInfo, inCluster bool, rules access.Source) []driveInfo {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "applyClusterDriveState: len(drives)=%d inCluster=%t", len(drives), inCluster)
-	}
+func applyClusterDriveState(drives []driveInfo, inCluster bool, rules access.Source) (out0 []driveInfo) {
+	defer logger.Out1(logger.In3("Core", "applyClusterDriveState", "drives", drives, "inCluster", inCluster, "&rules", &rules), &out0)
 	for i := range drives {
 		if drives[i].UUID == access.ClusterDriveID {
 			drives[i].Editable = inCluster
@@ -986,9 +975,7 @@ func applyClusterDriveState(drives []driveInfo, inCluster bool, rules access.Sou
 // HandleListDrives returns every drive of this host with its state and rule,
 // and the permission groups a rule can name
 func HandleListDrives(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleListDrives: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleListDrives", "r", r))
 	type groupInfo struct {
 		Name    string `json:"name"`
 		IsAdmin bool   `json:"isAdmin"`
@@ -1011,11 +998,13 @@ func HandleListDrives(w http.ResponseWriter, r *http.Request) {
 		RuleError string      `json:"ruleError,omitempty"`
 	}{Groups: groups, Drives: drives}
 	if err := driveAccessStore.Err(); err != nil {
+		logger.DebugErr("Core", err)
 		result.RuleError = err.Error()
 	}
 
 	js, err := json.Marshal(result)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -1024,12 +1013,11 @@ func HandleListDrives(w http.ResponseWriter, r *http.Request) {
 
 // HandleDriveAccess reads (GET) or saves (POST) the access list of a drive
 func HandleDriveAccess(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleDriveAccess: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleDriveAccess", "r", r))
 	if r.Method != http.MethodPost {
 		uuid, err := utils.GetPara(r, "uuid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid drive id")
 			return
 		}
@@ -1045,16 +1033,19 @@ func HandleDriveAccess(w http.ResponseWriter, r *http.Request) {
 
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid drive id")
 		return
 	}
 	ruleJSON, err := utils.PostPara(r, "rule")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid access list")
 		return
 	}
 	rule := access.Rule{}
 	if err := json.Unmarshal([]byte(ruleJSON), &rule); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid access list")
 		return
 	}
@@ -1065,10 +1056,12 @@ func HandleDriveAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := prepareDriveRule(uuid, home, &rule); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	if err := setDriveRule(uuid, rule); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -1079,14 +1072,13 @@ func HandleDriveAccess(w http.ResponseWriter, r *http.Request) {
 
 // prepareDriveRule checks a rule against the drive it is for. A row for the
 // home group would change nothing, those members always have full access.
-func prepareDriveRule(uuid string, home string, rule *access.Rule) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "prepareDriveRule: uuid=%.120q home=%.120q", uuid, home)
-	}
+func prepareDriveRule(uuid string, home string, rule *access.Rule) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "prepareDriveRule", "uuid", uuid, "home", home, "rule", rule), &out0)
 	if access.IsFixed(uuid) {
 		return errors.New(uuid + ":/ is open to everyone and has no access list")
 	}
 	if err := rule.Validate(); err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	if uuid == access.ShareDriveID {
@@ -1108,21 +1100,22 @@ func prepareDriveRule(uuid string, home string, rule *access.Rule) error {
 
 // HandleDriveAccessExplain shows which rule decided what a user may do on a drive
 func HandleDriveAccessExplain(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleDriveAccessExplain: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleDriveAccessExplain", "r", r))
 	username, err := utils.GetPara(r, "user")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid user")
 		return
 	}
 	uuid, err := utils.GetPara(r, "drive")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid drive id")
 		return
 	}
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not found: "+username)
 		return
 	}

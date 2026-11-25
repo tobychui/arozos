@@ -14,30 +14,27 @@ import (
 )
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("cluster/metadata", "sendJSON")
+	defer logger.Out0(logger.In1("cluster/metadata", "sendJSON", "v", v))
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleStatus returns the store status.
 func (mgr *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/metadata", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("cluster/metadata", "Manager.HandleStatus")
 	sendJSON(w, mgr.Status())
 }
 
 // HandleList lists a directory of the namespace.
 func (mgr *Manager) HandleList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.HandleList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/metadata", "Manager.HandleList", "mgr", mgr, "r", r))
 	p, _ := utils.GetPara(r, "path")
 	if p == "" {
 		p = "/"
 	}
 	entries, err := mgr.ListDir(p)
 	if err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -46,16 +43,16 @@ func (mgr *Manager) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // HandleStat returns one record with its locations.
 func (mgr *Manager) HandleStat(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.HandleStat: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/metadata", "Manager.HandleStat", "mgr", mgr, "r", r))
 	p, err := utils.GetPara(r, "path")
 	if err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		utils.SendErrorResponse(w, "path required")
 		return
 	}
 	rec, err := mgr.Stat(p)
 	if err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -64,19 +61,16 @@ func (mgr *Manager) HandleStat(w http.ResponseWriter, r *http.Request) {
 
 // HandlePolicyList lists folder policies.
 func (mgr *Manager) HandlePolicyList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/metadata", "Manager.HandlePolicyList: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("cluster/metadata", "Manager.HandlePolicyList")
 	sendJSON(w, mgr.Policies())
 }
 
 // HandlePolicySet sets the replica count of a top-level folder.
 func (mgr *Manager) HandlePolicySet(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.HandlePolicySet: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/metadata", "Manager.HandlePolicySet", "mgr", mgr, "r", r))
 	folder, err := utils.PostPara(r, "folder")
 	if err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		utils.SendErrorResponse(w, "folder required")
 		return
 	}
@@ -87,6 +81,7 @@ func (mgr *Manager) HandlePolicySet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := mgr.Submit(KindPolicy, &Policy{Folder: folder, Replicas: replicas}); err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -95,7 +90,7 @@ func (mgr *Manager) HandlePolicySet(w http.ResponseWriter, r *http.Request) {
 
 // RegisterAdminRoutes mounts the admin handlers.
 func (mgr *Manager) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request))) {
-	logger.Debug("cluster/metadata", "Manager.RegisterAdminRoutes")
+	defer logger.Out0(logger.In2("cluster/metadata", "Manager.RegisterAdminRoutes", "mgr", mgr, "register", register))
 	register("/system/cluster/meta/status", mgr.HandleStatus)
 	register("/system/cluster/meta/ls", mgr.HandleList)
 	register("/system/cluster/meta/stat", mgr.HandleStat)

@@ -25,9 +25,7 @@ import (
 )
 
 func xmlAttr(name, val string) xml.Attr {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "xmlAttr: name=%.120q val=%.120q", name, val)
-	}
+	logger.DebugTrace("office/pptx", "xmlAttr")
 	return xml.Attr{Name: xml.Name{Local: name}, Value: val}
 }
 
@@ -113,9 +111,7 @@ func (sc *slideCtx) cellBorder(tbl *xmltree.Node, cm coordMap) (string, float64)
 // styleParts lists the parts of a style that reach cell (r, c), lowest
 // priority first - the order PowerPoint applies them in
 func styleParts(style *xmltree.Node, f tblFlags, r, c, rows, cols int) []*xmltree.Node {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "styleParts: r=%d c=%d rows=%d cols=%d", r, c, rows, cols)
-	}
+	logger.DebugTrace("office/pptx", "styleParts")
 	var out []*xmltree.Node
 	add := func(name string) {
 		if p := style.First(name); p != nil {
@@ -176,9 +172,7 @@ func styleParts(style *xmltree.Node, f tblFlags, r, c, rows, cols int) []*xmltre
 
 // lookOf folds the parts reaching a cell into what it looks like
 func (sc *slideCtx) lookOf(parts []*xmltree.Node) cellLook {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "slideCtx.lookOf: len(parts)=%d", len(parts))
-	}
+	logger.DebugTrace("office/pptx", "slideCtx.lookOf")
 	var lk cellLook
 	for _, p := range parts {
 		if ts := p.First("tcTxStyle"); ts != nil {

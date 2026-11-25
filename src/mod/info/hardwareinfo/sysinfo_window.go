@@ -24,18 +24,17 @@ import (
 */
 
 func sendJSON(w http.ResponseWriter, value interface{}) {
-	logger.Debug("info/hardwareinfo", "sendJSON")
+	defer logger.Out0(logger.In1("info/hardwareinfo", "sendJSON", "value", value))
 	jsonData, err := json.Marshal(value)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetCPUInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetCPUInfo", "r", r))
 	info := CPUInfo{
 		Freq:        "Undefined",
 		Hardware:    "unknown",
@@ -55,9 +54,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 
 // Ifconfig lists the product names of the network adapters
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "Ifconfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "Ifconfig", "r", r))
 	names := []string{}
 	adapters, _ := wininfo.NetAdapters()
 	for _, adapter := range adapters {
@@ -71,9 +68,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 // GetDriveStat lists the drive letters; a drive without a readable volume
 // has an empty file system and free space
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetDriveStat: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetDriveStat", "r", r))
 	drives := []LogicalDisk{}
 	disks, _ := wininfo.LogicalDisks()
 	for _, disk := range disks {
@@ -87,9 +82,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUSB(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetUSB: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetUSB", "r", r))
 	devices, err := wininfo.USBDevices()
 	if err != nil || devices == nil {
 		devices = []string{}
@@ -99,11 +92,10 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 
 // GetRamInfo is the installed memory in bytes
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetRamInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetRamInfo", "r", r))
 	installed, err := wininfo.InstalledMemory()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		installed = 0
 	}
 	sendJSON(w, int64(installed))

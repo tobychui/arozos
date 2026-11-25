@@ -49,9 +49,7 @@ const maxTableDepth = 64
 
 // isRowEnd reports the paragraph that closes a table row at depth d
 func (pg *para) isRowEnd(d int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "para.isRowEnd: d=%d", d)
-	}
+	logger.DebugTrace("office/doc", "para.isRowEnd")
 	if d <= 1 {
 		return pg.p.ttp && pg.depth() <= 1
 	}
@@ -60,9 +58,7 @@ func (pg *para) isRowEnd(d int) bool {
 
 // isCellEnd reports the paragraph that closes a cell at depth d
 func (pg *para) isCellEnd(d int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "para.isCellEnd: d=%d", d)
-	}
+	logger.DebugTrace("office/doc", "para.isCellEnd")
 	if d <= 1 {
 		return pg.end == 0x07 && pg.depth() <= 1
 	}
@@ -72,9 +68,7 @@ func (pg *para) isCellEnd(d int) bool {
 // papAt resolves the paragraph properties for the paragraph whose end
 // mark is at cp
 func (d *docFile) papAt(cp int) (int, *pap) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.papAt: cp=%d", cp)
-	}
+	logger.DebugTrace("office/doc", "docFile.papAt")
 	p := newPap()
 	istd := 0
 	fc := fcOf(d.pieces, cp)
@@ -104,9 +98,7 @@ func (d *docFile) papAt(cp int) (int, *pap) {
 
 // pieceSprms applies the property group a piece's Prm points at
 func (d *docFile) pieceSprms(prm uint16, fn func(uint16, []byte)) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.pieceSprms: prm=%d", prm)
-	}
+	logger.DebugTrace("office/doc", "docFile.pieceSprms")
 	if prm&1 == 0 {
 		return // Prm0: a single, rarely used modifier from a fixed table
 	}
@@ -118,9 +110,7 @@ func (d *docFile) pieceSprms(prm uint16, fn func(uint16, []byte)) {
 
 // chpRuns splits [cp1, cp2) into runs of uniform character formatting
 func (d *docFile) chpRuns(cp1, cp2 int) []run {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.chpRuns: cp1=%d cp2=%d", cp1, cp2)
-	}
+	logger.DebugTrace("office/doc", "docFile.chpRuns")
 	var out []run
 	cp := cp1
 	for cp < cp2 {
@@ -163,9 +153,7 @@ func (d *docFile) chpRuns(cp1, cp2 int) []run {
 
 // nextRunStart is the start of the first run after fc (-1 when none)
 func nextRunStart(runs []fkpRun, fc int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "nextRunStart: len(runs)=%d fc=%d", len(runs), fc)
-	}
+	logger.DebugTrace("office/doc", "nextRunStart")
 	lo, hi := 0, len(runs)
 	for lo < hi {
 		m := (lo + hi) / 2
@@ -184,9 +172,7 @@ func nextRunStart(runs []fkpRun, fc int) int {
 // paragraphs splits a story into paragraphs; sectionEnds holds the CPs
 // right after each section mark (main text only)
 func (d *docFile) paragraphs(cp1, cp2 int, sectionEnds map[int]bool) []*para {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.paragraphs: cp1=%d cp2=%d len(sectionEnds)=%d", cp1, cp2, len(sectionEnds))
-	}
+	logger.DebugTrace("office/doc", "docFile.paragraphs")
 	var out []*para
 	start := cp1
 	for cp := cp1; cp < cp2; cp++ {

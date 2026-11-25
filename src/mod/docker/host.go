@@ -38,8 +38,8 @@ type HostStats struct {
 }
 
 // GetHostStats samples the current host resource usage.
-func (d *DockerManager) GetHostStats() HostStats {
-	logger.Debug("docker", "DockerManager.GetHostStats")
+func (d *DockerManager) GetHostStats() (out0 HostStats) {
+	defer logger.Out1(logger.In1("docker", "DockerManager.GetHostStats", "d", d), &out0)
 	s := HostStats{CPUCores: runtime.NumCPU()}
 
 	//CPU% and RAM% from the shared (non-blocking) background monitor when ready.
@@ -76,9 +76,7 @@ func (d *DockerManager) GetHostStats() HostStats {
 
 // HandleHostStats serves the host resource snapshot as JSON.
 func (d *DockerManager) HandleHostStats(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleHostStats: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleHostStats", "d", d, "r", r))
 	js, _ := json.Marshal(d.GetHostStats())
 	utils.SendJSONResponse(w, string(js))
 }

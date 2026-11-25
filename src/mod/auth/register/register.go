@@ -40,8 +40,8 @@ type RegisterHandler struct {
 	AllowRegistry     bool
 }
 
-func NewRegisterHandler(database *db.Database, authAgent *auth.AuthAgent, ph *permission.PermissionHandler, options RegisterOptions) *RegisterHandler {
-	logger.Debug("auth/register", "NewRegisterHandler")
+func NewRegisterHandler(database *db.Database, authAgent *auth.AuthAgent, ph *permission.PermissionHandler, options RegisterOptions) (out0 *RegisterHandler) {
+	defer logger.Out1(logger.In4("auth/register", "NewRegisterHandler", "database", database, "ph", ph, "&options", &options, "!authAgent", authAgent), &out0)
 	//Create the database for registration
 	database.NewTable("register")
 
@@ -86,9 +86,7 @@ func createDefaultGroup(ph *permission.PermissionHandler) {
 }
 
 func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "RegisterHandler.HandleRegisterCheck: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/register", "RegisterHandler.HandleRegisterCheck", "h", h, "r", r))
 	if h.AllowRegistry {
 		utils.SendJSONResponse(w, "true")
 	} else {
@@ -98,9 +96,7 @@ func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Req
 
 // Handle and serve the register itnerface
 func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "RegisterHandler.HandleRegisterInterface: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/register", "RegisterHandler.HandleRegisterInterface", "h", h, "r", r))
 	//Serve the register interface
 	if h.AllowRegistry {
 		//Load the vendor icon as base64
@@ -111,6 +107,7 @@ func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http
 			"vendor_logo": imagecontent,
 		})
 		if err != nil {
+			logger.DebugErr("auth/register", err)
 			logger.PrintAndLog("Register", "Template not found: system/auth/register.html", nil)
 			http.NotFound(w, r)
 			return
@@ -122,18 +119,18 @@ func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http
 	}
 }
 
-func readImageFileAsBase64(src string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "readImageFileAsBase64: src=%.120q", src)
-	}
+func readImageFileAsBase64(src string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("auth/register", "readImageFileAsBase64", "src", src), &out0, &out1)
 	f, err := os.Open(src)
 	if err != nil {
+		logger.DebugErr("auth/register", err)
 		return "", err
 	}
 
 	reader := bufio.NewReader(f)
 	content, err := io.ReadAll(reader)
 	if err != nil {
+		logger.DebugErr("auth/register", err)
 		return "", err
 	}
 	encoded := base64.StdEncoding.EncodeToString(content)
@@ -147,10 +144,8 @@ func (h *RegisterHandler) GetDefaultUserGroup() string {
 }
 
 // Set the default usergroup for this register handler
-func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "RegisterHandler.SetDefaultUserGroup: groupname=%.120q", groupname)
-	}
+func (h *RegisterHandler) SetDefaultUserGroup(groupname string) (out0 error) {
+	defer logger.Out1(logger.In2("auth/register", "RegisterHandler.SetDefaultUserGroup", "h", h, "groupname", groupname), &out0)
 	if !h.permissionHandler.GroupExists(groupname) {
 		return errors.New("Group not exists")
 	}
@@ -166,15 +161,13 @@ func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
 
 // Toggle registry on the fly
 func (h *RegisterHandler) SetAllowRegistry(allow bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("auth/register", "RegisterHandler.SetAllowRegistry: allow=%t", allow)
-	}
+	logger.DebugTrace("auth/register", "RegisterHandler.SetAllowRegistry")
 	h.AllowRegistry = allow
 }
 
 // Clearn Register information by removing all users info whose account is no longer registered
 func (h *RegisterHandler) CleanRegisters() {
-	logger.Debug("auth/register", "RegisterHandler.CleanRegisters")
+	defer logger.Out0(logger.In1("auth/register", "RegisterHandler.CleanRegisters", "h", h))
 	entries, _ := h.database.ListTable("register")
 	for _, keypairs := range entries {
 		if strings.Contains(string(keypairs[0]), "user/email/") {
@@ -191,8 +184,8 @@ func (h *RegisterHandler) CleanRegisters() {
 }
 
 // List all User Emails, return [username(string), email(string), stillResitered(bool)]
-func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
-	logger.Debug("auth/register", "RegisterHandler.ListAllUserEmails")
+func (h *RegisterHandler) ListAllUserEmails() (out0 [][]interface{}) {
+	defer logger.Out1(logger.In1("auth/register", "RegisterHandler.ListAllUserEmails", "h", h), &out0)
 	results := [][]interface{}{}
 	entries, _ := h.database.ListTable("register")
 	for _, keypairs := range entries {
@@ -215,9 +208,7 @@ func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 
 // Handle the request for creating a new user
 func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "RegisterHandler.HandleRegisterRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/register", "RegisterHandler.HandleRegisterRequest", "h", h, "r", r))
 	if h.AllowRegistry == false {
 		utils.SendErrorResponse(w, "Public account registry is currently closed")
 		return
@@ -225,6 +216,7 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	//Get input paramter
 	email, err := utils.PostPara(r, "email")
 	if err != nil {
+		logger.DebugErr("auth/register", err)
 		utils.SendErrorResponse(w, "Invalid Email")
 		return
 	}
@@ -261,6 +253,7 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 
 	//Check that the name is safe as a home folder name before anything is stored
 	if err := auth.ValidateUsername(username); err != nil {
+		logger.DebugErr("auth/register", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -283,6 +276,7 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	//OK. Record this user to the system
 	err = h.authAgent.CreateUserAccount(username, password, []string{defaultGroup})
 	if err != nil {
+		logger.DebugErr("auth/register", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -297,18 +291,18 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 
 // Change Email for the registered user
 func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "RegisterHandler.HandleEmailChange: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/register", "RegisterHandler.HandleEmailChange", "h", h, "r", r))
 	//Get username from request
 	username, err := h.authAgent.GetUserName(w, r)
 	if err != nil {
+		logger.DebugErr("auth/register", err)
 		utils.SendErrorResponse(w, "Unable to get username from request")
 		return
 	}
 
 	email, err := utils.PostPara(r, "email")
 	if err != nil {
+		logger.DebugErr("auth/register", err)
 		//Return the user current email
 		currentEmail, _ := h.GetUserEmail(username)
 		js, _ := json.Marshal(currentEmail)
@@ -327,10 +321,8 @@ func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Reque
 }
 
 // Get user email by name
-func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/register", "RegisterHandler.GetUserEmail: username=%.120q", username)
-	}
+func (h *RegisterHandler) GetUserEmail(username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("auth/register", "RegisterHandler.GetUserEmail", "h", h, "username", username), &out0, &out1)
 	userEmail := ""
 	err := h.database.Read("register", "user/email/"+username, &userEmail)
 	if err != nil || userEmail == "" {
@@ -340,8 +332,8 @@ func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
 }
 
 // Helper functions
-func isValidEmail(email string) bool {
-	logger.Debug("auth/register", "isValidEmail")
+func isValidEmail(email string) (out0 bool) {
+	defer logger.Out1(logger.In1("auth/register", "isValidEmail", "email", email), &out0)
 	_, err := mail.ParseAddress(email)
 	return err == nil
 }

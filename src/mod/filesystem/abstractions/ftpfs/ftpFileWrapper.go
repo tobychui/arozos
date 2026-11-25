@@ -19,33 +19,31 @@ type DirEntry struct {
 	path  string
 }
 
-func newDirEntryFromFTPEntry(targetEntry *ftp.Entry, conn *ftp.ServerConn, originalPath string) *DirEntry {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/ftpfs", "newDirEntryFromFTPEntry: originalPath=%.120q", originalPath)
-	}
+func newDirEntryFromFTPEntry(targetEntry *ftp.Entry, conn *ftp.ServerConn, originalPath string) (out0 *DirEntry) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/ftpfs", "newDirEntryFromFTPEntry", "targetEntry", targetEntry, "conn", conn, "originalPath", originalPath), &out0)
 	return &DirEntry{
 		finfo: targetEntry,
 		conn:  conn,
 	}
 }
 
-func (de DirEntry) Name() string {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "DirEntry.Name")
+func (de DirEntry) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "DirEntry.Name", "&de", &de), &out0)
 	return de.finfo.Name
 }
 
-func (de DirEntry) IsDir() bool {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "DirEntry.IsDir")
+func (de DirEntry) IsDir() (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "DirEntry.IsDir", "&de", &de), &out0)
 	return de.finfo.Type == ftp.EntryTypeFolder
 }
 
-func (de DirEntry) Type() fs.FileMode {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "DirEntry.Type")
+func (de DirEntry) Type() (out0 fs.FileMode) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "DirEntry.Type", "&de", &de), &out0)
 	return 0777
 }
 
-func (de DirEntry) Info() (fs.FileInfo, error) {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "DirEntry.Info")
+func (de DirEntry) Info() (out0 fs.FileInfo, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/ftpfs", "DirEntry.Info", "&de", &de), &out0, &out1)
 	e := NewFileInfoFromEntry(de.finfo, de.conn, de.path)
 	return e, nil
 }
@@ -56,10 +54,8 @@ type FileInfo struct {
 	path  string
 }
 
-func NewFileInfoFromEntry(e *ftp.Entry, c *ftp.ServerConn, originalPath string) FileInfo {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/ftpfs", "NewFileInfoFromEntry: originalPath=%.120q", originalPath)
-	}
+func NewFileInfoFromEntry(e *ftp.Entry, c *ftp.ServerConn, originalPath string) (out0 FileInfo) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/ftpfs", "NewFileInfoFromEntry", "e", e, "c", c, "originalPath", originalPath), &out0)
 	return FileInfo{
 		entry: e,
 		conn:  c,
@@ -67,27 +63,27 @@ func NewFileInfoFromEntry(e *ftp.Entry, c *ftp.ServerConn, originalPath string) 
 	}
 }
 
-func (fi FileInfo) Name() string {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "FileInfo.Name")
+func (fi FileInfo) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "FileInfo.Name", "&fi", &fi), &out0)
 	return fi.entry.Name
 }
-func (fi FileInfo) Size() int64 {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "FileInfo.Size")
+func (fi FileInfo) Size() (out0 int64) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "FileInfo.Size", "&fi", &fi), &out0)
 	return int64(fi.entry.Size)
 }
-func (fi FileInfo) Mode() fs.FileMode {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "FileInfo.Mode")
+func (fi FileInfo) Mode() (out0 fs.FileMode) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "FileInfo.Mode", "&fi", &fi), &out0)
 	return 664
 }
-func (fi FileInfo) ModTime() time.Time {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "FileInfo.ModTime")
+func (fi FileInfo) ModTime() (out0 time.Time) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "FileInfo.ModTime", "&fi", &fi), &out0)
 	return fi.entry.Time
 }
-func (fi FileInfo) IsDir() bool {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "FileInfo.IsDir")
+func (fi FileInfo) IsDir() (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "FileInfo.IsDir", "&fi", &fi), &out0)
 	return fi.entry.Type == ftp.EntryTypeFolder
 }
-func (fi FileInfo) Sys() interface{} {
-	logger.DebugTrace("filesystem/abstractions/ftpfs", "FileInfo.Sys")
+func (fi FileInfo) Sys() (out0 interface{}) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/ftpfs", "FileInfo.Sys", "&fi", &fi), &out0)
 	return nil
 }

@@ -77,10 +77,8 @@ type openaiChatResponse struct {
 }
 
 // chatOpenAI performs an OpenAI-compatible chat completion call.
-func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "Client.chatOpenAI: len(messages)=%d", len(messages))
-	}
+func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (out0 *ChatResponse, out1 error) {
+	defer logger.Out2(logger.In3("aiservers/llm", "Client.chatOpenAI", "c", c, "messages", messages, "&opt", &opt), &out0, &out1)
 	reqStruct := openaiChatRequest{
 		Model:       opt.Model,
 		Messages:    messages,
@@ -90,6 +88,7 @@ func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse,
 	}
 	body, err := json.Marshal(reqStruct)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 
@@ -99,6 +98,7 @@ func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse,
 	}
 	req, err := http.NewRequest("POST", requestURL, bytes.NewReader(body))
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -109,17 +109,20 @@ func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse,
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, errors.New("request to AI endpoint failed: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 
 	parsed := &openaiChatResponse{}
 	if err := json.Unmarshal(respBody, parsed); err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, fmt.Errorf("unexpected response (HTTP %d): %s", resp.StatusCode, truncate(string(respBody), 300))
 	}
 	if parsed.Error != nil && parsed.Error.Message != "" {
@@ -154,10 +157,8 @@ func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse,
 // invoking cb for each delta and returning the assembled response. It requests
 // usage via stream_options.include_usage so the final chunk carries token
 // counts (endpoints that ignore the field simply yield zero usage).
-func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "Client.chatOpenAIStream: len(messages)=%d", len(messages))
-	}
+func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb StreamCallback) (out0 *ChatResponse, out1 error) {
+	defer logger.Out2(logger.In4("aiservers/llm", "Client.chatOpenAIStream", "c", c, "messages", messages, "&opt", &opt, "&cb", &cb), &out0, &out1)
 	reqStruct := openaiChatRequest{
 		Model:         opt.Model,
 		Messages:      messages,
@@ -168,6 +169,7 @@ func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb Stream
 	}
 	body, err := json.Marshal(reqStruct)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 
@@ -177,6 +179,7 @@ func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb Stream
 	}
 	req, err := http.NewRequest("POST", requestURL, bytes.NewReader(body))
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -188,6 +191,7 @@ func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb Stream
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, errors.New("request to AI endpoint failed: " + err.Error())
 	}
 	defer resp.Body.Close()
@@ -250,6 +254,7 @@ func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb Stream
 			}
 		}
 		if readErr != nil {
+			logger.DebugErr("aiservers/llm", readErr)
 			break
 		}
 	}
@@ -266,8 +271,8 @@ func (c *Client) chatOpenAIStream(messages []Message, opt ChatOptions, cb Stream
 
 // openaiErrorMessage extracts the human-readable message from an OpenAI-style
 // error envelope, or returns "" when the body is not such an envelope.
-func openaiErrorMessage(body []byte) string {
-	logger.Debug("aiservers/llm", "openaiErrorMessage")
+func openaiErrorMessage(body []byte) (out0 string) {
+	defer logger.Out1(logger.In1("aiservers/llm", "openaiErrorMessage", "body", body), &out0)
 	var env struct {
 		Error *struct {
 			Message string `json:"message"`
@@ -280,8 +285,8 @@ func openaiErrorMessage(body []byte) string {
 }
 
 // listModelsOpenAI lists model IDs from an OpenAI-compatible /models endpoint.
-func (c *Client) listModelsOpenAI() ([]string, error) {
-	logger.Debug("aiservers/llm", "Client.listModelsOpenAI")
+func (c *Client) listModelsOpenAI() (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("aiservers/llm", "Client.listModelsOpenAI", "c", c), &out0, &out1)
 	base := strings.TrimRight(c.Endpoint, "/")
 	requestURL := base
 	if !strings.HasSuffix(base, "/models") {
@@ -290,6 +295,7 @@ func (c *Client) listModelsOpenAI() ([]string, error) {
 
 	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	if c.APIKey != "" {
@@ -298,6 +304,7 @@ func (c *Client) listModelsOpenAI() ([]string, error) {
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, errors.New("connection failed: " + err.Error())
 	}
 	defer resp.Body.Close()

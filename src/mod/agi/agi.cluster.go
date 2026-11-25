@@ -59,16 +59,17 @@ type ClusterProvider interface {
 }
 
 func (g *Gateway) ClusterLibRegister() {
-	logger.Debug("agi", "Gateway.ClusterLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.ClusterLibRegister", "g", g))
 	err := g.RegisterLib("cluster", g.injectClusterLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectClusterLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectClusterLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	p := g.Option.ClusterProvider
@@ -86,6 +87,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 	toJSON := func(v interface{}) otto.Value {
 		js, err := json.Marshal(v)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		r, _ := vm.ToValue(string(js))
@@ -116,6 +118,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 		rec, err := p.Stat(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return toJSON(rec)
@@ -127,6 +130,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 		recs, err := p.List(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return toJSON(recs)
@@ -137,6 +141,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 		n, _ := call.Argument(1).ToInteger()
 		if err := p.SetReplicas(vpathArg(call, 0), int(n)); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return otto.TrueValue()
@@ -148,6 +153,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		folder, _ := call.Argument(0).ToString()
 		n, _ := call.Argument(1).ToInteger()
 		if err := p.SetPolicy(folder, int(n)); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return otto.TrueValue()
@@ -163,6 +169,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 		h, err := p.AddHook(username, strings.Split(types, ","), script)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return toJSON(h)
@@ -174,6 +181,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 			owner = ""
 		}
 		if err := p.RemoveHook(id, owner); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return otto.TrueValue()
@@ -189,6 +197,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		evType, _ := call.Argument(0).ToString()
 		data, _ := call.Argument(1).ToString()
 		if err := p.Emit(username, evType, []byte(data)); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return otto.TrueValue()
@@ -208,6 +217,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 			PartitionMax int             `json:"partitionMax"`
 		}
 		if err := json.Unmarshal([]byte(raw), &req); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		if payload.ScriptFsh != nil && u != nil {
@@ -218,6 +228,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 		rec, err := p.SubmitJob(username, req.Name, req.Script, req.Args, req.Inputs, req.Features, req.Nodes, req.Timeout, req.Dataset, req.PartitionMax)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return toJSON(rec)
@@ -226,6 +237,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		id, _ := call.Argument(0).ToString()
 		rec, err := p.JobStatus(id, username, isAdmin())
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return toJSON(rec)
@@ -240,6 +252,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_cluster_jobCancel", func(call otto.FunctionCall) otto.Value {
 		id, _ := call.Argument(0).ToString()
 		if err := p.CancelJob(id, username, isAdmin()); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return otto.TrueValue()
@@ -249,6 +262,7 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		secs, _ := call.Argument(1).ToInteger()
 		rec, err := p.WaitJob(id, int(secs), username, isAdmin())
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return toJSON(rec)

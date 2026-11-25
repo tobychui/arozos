@@ -14,17 +14,16 @@ import (
 /*
 Functions requested by the file server service router
 */
-func (m *ShareManager) ServerToggle(enabled bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/samba", "ShareManager.ServerToggle: enabled=%t", enabled)
-	}
+func (m *ShareManager) ServerToggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/samba", "ShareManager.ServerToggle", "m", m, "enabled", enabled), &out0)
 	return SetSmbdEnableState(enabled)
 }
 
-func (m *ShareManager) IsEnabled() bool {
-	logger.Debug("fileservers/servers/samba", "ShareManager.IsEnabled")
+func (m *ShareManager) IsEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "ShareManager.IsEnabled", "m", m), &out0)
 	smbdRunning, err := checkSmbdRunning()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		logger.PrintAndLog("Samba", "Unable to get smbd state: "+err.Error(), nil)
 		return false
 	}
@@ -32,8 +31,8 @@ func (m *ShareManager) IsEnabled() bool {
 	return smbdRunning
 }
 
-func (m *ShareManager) GetEndpoints(userInfo *user.User) []*fileservers.Endpoint {
-	logger.Debug("fileservers/servers/samba", "ShareManager.GetEndpoints")
+func (m *ShareManager) GetEndpoints(userInfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/samba", "ShareManager.GetEndpoints", "m", m, "userInfo", userInfo), &out0)
 	//Get a list of connection endpoint for this user
 	eps := []*fileservers.Endpoint{}
 	for _, fsh := range userInfo.GetAllAccessibleFileSystemHandler() {
@@ -48,6 +47,7 @@ func (m *ShareManager) GetEndpoints(userInfo *user.User) []*fileservers.Endpoint
 
 		targetShare, err := m.GetShareByName(fshID)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			continue
 		}
 		userCanAccess := m.UserCanAccessShare(targetShare, userInfo.Username)
@@ -65,8 +65,8 @@ func (m *ShareManager) GetEndpoints(userInfo *user.User) []*fileservers.Endpoint
 	return eps
 }
 
-func checkSmbdRunning() (bool, error) {
-	logger.Debug("fileservers/servers/samba", "checkSmbdRunning")
+func checkSmbdRunning() (out0 bool, out1 error) {
+	defer logger.Out2(logger.In0("fileservers/servers/samba", "checkSmbdRunning"), &out0, &out1)
 	// Run the system command to check the smbd service status
 	cmd := exec.Command("systemctl", "is-active", "--quiet", "smbd")
 	err := cmd.Run()

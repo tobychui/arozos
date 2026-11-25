@@ -16,8 +16,8 @@ import "os"
 // created. The second return value is false on platforms or file systems that
 // do not record a creation time, in which case the caller should hide or grey
 // out the field instead of showing a wrong date.
-func GetFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
-	logger.Debug("filesystem", "GetFileCreationTime")
+func GetFileCreationTime(fileInfo os.FileInfo) (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem", "GetFileCreationTime", "fileInfo", fileInfo), &out0, &out1)
 	if fileInfo == nil {
 		return 0, false
 	}

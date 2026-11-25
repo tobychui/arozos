@@ -188,9 +188,7 @@ var wTextOpenRe = regexp.MustCompile(`<w:t(\s[^>]*)?>`)
 
 // asDeleted turns runs into deleted runs (w:t -> w:delText)
 func asDeleted(runs string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "asDeleted: runs=%.120q", runs)
-	}
+	logger.DebugTrace("office/docx", "asDeleted")
 	runs = wTextOpenRe.ReplaceAllString(runs, `<w:delText$1>`)
 	return strings.ReplaceAll(runs, "</w:t>", "</w:delText>")
 }
@@ -260,9 +258,7 @@ func (b *docxBuilder) reviewInline(n *html.Node, rs wRunStyle, part *docxPart, r
 
 // commentDate formats an editor timestamp the way w:date wants it
 func commentDate(ms int64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "commentDate: ms=%d", ms)
-	}
+	logger.DebugTrace("office/docx", "commentDate")
 	if ms <= 0 {
 		return ""
 	}
@@ -272,9 +268,7 @@ func commentDate(ms int64) string {
 // commentParaID is the w14:paraId of a comment's last paragraph, which is
 // how commentsExtended.xml says the comment is resolved
 func commentParaID(i int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "commentParaID: i=%d", i)
-	}
+	logger.DebugTrace("office/docx", "commentParaID")
 	return fmt.Sprintf("%08X", 0x10000000+i)
 }
 
@@ -344,9 +338,7 @@ type docxReview struct {
 
 // editorCommentID is the data-cid an imported Word comment gets
 func editorCommentID(wordID string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "editorCommentID: wordID=%.120q", wordID)
-	}
+	logger.DebugTrace("office/docx", "editorCommentID")
 	return "w" + wordID
 }
 
@@ -359,9 +351,7 @@ func (r *docxReview) current() string {
 }
 
 func (r *docxReview) start(wordID string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxReview.start: wordID=%.120q", wordID)
-	}
+	logger.DebugTrace("office/docx", "docxReview.start")
 	id := editorCommentID(wordID)
 	for _, a := range r.active {
 		if a == id {
@@ -372,9 +362,7 @@ func (r *docxReview) start(wordID string) {
 }
 
 func (r *docxReview) end(wordID string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxReview.end: wordID=%.120q", wordID)
-	}
+	logger.DebugTrace("office/docx", "docxReview.end")
 	id := editorCommentID(wordID)
 	for i, a := range r.active {
 		if a == id {
@@ -387,15 +375,14 @@ func (r *docxReview) end(wordID string) {
 // parseDocxComments reads word/comments.xml (+ commentsExtended.xml for
 // the resolved flag) for the comments the text actually anchors
 func parseDocxComments(files map[string][]byte, used map[string]bool) []*model.DocComment {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "parseDocxComments: len(files)=%d len(used)=%d", len(files), len(used))
-	}
+	logger.DebugTrace("office/docx", "parseDocxComments")
 	raw, ok := files["word/comments.xml"]
 	if !ok || len(used) == 0 {
 		return nil
 	}
 	tree, err := xmltree.Parse(raw)
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return nil
 	}
 	done := map[string]bool{}

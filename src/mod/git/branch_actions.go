@@ -37,23 +37,24 @@ const (
 // reachable from HEAD returns ErrUnmergedBranch unless force is set, so the
 // caller can confirm before losing work — the same protection `git branch -d`
 // gives over `-D`.
-func (m *Manager) DeleteBranch(realpath string, branch string, force bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.DeleteBranch: realpath=%.120q branch=%.120q force=%t", realpath, branch, force)
-	}
+func (m *Manager) DeleteBranch(realpath string, branch string, force bool) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.DeleteBranch", "m", m, "realpath", realpath, "branch", branch, "force", force), &out0)
 	branch = strings.TrimSpace(branch)
 	if err := validateBranchName(branch); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	referenceName := plumbing.NewBranchReferenceName(branch)
 	branchRef, err := repo.Reference(referenceName, false)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return errors.New("no such local branch: " + branch)
 	}
 
@@ -71,6 +72,7 @@ func (m *Manager) DeleteBranch(realpath string, branch string, force bool) error
 	}
 
 	if err := repo.Storer.RemoveReference(referenceName); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -82,17 +84,17 @@ func (m *Manager) DeleteBranch(realpath string, branch string, force bool) error
 
 // RenameBranch renames a local branch, carrying its upstream configuration over
 // and following HEAD when the renamed branch is the checked-out one.
-func (m *Manager) RenameBranch(realpath string, oldName string, newName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.RenameBranch: realpath=%.120q oldName=%.120q newName=%.120q", realpath, oldName, newName)
-	}
+func (m *Manager) RenameBranch(realpath string, oldName string, newName string) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.RenameBranch", "m", m, "realpath", realpath, "oldName", oldName, "newName", newName), &out0)
 	oldName = strings.TrimSpace(oldName)
 	newName = strings.TrimSpace(newName)
 
 	if err := validateBranchName(oldName); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if err := validateBranchName(newName); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if oldName == newName {
@@ -101,6 +103,7 @@ func (m *Manager) RenameBranch(realpath string, oldName string, newName string) 
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -109,6 +112,7 @@ func (m *Manager) RenameBranch(realpath string, oldName string, newName string) 
 
 	oldRef, err := repo.Reference(oldReferenceName, false)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return errors.New("no such local branch: " + oldName)
 	}
 	if _, err := repo.Reference(newReferenceName, false); err == nil {
@@ -123,6 +127,7 @@ func (m *Manager) RenameBranch(realpath string, oldName string, newName string) 
 	}
 
 	if err := repo.Storer.SetReference(plumbing.NewHashReference(newReferenceName, oldRef.Hash())); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -130,6 +135,7 @@ func (m *Manager) RenameBranch(realpath string, oldName string, newName string) 
 
 	if isCurrent {
 		if err := repo.Storer.SetReference(plumbing.NewSymbolicReference(plumbing.HEAD, newReferenceName)); err != nil {
+			logger.DebugErr("git", err)
 			return err
 		}
 	}
@@ -139,12 +145,11 @@ func (m *Manager) RenameBranch(realpath string, oldName string, newName string) 
 
 // DeleteRemoteBranch deletes a branch on the remote and prunes the local
 // remote-tracking ref so it stops showing in the branch list.
-func (m *Manager) DeleteRemoteBranch(realpath string, remote string, branch string, req *TransportRequest) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.DeleteRemoteBranch: realpath=%.120q remote=%.120q branch=%.120q", realpath, remote, branch)
-	}
+func (m *Manager) DeleteRemoteBranch(realpath string, remote string, branch string, req *TransportRequest) (out0 error) {
+	defer logger.Out1(logger.In5("git", "Manager.DeleteRemoteBranch", "m", m, "realpath", realpath, "remote", remote, "branch", branch, "req", req), &out0)
 	branch = strings.TrimSpace(branch)
 	if err := validateBranchName(branch); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if req == nil {
@@ -154,6 +159,7 @@ func (m *Manager) DeleteRemoteBranch(realpath string, remote string, branch stri
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if _, rerr := repo.Remote(remote); rerr != nil {
@@ -184,17 +190,17 @@ then deletes the old one. The order matters: if the second push fails the branch
 still exists under both names, which is recoverable, whereas deleting first could
 lose it entirely.
 */
-func (m *Manager) RenameRemoteBranch(realpath string, remote string, oldName string, newName string, req *TransportRequest) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.RenameRemoteBranch: realpath=%.120q remote=%.120q oldName=%.120q newName=%.120q", realpath, remote, oldName, newName)
-	}
+func (m *Manager) RenameRemoteBranch(realpath string, remote string, oldName string, newName string, req *TransportRequest) (out0 error) {
+	defer logger.Out1(logger.In6("git", "Manager.RenameRemoteBranch", "m", m, "realpath", realpath, "remote", remote, "oldName", oldName, "newName", newName, "req", req), &out0)
 	oldName = strings.TrimSpace(oldName)
 	newName = strings.TrimSpace(newName)
 
 	if err := validateBranchName(oldName); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if err := validateBranchName(newName); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if oldName == newName {
@@ -207,6 +213,7 @@ func (m *Manager) RenameRemoteBranch(realpath string, remote string, oldName str
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if _, rerr := repo.Remote(remote); rerr != nil {
@@ -254,10 +261,11 @@ func (m *Manager) RenameRemoteBranch(realpath string, remote string, oldName str
 
 // branchIsMerged reports whether a branch tip is reachable from HEAD, i.e. its
 // commits are already contained in the current branch.
-func branchIsMerged(repo *gogit.Repository, branchHash plumbing.Hash) (bool, error) {
-	logger.Debug("git", "branchIsMerged")
+func branchIsMerged(repo *gogit.Repository, branchHash plumbing.Hash) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("git", "branchIsMerged", "repo", repo, "!&branchHash", &branchHash), &out0, &out1)
 	head, err := repo.Head()
 	if err != nil {
+		logger.DebugErr("git", err)
 		//Nothing checked out to compare against
 		return false, err
 	}
@@ -270,6 +278,7 @@ func branchIsMerged(repo *gogit.Repository, branchHash plumbing.Hash) (bool, err
 	//user a confirmation prompt, never data.
 	reachable, err := ancestorSet(repo, head.Hash())
 	if err != nil {
+		logger.DebugErr("git", err)
 		return false, err
 	}
 
@@ -279,9 +288,7 @@ func branchIsMerged(repo *gogit.Repository, branchHash plumbing.Hash) (bool, err
 
 // removeBranchConfig deletes a branch's tracking configuration.
 func removeBranchConfig(repo *gogit.Repository, branch string) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "removeBranchConfig: branch=%.120q", branch)
-	}
+	defer logger.Out0(logger.In2("git", "removeBranchConfig", "repo", repo, "branch", branch))
 	cfg, err := repo.Config()
 	if err != nil || cfg.Branches == nil {
 		return
@@ -296,9 +303,7 @@ func removeBranchConfig(repo *gogit.Repository, branch string) {
 
 // moveBranchConfig re-keys a branch's tracking configuration under a new name.
 func moveBranchConfig(repo *gogit.Repository, oldName string, newName string) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "moveBranchConfig: oldName=%.120q newName=%.120q", oldName, newName)
-	}
+	defer logger.Out0(logger.In3("git", "moveBranchConfig", "repo", repo, "oldName", oldName, "newName", newName))
 	cfg, err := repo.Config()
 	if err != nil || cfg.Branches == nil {
 		return
@@ -315,6 +320,7 @@ func moveBranchConfig(repo *gogit.Repository, oldName string, newName string) {
 	delete(cfg.Branches, oldName)
 
 	if err := cfg.Validate(); err != nil {
+		logger.DebugErr("git", err)
 		//A config that will not validate must not be written back
 		return
 	}
@@ -323,10 +329,8 @@ func moveBranchConfig(repo *gogit.Repository, oldName string, newName string) {
 
 // splitRemoteRef breaks a remote-tracking ref into its remote and branch parts.
 // "refs/remotes/origin/feature/login" yields ("origin", "feature/login").
-func splitRemoteRef(fullRef string) (string, string) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "splitRemoteRef: fullRef=%.120q", fullRef)
-	}
+func splitRemoteRef(fullRef string) (out0 string, out1 string) {
+	defer logger.Out2(logger.In1("git", "splitRemoteRef", "fullRef", fullRef), &out0, &out1)
 	trimmed := strings.TrimPrefix(fullRef, remoteRefPrefix)
 	if trimmed == fullRef {
 		//Not a remote-tracking ref
@@ -341,10 +345,8 @@ func splitRemoteRef(fullRef string) (string, string) {
 }
 
 // remoteOrName defaults a remote name to "origin".
-func remoteOrName(remote string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "remoteOrName: remote=%.120q", remote)
-	}
+func remoteOrName(remote string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "remoteOrName", "remote", remote), &out0)
 	remote = strings.TrimSpace(remote)
 	if remote == "" {
 		return defaultRemote

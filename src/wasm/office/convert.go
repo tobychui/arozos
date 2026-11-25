@@ -60,18 +60,14 @@ type ExportFunc func(jsonStr string) ([]byte, []byte, error)
 // nativeImport / nativeExport are the suite's own open and save. Media
 // stays inline as data URLs: there is no file system here to link into.
 func nativeImport(app string) ImportFunc {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("wasm/office", "nativeImport: app=%.120q", app)
-	}
+	logger.DebugTrace("wasm/office", "nativeImport")
 	return func(data []byte) (string, error) {
 		return office.ReadNativeFile(app, data, nil)
 	}
 }
 
 func nativeExport(app string) ExportFunc {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("wasm/office", "nativeExport: app=%.120q", app)
-	}
+	logger.DebugTrace("wasm/office", "nativeExport")
 	return func(envelope string) ([]byte, []byte, error) {
 		data, err := office.BuildNativeFile(app, envelope, nil)
 		return data, nil, err
@@ -209,10 +205,8 @@ var Exporters = map[string]ExportFunc{
 
 // RunImport and RunExport are the single entry points main.go bridges, so
 // an unknown name fails the same way on both sides of the wire.
-func RunImport(name string, data []byte) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("wasm/office", "RunImport: name=%.120q", name)
-	}
+func RunImport(name string, data []byte) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("wasm/office", "RunImport", "name", name, "data", data), &out0, &out1)
 	fn, ok := Importers[name]
 	if !ok {
 		return "", errors.New("unknown import converter: " + name)
@@ -223,10 +217,8 @@ func RunImport(name string, data []byte) (string, error) {
 	return fn(data)
 }
 
-func RunExport(name string, jsonStr string) ([]byte, []byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("wasm/office", "RunExport: name=%.120q jsonStr=%.120q", name, jsonStr)
-	}
+func RunExport(name string, jsonStr string) (out0 []byte, out1 []byte, out2 error) {
+	defer logger.Out3(logger.In2("wasm/office", "RunExport", "name", name, "jsonStr", jsonStr), &out0, &out1, &out2)
 	fn, ok := Exporters[name]
 	if !ok {
 		return nil, nil, errors.New("unknown export converter: " + name)
@@ -239,8 +231,8 @@ func RunExport(name string, jsonStr string) ([]byte, []byte, error) {
 
 // ConverterNames lists what this build can do, for the bridge to publish so
 // the front end never has to hardcode the list.
-func ConverterNames() ([]string, []string) {
-	logger.Debug("wasm/office", "ConverterNames")
+func ConverterNames() (out0 []string, out1 []string) {
+	defer logger.Out2(logger.In0("wasm/office", "ConverterNames"), &out0, &out1)
 	var in, out []string
 	for k := range Importers {
 		in = append(in, k)

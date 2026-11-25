@@ -70,9 +70,7 @@ func faceView(f *Face) FaceView {
 // Families describes every installed family; langs are the languages to
 // test support for
 func (l *Library) Families(langs []string) []FamilyView {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "Library.Families: len(langs)=%d", len(langs))
-	}
+	logger.DebugTrace("locale/fonts", "Library.Families")
 	l.mu.RLock()
 	fams := make([]*Family, 0, len(l.families))
 	for _, f := range l.families {
@@ -117,9 +115,7 @@ func (l *Library) Families(langs []string) []FamilyView {
 
 // dirName turns a family name into a folder name
 func dirName(family string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "dirName: family=%.120q", family)
-	}
+	logger.DebugTrace("locale/fonts", "dirName")
 	name := strings.Trim(unsafeName.ReplaceAllString(strings.ReplaceAll(family, " ", "_"), ""), "._-")
 	if name == "" {
 		name = fmt.Sprintf("Font_%x", []byte(family))
@@ -133,18 +129,18 @@ func dirName(family string) string {
 // Install checks an uploaded font and adds it to the library. WOFF files
 // are unpacked to TTF / OTF so they can be sliced.
 func (l *Library) Install(filename string, data []byte) (FaceView, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "Library.Install: filename=%.120q", filename)
-	}
+	logger.DebugTrace("locale/fonts", "Library.Install")
 	if len(data) > MaxFontSize {
 		return FaceView{}, fmt.Errorf("the font is larger than %d MB", MaxFontSize>>20)
 	}
 	font, container, err := Decode(data)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return FaceView{}, err
 	}
 	info, _, err := Inspect(font)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return FaceView{}, err
 	}
 
@@ -159,6 +155,7 @@ func (l *Library) Install(filename string, data []byte) (FaceView, error) {
 			tables[tag] = t
 		}
 		if data, err = AssembleSFNT(font.Flavor, tables); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return FaceView{}, err
 		}
 	case "woff2":
@@ -186,6 +183,7 @@ func (l *Library) Install(filename string, data []byte) (FaceView, error) {
 		base = dirName(info.Family + " " + info.Style)
 	}
 	if err := os.MkdirAll(filepath.Join(l.opts.Root, dir), 0755); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return FaceView{}, err
 	}
 	id := path.Join(dir, base+ext)
@@ -198,15 +196,18 @@ func (l *Library) Install(filename string, data []byte) (FaceView, error) {
 
 	target := filepath.Join(l.opts.Root, filepath.FromSlash(id))
 	if err := os.WriteFile(target+".tmp", data, 0644); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return FaceView{}, err
 	}
 	if err := os.Rename(target+".tmp", target); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		os.Remove(target + ".tmp")
 		return FaceView{}, err
 	}
 
 	face, err := l.readFace(id)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		os.Remove(target)
 		return FaceView{}, err
 	}
@@ -225,9 +226,7 @@ func (l *Library) Install(filename string, data []byte) (FaceView, error) {
 // Delete removes a family: its font files, its folder when nothing else
 // is left in it, and its generated slices
 func (l *Library) Delete(family string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "Library.Delete: family=%.120q", family)
-	}
+	logger.DebugTrace("locale/fonts", "Library.Delete")
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	key := strings.ToLower(family)
@@ -237,6 +236,7 @@ func (l *Library) Delete(family string) error {
 	}
 	root, err := filepath.Abs(l.opts.Root)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return err
 	}
 	for _, face := range fam.Faces {

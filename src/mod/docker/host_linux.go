@@ -13,10 +13,11 @@ import (
 
 // hostStorageUsage reports used/total bytes of the filesystem holding the
 // current working directory.
-func hostStorageUsage() (int64, int64, bool) {
-	logger.Debug("docker", "hostStorageUsage")
+func hostStorageUsage() (out0 int64, out1 int64, out2 bool) {
+	defer logger.Out3(logger.In0("docker", "hostStorageUsage"), &out0, &out1, &out2)
 	var st syscall.Statfs_t
 	if err := syscall.Statfs(".", &st); err != nil {
+		logger.DebugErr("docker", err)
 		return 0, 0, false
 	}
 	bsize := int64(st.Bsize)
@@ -29,10 +30,11 @@ func hostStorageUsage() (int64, int64, bool) {
 }
 
 // hostLoadAvg reads the 1/5/15-minute load averages from /proc/loadavg.
-func hostLoadAvg() (float64, float64, float64, bool) {
-	logger.Debug("docker", "hostLoadAvg")
+func hostLoadAvg() (out0 float64, out1 float64, out2 float64, out3 bool) {
+	defer logger.Out4(logger.In0("docker", "hostLoadAvg"), &out0, &out1, &out2, &out3)
 	data, err := os.ReadFile("/proc/loadavg")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return 0, 0, 0, false
 	}
 	f := strings.Fields(string(data))

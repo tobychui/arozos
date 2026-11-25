@@ -20,8 +20,8 @@ import (
 
 const maxEMLSize = 100 * 1024 * 1024
 
-func parseEMLTree(raw []byte) (*mimePart, gomail.Header, error) {
-	logger.Debug("email", "parseEMLTree")
+func parseEMLTree(raw []byte) (out0 *mimePart, out1 gomail.Header, out2 error) {
+	defer logger.Out3(logger.In1("email", "parseEMLTree", "raw", raw), &out0, &out1, &out2)
 	if len(raw) == 0 {
 		return nil, gomail.Header{}, errors.New("the file is empty")
 	}
@@ -37,12 +37,11 @@ func parseEMLTree(raw []byte) (*mimePart, gomail.Header, error) {
 }
 
 // ParseEML renders an .eml file for the reading pane.
-func (m *Manager) ParseEML(p Principal, raw []byte, allowRemote bool) (*Message, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.ParseEML: allowRemote=%t", allowRemote)
-	}
+func (m *Manager) ParseEML(p Principal, raw []byte, allowRemote bool) (out0 *Message, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.ParseEML", "m", m, "&p", &p, "raw", raw, "allowRemote", allowRemote), &out0, &out1)
 	tree, header, err := parseEMLTree(raw)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	summary := MessageSummary{
@@ -77,12 +76,11 @@ func (m *Manager) ParseEML(p Principal, raw []byte, allowRemote bool) (*Message,
 }
 
 // EMLPart extracts one attachment of an .eml file.
-func EMLPart(raw []byte, partID string) (*PartData, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "EMLPart: partID=%.120q", partID)
-	}
+func EMLPart(raw []byte, partID string) (out0 *PartData, out1 error) {
+	defer logger.Out2(logger.In2("email", "EMLPart", "raw", raw, "partID", partID), &out0, &out1)
 	tree, _, err := parseEMLTree(raw)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	part := tree.find(partID)

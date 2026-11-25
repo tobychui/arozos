@@ -69,13 +69,12 @@ var (
 
 // sanitizeHTML cleans an HTML document. The result is a complete document
 // (html/head/body) ready to be placed in an iframe's srcdoc.
-func sanitizeHTML(input string, options sanitizeOptions) sanitizeResult {
-	if logger.IsDebug() {
-		logger.Debugf("email", "sanitizeHTML: input=%.120q", input)
-	}
+func sanitizeHTML(input string, options sanitizeOptions) (out0 sanitizeResult) {
+	defer logger.Out1(logger.In2("email", "sanitizeHTML", "input", input, "&options", &options), &out0)
 	result := sanitizeResult{}
 	document, err := html.Parse(strings.NewReader(input))
 	if err != nil {
+		logger.DebugErr("email", err)
 		//html.Parse only fails on reader errors; fall back to escaped text
 		return sanitizeResult{html: "<pre>" + html.EscapeString(input) + "</pre>"}
 	}
@@ -119,6 +118,7 @@ func sanitizeHTML(input string, options sanitizeOptions) sanitizeResult {
 
 	var buffer bytes.Buffer
 	if err := html.Render(&buffer, document); err != nil {
+		logger.DebugErr("email", err)
 		return sanitizeResult{html: "<pre>" + html.EscapeString(input) + "</pre>"}
 	}
 	result.html = buffer.String()
@@ -126,7 +126,7 @@ func sanitizeHTML(input string, options sanitizeOptions) sanitizeResult {
 }
 
 func sanitizeAttributes(node *html.Node, options sanitizeOptions, result *sanitizeResult) {
-	logger.Debug("email", "sanitizeAttributes")
+	defer logger.Out0(logger.In3("email", "sanitizeAttributes", "node", node, "&options", &options, "result", result))
 	name := strings.ToLower(node.Data)
 	kept := node.Attr[:0]
 	for _, attribute := range node.Attr {
@@ -195,7 +195,7 @@ func sanitizeAttributes(node *html.Node, options sanitizeOptions, result *saniti
 }
 
 func sanitizeStyleElement(node *html.Node, options sanitizeOptions, result *sanitizeResult) {
-	logger.Debug("email", "sanitizeStyleElement")
+	defer logger.Out0(logger.In3("email", "sanitizeStyleElement", "node", node, "&options", &options, "result", result))
 	var css strings.Builder
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
 		if child.Type == html.TextNode {
@@ -214,10 +214,8 @@ func sanitizeStyleElement(node *html.Node, options sanitizeOptions, result *sani
 }
 
 // sanitizeCSS neutralises legacy script hooks and controls url() loads.
-func sanitizeCSS(css string, options sanitizeOptions, result *sanitizeResult) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "sanitizeCSS: css=%.120q", css)
-	}
+func sanitizeCSS(css string, options sanitizeOptions, result *sanitizeResult) (out0 string) {
+	defer logger.Out1(logger.In3("email", "sanitizeCSS", "css", css, "&options", &options, "result", result), &out0)
 	css = cssDangerPattern.ReplaceAllString(css, "blocked-")
 	if cssImportPattern.MatchString(css) {
 		result.hasRemote = true
@@ -247,8 +245,8 @@ func sanitizeCSS(css string, options sanitizeOptions, result *sanitizeResult) st
 }
 
 // safeLinkURL accepts absolute web, mail and phone links and in-page anchors.
-func safeLinkURL(raw string) (string, bool) {
-	logger.Debug("email", "safeLinkURL")
+func safeLinkURL(raw string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In1("email", "safeLinkURL", "raw", raw), &out0, &out1)
 	value := strings.TrimSpace(raw)
 	if value == "" {
 		return "", false
@@ -272,7 +270,7 @@ func safeLinkURL(raw string) (string, bool) {
 // resolveImageURL decides what an image reference becomes. remote reports a
 // network fetch; ok reports whether the (possibly rewritten) value may stay.
 func resolveImageURL(raw string, options sanitizeOptions) (resolved string, remote bool, ok bool) {
-	logger.Debug("email", "resolveImageURL")
+	defer logger.Out3(logger.In2("email", "resolveImageURL", "raw", raw, "&options", &options), &resolved, &remote, &ok)
 	value := strings.TrimSpace(raw)
 	lower := strings.ToLower(stripControlChars(value))
 	switch {
@@ -295,9 +293,7 @@ func resolveImageURL(raw string, options sanitizeOptions) (resolved string, remo
 }
 
 func stripControlChars(value string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "stripControlChars: value=%.120q", value)
-	}
+	logger.DebugTrace("email", "stripControlChars")
 	return strings.Map(func(r rune) rune {
 		if r <= 0x20 || r == 0x7f {
 			return -1

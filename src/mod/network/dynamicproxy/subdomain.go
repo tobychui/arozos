@@ -13,10 +13,8 @@ import (
 
 */
 
-func (router *Router) AddSubdomainRoutingService(hostnameWithSubdomain string, domain string, requireTLS bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/dynamicproxy", "Router.AddSubdomainRoutingService: hostnameWithSubdomain=%.120q domain=%.120q requireTLS=%t", hostnameWithSubdomain, domain, requireTLS)
-	}
+func (router *Router) AddSubdomainRoutingService(hostnameWithSubdomain string, domain string, requireTLS bool) (out0 error) {
+	defer logger.Out1(logger.In4("network/dynamicproxy", "Router.AddSubdomainRoutingService", "router", router, "hostnameWithSubdomain", hostnameWithSubdomain, "domain", domain, "requireTLS", requireTLS), &out0)
 	if domain[len(domain)-1:] == "/" {
 		domain = domain[:len(domain)-1]
 	}
@@ -31,6 +29,7 @@ func (router *Router) AddSubdomainRoutingService(hostnameWithSubdomain string, d
 	//Create a new proxy agent for this root
 	path, err := url.Parse(webProxyEndpoint)
 	if err != nil {
+		logger.DebugErr("network/dynamicproxy", err)
 		return err
 	}
 

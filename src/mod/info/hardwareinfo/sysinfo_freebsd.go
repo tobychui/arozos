@@ -42,11 +42,13 @@ const query_memsize_command = "sysctl hw.physmem | awk '{print $NF}'"
 
 // GetCPUFreq() -> String
 // Returns the CPU frequency in the terms of MHz
-func GetCPUFreq() string {
-	logger.Debug("info/hardwareinfo", "GetCPUFreq")
+func GetCPUFreq() (out0 string) {
+	defer logger.Out1(logger.In0("info/hardwareinfo", "GetCPUFreq"), &out0)
 	shell := exec.Command("bash", "-c", query_frequency_command) // Run command
 	freqByteArr, err := shell.CombinedOutput()                   // Response from cmdline
-	if err != nil {                                              // If done w/ errors then
+	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
+		// If done w/ errors then
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
@@ -63,11 +65,13 @@ func GetCPUFreq() string {
 
 // GetCPUModel -> String
 // Returns the CPU model name string
-func GetCPUModel() string {
-	logger.Debug("info/hardwareinfo", "GetCPUModel")
+func GetCPUModel() (out0 string) {
+	defer logger.Out1(logger.In0("info/hardwareinfo", "GetCPUModel"), &out0)
 	shell := exec.Command("bash", "-c", query_cpumodel_command) // Run command
 	modelStr, err := shell.CombinedOutput()                     // Response from cmdline
-	if err != nil {                                             // If done w/ errors then
+	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
+		// If done w/ errors then
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
@@ -77,11 +81,13 @@ func GetCPUModel() string {
 
 // GetCPUHardware -> String
 // Returns the CPU ID string
-func GetCPUHardware() string {
-	logger.Debug("info/hardwareinfo", "GetCPUHardware")
+func GetCPUHardware() (out0 string) {
+	defer logger.Out1(logger.In0("info/hardwareinfo", "GetCPUHardware"), &out0)
 	shell := exec.Command("bash", "-c", query_cpuhardware_command) // Run command
 	hwStr, err := shell.CombinedOutput()                           // Response from cmdline
-	if err != nil {                                                // If done w/ errors then
+	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
+		// If done w/ errors then
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
@@ -91,11 +97,13 @@ func GetCPUHardware() string {
 
 // GetCPUArch -> String
 // Returns the CPU architecture string
-func GetCPUArch() string {
-	logger.Debug("info/hardwareinfo", "GetCPUArch")
+func GetCPUArch() (out0 string) {
+	defer logger.Out1(logger.In0("info/hardwareinfo", "GetCPUArch"), &out0)
 	shell := exec.Command("bash", "-c", query_cpuarch_command) // Run command
 	archStr, err := shell.CombinedOutput()                     // Response from cmdline
-	if err != nil {                                            // If done w/ errors then
+	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
+		// If done w/ errors then
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
@@ -105,9 +113,7 @@ func GetCPUArch() string {
 
 // Inherited code from sysinfo_window.go
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetCPUInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetCPUInfo", "r", r))
 	CPUInfo := CPUInfo{
 		Freq:        GetCPUFreq(),
 		Hardware:    GetCPUHardware(),
@@ -119,6 +125,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(CPUInfo)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
@@ -126,13 +133,12 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 
 // Inherited code from sysinfo.go
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "Ifconfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "Ifconfig", "r", r))
 	cmdin := query_netinfo_command
 	cmd := exec.Command("bash", "-c", cmdin)
 	networkInterfaces, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		networkInterfaces = []byte{}
 	}
 
@@ -147,6 +153,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
@@ -154,14 +161,13 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 
 // Inherited code from sysinfo.go
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetDriveStat: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetDriveStat", "r", r))
 	//Get drive status using df command
 	cmdin := `df -k | sed -e /Filesystem/d`
 	cmd := exec.Command("bash", "-c", cmdin)
 	dev, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		dev = []byte{}
 	}
 
@@ -195,6 +201,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
@@ -205,13 +212,12 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 // Takes in http.ResponseWriter w and *http.Request r,
 // Send TextResponse containing USB information extracted from shell in JSON
 func GetUSB(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetUSB: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetUSB", "r", r))
 	cmdin := query_usbinfo_command
 	cmd := exec.Command("bash", "-c", cmdin)
 	usbd, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		usbd = []byte{}
 	}
 
@@ -225,6 +231,7 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
@@ -235,9 +242,7 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 // Send TextResponse containing physical memory size
 // extracted from shell in JSON
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetRamInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetRamInfo", "r", r))
 	cmd := exec.Command("bash", "-c", query_memsize_command)
 	out, _ := cmd.CombinedOutput()
 
@@ -249,6 +254,7 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(ramSizeInt)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))

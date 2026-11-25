@@ -20,12 +20,11 @@ import (
 
 // Handle request from Windows File Explorer
 func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.HandleWindowClientAccess: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("storage/webdav", "Server.HandleWindowClientAccess", "s", s, "r", r))
 	coookieName := "arozosWebdavToken"
 	cookie, err := r.Cookie(coookieName)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		//New Client! Record its uuid and IP address
 		//Generate a new UUID for this client
 		thisWebDAVClientID := uuid.NewV4().String()
@@ -39,6 +38,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 
 		ip, err := getIP(r)
 		if err != nil {
+			logger.DebugErr("storage/webdav", err)
 			ip = "Unknown"
 		}
 
@@ -81,6 +81,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 
 				ip, err := getIP(r)
 				if err != nil {
+					logger.DebugErr("storage/webdav", err)
 					ip = "Unknown"
 				}
 
@@ -117,6 +118,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 			clientInfo := value.(*WindowClientInfo)
 			userinfo, err := s.userHandler.GetUserInfoFromUsername(clientInfo.Username)
 			if err != nil {
+				logger.DebugErr("storage/webdav", err)
 				//User not exists?
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("500 - User not exists"))
@@ -131,10 +133,8 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 
 }
 
-func getIP(r *http.Request) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "getIP: r=%s", logger.RequestSummary(r))
-	}
+func getIP(r *http.Request) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("storage/webdav", "getIP", "r", r), &out0, &out1)
 	//Get IP from the X-REAL-IP header
 	ip := r.Header.Get("X-REAL-IP")
 	netIP := net.ParseIP(ip)
@@ -155,6 +155,7 @@ func getIP(r *http.Request) (string, error) {
 	//Get IP from RemoteAddr
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return "", err
 	}
 	netIP = net.ParseIP(ip)

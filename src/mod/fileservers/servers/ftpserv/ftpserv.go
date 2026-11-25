@@ -94,8 +94,8 @@ type UserRow struct {
 }
 
 // Create a new FTP Manager
-func NewFTPManager(option *ManagerOption) *Manager {
-	logger.Debug("fileservers/servers/ftpserv", "NewFTPManager")
+func NewFTPManager(option *ManagerOption) (out0 *Manager) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "NewFTPManager", "option", option), &out0)
 	option.Sysdb.NewTable(settingsTable)
 	m := &Manager{opt: option}
 	m.migrateGroupAccess()
@@ -109,6 +109,7 @@ func NewFTPManager(option *ManagerOption) *Manager {
 	if defaultEnable {
 		m.mu.Lock()
 		if err := m.start(); err != nil {
+			logger.DebugErr("fileservers/servers/ftpserv", err)
 			//Keep the choice: the next boot tries again
 			logger.PrintAndLog(logTitle, "The FTP server could not start", err)
 		}
@@ -120,7 +121,7 @@ func NewFTPManager(option *ManagerOption) *Manager {
 // migrateGroupAccess replaces the old list of groups allowed to use FTP: every
 // member of those groups gets FTP turned on, so nobody loses access.
 func (m *Manager) migrateGroupAccess() {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.migrateGroupAccess")
+	defer logger.Out0(logger.In1("fileservers/servers/ftpserv", "Manager.migrateGroupAccess", "m", m))
 	if !m.opt.Sysdb.KeyExists(settingsTable, "groups") {
 		return
 	}
@@ -143,10 +144,8 @@ func (m *Manager) migrateGroupAccess() {
 	Settings
 */
 
-func (m *Manager) readBool(key string, fallback bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.readBool: fallback=%t", fallback)
-	}
+func (m *Manager) readBool(key string, fallback bool) (out0 bool) {
+	defer logger.Out1(logger.In3("fileservers/servers/ftpserv", "Manager.readBool", "m", m, "fallback", fallback, "!key", key), &out0)
 	value := fallback
 	if m.opt.Sysdb.KeyExists(settingsTable, key) {
 		m.opt.Sysdb.Read(settingsTable, key, &value)
@@ -155,8 +154,8 @@ func (m *Manager) readBool(key string, fallback bool) bool {
 }
 
 // Port returns the configured control port.
-func (m *Manager) Port() int {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.Port")
+func (m *Manager) Port() (out0 int) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.Port", "m", m), &out0)
 	port := DefaultPort
 	if m.opt.Sysdb.KeyExists(settingsTable, "port") {
 		m.opt.Sysdb.Read(settingsTable, "port", &port)
@@ -164,34 +163,34 @@ func (m *Manager) Port() int {
 	return port
 }
 
-func (m *Manager) upnpEnabled() bool {
-	logger.DebugTrace("fileservers/servers/ftpserv", "Manager.upnpEnabled")
+func (m *Manager) upnpEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.upnpEnabled", "m", m), &out0)
 	return m.readBool("upnp", false)
 }
-func (m *Manager) passive() bool {
-	logger.DebugTrace("fileservers/servers/ftpserv", "Manager.passive")
+func (m *Manager) passive() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.passive", "m", m), &out0)
 	return m.readBool("passive", false)
 }
 
 // Public addresses stay allowed by default, as before this setting existed
-func (m *Manager) allowPublic() bool {
-	logger.DebugTrace("fileservers/servers/ftpserv", "Manager.allowPublic")
+func (m *Manager) allowPublic() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.allowPublic", "m", m), &out0)
 	return m.readBool("public", true)
 }
-func (m *Manager) readOnly() bool {
-	logger.DebugTrace("fileservers/servers/ftpserv", "Manager.readOnly")
+func (m *Manager) readOnly() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.readOnly", "m", m), &out0)
 	return m.readBool("readonly", false)
 }
 
-func (m *Manager) publicIP() string {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.publicIP")
+func (m *Manager) publicIP() (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.publicIP", "m", m), &out0)
 	ip := ""
 	m.opt.Sysdb.Read(settingsTable, "publicip", &ip)
 	return ip
 }
 
-func (m *Manager) idleMinutes() int {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.idleMinutes")
+func (m *Manager) idleMinutes() (out0 int) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.idleMinutes", "m", m), &out0)
 	minutes := DefaultIdleMinutes
 	if m.opt.Sysdb.KeyExists(settingsTable, "idle") {
 		m.opt.Sysdb.Read(settingsTable, "idle", &minutes)
@@ -204,17 +203,13 @@ func (m *Manager) idleMinutes() int {
 */
 
 // UserEnabled tells whether a user turned FTP on for their account.
-func (m *Manager) UserEnabled(username string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/ftpserv", "Manager.UserEnabled: username=%.120q", username)
-	}
+func (m *Manager) UserEnabled(username string) (out0 bool) {
+	defer logger.Out1(logger.In2("fileservers/servers/ftpserv", "Manager.UserEnabled", "m", m, "username", username), &out0)
 	return username != "" && m.opt.Sysdb.KeyExists(settingsTable, userKeyPrefix+username)
 }
 
-func (m *Manager) setUser(username string, enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.setUser: username=%.120q enabled=%t", username, enabled)
-	}
+func (m *Manager) setUser(username string, enabled bool) (out0 error) {
+	defer logger.Out1(logger.In3("fileservers/servers/ftpserv", "Manager.setUser", "m", m, "username", username, "enabled", enabled), &out0)
 	if enabled {
 		return m.opt.Sysdb.Write(settingsTable, userKeyPrefix+username, time.Now().Unix())
 	}
@@ -223,11 +218,12 @@ func (m *Manager) setUser(username string, enabled bool) error {
 
 // Users lists who turned FTP on. Accounts deleted since are left out and
 // forgotten, so that a new account of the same name starts with FTP off.
-func (m *Manager) Users() []UserRow {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.Users")
+func (m *Manager) Users() (out0 []UserRow) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.Users", "m", m), &out0)
 	rows := []UserRow{}
 	entries, err := m.opt.Sysdb.ListTableWithPrefix(settingsTable, userKeyPrefix)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		return rows
 	}
 	for _, entry := range entries {
@@ -245,9 +241,7 @@ func (m *Manager) Users() []UserRow {
 }
 
 func (m *Manager) dropUser(username string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.dropUser: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.dropUser", "m", m, "username", username))
 	m.mu.Lock()
 	server := m.server
 	m.mu.Unlock()
@@ -259,10 +253,8 @@ func (m *Manager) dropUser(username string) {
 // authenticate decides a sign in from an FTP client. Whether FTP is on for the
 // account is asked first, so that the password of an account without FTP is
 // never checked over FTP.
-func (m *Manager) authenticate(username, password, remote string) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.authenticate: username=%.120q remote=%.120q", username, remote)
-	}
+func (m *Manager) authenticate(username, password, remote string) (out0 error) {
+	defer logger.Out1(logger.In4("fileservers/servers/ftpserv", "Manager.authenticate", "m", m, "username", username, "remote", remote, "!password", password), &out0)
 	err := errors.New(refusedSignIn)
 	if m.UserEnabled(username) {
 		err = m.opt.CheckPassword(username, password, remote)
@@ -271,6 +263,7 @@ func (m *Manager) authenticate(username, password, remote string) error {
 		m.opt.LogAuth(username, remote, err == nil)
 	}
 	if err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		return errors.New(refusedSignIn)
 	}
 	return nil
@@ -281,8 +274,8 @@ func (m *Manager) authenticate(username, password, remote string) error {
 */
 
 // start runs a new server with the saved settings. m.mu must be held.
-func (m *Manager) start() error {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.start")
+func (m *Manager) start() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.start", "m", m), &out0)
 	m.stop()
 	port := m.Port()
 	useUpnp := m.opt.AllowUpnp && m.opt.Upnp != nil && m.upnpEnabled()
@@ -310,6 +303,7 @@ func (m *Manager) start() error {
 		err = h.Start()
 	}
 	if err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		m.lastError = err.Error()
 		return err
 	}
@@ -318,6 +312,7 @@ func (m *Manager) start() error {
 
 	if useUpnp {
 		if err := m.opt.Upnp.ForwardPort(port, m.opt.Hostname+" FTP Server"); err != nil {
+			logger.DebugErr("fileservers/servers/ftpserv", err)
 			logger.PrintAndLog(logTitle, "Failed to forward the FTP port with UPnP", err)
 			m.lastError = "UPnP could not forward port " + strconv.Itoa(port) + ": " + err.Error()
 		} else {
@@ -333,7 +328,7 @@ func (m *Manager) start() error {
 
 // stop closes the running server, if any. m.mu must be held.
 func (m *Manager) stop() {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.stop")
+	defer logger.Out0(logger.In1("fileservers/servers/ftpserv", "Manager.stop", "m", m))
 	if m.server != nil {
 		m.server.Close()
 		m.server = nil
@@ -346,17 +341,15 @@ func (m *Manager) stop() {
 	m.forwarded = 0
 }
 
-func (m *Manager) IsFtpServerEnabled() bool {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.IsFtpServerEnabled")
+func (m *Manager) IsFtpServerEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/ftpserv", "Manager.IsFtpServerEnabled", "m", m), &out0)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.server != nil && m.server.ServerRunning
 }
 
-func (m *Manager) FTPServerToggle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.FTPServerToggle: enabled=%t", enabled)
-	}
+func (m *Manager) FTPServerToggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/ftpserv", "Manager.FTPServerToggle", "m", m, "enabled", enabled), &out0)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !enabled {
@@ -369,6 +362,7 @@ func (m *Manager) FTPServerToggle(enabled bool) error {
 		return nil
 	}
 	if err := m.start(); err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		return err
 	}
 	return m.opt.Sysdb.Write(settingsTable, "default", true)
@@ -376,14 +370,14 @@ func (m *Manager) FTPServerToggle(enabled bool) error {
 
 // Close stops the server without changing whether it starts on boot.
 func (m *Manager) Close() {
-	logger.Debug("fileservers/servers/ftpserv", "Manager.Close")
+	defer logger.Out0(logger.In1("fileservers/servers/ftpserv", "Manager.Close", "m", m))
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stop()
 }
 
-func (m *Manager) FTPGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	logger.DebugTrace("fileservers/servers/ftpserv", "Manager.FTPGetEndpoints")
+func (m *Manager) FTPGetEndpoints(userinfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/ftpserv", "Manager.FTPGetEndpoints", "m", m, "userinfo", userinfo), &out0)
 	return []*fileservers.Endpoint{{
 		ProtocolName: "ftp://",
 		Port:         m.Port(),
@@ -396,15 +390,13 @@ func (m *Manager) FTPGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
 */
 
 func sendJSON(w http.ResponseWriter, value interface{}) {
-	logger.Debug("fileservers/servers/ftpserv", "sendJSON")
+	defer logger.Out0(logger.In1("fileservers/servers/ftpserv", "sendJSON", "value", value))
 	js, _ := json.Marshal(value)
 	utils.SendJSONResponse(w, string(js))
 }
 
-func postOnly(r *http.Request, key string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "postOnly: r=%s", logger.RequestSummary(r))
-	}
+func postOnly(r *http.Request, key string) (out0 string) {
+	defer logger.Out1(logger.In2("fileservers/servers/ftpserv", "postOnly", "r", r, "!key", key), &out0)
 	if r.Method != http.MethodPost {
 		return ""
 	}
@@ -414,11 +406,10 @@ func postOnly(r *http.Request, key string) string {
 
 // HandleStatus tells a signed in user whether FTP is on for them.
 func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleStatus", "m", m, "r", r))
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -435,15 +426,14 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 // to come with it, so that a browser left open cannot be used to open the
 // account to the network.
 func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.HandleActivate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleActivate", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
 	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -451,6 +441,7 @@ func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := m.setUser(username, true); err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -460,15 +451,14 @@ func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeactivate turns FTP off for the signed in user.
 func (m *Manager) HandleDeactivate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.HandleDeactivate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleDeactivate", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
 	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -476,10 +466,9 @@ func (m *Manager) HandleDeactivate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) revoke(w http.ResponseWriter, username string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.revoke: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.revoke", "m", m, "username", username))
 	if err := m.setUser(username, false); err != nil {
+		logger.DebugErr("fileservers/servers/ftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -490,9 +479,7 @@ func (m *Manager) revoke(w http.ResponseWriter, username string) {
 
 // HandleConfig reads or changes the settings, and is for admins.
 func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.HandleConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleConfig", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		m.mu.Lock()
 		config := AdminConfig{
@@ -545,6 +532,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	if m.server != nil {
 		//Every client is disconnected, and their programs reconnect
 		if err := m.start(); err != nil {
+			logger.DebugErr("fileservers/servers/ftpserv", err)
 			utils.SendErrorResponse(w, "The settings are saved, but the server could not restart: "+err.Error())
 			return
 		}
@@ -555,9 +543,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 
 // HandleClients lists who is connected, and is for admins.
 func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.HandleClients: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleClients", "m", m, "r", r))
 	m.mu.Lock()
 	server := m.server
 	m.mu.Unlock()
@@ -570,17 +556,13 @@ func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
 
 // HandleUsers lists who turned FTP on, and is for admins.
 func (m *Manager) HandleUsers(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/ftpserv", "Manager.HandleUsers: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleUsers", "m", m, "r", r))
 	sendJSON(w, m.Users())
 }
 
 // HandleRevoke turns FTP off for a user, and is for admins.
 func (m *Manager) HandleRevoke(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/ftpserv", "Manager.HandleRevoke: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/ftpserv", "Manager.HandleRevoke", "m", m, "r", r))
 	username := postOnly(r, "username")
 	if username == "" {
 		utils.SendErrorResponse(w, "No user given")

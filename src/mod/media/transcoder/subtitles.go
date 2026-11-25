@@ -87,18 +87,14 @@ var fontFileExtensions = map[string]bool{
 // IsTextualSubtitleCodec reports whether a subtitle codec carries text that can
 // be converted to SubRip, as opposed to a bitmap format needing OCR.
 func IsTextualSubtitleCodec(codec string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("media/transcoder", "IsTextualSubtitleCodec: codec=%.120q", codec)
-	}
+	logger.DebugTrace("media/transcoder", "IsTextualSubtitleCodec")
 	return textualSubtitleCodecs[strings.ToLower(strings.TrimSpace(codec))]
 }
 
 // IsFontAttachment reports whether an attachment stream looks like a font,
 // judged by mimetype first and filename extension second.
-func IsFontAttachment(mimetype string, filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "IsFontAttachment: filename=%.120q", filename)
-	}
+func IsFontAttachment(mimetype string, filename string) (out0 bool) {
+	defer logger.Out1(logger.In2("media/transcoder", "IsFontAttachment", "mimetype", mimetype, "filename", filename), &out0)
 	lowerMime := strings.ToLower(mimetype)
 	for _, hint := range fontMimeHints {
 		if strings.Contains(lowerMime, hint) {
@@ -118,10 +114,8 @@ type ffprobeStream struct {
 }
 
 // tag reads a container tag case-insensitively, since muxers disagree on case.
-func (s *ffprobeStream) tag(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ffprobeStream.tag: name=%.120q", name)
-	}
+func (s *ffprobeStream) tag(name string) (out0 string) {
+	defer logger.Out1(logger.In2("media/transcoder", "ffprobeStream.tag", "s", s, "name", name), &out0)
 	for k, v := range s.Tags {
 		if strings.EqualFold(k, name) {
 			return v
@@ -140,12 +134,11 @@ func (s *ffprobeStream) tag(name string) string {
 //
 // Name resolution is best effort: a font that cannot be parsed simply keeps an
 // empty Family and the caller falls back to the filename.
-func ProbeEmbeddedTracksWithFontNames(inputFile string, workDir string) (*MediaSubtitleInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ProbeEmbeddedTracksWithFontNames: inputFile=%.120q workDir=%.120q", inputFile, workDir)
-	}
+func ProbeEmbeddedTracksWithFontNames(inputFile string, workDir string) (out0 *MediaSubtitleInfo, out1 error) {
+	defer logger.Out2(logger.In2("media/transcoder", "ProbeEmbeddedTracksWithFontNames", "inputFile", inputFile, "workDir", workDir), &out0, &out1)
 	info, err := ProbeEmbeddedTracks(inputFile)
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, err
 	}
 	if len(info.Fonts) == 0 {
@@ -154,6 +147,7 @@ func ProbeEmbeddedTracksWithFontNames(inputFile string, workDir string) (*MediaS
 
 	fonts, err := extractAllFontAttachments(inputFile, info.Fonts, workDir)
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return info, nil // listing is still useful without family names
 	}
 	for i := range info.Fonts {
@@ -170,15 +164,14 @@ func ProbeEmbeddedTracksWithFontNames(inputFile string, workDir string) (*MediaS
 
 // extractAllFontAttachments dumps every listed attachment in one ffmpeg pass and
 // returns the bytes keyed by attachment ordinal.
-func extractAllFontAttachments(inputFile string, fonts []EmbeddedFont, workDir string) (map[int][]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "extractAllFontAttachments: inputFile=%.120q len(fonts)=%d workDir=%.120q", inputFile, len(fonts), workDir)
-	}
+func extractAllFontAttachments(inputFile string, fonts []EmbeddedFont, workDir string) (out0 map[int][]byte, out1 error) {
+	defer logger.Out2(logger.In3("media/transcoder", "extractAllFontAttachments", "inputFile", inputFile, "fonts", fonts, "workDir", workDir), &out0, &out1)
 	if strings.TrimSpace(workDir) == "" {
 		workDir = os.TempDir()
 	}
 	scratchDir, err := os.MkdirTemp(workDir, "subfonts-")
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, fmt.Errorf("scratch directory unavailable: %w", err)
 	}
 	defer os.RemoveAll(scratchDir)
@@ -217,10 +210,8 @@ func extractAllFontAttachments(inputFile string, fonts []EmbeddedFont, workDir s
 //
 // This is a stream copy rather than a re-encode, so it is dramatically cheaper
 // than converting to SubRip — measured at 0.24s versus 5.3s on a 614MB file.
-func ExtractRawSubtitleTrack(inputFile string, streamIndex int, format string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ExtractRawSubtitleTrack: inputFile=%.120q streamIndex=%d format=%.120q", inputFile, streamIndex, format)
-	}
+func ExtractRawSubtitleTrack(inputFile string, streamIndex int, format string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In3("media/transcoder", "ExtractRawSubtitleTrack", "inputFile", inputFile, "streamIndex", streamIndex, "format", format), &out0, &out1)
 	if streamIndex < 0 {
 		return nil, errors.New("invalid subtitle stream index")
 	}
@@ -246,6 +237,7 @@ func ExtractRawSubtitleTrack(inputFile string, streamIndex int, format string) (
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, errors.New("subtitle extraction timed out")
 		}
@@ -262,10 +254,8 @@ func ExtractRawSubtitleTrack(inputFile string, streamIndex int, format string) (
 
 // ProbeEmbeddedTracks lists the subtitle tracks and font attachments inside a
 // container. A file with neither returns empty slices rather than an error.
-func ProbeEmbeddedTracks(inputFile string) (*MediaSubtitleInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ProbeEmbeddedTracks: inputFile=%.120q", inputFile)
-	}
+func ProbeEmbeddedTracks(inputFile string) (out0 *MediaSubtitleInfo, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "ProbeEmbeddedTracks", "inputFile", inputFile), &out0, &out1)
 	ctx, cancel := context.WithTimeout(context.Background(), subtitleProbeTimeout)
 	defer cancel()
 
@@ -277,6 +267,7 @@ func ProbeEmbeddedTracks(inputFile string) (*MediaSubtitleInfo, error) {
 	)
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, errors.New("subtitle probe timed out")
 		}
@@ -288,14 +279,13 @@ func ProbeEmbeddedTracks(inputFile string) (*MediaSubtitleInfo, error) {
 
 // parseEmbeddedTracks turns ffprobe JSON into the track listing. Split out from
 // the exec call so the mapping rules can be unit-tested without ffmpeg.
-func parseEmbeddedTracks(probeJSON []byte) (*MediaSubtitleInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "parseEmbeddedTracks: len(probeJSON)=%d", len(probeJSON))
-	}
+func parseEmbeddedTracks(probeJSON []byte) (out0 *MediaSubtitleInfo, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "parseEmbeddedTracks", "probeJSON", probeJSON), &out0, &out1)
 	var parsed struct {
 		Streams []ffprobeStream `json:"streams"`
 	}
 	if err := json.Unmarshal(probeJSON, &parsed); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, fmt.Errorf("could not parse ffprobe output: %w", err)
 	}
 
@@ -345,10 +335,8 @@ func parseEmbeddedTracks(probeJSON []byte) (*MediaSubtitleInfo, error) {
 // streamIndex is the absolute stream index reported by ProbeEmbeddedTracks. The
 // conversion flattens ASS/SSA styling to plain text; callers wanting full
 // styling would need to extract the native format and render it with libass.
-func ExtractSubtitleTrack(inputFile string, streamIndex int) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ExtractSubtitleTrack: inputFile=%.120q streamIndex=%d", inputFile, streamIndex)
-	}
+func ExtractSubtitleTrack(inputFile string, streamIndex int) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("media/transcoder", "ExtractSubtitleTrack", "inputFile", inputFile, "streamIndex", streamIndex), &out0, &out1)
 	if streamIndex < 0 {
 		return nil, errors.New("invalid subtitle stream index")
 	}
@@ -371,6 +359,7 @@ func ExtractSubtitleTrack(inputFile string, streamIndex int) ([]byte, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, errors.New("subtitle extraction timed out")
 		}
@@ -391,10 +380,8 @@ func ExtractSubtitleTrack(inputFile string, streamIndex int) ([]byte, error) {
 // fontIndex is the attachment ordinal reported by ProbeEmbeddedTracks. ffmpeg
 // can only dump attachments to a real path, so this renders into scratch space
 // under workDir and returns the bytes for the caller to serve or store.
-func ExtractFontAttachment(inputFile string, fontIndex int, workDir string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ExtractFontAttachment: inputFile=%.120q fontIndex=%d workDir=%.120q", inputFile, fontIndex, workDir)
-	}
+func ExtractFontAttachment(inputFile string, fontIndex int, workDir string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In3("media/transcoder", "ExtractFontAttachment", "inputFile", inputFile, "fontIndex", fontIndex, "workDir", workDir), &out0, &out1)
 	if fontIndex < 0 {
 		return nil, errors.New("invalid font attachment index")
 	}
@@ -403,11 +390,13 @@ func ExtractFontAttachment(inputFile string, fontIndex int, workDir string) ([]b
 		workDir = os.TempDir()
 	}
 	if err := os.MkdirAll(workDir, 0775); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, fmt.Errorf("scratch directory unavailable: %w", err)
 	}
 
 	scratch, err := os.CreateTemp(workDir, "subfont-*.bin")
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, fmt.Errorf("could not create scratch file: %w", err)
 	}
 	scratchPath := scratch.Name()
@@ -440,6 +429,7 @@ func ExtractFontAttachment(inputFile string, fontIndex int, workDir string) ([]b
 			return nil, errors.New("font extraction timed out")
 		}
 		if runErr != nil {
+			logger.DebugErr("media/transcoder", runErr)
 			return nil, fmt.Errorf("ffmpeg failed: %w (%s)", runErr, lastLines(string(out), 2))
 		}
 		return nil, errors.New("font attachment is empty")

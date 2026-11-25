@@ -33,10 +33,11 @@ type odtBuilder struct {
 }
 
 // BuildOdt serializes a Document into a complete .odt file
-func BuildOdt(doc *model.Document) ([]byte, error) {
-	logger.Debug("office/odf", "BuildOdt")
+func BuildOdt(doc *model.Document) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/odf", "BuildOdt", "doc", doc), &out0, &out1)
 	root, err := html.Parse(strings.NewReader("<body>" + doc.HTML + "</body>"))
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, err
 	}
 	b := &odtBuilder{}
@@ -84,9 +85,7 @@ type odtFmt struct {
 }
 
 func (b *odtBuilder) newStyle(family, props string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odtBuilder.newStyle: family=%.120q props=%.120q", family, props)
-	}
+	logger.DebugTrace("office/odf", "odtBuilder.newStyle")
 	b.styleSeq++
 	name := fmt.Sprintf("S%d", b.styleSeq)
 	b.styles.WriteString(`<style:style style:name="` + name + `" style:family="` + family + `">` +
@@ -216,9 +215,7 @@ func (b *odtBuilder) odtBlockOrPara(n *html.Node, f odtFmt) {
 }
 
 func (b *odtBuilder) odtList(n *html.Node, f odtFmt, style string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odtBuilder.odtList: style=%.120q", style)
-	}
+	logger.DebugTrace("office/odf", "odtBuilder.odtList")
 	b.body.WriteString(`<text:list text:style-name="` + style + `">`)
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type != html.ElementNode || c.Data != "li" {

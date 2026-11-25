@@ -64,9 +64,10 @@ var (
 )
 
 func (g *Gateway) EmailLibRegister() {
-	logger.Debug("agi", "Gateway.EmailLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.EmailLibRegister", "g", g))
 	err := g.RegisterLib("email", g.injectEmailLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -83,7 +84,7 @@ type emailComposeInput struct {
 }
 
 func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectEmailLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectEmailLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	manager := g.Option.EmailManager
@@ -199,6 +200,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("testaccount", func(call otto.FunctionCall) otto.Value {
 		input := email.AccountInput{}
 		if err := argJSON(call, 0, &input); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -215,12 +217,14 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("addaccount", func(call otto.FunctionCall) otto.Value {
 		input := email.AccountInput{}
 		if err := argJSON(call, 0, &input); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := detachedContext(emailReadTimeout)
 		defer cancel()
 		info, test, err := manager.AddAccount(ctx, principal, input)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return emailFailureWith(vm, err, map[string]interface{}{
 				"test": test, "authFailed": test.AuthFailed || email.IsAuthError(err), "hint": test.Hint,
 			})
@@ -231,12 +235,14 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("updateaccount", func(call otto.FunctionCall) otto.Value {
 		input := email.AccountInput{}
 		if err := argJSON(call, 1, &input); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := detachedContext(emailReadTimeout)
 		defer cancel()
 		info, test, err := manager.UpdateAccount(ctx, principal, argString(call, 0), input)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return emailFailureWith(vm, err, map[string]interface{}{
 				"test": test, "authFailed": test.AuthFailed || email.IsAuthError(err), "hint": test.Hint,
 			})
@@ -251,6 +257,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("reorderaccounts", func(call otto.FunctionCall) otto.Value {
 		ids := []string{}
 		if err := argJSON(call, 0, &ids); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(true, manager.ReorderAccounts(principal, ids))
@@ -303,6 +310,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("list", func(call otto.FunctionCall) otto.Value {
 		query := email.ListQuery{}
 		if err := argJSON(call, 1, &query); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -313,10 +321,12 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("unified", func(call otto.FunctionCall) otto.Value {
 		query := email.ListQuery{}
 		if err := argJSON(call, 1, &query); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		accountIDs := []string{}
 		if err := argJSON(call, 2, &accountIDs); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -327,6 +337,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("get", func(call otto.FunctionCall) otto.Value {
 		options := email.GetOptions{}
 		if err := argJSON(call, 3, &options); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -339,6 +350,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 		defer cancel()
 		raw, err := manager.GetRaw(ctx, principal, argString(call, 0), argString(call, 1), argUint(call, 2))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		const limit = 2 * 1024 * 1024
@@ -358,6 +370,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	uidList := func(call otto.FunctionCall, index int) ([]uint32, error) {
 		uids := []uint32{}
 		if err := argJSON(call, index, &uids); err != nil {
+			logger.DebugErr("agi", err)
 			return nil, errors.New("invalid message list")
 		}
 		return uids, nil
@@ -366,6 +379,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("setflag", func(call otto.FunctionCall) otto.Value {
 		uids, err := uidList(call, 2)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -376,6 +390,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("move", func(call otto.FunctionCall) otto.Value {
 		uids, err := uidList(call, 2)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -386,6 +401,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("copy", func(call otto.FunctionCall) otto.Value {
 		uids, err := uidList(call, 2)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -396,6 +412,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("movetorole", func(call otto.FunctionCall) otto.Value {
 		uids, err := uidList(call, 2)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		role := argString(call, 3)
@@ -410,6 +427,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("remove", func(call otto.FunctionCall) otto.Value {
 		uids, err := uidList(call, 2)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailReadTimeout)
@@ -445,6 +463,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 		defer cancel()
 		raw, err := manager.GetRaw(ctx, principal, argString(call, 0), argString(call, 1), argUint(call, 2))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		saved, err := emailWriteUserFile(u, payload.ScriptFsh, vm, argString(call, 3), raw.Filename, raw.Data)
@@ -456,6 +475,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 		defer cancel()
 		part, err := manager.GetPart(ctx, principal, argString(call, 0), argString(call, 1), argUint(call, 2), argString(call, 3))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		saved, err := emailWriteUserFile(u, payload.ScriptFsh, vm, argString(call, 4), part.Filename, part.Data)
@@ -465,6 +485,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("saveallattachments", func(call otto.FunctionCall) otto.Value {
 		ids := []string{}
 		if err := argJSON(call, 3, &ids); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := requestContext(emailSendTimeout)
@@ -473,10 +494,12 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 		for _, id := range ids {
 			part, err := manager.GetPart(ctx, principal, argString(call, 0), argString(call, 1), argUint(call, 2), id)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return emailFailureWith(vm, err, map[string]interface{}{"saved": saved})
 			}
 			path, err := emailWriteUserFile(u, payload.ScriptFsh, vm, argString(call, 4), part.Filename, part.Data)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return emailFailureWith(vm, err, map[string]interface{}{"saved": saved})
 			}
 			saved = append(saved, path)
@@ -488,10 +511,12 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 		vpath := argString(call, 0)
 		raw, err := emailReadUserFile(u, payload.ScriptFsh, vm, vpath, emailMaxEMLBytes)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		message, err := manager.ParseEML(principal, raw, argBool(call, 1))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return ok(map[string]interface{}{"message": message, "path": vpath})
@@ -500,10 +525,12 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("saveemlattachment", func(call otto.FunctionCall) otto.Value {
 		raw, err := emailReadUserFile(u, payload.ScriptFsh, vm, argString(call, 0), emailMaxEMLBytes)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		part, err := email.EMLPart(raw, argString(call, 1))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		saved, err := emailWriteUserFile(u, payload.ScriptFsh, vm, argString(call, 2), part.Filename, part.Data)
@@ -513,6 +540,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("importeml", func(call otto.FunctionCall) otto.Value {
 		raw, err := emailReadUserFile(u, payload.ScriptFsh, vm, argString(call, 0), emailMaxEMLBytes)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := detachedContext(emailSendTimeout)
@@ -531,9 +559,11 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 		folder := emailTempRoot + "/" + purpose + "/" + time.Now().Format("20060102150405") + "-" + randomHex(4)
 		fsh, rpath, err := static.VirtualPathToRealPath(folder, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		if err := fsh.FileSystemAbstraction.MkdirAll(rpath, 0775); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return ok(folder)
@@ -546,12 +576,14 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	composeRequest := func(call otto.FunctionCall) (*email.ComposeRequest, error) {
 		input := emailComposeInput{}
 		if err := argJSON(call, 0, &input); err != nil {
+			logger.DebugErr("agi", err)
 			return nil, errors.New("invalid message: " + err.Error())
 		}
 		request := input.ComposeRequest
 		for _, file := range input.Files {
 			attachment, err := emailAttachmentFromPath(u, payload.ScriptFsh, vm, file.Path, file.Name)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return nil, err
 			}
 			request.Attachments = append(request.Attachments, *attachment)
@@ -562,6 +594,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("send", func(call otto.FunctionCall) otto.Value {
 		request, err := composeRequest(call)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := detachedContext(emailSendTimeout)
@@ -572,6 +605,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("savedraft", func(call otto.FunctionCall) otto.Value {
 		request, err := composeRequest(call)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		ctx, cancel := detachedContext(emailSendTimeout)
@@ -615,6 +649,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("savecontact", func(call otto.FunctionCall) otto.Value {
 		contact := email.Contact{}
 		if err := argJSON(call, 0, &contact); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(manager.SaveContact(principal, contact))
@@ -627,6 +662,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("importcontacts", func(call otto.FunctionCall) otto.Value {
 		contacts := []email.Contact{}
 		if err := argJSON(call, 0, &contacts); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(manager.ImportContacts(principal, contacts))
@@ -643,6 +679,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("savelabels", func(call otto.FunctionCall) otto.Value {
 		labels := []email.Label{}
 		if err := argJSON(call, 0, &labels); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(manager.SaveLabels(principal, labels))
@@ -651,10 +688,12 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("setlabels", func(call otto.FunctionCall) otto.Value {
 		summary := email.MessageSummary{}
 		if err := argJSON(call, 0, &summary); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		labels := []string{}
 		if err := argJSON(call, 1, &labels); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(true, manager.SetMessageLabels(principal, summary, labels))
@@ -667,6 +706,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("snooze", func(call otto.FunctionCall) otto.Value {
 		summary := email.MessageSummary{}
 		if err := argJSON(call, 0, &summary); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		until, _ := call.Argument(1).ToInteger()
@@ -676,6 +716,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("unsnooze", func(call otto.FunctionCall) otto.Value {
 		summary := email.MessageSummary{}
 		if err := argJSON(call, 0, &summary); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(true, manager.Unsnooze(principal, summary))
@@ -696,6 +737,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("savesettings", func(call otto.FunctionCall) otto.Value {
 		settings := manager.Settings(principal)
 		if err := argJSON(call, 0, &settings); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(manager.SaveSettings(principal, settings))
@@ -719,6 +761,7 @@ func (g *Gateway) injectEmailLibFunctions(payload *static.AgiLibInjectionPayload
 	set("setadminconfig", func(call otto.FunctionCall) otto.Value {
 		input := email.AdminConfigInput{}
 		if err := argJSON(call, 0, &input); err != nil {
+			logger.DebugErr("agi", err)
 			return fail(err)
 		}
 		return result(true, manager.SetAdminConfig(principal, input))
@@ -818,11 +861,10 @@ const emailLibJavaScript = `
 `
 
 // emailResponse builds the {success, data} / {success, error, …} envelope.
-func emailResponse(vm *otto.Otto, data interface{}, err error) otto.Value {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailResponse: err=%v", err)
-	}
+func emailResponse(vm *otto.Otto, data interface{}, err error) (out0 otto.Value) {
+	defer logger.Out1(logger.In3("agi", "emailResponse", "vm", vm, "data", data, "err", err), &out0)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return emailFailureWith(vm, err, nil)
 	}
 	encoded, merr := json.Marshal(map[string]interface{}{"success": true, "data": data})
@@ -834,10 +876,8 @@ func emailResponse(vm *otto.Otto, data interface{}, err error) otto.Value {
 }
 
 // emailFailureWith reports an error, classifying it for the front-end.
-func emailFailureWith(vm *otto.Otto, err error, extra map[string]interface{}) otto.Value {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailFailureWith: err=%v len(extra)=%d", err, len(extra))
-	}
+func emailFailureWith(vm *otto.Otto, err error, extra map[string]interface{}) (out0 otto.Value) {
+	defer logger.Out1(logger.In3("agi", "emailFailureWith", "vm", vm, "err", err, "extra", extra), &out0)
 	payload := map[string]interface{}{"success": false, "error": err.Error()}
 	if email.IsAuthError(err) {
 		payload["authFailed"] = true
@@ -874,10 +914,8 @@ func emailFailureWith(vm *otto.Otto, err error, extra map[string]interface{}) ot
 }
 
 // emailResolveFile resolves a readable file path for the calling user.
-func emailResolveFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string) (*filesystem.FileSystemHandler, string, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailResolveFile: vpath=%.120q", vpath)
-	}
+func emailResolveFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string) (out0 *filesystem.FileSystemHandler, out1 string, out2 string, out3 error) {
+	defer logger.Out4(logger.In4("agi", "emailResolveFile", "u", u, "scriptFsh", scriptFsh, "vm", vm, "vpath", vpath), &out0, &out1, &out2, &out3)
 	vpath = strings.TrimSpace(vpath)
 	if vpath == "" {
 		return nil, "", "", errors.New("no file selected")
@@ -888,6 +926,7 @@ func emailResolveFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm 
 	}
 	fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, "", "", err
 	}
 	if !fsh.FileSystemAbstraction.FileExists(rpath) || fsh.FileSystemAbstraction.IsDir(rpath) {
@@ -897,12 +936,11 @@ func emailResolveFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm 
 }
 
 // emailReadUserFile reads a whole file (an .eml) with a size cap.
-func emailReadUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string, maxBytes int64) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailReadUserFile: vpath=%.120q maxBytes=%d", vpath, maxBytes)
-	}
+func emailReadUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string, maxBytes int64) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In5("agi", "emailReadUserFile", "u", u, "scriptFsh", scriptFsh, "vm", vm, "vpath", vpath, "maxBytes", maxBytes), &out0, &out1)
 	fsh, rpath, _, err := emailResolveFile(u, scriptFsh, vm, vpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 	if size := fsh.FileSystemAbstraction.GetFileSize(rpath); size > maxBytes {
@@ -913,12 +951,11 @@ func emailReadUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm
 
 // emailAttachmentFromPath turns a file the user picked into an attachment
 // that is streamed when the message is rendered.
-func emailAttachmentFromPath(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string, name string) (*email.ComposeAttachment, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailAttachmentFromPath: vpath=%.120q name=%.120q", vpath, name)
-	}
+func emailAttachmentFromPath(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vpath string, name string) (out0 *email.ComposeAttachment, out1 error) {
+	defer logger.Out2(logger.In5("agi", "emailAttachmentFromPath", "u", u, "scriptFsh", scriptFsh, "vm", vm, "vpath", vpath, "name", name), &out0, &out1)
 	fsh, rpath, resolved, err := emailResolveFile(u, scriptFsh, vm, vpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 	if strings.TrimSpace(name) == "" {
@@ -934,10 +971,8 @@ func emailAttachmentFromPath(u *user.User, scriptFsh *filesystem.FileSystemHandl
 
 // emailWriteUserFile saves data into a folder of the user's file system under
 // a name that does not overwrite anything, and charges it to their quota.
-func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vdir string, filename string, data []byte) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailWriteUserFile: vdir=%.120q filename=%.120q", vdir, filename)
-	}
+func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, vdir string, filename string, data []byte) (out0 string, out1 error) {
+	defer logger.Out2(logger.In6("agi", "emailWriteUserFile", "u", u, "scriptFsh", scriptFsh, "vm", vm, "vdir", vdir, "filename", filename, "data", data), &out0, &out1)
 	vdir = strings.TrimSpace(vdir)
 	if vdir == "" {
 		return "", errors.New("choose a folder to save into")
@@ -956,6 +991,7 @@ func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, v
 
 	fsh, rdir, err := static.VirtualPathToRealPath(vdir, u)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	if fsh.ReadOnly {
@@ -964,6 +1000,7 @@ func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, v
 	abstraction := fsh.FileSystemAbstraction
 	if !abstraction.FileExists(rdir) {
 		if err := abstraction.MkdirAll(rdir, 0775); err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 	}
@@ -983,6 +1020,7 @@ func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, v
 
 	target := arozfs.ToSlash(filepath.Join(rdir, name))
 	if err := abstraction.WriteFile(target, data, 0775); err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	vpath := strings.TrimSuffix(vdir, "/") + "/" + name
@@ -991,10 +1029,8 @@ func emailWriteUserFile(u *user.User, scriptFsh *filesystem.FileSystemHandler, v
 }
 
 // emailSafeName keeps a server supplied file name inside its folder.
-func emailSafeName(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "emailSafeName: name=%.120q", name)
-	}
+func emailSafeName(name string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "emailSafeName", "name", name), &out0)
 	name = strings.TrimSpace(strings.NewReplacer("/", "_", "\\", "_", "\x00", "").Replace(name))
 	name = strings.Trim(name, ". ")
 	if name == "" {
@@ -1005,7 +1041,7 @@ func emailSafeName(name string) string {
 
 // emailCleanTemp prunes old scratch files under tmp:/Mail, at most hourly.
 func emailCleanTemp(u *user.User) {
-	logger.Debug("agi", "emailCleanTemp")
+	defer logger.Out0(logger.In1("agi", "emailCleanTemp", "u", u))
 	emailTempCleanMutex.Lock()
 	last, seen := emailTempCleaned[u.Username]
 	if seen && time.Since(last) < time.Hour {
@@ -1023,6 +1059,7 @@ func emailCleanTemp(u *user.User) {
 		dir := arozfs.ToSlash(filepath.Join(rpath, purpose))
 		entries, err := fsh.FileSystemAbstraction.ReadDir(dir)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			continue
 		}
 		for _, entry := range entries {
@@ -1035,12 +1072,11 @@ func emailCleanTemp(u *user.User) {
 	}
 }
 
-func randomHex(n int) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "randomHex: n=%d", n)
-	}
+func randomHex(n int) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "randomHex", "n", n), &out0)
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
+		logger.DebugErr("agi", err)
 		return fmt.Sprintf("%x", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(buf)

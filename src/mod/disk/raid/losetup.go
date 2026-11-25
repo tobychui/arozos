@@ -23,12 +23,13 @@ type LoopDevice struct {
 }
 
 // List all the loop devices
-func ListAllLoopDevices() ([]*LoopDevice, error) {
-	logger.Debug("disk/raid", "ListAllLoopDevices")
+func ListAllLoopDevices() (out0 []*LoopDevice, out1 error) {
+	defer logger.Out2(logger.In0("disk/raid", "ListAllLoopDevices"), &out0, &out1)
 	cmd := exec.Command("sudo", "losetup", "-a")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return nil, fmt.Errorf("error running losetup -a command: %v", err)
 	}
 
@@ -56,10 +57,8 @@ func ListAllLoopDevices() ([]*LoopDevice, error) {
 }
 
 // Mount an given image path as loopback device
-func MountImageAsLoopDevice(imagePath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "MountImageAsLoopDevice: imagePath=%.120q", imagePath)
-	}
+func MountImageAsLoopDevice(imagePath string) (out0 error) {
+	defer logger.Out1(logger.In1("disk/raid", "MountImageAsLoopDevice", "imagePath", imagePath), &out0)
 	cmd := exec.Command("sudo", "losetup", "-f", imagePath)
 
 	cmd.Stdout = os.Stdout
@@ -67,6 +66,7 @@ func MountImageAsLoopDevice(imagePath string) error {
 
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("creating loopback device failed: %v", err)
 	}
 
@@ -74,12 +74,11 @@ func MountImageAsLoopDevice(imagePath string) error {
 }
 
 // Unmount a loop device by the image path
-func UnmountLoopDeviceByImagePath(imagePath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "UnmountLoopDeviceByImagePath: imagePath=%.120q", imagePath)
-	}
+func UnmountLoopDeviceByImagePath(imagePath string) (out0 error) {
+	defer logger.Out1(logger.In1("disk/raid", "UnmountLoopDeviceByImagePath", "imagePath", imagePath), &out0)
 	imagePathIsMounted, err := ImageMountedAsLoopDevice(imagePath)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return err
 	}
 
@@ -90,6 +89,7 @@ func UnmountLoopDeviceByImagePath(imagePath string) error {
 
 	loopDriveID, err := GetLoopDriveIDFromImagePath(imagePath)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return err
 	}
 
@@ -98,10 +98,8 @@ func UnmountLoopDeviceByImagePath(imagePath string) error {
 }
 
 // Unmount the loop device by id e.g. /dev/loop1
-func UnmountLoopDeviceByID(loopDevId string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "UnmountLoopDeviceByID: loopDevId=%.120q", loopDevId)
-	}
+func UnmountLoopDeviceByID(loopDevId string) (out0 error) {
+	defer logger.Out1(logger.In1("disk/raid", "UnmountLoopDeviceByID", "loopDevId", loopDevId), &out0)
 	cmd := exec.Command("sudo", "losetup", "-d", loopDevId)
 
 	cmd.Stdout = os.Stdout
@@ -109,6 +107,7 @@ func UnmountLoopDeviceByID(loopDevId string) error {
 
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("delete loopback device failed: %v", err)
 	}
 
@@ -116,17 +115,17 @@ func UnmountLoopDeviceByID(loopDevId string) error {
 }
 
 // Get loopdrive ID (/dev/loop1) by the image path, return empty string if not found error if load failed
-func GetLoopDriveIDFromImagePath(imagePath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "GetLoopDriveIDFromImagePath: imagePath=%.120q", imagePath)
-	}
+func GetLoopDriveIDFromImagePath(imagePath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("disk/raid", "GetLoopDriveIDFromImagePath", "imagePath", imagePath), &out0, &out1)
 	absPath, err := filepath.Abs(imagePath)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return "", err
 	}
 
 	devs, err := ListAllLoopDevices()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return "", err
 	}
 
@@ -141,12 +140,11 @@ func GetLoopDriveIDFromImagePath(imagePath string) (string, error) {
 }
 
 // Check if an image file is already mounted as loop drive
-func ImageMountedAsLoopDevice(imagePath string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "ImageMountedAsLoopDevice: imagePath=%.120q", imagePath)
-	}
+func ImageMountedAsLoopDevice(imagePath string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In1("disk/raid", "ImageMountedAsLoopDevice", "imagePath", imagePath), &out0, &out1)
 	loopDriveId, err := GetLoopDriveIDFromImagePath(imagePath)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return false, err
 	}
 	return loopDriveId != "", nil

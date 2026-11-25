@@ -29,22 +29,18 @@ type xoauth2Client struct {
 
 // newXOAuth2Client returns a SASL client for the XOAUTH2 mechanism.
 func newXOAuth2Client(username string, token string) sasl.Client {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "newXOAuth2Client: username=%.120q", username)
-	}
+	logger.DebugTrace("email", "newXOAuth2Client")
 	return &xoauth2Client{username: username, token: token}
 }
 
-func (c *xoauth2Client) Start() (string, []byte, error) {
-	logger.Debug("email", "xoauth2Client.Start")
+func (c *xoauth2Client) Start() (out0 string, out1 []byte, out2 error) {
+	defer logger.Out3(logger.In1("email", "xoauth2Client.Start", "c", c), &out0, &out1, &out2)
 	response := "user=" + c.username + "\x01auth=Bearer " + c.token + "\x01\x01"
 	return "XOAUTH2", []byte(response), nil
 }
 
 func (c *xoauth2Client) Next(challenge []byte) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "xoauth2Client.Next: len(challenge)=%d", len(challenge))
-	}
+	logger.DebugTrace("email", "xoauth2Client.Next")
 	//The only challenge XOAUTH2 defines is the error document. Remember it
 	//for a better message and send the empty response the protocol expects.
 	var detail struct {

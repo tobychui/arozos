@@ -9,11 +9,10 @@ import (
 )
 
 func (m *TokenManager) HandleNewToken(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("security/csrf", "TokenManager.HandleNewToken: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("security/csrf", "TokenManager.HandleNewToken", "m", m, "r", r))
 	userinfo, err := m.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("security/csrf", err)
 		http.Error(w, "Unauthorized", 401)
 		return
 	}
@@ -24,12 +23,11 @@ func (m *TokenManager) HandleNewToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // validate the token validation from request
-func (m *TokenManager) HandleTokenValidation(w http.ResponseWriter, r *http.Request) bool {
-	if logger.IsDebug() {
-		logger.Debugf("security/csrf", "TokenManager.HandleTokenValidation: r=%s", logger.RequestSummary(r))
-	}
+func (m *TokenManager) HandleTokenValidation(w http.ResponseWriter, r *http.Request) (out0 bool) {
+	defer logger.Out1(logger.In2("security/csrf", "TokenManager.HandleTokenValidation", "m", m, "r", r), &out0)
 	userinfo, err := m.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("security/csrf", err)
 		return false
 	}
 

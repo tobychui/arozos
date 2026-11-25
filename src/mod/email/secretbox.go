@@ -31,11 +31,10 @@ type secretBox struct {
 }
 
 // loadSecretBox reads the key from dir, generating one on first run.
-func loadSecretBox(dir string) (*secretBox, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "loadSecretBox: dir=%.120q", dir)
-	}
+func loadSecretBox(dir string) (out0 *secretBox, out1 error) {
+	defer logger.Out2(logger.In1("email", "loadSecretBox", "dir", dir), &out0, &out1)
 	if err := os.MkdirAll(dir, 0700); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -53,9 +52,11 @@ func loadSecretBox(dir string) (*secretBox, error) {
 		//which the UI asks for again (the account reports an auth error).
 		key = make([]byte, 32)
 		if _, err := rand.Read(key); err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		if err := os.WriteFile(keyFile, []byte(base64.StdEncoding.EncodeToString(key)), 0600); err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 	}
@@ -63,14 +64,16 @@ func loadSecretBox(dir string) (*secretBox, error) {
 	return newSecretBox(key)
 }
 
-func newSecretBox(key []byte) (*secretBox, error) {
-	logger.Debug("email", "newSecretBox")
+func newSecretBox(key []byte) (out0 *secretBox, out1 error) {
+	defer logger.Out2(logger.In1("email", "newSecretBox", "!&key", &key), &out0, &out1)
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return &secretBox{aead: aead}, nil
@@ -78,13 +81,14 @@ func newSecretBox(key []byte) (*secretBox, error) {
 
 // Seal encrypts plaintext and returns base64(nonce || ciphertext). An empty
 // plaintext seals to an empty string so "no secret" stays recognisable.
-func (s *secretBox) Seal(plaintext string) (string, error) {
-	logger.Debug("email", "secretBox.Seal")
+func (s *secretBox) Seal(plaintext string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("email", "secretBox.Seal", "s", s, "!plaintext", plaintext), &out0, &out1)
 	if plaintext == "" {
 		return "", nil
 	}
 	nonce := make([]byte, s.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		logger.DebugErr("email", err)
 		return "", err
 	}
 	sealed := s.aead.Seal(nonce, nonce, []byte(plaintext), nil)
@@ -92,15 +96,14 @@ func (s *secretBox) Seal(plaintext string) (string, error) {
 }
 
 // Open reverses Seal.
-func (s *secretBox) Open(encoded string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "secretBox.Open: encoded=%.120q", encoded)
-	}
+func (s *secretBox) Open(encoded string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("email", "secretBox.Open", "s", s, "encoded", encoded), &out0, &out1)
 	if encoded == "" {
 		return "", nil
 	}
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return "", err
 	}
 	if len(raw) < s.aead.NonceSize() {
@@ -109,6 +112,7 @@ func (s *secretBox) Open(encoded string) (string, error) {
 	nonce, ciphertext := raw[:s.aead.NonceSize()], raw[s.aead.NonceSize():]
 	plaintext, err := s.aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return "", errors.New("stored secret cannot be decrypted, please sign in again")
 	}
 	return string(plaintext), nil

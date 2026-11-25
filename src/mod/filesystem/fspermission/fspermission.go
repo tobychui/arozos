@@ -17,13 +17,12 @@ import (
 
 */
 
-func GetFilePermissions(fsh *filesystem.FileSystemHandler, file string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fspermission", "GetFilePermissions: file=%.120q", file)
-	}
+func GetFilePermissions(fsh *filesystem.FileSystemHandler, file string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/fspermission", "GetFilePermissions", "fsh", fsh, "file", file), &out0, &out1)
 	fshAbs := fsh.FileSystemAbstraction
 	fileStat, err := fshAbs.Stat(file)
 	if err != nil {
+		logger.DebugErr("filesystem/fspermission", err)
 		return "", err
 	}
 
@@ -32,10 +31,8 @@ func GetFilePermissions(fsh *filesystem.FileSystemHandler, file string) (string,
 	return permission, nil
 }
 
-func SetFilePermisson(fsh *filesystem.FileSystemHandler, file string, permissionKey string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fspermission", "SetFilePermisson: file=%.120q", file)
-	}
+func SetFilePermisson(fsh *filesystem.FileSystemHandler, file string, permissionKey string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/fspermission", "SetFilePermisson", "fsh", fsh, "file", file, "!permissionKey", permissionKey), &out0)
 	fshAbs := fsh.FileSystemAbstraction
 	if fshAbs.FileExists(file) && filesystem.FileExists(file) {
 		//This ensure this must be a local file on the system
@@ -48,6 +45,7 @@ func SetFilePermisson(fsh *filesystem.FileSystemHandler, file string, permission
 		for i := 0; i < len(permissionKey); i++ {
 			thisInt, err := strconv.Atoi(string(permissionKey[i]))
 			if err != nil {
+				logger.DebugErr("filesystem/fspermission", err)
 				return errors.New("Failed to parse permission key")
 			}
 			if i == 0 {
@@ -85,6 +83,7 @@ func SetFilePermisson(fsh *filesystem.FileSystemHandler, file string, permission
 		//Set its mode
 		err := os.Chmod(file, mode)
 		if err != nil {
+			logger.DebugErr("filesystem/fspermission", err)
 			return err
 		}
 	} else {

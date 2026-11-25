@@ -235,9 +235,7 @@ func applyPPr(dst *paraStyle, n *xmltree.Node, cc *colorCtx) {
 // <a:lstStyle> (or a <p:titleStyle> / <p:bodyStyle> / <p:otherStyle>,
 // which use the same child elements)
 func lvlPPr(lst *xmltree.Node, lvl int) *xmltree.Node {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "lvlPPr: lvl=%d", lvl)
-	}
+	logger.DebugTrace("office/pptx", "lvlPPr")
 	if lst == nil {
 		return nil
 	}
@@ -258,9 +256,7 @@ func lvlPPr(lst *xmltree.Node, lvl int) *xmltree.Node {
 // resolveParaStyle walks the inheritance chain (lowest priority first) for
 // one outline level and folds the paragraph's own pPr on top
 func resolveParaStyle(chain []*xmltree.Node, pPr *xmltree.Node, lvl int, cc *colorCtx) paraStyle {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "resolveParaStyle: len(chain)=%d lvl=%d", len(chain), lvl)
-	}
+	logger.DebugTrace("office/pptx", "resolveParaStyle")
 	st := pptxDefaultPara
 	for _, lst := range chain {
 		applyPPr(&st, lvlPPr(lst, lvl), cc)
@@ -271,9 +267,7 @@ func resolveParaStyle(chain []*xmltree.Node, pPr *xmltree.Node, lvl int, cc *col
 
 // runCSS renders the inline style for one text run
 func runCSS(rs runStyle, scale float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "runCSS: scale=%g", scale)
-	}
+	logger.DebugTrace("office/pptx", "runCSS")
 	var sb strings.Builder
 	sb.WriteString("font-size:" + units.FmtPx(units.PtToPx(rs.SizePt)*scale) + ";")
 	sb.WriteString("font-family:" + fonts.StackFor(rs.Latin, rs.EastAsian) + ";")
@@ -329,18 +323,14 @@ func runCSS(rs runStyle, scale float64) string {
 // <br> with nothing after it adds no height at all - so a zero-width space
 // at the stated size stands in for the text that is not there.
 func lineSpacerFor(rs runStyle, scale float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "lineSpacerFor: scale=%g", scale)
-	}
+	logger.DebugTrace("office/pptx", "lineSpacerFor")
 	return `<span style="font-size:` + units.FmtPx(units.PtToPx(rs.SizePt)*scale) +
 		`;font-family:` + fonts.StackFor(rs.Latin, rs.EastAsian) + `">&#8203;</span>`
 }
 
 // autoNumMarker renders the visible marker of an <a:buAutoNum> list
 func autoNumMarker(kind string, n int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "autoNumMarker: kind=%.120q n=%d", kind, n)
-	}
+	logger.DebugTrace("office/pptx", "autoNumMarker")
 	switch {
 	case strings.HasPrefix(kind, "alphaLc"):
 		return slidetext.AlphaMarker(n, 'a') + autoNumSuffix(kind)
@@ -355,9 +345,7 @@ func autoNumMarker(kind string, n int) string {
 }
 
 func autoNumSuffix(kind string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "autoNumSuffix: kind=%.120q", kind)
-	}
+	logger.DebugTrace("office/pptx", "autoNumSuffix")
 	switch {
 	case strings.HasSuffix(kind, "ParenBoth"):
 		return ")"
@@ -371,9 +359,7 @@ func autoNumSuffix(kind string) string {
 
 // spanSizes folds one run size into a paragraph's running max and min
 func spanSizes(size, curMax, curMin float64) (float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "spanSizes: size=%g curMax=%g curMin=%g", size, curMax, curMin)
-	}
+	logger.DebugTrace("office/pptx", "spanSizes")
 	if size <= 0 {
 		return curMax, curMin
 	}

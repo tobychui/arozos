@@ -20,10 +20,8 @@ import (
 )
 
 // Toggle WiFi On Off. Only allow on sudo mode
-func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.SetInterfacePower: wlanInterface=%.120q on=%t", wlanInterface, on)
-	}
+func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) (out0 error) {
+	defer logger.Out1(logger.In3("network/wifi", "WiFiManager.SetInterfacePower", "w", w, "wlanInterface", wlanInterface, "on", on), &out0)
 	status := "up"
 	if on == false {
 		status = "down"
@@ -31,6 +29,7 @@ func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	cmd := exec.Command("ifconfig", wlanInterface, status)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		logger.PrintAndLog("Wifi", fmt.Sprint("*WiFi* WiFi toggle failed: ", string(out)), nil)
 		return err
 	}
@@ -39,13 +38,12 @@ func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	return nil
 }
 
-func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.GetInterfacePowerStatuts: wlanInterface=%.120q", wlanInterface)
-	}
+func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "WiFiManager.GetInterfacePowerStatuts", "w", w, "wlanInterface", wlanInterface), &out0, &out1)
 	//Check if interface is in list
 	interfaceList, err := w.GetWirelessInterfaces()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return false, err
 	}
 	interfaceExists := false
@@ -63,6 +61,7 @@ func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, erro
 	cmd := exec.Command("bash", "-c", "ifconfig | grep "+wlanInterface)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return false, errors.New(string(out))
 	}
 
@@ -76,10 +75,8 @@ func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, erro
 }
 
 // Scan Nearby WiFi
-func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.ScanNearbyWiFi: interfaceName=%.120q", interfaceName)
-	}
+func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) (out0 []WiFiInfo, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "WiFiManager.ScanNearbyWiFi", "w", w, "interfaceName", interfaceName), &out0, &out1)
 	rcmd := `iwlist ` + interfaceName + ` scan`
 	if w.sudo_mode {
 		rcmd = "sudo " + rcmd
@@ -87,6 +84,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	cmd := exec.Command("bash", "-c", rcmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		//Scan failed, the following code is used to handle edge case on some SBC that only nmcli works but not iwlist
 		/*
 			If the interface is not supported, something like this will show up:
@@ -100,6 +98,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 				cmd := exec.Command("bash", "-c", "nmcli d wifi list")
 				out, err := cmd.CombinedOutput()
 				if err != nil {
+					logger.DebugErr("network/wifi", err)
 					return []WiFiInfo{}, err
 				}
 
@@ -191,9 +190,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 
 // markConnectedBSS flags the scan result the interface is associated with
 func markConnectedBSS(results []WiFiInfo, interfaceName string) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "markConnectedBSS: len(results)=%d interfaceName=%.120q", len(results), interfaceName)
-	}
+	defer logger.Out0(logger.In2("network/wifi", "markConnectedBSS", "results", results, "interfaceName", interfaceName))
 	link, err := readIwLink(interfaceName)
 	if err != nil || !link.Connected {
 		return
@@ -206,25 +203,22 @@ func markConnectedBSS(results []WiFiInfo, interfaceName string) {
 }
 
 // readIwLink runs "iw dev <interface> link"
-func readIwLink(interfaceName string) (iwLinkInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "readIwLink: interfaceName=%.120q", interfaceName)
-	}
+func readIwLink(interfaceName string) (out0 iwLinkInfo, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "readIwLink", "interfaceName", interfaceName), &out0, &out1)
 	if interfaceName == "" || strings.ContainsAny(interfaceName, " /\\") {
 		return iwLinkInfo{}, errors.New("invalid interface name")
 	}
 	out, err := exec.Command("iw", "dev", interfaceName, "link").CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return iwLinkInfo{}, errors.New(string(out))
 	}
 	return parseIwLink(string(out)), nil
 }
 
 // Hack the signal level out of the nmcli bars
-func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.getSignalLevelEstimation: bar=%.120q", bar)
-	}
+func (w *WiFiManager) getSignalLevelEstimation(bar string) (out0 string) {
+	defer logger.Out1(logger.In2("network/wifi", "WiFiManager.getSignalLevelEstimation", "w", w, "bar", bar), &out0)
 	bar = strings.TrimSpace(bar)
 	if bar == "▂▄▆█" {
 		return "-45 dBm[Estimated]"
@@ -240,12 +234,13 @@ func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
 }
 
 // Get all the network interfaces
-func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
-	logger.Debug("network/wifi", "WiFiManager.GetWirelessInterfaces")
+func (w *WiFiManager) GetWirelessInterfaces() (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "WiFiManager.GetWirelessInterfaces", "w", w), &out0, &out1)
 	rcmd := `iw dev | awk '$1=="Interface"{print $2}'`
 	cmd := exec.Command("bash", "-c", rcmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return []string{}, errors.New(string(out))
 	}
 	interfaces := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -255,10 +250,8 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 
 }
 
-func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string, identity string) (*WiFiConnectionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.ConnectWiFi: ssid=%.120q identity=%.120q", ssid, identity)
-	}
+func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string, identity string) (out0 *WiFiConnectionResult, out1 error) {
+	defer logger.Out2(logger.In5("network/wifi", "WiFiManager.ConnectWiFi", "w", w, "ssid", ssid, "connType", connType, "identity", identity, "!password", password), &out0, &out1)
 	//Build the network config file
 
 	//Updates 21-10-2020, use nmcli if exists
@@ -269,6 +262,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			cmd := exec.Command("nmcli", "con", "down", oldSSID)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
+				logger.DebugErr("network/wifi", err)
 				logger.PrintAndLog("Wifi", "*WiFi* Connecting previous SSID failed: "+string(out), nil)
 				logger.PrintAndLog("Wifi", "*WiFi* Trying to connect new AP anyway", nil)
 			}
@@ -283,6 +277,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		cmd := exec.Command("nmcli", "device", "wifi", "connect", ssid, "password", password)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("network/wifi", err)
 			logger.PrintAndLog("Wifi", "*WiFi* Connecting to SSID "+ssid+" failed: "+string(out), nil)
 			return &WiFiConnectionResult{Success: false}, errors.New(string(out))
 		}
@@ -358,6 +353,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		//Write config file to disk
 		err := os.WriteFile("./system/network/wifi/ap/"+ssid+".config", []byte(networkConfigFile), 0755)
 		if err != nil {
+			logger.DebugErr("network/wifi", err)
 			logger.PrintAndLog("Wifi", err.Error(), nil)
 			return &WiFiConnectionResult{Success: false}, err
 		}
@@ -369,6 +365,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	//Get header
 	configHeader, err := os.ReadFile("./system/network/wifi/wpa_supplicant.conf_template.config")
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		//Template header not found. Use default one from Raspberry Pi
 		logger.PrintAndLog("Wifi", "*WiFi* Warning! wpa_supplicant template file not found. Using default template.", nil)
 		configHeader = []byte(`ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -380,6 +377,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	//Build network informations
 	networksConfigs, err := filepath.Glob("./system/network/wifi/ap/*.config")
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		logger.PrintAndLog("Wifi", err.Error(), nil)
 		return &WiFiConnectionResult{Success: false}, err
 	}
@@ -390,6 +388,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	for _, configFile := range networksConfigs {
 		thisNetworkConfig, err := os.ReadFile(configFile)
 		if err != nil {
+			logger.DebugErr("network/wifi", err)
 			logger.PrintAndLog("Wifi", "*WiFi* Failed to read Network Config File: "+configFile, nil)
 			continue
 		}
@@ -417,6 +416,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	//Try to write the new config to wpa_supplicant
 	err = os.WriteFile(w.wpa_supplicant_path, []byte(newconfig), 0777)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		logger.PrintAndLog("Wifi", "*WiFi* Failed to update wpa_supplicant config, are you sure you have access permission to that file?", nil)
 		return &WiFiConnectionResult{Success: false}, err
 	}
@@ -427,6 +427,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	cmd := exec.Command("wpa_cli", "-i", w.wan_interface_name, "reconfigure")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		//Maybe the user forgot to set the flag. Try auto detect.
 		autoDetectedWIface, err := w.GetWirelessInterfaces()
 		if err != nil || len(autoDetectedWIface) == 0 {
@@ -438,6 +439,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		cmd := exec.Command("wpa_cli", "-i", firstWlanInterface, "reconfigure")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("network/wifi", err)
 			//Really failed.
 			logger.PrintAndLog("Wifi", "failed to restart network: "+string(out), nil)
 			return &WiFiConnectionResult{Success: false}, err
@@ -472,17 +474,19 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 // Get the current connected wifi, return ESSID, wifi interface name and error if any
 // Return ESSID, interface and error
-func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
-	logger.Debug("network/wifi", "WiFiManager.GetConnectedWiFi")
+func (w *WiFiManager) GetConnectedWiFi() (out0 string, out1 string, out2 error) {
+	defer logger.Out3(logger.In1("network/wifi", "WiFiManager.GetConnectedWiFi", "w", w), &out0, &out1, &out2)
 	cmd := exec.Command("iwgetid")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		//Check nmcli working or not
 		if pkg_exists("nmcli") {
 			//Try nmcli method instead
 			cmd := exec.Command("nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active")
 			out, err := cmd.CombinedOutput()
 			if err != nil {
+				logger.DebugErr("network/wifi", err)
 				return "", "", errors.New(string(out))
 			}
 
@@ -549,13 +553,12 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	return ESSID, wlanInterface, nil
 }
 
-func (w *WiFiManager) CheckInterfaceIsAP(wlanInterfaceName string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.CheckInterfaceIsAP: wlanInterfaceName=%.120q", wlanInterfaceName)
-	}
+func (w *WiFiManager) CheckInterfaceIsAP(wlanInterfaceName string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "WiFiManager.CheckInterfaceIsAP", "w", w, "wlanInterfaceName", wlanInterfaceName), &out0, &out1)
 	cmd := exec.Command("bash", "-c", "iwconfig wlan1 | grep Mode")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return false, err
 	}
 	if len(string(out)) == 0 {
@@ -570,10 +573,8 @@ func (w *WiFiManager) CheckInterfaceIsAP(wlanInterfaceName string) (bool, error)
 	}
 }
 
-func (w *WiFiManager) RemoveWifi(ssid string) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.RemoveWifi: ssid=%.120q", ssid)
-	}
+func (w *WiFiManager) RemoveWifi(ssid string) (out0 error) {
+	defer logger.Out1(logger.In2("network/wifi", "WiFiManager.RemoveWifi", "w", w, "ssid", ssid), &out0)
 
 	if pkg_exists("nmcli") {
 		//Make use of nmcli storage
@@ -609,10 +610,11 @@ func (w *WiFiManager) CanConnect() bool {
 }
 
 // GetInterfaceStatus returns the live state of every wireless interface
-func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
-	logger.Debug("network/wifi", "WiFiManager.GetInterfaceStatus")
+func (w *WiFiManager) GetInterfaceStatus() (out0 []WiFiInterfaceStatus, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "WiFiManager.GetInterfaceStatus", "w", w), &out0, &out1)
 	names, err := w.GetWirelessInterfaces()
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return []WiFiInterfaceStatus{}, err
 	}
 	results := []WiFiInterfaceStatus{}
@@ -626,10 +628,8 @@ func (w *WiFiManager) GetInterfaceStatus() ([]WiFiInterfaceStatus, error) {
 	return results, nil
 }
 
-func (w *WiFiManager) interfaceStatus(name string) WiFiInterfaceStatus {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "WiFiManager.interfaceStatus: name=%.120q", name)
-	}
+func (w *WiFiManager) interfaceStatus(name string) (out0 WiFiInterfaceStatus) {
+	defer logger.Out1(logger.In2("network/wifi", "WiFiManager.interfaceStatus", "w", w, "name", name), &out0)
 	status := WiFiInterfaceStatus{
 		Name:          name,
 		State:         "disconnected",
@@ -679,6 +679,7 @@ func (w *WiFiManager) interfaceStatus(name string) WiFiInterfaceStatus {
 
 	link, err := readIwLink(name)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		//No iw: fall back to the connected SSID from iwgetid / nmcli
 		ssid, iface, err := w.GetConnectedWiFi()
 		if err == nil && iface == name && ssid != "" && ssid != "OFFLINE" {
@@ -712,9 +713,7 @@ func (w *WiFiManager) interfaceStatus(name string) WiFiInterfaceStatus {
 // readRfkill reports whether any rfkill switch of the interface's PHY is
 // blocked (kind is "soft" or "hard"). ok is false when there is no switch.
 func readRfkill(sysDir string, kind string) (blocked bool, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "readRfkill: sysDir=%.120q kind=%.120q", sysDir, kind)
-	}
+	defer logger.Out2(logger.In2("network/wifi", "readRfkill", "sysDir", sysDir, "kind", kind), &blocked, &ok)
 	matches, err := filepath.Glob(filepath.Join(sysDir, "phy80211", "rfkill*", kind))
 	if err != nil || len(matches) == 0 {
 		return false, false
@@ -722,6 +721,7 @@ func readRfkill(sysDir string, kind string) (blocked bool, ok bool) {
 	for _, m := range matches {
 		content, err := os.ReadFile(m)
 		if err != nil {
+			logger.DebugErr("network/wifi", err)
 			continue
 		}
 		ok = true
@@ -733,17 +733,17 @@ func readRfkill(sysDir string, kind string) (blocked bool, ok bool) {
 }
 
 // Helper functions
-func fileInDir(filesourcepath string, directory string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "fileInDir: filesourcepath=%.120q directory=%.120q", filesourcepath, directory)
-	}
+func fileInDir(filesourcepath string, directory string) (out0 bool) {
+	defer logger.Out1(logger.In2("network/wifi", "fileInDir", "filesourcepath", filesourcepath, "directory", directory), &out0)
 	filepathAbs, err := filepath.Abs(filesourcepath)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return false
 	}
 
 	directoryAbs, err := filepath.Abs(directory)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return false
 	}
 
@@ -756,10 +756,8 @@ func fileInDir(filesourcepath string, directory string) bool {
 
 }
 
-func fileExists(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "fileExists: filename=%.120q", filename)
-	}
+func fileExists(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("network/wifi", "fileExists", "filename", filename), &out0)
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -767,10 +765,8 @@ func fileExists(filename string) bool {
 	return true
 }
 
-func pkg_exists(pkgname string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "pkg_exists: pkgname=%.120q", pkgname)
-	}
+func pkg_exists(pkgname string) (out0 bool) {
+	defer logger.Out1(logger.In1("network/wifi", "pkg_exists", "pkgname", pkgname), &out0)
 	cmd := exec.Command("which", pkgname)
 	out, _ := cmd.CombinedOutput()
 

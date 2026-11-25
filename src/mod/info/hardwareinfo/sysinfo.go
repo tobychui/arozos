@@ -17,13 +17,12 @@ import (
 )
 
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "Ifconfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "Ifconfig", "r", r))
 	cmdin := `ip link show`
 	cmd := exec.Command("bash", "-c", cmdin)
 	networkInterfaces, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		networkInterfaces = []byte{}
 	}
 
@@ -38,20 +37,20 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetDriveStat: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetDriveStat", "r", r))
 	//Get drive status using df command
 	cmdin := `df -k | sed -e /Filesystem/d`
 	cmd := exec.Command("bash", "-c", cmdin)
 	dev, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		dev = []byte{}
 	}
 
@@ -85,6 +84,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
@@ -92,13 +92,12 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUSB(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetUSB: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetUSB", "r", r))
 	cmdin := `lsusb`
 	cmd := exec.Command("bash", "-c", cmdin)
 	usbd, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		usbd = []byte{}
 	}
 
@@ -112,19 +111,19 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetCPUInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetCPUInfo", "r", r))
 	cmdin := `cat /proc/cpuinfo | grep -m1 "[mM]odel [nN]ame"`
 	cmd := exec.Command("bash", "-c", cmdin)
 	hardware, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		hardware = []byte("??? ")
 	}
 
@@ -132,6 +131,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	cmd = exec.Command("bash", "-c", cmdin)
 	cpuModel, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		cpuModel = []byte("Generic Processor")
 	}
 
@@ -139,10 +139,12 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	cmd = exec.Command("bash", "-c", cmdin)
 	speed, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		cmdin = `cat /proc/cpuinfo | grep -m1 "[cC][pP][uU] MHz"`
 		cmd = exec.Command("bash", "-c", cmdin)
 		intelSpeed, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/hardwareinfo", err)
 			speed = []byte("??? ")
 		}
 		speed = intelSpeed
@@ -154,7 +156,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("bash", "-c", cmdin)
 		cpuhardware, err := cmd.CombinedOutput()
 		if err != nil {
-
+			logger.DebugErr("info/hardwareinfo", err)
 		} else {
 			hardware = cpuhardware
 		}
@@ -165,11 +167,13 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	cmd = exec.Command("bash", "-c", cmdin)
 	revision, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		//On x64
 		cmdin = `cat /proc/cpuinfo | grep -m1 "family"`
 		cmd = exec.Command("bash", "-c", cmdin)
 		intelrev, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/hardwareinfo", err)
 			revision = []byte("??? ")
 		} else {
 			revision = intelrev
@@ -181,6 +185,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	cmd = exec.Command("bash", "-c", cmdin)
 	arch, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		arch = []byte("??? ")
 	}
 
@@ -195,15 +200,14 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(CPUInfo)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/hardwareinfo", "GetRamInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("info/hardwareinfo", "GetRamInfo", "r", r))
 	cmd := exec.Command("grep", "MemTotal", "/proc/meminfo")
 	out, _ := cmd.CombinedOutput()
 	strOut := string(out)
@@ -217,6 +221,7 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(ramSizeInt)
 	if err != nil {
+		logger.DebugErr("info/hardwareinfo", err)
 		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))

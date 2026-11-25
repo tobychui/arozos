@@ -32,33 +32,27 @@ func SendTextResponse(w http.ResponseWriter, msg string) {
 
 // Send JSON response, with an extra json header
 func SendJSONResponse(w http.ResponseWriter, json string) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "SendJSONResponse: json=%.120q", json)
-	}
+	defer logger.Out0(logger.In1("utils", "SendJSONResponse", "json", json))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
 }
 
 func SendErrorResponse(w http.ResponseWriter, errMsg string) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "SendErrorResponse: errMsg=%.120q", errMsg)
-	}
+	defer logger.Out0(logger.In1("utils", "SendErrorResponse", "errMsg", errMsg))
 	payload, _ := json.Marshal(map[string]string{"error": errMsg})
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(payload)
 }
 
 func SendOK(w http.ResponseWriter) {
-	logger.Debug("utils", "SendOK")
+	defer logger.Out0(logger.In0("utils", "SendOK"))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
 
 // Get GET parameter
-func GetPara(r *http.Request, key string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "GetPara: r=%s", logger.RequestSummary(r))
-	}
+func GetPara(r *http.Request, key string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("utils", "GetPara", "r", r, "!key", key), &out0, &out1)
 	keys, ok := r.URL.Query()[key]
 	if !ok || len(keys[0]) < 1 {
 		return "", errors.New("invalid " + key + " given")
@@ -67,12 +61,11 @@ func GetPara(r *http.Request, key string) (string, error) {
 	}
 }
 
-func GetBool(r *http.Request, key string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "GetBool: r=%s", logger.RequestSummary(r))
-	}
+func GetBool(r *http.Request, key string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("utils", "GetBool", "r", r, "!key", key), &out0, &out1)
 	x, err := GetPara(r, key)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return false, err
 	}
 
@@ -88,18 +81,18 @@ func GetBool(r *http.Request, key string) (bool, error) {
 }
 
 // Get GET paramter as int
-func GetInt(r *http.Request, key string) (int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "GetInt: r=%s", logger.RequestSummary(r))
-	}
+func GetInt(r *http.Request, key string) (out0 int, out1 error) {
+	defer logger.Out2(logger.In2("utils", "GetInt", "r", r, "!key", key), &out0, &out1)
 	x, err := GetPara(r, key)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return 0, err
 	}
 
 	x = strings.TrimSpace(x)
 	rx, err := strconv.Atoi(x)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return 0, err
 	}
 
@@ -107,10 +100,8 @@ func GetInt(r *http.Request, key string) (int, error) {
 }
 
 // Get POST paramter
-func PostPara(r *http.Request, key string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "PostPara: r=%s", logger.RequestSummary(r))
-	}
+func PostPara(r *http.Request, key string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("utils", "PostPara", "r", r, "!key", key), &out0, &out1)
 	r.ParseForm()
 	x := r.Form.Get(key)
 	if x == "" {
@@ -120,12 +111,11 @@ func PostPara(r *http.Request, key string) (string, error) {
 	}
 }
 
-func PostBool(r *http.Request, key string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "PostBool: r=%s", logger.RequestSummary(r))
-	}
+func PostBool(r *http.Request, key string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("utils", "PostBool", "r", r, "!key", key), &out0, &out1)
 	x, err := PostPara(r, key)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return false, err
 	}
 
@@ -141,28 +131,26 @@ func PostBool(r *http.Request, key string) (bool, error) {
 }
 
 // Get POST paramter as int
-func PostInt(r *http.Request, key string) (int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "PostInt: r=%s", logger.RequestSummary(r))
-	}
+func PostInt(r *http.Request, key string) (out0 int, out1 error) {
+	defer logger.Out2(logger.In2("utils", "PostInt", "r", r, "!key", key), &out0, &out1)
 	x, err := PostPara(r, key)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return 0, err
 	}
 
 	x = strings.TrimSpace(x)
 	rx, err := strconv.Atoi(x)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return 0, err
 	}
 
 	return rx, nil
 }
 
-func FileExists(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "FileExists: filename=%.120q", filename)
-	}
+func FileExists(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("utils", "FileExists", "filename", filename), &out0)
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -171,14 +159,13 @@ func FileExists(filename string) bool {
 }
 
 func IsDir(path string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("utils", "IsDir: path=%.120q", path)
-	}
+	logger.DebugTrace("utils", "IsDir")
 	if FileExists(path) == false {
 		return false
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		logger.PrintAndLog("Utils", fmt.Sprint(err), nil)
 		os.Exit(1)
 		return false
@@ -197,10 +184,8 @@ func TimeToString(targetTime time.Time) string {
 	return targetTime.Format("2006-01-02 15:04:05")
 }
 
-func LoadImageAsBase64(filepath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "LoadImageAsBase64: filepath=%.120q", filepath)
-	}
+func LoadImageAsBase64(filepath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("utils", "LoadImageAsBase64", "filepath", filepath), &out0, &out1)
 	if !FileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
@@ -212,10 +197,8 @@ func LoadImageAsBase64(filepath string) (string, error) {
 }
 
 // Use for redirections
-func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation string) string {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "ConstructRelativePathFromRequestURL: redirectionLocation=%.120q", redirectionLocation)
-	}
+func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation string) (out0 string) {
+	defer logger.Out1(logger.In2("utils", "ConstructRelativePathFromRequestURL", "requestURI", requestURI, "redirectionLocation", redirectionLocation), &out0)
 	if strings.Count(requestURI, "/") == 1 {
 		//Already root level
 		return redirectionLocation
@@ -228,10 +211,8 @@ func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation 
 }
 
 // Check if given string in a given slice
-func StringInArray(arr []string, str string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "StringInArray: len(arr)=%d str=%.120q", len(arr), str)
-	}
+func StringInArray(arr []string, str string) (out0 bool) {
+	defer logger.Out1(logger.In2("utils", "StringInArray", "arr", arr, "str", str), &out0)
 	for _, a := range arr {
 		if a == str {
 			return true
@@ -240,10 +221,8 @@ func StringInArray(arr []string, str string) bool {
 	return false
 }
 
-func StringInArrayIgnoreCase(arr []string, str string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "StringInArrayIgnoreCase: len(arr)=%d str=%.120q", len(arr), str)
-	}
+func StringInArrayIgnoreCase(arr []string, str string) (out0 bool) {
+	defer logger.Out1(logger.In2("utils", "StringInArrayIgnoreCase", "arr", arr, "str", str), &out0)
 	smallArray := []string{}
 	for _, item := range arr {
 		smallArray = append(smallArray, strings.ToLower(item))
@@ -253,12 +232,11 @@ func StringInArrayIgnoreCase(arr []string, str string) bool {
 }
 
 // Load template and replace keys within
-func Templateload(templateFile string, data map[string]string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "Templateload: templateFile=%.120q", templateFile)
-	}
+func Templateload(templateFile string, data map[string]string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("utils", "Templateload", "templateFile", templateFile, "data", data), &out0, &out1)
 	content, err := os.ReadFile(templateFile)
 	if err != nil {
+		logger.DebugErr("utils", err)
 		return "", err
 	}
 
@@ -271,10 +249,8 @@ func Templateload(templateFile string, data map[string]string) (string, error) {
 }
 
 // Apply template from a pre-loaded string
-func TemplateApply(templateString string, data map[string]string) string {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "TemplateApply: templateString=%.120q", templateString)
-	}
+func TemplateApply(templateString string, data map[string]string) (out0 string) {
+	defer logger.Out1(logger.In2("utils", "TemplateApply", "templateString", templateString, "data", data), &out0)
 	content := []byte(templateString)
 	for key, value := range data {
 		key = "{{" + key + "}}"
@@ -290,10 +266,8 @@ func TemplateApply(templateString string, data map[string]string) string {
 // and are deliberately allowed; the API handles their encoding. Names that
 // could escape the containing directory or that no supported file system
 // accepts are rejected here.
-func ValidateFilename(filename string) error {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "ValidateFilename: filename=%.120q", filename)
-	}
+func ValidateFilename(filename string) (out0 error) {
+	defer logger.Out1(logger.In1("utils", "ValidateFilename", "filename", filename), &out0)
 	if filename == "" {
 		return errors.New("filename cannot be empty")
 	}
@@ -320,10 +294,8 @@ func ValidateFilename(filename string) error {
 // segments, as produced by browsers for directory uploads. It rejects absolute
 // paths, dot segments, empty segments and segments that ValidateFilename
 // rejects, and returns the path with forward slashes.
-func ValidateRelativePath(relativePath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("utils", "ValidateRelativePath: relativePath=%.120q", relativePath)
-	}
+func ValidateRelativePath(relativePath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("utils", "ValidateRelativePath", "relativePath", relativePath), &out0, &out1)
 	//Browsers use forward slashes, but a crafted request may use backslashes.
 	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
 	if relativePath == "" {
@@ -342,6 +314,7 @@ func ValidateRelativePath(relativePath string) (string, error) {
 			return "", errors.New("path contains invalid segments")
 		}
 		if err := ValidateFilename(segment); err != nil {
+			logger.DebugErr("utils", err)
 			return "", err
 		}
 	}

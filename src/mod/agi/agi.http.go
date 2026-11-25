@@ -65,9 +65,10 @@ type httpResponse struct {
 }
 
 func (g *Gateway) HTTPLibRegister() {
-	logger.Debug("agi", "Gateway.HTTPLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.HTTPLibRegister", "g", g))
 	err := g.RegisterLib("http", g.injectHTTPFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -75,12 +76,13 @@ func (g *Gateway) HTTPLibRegister() {
 
 // buildHTTPRequestBody resolves the request body and default Content-Type from
 // the given options. Body precedence is: bodyBase64 > form > json > body.
-func buildHTTPRequestBody(opt httpRequestOptions) (io.Reader, string, error) {
-	logger.Debug("agi", "buildHTTPRequestBody")
+func buildHTTPRequestBody(opt httpRequestOptions) (out0 io.Reader, out1 string, out2 error) {
+	defer logger.Out3(logger.In1("agi", "buildHTTPRequestBody", "&opt", &opt), &out0, &out1, &out2)
 	switch {
 	case opt.BodyBase64 != "":
 		raw, err := base64.StdEncoding.DecodeString(opt.BodyBase64)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, "", errors.New("invalid bodyBase64: " + err.Error())
 		}
 		return bytes.NewReader(raw), "application/octet-stream", nil
@@ -102,8 +104,8 @@ func buildHTTPRequestBody(opt httpRequestOptions) (io.Reader, string, error) {
 // doHTTPRequest builds and executes an HTTP request from the given options and
 // returns a populated httpResponse. Any transport-level failure is reported via
 // the Error field rather than as a Go error so scripts always get an object.
-func doHTTPRequest(opt httpRequestOptions) httpResponse {
-	logger.Debug("agi", "doHTTPRequest")
+func doHTTPRequest(opt httpRequestOptions) (out0 httpResponse) {
+	defer logger.Out1(logger.In1("agi", "doHTTPRequest", "&opt", &opt), &out0)
 	if strings.TrimSpace(opt.URL) == "" {
 		return httpResponse{Error: "missing request url"}
 	}
@@ -115,11 +117,13 @@ func doHTTPRequest(opt httpRequestOptions) httpResponse {
 
 	body, defaultContentType, err := buildHTTPRequestBody(opt)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return httpResponse{Error: err.Error()}
 	}
 
 	req, err := http.NewRequest(method, opt.URL, body)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return httpResponse{Error: err.Error()}
 	}
 
@@ -151,12 +155,14 @@ func doHTTPRequest(opt httpRequestOptions) httpResponse {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return httpResponse{Error: err.Error()}
 	}
 	defer resp.Body.Close()
 
 	bodyContent, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return httpResponse{Error: err.Error()}
 	}
 
@@ -175,7 +181,7 @@ func doHTTPRequest(opt httpRequestOptions) httpResponse {
 }
 
 func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectHTTPFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectHTTPFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	//scriptFsh := payload.ScriptFsh
@@ -190,6 +196,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		optJSON := getOttoStringArg(call, 0)
 		if s := strings.TrimSpace(optJSON); s != "" && s != "undefined" && s != "null" {
 			if err := json.Unmarshal([]byte(optJSON), &opt); err != nil {
+				logger.DebugErr("agi", err)
 				out, _ := json.Marshal(httpResponse{Error: "invalid request options: " + err.Error()})
 				rv, _ := vm.ToValue(string(out))
 				return rv
@@ -206,22 +213,26 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get URL from function variable
 		url, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		//Get respond of the url
 		res, err := http.Get(url)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		bodyContent, err := io.ReadAll(res.Body)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		returnValue, err := vm.ToValue(string(bodyContent))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -232,6 +243,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get URL from function paramter
 		url, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -239,6 +251,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		sendWithPayload := true
 		jsonContent, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			//Disable the payload send
 			sendWithPayload = false
 		}
@@ -258,6 +271,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 			return otto.NullValue()
 		}
@@ -265,6 +279,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 
 		bodyContent, err := io.ReadAll(resp.Body)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -277,12 +292,14 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get URL from function paramter
 		url, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		//Request the url
 		resp, err := http.Get(url)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -307,11 +324,13 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get URL from function paramter
 		url, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -327,6 +346,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 
 		response, err := client.Do(req)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		defer client.CloseIdleConnections()
@@ -340,6 +360,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get URL from function paramter
 		downloadURL, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		decodedURL, _ := url.QueryUnescape(downloadURL)
@@ -347,6 +368,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get download desintation from paramter
 		vpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
@@ -366,6 +388,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Convert the vpath to realpath. Check if it exists
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
@@ -379,6 +402,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Ok. Download the file
 		resp, err := http.Get(decodedURL)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		defer resp.Body.Close()
@@ -386,6 +410,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		// Create the file
 		err = fsh.FileSystemAbstraction.WriteStream(downloadDest, resp.Body, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -395,17 +420,20 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get URL from function variable and return bytes as base64
 		url, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		//Get respond of the url
 		res, err := http.Get(url)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		bodyContent, err := io.ReadAll(res.Body)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -413,6 +441,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 
 		r, err := otto.ToValue(string(sEnc))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.NullValue()
 		}
@@ -423,11 +452,13 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		//Redirect the current request to another url
 		targetUrl, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		statusCode, err := call.Argument(1).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			//Default: Temporary redirect
 			statusCode = 307
 		}

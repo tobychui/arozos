@@ -25,22 +25,22 @@ const maxBitmapPixels = 64 << 20
 
 // DIBToPNG converts a packed DIB (BITMAPINFOHEADER or BITMAPCOREHEADER,
 // palette, pixels) into PNG
-func DIBToPNG(dib []byte) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office/metafile", "DIBToPNG: len(dib)=%d", len(dib))
-	}
+func DIBToPNG(dib []byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/metafile", "DIBToPNG", "dib", dib), &out0, &out1)
 	img, _, err := decodePackedDIB(dib, 0)
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, err
 	}
 	return encodePNG(img)
 }
 
 // TIFFToPNG converts a TIFF picture into PNG
-func TIFFToPNG(data []byte) ([]byte, error) {
-	logger.Debug("office/metafile", "TIFFToPNG")
+func TIFFToPNG(data []byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/metafile", "TIFFToPNG", "data", data), &out0, &out1)
 	cfg, err := tiff.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, err
 	}
 	if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > maxBitmapPixels {
@@ -48,6 +48,7 @@ func TIFFToPNG(data []byte) ([]byte, error) {
 	}
 	img, err := tiff.Decode(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, err
 	}
 	return encodePNG(img)
@@ -58,6 +59,7 @@ func encodePNG(img image.Image) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := png.Encoder{CompressionLevel: png.BestSpeed}
 	if err := enc.Encode(&buf, img); err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, err
 	}
 	return buf.Bytes(), nil

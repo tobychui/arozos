@@ -27,19 +27,15 @@ type aofs struct {
 }
 
 // writesTo tells whether opening a file with these flags can change it
-func writesTo(flag int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/ftp", "writesTo: flag=%d", flag)
-	}
+func writesTo(flag int) (out0 bool) {
+	defer logger.Out1(logger.In1("storage/ftp", "writesTo", "flag", flag), &out0)
 	return flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0
 }
 
 // isVirtualRootPath reports whether name is served by the in-memory FTP root
 // (the root listing itself and its README.txt) rather than a real storage.
-func isVirtualRootPath(name string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "isVirtualRootPath: name=%.120q", name)
-	}
+func isVirtualRootPath(name string) (out0 bool) {
+	defer logger.Out1(logger.In1("storage/ftp", "isVirtualRootPath", "name", name), &out0)
 	path := filepath.ToSlash(filepath.Clean(name))
 	return path == "/" || path == "/README.txt"
 }
@@ -48,8 +44,8 @@ func isVirtualRootPath(name string) bool {
 // per storage the user can reach (buffered remote storages are not supported
 // by the FTP driver) plus a README.txt. It is rebuilt on every root access so
 // newly mounted or closed storages show up immediately.
-func (a aofs) rootFs() afero.Fs {
-	logger.Debug("storage/ftp", "aofs.rootFs")
+func (a aofs) rootFs() (out0 afero.Fs) {
+	defer logger.Out1(logger.In1("storage/ftp", "aofs.rootFs", "&a", &a), &out0)
 	memfs := afero.NewMemMapFs()
 	for _, fsh := range a.userinfo.GetAllFileSystemHandler() {
 		if !fsh.RequireBuffer {
@@ -59,18 +55,18 @@ func (a aofs) rootFs() afero.Fs {
 
 	readmeContent, err := os.ReadFile(filepath.Join("system", "ftp", "README.txt"))
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		readmeContent = []byte("DO NOT UPLOAD FILES INTO THE ROOT DIRECTORY")
 	}
 	afero.WriteFile(memfs, "/README.txt", readmeContent, 0444)
 	return afero.NewReadOnlyFs(memfs)
 }
 
-func (a aofs) Create(name string) (afero.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Create: name=%.120q", name)
-	}
+func (a aofs) Create(name string) (out0 afero.File, out1 error) {
+	defer logger.Out2(logger.In2("storage/ftp", "aofs.Create", "&a", &a, "name", name), &out0, &out1)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return nil, err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -79,12 +75,11 @@ func (a aofs) Create(name string) (afero.File, error) {
 	return fsh.FileSystemAbstraction.Create(rewritePath)
 }
 
-func (a aofs) Chown(name string, uid, gid int) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Chown: name=%.120q uid=%d gid=%d", name, uid, gid)
-	}
+func (a aofs) Chown(name string, uid, gid int) (out0 error) {
+	defer logger.Out1(logger.In4("storage/ftp", "aofs.Chown", "&a", &a, "name", name, "uid", uid, "gid", gid), &out0)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -93,12 +88,11 @@ func (a aofs) Chown(name string, uid, gid int) error {
 	return fsh.FileSystemAbstraction.Chown(rewritePath, uid, gid)
 }
 
-func (a aofs) Mkdir(name string, perm os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Mkdir: name=%.120q", name)
-	}
+func (a aofs) Mkdir(name string, perm os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("storage/ftp", "aofs.Mkdir", "&a", &a, "name", name, "&perm", &perm), &out0)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -107,12 +101,11 @@ func (a aofs) Mkdir(name string, perm os.FileMode) error {
 	return fsh.FileSystemAbstraction.Mkdir(rewritePath, perm)
 }
 
-func (a aofs) MkdirAll(path string, perm os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.MkdirAll: path=%.120q", path)
-	}
+func (a aofs) MkdirAll(path string, perm os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("storage/ftp", "aofs.MkdirAll", "&a", &a, "path", path, "&perm", &perm), &out0)
 	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -121,16 +114,15 @@ func (a aofs) MkdirAll(path string, perm os.FileMode) error {
 	return fsh.FileSystemAbstraction.MkdirAll(rewritePath, perm)
 }
 
-func (a aofs) Open(name string) (afero.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Open: name=%.120q", name)
-	}
+func (a aofs) Open(name string) (out0 afero.File, out1 error) {
+	defer logger.Out2(logger.In2("storage/ftp", "aofs.Open", "&a", &a, "name", name), &out0, &out1)
 	//fmt.Println("FTP OPEN")
 	if isVirtualRootPath(name) {
 		return a.rootFs().Open(name)
 	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return nil, err
 	}
 	//Open only reads: listing a folder and downloading go through here
@@ -141,16 +133,15 @@ func (a aofs) Open(name string) (afero.File, error) {
 	return fsh.FileSystemAbstraction.Open(rewritePath)
 }
 
-func (a aofs) Stat(name string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Stat: name=%.120q", name)
-	}
+func (a aofs) Stat(name string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/ftp", "aofs.Stat", "&a", &a, "name", name), &out0, &out1)
 	//fmt.Println("FTP STAT")
 	if isVirtualRootPath(name) {
 		return a.rootFs().Stat(name)
 	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return nil, err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanRead) {
@@ -159,16 +150,15 @@ func (a aofs) Stat(name string) (os.FileInfo, error) {
 	return fsh.FileSystemAbstraction.Stat(rewritePath)
 }
 
-func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.OpenFile: name=%.120q flag=%d", name, flag)
-	}
+func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (out0 afero.File, out1 error) {
+	defer logger.Out2(logger.In4("storage/ftp", "aofs.OpenFile", "&a", &a, "name", name, "flag", flag, "&perm", &perm), &out0, &out1)
 	//fmt.Println("FTP OPEN FILE")
 	if isVirtualRootPath(name) {
 		return a.rootFs().OpenFile(name, flag, perm)
 	}
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return nil, err
 	}
 	mode := aofsCanRead
@@ -181,22 +171,19 @@ func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 	return fsh.FileSystemAbstraction.OpenFile(rewritePath, flag, perm)
 }
 
-func (a aofs) AllocateSpace(size int) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.AllocateSpace: size=%d", size)
-	}
+func (a aofs) AllocateSpace(size int) (out0 error) {
+	defer logger.Out1(logger.In2("storage/ftp", "aofs.AllocateSpace", "&a", &a, "size", size), &out0)
 	if a.userinfo.StorageQuota.HaveSpace(int64(size)) {
 		return nil
 	}
 	return errors.New("Storage Quota Fulled")
 }
 
-func (a aofs) Remove(name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Remove: name=%.120q", name)
-	}
+func (a aofs) Remove(name string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/ftp", "aofs.Remove", "&a", &a, "name", name), &out0)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -206,12 +193,11 @@ func (a aofs) Remove(name string) error {
 	return fsh.FileSystemAbstraction.Remove(rewritePath)
 }
 
-func (a aofs) RemoveAll(path string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.RemoveAll: path=%.120q", path)
-	}
+func (a aofs) RemoveAll(path string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/ftp", "aofs.RemoveAll", "&a", &a, "path", path), &out0)
 	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -220,17 +206,17 @@ func (a aofs) RemoveAll(path string) error {
 	return fsh.FileSystemAbstraction.RemoveAll(rewritePath)
 }
 
-func (a aofs) Rename(oldname, newname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Rename: oldname=%.120q newname=%.120q", oldname, newname)
-	}
+func (a aofs) Rename(oldname, newname string) (out0 error) {
+	defer logger.Out1(logger.In3("storage/ftp", "aofs.Rename", "&a", &a, "oldname", oldname, "newname", newname), &out0)
 	fshsrc, rewritePathsrc, err := a.pathRewrite(oldname)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 
 	fshdest, rewritePathdest, err := a.pathRewrite(newname)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fshsrc, rewritePathsrc, aofsCanWrite) {
@@ -251,34 +237,36 @@ func (a aofs) Rename(oldname, newname string) error {
 		//Cross fsh read write.
 		f, err := fshsrc.FileSystemAbstraction.ReadStream(rewritePathsrc)
 		if err != nil {
+			logger.DebugErr("storage/ftp", err)
 			return err
 		}
 		defer f.Close()
 
 		err = fshdest.FileSystemAbstraction.WriteStream(rewritePathdest, f, 0775)
 		if err != nil {
+			logger.DebugErr("storage/ftp", err)
 			return err
 		}
 
 		err = fshsrc.FileSystemAbstraction.RemoveAll(rewritePathsrc)
 		if err != nil {
+			logger.DebugErr("storage/ftp", err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (a aofs) Name() string {
-	logger.DebugTrace("storage/ftp", "aofs.Name")
+func (a aofs) Name() (out0 string) {
+	defer logger.Out1(logger.In1("storage/ftp", "aofs.Name", "&a", &a), &out0)
 	return "arozos virtualFS"
 }
 
-func (a aofs) Chmod(name string, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Chmod: name=%.120q", name)
-	}
+func (a aofs) Chmod(name string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("storage/ftp", "aofs.Chmod", "&a", &a, "name", name, "&mode", &mode), &out0)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -287,12 +275,11 @@ func (a aofs) Chmod(name string, mode os.FileMode) error {
 	return fsh.FileSystemAbstraction.Chmod(rewritePath, mode)
 }
 
-func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.Chtimes: name=%.120q", name)
-	}
+func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) (out0 error) {
+	defer logger.Out1(logger.In4("storage/ftp", "aofs.Chtimes", "&a", &a, "name", name, "&atime", &atime, "&mtime", &mtime), &out0)
 	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return err
 	}
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
@@ -303,10 +290,8 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 
 // arozos adaptive functions
 // This function rewrite the path from ftp representation to real filepath on disk
-func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.pathRewrite: path=%.120q", path)
-	}
+func (a aofs) pathRewrite(path string) (out0 *filesystem.FileSystemHandler, out1 string, out2 error) {
+	defer logger.Out3(logger.In2("storage/ftp", "aofs.pathRewrite", "&a", &a, "path", path), &out0, &out1, &out2)
 	path = filepath.ToSlash(filepath.Clean(path))
 	//log.Println("Original path: ", path)
 	if isVirtualRootPath(path) {
@@ -322,11 +307,13 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 
 		fsh, err := a.userinfo.GetFileSystemHandlerFromVirtualPath(fsHandlerUUID + ":")
 		if err != nil {
+			logger.DebugErr("storage/ftp", err)
 			return nil, "", errors.New("File System Abstraction not found")
 		}
 
 		rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(fsh.UUID+":/"+strings.Join(remainingPaths, "/"), a.userinfo.Username)
 		if err != nil {
+			logger.DebugErr("storage/ftp", err)
 			return nil, "", errors.New("File System Handler Hierarchy not supported by FTP driver")
 		}
 		return fsh, rpath, nil
@@ -337,15 +324,14 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 }
 
 // Check if user has access to the given path, mode can be string {read / write}
-func (a aofs) checkAllowAccess(fsh *filesystem.FileSystemHandler, path string, mode int) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage/ftp", "aofs.checkAllowAccess: path=%.120q mode=%d", path, mode)
-	}
+func (a aofs) checkAllowAccess(fsh *filesystem.FileSystemHandler, path string, mode int) (out0 bool) {
+	defer logger.Out1(logger.In4("storage/ftp", "aofs.checkAllowAccess", "&a", &a, "fsh", fsh, "path", path, "mode", mode), &out0)
 	if mode == aofsCanWrite && a.readOnly {
 		return false
 	}
 	vpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, a.userinfo.Username)
 	if err != nil {
+		logger.DebugErr("storage/ftp", err)
 		return false
 	}
 

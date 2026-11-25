@@ -9,14 +9,13 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-func (h *Handler) CheckUserHomePageEnabled(username string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("www", "Handler.CheckUserHomePageEnabled: username=%.120q", username)
-	}
+func (h *Handler) CheckUserHomePageEnabled(username string) (out0 bool) {
+	defer logger.Out1(logger.In2("www", "Handler.CheckUserHomePageEnabled", "h", h, "username", username), &out0)
 	result := false
 	currentHomePageMode := "false"
 	err := h.Options.Database.Read("www", username+"_enable", &currentHomePageMode)
 	if err != nil {
+		logger.DebugErr("www", err)
 		//Not exists. Assume false
 		result = false
 	} else {
@@ -26,14 +25,13 @@ func (h *Handler) CheckUserHomePageEnabled(username string) bool {
 	return result
 }
 
-func (h *Handler) GetUserWebRoot(username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("www", "Handler.GetUserWebRoot: username=%.120q", username)
-	}
+func (h *Handler) GetUserWebRoot(username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("www", "Handler.GetUserWebRoot", "h", h, "username", username), &out0, &out1)
 	webRoot := ""
 	if h.Options.Database.KeyExists("www", username+"_webroot") {
 		err := h.Options.Database.Read("www", username+"_webroot", &webRoot)
 		if err != nil {
+			logger.DebugErr("www", err)
 			return "", err
 		}
 
@@ -45,11 +43,10 @@ func (h *Handler) GetUserWebRoot(username string) (string, error) {
 }
 
 func (h *Handler) HandleToggleHomepage(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("www", "Handler.HandleToggleHomepage: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("www", "Handler.HandleToggleHomepage", "h", h, "r", r))
 	userinfo, err := h.Options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("www", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -76,11 +73,10 @@ func (h *Handler) HandleToggleHomepage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleSetWebRoot(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("www", "Handler.HandleSetWebRoot: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("www", "Handler.HandleSetWebRoot", "h", h, "r", r))
 	userinfo, err := h.Options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("www", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -90,6 +86,7 @@ func (h *Handler) HandleSetWebRoot(w http.ResponseWriter, r *http.Request) {
 		//Read mode
 		webroot, err := h.GetUserWebRoot(userinfo.Username)
 		if err != nil {
+			logger.DebugErr("www", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}

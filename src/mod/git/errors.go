@@ -60,10 +60,8 @@ var authErrorFragments = []string{
 
 // IsAuthError reports whether err represents a credential problem rather than a
 // genuine transport or repository failure.
-func IsAuthError(err error) bool {
-	if logger.IsDebug() {
-		logger.Debugf("git", "IsAuthError: err=%v", err)
-	}
+func IsAuthError(err error) (out0 bool) {
+	defer logger.Out1(logger.In1("git", "IsAuthError", "err", err), &out0)
 	if err == nil {
 		return false
 	}
@@ -86,10 +84,8 @@ func IsAuthError(err error) bool {
 // classifyError normalises a go-git transport error so callers upstream can
 // simply check errors.Is(err, ErrAuthRequired). The original message is kept as
 // the wrapped text because it usually names the failing host.
-func classifyError(err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "classifyError: err=%v", err)
-	}
+func classifyError(err error) (out0 error) {
+	defer logger.Out1(logger.In1("git", "classifyError", "err", err), &out0)
 	if err == nil {
 		return nil
 	}
@@ -116,8 +112,6 @@ func (e *authError) Unwrap() error {
 }
 
 func (e *authError) Is(target error) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("git", "authError.Is: target=%v", target)
-	}
+	logger.DebugTrace("git", "authError.Is")
 	return target == ErrAuthRequired
 }

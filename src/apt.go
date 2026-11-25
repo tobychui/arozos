@@ -10,7 +10,7 @@ import (
 )
 
 func PackagManagerInit() {
-	logger.Debug("Core", "PackagManagerInit")
+	defer logger.Out0(logger.In0("Core", "PackagManagerInit"))
 	//Create a package manager
 	packageManager = apt.NewPackageManager(*allow_package_autoInstall)
 	systemWideLogger.PrintAndLog("APT", "Package Manager Initiated", nil)

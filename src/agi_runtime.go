@@ -22,7 +22,7 @@ import (
 */
 
 func AGIRuntimeManagerInit() {
-	logger.Debug("Core", "AGIRuntimeManagerInit")
+	defer logger.Out0(logger.In0("Core", "AGIRuntimeManagerInit"))
 	// Register the settings tab in the "Advance" (Developer Options) group.
 	// RequireAdmin: false so regular users can view their own running scripts.
 	registerSetting(settingModule{

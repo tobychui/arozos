@@ -58,8 +58,8 @@ func newConnPool() *connPool {
 	return &connPool{slots: map[string]*poolSlot{}}
 }
 
-func (p *connPool) slot(key string) *poolSlot {
-	logger.Debug("email", "connPool.slot")
+func (p *connPool) slot(key string) (out0 *poolSlot) {
+	defer logger.Out1(logger.In2("email", "connPool.slot", "p", p, "!key", key), &out0)
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	slot, ok := p.slots[key]
@@ -72,8 +72,8 @@ func (p *connPool) slot(key string) *poolSlot {
 
 // acquire lends a connection for key, dialling a new one with dial when no
 // healthy idle connection exists. The caller must call release exactly once.
-func (p *connPool) acquire(ctx context.Context, key string, dial func() (*imapclient.Client, error)) (*pooledConn, error) {
-	logger.Debug("email", "connPool.acquire")
+func (p *connPool) acquire(ctx context.Context, key string, dial func() (*imapclient.Client, error)) (out0 *pooledConn, out1 error) {
+	defer logger.Out2(logger.In4("email", "connPool.acquire", "p", p, "ctx", ctx, "dial", dial, "!key", key), &out0, &out1)
 	slot := p.slot(key)
 
 	waitCtx, cancel := context.WithTimeout(ctx, acquireTimeout)
@@ -103,6 +103,7 @@ func (p *connPool) acquire(ctx context.Context, key string, dial func() (*imapcl
 		}
 		if time.Since(candidate.lastUsed) > healthCheckAfter {
 			if err := candidate.client.Noop().Wait(); err != nil {
+				logger.DebugErr("email", err)
 				candidate.client.Close()
 				continue
 			}
@@ -116,6 +117,7 @@ func (p *connPool) acquire(ctx context.Context, key string, dial func() (*imapcl
 
 	client, err := dial()
 	if err != nil {
+		logger.DebugErr("email", err)
 		<-slot.semaphore
 		return nil, err
 	}
@@ -125,9 +127,7 @@ func (p *connPool) acquire(ctx context.Context, key string, dial func() (*imapcl
 // release returns a lent connection. broken connections (protocol or network
 // errors) are closed rather than reused.
 func (p *connPool) release(key string, conn *pooledConn, broken bool) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "connPool.release: broken=%t", broken)
-	}
+	defer logger.Out0(logger.In4("email", "connPool.release", "p", p, "conn", conn, "broken", broken, "!key", key))
 	if conn == nil {
 		return
 	}
@@ -149,7 +149,7 @@ func (p *connPool) release(key string, conn *pooledConn, broken bool) {
 
 // invalidate drops every idle connection of key and marks busy ones stale.
 func (p *connPool) invalidate(key string) {
-	logger.Debug("email", "connPool.invalidate")
+	defer logger.Out0(logger.In2("email", "connPool.invalidate", "p", p, "!key", key))
 	p.mutex.Lock()
 	slot, ok := p.slots[key]
 	var dropped []*pooledConn
@@ -167,7 +167,7 @@ func (p *connPool) invalidate(key string) {
 
 // reap closes connections idle for longer than idleConnTimeout.
 func (p *connPool) reap() {
-	logger.Debug("email", "connPool.reap")
+	defer logger.Out0(logger.In1("email", "connPool.reap", "p", p))
 	var expired []*pooledConn
 	p.mutex.Lock()
 	for _, slot := range p.slots {
@@ -190,7 +190,7 @@ func (p *connPool) reap() {
 
 // closeAll shuts every idle connection down (used on manager shutdown).
 func (p *connPool) closeAll() {
-	logger.Debug("email", "connPool.closeAll")
+	defer logger.Out0(logger.In1("email", "connPool.closeAll", "p", p))
 	p.mutex.Lock()
 	var all []*pooledConn
 	for _, slot := range p.slots {
@@ -205,8 +205,8 @@ func (p *connPool) closeAll() {
 }
 
 // idleCount is used by tests.
-func (p *connPool) idleCount(key string) int {
-	logger.Debug("email", "connPool.idleCount")
+func (p *connPool) idleCount(key string) (out0 int) {
+	defer logger.Out1(logger.In2("email", "connPool.idleCount", "p", p, "!key", key), &out0)
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	if slot, ok := p.slots[key]; ok {
@@ -215,8 +215,8 @@ func (p *connPool) idleCount(key string) int {
 	return 0
 }
 
-func isClosed(client *imapclient.Client) bool {
-	logger.Debug("email", "isClosed")
+func isClosed(client *imapclient.Client) (out0 bool) {
+	defer logger.Out1(logger.In1("email", "isClosed", "client", client), &out0)
 	select {
 	case <-client.Closed():
 		return true
@@ -226,7 +226,7 @@ func isClosed(client *imapclient.Client) bool {
 }
 
 func logoutAndClose(client *imapclient.Client) {
-	logger.Debug("email", "logoutAndClose")
+	defer logger.Out0(logger.In1("email", "logoutAndClose", "client", client))
 	done := make(chan struct{})
 	go func() {
 		client.Logout().Wait()

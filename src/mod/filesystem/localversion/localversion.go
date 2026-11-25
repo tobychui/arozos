@@ -35,10 +35,8 @@ type VersionList struct {
 	Versions      []*FileSnapshot
 }
 
-func GetFileVersionData(fsh *filesystem.FileSystemHandler, realFilepath string) (*VersionList, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "GetFileVersionData: realFilepath=%.120q", realFilepath)
-	}
+func GetFileVersionData(fsh *filesystem.FileSystemHandler, realFilepath string) (out0 *VersionList, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/localversion", "GetFileVersionData", "fsh", fsh, "realFilepath", realFilepath), &out0, &out1)
 	fshAbs := fsh.FileSystemAbstraction
 	mtime, _ := fshAbs.GetModTime(realFilepath)
 	versionList := VersionList{
@@ -50,6 +48,7 @@ func GetFileVersionData(fsh *filesystem.FileSystemHandler, realFilepath string) 
 	expectedVersionFiles := filepath.Join(filepath.Dir(realFilepath), ".metadata/.localver", "*", filepath.Base(realFilepath))
 	versions, err := fshAbs.Glob(filepath.ToSlash(expectedVersionFiles))
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		return &versionList, err
 	}
 
@@ -73,10 +72,8 @@ func GetFileVersionData(fsh *filesystem.FileSystemHandler, realFilepath string) 
 	return &versionList, nil
 }
 
-func RestoreFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath string, histroyID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "RestoreFileHistory: originalFilepath=%.120q histroyID=%.120q", originalFilepath, histroyID)
-	}
+func RestoreFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath string, histroyID string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/localversion", "RestoreFileHistory", "fsh", fsh, "originalFilepath", originalFilepath, "histroyID", histroyID), &out0)
 	fshAbs := fsh.FileSystemAbstraction
 	expectedVersionFile := filepath.Join(filepath.Dir(originalFilepath), ".metadata/.localver", filepath.Base(histroyID), filepath.Base(originalFilepath))
 	if !fshAbs.FileExists(expectedVersionFile) {
@@ -87,11 +84,13 @@ func RestoreFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath stri
 	fshAbs.Rename(originalFilepath, originalFilepath+".backup")
 	srcf, err := fshAbs.ReadStream(expectedVersionFile)
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		return err
 	}
 
 	err = fshAbs.WriteStream(originalFilepath, srcf, 0775)
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		srcf.Close()
 		return err
 	}
@@ -114,6 +113,7 @@ func RestoreFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath stri
 	expectedVersionFiles := filepath.Join(filepath.Dir(originalFilepath), ".metadata/.localver", "*", filepath.Base(originalFilepath))
 	versions, err := fshAbs.Glob(filepath.ToSlash(expectedVersionFiles))
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		return err
 	}
 
@@ -145,10 +145,8 @@ func RestoreFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath stri
 	return nil
 }
 
-func RemoveFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath string, histroyID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "RemoveFileHistory: originalFilepath=%.120q histroyID=%.120q", originalFilepath, histroyID)
-	}
+func RemoveFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath string, histroyID string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/localversion", "RemoveFileHistory", "fsh", fsh, "originalFilepath", originalFilepath, "histroyID", histroyID), &out0)
 	expectedVersionFile := filepath.Join(filepath.Dir(originalFilepath), ".metadata/.localver", filepath.Base(histroyID), filepath.Base(originalFilepath))
 	if !fsh.FileSystemAbstraction.FileExists(expectedVersionFile) {
 		return errors.New("File version not exists")
@@ -157,12 +155,11 @@ func RemoveFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath strin
 	return fsh.FileSystemAbstraction.Remove(expectedVersionFile)
 }
 
-func RemoveAllRelatedFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "RemoveAllRelatedFileHistory: originalFilepath=%.120q", originalFilepath)
-	}
+func RemoveAllRelatedFileHistory(fsh *filesystem.FileSystemHandler, originalFilepath string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/localversion", "RemoveAllRelatedFileHistory", "fsh", fsh, "originalFilepath", originalFilepath), &out0)
 	expectedVersionFiles, err := fsh.FileSystemAbstraction.Glob(filepath.Join(filepath.Dir(originalFilepath), ".metadata/.localver", "*", filepath.Base(originalFilepath)))
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		return err
 	}
 	for _, version := range expectedVersionFiles {
@@ -171,10 +168,8 @@ func RemoveAllRelatedFileHistory(fsh *filesystem.FileSystemHandler, originalFile
 	return nil
 }
 
-func CreateFileSnapshot(fsh *filesystem.FileSystemHandler, realFilepath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "CreateFileSnapshot: realFilepath=%.120q", realFilepath)
-	}
+func CreateFileSnapshot(fsh *filesystem.FileSystemHandler, realFilepath string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/localversion", "CreateFileSnapshot", "fsh", fsh, "realFilepath", realFilepath), &out0)
 	fshAbs := fsh.FileSystemAbstraction
 	if !fshAbs.FileExists(realFilepath) {
 		return errors.New("Source file not exists")
@@ -184,12 +179,14 @@ func CreateFileSnapshot(fsh *filesystem.FileSystemHandler, realFilepath string) 
 	expectedSnapshotFolder := filepath.Join(filepath.Dir(realFilepath), ".metadata/.localver", snapshotID)
 	err := fshAbs.MkdirAll(expectedSnapshotFolder, 0775)
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		return err
 	}
 	//Copy the target file to snapshot dir
 	targetVersionFilepath := filepath.Join(expectedSnapshotFolder, filepath.Base(realFilepath))
 	srcf, err := fshAbs.ReadStream(realFilepath)
 	if err != nil {
+		logger.DebugErr("filesystem/localversion", err)
 		return err
 	}
 	defer srcf.Close()
@@ -198,14 +195,13 @@ func CreateFileSnapshot(fsh *filesystem.FileSystemHandler, realFilepath string) 
 
 // Clearn expired version backups that is older than maxReserveTime
 func CleanExpiredVersionBackups(fsh *filesystem.FileSystemHandler, walkRoot string, maxReserveTime int64) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "CleanExpiredVersionBackups: walkRoot=%.120q maxReserveTime=%d", walkRoot, maxReserveTime)
-	}
+	defer logger.Out0(logger.In3("filesystem/localversion", "CleanExpiredVersionBackups", "fsh", fsh, "walkRoot", walkRoot, "maxReserveTime", maxReserveTime))
 	fshAbs := fsh.FileSystemAbstraction
 	localVerFolders := []string{}
 	fshAbs.Walk(walkRoot,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
+				logger.DebugErr("filesystem/localversion", err)
 				//Skip this file
 				return nil
 			}
@@ -238,10 +234,8 @@ func CleanExpiredVersionBackups(fsh *filesystem.FileSystemHandler, walkRoot stri
 	}
 }
 
-func inLocalVersionFolder(path string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/localversion", "inLocalVersionFolder: path=%.120q", path)
-	}
+func inLocalVersionFolder(path string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/localversion", "inLocalVersionFolder", "path", path), &out0)
 	path = filepath.ToSlash(path)
 	return strings.Contains(path, "/.localver/") || filepath.Base(path) == ".localver"
 }

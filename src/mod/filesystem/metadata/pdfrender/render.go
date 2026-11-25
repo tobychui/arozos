@@ -118,11 +118,10 @@ type renderShared struct {
 
 // Render draws page n (0 based)
 func (d *Document) Render(n int, opt Options) (img *image.RGBA, err error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.Render: n=%d", n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.Render")
 	pg, err := d.Page(n)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	scale := opt.Scale
@@ -351,6 +350,7 @@ func (r *renderer) run(data []byte, res Dict) {
 	for r.checkBudget() {
 		obj, err := p.parseObject(0)
 		if err != nil {
+			logger.DebugErr("filesystem/metadata/pdfrender", err)
 			if p.lex.pos >= len(p.lex.buf) && len(p.peek) == 0 {
 				return
 			}
@@ -376,9 +376,7 @@ func (r *renderer) run(data []byte, res Dict) {
 }
 
 func numArg(ops []Object, i int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "numArg: len(ops)=%d i=%d", len(ops), i)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "numArg")
 	if i < 0 || i >= len(ops) {
 		return 0
 	}
@@ -390,9 +388,7 @@ func numArg(ops []Object, i int) float64 {
 }
 
 func (r *renderer) numArgs(ops []Object) []float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.numArgs: len(ops)=%d", len(ops))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.numArgs")
 	out := make([]float64, 0, len(ops))
 	for _, o := range ops {
 		if v, ok := toFloat(o); ok {
@@ -403,9 +399,7 @@ func (r *renderer) numArgs(ops []Object) []float64 {
 }
 
 func (r *renderer) exec(op string, ops []Object) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.exec: op=%.120q len(ops)=%d", op, len(ops))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.exec")
 	gs := r.gs
 	switch op {
 	//Graphics state
@@ -689,9 +683,7 @@ func (r *renderer) exec(op string, ops []Object) {
 }
 
 func (r *renderer) pushMC(hide bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.pushMC: hide=%t", hide)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.pushMC")
 	if len(r.mcHidden) > 1024 {
 		return
 	}
@@ -708,9 +700,7 @@ func (r *renderer) isHidden() bool {
 
 // colorOperands reads sc / scn operands; a trailing name selects a pattern
 func (r *renderer) colorOperands(ops []Object, cs colorSpace) ([]float64, Object) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.colorOperands: len(ops)=%d", len(ops))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.colorOperands")
 	var pat Object
 	if len(ops) > 0 {
 		if n, ok := ops[len(ops)-1].(Name); ok {
@@ -722,9 +712,7 @@ func (r *renderer) colorOperands(ops []Object, cs colorSpace) ([]float64, Object
 }
 
 func (r *renderer) updateColor(fill bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.updateColor: fill=%t", fill)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.updateColor")
 	gs := r.gs
 	cs, comps := gs.strokeCS, gs.stroke
 	if fill {
@@ -845,9 +833,7 @@ func (r *renderer) fontFromObject(o Object) *pdfFont {
 // raster rasterizes within the render's time budget; running out stops
 // the render
 func (r *renderer) raster(polys []polyline, evenOdd bool, bounds image.Rectangle) *mask {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.raster: len(polys)=%d evenOdd=%t", len(polys), evenOdd)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.raster")
 	if r.stopped {
 		return nil
 	}
@@ -878,9 +864,7 @@ func (r *renderer) paintBounds() image.Rectangle {
 }
 
 func (r *renderer) fillPath(evenOdd bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.fillPath: evenOdd=%t", evenOdd)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.fillPath")
 	if r.isHidden() || r.path.empty() || r.gs.fillNone {
 		return
 	}
@@ -994,9 +978,7 @@ func (r *renderer) strokeShape(p *path, pm matrix) {
 
 // paintCoverage composites the current fill or stroke colour (or pattern)
 func (r *renderer) paintCoverage(cov *mask, fill bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.paintCoverage: fill=%t", fill)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.paintCoverage")
 	if cov == nil {
 		return
 	}
@@ -1039,9 +1021,7 @@ func (r *renderer) nextLine() {
 }
 
 func (r *renderer) textAdjust(n float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.textAdjust: n=%g", n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.textAdjust")
 	gs := r.gs
 	if gs.font != nil && gs.font.vertical {
 		r.tm = matrix{1, 0, 0, 1, 0, -n / 1000 * gs.fs}.mul(r.tm)
@@ -1051,9 +1031,7 @@ func (r *renderer) textAdjust(n float64) {
 }
 
 func (r *renderer) showText(s []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.showText: len(s)=%d", len(s))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.showText")
 	gs := r.gs
 	f := gs.font
 	if f == nil {
@@ -1132,6 +1110,7 @@ func (r *renderer) drawType3Glyph(f *pdfFont, c charCode, trm matrix) {
 	}
 	data, err := r.d.decodeStream(s, 16<<20)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return
 	}
 	res := f.t3res

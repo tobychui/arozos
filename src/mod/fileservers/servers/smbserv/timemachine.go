@@ -31,8 +31,8 @@ const (
 )
 
 // appleOn reports whether the Apple extensions are on.
-func (m *Manager) appleOn() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.appleOn")
+func (m *Manager) appleOn() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.appleOn", "m", m), &out0)
 	on := false
 	if m.opt.Sysdb.KeyExists(settingsTable, "apple") {
 		m.opt.Sysdb.Read(settingsTable, "apple", &on)
@@ -41,8 +41,8 @@ func (m *Manager) appleOn() bool {
 }
 
 // timeMachineLimitGB is the most a user's backups may take, 0 for no limit.
-func (m *Manager) timeMachineLimitGB() int64 {
-	logger.Debug("fileservers/servers/smbserv", "Manager.timeMachineLimitGB")
+func (m *Manager) timeMachineLimitGB() (out0 int64) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.timeMachineLimitGB", "m", m), &out0)
 	var gb int64
 	if m.opt.Sysdb.KeyExists(settingsTable, "tmlimit") {
 		m.opt.Sysdb.Read(settingsTable, "tmlimit", &gb)
@@ -54,10 +54,8 @@ func (m *Manager) timeMachineLimitGB() int64 {
 }
 
 // timeMachineDrive is the drive a user picked for backups, "" for none.
-func (m *Manager) timeMachineDrive(username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.timeMachineDrive: username=%.120q", username)
-	}
+func (m *Manager) timeMachineDrive(username string) (out0 string) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "Manager.timeMachineDrive", "m", m, "username", username), &out0)
 	drive := ""
 	key := timeMachineKeyPrefix + username
 	if m.opt.Sysdb.KeyExists(settingsTable, key) {
@@ -67,17 +65,15 @@ func (m *Manager) timeMachineDrive(username string) string {
 }
 
 // anyTimeMachineDrive reports whether any user picked a drive for backups.
-func (m *Manager) anyTimeMachineDrive() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.anyTimeMachineDrive")
+func (m *Manager) anyTimeMachineDrive() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.anyTimeMachineDrive", "m", m), &out0)
 	entries, err := m.opt.Sysdb.ListTableWithPrefix(settingsTable, timeMachineKeyPrefix)
 	return err == nil && len(entries) > 0
 }
 
 // timeMachinePick implements aroz.Options.TimeMachine.
-func (m *Manager) timeMachinePick(username string) (string, uint64, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.timeMachinePick: username=%.120q", username)
-	}
+func (m *Manager) timeMachinePick(username string) (out0 string, out1 uint64, out2 bool) {
+	defer logger.Out3(logger.In2("fileservers/servers/smbserv", "Manager.timeMachinePick", "m", m, "username", username), &out0, &out1, &out2)
 	if !m.appleOn() {
 		return "", 0, false
 	}
@@ -86,13 +82,12 @@ func (m *Manager) timeMachinePick(username string) (string, uint64, bool) {
 }
 
 // timeMachineDrives lists the drives a user can keep backups on.
-func (m *Manager) timeMachineDrives(username string) []*filesystem.FileSystemHandler {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.timeMachineDrives: username=%.120q", username)
-	}
+func (m *Manager) timeMachineDrives(username string) (out0 []*filesystem.FileSystemHandler) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "Manager.timeMachineDrives", "m", m, "username", username), &out0)
 	out := []*filesystem.FileSystemHandler{}
 	account, _, err := m.opt.LookupUser(username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		return out
 	}
 	for _, fsh := range account.GetAllFileSystemHandler() {
@@ -116,11 +111,10 @@ type TimeMachineStatus struct {
 // HandleTimeMachine shows or changes the drive the signed in user keeps
 // Time Machine backups on. POST drive picks one, an empty drive none.
 func (m *Manager) HandleTimeMachine(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleTimeMachine: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleTimeMachine", "m", m, "r", r))
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -165,8 +159,8 @@ func (m *Manager) HandleTimeMachine(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseTimeMachineLimit reads the size limit field of the settings form.
-func parseTimeMachineLimit(text string) (int64, bool) {
-	logger.Debug("fileservers/servers/smbserv", "parseTimeMachineLimit")
+func parseTimeMachineLimit(text string) (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In1("fileservers/servers/smbserv", "parseTimeMachineLimit", "text", text), &out0, &out1)
 	gb, err := strconv.ParseInt(strings.TrimSpace(text), 10, 64)
 	if err != nil || gb < 0 || gb > maxTimeMachineLimitGB {
 		return 0, false

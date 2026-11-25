@@ -76,10 +76,8 @@ const defaultJSONBody = `{"id":"{{id}}","title":"{{title}}","message":"{{message
 // RenderTemplate substitutes the notification placeholders in the given
 // template. Values are JSON-string-escaped so that the default JSON body stays
 // valid even when titles or messages contain quotes or backslashes.
-func RenderTemplate(template string, payload *notification.NotificationPayload) string {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/webhookn", "RenderTemplate: template=%.120q", template)
-	}
+func RenderTemplate(template string, payload *notification.NotificationPayload) (out0 string) {
+	defer logger.Out1(logger.In2("notification/agents/webhookn", "RenderTemplate", "template", template, "payload", payload), &out0)
 	priority := notification.PriorityToString(notification.NormalizePriority(payload.Priority))
 	replacer := strings.NewReplacer(
 		"{{id}}", jsonEscape(payload.ID),
@@ -94,10 +92,8 @@ func RenderTemplate(template string, payload *notification.NotificationPayload) 
 
 // jsonEscape escapes the minimal set of characters required to keep a value
 // safe inside a JSON string literal without pulling in a full JSON encode.
-func jsonEscape(in string) string {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/webhookn", "jsonEscape: in=%.120q", in)
-	}
+func jsonEscape(in string) (out0 string) {
+	defer logger.Out1(logger.In1("notification/agents/webhookn", "jsonEscape", "in", in), &out0)
 	replacer := strings.NewReplacer(
 		"\\", "\\\\",
 		"\"", "\\\"",
@@ -109,10 +105,11 @@ func jsonEscape(in string) string {
 }
 
 // ValidateTarget checks that a webhook target has a usable http/https URL.
-func ValidateTarget(target Target) error {
-	logger.Debug("notification/agents/webhookn", "ValidateTarget")
+func ValidateTarget(target Target) (out0 error) {
+	defer logger.Out1(logger.In1("notification/agents/webhookn", "ValidateTarget", "&target", &target), &out0)
 	u, err := url.Parse(strings.TrimSpace(target.URL))
 	if err != nil {
+		logger.DebugErr("notification/agents/webhookn", err)
 		return errors.New("invalid webhook URL: " + err.Error())
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
@@ -124,8 +121,8 @@ func ValidateTarget(target Target) error {
 	return nil
 }
 
-func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) error {
-	logger.Debug("notification/agents/webhookn", "Agent.ConsumerNotification")
+func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) (out0 error) {
+	defer logger.Out1(logger.In2("notification/agents/webhookn", "Agent.ConsumerNotification", "a", a, "incomingNotification", incomingNotification), &out0)
 	if a.UsernameToTarget == nil {
 		return errors.New("Webhook agent has no target resolver")
 	}
@@ -139,6 +136,7 @@ func (a *Agent) ConsumerNotification(incomingNotification *notification.Notifica
 		}
 
 		if err := a.deliver(target, incomingNotification); err != nil {
+			logger.DebugErr("notification/agents/webhookn", err)
 			logger.PrintAndLog("Webhook", "[Webhook Notification] Failed to notify "+username+": "+err.Error(), nil)
 			lastErr = err
 		}
@@ -147,9 +145,10 @@ func (a *Agent) ConsumerNotification(incomingNotification *notification.Notifica
 }
 
 // deliver performs a single webhook HTTP request for the given target.
-func (a *Agent) deliver(target Target, payload *notification.NotificationPayload) error {
-	logger.Debug("notification/agents/webhookn", "Agent.deliver")
+func (a *Agent) deliver(target Target, payload *notification.NotificationPayload) (out0 error) {
+	defer logger.Out1(logger.In3("notification/agents/webhookn", "Agent.deliver", "a", a, "&target", &target, "payload", payload), &out0)
 	if err := ValidateTarget(target); err != nil {
+		logger.DebugErr("notification/agents/webhookn", err)
 		return err
 	}
 
@@ -177,6 +176,7 @@ func (a *Agent) deliver(target Target, payload *notification.NotificationPayload
 
 		resp, err := client.Get(u.String())
 		if err != nil {
+			logger.DebugErr("notification/agents/webhookn", err)
 			return err
 		}
 		defer resp.Body.Close()
@@ -196,12 +196,14 @@ func (a *Agent) deliver(target Target, payload *notification.NotificationPayload
 
 	req, err := http.NewRequest(http.MethodPost, target.URL, strings.NewReader(body))
 	if err != nil {
+		logger.DebugErr("notification/agents/webhookn", err)
 		return err
 	}
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.DebugErr("notification/agents/webhookn", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -209,10 +211,8 @@ func (a *Agent) deliver(target Target, payload *notification.NotificationPayload
 }
 
 // checkStatus treats any 2xx response as success.
-func checkStatus(status int) error {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/webhookn", "checkStatus: status=%d", status)
-	}
+func checkStatus(status int) (out0 error) {
+	defer logger.Out1(logger.In1("notification/agents/webhookn", "checkStatus", "status", status), &out0)
 	if status >= 200 && status < 300 {
 		return nil
 	}

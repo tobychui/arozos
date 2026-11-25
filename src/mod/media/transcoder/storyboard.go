@@ -36,9 +36,7 @@ import (
 // to. The trailing separator matches how the metadata package builds its own
 // cache paths, so callers can concatenate a filename directly.
 func StoryboardCacheFolder(videoRealPath string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("media/transcoder", "StoryboardCacheFolder: videoRealPath=%.120q", videoRealPath)
-	}
+	logger.DebugTrace("media/transcoder", "StoryboardCacheFolder")
 	return filepath.ToSlash(
 		filepath.Join(filepath.Clean(filepath.Dir(videoRealPath)), "/.metadata/.storyboard/")) + "/"
 }
@@ -80,10 +78,8 @@ type StoryboardLayout struct {
 // if the tile count would exceed storyboardMaxTiles.
 //
 // Kept free of ffmpeg so the sizing rules can be unit-tested directly.
-func PlanStoryboard(duration float64) (StoryboardLayout, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "PlanStoryboard: duration=%g", duration)
-	}
+func PlanStoryboard(duration float64) (out0 StoryboardLayout, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "PlanStoryboard", "duration", duration), &out0, &out1)
 	if duration <= 0 || math.IsNaN(duration) || math.IsInf(duration, 0) {
 		return StoryboardLayout{}, errors.New("invalid duration")
 	}
@@ -135,12 +131,11 @@ func PlanStoryboard(duration float64) (StoryboardLayout, error) {
 // this affordable: a full decode of a two-hour software-decoded H.265 file would
 // take many minutes, while a keyframe-only pass runs an order of magnitude
 // faster and is more than accurate enough for thumbnails.
-func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]byte, StoryboardLayout, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "GenerateStoryboard: inputFile=%.120q workDir=%.120q duration=%g", inputFile, workDir, duration)
-	}
+func GenerateStoryboard(inputFile string, workDir string, duration float64) (out0 []byte, out1 StoryboardLayout, out2 error) {
+	defer logger.Out3(logger.In3("media/transcoder", "GenerateStoryboard", "inputFile", inputFile, "workDir", workDir, "duration", duration), &out0, &out1, &out2)
 	layout, err := PlanStoryboard(duration)
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, StoryboardLayout{}, err
 	}
 
@@ -148,12 +143,14 @@ func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]b
 		workDir = os.TempDir()
 	}
 	if err := os.MkdirAll(workDir, 0775); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, StoryboardLayout{}, fmt.Errorf("scratch directory unavailable: %w", err)
 	}
 
 	// The .jpg suffix matters: ffmpeg picks its muxer from the output extension.
 	scratch, err := os.CreateTemp(workDir, "storyboard-*.jpg")
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, StoryboardLayout{}, fmt.Errorf("could not create scratch file: %w", err)
 	}
 	scratchPath := scratch.Name()
@@ -178,6 +175,7 @@ func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]b
 	)
 
 	if out, err := cmd.CombinedOutput(); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, StoryboardLayout{}, errors.New("storyboard generation timed out")
 		}
@@ -186,6 +184,7 @@ func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]b
 
 	sheet, err := os.ReadFile(scratchPath)
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, StoryboardLayout{}, fmt.Errorf("storyboard not written: %w", err)
 	}
 	if len(sheet) == 0 {
@@ -196,6 +195,7 @@ func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]b
 	// aspect ratio, which we do not know until ffmpeg has scaled a frame.
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(sheet))
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, StoryboardLayout{}, fmt.Errorf("unreadable storyboard: %w", err)
 	}
 	if cfg.Width <= 0 || cfg.Height <= 0 || layout.Cols <= 0 || layout.Rows <= 0 {
@@ -213,10 +213,8 @@ func GenerateStoryboard(inputFile string, workDir string, duration float64) ([]b
 
 // lastLines trims ffmpeg's very verbose output down to the tail, which is where
 // the actual failure reason lives.
-func lastLines(s string, n int) string {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "lastLines: s=%.120q n=%d", s, n)
-	}
+func lastLines(s string, n int) (out0 string) {
+	defer logger.Out1(logger.In2("media/transcoder", "lastLines", "s", s, "n", n), &out0)
 	if s == "" {
 		return ""
 	}

@@ -70,8 +70,8 @@ type requestCanceler interface {
 // NewReverseProxy does not rewrite the Host header.
 // To rewrite Host headers, use ReverseProxy directly with a custom
 // Director policy.
-func NewReverseProxy(target *url.URL) *ReverseProxy {
-	logger.Debug("network/reverseproxy", "NewReverseProxy")
+func NewReverseProxy(target *url.URL) (out0 *ReverseProxy) {
+	defer logger.Out1(logger.In1("network/reverseproxy", "NewReverseProxy", "target", target), &out0)
 	targetQuery := target.RawQuery
 	director := func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
@@ -96,10 +96,8 @@ func NewReverseProxy(target *url.URL) *ReverseProxy {
 	return &ReverseProxy{Director: director}
 }
 
-func singleJoiningSlash(a, b string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/reverseproxy", "singleJoiningSlash: a=%.120q b=%.120q", a, b)
-	}
+func singleJoiningSlash(a, b string) (out0 string) {
+	defer logger.Out1(logger.In2("network/reverseproxy", "singleJoiningSlash", "a", a, "b", b), &out0)
 	aslash := strings.HasSuffix(a, "/")
 	bslash := strings.HasPrefix(b, "/")
 	switch {
@@ -112,7 +110,7 @@ func singleJoiningSlash(a, b string) string {
 }
 
 func copyHeader(dst, src http.Header) {
-	logger.Debug("network/reverseproxy", "copyHeader")
+	defer logger.Out0(logger.In2("network/reverseproxy", "copyHeader", "&dst", &dst, "&src", &src))
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
@@ -135,7 +133,7 @@ var hopHeaders = []string{
 }
 
 func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
-	logger.Debug("network/reverseproxy", "ReverseProxy.copyResponse")
+	defer logger.Out0(logger.In3("network/reverseproxy", "ReverseProxy.copyResponse", "p", p, "dst", dst, "src", src))
 	if p.FlushInterval != 0 {
 		if wf, ok := dst.(writeFlusher); ok {
 			mlw := &maxLatencyWriter{
@@ -166,16 +164,14 @@ type maxLatencyWriter struct {
 }
 
 func (m *maxLatencyWriter) Write(b []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/reverseproxy", "maxLatencyWriter.Write: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("network/reverseproxy", "maxLatencyWriter.Write")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.dst.Write(b)
 }
 
 func (m *maxLatencyWriter) flushLoop() {
-	logger.Debug("network/reverseproxy", "maxLatencyWriter.flushLoop")
+	defer logger.Out0(logger.In1("network/reverseproxy", "maxLatencyWriter.flushLoop", "m", m))
 	t := time.NewTicker(m.latency)
 	defer t.Stop()
 	for {
@@ -199,9 +195,7 @@ func (m *maxLatencyWriter) stop() {
 }
 
 func (p *ReverseProxy) logf(format string, args ...interface{}) {
-	if logger.IsDebug() {
-		logger.Debugf("network/reverseproxy", "ReverseProxy.logf: format=%.120q len(args)=%d", format, len(args))
-	}
+	defer logger.Out0(logger.In3("network/reverseproxy", "ReverseProxy.logf", "p", p, "format", format, "args", args))
 	if p.ErrorLog != nil {
 		p.ErrorLog.Printf(format, args...)
 	} else {
@@ -210,7 +204,7 @@ func (p *ReverseProxy) logf(format string, args ...interface{}) {
 }
 
 func removeHeaders(header http.Header) {
-	logger.Debug("network/reverseproxy", "removeHeaders")
+	defer logger.Out0(logger.In1("network/reverseproxy", "removeHeaders", "&header", &header))
 	// Remove hop-by-hop headers listed in the "Connection" header.
 	if c := header.Get("Connection"); c != "" {
 		for _, f := range strings.Split(c, ",") {
@@ -234,9 +228,7 @@ func removeHeaders(header http.Header) {
 }
 
 func addXForwardedForHeader(req *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/reverseproxy", "addXForwardedForHeader: req=%s", logger.RequestSummary(req))
-	}
+	defer logger.Out0(logger.In1("network/reverseproxy", "addXForwardedForHeader", "req", req))
 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
 		// If we aren't the first proxy retain prior
 		// X-Forwarded-For information as a comma+space
@@ -248,10 +240,8 @@ func addXForwardedForHeader(req *http.Request) {
 	}
 }
 
-func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/reverseproxy", "ReverseProxy.ProxyHTTP: req=%s", logger.RequestSummary(req))
-	}
+func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) (out0 error) {
+	defer logger.Out1(logger.In2("network/reverseproxy", "ReverseProxy.ProxyHTTP", "p", p, "req", req), &out0)
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -294,6 +284,7 @@ func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) erro
 
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
+		logger.DebugErr("network/reverseproxy", err)
 		p.logf("http: proxy error: %v", err)
 		rw.WriteHeader(http.StatusBadGateway)
 		return err
@@ -304,6 +295,7 @@ func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) erro
 
 	if p.ModifyResponse != nil {
 		if err := p.ModifyResponse(res); err != nil {
+			logger.DebugErr("network/reverseproxy", err)
 			p.logf("http: proxy error: %v", err)
 			rw.WriteHeader(http.StatusBadGateway)
 			return err
@@ -339,10 +331,8 @@ func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) erro
 	return nil
 }
 
-func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/reverseproxy", "ReverseProxy.ProxyHTTPS: req=%s", logger.RequestSummary(req))
-	}
+func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) (out0 error) {
+	defer logger.Out1(logger.In2("network/reverseproxy", "ReverseProxy.ProxyHTTPS", "p", p, "req", req), &out0)
 	hij, ok := rw.(http.Hijacker)
 	if !ok {
 		p.logf("http server does not support hijacker")
@@ -351,12 +341,14 @@ func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) err
 
 	clientConn, _, err := hij.Hijack()
 	if err != nil {
+		logger.DebugErr("network/reverseproxy", err)
 		p.logf("http: proxy error: %v", err)
 		return err
 	}
 
 	proxyConn, err := net.Dial("tcp", req.URL.Host)
 	if err != nil {
+		logger.DebugErr("network/reverseproxy", err)
 		p.logf("http: proxy error: %v", err)
 		return err
 	}
@@ -374,18 +366,21 @@ func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) err
 
 	err = clientConn.SetDeadline(deadline)
 	if err != nil {
+		logger.DebugErr("network/reverseproxy", err)
 		p.logf("http: proxy error: %v", err)
 		return err
 	}
 
 	err = proxyConn.SetDeadline(deadline)
 	if err != nil {
+		logger.DebugErr("network/reverseproxy", err)
 		p.logf("http: proxy error: %v", err)
 		return err
 	}
 
 	_, err = clientConn.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
 	if err != nil {
+		logger.DebugErr("network/reverseproxy", err)
 		p.logf("http: proxy error: %v", err)
 		return err
 	}
@@ -403,10 +398,8 @@ func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) err
 	return nil
 }
 
-func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/reverseproxy", "ReverseProxy.ServeHTTP: req=%s", logger.RequestSummary(req))
-	}
+func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) (out0 error) {
+	defer logger.Out1(logger.In2("network/reverseproxy", "ReverseProxy.ServeHTTP", "p", p, "req", req), &out0)
 	if req.Method == "CONNECT" {
 		err := p.ProxyHTTPS(rw, req)
 		return err

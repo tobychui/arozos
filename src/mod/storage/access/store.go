@@ -37,22 +37,22 @@ type Store struct {
 
 // NewStore opens the rule file. A file that does not exist yet is an empty
 // store; check Err for one that could not be read.
-func NewStore(filename string) *Store {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "NewStore: filename=%.120q", filename)
-	}
+func NewStore(filename string) (out0 *Store) {
+	defer logger.Out1(logger.In1("storage/access", "NewStore", "filename", filename), &out0)
 	s := &Store{filename: filename, drives: map[string]Rule{}}
 	content, err := os.ReadFile(filename)
 	if errors.Is(err, os.ErrNotExist) {
 		return s
 	}
 	if err != nil {
+		logger.DebugErr("storage/access", err)
 		s.loadErr = err
 		return s
 	}
 
 	loaded := storeFile{}
 	if err := json.Unmarshal(content, &loaded); err != nil {
+		logger.DebugErr("storage/access", err)
 		s.loadErr = err
 		return s
 	}
@@ -62,6 +62,7 @@ func NewStore(filename string) *Store {
 	}
 	for uuid, rule := range loaded.Drives {
 		if err := rule.Validate(); err != nil {
+			logger.DebugErr("storage/access", err)
 			s.loadErr = fmt.Errorf("rule of drive %s: %w", uuid, err)
 			return s
 		}
@@ -71,18 +72,16 @@ func NewStore(filename string) *Store {
 }
 
 // Err returns why the rule file could not be read, or nil
-func (s *Store) Err() error {
-	logger.DebugTrace("storage/access", "Store.Err")
+func (s *Store) Err() (out0 error) {
+	defer logger.Out1(logger.In1("storage/access", "Store.Err", "s", s), &out0)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.loadErr
 }
 
 // Rule implements Source
-func (s *Store) Rule(uuid string) (Rule, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "Store.Rule: uuid=%.120q", uuid)
-	}
+func (s *Store) Rule(uuid string) (out0 Rule, out1 bool) {
+	defer logger.Out2(logger.In2("storage/access", "Store.Rule", "s", s, "uuid", uuid), &out0, &out1)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.loadErr != nil {
@@ -96,10 +95,8 @@ func (s *Store) Rule(uuid string) (Rule, bool) {
 }
 
 // Set saves the rule of a drive
-func (s *Store) Set(uuid string, rule Rule) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "Store.Set: uuid=%.120q", uuid)
-	}
+func (s *Store) Set(uuid string, rule Rule) (out0 error) {
+	defer logger.Out1(logger.In3("storage/access", "Store.Set", "s", s, "uuid", uuid, "&rule", &rule), &out0)
 	if uuid == "" {
 		return errors.New("drive id is empty")
 	}
@@ -107,6 +104,7 @@ func (s *Store) Set(uuid string, rule Rule) error {
 		return errors.New(uuid + ":/ is open to everyone and has no access list")
 	}
 	if err := rule.Validate(); err != nil {
+		logger.DebugErr("storage/access", err)
 		return err
 	}
 
@@ -118,10 +116,8 @@ func (s *Store) Set(uuid string, rule Rule) error {
 }
 
 // Remove forgets the rule of a drive, which goes back to its default
-func (s *Store) Remove(uuid string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "Store.Remove: uuid=%.120q", uuid)
-	}
+func (s *Store) Remove(uuid string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/access", "Store.Remove", "s", s, "uuid", uuid), &out0)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.drives[uuid]; !ok {
@@ -134,10 +130,8 @@ func (s *Store) Remove(uuid string) error {
 
 // RemoveGroup drops the rows of a deleted group, so that a new group of the
 // same name does not inherit them
-func (s *Store) RemoveGroup(group string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "Store.RemoveGroup: group=%.120q", group)
-	}
+func (s *Store) RemoveGroup(group string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/access", "Store.RemoveGroup", "s", s, "group", group), &out0)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.update(func(drives map[string]Rule) {
@@ -154,8 +148,8 @@ func (s *Store) RemoveGroup(group string) error {
 
 // update applies a change to a copy of the rules and only keeps it once it
 // is on disk. The caller holds the lock.
-func (s *Store) update(change func(drives map[string]Rule)) error {
-	logger.Debug("storage/access", "Store.update")
+func (s *Store) update(change func(drives map[string]Rule)) (out0 error) {
+	defer logger.Out1(logger.In2("storage/access", "Store.update", "s", s, "change", change), &out0)
 	if s.loadErr != nil {
 		return fmt.Errorf("the rule file could not be read, repair or remove %s first: %w", s.filename, s.loadErr)
 	}
@@ -167,6 +161,7 @@ func (s *Store) update(change func(drives map[string]Rule)) error {
 	change(next)
 
 	if err := s.write(next); err != nil {
+		logger.DebugErr("storage/access", err)
 		return err
 	}
 	s.drives = next
@@ -175,30 +170,33 @@ func (s *Store) update(change func(drives map[string]Rule)) error {
 
 // write replaces the rule file in one step, so a crash leaves the old or the
 // new file and never half of one
-func (s *Store) write(drives map[string]Rule) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "Store.write: len(drives)=%d", len(drives))
-	}
+func (s *Store) write(drives map[string]Rule) (out0 error) {
+	defer logger.Out1(logger.In2("storage/access", "Store.write", "s", s, "drives", drives), &out0)
 	content, err := json.MarshalIndent(storeFile{Version: storeVersion, Drives: drives}, "", "  ")
 	if err != nil {
+		logger.DebugErr("storage/access", err)
 		return err
 	}
 
 	dir := filepath.Dir(s.filename)
 	if err := os.MkdirAll(dir, 0775); err != nil {
+		logger.DebugErr("storage/access", err)
 		return err
 	}
 	tmp, err := os.CreateTemp(dir, filepath.Base(s.filename)+".*.tmp")
 	if err != nil {
+		logger.DebugErr("storage/access", err)
 		return err
 	}
 	defer os.Remove(tmp.Name())
 
 	if _, err := tmp.Write(content); err != nil {
+		logger.DebugErr("storage/access", err)
 		tmp.Close()
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		logger.DebugErr("storage/access", err)
 		return err
 	}
 	return os.Rename(tmp.Name(), s.filename)
@@ -224,20 +222,20 @@ not opened to anybody the record does not name.
 It returns how many records were converted. A file that does not exist is not
 an error.
 */
-func (s *Store) MigrateBridges(bridgeFile string, homeOf func(uuid string) (home string, known bool)) (int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/access", "Store.MigrateBridges: bridgeFile=%.120q", bridgeFile)
-	}
+func (s *Store) MigrateBridges(bridgeFile string, homeOf func(uuid string) (home string, known bool)) (out0 int, out1 error) {
+	defer logger.Out2(logger.In3("storage/access", "Store.MigrateBridges", "s", s, "bridgeFile", bridgeFile, "homeOf", homeOf), &out0, &out1)
 	content, err := os.ReadFile(bridgeFile)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	}
 	if err != nil {
+		logger.DebugErr("storage/access", err)
 		return 0, err
 	}
 
 	records := []bridgeRecord{}
 	if err := json.Unmarshal(content, &records); err != nil {
+		logger.DebugErr("storage/access", err)
 		return 0, err
 	}
 
@@ -272,6 +270,7 @@ func (s *Store) MigrateBridges(bridgeFile string, homeOf func(uuid string) (home
 	})
 	s.mu.Unlock()
 	if err != nil {
+		logger.DebugErr("storage/access", err)
 		return 0, err
 	}
 

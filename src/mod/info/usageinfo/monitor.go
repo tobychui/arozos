@@ -24,11 +24,12 @@ var globalCache = &monitorCache{}
 // The HTTP handler can then return cached data without blocking. The samples
 // also feed the in-memory usage history (see GetHistory).
 func StartBackgroundMonitor() {
-	logger.Debug("info/usageinfo", "StartBackgroundMonitor")
+	defer logger.Out0(logger.In0("info/usageinfo", "StartBackgroundMonitor"))
 	startHistoryCommitter()
 	go func() {
 		prevStats, err := getCPUStats()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			// /proc/stat not available (Windows or unsupported platform):
 			// fall back to the blocking platform-specific method.
 			for {
@@ -52,6 +53,7 @@ func StartBackgroundMonitor() {
 
 			currentStats, err := getCPUStats()
 			if err != nil {
+				logger.DebugErr("info/usageinfo", err)
 				continue
 			}
 
@@ -76,7 +78,7 @@ func StartBackgroundMonitor() {
 // ready is false for the first ~1 s after startup; callers may return zero
 // values until then.
 func GetCachedStats() (cpuUsage float64, usedRAM, totalRAM string, ramUsage float64, ready bool) {
-	logger.Debug("info/usageinfo", "GetCachedStats")
+	defer logger.Out4(logger.In0("info/usageinfo", "GetCachedStats"), &cpuUsage, &usedRAM, &totalRAM, &ramUsage)
 	globalCache.mu.RLock()
 	defer globalCache.mu.RUnlock()
 	return globalCache.cpuUsage, globalCache.usedRAM, globalCache.totalRAM, globalCache.ramUsage, globalCache.ready

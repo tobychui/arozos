@@ -49,10 +49,8 @@ var officeLegacyWorkdirs = []string{
 
 // cleanOfficeVpath normalises a vpath for the prefix checks below and
 // rejects anything that climbs out with ".."
-func cleanOfficeVpath(vp string) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "cleanOfficeVpath: vp=%.120q", vp)
-	}
+func cleanOfficeVpath(vp string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In1("agi", "cleanOfficeVpath", "vp", vp), &out0, &out1)
 	vp = strings.ReplaceAll(vp, "\\", "/")
 	for _, seg := range strings.Split(vp, "/") {
 		if seg == ".." {
@@ -70,10 +68,8 @@ func cleanOfficeVpath(vp string) (string, bool) {
 // isOfficeWorkdir reports whether vp is one of the suite's working copies
 // (strictly inside one of their folders): the only places the workdir
 // functions may touch or delete, and the links a save must not lose
-func isOfficeWorkdir(vp string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "isOfficeWorkdir: vp=%.120q", vp)
-	}
+func isOfficeWorkdir(vp string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi", "isOfficeWorkdir", "vp", vp), &out0)
 	clean, ok := cleanOfficeVpath(vp)
 	if !ok {
 		return false
@@ -89,10 +85,8 @@ func isOfficeWorkdir(vp string) bool {
 // isOfficeWorkdirRoot reports whether vp is one of the working roots
 // themselves (tmp:/.appdata/Office/cache, the legacy user:/ folders, ...):
 // those may be swept by age but never touched or deleted whole
-func isOfficeWorkdirRoot(vp string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "isOfficeWorkdirRoot: vp=%.120q", vp)
-	}
+func isOfficeWorkdirRoot(vp string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi", "isOfficeWorkdirRoot", "vp", vp), &out0)
 	clean, ok := cleanOfficeVpath(vp)
 	if !ok {
 		return false
@@ -112,10 +106,8 @@ func isOfficeWorkdirRoot(vp string) bool {
 }
 
 // newestModTime is the most recent modification time in a tree
-func newestModTime(fsa filesystem.FileSystemAbstraction, rpath string) time.Time {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "newestModTime: rpath=%.120q", rpath)
-	}
+func newestModTime(fsa filesystem.FileSystemAbstraction, rpath string) (out0 time.Time) {
+	defer logger.Out1(logger.In2("agi", "newestModTime", "&fsa", &fsa, "rpath", rpath), &out0)
 	var newest time.Time
 	fsa.Walk(rpath, func(p string, info os.FileInfo, err error) error {
 		if err == nil && info != nil && info.ModTime().After(newest) {
@@ -127,7 +119,7 @@ func newestModTime(fsa filesystem.FileSystemAbstraction, rpath string) time.Time
 }
 
 func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler) {
-	logger.Debug("agi", "Gateway.injectOfficeWorkdirFunctions")
+	defer logger.Out0(logger.In4("agi", "Gateway.injectOfficeWorkdirFunctions", "g", g, "vm", vm, "u", u, "scriptFsh", scriptFsh))
 	// resolve checks and resolves one workdir argument
 	resolve := func(raw string, sweep bool) (*filesystem.FileSystemHandler, string, string) {
 		vp := static.RelativeVpathRewrite(scriptFsh, raw, vm, u)
@@ -144,6 +136,7 @@ func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scri
 		}
 		fsh, rpath, err := static.VirtualPathToRealPath(clean, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("PathError", err.Error()))
 		}
 		return fsh, rpath, clean
@@ -174,6 +167,7 @@ func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scri
 			root := clean[:strings.Index(clean, ":/")+2]
 			_, rootR, err := static.VirtualPathToRealPath(root, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				continue
 			}
 			rootR = filepath.Clean(rootR)
@@ -194,6 +188,7 @@ func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scri
 	vm.Set("_office_releaseWorkdir", func(call otto.FunctionCall) otto.Value {
 		raw, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -205,6 +200,7 @@ func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scri
 		}
 		if age <= 0 {
 			if err := fsa.RemoveAll(rpath); err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -213,6 +209,7 @@ func (g *Gateway) injectOfficeWorkdirFunctions(vm *otto.Otto, u *user.User, scri
 		cutoff := time.Now().Add(-time.Duration(age) * time.Second)
 		entries, err := fsa.ReadDir(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}

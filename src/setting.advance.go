@@ -16,7 +16,7 @@ import (
 */
 
 func AdvanceSettingInit() {
-	logger.Debug("Core", "AdvanceSettingInit")
+	defer logger.Out0(logger.In0("Core", "AdvanceSettingInit"))
 	/*
 
 		Define common routers

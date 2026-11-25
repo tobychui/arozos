@@ -34,10 +34,8 @@ const query_phymem_command_darwin = "sysctl hw.memsize | awk '{print $NF}'"
 // darwinUsedBytesFromMemPercentSum converts a ps %mem sum into used bytes.
 // The historical formula treated the sum as a 0–1 fraction
 // (phyMem - phyMem*sum), which goes hugely negative when sum ≈ 80.
-func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "darwinUsedBytesFromMemPercentSum: phyMem=%d sumMemPercent=%g", phyMem, sumMemPercent)
-	}
+func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) (out0 int64) {
+	defer logger.Out1(logger.In2("info/usageinfo", "darwinUsedBytesFromMemPercentSum", "phyMem", phyMem, "sumMemPercent", sumMemPercent), &out0)
 	if phyMem <= 0 {
 		return 0
 	}
@@ -52,8 +50,8 @@ func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) int64
 }
 
 // Get CPU Usage in percentage
-func GetCPUUsage() float64 {
-	logger.Debug("info/usageinfo", "GetCPUUsage")
+func GetCPUUsage() (out0 float64) {
+	defer logger.Out1(logger.In0("info/usageinfo", "GetCPUUsage"), &out0)
 	usage := float64(0)
 	if runtime.GOOS == "windows" {
 		usage = windowsCPUUsage()
@@ -83,6 +81,7 @@ func GetCPUUsage() float64 {
 		cmd := exec.Command("bash", "-c", query_cpuproc_command)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			usage = 0
 		}
 		usageCounter := float64(0)
@@ -117,11 +116,13 @@ func GetCPUUsage() float64 {
 
 		out, err = cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usageCounter
 		}
 		// Divide total CPU usage by processes by total CPU core count
 		coreCount, err := strconv.Atoi(strings.TrimSpace(string(out)))
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			coreCount = 1
 		}
 
@@ -142,8 +143,8 @@ func GetCPUUsage() float64 {
 }
 
 // Get RAM Usage in Numeric values
-func GetNumericRAMUsage() (int64, int64) {
-	logger.Debug("info/usageinfo", "GetNumericRAMUsage")
+func GetNumericRAMUsage() (out0 int64, out1 int64) {
+	defer logger.Out2(logger.In0("info/usageinfo", "GetNumericRAMUsage"), &out0, &out1)
 	usedRam := int64(-1)
 	totalRam := int64(-1)
 	if runtime.GOOS == "windows" {
@@ -156,6 +157,7 @@ func GetNumericRAMUsage() (int64, int64) {
 		cmd := exec.Command("bash", "-c", "free -m | grep Mem:")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 
@@ -173,11 +175,13 @@ func GetNumericRAMUsage() (int64, int64) {
 		if len(data) > 3 {
 			used, err := strconv.ParseInt(data[2], 10, 64)
 			if err != nil {
+				logger.DebugErr("info/usageinfo", err)
 				return -1, -1
 			}
 
 			total, err := strconv.ParseInt(data[1], 10, 64)
 			if err != nil {
+				logger.DebugErr("info/usageinfo", err)
 				return -1, -1
 			}
 
@@ -194,6 +198,7 @@ func GetNumericRAMUsage() (int64, int64) {
 
 		freeMemByteArr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 		freeMemStr := string(freeMemByteArr)
@@ -204,6 +209,7 @@ func GetNumericRAMUsage() (int64, int64) {
 		cmd = exec.Command("bash", "-c", query_phymem_command)
 		phyMemByteArr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 
@@ -227,20 +233,24 @@ func GetNumericRAMUsage() (int64, int64) {
 		cmd := exec.Command("bash", "-c", query_freemem_command_darwin)
 		freeMemStr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 		cmd = exec.Command("bash", "-c", query_phymem_command_darwin)
 		phyMemStr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 
 		freeMem, err := strconv.ParseFloat(strings.TrimSpace(string(freeMemStr)), 10)
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 		phyMem, err := strconv.ParseInt(strings.TrimSpace(string(phyMemStr)), 10, 64)
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam
 		}
 		totalRam = phyMem
@@ -251,8 +261,8 @@ func GetNumericRAMUsage() (int64, int64) {
 }
 
 // Get RAM usage, return used / total / used percentage
-func GetRAMUsage() (string, string, float64) {
-	logger.Debug("info/usageinfo", "GetRAMUsage")
+func GetRAMUsage() (out0 string, out1 string, out2 float64) {
+	defer logger.Out3(logger.In0("info/usageinfo", "GetRAMUsage"), &out0, &out1, &out2)
 	usedRam := "Unknown"
 	totalRam := "Unknown"
 	usedPercentage := float64(0)
@@ -267,6 +277,7 @@ func GetRAMUsage() (string, string, float64) {
 		cmd := exec.Command("bash", "-c", "free -m | grep Mem:")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 
@@ -288,11 +299,13 @@ func GetRAMUsage() (string, string, float64) {
 			//Calculate used memory
 			usedFloat, err := strconv.ParseFloat(data[2], 64)
 			if err != nil {
+				logger.DebugErr("info/usageinfo", err)
 				return usedRam, totalRam, usedPercentage
 			}
 
 			totalFloat, err := strconv.ParseFloat(data[1], 64)
 			if err != nil {
+				logger.DebugErr("info/usageinfo", err)
 				return usedRam, totalRam, usedPercentage
 			}
 
@@ -307,6 +320,7 @@ func GetRAMUsage() (string, string, float64) {
 		cmd := exec.Command("bash", "-c", query_freemem_command)
 		freeMemByteArr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 		freeMemStr := string(freeMemByteArr)
@@ -316,6 +330,7 @@ func GetRAMUsage() (string, string, float64) {
 		cmd = exec.Command("bash", "-c", query_phymem_command)
 		phyMemByteArr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 
@@ -340,19 +355,23 @@ func GetRAMUsage() (string, string, float64) {
 		cmd := exec.Command("bash", "-c", query_freemem_command_darwin)
 		freeMemStr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 		cmd = exec.Command("bash", "-c", query_phymem_command_darwin)
 		phyMemStr, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 		freeMemSizeFloat, err := strconv.ParseFloat(strings.TrimSpace(string(freeMemStr)), 10)
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 		phyMemSizeFloat, err := strconv.ParseFloat(strings.TrimSpace(string(phyMemStr)), 10)
 		if err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return usedRam, totalRam, usedPercentage
 		}
 		phyMemSizeFloat = phyMemSizeFloat / 1048576
@@ -391,12 +410,13 @@ var windowsCPUSample struct {
 // windowsCPUUsage is the CPU load since the previous call. When there is no
 // recent sample (the first call, or calls too close together or too far
 // apart to mean much) it measures over half a second.
-func windowsCPUUsage() float64 {
-	logger.Debug("info/usageinfo", "windowsCPUUsage")
+func windowsCPUUsage() (out0 float64) {
+	defer logger.Out1(logger.In0("info/usageinfo", "windowsCPUUsage"), &out0)
 	windowsCPUSample.Lock()
 	defer windowsCPUSample.Unlock()
 	now, err := wininfo.SystemTimes()
 	if err != nil {
+		logger.DebugErr("info/usageinfo", err)
 		return 0
 	}
 	age := time.Since(windowsCPUSample.at)
@@ -405,6 +425,7 @@ func windowsCPUUsage() float64 {
 		prev = now
 		time.Sleep(500 * time.Millisecond)
 		if now, err = wininfo.SystemTimes(); err != nil {
+			logger.DebugErr("info/usageinfo", err)
 			return 0
 		}
 	}

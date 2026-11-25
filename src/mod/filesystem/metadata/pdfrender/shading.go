@@ -96,9 +96,7 @@ func (d *Document) loadShading(o Object, res Dict) *shading {
 }
 
 func (sh *shading) color(in []float64) solidPaint {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "shading.color: len(in)=%d", len(in))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "shading.color")
 	c := in
 	if sh.fn != nil {
 		c = sh.fn.eval(in)
@@ -114,9 +112,7 @@ type shadingPainter struct {
 }
 
 func (p *shadingPainter) at(x, y int) (float32, float32, float32, float32) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "shadingPainter.at: x=%d y=%d", x, y)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "shadingPainter.at")
 	sx, sy := p.inv.apply(float64(x)+0.5, float64(y)+0.5)
 	sh := p.sh
 	if len(sh.bbox) == 4 {
@@ -241,9 +237,7 @@ func (r *renderer) paintShadingOp(o Object) {
 // drawShading paints a shading (in the space m maps to the device) through
 // a coverage mask
 func (r *renderer) drawShading(sh *shading, cov *mask, m matrix, alpha float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.drawShading: alpha=%g", alpha)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawShading")
 	gs := r.gs
 	if sh.typ >= 4 {
 		r.drawMesh(sh, cov, m, alpha)
@@ -266,9 +260,7 @@ type meshVertex struct {
 }
 
 func (r *renderer) drawMesh(sh *shading, cov *mask, m matrix, alpha float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.drawMesh: alpha=%g", alpha)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawMesh")
 	d := r.d
 	data, err := d.decodeStream(sh.stream, 32<<20)
 	if err != nil && len(data) == 0 {
@@ -457,9 +449,7 @@ func (r *renderer) drawMesh(sh *shading, cov *mask, m matrix, alpha float64) {
 
 // drawPatch splits a Coons patch into a grid of triangles
 func (r *renderer) drawPatch(pts []point, cols [][]float64, tri func(a, b, c meshVertex)) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.drawPatch: len(pts)=%d len(cols)=%d", len(pts), len(cols))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.drawPatch")
 	bez := func(p0, p1, p2, p3 point, t float64) point {
 		mt := 1 - t
 		a, b, c, d := mt*mt*mt, 3*mt*mt*t, 3*mt*t*t, t*t*t
@@ -512,9 +502,7 @@ func (r *renderer) drawPatch(pts []point, cols [][]float64, tri func(a, b, c mes
 }
 
 func (r *renderer) meshTriangle(sh *shading, clip *mask, m matrix, alpha float64, a, b, c meshVertex) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.meshTriangle: alpha=%g", alpha)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.meshTriangle")
 	p := path{}
 	ax, ay := m.apply(a.x, a.y)
 	bx, by := m.apply(b.x, b.y)
@@ -564,9 +552,7 @@ type tilePainter struct {
 }
 
 func (p *tilePainter) at(x, y int) (float32, float32, float32, float32) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "tilePainter.at: x=%d y=%d", x, y)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "tilePainter.at")
 	px, py := p.inv.apply(float64(x)+0.5, float64(y)+0.5)
 	u := math.Mod(px-p.x0, p.xstep)
 	if u < 0 {
@@ -633,9 +619,7 @@ func (r *renderer) patternPainter(pat Object, tint *solidPaint) painter {
 }
 
 func (r *renderer) paintPattern(cov *mask, pat Object, tint *solidPaint, alpha float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.paintPattern: alpha=%g", alpha)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.paintPattern")
 	d := r.d
 	dict := d.dict(pat)
 	if dict == nil {

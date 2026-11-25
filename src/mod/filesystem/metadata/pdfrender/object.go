@@ -56,16 +56,12 @@ var errSyntax = errors.New("pdf syntax error")
 const maxNesting = 128
 
 func isWhite(c byte) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "isWhite: c=%d", c)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "isWhite")
 	return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f' || c == 0
 }
 
 func isDelim(c byte) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "isDelim: c=%d", c)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "isDelim")
 	switch c {
 	case '(', ')', '<', '>', '[', ']', '{', '}', '/', '%':
 		return true
@@ -180,9 +176,7 @@ func (l *lexer) next() token {
 }
 
 func unhex(c byte) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "unhex: c=%d", c)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "unhex")
 	switch {
 	case c >= '0' && c <= '9':
 		return int(c - '0')
@@ -238,9 +232,7 @@ func (l *lexer) number() token {
 // parseNumberToken accepts the malformed numbers real files contain, like
 // "--5", "4.-3" or a lone "-"
 func parseNumberToken(b []byte) token {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "parseNumberToken: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parseNumberToken")
 	isInt := true
 	clean := make([]byte, 0, len(b))
 	seenDigit, seenDot := false, false
@@ -382,9 +374,7 @@ type parser struct {
 }
 
 func newParser(b []byte) *parser {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "newParser: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "newParser")
 	return &parser{lex: &lexer{buf: b}}
 }
 
@@ -399,9 +389,7 @@ func (p *parser) nextToken() token {
 }
 
 func (p *parser) peekToken(n int) token {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "parser.peekToken: n=%d", n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parser.peekToken")
 	for len(p.peek) <= n {
 		p.peek = append(p.peek, p.lex.next())
 	}
@@ -410,9 +398,7 @@ func (p *parser) peekToken(n int) token {
 
 // parseObject reads one object. Keywords come back as keyword values.
 func (p *parser) parseObject(depth int) (Object, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "parser.parseObject: depth=%d", depth)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parser.parseObject")
 	if depth > maxNesting {
 		return nil, errSyntax
 	}
@@ -455,6 +441,7 @@ func (p *parser) parseObject(depth int) (Object, error) {
 			}
 			v, err := p.parseObject(depth + 1)
 			if err != nil {
+				logger.DebugErr("filesystem/metadata/pdfrender", err)
 				return arr, err
 			}
 			arr = append(arr, v)
@@ -484,6 +471,7 @@ func (p *parser) parseObject(depth int) (Object, error) {
 			}
 			v, err := p.parseObject(depth + 1)
 			if err != nil {
+				logger.DebugErr("filesystem/metadata/pdfrender", err)
 				return d, err
 			}
 			if kw, ok := v.(keyword); ok && kw == "null" {

@@ -55,8 +55,8 @@ type Instance struct {
 }
 
 // Initialize a new media server instance
-func NewMediaServer(options *Options) *Instance {
-	logger.Debug("media/mediaserver", "NewMediaServer")
+func NewMediaServer(options *Options) (out0 *Instance) {
+	defer logger.Out1(logger.In1("media/mediaserver", "NewMediaServer", "options", options), &out0)
 	instance := &Instance{
 		options: options,
 		VirtualPathResolver: func(s string) (*fs.FileSystemHandler, string, error) {
@@ -68,6 +68,7 @@ func NewMediaServer(options *Options) *Instance {
 	//the MP4 transcode path keeps working.
 	hlsManager, err := transcoder.NewHLSManager(options.TmpDirectory, HLSSegmentEndpoint)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		options.Logger.PrintAndLog("Media Server", "Unable to initiate HLS session store, HLS output disabled", err)
 	} else {
 		instance.hlsManager = hlsManager
@@ -79,7 +80,7 @@ func NewMediaServer(options *Options) *Instance {
 // Close releases the resources held by this media server, stopping any running
 // HLS transcode and removing its working directory.
 func (s *Instance) Close() {
-	logger.Debug("media/mediaserver", "Instance.Close")
+	defer logger.Out0(logger.In1("media/mediaserver", "Instance.Close", "s", s))
 	if s.hlsManager != nil {
 		s.hlsManager.Close()
 	}
@@ -92,17 +93,17 @@ func (s *Instance) SetVirtualPathResolver(resolver func(string) (*fs.FileSystemH
 }
 
 // This function validate the incoming media request and return fsh, vpath, rpath and err if any
-func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*filesystem.FileSystemHandler, string, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ValidateSourceFile: r=%s", logger.RequestSummary(r))
-	}
+func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (out0 *filesystem.FileSystemHandler, out1 string, out2 string, out3 error) {
+	defer logger.Out4(logger.In2("media/mediaserver", "Instance.ValidateSourceFile", "s", s, "r", r), &out0, &out1, &out2, &out3)
 	username, err := s.options.Authagent.GetUserName(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil, "", "", errors.New("User not logged in")
 	}
 
 	userinfo, err := s.options.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil, "", "", errors.New("User not found")
 	}
 
@@ -125,6 +126,7 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 	//Translate the virtual directory to realpath
 	fsh, subpath, err := s.VirtualPathResolver(targetfile)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil, "", "", errors.New("Unable to load from target file system")
 	}
 	fshAbs := fsh.FileSystemAbstraction
@@ -133,6 +135,7 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 		return nil, "", "", errors.New("Given path is not a file")
 	}
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil, "", "", errors.New("Unable to translate the given filepath")
 	}
 
@@ -156,6 +159,7 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 		possibleVirtualFilePath := urlInfo[len(urlInfo)-1]
 		possibleRealpath, err := fshAbs.VirtualPathToRealPath(possibleVirtualFilePath, userinfo.Username)
 		if err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			s.options.Logger.PrintAndLog("Media Server", "Error when trying to serve file in compatibility mode", err)
 			return nil, "", "", errors.New("Error when trying to serve file in compatibility mode")
 		}
@@ -172,11 +176,10 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 }
 
 func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeMediaMime: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeMediaMime", "s", s, "r", r))
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -198,6 +201,7 @@ func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
 	if !targetFshAbs.IsDir(realFilepath) {
 		m, _, err := fs.GetMime(realFilepath)
 		if err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			mime = ""
 		}
 		mime = m
@@ -208,13 +212,12 @@ func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
 
 // Serve any media from any file system handler to client
 func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServerMedia: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServerMedia", "s", s, "r", r))
 	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	//Serve normal media files
 	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -240,6 +243,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 	if !downloadMode && metadata.IsRawImageFile(realFilepath) {
 		jpegData, err := metadata.RenderRAWImage(targetFsh, realFilepath)
 		if err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			// If RAW rendering fails, fall back to serving the raw file
 			s.options.Logger.PrintAndLog("Media Server", "Failed to render RAW image: "+err.Error(), nil)
 		} else {
@@ -285,6 +289,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
 			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
 			if err != nil {
+				logger.DebugErr("media/mediaserver", err)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}
@@ -328,6 +333,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 
 			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
 			if err != nil {
+				logger.DebugErr("media/mediaserver", err)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}
@@ -345,6 +351,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 			//Streaming from remote file system that support fseek
 			f, err := targetFsh.FileSystemAbstraction.Open(realFilepath)
 			if err != nil {
+				logger.DebugErr("media/mediaserver", err)
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("500 - Internal Server Error"))
 				return
@@ -362,9 +369,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 
 // Serve video file with real-time transcoder
 func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeVideoWithTranscode: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeVideoWithTranscode", "s", s, "r", r))
 	//Resolve to a local file first; ffmpeg cannot read a remote file system
 	sourceFile, ok := s.resolveLocalTranscodeSource(w, r)
 	if !ok {
@@ -405,10 +410,8 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 	*/
 }
 
-func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSystemHandler, rpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.BufferRemoteFileToTmp: buffFile=%.120q rpath=%.120q", buffFile, rpath)
-	}
+func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSystemHandler, rpath string) (out0 error) {
+	defer logger.Out1(logger.In4("media/mediaserver", "Instance.BufferRemoteFileToTmp", "s", s, "buffFile", buffFile, "fsh", fsh, "rpath", rpath), &out0)
 	if fs.FileExists(buffFile + ".download") {
 		return errors.New("another buffer process running")
 	}
@@ -416,6 +419,7 @@ func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSy
 	//Generate a stat file for the buffer
 	hash, err := s.GetHashFromRemoteFile(fsh.FileSystemAbstraction, rpath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		//Do not buffer
 		return err
 	}
@@ -424,6 +428,7 @@ func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSy
 	//Buffer the file from remote to local
 	f, err := fsh.FileSystemAbstraction.ReadStream(rpath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		os.Remove(buffFile + ".hash")
 		return err
 	}
@@ -431,6 +436,7 @@ func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSy
 
 	dest, err := os.OpenFile(buffFile+".download", os.O_CREATE|os.O_WRONLY, 0775)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		os.Remove(buffFile + ".hash")
 		return err
 	}
@@ -469,12 +475,11 @@ func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSy
 	return nil
 }
 
-func (s *Instance) GetHashFromRemoteFile(fshAbs filesystem.FileSystemAbstraction, rpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.GetHashFromRemoteFile: rpath=%.120q", rpath)
-	}
+func (s *Instance) GetHashFromRemoteFile(fshAbs filesystem.FileSystemAbstraction, rpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("media/mediaserver", "Instance.GetHashFromRemoteFile", "s", s, "&fshAbs", &fshAbs, "rpath", rpath), &out0, &out1)
 	filestat, err := fshAbs.Stat(rpath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		//Always pull from remote
 		return "", err
 	}
@@ -494,12 +499,11 @@ func (s *Instance) GetHashFromRemoteFile(fshAbs filesystem.FileSystemAbstraction
 
 // Serve audio file with real-time transcoder, supporting seeking via &start= parameter
 func (s *Instance) ServeAudioWithTranscode(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeAudioWithTranscode: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeAudioWithTranscode", "s", s, "r", r))
 	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -524,6 +528,7 @@ func (s *Instance) ServeAudioWithTranscode(w http.ResponseWriter, r *http.Reques
 	if filesystem.FileExists(realFilepath) {
 		absPath, err := filepath.Abs(realFilepath)
 		if err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -555,6 +560,7 @@ func (s *Instance) ServeAudioWithTranscode(w http.ResponseWriter, r *http.Reques
 	os.MkdirAll(buffpool, 0775)
 	s.options.Logger.PrintAndLog("Media Server", "Buffering audio from remote file system for transcode", nil)
 	if err := s.BufferRemoteFileToTmp(buffFile, targetFsh, realFilepath); err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -564,11 +570,10 @@ func (s *Instance) ServeAudioWithTranscode(w http.ResponseWriter, r *http.Reques
 
 // GetAudioDuration returns the duration of a local audio file in seconds using ffprobe
 func (s *Instance) GetAudioDuration(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.GetAudioDuration: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.GetAudioDuration", "s", s, "r", r))
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -582,6 +587,7 @@ func (s *Instance) GetAudioDuration(w http.ResponseWriter, r *http.Request) {
 
 	duration, err := transcoder.GetAudioDuration(realFilepath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -601,11 +607,10 @@ func (s *Instance) GetAudioDuration(w http.ResponseWriter, r *http.Request) {
 // Nothing is cached: subtitle and font streams are small and extraction is
 // quick relative to the container scan, so a cache would mostly add staleness.
 func (s *Instance) ServeEmbeddedSubtitles(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeEmbeddedSubtitles: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeEmbeddedSubtitles", "s", s, "r", r))
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -628,6 +633,7 @@ func (s *Instance) ServeEmbeddedSubtitles(w http.ResponseWriter, r *http.Request
 
 	info, err := transcoder.ProbeEmbeddedTracksWithFontNames(realFilepath, s.options.TmpDirectory)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, "could not read embedded tracks")
 		return
 	}
@@ -641,9 +647,7 @@ func (s *Instance) ServeEmbeddedSubtitles(w http.ResponseWriter, r *http.Request
 // with &format=ass — copied out in its native form so the player can render the
 // original styling, positioning and layering.
 func (s *Instance) serveEmbeddedSubtitleTrack(w http.ResponseWriter, r *http.Request, realFilepath string, trackParam string) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.serveEmbeddedSubtitleTrack: r=%s realFilepath=%.120q trackParam=%.120q", logger.RequestSummary(r), realFilepath, trackParam)
-	}
+	defer logger.Out0(logger.In4("media/mediaserver", "Instance.serveEmbeddedSubtitleTrack", "s", s, "r", r, "realFilepath", realFilepath, "trackParam", trackParam))
 	streamIndex, err := strconv.Atoi(trackParam)
 	if err != nil || streamIndex < 0 {
 		utils.SendErrorResponse(w, "invalid subtitle track index")
@@ -657,6 +661,7 @@ func (s *Instance) serveEmbeddedSubtitleTrack(w http.ResponseWriter, r *http.Req
 		payload, err = transcoder.ExtractSubtitleTrack(realFilepath, streamIndex)
 	}
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Subtitle",
 			"extraction failed for "+filepath.Base(realFilepath), err)
 		utils.SendErrorResponse(w, "could not extract subtitle track")
@@ -671,9 +676,7 @@ func (s *Instance) serveEmbeddedSubtitleTrack(w http.ResponseWriter, r *http.Req
 // serveEmbeddedFont returns one font attachment so the player can register it
 // with @font-face and render subtitles in the typeface the release shipped.
 func (s *Instance) serveEmbeddedFont(w http.ResponseWriter, realFilepath string, fontParam string) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.serveEmbeddedFont: realFilepath=%.120q fontParam=%.120q", realFilepath, fontParam)
-	}
+	defer logger.Out0(logger.In3("media/mediaserver", "Instance.serveEmbeddedFont", "s", s, "realFilepath", realFilepath, "fontParam", fontParam))
 	fontIndex, err := strconv.Atoi(fontParam)
 	if err != nil || fontIndex < 0 {
 		utils.SendErrorResponse(w, "invalid font attachment index")
@@ -682,6 +685,7 @@ func (s *Instance) serveEmbeddedFont(w http.ResponseWriter, realFilepath string,
 
 	data, err := transcoder.ExtractFontAttachment(realFilepath, fontIndex, s.options.TmpDirectory)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Subtitle",
 			"font extraction failed for "+filepath.Base(realFilepath), err)
 		utils.SendErrorResponse(w, "could not extract font attachment")
@@ -707,11 +711,10 @@ var storyboardLocks sync.Map
 // is discarded along with the folder it belongs to. The ffmpeg cost is therefore
 // paid once per video, not once per session.
 func (s *Instance) ServeStoryboard(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ServeStoryboard: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("media/mediaserver", "Instance.ServeStoryboard", "s", s, "r", r))
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -738,6 +741,7 @@ func (s *Instance) ServeStoryboard(w http.ResponseWriter, r *http.Request) {
 
 	layout, err := s.ensureStoryboard(targetFsh, realFilepath, cacheFolder, imagePath, metaPath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -745,6 +749,7 @@ func (s *Instance) ServeStoryboard(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("image") != "" {
 		stream, err := fshAbs.ReadStream(imagePath)
 		if err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			utils.SendErrorResponse(w, "storyboard image unavailable")
 			return
 		}
@@ -762,10 +767,8 @@ func (s *Instance) ServeStoryboard(w http.ResponseWriter, r *http.Request) {
 
 // ensureStoryboard returns the cached layout for a video, rendering the sheet
 // first if it is missing or out of date.
-func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilepath string, cacheFolder string, imagePath string, metaPath string) (*transcoder.StoryboardLayout, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.ensureStoryboard: realFilepath=%.120q cacheFolder=%.120q imagePath=%.120q metaPath=%.120q", realFilepath, cacheFolder, imagePath, metaPath)
-	}
+func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilepath string, cacheFolder string, imagePath string, metaPath string) (out0 *transcoder.StoryboardLayout, out1 error) {
+	defer logger.Out2(logger.In6("media/mediaserver", "Instance.ensureStoryboard", "s", s, "fsh", fsh, "realFilepath", realFilepath, "cacheFolder", cacheFolder, "imagePath", imagePath, "metaPath", metaPath), &out0, &out1)
 	fshAbs := fsh.FileSystemAbstraction
 
 	if layout := readStoryboardMeta(fshAbs, realFilepath, imagePath, metaPath); layout != nil {
@@ -784,6 +787,7 @@ func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilep
 	}
 
 	if err := fshAbs.MkdirAll(cacheFolder, 0755); err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil, errors.New("could not create storyboard cache folder")
 	}
 	// Keep the metadata folders out of the way in file listings, as the
@@ -802,11 +806,13 @@ func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilep
 	// remote-backed video would leave its cache stranded in the local tmp dir.
 	sheet, layout, err := transcoder.GenerateStoryboard(realFilepath, s.options.TmpDirectory, duration)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Storyboard", "generation failed for "+filepath.Base(realFilepath), err)
 		return nil, errors.New("storyboard generation failed")
 	}
 
 	if err := fshAbs.WriteFile(imagePath, sheet, 0644); err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Storyboard", "could not store sheet for "+filepath.Base(realFilepath), err)
 		return nil, errors.New("could not store storyboard")
 	}
@@ -814,6 +820,7 @@ func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilep
 	// Written after the sheet so a reader never finds metadata without an image.
 	if js, err := json.Marshal(layout); err == nil {
 		if err := fshAbs.WriteFile(metaPath, js, 0644); err != nil {
+			logger.DebugErr("media/mediaserver", err)
 			s.options.Logger.PrintAndLog("Storyboard", "could not store layout for "+filepath.Base(realFilepath), err)
 		}
 	}
@@ -823,10 +830,8 @@ func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilep
 // readStoryboardMeta loads a cached layout, treating a missing, unreadable or
 // stale cache as a miss. A sheet is stale once the video has been modified more
 // recently than the sheet itself, so a re-encode re-renders the previews.
-func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath string, imagePath string, metaPath string) *transcoder.StoryboardLayout {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "readStoryboardMeta: realFilepath=%.120q imagePath=%.120q metaPath=%.120q", realFilepath, imagePath, metaPath)
-	}
+func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath string, imagePath string, metaPath string) (out0 *transcoder.StoryboardLayout) {
+	defer logger.Out1(logger.In4("media/mediaserver", "readStoryboardMeta", "&fshAbs", &fshAbs, "realFilepath", realFilepath, "imagePath", imagePath, "metaPath", metaPath), &out0)
 	if !fshAbs.FileExists(imagePath) || !fshAbs.FileExists(metaPath) {
 		return nil
 	}
@@ -839,10 +844,12 @@ func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath st
 
 	raw, err := fshAbs.ReadFile(metaPath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil
 	}
 	var layout transcoder.StoryboardLayout
 	if err := json.Unmarshal(raw, &layout); err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		return nil
 	}
 	if layout.Interval <= 0 || layout.Count <= 0 || layout.TileWidth <= 0 || layout.TileHeight <= 0 {
@@ -855,9 +862,7 @@ func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath st
 // takes a while, so the ETag of the source file is checked first: a browser
 // that already holds this version gets a 304 without a decode.
 func (s *Instance) serveHEICAsJPEG(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, realFilepath string) {
-	if logger.IsDebug() {
-		logger.Debugf("media/mediaserver", "Instance.serveHEICAsJPEG: r=%s realFilepath=%.120q", logger.RequestSummary(r), realFilepath)
-	}
+	defer logger.Out0(logger.In4("media/mediaserver", "Instance.serveHEICAsJPEG", "s", s, "r", r, "fsh", fsh, "realFilepath", realFilepath))
 	var modTime time.Time
 	if !fsh.RequireBuffer {
 		if info, err := fsh.FileSystemAbstraction.Stat(realFilepath); err == nil {
@@ -872,6 +877,7 @@ func (s *Instance) serveHEICAsJPEG(w http.ResponseWriter, r *http.Request, fsh *
 
 	jpegData, err := metadata.RenderHEICImage(fsh, realFilepath)
 	if err != nil {
+		logger.DebugErr("media/mediaserver", err)
 		s.options.Logger.PrintAndLog("Media Server", "Failed to render HEIC image", err)
 		w.Header().Del("ETag")
 		http.Error(w, "Failed to render HEIC image", http.StatusInternalServerError)

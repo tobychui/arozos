@@ -25,7 +25,7 @@ import (
 )
 
 func DockerServiceInit() {
-	logger.Debug("Core", "DockerServiceInit")
+	defer logger.Out0(logger.In0("Core", "DockerServiceInit"))
 	//Respect the admin kill-switch first, before probing the host.
 	if !*allow_docker_management {
 		return
@@ -36,6 +36,7 @@ func DockerServiceInit() {
 		StackBaseDir: "./system/docker/stacks",
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//Docker not usable on this host. Log once and leave the feature off.
 		systemWideLogger.PrintAndLog("Docker", "Docker management unavailable on this host: "+err.Error(), nil)
 		return

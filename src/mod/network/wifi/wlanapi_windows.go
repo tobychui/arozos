@@ -68,10 +68,8 @@ const (
 var errWlanUnavailable = errors.New("the WLAN API (wlanapi.dll) is not available on this system")
 
 // wlanError turns a WLAN API return code into a readable error
-func wlanError(fn string, code uintptr) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "wlanError: fn=%.120q code=%d", fn, code)
-	}
+func wlanError(fn string, code uintptr) (out0 error) {
+	defer logger.Out1(logger.In2("network/wifi", "wlanError", "fn", fn, "code", code), &out0)
 	switch code {
 	case errorServiceNotActive:
 		return errors.New("the WLAN AutoConfig service (WlanSvc) is not running")
@@ -89,9 +87,10 @@ type wlanClient struct {
 	handle uintptr
 }
 
-func openWlanClient() (*wlanClient, error) {
-	logger.Debug("network/wifi", "openWlanClient")
+func openWlanClient() (out0 *wlanClient, out1 error) {
+	defer logger.Out2(logger.In0("network/wifi", "openWlanClient"), &out0, &out1)
 	if err := modwlanapi.Load(); err != nil {
+		logger.DebugErr("network/wifi", err)
 		return nil, errWlanUnavailable
 	}
 	var negotiated uint32
@@ -109,10 +108,8 @@ func (c *wlanClient) Close() {
 }
 
 // takeMemory copies size bytes of WLAN API allocated memory and frees it
-func takeMemory(p *byte, size int) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "takeMemory: size=%d", size)
-	}
+func takeMemory(p *byte, size int) (out0 []byte) {
+	defer logger.Out1(logger.In2("network/wifi", "takeMemory", "p", p, "size", size), &out0)
 	if p == nil {
 		return nil
 	}
@@ -125,14 +122,12 @@ func takeMemory(p *byte, size int) []byte {
 
 // readUint32At reads a DWORD from WLAN API allocated memory
 func readUint32At(p *byte, offset uintptr) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "readUint32At: offset=%d", offset)
-	}
+	logger.DebugTrace("network/wifi", "readUint32At")
 	return *(*uint32)(unsafe.Add(unsafe.Pointer(p), offset))
 }
 
-func (c *wlanClient) interfaces() ([]wlanInterfaceInfo, error) {
-	logger.Debug("network/wifi", "wlanClient.interfaces")
+func (c *wlanClient) interfaces() (out0 []wlanInterfaceInfo, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "wlanClient.interfaces", "c", c), &out0, &out1)
 	var p *byte
 	r, _, _ := procWlanEnumInterfaces.Call(c.handle, 0, uintptr(unsafe.Pointer(&p)))
 	if r != 0 {
@@ -145,10 +140,8 @@ func (c *wlanClient) interfaces() ([]wlanInterfaceInfo, error) {
 	return parseWlanInterfaceList(takeMemory(p, 8+n*wlanInterfaceInfoSize))
 }
 
-func (c *wlanClient) query(guid *windows.GUID, opcode uint32) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "wlanClient.query: opcode=%d", opcode)
-	}
+func (c *wlanClient) query(guid *windows.GUID, opcode uint32) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In3("network/wifi", "wlanClient.query", "c", c, "guid", guid, "opcode", opcode), &out0, &out1)
 	var size uint32
 	var p *byte
 	r, _, _ := procWlanQueryInterface.Call(c.handle, uintptr(unsafe.Pointer(guid)), uintptr(opcode), 0,
@@ -159,8 +152,8 @@ func (c *wlanClient) query(guid *windows.GUID, opcode uint32) ([]byte, error) {
 	return takeMemory(p, int(size)), nil
 }
 
-func (c *wlanClient) bssList(guid *windows.GUID) ([]wlanBSSEntry, error) {
-	logger.Debug("network/wifi", "wlanClient.bssList")
+func (c *wlanClient) bssList(guid *windows.GUID) (out0 []wlanBSSEntry, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "wlanClient.bssList", "c", c, "guid", guid), &out0, &out1)
 	var p *byte
 	r, _, _ := procWlanGetNetworkBssList.Call(c.handle, uintptr(unsafe.Pointer(guid)), 0, dot11BSSTypeAny, 0, 0, uintptr(unsafe.Pointer(&p)))
 	if r != 0 {
@@ -173,8 +166,8 @@ func (c *wlanClient) bssList(guid *windows.GUID) ([]wlanBSSEntry, error) {
 	return parseWlanBSSList(takeMemory(p, total))
 }
 
-func (c *wlanClient) availableNetworks(guid *windows.GUID) ([]wlanAvailableNetwork, error) {
-	logger.Debug("network/wifi", "wlanClient.availableNetworks")
+func (c *wlanClient) availableNetworks(guid *windows.GUID) (out0 []wlanAvailableNetwork, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "wlanClient.availableNetworks", "c", c, "guid", guid), &out0, &out1)
 	var p *byte
 	r, _, _ := procWlanGetAvailableNetworkList.Call(c.handle, uintptr(unsafe.Pointer(guid)), 0, 0, uintptr(unsafe.Pointer(&p)))
 	if r != 0 {
@@ -187,30 +180,31 @@ func (c *wlanClient) availableNetworks(guid *windows.GUID) ([]wlanAvailableNetwo
 	return parseWlanAvailableNetworkList(takeMemory(p, 8+n*wlanAvailableNetworkSize))
 }
 
-func (c *wlanClient) connection(guid *windows.GUID) (*wlanConnectionAttributes, error) {
-	logger.Debug("network/wifi", "wlanClient.connection")
+func (c *wlanClient) connection(guid *windows.GUID) (out0 *wlanConnectionAttributes, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "wlanClient.connection", "c", c, "guid", guid), &out0, &out1)
 	b, err := c.query(guid, wlanIntfOpcodeCurrentConnection)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return nil, err
 	}
 	return parseWlanConnectionAttributes(b)
 }
 
-func (c *wlanClient) radioState(guid *windows.GUID) ([]wlanPhyRadioState, error) {
-	logger.Debug("network/wifi", "wlanClient.radioState")
+func (c *wlanClient) radioState(guid *windows.GUID) (out0 []wlanPhyRadioState, out1 error) {
+	defer logger.Out2(logger.In2("network/wifi", "wlanClient.radioState", "c", c, "guid", guid), &out0, &out1)
 	b, err := c.query(guid, wlanIntfOpcodeRadioState)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return nil, err
 	}
 	return parseWlanRadioState(b)
 }
 
-func (c *wlanClient) uint32Value(guid *windows.GUID, opcode uint32) (uint32, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "wlanClient.uint32Value: opcode=%d", opcode)
-	}
+func (c *wlanClient) uint32Value(guid *windows.GUID, opcode uint32) (out0 uint32, out1 error) {
+	defer logger.Out2(logger.In3("network/wifi", "wlanClient.uint32Value", "c", c, "guid", guid, "opcode", opcode), &out0, &out1)
 	b, err := c.query(guid, opcode)
 	if err != nil {
+		logger.DebugErr("network/wifi", err)
 		return 0, err
 	}
 	if len(b) < 4 {
@@ -243,10 +237,8 @@ var (
 	wlanScanWaiters    = map[windows.GUID]map[chan struct{}]bool{}
 )
 
-func wlanNotificationHandler(data *wlanNotificationData, context uintptr) uintptr {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "wlanNotificationHandler: context=%d", context)
-	}
+func wlanNotificationHandler(data *wlanNotificationData, context uintptr) (out0 uintptr) {
+	defer logger.Out1(logger.In2("network/wifi", "wlanNotificationHandler", "data", data, "context", context), &out0)
 	if data == nil || data.Source != wlanNotificationSourceACM {
 		return 0
 	}
@@ -266,8 +258,8 @@ func wlanNotificationHandler(data *wlanNotificationData, context uintptr) uintpt
 
 // scan triggers a scan on the interface and waits until it completes (or
 // times out). The results are then read with bssList.
-func (c *wlanClient) scan(guid windows.GUID) error {
-	logger.Debug("network/wifi", "wlanClient.scan")
+func (c *wlanClient) scan(guid windows.GUID) (out0 error) {
+	defer logger.Out1(logger.In2("network/wifi", "wlanClient.scan", "c", c, "&guid", &guid), &out0)
 	wlanNotifyOnce.Do(func() {
 		wlanNotifyCallback = windows.NewCallback(wlanNotificationHandler)
 	})
@@ -329,8 +321,8 @@ type adapterInfo struct {
 
 // adaptersByGUID returns the IP layer view of every adapter, keyed by the
 // upper case "{GUID}" adapter name the WLAN API interface GUIDs map to
-func adaptersByGUID() map[string]adapterInfo {
-	logger.Debug("network/wifi", "adaptersByGUID")
+func adaptersByGUID() (out0 map[string]adapterInfo) {
+	defer logger.Out1(logger.In0("network/wifi", "adaptersByGUID"), &out0)
 	result := map[string]adapterInfo{}
 	size := uint32(16 * 1024)
 	var buf []byte
@@ -393,8 +385,8 @@ func adaptersByGUID() map[string]adapterInfo {
 }
 
 // guidFromBytes converts the in-memory GUID bytes into a windows.GUID
-func guidFromBytes(b [16]byte) windows.GUID {
-	logger.Debug("network/wifi", "guidFromBytes")
+func guidFromBytes(b [16]byte) (out0 windows.GUID) {
+	defer logger.Out1(logger.In1("network/wifi", "guidFromBytes", "&b", &b), &out0)
 	g := windows.GUID{
 		Data1: uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24,
 		Data2: uint16(b[4]) | uint16(b[5])<<8,

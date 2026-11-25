@@ -27,7 +27,7 @@ func FileETag(info os.FileInfo) string {
 // info may be nil when the file cannot be stat cheaply: the check is then still
 // forced, but there is no ETag to compare.
 func SetRevalidationHeaders(w http.ResponseWriter, info os.FileInfo) {
-	logger.Debug("utils", "SetRevalidationHeaders")
+	defer logger.Out0(logger.In1("utils", "SetRevalidationHeaders", "info", info))
 	w.Header().Set("Cache-Control", "private, no-cache")
 	if info != nil && !info.ModTime().IsZero() {
 		w.Header().Set("ETag", FileETag(info))

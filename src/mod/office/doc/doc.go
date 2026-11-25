@@ -58,20 +58,22 @@ var errCorruptFIB = errors.New("the document is damaged: its text counts do not 
 var errEncrypted = errors.New("this document is password protected; remove the password in Word and save it again to open it here")
 
 // ToDocx converts a Word 97-2003 document into a .docx file
-func ToDocx(data []byte) ([]byte, error) {
-	logger.Debug("office/doc", "ToDocx")
+func ToDocx(data []byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/doc", "ToDocx", "data", data), &out0, &out1)
 	d, err := open(data)
 	if err != nil {
+		logger.DebugErr("office/doc", err)
 		return nil, err
 	}
 	return newWriter(d).write()
 }
 
 // Parse converts a Word 97-2003 document into the Docs model
-func Parse(data []byte) (*model.Document, error) {
-	logger.Debug("office/doc", "Parse")
+func Parse(data []byte) (out0 *model.Document, out1 error) {
+	defer logger.Out2(logger.In1("office/doc", "Parse", "data", data), &out0, &out1)
 	x, err := ToDocx(data)
 	if err != nil {
+		logger.DebugErr("office/doc", err)
 		return nil, err
 	}
 	return docx.Parse(x)
@@ -84,6 +86,7 @@ func open(data []byte) (*docFile, error) {
 	}
 	cf, err := cfb.Open(data)
 	if err != nil {
+		logger.DebugErr("office/doc", err)
 		return nil, err
 	}
 	if !cf.Has("WordDocument") {
@@ -91,9 +94,11 @@ func open(data []byte) (*docFile, error) {
 	}
 	d := &docFile{}
 	if d.wd, err = cf.Stream("WordDocument"); err != nil {
+		logger.DebugErr("office/doc", err)
 		return nil, err
 	}
 	if d.fib, err = parseFib(d.wd); err != nil {
+		logger.DebugErr("office/doc", err)
 		return nil, err
 	}
 	if d.fib.encrypted {
@@ -107,6 +112,7 @@ func open(data []byte) (*docFile, error) {
 		return nil, errors.New("the document's table stream is missing")
 	}
 	if d.tbl, err = cf.Stream(tblName); err != nil {
+		logger.DebugErr("office/doc", err)
 		return nil, err
 	}
 	if cf.Has("Data") {
@@ -147,9 +153,7 @@ func open(data []byte) (*docFile, error) {
 
 // clampCP keeps a CP range inside the text
 func (d *docFile) clamp(cp1, cp2 int) (int, int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.clamp: cp1=%d cp2=%d", cp1, cp2)
-	}
+	logger.DebugTrace("office/doc", "docFile.clamp")
 	n := len(d.text)
 	if cp1 < 0 {
 		cp1 = 0

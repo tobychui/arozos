@@ -41,8 +41,8 @@ type Blip struct {
 const maxBlipSize = 256 << 20
 
 // DecodeBlip decodes a BLIP record (types 0xF018 - 0xF117)
-func DecodeBlip(r *Record) (*Blip, error) {
-	logger.Debug("office/internal/officeart", "DecodeBlip")
+func DecodeBlip(r *Record) (out0 *Blip, out1 error) {
+	defer logger.Out2(logger.In1("office/internal/officeart", "DecodeBlip", "r", r), &out0, &out1)
 	if r == nil || r.Type < BlipFirst || r.Type > BlipLast {
 		return nil, errors.New("not a picture record")
 	}
@@ -71,6 +71,7 @@ func DecodeBlip(r *Record) (*Blip, error) {
 		if compression == 0 {
 			out, err := inflate(data, size)
 			if err != nil {
+				logger.DebugErr("office/internal/officeart", err)
 				return nil, err
 			}
 			data = out
@@ -92,6 +93,7 @@ func DecodeBlip(r *Record) (*Blip, error) {
 		case BlipDIB:
 			png, err := metafile.DIBToPNG(data)
 			if err != nil {
+				logger.DebugErr("office/internal/officeart", err)
 				return nil, err
 			}
 			return &Blip{Data: png, Ext: "png"}, nil
@@ -103,9 +105,7 @@ func DecodeBlip(r *Record) (*Blip, error) {
 // sniff corrects the stated format by the content's signature (Office
 // stores GIFs as "PNG" BLIPs)
 func sniff(data []byte, def string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "sniff: def=%.120q", def)
-	}
+	logger.DebugTrace("office/internal/officeart", "sniff")
 	switch {
 	case len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n":
 		return "png"
@@ -120,9 +120,7 @@ func sniff(data []byte, def string) string {
 // inflate undoes the DEFLATE compression of a metafile BLIP: a zlib
 // stream in practice, raw DEFLATE by the letter of the specification
 func inflate(data []byte, size int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "inflate: size=%d", size)
-	}
+	logger.DebugTrace("office/internal/officeart", "inflate")
 	limit := int64(maxBlipSize)
 	if size > 0 && size < maxBlipSize {
 		limit = int64(size) + 1
@@ -142,10 +140,8 @@ func inflate(data []byte, size int) ([]byte, error) {
 
 // ReadBSE decodes one picture store entry; delay is the stream its
 // foDelay offset points into (nil when the host embeds every picture)
-func ReadBSE(r *Record, delay []byte) *Blip {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officeart", "ReadBSE: len(delay)=%d", len(delay))
-	}
+func ReadBSE(r *Record, delay []byte) (out0 *Blip) {
+	defer logger.Out1(logger.In2("office/internal/officeart", "ReadBSE", "r", r, "delay", delay), &out0)
 	if r == nil || r.Type != FBSE || len(r.Data) < 36 {
 		return nil
 	}
@@ -176,6 +172,7 @@ func ReadBSE(r *Record, delay []byte) *Blip {
 	}
 	blip, err := DecodeBlip(blipRec)
 	if err != nil {
+		logger.DebugErr("office/internal/officeart", err)
 		return nil
 	}
 	blip.Name = name
@@ -184,10 +181,8 @@ func ReadBSE(r *Record, delay []byte) *Blip {
 
 // BStore decodes the picture store of a drawing group container; entry i
 // is the picture shapes call pib i+1 (nil where it cannot be read)
-func BStore(dgg *Record, delay []byte) []*Blip {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officeart", "BStore: len(delay)=%d", len(delay))
-	}
+func BStore(dgg *Record, delay []byte) (out0 []*Blip) {
+	defer logger.Out1(logger.In2("office/internal/officeart", "BStore", "dgg", dgg, "delay", delay), &out0)
 	store := dgg.Child(BStoreContainer)
 	if store == nil {
 		return nil

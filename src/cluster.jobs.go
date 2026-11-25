@@ -29,10 +29,8 @@ import (
 // clusterJobExecutor runs job scripts through the AGI gateway.
 type clusterJobExecutor struct{}
 
-func (e *clusterJobExecutor) UserExists(owner string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterJobExecutor.UserExists: owner=%.120q", owner)
-	}
+func (e *clusterJobExecutor) UserExists(owner string) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "clusterJobExecutor.UserExists", "e", e, "owner", owner), &out0)
 	if authAgent == nil {
 		return false
 	}
@@ -40,15 +38,14 @@ func (e *clusterJobExecutor) UserExists(owner string) bool {
 }
 
 // Run executes the wrapped job source as the job owner.
-func (e *clusterJobExecutor) Run(ctx context.Context, rec jobs.Record, source string, hooks jobs.ExecHooks) (json.RawMessage, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterJobExecutor.Run: source=%.120q", source)
-	}
+func (e *clusterJobExecutor) Run(ctx context.Context, rec jobs.Record, source string, hooks jobs.ExecHooks) (out0 json.RawMessage, out1 error) {
+	defer logger.Out2(logger.In5("Core", "clusterJobExecutor.Run", "e", e, "ctx", ctx, "&rec", &rec, "source", source, "&hooks", &hooks), &out0, &out1)
 	if AGIGateway == nil {
 		return nil, errors.New("AGI gateway not ready")
 	}
 	u, err := userHandler.GetUserInfoFromUsername(rec.Spec.Owner)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 
@@ -136,10 +133,8 @@ func (e *clusterJobExecutor) Run(ctx context.Context, rec jobs.Record, source st
 
 // clusterJobLocality reports how many bytes of the given cluster paths have a
 // healthy copy on a node, and their total size.
-func clusterJobLocality(paths []string, nodeID string) (int64, int64) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterJobLocality: len(paths)=%d nodeID=%.120q", len(paths), nodeID)
-	}
+func clusterJobLocality(paths []string, nodeID string) (out0 int64, out1 int64) {
+	defer logger.Out2(logger.In2("Core", "clusterJobLocality", "paths", paths, "nodeID", nodeID), &out0, &out1)
 	if clusterMetadata == nil {
 		return 0, 0
 	}
@@ -147,6 +142,7 @@ func clusterJobLocality(paths []string, nodeID string) (int64, int64) {
 	for _, p := range paths {
 		rec, err := clusterMetadata.Stat(p)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			continue
 		}
 		if rec.IsDir {
@@ -169,10 +165,8 @@ func clusterJobLocality(paths []string, nodeID string) (int64, int64) {
 	return onNode, total
 }
 
-func locationOnNode(rec *metadata.FileRecord, nodeID string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "locationOnNode: nodeID=%.120q", nodeID)
-	}
+func locationOnNode(rec *metadata.FileRecord, nodeID string) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "locationOnNode", "rec", rec, "nodeID", nodeID), &out0)
 	for _, l := range rec.HealthyLocations() {
 		if l.NodeID == nodeID {
 			return true
@@ -182,12 +176,11 @@ func locationOnNode(rec *metadata.FileRecord, nodeID string) bool {
 }
 
 // clusterJobCaller maps a request to the logged-in user for the jobs API.
-func clusterJobCaller(w http.ResponseWriter, r *http.Request) (jobs.Caller, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterJobCaller: r=%s", logger.RequestSummary(r))
-	}
+func clusterJobCaller(w http.ResponseWriter, r *http.Request) (out0 jobs.Caller, out1 error) {
+	defer logger.Out2(logger.In1("Core", "clusterJobCaller", "r", r), &out0, &out1)
 	u, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return jobs.Caller{}, err
 	}
 	return jobs.Caller{Username: u.Username, IsAdmin: u.IsAdmin()}, nil
@@ -197,25 +190,26 @@ func clusterJobCaller(w http.ResponseWriter, r *http.Request) (jobs.Caller, erro
 // the job. POST: name, script (vpath), args (JSON), inputs (JSON array),
 // features (comma separated), timeout, priority.
 func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterJobSubmit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "clusterJobSubmit", "r", r))
 	if clusterJobs == nil {
 		utils.SendErrorResponse(w, "cluster jobs not available")
 		return
 	}
 	u, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "not logged in")
 		return
 	}
 	scriptVpath, err := utils.PostPara(r, "script")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "script path required")
 		return
 	}
 	source, err := clusterReadScript(u.Username, scriptVpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -233,6 +227,7 @@ func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	if inputs := r.PostFormValue("inputs"); strings.TrimSpace(inputs) != "" {
 		if err := json.Unmarshal([]byte(inputs), &req.Inputs); err != nil {
+			logger.DebugErr("Core", err)
 			req.Inputs = splitList(inputs)
 		}
 	}
@@ -253,6 +248,7 @@ func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	if ds := strings.TrimSpace(r.PostFormValue("dataset")); ds != "" {
 		if err := clusterDatasetAllowed(u.Username, ds); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -263,6 +259,7 @@ func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, err := clusterJobs.Submit(jobs.SpecFrom(req, u.Username))
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -270,10 +267,8 @@ func clusterJobSubmit(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-func splitList(s string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "splitList: s=%.120q", s)
-	}
+func splitList(s string) (out0 []string) {
+	defer logger.Out1(logger.In1("Core", "splitList", "s", s), &out0)
 	out := []string{}
 	for _, part := range strings.Split(s, ",") {
 		if p := strings.TrimSpace(part); p != "" {
@@ -285,19 +280,19 @@ func splitList(s string) []string {
 
 // clusterSchedExplain answers /system/cluster/sched/explain?job=<id> with the
 // ranking the scheduler would have used for that job.
-func clusterSchedExplain(r *http.Request) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterSchedExplain: r=%s", logger.RequestSummary(r))
-	}
+func clusterSchedExplain(r *http.Request) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In1("Core", "clusterSchedExplain", "r", r), &out0, &out1)
 	if clusterJobs == nil {
 		return nil, errors.New("cluster jobs not available")
 	}
 	id, err := utils.GetPara(r, "job")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, errors.New("a job id is required")
 	}
 	results, err := clusterJobs.Explain(id)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	rec, _ := clusterJobs.Get(id)
@@ -310,12 +305,11 @@ func clusterSchedExplain(r *http.Request) (interface{}, error) {
 }
 
 // clusterReadScript loads a script from a user's file system.
-func clusterReadScript(username string, vpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterReadScript: username=%.120q vpath=%.120q", username, vpath)
-	}
+func clusterReadScript(username string, vpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("Core", "clusterReadScript", "username", username, "vpath", vpath), &out0, &out1)
 	u, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return "", err
 	}
 	if !u.CanRead(vpath) {
@@ -323,10 +317,12 @@ func clusterReadScript(username string, vpath string) (string, error) {
 	}
 	fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return "", err
 	}
 	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return "", err
 	}
 	if !fsh.FileSystemAbstraction.FileExists(rpath) {
@@ -334,6 +330,7 @@ func clusterReadScript(username string, vpath string) (string, error) {
 	}
 	content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return "", err
 	}
 	return string(content), nil

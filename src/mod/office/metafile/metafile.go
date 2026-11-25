@@ -84,15 +84,14 @@ func metafileKind(data []byte) string {
 // Windows metafile is rendered to PNG (or JPEG for a photo) and a TIFF is
 // converted to PNG; any other picture comes back unchanged. ok is false
 // only for a metafile or TIFF that could not be converted.
-func BrowserPicture(data []byte, ext string) ([]byte, string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("office/metafile", "BrowserPicture: ext=%.120q", ext)
-	}
+func BrowserPicture(data []byte, ext string) (out0 []byte, out1 string, out2 bool) {
+	defer logger.Out3(logger.In2("office/metafile", "BrowserPicture", "data", data, "ext", ext), &out0, &out1, &out2)
 	ext = strings.ToLower(ext)
 	kind := metafileKind(data)
 	if kind == "" && (ext == "tif" || ext == "tiff") {
 		out, err := TIFFToPNG(data)
 		if err != nil {
+			logger.DebugErr("office/metafile", err)
 			return data, ext, false
 		}
 		return out, "png", true
@@ -102,6 +101,7 @@ func BrowserPicture(data []byte, ext string) ([]byte, string, bool) {
 	}
 	out, outExt, err := metafileToImage(data)
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return data, ext, false
 	}
 	return out, outExt, true
@@ -112,17 +112,20 @@ func metafileToImage(data []byte) ([]byte, string, error) {
 	logger.DebugTrace("office/metafile", "metafileToImage")
 	img, photo, err := renderMetafile(data)
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, "", err
 	}
 	var buf bytes.Buffer
 	if photo {
 		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
+			logger.DebugErr("office/metafile", err)
 			return nil, "", err
 		}
 		return buf.Bytes(), "jpeg", nil
 	}
 	enc := png.Encoder{CompressionLevel: png.BestSpeed}
 	if err := enc.Encode(&buf, img); err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, "", err
 	}
 	return buf.Bytes(), "png", nil
@@ -152,6 +155,7 @@ func renderMetafile(data []byte) (image.Image, bool, error) {
 		return nil, false, errNotMetafile
 	}
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, false, err
 	}
 	bw, bh := p.baseSize()
@@ -161,6 +165,7 @@ func renderMetafile(data []byte) (image.Image, bool, error) {
 
 	measure := newMfCanvas(bw, bh, 1, true)
 	if err := p.play(measure); err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, false, err
 	}
 	if !measure.drewBitmap && !measure.drewVector {
@@ -180,6 +185,7 @@ func renderMetafile(data []byte) (image.Image, bool, error) {
 
 	c := newMfCanvas(bw, bh, scale, false)
 	if err := p.play(c); err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, false, err
 	}
 	photo := measure.photo && !measure.drewVector
@@ -308,9 +314,7 @@ func defaultMfDC() mfDC {
 }
 
 func colorRef(v uint32) color.NRGBA {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "colorRef: v=%d", v)
-	}
+	logger.DebugTrace("office/metafile", "colorRef")
 	return color.NRGBA{uint8(v), uint8(v >> 8), uint8(v >> 16), 255}
 }
 
@@ -345,9 +349,7 @@ type mfCanvas struct {
 }
 
 func newMfCanvas(bw, bh, scale float64, measure bool) *mfCanvas {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "newMfCanvas: bw=%g bh=%g scale=%g measure=%t", bw, bh, scale, measure)
-	}
+	logger.DebugTrace("office/metafile", "newMfCanvas")
 	c := &mfCanvas{
 		scale:   scale,
 		measure: measure,
@@ -378,9 +380,7 @@ func (c *mfCanvas) px(p mfPt) mfPt {
 
 // pxLen is the output length of a logical length along x and along y
 func (c *mfCanvas) pxLen(v float64) (float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.pxLen: v=%g", v)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.pxLen")
 	o := c.px(mfPt{0, 0})
 	x := c.px(mfPt{v, 0})
 	y := c.px(mfPt{0, v})
@@ -394,9 +394,7 @@ func (c *mfCanvas) save() {
 
 // restore pops to a saved state; rel < 0 counts back from the newest
 func (c *mfCanvas) restore(rel int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.restore: rel=%d", rel)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.restore")
 	if rel >= 0 || len(c.saved) == 0 {
 		rel = -1
 	}
@@ -425,9 +423,7 @@ func (c *mfCanvas) selectObject(o *mfObject) {
 
 // stockObject resolves GetStockObject handles (high bit set)
 func stockObject(h uint32) *mfObject {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "stockObject: h=%d", h)
-	}
+	logger.DebugTrace("office/metafile", "stockObject")
 	white := color.NRGBA{255, 255, 255, 255}
 	gray := func(v uint8) color.NRGBA { return color.NRGBA{v, v, v, 255} }
 	switch h & 0x7FFFFFFF {
@@ -457,9 +453,7 @@ func stockObject(h uint32) *mfObject {
 
 // penFromStyle builds a pen from a GDI pen style, width and colour
 func penFromStyle(style uint32, width float64, col uint32) *mfPen {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "penFromStyle: style=%d width=%g col=%d", style, width, col)
-	}
+	logger.DebugTrace("office/metafile", "penFromStyle")
 	if style&0x0F == 5 { // PS_NULL
 		return &mfPen{null: true}
 	}
@@ -468,9 +462,7 @@ func penFromStyle(style uint32, width float64, col uint32) *mfPen {
 
 // brushFromStyle builds a brush from a GDI brush style and colour
 func brushFromStyle(style uint32, col uint32) *mfBrush {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "brushFromStyle: style=%d col=%d", style, col)
-	}
+	logger.DebugTrace("office/metafile", "brushFromStyle")
 	switch style {
 	case 1: // BS_NULL
 		return &mfBrush{null: true}
@@ -489,9 +481,7 @@ func brushFromStyle(style uint32, col uint32) *mfBrush {
 
 // shape fills (when closed) and outlines a set of logical polygons
 func (c *mfCanvas) shape(polys [][]mfPt, closed bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.shape: len(polys)=%d closed=%t", len(polys), closed)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.shape")
 	px := make([][]mfPt, 0, len(polys))
 	for _, poly := range polys {
 		if len(poly) < 2 {
@@ -518,9 +508,7 @@ func (c *mfCanvas) shape(polys [][]mfPt, closed bool) {
 
 // drawPx fills and / or strokes polygons already in output pixels
 func (c *mfCanvas) drawPx(px [][]mfPt, fill, closed, stroke bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.drawPx: len(px)=%d fill=%t closed=%t stroke=%t", len(px), fill, closed, stroke)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.drawPx")
 	if fill && !c.dc.brush.null && c.dc.brush.col.A > 0 {
 		c.drewVector = true
 		if !c.measure {
@@ -541,9 +529,7 @@ func (c *mfCanvas) drawPx(px [][]mfPt, fill, closed, stroke bool) {
 }
 
 func (c *mfCanvas) fillPolys(px [][]mfPt, col color.NRGBA) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.fillPolys: len(px)=%d", len(px))
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.fillPolys")
 	c.ras.Reset(c.w, c.h)
 	for _, poly := range px {
 		if len(poly) < 3 {
@@ -562,9 +548,7 @@ func (c *mfCanvas) fillPolys(px [][]mfPt, col color.NRGBA) {
 // and a round-ish cap at every vertex, all wound the same way so the
 // overlaps do not cancel out
 func (c *mfCanvas) strokePolys(px [][]mfPt, closed bool, width float64, col color.NRGBA) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.strokePolys: len(px)=%d closed=%t width=%g", len(px), closed, width)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.strokePolys")
 	hw := width / 2
 	c.ras.Reset(c.w, c.h)
 	quad := func(a, b mfPt) {
@@ -614,16 +598,12 @@ func (c *mfCanvas) strokePolys(px [][]mfPt, closed bool, width float64, col colo
 /* ---------------- geometry helpers (logical space) ---------------- */
 
 func rectPoly(l, t, r, b float64) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "rectPoly: l=%g t=%g r=%g b=%g", l, t, r, b)
-	}
+	logger.DebugTrace("office/metafile", "rectPoly")
 	return []mfPt{{l, t}, {r, t}, {r, b}, {l, b}}
 }
 
 func ellipsePoly(l, t, r, b float64) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "ellipsePoly: l=%g t=%g r=%g b=%g", l, t, r, b)
-	}
+	logger.DebugTrace("office/metafile", "ellipsePoly")
 	cx, cy := (l+r)/2, (t+b)/2
 	rx, ry := math.Abs(r-l)/2, math.Abs(b-t)/2
 	n := 64
@@ -636,9 +616,7 @@ func ellipsePoly(l, t, r, b float64) []mfPt {
 }
 
 func roundRectPoly(l, t, r, b, cw, ch float64) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "roundRectPoly: l=%g t=%g r=%g b=%g cw=%g ch=%g", l, t, r, b, cw, ch)
-	}
+	logger.DebugTrace("office/metafile", "roundRectPoly")
 	if r < l {
 		l, r = r, l
 	}
@@ -667,9 +645,7 @@ func roundRectPoly(l, t, r, b, cw, ch float64) []mfPt {
 // arcPoly walks an ellipse counterclockwise (as seen on screen) from the
 // ray through start to the ray through end, as GDI's Arc / Pie / Chord do
 func arcPoly(l, t, r, b float64, start, end mfPt) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "arcPoly: l=%g t=%g r=%g b=%g", l, t, r, b)
-	}
+	logger.DebugTrace("office/metafile", "arcPoly")
 	cx, cy := (l+r)/2, (t+b)/2
 	rx, ry := math.Abs(r-l)/2, math.Abs(b-t)/2
 	if rx == 0 || ry == 0 {
@@ -692,9 +668,7 @@ func arcPoly(l, t, r, b float64, start, end mfPt) []mfPt {
 // bezierPoly flattens cubic segments: pts is a start point followed by
 // (control, control, end) triples
 func bezierPoly(pts []mfPt) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "bezierPoly: len(pts)=%d", len(pts))
-	}
+	logger.DebugTrace("office/metafile", "bezierPoly")
 	if len(pts) == 0 {
 		return nil
 	}
@@ -731,9 +705,7 @@ func (c *mfCanvas) pathMoveTo(p mfPt) {
 
 // pathLineTo appends logical points to the open subpath
 func (c *mfCanvas) pathLineTo(pts ...mfPt) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.pathLineTo: len(pts)=%d", len(pts))
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.pathLineTo")
 	if len(c.path) == 0 || !c.pathOpen[len(c.path)-1] {
 		c.pathMoveTo(c.dc.cur)
 	}
@@ -751,9 +723,7 @@ func (c *mfCanvas) closeFigure() {
 }
 
 func (c *mfCanvas) drawPath(fill, stroke bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.drawPath: fill=%t stroke=%t", fill, stroke)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.drawPath")
 	if len(c.path) == 0 {
 		return
 	}
@@ -792,9 +762,7 @@ const (
 // blit draws src (only srcRect of it) into the logical destination
 // rectangle at (x, y) with size (w, h); a negative size mirrors
 func (c *mfCanvas) blit(src image.Image, srcRect image.Rectangle, x, y, w, h float64, rop uint32, photo bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.blit: x=%g y=%g w=%g h=%g rop=%d photo=%t", x, y, w, h, rop, photo)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.blit")
 	srcRect = srcRect.Canon()
 	b := src.Bounds()
 	if !srcRect.Overlaps(b) {
@@ -890,9 +858,7 @@ func (c *mfCanvas) transform(interp xdraw.Transformer, s2d f64.Aff3, src image.I
 // a result that is still white there stays transparent, so the classic
 // mask (AND) + image (OR) pair keeps its transparent background.
 func (c *mfCanvas) ropPixel(d, s []uint8, rop uint32) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.ropPixel: len(d)=%d len(s)=%d rop=%d", len(d), len(s), rop)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.ropPixel")
 	empty := d[3] == 0
 	var dc [3]uint32
 	for i := 0; i < 3; i++ {
@@ -928,9 +894,7 @@ func (c *mfCanvas) ropPixel(d, s []uint8, rop uint32) {
 
 // patBlt fills a logical rectangle for the source-less raster ops
 func (c *mfCanvas) patBlt(x, y, w, h float64, rop uint32) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.patBlt: x=%g y=%g w=%g h=%g rop=%d", x, y, w, h, rop)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.patBlt")
 	var col color.NRGBA
 	switch rop {
 	case ropPatCopy:
@@ -970,9 +934,7 @@ type dibInfo struct {
 }
 
 func parseDIBHeader(b []byte, usage uint32) (*dibInfo, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "parseDIBHeader: len(b)=%d usage=%d", len(b), usage)
-	}
+	logger.DebugTrace("office/metafile", "parseDIBHeader")
 	if len(b) < 12 {
 		return nil, errors.New("DIB header truncated")
 	}
@@ -1057,11 +1019,10 @@ func parseDIBHeader(b []byte, usage uint32) (*dibInfo, error) {
 // decodePackedDIB decodes a DIB whose pixels follow the header and
 // colour table directly (the WMF layout)
 func decodePackedDIB(b []byte, usage uint32) (image.Image, *dibInfo, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "decodePackedDIB: len(b)=%d usage=%d", len(b), usage)
-	}
+	logger.DebugTrace("office/metafile", "decodePackedDIB")
 	d, err := parseDIBHeader(b, usage)
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, nil, err
 	}
 	if d.headerLen > len(b) {
@@ -1073,11 +1034,10 @@ func decodePackedDIB(b []byte, usage uint32) (image.Image, *dibInfo, error) {
 
 // decodeDIB decodes a DIB with its header and pixels apart (the EMF layout)
 func decodeDIB(bmi, bits []byte, usage uint32) (image.Image, *dibInfo, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "decodeDIB: len(bmi)=%d len(bits)=%d usage=%d", len(bmi), len(bits), usage)
-	}
+	logger.DebugTrace("office/metafile", "decodeDIB")
 	d, err := parseDIBHeader(bmi, usage)
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return nil, nil, err
 	}
 	img, err := d.decode(bits)
@@ -1091,9 +1051,7 @@ func (d *dibInfo) isPhoto() bool {
 }
 
 func (d *dibInfo) decode(bits []byte) (image.Image, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "dibInfo.decode: len(bits)=%d", len(bits))
-	}
+	logger.DebugTrace("office/metafile", "dibInfo.decode")
 	switch d.comp {
 	case 4, 5: // BI_JPEG / BI_PNG
 		img, _, err := image.Decode(bytes.NewReader(bits))
@@ -1216,9 +1174,7 @@ func (d *dibInfo) decode(bits []byte) (image.Image, error) {
 
 // fromIndices builds an image from palette indices laid out bottom-up
 func (d *dibInfo) fromIndices(idx []uint8, w int) (image.Image, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "dibInfo.fromIndices: len(idx)=%d w=%d", len(idx), w)
-	}
+	logger.DebugTrace("office/metafile", "dibInfo.fromIndices")
 	img := image.NewNRGBA(image.Rect(0, 0, d.w, d.h))
 	for y := 0; y < d.h; y++ {
 		sy := d.h - 1 - y
@@ -1241,9 +1197,7 @@ func (d *dibInfo) fromIndices(idx []uint8, w int) (image.Image, error) {
 // decodeRLE expands BI_RLE8 / BI_RLE4 data into one index per pixel, rows
 // in file order (bottom-up)
 func decodeRLE(b []byte, w, h int, four bool) []uint8 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "decodeRLE: len(b)=%d w=%d h=%d four=%t", len(b), w, h, four)
-	}
+	logger.DebugTrace("office/metafile", "decodeRLE")
 	out := make([]uint8, w*h)
 	x, y := 0, 0
 	put := func(v uint8) {
@@ -1354,9 +1308,7 @@ func mfFontFor(f mfFont) *opentype.Font {
 // text draws a run of text at a logical reference point; dx, when given,
 // is the logical advance of each character
 func (c *mfCanvas) text(ref mfPt, s []rune, dx []float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.text: len(s)=%d len(dx)=%d", len(s), len(dx))
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.text")
 	if len(s) == 0 {
 		return
 	}
@@ -1384,6 +1336,7 @@ func (c *mfCanvas) text(ref mfPt, s []rune, dx []float64) {
 	}
 	face, err := opentype.NewFace(fnt, &opentype.FaceOptions{Size: size, DPI: 72, Hinting: font.HintingNone})
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return
 	}
 	defer face.Close()
@@ -1493,9 +1446,7 @@ func (c *mfCanvas) toCSSFlipsY() bool {
 // opaqueBox fills a logical rectangle with the background colour (the
 // ETO_OPAQUE box behind a text run)
 func (c *mfCanvas) opaqueBox(l, t, r, b float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "mfCanvas.opaqueBox: l=%g t=%g r=%g b=%g", l, t, r, b)
-	}
+	logger.DebugTrace("office/metafile", "mfCanvas.opaqueBox")
 	if r == l || b == t {
 		return
 	}

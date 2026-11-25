@@ -11,10 +11,8 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func getPageHeader(pathname string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/dirserv", "getPageHeader: pathname=%.120q", pathname)
-	}
+func getPageHeader(pathname string) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/dirserv", "getPageHeader", "pathname", pathname), &out0)
 	return `<!DOCTYPE HTML>
 	<html>
 		<head>
@@ -64,10 +62,8 @@ func getPageHeader(pathname string) string {
 		`
 }
 
-func getItemHTML(displayText string, link string, isDir bool, modTime string, size string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/dirserv", "getItemHTML: displayText=%.120q link=%.120q isDir=%t modTime=%.120q size=%.120q", displayText, link, isDir, modTime, size)
-	}
+func getItemHTML(displayText string, link string, isDir bool, modTime string, size string) (out0 string) {
+	defer logger.Out1(logger.In5("fileservers/servers/dirserv", "getItemHTML", "displayText", displayText, "link", link, "isDir", isDir, "modTime", modTime, "size", size), &out0)
 	icon := "📄"
 	downloadBtn := ""
 	hiddenStyle := ""
@@ -112,10 +108,8 @@ func getItemHTML(displayText string, link string, isDir bool, modTime string, si
 	</tr>`
 }
 
-func getBackButton(currentPath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/dirserv", "getBackButton: currentPath=%.120q", currentPath)
-	}
+func getBackButton(currentPath string) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/dirserv", "getBackButton", "currentPath", currentPath), &out0)
 	backPath := arozfs.ToSlash(filepath.Dir(currentPath))
 	return `<tr>
 		<td class="fx">←</td>
@@ -123,8 +117,8 @@ func getBackButton(currentPath string) string {
 	</tr>`
 }
 
-func getPageFooter() string {
-	logger.DebugTrace("fileservers/servers/dirserv", "getPageFooter")
+func getPageFooter() (out0 string) {
+	defer logger.Out1(logger.In0("fileservers/servers/dirserv", "getPageFooter"), &out0)
 	return `</table><hr>
 		<img src="/img/public/compatibility.png" style="display: inline-block; width: 120px;"></img>
 		</body>
@@ -135,10 +129,8 @@ func getPageFooter() string {
 	Utilities
 */
 
-func byteCountIEC(b int64) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/dirserv", "byteCountIEC: b=%d", b)
-	}
+func byteCountIEC(b int64) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/dirserv", "byteCountIEC", "b", b), &out0)
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)

@@ -28,8 +28,8 @@ import (
 var wordDecoder = &mime.WordDecoder{CharsetReader: charset.Reader}
 
 // dialIMAP connects, authenticates and identifies a client for an account.
-func (m *Manager) dialIMAP(ctx context.Context, p Principal, account *Account) (*imapclient.Client, error) {
-	logger.Debug("email", "Manager.dialIMAP")
+func (m *Manager) dialIMAP(ctx context.Context, p Principal, account *Account) (out0 *imapclient.Client, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.dialIMAP", "m", m, "ctx", ctx, "&p", &p, "account", account), &out0, &out1)
 	server := account.IMAP
 	if server.Security == SecurityNone && !m.allowInsecure(p) {
 		return nil, ErrInsecureBlocked
@@ -37,10 +37,12 @@ func (m *Manager) dialIMAP(ctx context.Context, p Principal, account *Account) (
 
 	client, err := connectIMAP(ctx, server, m.allowPrivate(p))
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
 	if err := m.authenticateIMAP(ctx, client, account); err != nil {
+		logger.DebugErr("email", err)
 		client.Close()
 		return nil, err
 	}
@@ -54,8 +56,8 @@ func (m *Manager) dialIMAP(ctx context.Context, p Principal, account *Account) (
 }
 
 // connectIMAP opens the transport and waits for the greeting.
-func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (*imapclient.Client, error) {
-	logger.Debug("email", "connectIMAP")
+func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (out0 *imapclient.Client, out1 error) {
+	defer logger.Out2(logger.In3("email", "connectIMAP", "ctx", ctx, "&server", &server, "!allowPrivate", allowPrivate), &out0, &out1)
 	options := &imapclient.Options{WordDecoder: wordDecoder}
 
 	var client *imapclient.Client
@@ -63,22 +65,26 @@ func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (*
 	case SecuritySSL, "":
 		conn, err := dialTLS(ctx, server.Host, server.Port, allowPrivate, "imap")
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, describeDialError("IMAP", server, err)
 		}
 		client = imapclient.New(conn, options)
 	case SecuritySTARTTLS:
 		conn, err := dialGuarded(ctx, server.Host, server.Port, allowPrivate)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, describeDialError("IMAP", server, err)
 		}
 		options.TLSConfig = tlsConfigFor(server.Host, "")
 		client, err = imapclient.NewStartTLS(conn, options)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, describeDialError("IMAP", server, describeTLSError(err))
 		}
 	case SecurityNone:
 		conn, err := dialGuarded(ctx, server.Host, server.Port, allowPrivate)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, describeDialError("IMAP", server, err)
 		}
 		client = imapclient.New(conn, options)
@@ -87,6 +93,7 @@ func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (*
 	}
 
 	if err := client.WaitGreeting(); err != nil {
+		logger.DebugErr("email", err)
 		client.Close()
 		return nil, describeDialError("IMAP", server, err)
 	}
@@ -94,8 +101,8 @@ func connectIMAP(ctx context.Context, server ServerConfig, allowPrivate bool) (*
 }
 
 // authenticateIMAP signs in with a password or an OAuth access token.
-func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Client, account *Account) error {
-	logger.Debug("email", "Manager.authenticateIMAP")
+func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Client, account *Account) (out0 error) {
+	defer logger.Out1(logger.In4("email", "Manager.authenticateIMAP", "m", m, "ctx", ctx, "client", client, "account", account), &out0)
 	username := account.IMAP.Username
 	if username == "" {
 		username = account.Email
@@ -107,6 +114,7 @@ func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Clien
 		var token string
 		token, err = m.oauth.accessToken(ctx, account)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		err = client.Authenticate(newXOAuth2Client(username, token))
@@ -114,6 +122,7 @@ func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Clien
 		var password string
 		password, err = m.box.Open(account.Secret)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return &AuthError{Server: "IMAP", Detail: err.Error()}
 		}
 		caps := client.Caps()
@@ -125,16 +134,15 @@ func (m *Manager) authenticateIMAP(ctx context.Context, client *imapclient.Clien
 	}
 
 	if err != nil {
+		logger.DebugErr("email", err)
 		return classifyLoginError("IMAP", account, err)
 	}
 	return nil
 }
 
 // classifyLoginError marks credential rejections as AuthError with a hint.
-func classifyLoginError(server string, account *Account, err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "classifyLoginError: server=%.120q err=%v", server, err)
-	}
+func classifyLoginError(server string, account *Account, err error) (out0 error) {
+	defer logger.Out1(logger.In3("email", "classifyLoginError", "server", server, "account", account, "err", err), &out0)
 	var statusErr *imap.Error
 	isAuth := false
 	detail := err.Error()
@@ -173,10 +181,8 @@ func classifyLoginError(server string, account *Account, err error) error {
 
 // providerForServer recognises a preset from a server host name, so hints
 // also work for accounts created as "custom" with known servers.
-func providerForServer(host string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "providerForServer: host=%.120q", host)
-	}
+func providerForServer(host string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "providerForServer", "host", host), &out0)
 	host = strings.ToLower(host)
 	for _, preset := range presets {
 		if host == preset.IMAP.Host || host == preset.SMTP.Host {
@@ -187,10 +193,8 @@ func providerForServer(host string) string {
 }
 
 // describeDialError adds the server to connection failures.
-func describeDialError(protocol string, server ServerConfig, err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "describeDialError: protocol=%.120q err=%v", protocol, err)
-	}
+func describeDialError(protocol string, server ServerConfig, err error) (out0 error) {
+	defer logger.Out1(logger.In3("email", "describeDialError", "protocol", protocol, "&server", &server, "err", err), &out0)
 	if errors.Is(err, ErrBlockedAddress) {
 		return err
 	}

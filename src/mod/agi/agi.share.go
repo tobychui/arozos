@@ -12,16 +12,17 @@ import (
 )
 
 func (g *Gateway) ShareLibRegister() {
-	logger.Debug("agi", "Gateway.ShareLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.ShareLibRegister", "g", g))
 	err := g.RegisterLib("share", g.injectShareFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectShareFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectShareFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	//scriptFsh := payload.ScriptFsh
@@ -32,12 +33,14 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 		//Get the vpath of file to share
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.New().MakeCustomError("Unable to decode filepath", "No given filepath for sharing")
 		}
 
 		//Get the timeout from the 2nd parameter for how long this share will exists
 		timeout, err := call.Argument(1).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			//Not defined -> Do not expire
 			timeout = 0
 		}
@@ -54,6 +57,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 			shareID, err = g.Option.ShareManager.CreateNewShare(u, vpathSourceFsh, vpath)
 		}
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", "[AGI] Create Share Failed: "+err.Error(), nil)
 			return otto.New().MakeCustomError("Share failed", err.Error())
 		}
@@ -65,10 +69,12 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_share_removeShare", func(call otto.FunctionCall) otto.Value {
 		shareUUID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.New().MakeCustomError("Failed to remove share", "No share UUID given")
 		}
 		err = g.Option.ShareManager.RemoveShareByUUID(u, shareUUID)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", "[AGI] Share remove failed: "+err.Error(), nil)
 			return otto.New().MakeCustomError("Failed to remove share", err.Error())
 		}
@@ -79,6 +85,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_share_getShareUUID", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", "[AGI] Failed to get share UUID: filepath not given", nil)
 			return otto.NullValue()
 		}
@@ -97,6 +104,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_share_checkShareExists", func(call otto.FunctionCall) otto.Value {
 		shareUUID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.New().MakeCustomError("Failed to check share exists", "No share UUID given")
 		}
 
@@ -108,6 +116,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_share_checkSharePermission", func(call otto.FunctionCall) otto.Value {
 		shareUUID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.New().MakeCustomError("Failed to check share permission", "No share UUID given")
 		}
 
@@ -122,6 +131,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_share_fileIsShared", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.New().MakeCustomError("Failed to check share exists", "No filepath given")
 		}
 

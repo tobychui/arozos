@@ -51,10 +51,8 @@ type composeSaveRequest struct {
 	Content string `json:"content"`
 }
 
-func validateStackName(name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "validateStackName: name=%.120q", name)
-	}
+func validateStackName(name string) (out0 error) {
+	defer logger.Out1(logger.In1("docker", "validateStackName", "name", name), &out0)
 	if name == "" {
 		return errors.New("empty stack name")
 	}
@@ -65,22 +63,18 @@ func validateStackName(name string) error {
 }
 
 func (d *DockerManager) stackDir(name string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.stackDir: name=%.120q", name)
-	}
+	logger.DebugTrace("docker", "DockerManager.stackDir")
 	return filepath.Join(d.Options.StackBaseDir, name)
 }
 
 func (d *DockerManager) composeFilePath(name string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.composeFilePath: name=%.120q", name)
-	}
+	logger.DebugTrace("docker", "DockerManager.composeFilePath")
 	return filepath.Join(d.stackDir(name), composeFileName)
 }
 
 // requireCompose returns an error when the compose v2 plugin is unavailable.
-func (d *DockerManager) requireCompose() error {
-	logger.Debug("docker", "DockerManager.requireCompose")
+func (d *DockerManager) requireCompose() (out0 error) {
+	defer logger.Out1(logger.In1("docker", "DockerManager.requireCompose", "d", d), &out0)
 	if !d.composeAvailable {
 		return errors.New("docker compose v2 plugin is not available on this host")
 	}
@@ -88,11 +82,12 @@ func (d *DockerManager) requireCompose() error {
 }
 
 // ListStacks enumerates stacks under StackBaseDir.
-func (d *DockerManager) ListStacks() ([]StackInfo, error) {
-	logger.Debug("docker", "DockerManager.ListStacks")
+func (d *DockerManager) ListStacks() (out0 []StackInfo, out1 error) {
+	defer logger.Out2(logger.In1("docker", "DockerManager.ListStacks", "d", d), &out0, &out1)
 	results := []StackInfo{}
 	entries, err := filepath.Glob(filepath.Join(d.Options.StackBaseDir, "*"))
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return results, err
 	}
 	for _, dir := range entries {
@@ -114,30 +109,29 @@ func (d *DockerManager) ListStacks() ([]StackInfo, error) {
 }
 
 // stackHasRunning is a best-effort check for whether a stack has live containers.
-func (d *DockerManager) stackHasRunning(name string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.stackHasRunning: name=%.120q", name)
-	}
+func (d *DockerManager) stackHasRunning(name string) (out0 bool) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.stackHasRunning", "d", d, "name", name), &out0)
 	if d.requireCompose() != nil {
 		return false
 	}
 	out, err := runDocker("compose", "-p", name, "-f", d.composeFilePath(name), "ps", "-q")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return false
 	}
 	return len(out) > 0
 }
 
 // GetStackYAML returns the raw compose file content for a stack.
-func (d *DockerManager) GetStackYAML(name string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.GetStackYAML: name=%.120q", name)
-	}
+func (d *DockerManager) GetStackYAML(name string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("docker", "DockerManager.GetStackYAML", "d", d, "name", name), &out0, &out1)
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	data, err := os.ReadFile(d.composeFilePath(name))
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", errors.New("stack not found")
 	}
 	return string(data), nil
@@ -146,14 +140,14 @@ func (d *DockerManager) GetStackYAML(name string) (string, error) {
 // SaveStack validates the YAML with `docker compose config` and, only if valid,
 // writes it to disk. Validation runs against a temp file inside the stack dir so
 // relative paths / env files resolve the same way they will at deploy time.
-func (d *DockerManager) SaveStack(name, content string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.SaveStack: name=%.120q", name)
-	}
+func (d *DockerManager) SaveStack(name, content string) (out0 error) {
+	defer logger.Out1(logger.In3("docker", "DockerManager.SaveStack", "d", d, "name", name, "content", content), &out0)
 	if err := d.requireCompose(); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if content == "" {
@@ -162,22 +156,26 @@ func (d *DockerManager) SaveStack(name, content string) error {
 
 	dir := d.stackDir(name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 
 	tmpPath := filepath.Join(dir, ".docker-compose.yml.tmp")
 	if err := os.WriteFile(tmpPath, []byte(content), 0644); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 
 	//Validate. `config -q` exits non-zero with a descriptive stderr on bad YAML.
 	if _, err := runDocker("compose", "-f", tmpPath, "config", "-q"); err != nil {
+		logger.DebugErr("docker", err)
 		os.Remove(tmpPath)
 		return errors.New("invalid compose file: " + err.Error())
 	}
 
 	//Atomically replace the live file with the validated temp file.
 	if err := os.Rename(tmpPath, d.composeFilePath(name)); err != nil {
+		logger.DebugErr("docker", err)
 		os.Remove(tmpPath)
 		return err
 	}
@@ -185,14 +183,14 @@ func (d *DockerManager) SaveStack(name, content string) error {
 }
 
 // DeployStack brings a stack up in detached mode.
-func (d *DockerManager) DeployStack(name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.DeployStack: name=%.120q", name)
-	}
+func (d *DockerManager) DeployStack(name string) (out0 error) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.DeployStack", "d", d, "name", name), &out0)
 	if err := d.requireCompose(); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if !utils.FileExists(d.composeFilePath(name)) {
@@ -203,14 +201,14 @@ func (d *DockerManager) DeployStack(name string) error {
 }
 
 // DownStack stops and removes a stack's containers (keeps the compose file).
-func (d *DockerManager) DownStack(name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.DownStack: name=%.120q", name)
-	}
+func (d *DockerManager) DownStack(name string) (out0 error) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.DownStack", "d", d, "name", name), &out0)
 	if err := d.requireCompose(); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	_, err := runDocker("compose", "-p", name, "-f", d.composeFilePath(name), "down")
@@ -218,11 +216,10 @@ func (d *DockerManager) DownStack(name string) error {
 }
 
 // DeleteStack brings the stack down and removes its directory entirely.
-func (d *DockerManager) DeleteStack(name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.DeleteStack: name=%.120q", name)
-	}
+func (d *DockerManager) DeleteStack(name string) (out0 error) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.DeleteStack", "d", d, "name", name), &out0)
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	//Best-effort down (ignore error: the stack may already be stopped).
@@ -234,11 +231,10 @@ func (d *DockerManager) DeleteStack(name string) error {
 
 // SetStackDisabled writes or removes the .disabled auto-start marker. Disabling
 // only affects boot-time auto-start; it does not stop a running stack.
-func (d *DockerManager) SetStackDisabled(name string, disabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.SetStackDisabled: name=%.120q disabled=%t", name, disabled)
-	}
+func (d *DockerManager) SetStackDisabled(name string, disabled bool) (out0 error) {
+	defer logger.Out1(logger.In3("docker", "DockerManager.SetStackDisabled", "d", d, "name", name, "disabled", disabled), &out0)
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if !utils.IsDir(d.stackDir(name)) {
@@ -255,14 +251,14 @@ func (d *DockerManager) SetStackDisabled(name string, disabled bool) error {
 }
 
 // StackStatus returns the raw `docker compose ps` JSON for a stack.
-func (d *DockerManager) StackStatus(name string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.StackStatus: name=%.120q", name)
-	}
+func (d *DockerManager) StackStatus(name string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("docker", "DockerManager.StackStatus", "d", d, "name", name), &out0, &out1)
 	if err := d.requireCompose(); err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 	return runDocker("compose", "-p", name, "-f", d.composeFilePath(name), "ps", "--format", "json")
@@ -271,7 +267,7 @@ func (d *DockerManager) StackStatus(name string) ([]byte, error) {
 // AutoStartStacks brings up every non-disabled stack at boot, mirroring
 // SubserviceInit's scan-and-launch loop.
 func (d *DockerManager) AutoStartStacks() {
-	logger.Debug("docker", "DockerManager.AutoStartStacks")
+	defer logger.Out0(logger.In1("docker", "DockerManager.AutoStartStacks", "d", d))
 	if d.requireCompose() != nil {
 		return
 	}
@@ -288,6 +284,7 @@ func (d *DockerManager) AutoStartStacks() {
 		}
 		name := filepath.Base(dir)
 		if err := d.DeployStack(name); err != nil {
+			logger.DebugErr("docker", err)
 			logger.PrintAndLog("Docker", "Failed to auto-start compose stack "+name, err)
 		}
 	}
@@ -297,11 +294,10 @@ func (d *DockerManager) AutoStartStacks() {
 
 // HandleComposeList serves the stack list as JSON.
 func (d *DockerManager) HandleComposeList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleComposeList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleComposeList", "d", d, "r", r))
 	stacks, err := d.ListStacks()
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -311,16 +307,16 @@ func (d *DockerManager) HandleComposeList(w http.ResponseWriter, r *http.Request
 
 // HandleComposeGet returns one stack's YAML (GET: name).
 func (d *DockerManager) HandleComposeGet(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleComposeGet: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleComposeGet", "d", d, "r", r))
 	name, err := utils.GetPara(r, "name")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing stack name")
 		return
 	}
 	content, err := d.GetStackYAML(name)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -330,19 +326,19 @@ func (d *DockerManager) HandleComposeGet(w http.ResponseWriter, r *http.Request)
 
 // HandleComposeSave validates and persists a stack (POST JSON: name, content).
 func (d *DockerManager) HandleComposeSave(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleComposeSave: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleComposeSave", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	var req composeSaveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "invalid request body")
 		return
 	}
 	if err := d.SaveStack(req.Name, req.Content); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -351,19 +347,19 @@ func (d *DockerManager) HandleComposeSave(w http.ResponseWriter, r *http.Request
 
 // handleComposeStackAction is the shared POST handler body for deploy/down/delete.
 func (d *DockerManager) handleComposeStackAction(w http.ResponseWriter, r *http.Request, action func(name string) error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.handleComposeStackAction: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("docker", "DockerManager.handleComposeStackAction", "d", d, "r", r, "action", action))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	name, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing stack name")
 		return
 	}
 	if err := action(name); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -371,42 +367,36 @@ func (d *DockerManager) handleComposeStackAction(w http.ResponseWriter, r *http.
 }
 
 func (d *DockerManager) HandleComposeDeploy(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleComposeDeploy: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleComposeDeploy")
 	d.handleComposeStackAction(w, r, d.DeployStack)
 }
 
 func (d *DockerManager) HandleComposeDown(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleComposeDown: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleComposeDown")
 	d.handleComposeStackAction(w, r, d.DownStack)
 }
 
 func (d *DockerManager) HandleComposeDelete(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleComposeDelete: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleComposeDelete")
 	d.handleComposeStackAction(w, r, d.DeleteStack)
 }
 
 // HandleComposeDisable toggles the .disabled marker (POST: name, disabled).
 func (d *DockerManager) HandleComposeDisable(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleComposeDisable: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleComposeDisable", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	name, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing stack name")
 		return
 	}
 	disabled, _ := utils.PostBool(r, "disabled")
 	if err := d.SetStackDisabled(name, disabled); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -415,16 +405,16 @@ func (d *DockerManager) HandleComposeDisable(w http.ResponseWriter, r *http.Requ
 
 // HandleComposeStatus serves `docker compose ps` JSON for a stack (GET: name).
 func (d *DockerManager) HandleComposeStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleComposeStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleComposeStatus", "d", d, "r", r))
 	name, err := utils.GetPara(r, "name")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing stack name")
 		return
 	}
 	out, err := d.StackStatus(name)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -433,25 +423,27 @@ func (d *DockerManager) HandleComposeStatus(w http.ResponseWriter, r *http.Reque
 
 // HandleComposeLogs streams `docker compose logs -f` over a websocket (GET: name).
 func (d *DockerManager) HandleComposeLogs(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleComposeLogs: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleComposeLogs", "d", d, "r", r))
 	name, err := utils.GetPara(r, "name")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, "missing stack name", http.StatusBadRequest)
 		return
 	}
 	if err := validateStackName(name); err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := d.requireCompose(); err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	conn, err := dockerWsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return
 	}
 	defer conn.Close()

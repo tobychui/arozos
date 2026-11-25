@@ -6,16 +6,12 @@ import "imuslab.com/arozos/mod/info/logger"
 
 // twips (twentieths of a point): 1 mm = 56.6929 twips
 func mmToTwips(mm float64) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "mmToTwips: mm=%g", mm)
-	}
+	logger.DebugTrace("office/docx", "mmToTwips")
 	return int(mm * 1440.0 / 25.4)
 }
 
 func twipsToMm(tw int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "twipsToMm: tw=%d", tw)
-	}
+	logger.DebugTrace("office/docx", "twipsToMm")
 	return float64(tw) * 25.4 / 1440.0
 }
 
@@ -28,15 +24,11 @@ var pageSizesTwips = map[string][2]int{
 
 // px (96dpi) -> half-points for w:sz
 func pxToHalfPoints(px float64) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "pxToHalfPoints: px=%g", px)
-	}
+	logger.DebugTrace("office/docx", "pxToHalfPoints")
 	return int(px * 0.75 * 2)
 }
 
 func halfPointsToPx(hp float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "halfPointsToPx: hp=%g", hp)
-	}
+	logger.DebugTrace("office/docx", "halfPointsToPx")
 	return hp / 2.0 / 0.75
 }

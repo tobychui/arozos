@@ -24,8 +24,8 @@ const notificationSender = "File Share"
 
 // invitedNames returns the user or group names newly given access by a share
 // change. before is nil for a new share.
-func invitedNames(before *shareEntry.ShareOption, after *shareEntry.ShareOption) []string {
-	logger.Debug("share", "invitedNames")
+func invitedNames(before *shareEntry.ShareOption, after *shareEntry.ShareOption) (out0 []string) {
+	defer logger.Out1(logger.In2("share", "invitedNames", "before", before, "after", after), &out0)
 	if after.Permission != shareEntry.PermissionUsers && after.Permission != shareEntry.PermissionGroups {
 		return []string{}
 	}
@@ -48,10 +48,8 @@ func invitedNames(before *shareEntry.ShareOption, after *shareEntry.ShareOption)
 
 // resolveInvitees expands invited users / groups into the usernames to notify,
 // without duplicates and without the person who shared the file.
-func (s *Manager) resolveInvitees(so *shareEntry.ShareOption, names []string, sharedBy string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.resolveInvitees: len(names)=%d sharedBy=%.120q", len(names), sharedBy)
-	}
+func (s *Manager) resolveInvitees(so *shareEntry.ShareOption, names []string, sharedBy string) (out0 []string) {
+	defer logger.Out1(logger.In4("share", "Manager.resolveInvitees", "s", s, "so", so, "names", names, "sharedBy", sharedBy), &out0)
 	seen := map[string]bool{so.Owner: true, sharedBy: true}
 	receivers := []string{}
 	add := func(username string) {
@@ -68,6 +66,7 @@ func (s *Manager) resolveInvitees(so *shareEntry.ShareOption, names []string, sh
 		}
 		members, err := s.options.UserHandler.GetUsersInPermissionGroup(name)
 		if err != nil {
+			logger.DebugErr("share", err)
 			continue
 		}
 		for _, member := range members {
@@ -78,10 +77,8 @@ func (s *Manager) resolveInvitees(so *shareEntry.ShareOption, names []string, sh
 }
 
 // buildInviteNotification builds the notice sent to invited users
-func buildInviteNotification(so *shareEntry.ShareOption, sharedBy string, receivers []string) *notification.NotificationPayload {
-	if logger.IsDebug() {
-		logger.Debugf("share", "buildInviteNotification: sharedBy=%.120q len(receivers)=%d", sharedBy, len(receivers))
-	}
+func buildInviteNotification(so *shareEntry.ShareOption, sharedBy string, receivers []string) (out0 *notification.NotificationPayload) {
+	defer logger.Out1(logger.In3("share", "buildInviteNotification", "so", so, "sharedBy", sharedBy, "receivers", receivers), &out0)
 	filename := arozfs.Base(so.FileVirtualPath)
 	kind := "file"
 	if so.IsFolder {
@@ -122,9 +119,7 @@ func buildInviteNotification(so *shareEntry.ShareOption, sharedBy string, receiv
 // now have access. before is nil for a new share. Failures are only logged:
 // the share itself has already been saved.
 func (s *Manager) notifyInvitees(before *shareEntry.ShareOption, after *shareEntry.ShareOption, sharedBy string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.notifyInvitees: sharedBy=%.120q", sharedBy)
-	}
+	defer logger.Out0(logger.In4("share", "Manager.notifyInvitees", "s", s, "before", before, "after", after, "sharedBy", sharedBy))
 	if s.options.NotificationSender == nil || after == nil || after.IsExpired(time.Now()) {
 		return
 	}
@@ -140,6 +135,7 @@ func (s *Manager) notifyInvitees(before *shareEntry.ShareOption, after *shareEnt
 	}
 
 	if err := s.options.NotificationSender(buildInviteNotification(after, sharedBy, receivers)); err != nil {
+		logger.DebugErr("share", err)
 		logger.PrintAndLog("Share", "Unable to notify invited users of share "+after.UUID, err)
 	}
 }

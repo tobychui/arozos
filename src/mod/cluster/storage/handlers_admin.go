@@ -15,7 +15,7 @@ import (
 )
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("cluster/storage", "sendJSON")
+	defer logger.Out0(logger.In1("cluster/storage", "sendJSON", "v", v))
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
@@ -46,8 +46,8 @@ type RootView struct {
 }
 
 // Status builds the storage status.
-func (s *Service) Status() StatusView {
-	logger.Debug("cluster/storage", "Service.Status")
+func (s *Service) Status() (out0 StatusView) {
+	defer logger.Out1(logger.In1("cluster/storage", "Service.Status", "s", s), &out0)
 	st := StatusView{Ready: s.Ready(), AutoReadOnly: s.AutoReadOnly(), Volumes: []VolumeView{}, LocalRoots: []RootView{}}
 	me := s.m.NodeID()
 	for _, v := range s.meta.Volumes() {
@@ -76,30 +76,29 @@ func (s *Service) Status() StatusView {
 
 // HandleStatus returns volumes and local drives.
 func (s *Service) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Service.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/storage", "Service.HandleStatus", "s", s, "r", r))
 	sendJSON(w, s.Status())
 }
 
 // HandleVolumeAdd contributes a folder: fsh=<uuid>&path=<subpath>&name=
 func (s *Service) HandleVolumeAdd(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.HandleVolumeAdd: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/storage", "Service.HandleVolumeAdd", "s", s, "r", r))
 	fsh, err := utils.PostPara(r, "fsh")
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, "drive required")
 		return
 	}
 	sub, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, "folder path required")
 		return
 	}
 	name, _ := utils.PostPara(r, "name")
 	vol, err := s.AddVolume(fsh, sub, name)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -108,15 +107,15 @@ func (s *Service) HandleVolumeAdd(w http.ResponseWriter, r *http.Request) {
 
 // HandleVolumeRemove stops contributing a folder.
 func (s *Service) HandleVolumeRemove(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.HandleVolumeRemove: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/storage", "Service.HandleVolumeRemove", "s", s, "r", r))
 	id, err := utils.PostPara(r, "id")
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, "volume id required")
 		return
 	}
 	if err := s.RemoveVolume(id); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -125,16 +124,16 @@ func (s *Service) HandleVolumeRemove(w http.ResponseWriter, r *http.Request) {
 
 // HandleVolumeReadOnly toggles placement on a volume: id=&readonly=true|false
 func (s *Service) HandleVolumeReadOnly(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.HandleVolumeReadOnly: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/storage", "Service.HandleVolumeReadOnly", "s", s, "r", r))
 	id, err := utils.PostPara(r, "id")
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, "volume id required")
 		return
 	}
 	ro, _ := utils.PostBool(r, "readonly")
 	if err := s.SetVolumeReadOnly(id, ro); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -143,15 +142,13 @@ func (s *Service) HandleVolumeReadOnly(w http.ResponseWriter, r *http.Request) {
 
 // HandleRescan reconciles every local volume now.
 func (s *Service) HandleRescan(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Service.HandleRescan: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/storage", "Service.HandleRescan", "s", s, "r", r))
 	sendJSON(w, s.ReconcileAll())
 }
 
 // RegisterAdminRoutes mounts the admin handlers.
 func (s *Service) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request))) {
-	logger.Debug("cluster/storage", "Service.RegisterAdminRoutes")
+	defer logger.Out0(logger.In2("cluster/storage", "Service.RegisterAdminRoutes", "s", s, "register", register))
 	register("/system/cluster/storage/status", s.HandleStatus)
 	register("/system/cluster/storage/volume/add", s.HandleVolumeAdd)
 	register("/system/cluster/storage/volume/remove", s.HandleVolumeRemove)
@@ -163,9 +160,7 @@ func (s *Service) RegisterAdminRoutes(register func(pattern string, handler func
 // HandleAutoReadOnly reads (GET) or sets (POST enabled=true|false) whether
 // nearly full volumes are made read only automatically.
 func (s *Service) HandleAutoReadOnly(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.HandleAutoReadOnly: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/storage", "Service.HandleAutoReadOnly", "s", s, "r", r))
 	if r.Method == http.MethodPost {
 		raw, err := utils.PostPara(r, "enabled")
 		if err != nil || (raw != "true" && raw != "false") {
@@ -173,6 +168,7 @@ func (s *Service) HandleAutoReadOnly(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := s.SetAutoReadOnly(raw == "true"); err != nil {
+			logger.DebugErr("cluster/storage", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}

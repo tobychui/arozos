@@ -12,13 +12,12 @@ import (
 )
 
 // Handle console command from the console module
-func consoleCommandHandler(input string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "consoleCommandHandler: input=%.120q", input)
-	}
+func consoleCommandHandler(input string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "consoleCommandHandler", "input", input), &out0)
 	//chunk := strings.Split(input, " ");
 	chunk, err := parseCommandLine(input)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err.Error()
 	}
 	if len(chunk) > 0 && chunk[0] == "auth" {
@@ -30,6 +29,7 @@ func consoleCommandHandler(input string) string {
 			csv := authAgent.ExportUserListAsCSV()
 			err := os.WriteFile(filename, []byte(csv), 0755)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 			return "OK"
@@ -58,6 +58,7 @@ func consoleCommandHandler(input string) string {
 			//Get the list of interface module for this user
 			userinfo, err := userHandler.GetUserInfoFromUsername(chunk[2])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 			return strings.Join(userinfo.GetInterfaceModules(), ",")
@@ -66,6 +67,7 @@ func consoleCommandHandler(input string) string {
 		if matchSubfix(chunk, []string{"quota", "user"}, 3, "quota user {username}") {
 			userinfo, err := userHandler.GetUserInfoFromUsername(chunk[2])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 
@@ -99,6 +101,7 @@ func consoleCommandHandler(input string) string {
 			}
 			entries, err := sysdb.ListTable(chunk[2])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 
@@ -114,6 +117,7 @@ func consoleCommandHandler(input string) string {
 			//Dump the given user object as json
 			userinfo, err := userHandler.GetUserInfoFromUsername(chunk[3])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 
@@ -123,6 +127,7 @@ func consoleCommandHandler(input string) string {
 			//List user quota of the given username
 			userinfo, err := userHandler.GetUserInfoFromUsername(chunk[2])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 
@@ -186,12 +191,14 @@ func consoleCommandHandler(input string) string {
 		} else if matchSubfix(chunk, []string{"access", "whitelist", "add"}, 4, "access whitelist add {ip_range}") {
 			err = authAgent.WhitelistManager.SetWhitelist(chunk[3])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 			return "OK"
 		} else if matchSubfix(chunk, []string{"access", "whitelist", "del"}, 4, "access whitelist del {ip_range}") {
 			err = authAgent.WhitelistManager.UnsetWhitelist(chunk[3])
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return err.Error()
 			}
 			return "OK"
@@ -216,10 +223,8 @@ func consoleCommandHandler(input string) string {
 }
 
 // Check if the given line input match the requirement
-func matchSubfix(chunk []string, match []string, minlength int, usageExample string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "matchSubfix: len(chunk)=%d len(match)=%d minlength=%d usageExample=%.120q", len(chunk), len(match), minlength, usageExample)
-	}
+func matchSubfix(chunk []string, match []string, minlength int, usageExample string) (out0 bool) {
+	defer logger.Out1(logger.In4("Core", "matchSubfix", "chunk", chunk, "match", match, "minlength", minlength, "usageExample", usageExample), &out0)
 	matching := true
 	//Check if the chunk contains minmium length of the command request
 	if len(chunk) >= len(match) {
@@ -240,10 +245,8 @@ func matchSubfix(chunk []string, match []string, minlength int, usageExample str
 	return matching
 }
 
-func parseCommandLine(command string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "parseCommandLine: command=%.120q", command)
-	}
+func parseCommandLine(command string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("Core", "parseCommandLine", "command", command), &out0, &out1)
 	var args []string
 	state := "start"
 	current := ""

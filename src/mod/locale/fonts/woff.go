@@ -60,6 +60,7 @@ func decodeWOFF(data []byte) (*Font, error) {
 		rec := data[44+20*i : 44+20*i+20]
 		tag, err := tagString(rec)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		if _, dup := font.Tables[tag]; dup {
@@ -70,6 +71,7 @@ func decodeWOFF(data []byte) (*Font, error) {
 		origLength := binary.BigEndian.Uint32(rec[12:])
 		stored, err := sub(data, int64(offset), int64(compLength))
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, fmt.Errorf("table %q: %w", tag, err)
 		}
 		if int64(origLength) > maxDecodedSize-int64(total) {
@@ -83,6 +85,7 @@ func decodeWOFF(data []byte) (*Font, error) {
 		case compLength < origLength:
 			table, err := inflate(stored, int(origLength))
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil, fmt.Errorf("table %q: %w", tag, err)
 			}
 			font.Tables[tag] = table
@@ -95,16 +98,16 @@ func decodeWOFF(data []byte) (*Font, error) {
 
 // inflate decompresses one zlib stream that must expand to exactly size bytes
 func inflate(stored []byte, size int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "inflate: len(stored)=%d size=%d", len(stored), size)
-	}
+	logger.DebugTrace("locale/fonts", "inflate")
 	r, err := zlib.NewReader(bytes.NewReader(stored))
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	defer r.Close()
 	out := make([]byte, size)
 	if _, err := io.ReadFull(r, out); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, errors.New("the compressed table is shorter than it claims")
 	}
 	if n, _ := r.Read(make([]byte, 1)); n != 0 {
@@ -126,9 +129,7 @@ var woff2KnownTags = []string{
 
 // readBase128 reads a WOFF2 UIntBase128 value
 func readBase128(b []byte, off *int) (uint32, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "readBase128: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("locale/fonts", "readBase128")
 	var v uint32
 	for i := 0; i < 5; i++ {
 		if *off >= len(b) {
@@ -151,9 +152,7 @@ func readBase128(b []byte, off *int) (uint32, error) {
 }
 
 func appendBase128(out []byte, v uint32) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "appendBase128: len(out)=%d v=%d", len(out), v)
-	}
+	logger.DebugTrace("locale/fonts", "appendBase128")
 	var buf [5]byte
 	n := 0
 	for {
@@ -212,6 +211,7 @@ func decodeWOFF2(data []byte) (*Font, error) {
 		if flags&0x3F == 0x3F {
 			t, err := tagString(data[min(off, len(data)):])
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil, err
 			}
 			tag = t
@@ -233,11 +233,13 @@ func decodeWOFF2(data []byte) (*Font, error) {
 		}
 		origLength, err := readBase128(data, &off)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		length := origLength
 		if transformed {
 			if length, err = readBase128(data, &off); err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil, err
 			}
 		}
@@ -250,11 +252,13 @@ func decodeWOFF2(data []byte) (*Font, error) {
 
 	stored, err := sub(data, int64(off), int64(compressedSize))
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	stream := make([]byte, streamSize)
 	r := brotli.NewReader(bytes.NewReader(stored))
 	if _, err := io.ReadFull(r, stream); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, errors.New("the WOFF2 data is shorter than its tables")
 	}
 
@@ -273,10 +277,8 @@ func decodeWOFF2(data []byte) (*Font, error) {
 }
 
 // EncodeWOFF2 packs sfnt tables into a WOFF2 file, every table untransformed
-func EncodeWOFF2(flavor uint32, tables map[string][]byte, quality int) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("locale/fonts", "EncodeWOFF2: flavor=%d len(tables)=%d quality=%d", flavor, len(tables), quality)
-	}
+func EncodeWOFF2(flavor uint32, tables map[string][]byte, quality int) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In3("locale/fonts", "EncodeWOFF2", "flavor", flavor, "tables", tables, "quality", quality), &out0, &out1)
 	if len(tables) == 0 || len(tables) > maxTables {
 		return nil, fmt.Errorf("cannot write a font with %d tables", len(tables))
 	}
@@ -306,10 +308,12 @@ func EncodeWOFF2(flavor uint32, tables map[string][]byte, quality int) ([]byte, 
 		}
 		dir = appendBase128(dir, uint32(len(tables[tag])))
 		if _, err := w.Write(tables[tag]); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 	}
 	if err := w.Close(); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 

@@ -30,10 +30,8 @@ import (
 */
 
 // Install a module via selecting a zip file
-func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) error {
-	if logger.IsDebug() {
-		logger.Debugf("modules", "ModuleHandler.InstallViaZip: realpath=%.120q", realpath)
-	}
+func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) (out0 error) {
+	defer logger.Out1(logger.In3("modules", "ModuleHandler.InstallViaZip", "m", m, "realpath", realpath, "gateway", gateway), &out0)
 	//Check if file exists
 	if !utils.FileExists(realpath) {
 		return errors.New("*Module Installer* Installer file not found. Given: " + realpath)
@@ -43,6 +41,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 	unzipTmpFolder := "./tmp/installer/" + strconv.Itoa(int(time.Now().Unix()))
 	err := fs.Unzip(realpath, unzipTmpFolder)
 	if err != nil {
+		logger.DebugErr("modules", err)
 		return err
 	}
 	defer os.RemoveAll(unzipTmpFolder)
@@ -69,6 +68,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 			os.RemoveAll(destPath)
 		}
 		if err := os.Rename(folder, destPath); err != nil {
+			logger.DebugErr("modules", err)
 			logger.PrintAndLog("Modules", fmt.Sprint("*Module Installer* Failed to move module:", err), nil)
 			return errors.New("Failed to install " + filepath.Base(folder) + ": " + err.Error())
 		}
@@ -85,8 +85,8 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 }
 
 // Reload all modules from agi file again
-func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
-	logger.Debug("modules", "ModuleHandler.ReloadAllModules")
+func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) (out0 error) {
+	defer logger.Out1(logger.In2("modules", "ModuleHandler.ReloadAllModules", "m", m, "gateway", gateway), &out0)
 	//Clear the current registered module list
 	newModuleList := []*ModuleInfo{}
 	for _, thisModule := range m.LoadedModule {
@@ -111,8 +111,8 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 }
 
 // Install a module via git clone
-func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
-	logger.Debug("modules", "ModuleHandler.InstallModuleViaGit")
+func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) (out0 error) {
+	defer logger.Out1(logger.In3("modules", "ModuleHandler.InstallModuleViaGit", "m", m, "gitURL", gitURL, "gateway", gateway), &out0)
 	//Download the module from the gitURL
 	logger.PrintAndLog("Modules", fmt.Sprint("Starting module installation by Git cloning ", gitURL), nil)
 	newDownloadUUID := uuid.NewV4().String()
@@ -124,6 +124,7 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	})
 
 	if err != nil {
+		logger.DebugErr("modules", err)
 		return err
 	}
 
@@ -167,10 +168,8 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	return nil
 }
 
-func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.Gateway) error {
-	if logger.IsDebug() {
-		logger.Debugf("modules", "ModuleHandler.ActivateModuleByRoot: moduleFolder=%.120q", moduleFolder)
-	}
+func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.Gateway) (out0 error) {
+	defer logger.Out1(logger.In3("modules", "ModuleHandler.ActivateModuleByRoot", "m", m, "moduleFolder", moduleFolder, "gateway", gateway), &out0)
 	//Check if there is init.agi. If yes, load it as an module
 	thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
 	if utils.FileExists(thisModuleEstimataedRoot) {
@@ -180,6 +179,7 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 			logger.PrintAndLog("Modules", fmt.Sprint("Starting module: ", filepath.Base(moduleFolder)), nil)
 			err := gateway.RunWebAppInitScript(filepath.ToSlash(filepath.Join(thisModuleEstimataedRoot, "init.agi")))
 			if err != nil {
+				logger.DebugErr("modules", err)
 				logger.PrintAndLog("Modules", "*Module Activator* "+filepath.Base(moduleFolder)+" Starting failed"+err.Error(), nil)
 				return errors.New(filepath.Base(moduleFolder) + " Starting failed: " + err.Error())
 
@@ -193,9 +193,7 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 
 // Handle and return the information of the current installed modules
 func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("modules", "ModuleHandler.HandleModuleInstallationListing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("modules", "ModuleHandler.HandleModuleInstallationListing", "m", m, "r", r))
 	type ModuleInstallInfo struct {
 		Name          string // Name of the module
 		Desc          string // Description of module
@@ -228,6 +226,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 		// Folder mod time (kept for backward compat)
 		mtime, err := fs.GetModTime(dirPath)
 		if err != nil {
+			logger.DebugErr("modules", err)
 			logger.PrintAndLog("Modules", fmt.Sprint(err), nil)
 		}
 		t := time.Unix(mtime, 0)
@@ -250,6 +249,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 		disableReason := ""
 		if enabled {
 			if err := m.CanDisableModule(mod); err != nil {
+				logger.DebugErr("modules", err)
 				disableReason = err.Error()
 			}
 		}
@@ -282,10 +282,8 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 }
 
 // Uninstall the given module
-func (m *ModuleHandler) UninstallModule(moduleName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("modules", "ModuleHandler.UninstallModule: moduleName=%.120q", moduleName)
-	}
+func (m *ModuleHandler) UninstallModule(moduleName string) (out0 error) {
+	defer logger.Out1(logger.In2("modules", "ModuleHandler.UninstallModule", "m", m, "moduleName", moduleName), &out0)
 	//Check if this module is allowed to be removed
 	var targetModuleInfo *ModuleInfo = nil
 	for _, mod := range append(append([]*ModuleInfo{}, m.LoadedModule...), m.DisabledModule...) {
@@ -335,16 +333,16 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 // HandleUploadAndInstall accepts a multipart-uploaded zip file and installs it.
 // The file must be submitted in the "zipfile" field.
 func (m *ModuleHandler) HandleUploadAndInstall(w http.ResponseWriter, r *http.Request, gateway *agi.Gateway) {
-	if logger.IsDebug() {
-		logger.Debugf("modules", "ModuleHandler.HandleUploadAndInstall: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("modules", "ModuleHandler.HandleUploadAndInstall", "m", m, "r", r, "gateway", gateway))
 	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		logger.DebugErr("modules", err)
 		utils.SendErrorResponse(w, "Failed to parse upload: "+err.Error())
 		return
 	}
 
 	file, header, err := r.FormFile("zipfile")
 	if err != nil {
+		logger.DebugErr("modules", err)
 		utils.SendErrorResponse(w, "No zip file provided")
 		return
 	}
@@ -358,6 +356,7 @@ func (m *ModuleHandler) HandleUploadAndInstall(w http.ResponseWriter, r *http.Re
 	// Save to a temporary path
 	tmpDir := filepath.Join(m.tmpDirectory, "installer")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		logger.DebugErr("modules", err)
 		utils.SendErrorResponse(w, "Failed to create temp directory")
 		return
 	}
@@ -365,10 +364,12 @@ func (m *ModuleHandler) HandleUploadAndInstall(w http.ResponseWriter, r *http.Re
 
 	out, err := os.Create(tmpPath)
 	if err != nil {
+		logger.DebugErr("modules", err)
 		utils.SendErrorResponse(w, "Failed to create temp file: "+err.Error())
 		return
 	}
 	if _, err = io.Copy(out, file); err != nil {
+		logger.DebugErr("modules", err)
 		out.Close()
 		os.Remove(tmpPath)
 		utils.SendErrorResponse(w, "Failed to write upload: "+err.Error())
@@ -381,6 +382,7 @@ func (m *ModuleHandler) HandleUploadAndInstall(w http.ResponseWriter, r *http.Re
 	os.Remove(tmpPath)
 
 	if installErr != nil {
+		logger.DebugErr("modules", installErr)
 		utils.SendErrorResponse(w, "Installation failed: "+installErr.Error())
 		return
 	}

@@ -29,21 +29,18 @@ type Client struct {
 
 const chunkRetries = 3
 
-func (c *Client) postJSON(ctx context.Context, nodeID string, path string, in interface{}, out interface{}) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Client.postJSON: nodeID=%.120q path=%.120q", nodeID, path)
-	}
+func (c *Client) postJSON(ctx context.Context, nodeID string, path string, in interface{}, out interface{}) (out0 error) {
+	defer logger.Out1(logger.In6("cluster/storage", "Client.postJSON", "c", c, "ctx", ctx, "nodeID", nodeID, "path", path, "in", in, "out", out), &out0)
 	return c.Transport.DoJSON(ctx, nodeID, http.MethodPost, path, in, out)
 }
 
 // Upload sends size bytes from r to the volume on nodeID, resuming a
 // previous attempt of the same file when the target still has chunks.
-func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, logical string, fileID string, r io.Reader, size int64, checksum string, progress func(done int64)) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Client.Upload: nodeID=%.120q volumeID=%.120q logical=%.120q fileID=%.120q size=%d checksum=%.120q", nodeID, volumeID, logical, fileID, size, checksum)
-	}
+func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, logical string, fileID string, r io.Reader, size int64, checksum string, progress func(done int64)) (out0 error) {
+	defer logger.Out1(logger.In8("cluster/storage", "Client.Upload", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical, "fileID", fileID, "r", r, "size", size), &out0)
 	var begin BeginResponse
 	if err := c.postJSON(ctx, nodeID, pathBegin, BeginRequest{VolumeID: volumeID, Path: logical, Size: size, Checksum: checksum, FileID: fileID}, &begin); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 	have := map[int]bool{}
@@ -59,6 +56,7 @@ func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, log
 		}
 		n, err := io.ReadFull(r, buf[:want])
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		done += int64(n)
@@ -82,6 +80,7 @@ func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, log
 				break
 			}
 			if err != nil {
+				logger.DebugErr("cluster/storage", err)
 				lastErr = err
 			} else {
 				lastErr = resp.Error()
@@ -91,6 +90,7 @@ func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, log
 			}
 		}
 		if lastErr != nil {
+			logger.DebugErr("cluster/storage", lastErr)
 			return lastErr
 		}
 		if progress != nil {
@@ -99,6 +99,7 @@ func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, log
 	}
 	var commit CommitResponse
 	if err := c.postJSON(ctx, nodeID, pathCommit, SessionRequest{SessionID: begin.SessionID}, &commit); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 	if !strings.EqualFold(commit.Checksum, checksum) {
@@ -110,19 +111,15 @@ func (c *Client) Upload(ctx context.Context, nodeID string, volumeID string, log
 // doRaw sends a raw body with extra headers through the transport. The ACN
 // signature covers the body; extra headers ride along unsigned (the chunk
 // hash is re-verified against the signed body on the receiver).
-func (c *Client) doRaw(ctx context.Context, nodeID string, path string, body []byte, extra http.Header) (*acn.Response, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Client.doRaw: nodeID=%.120q path=%.120q", nodeID, path)
-	}
+func (c *Client) doRaw(ctx context.Context, nodeID string, path string, body []byte, extra http.Header) (out0 *acn.Response, out1 error) {
+	defer logger.Out2(logger.In6("cluster/storage", "Client.doRaw", "c", c, "ctx", ctx, "nodeID", nodeID, "path", path, "body", body, "&extra", &extra), &out0, &out1)
 	return c.Transport.DoWithHeaders(ctx, nodeID, http.MethodPost, path, body, extra)
 }
 
 // Download streams the file on the given volume into w, verifying every
 // chunk and the whole-file checksum when expectChecksum is set.
-func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, logical string, w io.Writer, expectChecksum string, progress func(done int64)) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Client.Download: nodeID=%.120q volumeID=%.120q logical=%.120q expectChecksum=%.120q", nodeID, volumeID, logical, expectChecksum)
-	}
+func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, logical string, w io.Writer, expectChecksum string, progress func(done int64)) (out0 error) {
+	defer logger.Out1(logger.In8("cluster/storage", "Client.Download", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical, "w", w, "expectChecksum", expectChecksum, "progress", progress), &out0)
 	h := sha256.New()
 	var offset int64
 	var total int64 = -1
@@ -138,9 +135,11 @@ func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, l
 		}
 		resp, err := c.Transport.Do(ctx, nodeID, http.MethodGet, pathRead+"?"+q.Encode(), nil)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		if err := resp.Error(); err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		if total < 0 {
@@ -154,6 +153,7 @@ func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, l
 			return ErrChecksum
 		}
 		if _, err := w.Write(resp.Body); err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		h.Write(resp.Body)
@@ -172,76 +172,71 @@ func (c *Client) Download(ctx context.Context, nodeID string, volumeID string, l
 }
 
 // Stat asks a node about a path on one of its volumes.
-func (c *Client) Stat(ctx context.Context, nodeID string, volumeID string, logical string) (*StatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Client.Stat: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
-	}
+func (c *Client) Stat(ctx context.Context, nodeID string, volumeID string, logical string) (out0 *StatResponse, out1 error) {
+	defer logger.Out2(logger.In5("cluster/storage", "Client.Stat", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical), &out0, &out1)
 	q := url.Values{"volume": {volumeID}, "path": {logical}}
 	resp, err := c.Transport.Do(ctx, nodeID, http.MethodGet, pathStatFile+"?"+q.Encode(), nil)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	if err := resp.Error(); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	var st StatResponse
 	if err := json.Unmarshal(resp.Body, &st); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	return &st, nil
 }
 
 // Mkdir creates a directory on a remote volume.
-func (c *Client) Mkdir(ctx context.Context, nodeID string, volumeID string, logical string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Client.Mkdir: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
-	}
+func (c *Client) Mkdir(ctx context.Context, nodeID string, volumeID string, logical string) (out0 error) {
+	defer logger.Out1(logger.In5("cluster/storage", "Client.Mkdir", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical), &out0)
 	return c.postJSON(ctx, nodeID, pathMkdir, PathRequest{VolumeID: volumeID, Path: logical}, nil)
 }
 
 // Delete removes a path on a remote volume.
-func (c *Client) Delete(ctx context.Context, nodeID string, volumeID string, logical string, recursive bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Client.Delete: nodeID=%.120q volumeID=%.120q logical=%.120q recursive=%t", nodeID, volumeID, logical, recursive)
-	}
+func (c *Client) Delete(ctx context.Context, nodeID string, volumeID string, logical string, recursive bool) (out0 error) {
+	defer logger.Out1(logger.In6("cluster/storage", "Client.Delete", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical, "recursive", recursive), &out0)
 	return c.postJSON(ctx, nodeID, pathDelete, PathRequest{VolumeID: volumeID, Path: logical, Recursive: recursive}, nil)
 }
 
 // Rename moves a path within a remote volume.
-func (c *Client) Rename(ctx context.Context, nodeID string, volumeID string, from string, to string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/storage", "Client.Rename: nodeID=%.120q volumeID=%.120q from=%.120q to=%.120q", nodeID, volumeID, from, to)
-	}
+func (c *Client) Rename(ctx context.Context, nodeID string, volumeID string, from string, to string) (out0 error) {
+	defer logger.Out1(logger.In6("cluster/storage", "Client.Rename", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "from", from, "to", to), &out0)
 	return c.postJSON(ctx, nodeID, pathRename, PathRequest{VolumeID: volumeID, Path: from, NewPath: to}, nil)
 }
 
 // List reads a directory on a remote volume.
-func (c *Client) List(ctx context.Context, nodeID string, volumeID string, logical string) ([]ListEntry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Client.List: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
-	}
+func (c *Client) List(ctx context.Context, nodeID string, volumeID string, logical string) (out0 []ListEntry, out1 error) {
+	defer logger.Out2(logger.In5("cluster/storage", "Client.List", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical), &out0, &out1)
 	q := url.Values{"volume": {volumeID}, "path": {logical}}
 	resp, err := c.Transport.Do(ctx, nodeID, http.MethodGet, pathList+"?"+q.Encode(), nil)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	if err := resp.Error(); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	var out []ListEntry
 	if err := json.Unmarshal(resp.Body, &out); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	return out, nil
 }
 
 // Checksum asks a node to hash a file on one of its volumes.
-func (c *Client) Checksum(ctx context.Context, nodeID string, volumeID string, logical string) (*ChecksumResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Client.Checksum: nodeID=%.120q volumeID=%.120q logical=%.120q", nodeID, volumeID, logical)
-	}
+func (c *Client) Checksum(ctx context.Context, nodeID string, volumeID string, logical string) (out0 *ChecksumResponse, out1 error) {
+	defer logger.Out2(logger.In5("cluster/storage", "Client.Checksum", "c", c, "ctx", ctx, "nodeID", nodeID, "volumeID", volumeID, "logical", logical), &out0, &out1)
 	var out ChecksumResponse
 	if err := c.postJSON(ctx, nodeID, pathChecksum, PathRequest{VolumeID: volumeID, Path: logical}, &out); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, err
 	}
 	if out.Checksum == "" {

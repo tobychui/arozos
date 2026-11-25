@@ -44,10 +44,8 @@ type TaskManager struct {
 	mu                 sync.RWMutex
 }
 
-func NewNightlyTaskManager(nightlyTaskRunTime int) *TaskManager {
-	if logger.IsDebug() {
-		logger.Debugf("time/nightly", "NewNightlyTaskManager: nightlyTaskRunTime=%d", nightlyTaskRunTime)
-	}
+func NewNightlyTaskManager(nightlyTaskRunTime int) (out0 *TaskManager) {
+	defer logger.Out1(logger.In1("time/nightly", "NewNightlyTaskManager", "nightlyTaskRunTime", nightlyTaskRunTime), &out0)
 	//Create a new return structure
 	thisManager := TaskManager{
 		NightlTasks: []func(){},
@@ -72,7 +70,7 @@ func NewNightlyTaskManager(nightlyTaskRunTime int) *TaskManager {
 }
 
 func (tm *TaskManager) NightlyTaskRun() {
-	logger.Debug("time/nightly", "TaskManager.NightlyTaskRun")
+	defer logger.Out0(logger.In1("time/nightly", "TaskManager.NightlyTaskRun", "tm", tm))
 	for _, nightlyTask := range tm.NightlTasks {
 		nightlyTask()
 	}
@@ -104,15 +102,15 @@ func (tm *TaskManager) RegisterNightlyTaskWithOption(option TaskOption, task fun
 
 // Set the function that reports if this host is the cluster master node
 func (tm *TaskManager) SetMasterNodeResolver(resolver func() bool) {
-	logger.Debug("time/nightly", "TaskManager.SetMasterNodeResolver")
+	defer logger.Out0(logger.In2("time/nightly", "TaskManager.SetMasterNodeResolver", "tm", tm, "resolver", resolver))
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	tm.masterNodeResolver = resolver
 }
 
 // Check if this host is currently the master node of its cluster
-func (tm *TaskManager) IsMasterNode() bool {
-	logger.Debug("time/nightly", "TaskManager.IsMasterNode")
+func (tm *TaskManager) IsMasterNode() (out0 bool) {
+	defer logger.Out1(logger.In1("time/nightly", "TaskManager.IsMasterNode", "tm", tm), &out0)
 	tm.mu.RLock()
 	resolver := tm.masterNodeResolver
 	tm.mu.RUnlock()
@@ -127,8 +125,8 @@ func (tm *TaskManager) IsMasterNode() bool {
 // that walks several file systems can call this once per file system instead
 // of gating the whole task, so local drives are still maintained on every
 // node while the shared cluster drive is left to the master node.
-func (tm *TaskManager) ShouldRun(option TaskOption) bool {
-	logger.Debug("time/nightly", "TaskManager.ShouldRun")
+func (tm *TaskManager) ShouldRun(option TaskOption) (out0 bool) {
+	defer logger.Out1(logger.In2("time/nightly", "TaskManager.ShouldRun", "tm", tm, "&option", &option), &out0)
 	if option.MasterNodeOnly {
 		return tm.IsMasterNode()
 	}

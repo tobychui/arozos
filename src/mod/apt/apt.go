@@ -23,19 +23,15 @@ type AptPackageManager struct {
 }
 
 func NewPackageManager(autoInstall bool) *AptPackageManager {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("apt", "NewPackageManager: autoInstall=%t", autoInstall)
-	}
+	logger.DebugTrace("apt", "NewPackageManager")
 	return &AptPackageManager{
 		AllowAutoInstall: autoInstall,
 	}
 }
 
 // Install the given package if not exists. Set mustComply to true for "panic on failed to install"
-func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("apt", "AptPackageManager.InstallIfNotExists: pkgname=%.120q mustComply=%t", pkgname, mustComply)
-	}
+func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) (out0 error) {
+	defer logger.Out1(logger.In3("apt", "AptPackageManager.InstallIfNotExists", "a", a, "pkgname", pkgname, "mustComply", mustComply), &out0)
 	//Clear the pkgname
 	pkgname = strings.ReplaceAll(pkgname, "&", "")
 	pkgname = strings.ReplaceAll(pkgname, "|", "")
@@ -46,6 +42,7 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 
 	installed, err := PackageExists(pkgname)
 	if err != nil {
+		logger.DebugErr("apt", err)
 		logger.PrintAndLog("Apt", err.Error(), nil)
 	}
 
@@ -61,6 +58,7 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
+		logger.DebugErr("apt", err)
 		if mustComply {
 			//Panic and terminate server process
 			logger.PrintAndLog("Apt", "Installation failed on package: "+pkgname, nil)
@@ -73,15 +71,14 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	return nil
 }
 
-func PackageExists(pkgname string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("apt", "PackageExists: pkgname=%.120q", pkgname)
-	}
+func PackageExists(pkgname string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In1("apt", "PackageExists", "pkgname", pkgname), &out0, &out1)
 	if runtime.GOOS == "windows" {
 		//Check if the command already exists in windows path paramters.
 		cmd := exec.Command("where.exe", pkgname, "2>", "nul")
 		_, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("apt", err)
 			return false, errors.New("Package " + pkgname + " not found in Windows %PATH%.")
 		}
 		return true, nil
@@ -90,6 +87,7 @@ func PackageExists(pkgname string) (bool, error) {
 		cmd := exec.Command("whereis", pkgname)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("apt", err)
 			return false, errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
 		}
 
@@ -98,6 +96,7 @@ func PackageExists(pkgname string) (bool, error) {
 			cmd := exec.Command("bash", "-c", "brew list | grep "+pkgname)
 			out, err = cmd.CombinedOutput()
 			if err != nil {
+				logger.DebugErr("apt", err)
 				return false, errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
 			}
 		}
@@ -124,9 +123,7 @@ func PackageExists(pkgname string) (bool, error) {
 }
 
 func HandlePackageListRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("apt", "HandlePackageListRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("apt", "HandlePackageListRequest", "r", r))
 	if runtime.GOOS == "windows" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{\"error\":\"" + "Function disabled on Windows" + "\"}"))
@@ -135,6 +132,7 @@ func HandlePackageListRequest(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command("apt", "list", "--installed")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("apt", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{\"error\":\"" + err.Error() + "\"}"))
 		return

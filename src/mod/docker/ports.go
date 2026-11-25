@@ -28,8 +28,8 @@ type PublishedPort struct {
 }
 
 // Target is the address this host reaches the published port on
-func (p PublishedPort) Target() string {
-	logger.Debug("docker", "PublishedPort.Target")
+func (p PublishedPort) Target() (out0 string) {
+	defer logger.Out1(logger.In1("docker", "PublishedPort.Target", "&p", &p), &out0)
 	ip := p.HostIP
 	if ip == "" || ip == "0.0.0.0" || ip == "::" {
 		ip = "127.0.0.1"
@@ -38,10 +38,8 @@ func (p PublishedPort) Target() string {
 }
 
 // parsePortRange parses "80" or "8000-8003"
-func parsePortRange(s string) (int, int, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "parsePortRange: s=%.120q", s)
-	}
+func parsePortRange(s string) (out0 int, out1 int, out2 bool) {
+	defer logger.Out3(logger.In1("docker", "parsePortRange", "s", s), &out0, &out1, &out2)
 	lo, hi, isRange := strings.Cut(s, "-")
 	start, err := strconv.Atoi(lo)
 	if err != nil || start < 1 || start > 65535 {
@@ -59,10 +57,8 @@ func parsePortRange(s string) (int, int, bool) {
 
 // ParsePublishedPorts returns the tcp ports of a `docker ps` Ports value that
 // are published on the host, without the IPv4/IPv6 duplicates
-func ParsePublishedPorts(ports string) []PublishedPort {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "ParsePublishedPorts: ports=%.120q", ports)
-	}
+func ParsePublishedPorts(ports string) (out0 []PublishedPort) {
+	defer logger.Out1(logger.In1("docker", "ParsePublishedPorts", "ports", ports), &out0)
 	results := []PublishedPort{}
 	seen := map[string]bool{}
 	for _, entry := range strings.Split(ports, ",") {

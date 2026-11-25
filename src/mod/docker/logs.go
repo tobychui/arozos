@@ -31,12 +31,13 @@ var dockerWsUpgrader = websocket.Upgrader{
 // as text frames, and kills the process when the client disconnects. It blocks
 // until the command exits or the client goes away.
 func streamCommandToWS(conn *websocket.Conn, cmd *exec.Cmd) {
-	logger.Debug("docker", "streamCommandToWS")
+	defer logger.Out0(logger.In2("docker", "streamCommandToWS", "conn", conn, "cmd", cmd))
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
 	cmd.Stderr = pw
 
 	if err := cmd.Start(); err != nil {
+		logger.DebugErr("docker", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("Failed to start: "+err.Error()))
 		pw.Close()
 		return
@@ -53,6 +54,7 @@ func streamCommandToWS(conn *websocket.Conn, cmd *exec.Cmd) {
 	go func() {
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
+				logger.DebugErr("docker", err)
 				if cmd.Process != nil {
 					cmd.Process.Kill()
 				}
@@ -74,6 +76,7 @@ func streamCommandToWS(conn *websocket.Conn, cmd *exec.Cmd) {
 			}
 		}
 		if err != nil {
+			logger.DebugErr("docker", err)
 			return
 		}
 	}
@@ -81,21 +84,22 @@ func streamCommandToWS(conn *websocket.Conn, cmd *exec.Cmd) {
 
 // HandleContainerLogs streams the tail of a container's logs over a websocket.
 func (d *DockerManager) HandleContainerLogs(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerLogs: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerLogs", "d", d, "r", r))
 	ref, err := utils.GetPara(r, "id")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, "missing container id", http.StatusBadRequest)
 		return
 	}
 	if err := validateContainerRef(ref); err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	conn, err := dockerWsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return
 	}
 	defer conn.Close()

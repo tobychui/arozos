@@ -64,18 +64,19 @@ type SchedulerCallbacks struct {
 // Must be called after the Scheduler is initialized, passing callback functions
 // so that the agi package does not import the scheduler package directly.
 func (g *Gateway) RegisterSchedulerLib(callbacks *SchedulerCallbacks) {
-	logger.Debug("agi", "Gateway.RegisterSchedulerLib")
+	defer logger.Out0(logger.In2("agi", "Gateway.RegisterSchedulerLib", "g", g, "callbacks", callbacks))
 	err := g.RegisterLib("scheduler", func(payload *static.AgiLibInjectionPayload) {
 		g.injectSchedulerLibFunctions(payload, callbacks)
 	})
 	if err != nil {
+		logger.DebugErr("agi", err)
 		// Library already registered – not fatal, just warn
 		logger.PrintAndLog("Agi", fmt.Sprint("[AGI] scheduler lib already registered:", err), nil)
 	}
 }
 
 func (g *Gateway) injectSchedulerLibFunctions(payload *static.AgiLibInjectionPayload, cb *SchedulerCallbacks) {
-	logger.Debug("agi", "Gateway.injectSchedulerLibFunctions")
+	defer logger.Out0(logger.In3("agi", "Gateway.injectSchedulerLibFunctions", "g", g, "payload", payload, "cb", cb))
 	vm := payload.VM
 	u := payload.User
 
@@ -141,6 +142,7 @@ func (g *Gateway) injectSchedulerLibFunctions(payload *static.AgiLibInjectionPay
 		}
 		intervalSecs, err := call.Argument(2).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -163,6 +165,7 @@ func (g *Gateway) injectSchedulerLibFunctions(payload *static.AgiLibInjectionPay
 		// because it has no ":" separator and appName is set.
 		regErr := cb.RegisterJob(u.Username, appName, taskName, scriptName, "", description, intervalSecs, baseTime)
 		if regErr != nil {
+			logger.DebugErr("agi", regErr)
 			g.RaiseError(regErr)
 			return otto.FalseValue()
 		}
@@ -186,6 +189,7 @@ func (g *Gateway) injectSchedulerLibFunctions(payload *static.AgiLibInjectionPay
 		}
 		unregErr := cb.UnregisterJob(u.Username, taskName)
 		if unregErr != nil {
+			logger.DebugErr("agi", unregErr)
 			g.RaiseError(unregErr)
 			return otto.FalseValue()
 		}

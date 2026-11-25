@@ -48,7 +48,7 @@ const (
 )
 
 func init() {
-	logger.Debug("fileservers/servers/syncthingserv", "init")
+	defer logger.Out0(logger.In0("fileservers/servers/syncthingserv", "init"))
 	build.Version = syncthingVersion
 	build.IsRelease, build.IsBeta, build.IsCandidate = true, false, false
 	build.LongVersion = build.LongVersionFor("syncthing")
@@ -58,6 +58,7 @@ func init() {
 	qrCode = func(text string) ([]byte, error) {
 		code, err := qr.Encode(text, qr.M)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/syncthingserv", err)
 			return nil, err
 		}
 		return code.PNG(), nil
@@ -73,12 +74,11 @@ type stEngine struct {
 	unknown map[string]UnknownDevice
 }
 
-func (e *stEngine) ParseDeviceID(s string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.ParseDeviceID: s=%.120q", s)
-	}
+func (e *stEngine) ParseDeviceID(s string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncthingserv", "stEngine.ParseDeviceID", "e", e, "s", s), &out0, &out1)
 	id, err := protocol.DeviceIDFromString(s)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return "", err
 	}
 	if id == protocol.EmptyDeviceID || id == protocol.LocalDeviceID {
@@ -87,8 +87,8 @@ func (e *stEngine) ParseDeviceID(s string) (string, error) {
 	return id.String(), nil
 }
 
-func (e *stEngine) Start(cfg engineConfig, p plan) error {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.Start")
+func (e *stEngine) Start(cfg engineConfig, p plan) (out0 error) {
+	defer logger.Out1(logger.In3("fileservers/servers/syncthingserv", "stEngine.Start", "e", e, "&cfg", &cfg, "&p", &p), &out0)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.app != nil {
@@ -96,20 +96,24 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 	}
 	dir, err := filepath.Abs(cfg.Dir)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return err
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return err
 	}
 	//Every Syncthing file lives in the state folder, the home folder of the
 	//account running ArozOS is never touched
 	for _, base := range []locations.BaseDirEnum{locations.ConfigBaseDir, locations.DataBaseDir, locations.UserHomeBaseDir} {
 		if err := locations.SetBaseDir(base, dir); err != nil {
+			logger.DebugErr("fileservers/servers/syncthingserv", err)
 			return err
 		}
 	}
 	cert, err := syncthing.LoadOrGenerateCertificate(locations.Get(locations.CertFile), locations.Get(locations.KeyFile))
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return err
 	}
 
@@ -125,6 +129,7 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 	served.Go(func() { evLogger.Serve(ctx) })
 	wrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, false, true)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		cancel()
 		return err
 	}
@@ -133,16 +138,19 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 
 	myID := protocol.NewDeviceID(cert.Certificate[0])
 	if err := applyConfig(wrapper, myID, cfg, p); err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		cancel()
 		return err
 	}
 	if err := wrapper.Save(); err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		cancel()
 		return err
 	}
 
 	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), deleteRetention)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		cancel()
 		return err
 	}
@@ -151,6 +159,7 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 		DBMaintenanceInterval: dbMaintenance,
 	})
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		sdb.Close()
 		cancel()
 		return err
@@ -158,6 +167,7 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 	sub := evLogger.Subscribe(events.PendingDevicesChanged)
 	go e.watchUnknown(ctx, sub)
 	if err := app.Start(); err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		//A failed start closes the database itself
 		cancel()
 		return err
@@ -167,7 +177,7 @@ func (e *stEngine) Start(cfg engineConfig, p plan) error {
 }
 
 func (e *stEngine) Stop() {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.Stop")
+	defer logger.Out0(logger.In1("fileservers/servers/syncthingserv", "stEngine.Stop", "e", e))
 	e.mu.Lock()
 	app, cancel := e.app, e.cancel
 	e.app, e.cfg, e.cancel = nil, nil, nil
@@ -190,8 +200,8 @@ func (e *stEngine) Stop() {
 	}
 }
 
-func (e *stEngine) Apply(cfg engineConfig, p plan) error {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.Apply")
+func (e *stEngine) Apply(cfg engineConfig, p plan) (out0 error) {
+	defer logger.Out1(logger.In3("fileservers/servers/syncthingserv", "stEngine.Apply", "e", e, "&cfg", &cfg, "&p", &p), &out0)
 	e.mu.Lock()
 	wrapper, myID := e.cfg, e.myID
 	e.mu.Unlock()
@@ -201,8 +211,8 @@ func (e *stEngine) Apply(cfg engineConfig, p plan) error {
 	return applyConfig(wrapper, myID, cfg, p)
 }
 
-func (e *stEngine) DeviceID() string {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.DeviceID")
+func (e *stEngine) DeviceID() (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "stEngine.DeviceID", "e", e), &out0)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.app == nil {
@@ -212,8 +222,8 @@ func (e *stEngine) DeviceID() string {
 }
 
 // internals returns Syncthing's model while it runs.
-func (e *stEngine) internals() *syncthing.Internals {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.internals")
+func (e *stEngine) internals() (out0 *syncthing.Internals) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "stEngine.internals", "e", e), &out0)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.app == nil {
@@ -222,10 +232,8 @@ func (e *stEngine) internals() *syncthing.Internals {
 	return e.app.Internals
 }
 
-func (e *stEngine) FolderStatus(id string) FolderStatus {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.FolderStatus: id=%.120q", id)
-	}
+func (e *stEngine) FolderStatus(id string) (out0 FolderStatus) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "stEngine.FolderStatus", "e", e, "id", id), &out0)
 	in := e.internals()
 	if in == nil {
 		return FolderStatus{}
@@ -234,6 +242,7 @@ func (e *stEngine) FolderStatus(id string) FolderStatus {
 	state, changed, err := in.FolderState(id)
 	status.State, status.Changed = state, changed
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		status.Error = err.Error()
 	}
 	if state == "" {
@@ -260,16 +269,15 @@ func (e *stEngine) FolderStatus(id string) FolderStatus {
 	return status
 }
 
-func (e *stEngine) DeviceStatus(id string) DeviceStatus {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.DeviceStatus: id=%.120q", id)
-	}
+func (e *stEngine) DeviceStatus(id string) (out0 DeviceStatus) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "stEngine.DeviceStatus", "e", e, "id", id), &out0)
 	in := e.internals()
 	if in == nil {
 		return DeviceStatus{}
 	}
 	device, err := protocol.DeviceIDFromString(id)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return DeviceStatus{}
 	}
 	status := DeviceStatus{Connected: in.IsConnectedTo(device)}
@@ -284,20 +292,20 @@ func (e *stEngine) DeviceStatus(id string) DeviceStatus {
 	return status
 }
 
-func (e *stEngine) Offers(deviceID string) []Offer {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.Offers: deviceID=%.120q", deviceID)
-	}
+func (e *stEngine) Offers(deviceID string) (out0 []Offer) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "stEngine.Offers", "e", e, "deviceID", deviceID), &out0)
 	in := e.internals()
 	if in == nil {
 		return nil
 	}
 	device, err := protocol.DeviceIDFromString(deviceID)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return nil
 	}
 	pending, err := in.PendingFolders(device)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return nil
 	}
 	offers := []Offer{}
@@ -311,10 +319,8 @@ func (e *stEngine) Offers(deviceID string) []Offer {
 	return offers
 }
 
-func (e *stEngine) Rescan(folderID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.Rescan: folderID=%.120q", folderID)
-	}
+func (e *stEngine) Rescan(folderID string) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "stEngine.Rescan", "e", e, "folderID", folderID), &out0)
 	in := e.internals()
 	if in == nil {
 		return errors.New("Syncthing is not running")
@@ -326,10 +332,8 @@ func (e *stEngine) Rescan(folderID string) error {
 // block request when the folder stops, and has no restart of its own short
 // of a configuration change. Should the resume fail, the next applyConfig
 // unpauses the folder again.
-func (e *stEngine) RestartFolder(folderID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.RestartFolder: folderID=%.120q", folderID)
-	}
+func (e *stEngine) RestartFolder(folderID string) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "stEngine.RestartFolder", "e", e, "folderID", folderID), &out0)
 	e.mu.Lock()
 	wrapper := e.cfg
 	e.mu.Unlock()
@@ -352,6 +356,7 @@ func (e *stEngine) RestartFolder(folderID string) error {
 			}
 		})
 		if err != nil {
+			logger.DebugErr("fileservers/servers/syncthingserv", err)
 			return err
 		}
 		//Returns once the folder stopped, or started again
@@ -360,23 +365,22 @@ func (e *stEngine) RestartFolder(folderID string) error {
 	return nil
 }
 
-func (e *stEngine) LocalBytes(folderID string) (int64, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stEngine.LocalBytes: folderID=%.120q", folderID)
-	}
+func (e *stEngine) LocalBytes(folderID string) (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncthingserv", "stEngine.LocalBytes", "e", e, "folderID", folderID), &out0, &out1)
 	in := e.internals()
 	if in == nil {
 		return 0, false
 	}
 	counts, err := in.LocalSize(folderID)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return 0, false
 	}
 	return counts.Bytes, true
 }
 
-func (e *stEngine) UnknownDevices() []UnknownDevice {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.UnknownDevices")
+func (e *stEngine) UnknownDevices() (out0 []UnknownDevice) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "stEngine.UnknownDevices", "e", e), &out0)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	list := make([]UnknownDevice, 0, len(e.unknown))
@@ -390,7 +394,7 @@ func (e *stEngine) UnknownDevices() []UnknownDevice {
 // watchUnknown keeps the devices that tried to connect without being added,
 // for the admin page.
 func (e *stEngine) watchUnknown(ctx context.Context, sub events.Subscription) {
-	logger.Debug("fileservers/servers/syncthingserv", "stEngine.watchUnknown")
+	defer logger.Out0(logger.In3("fileservers/servers/syncthingserv", "stEngine.watchUnknown", "e", e, "ctx", ctx, "&sub", &sub))
 	defer sub.Unsubscribe()
 	for {
 		select {
@@ -427,8 +431,8 @@ func (e *stEngine) watchUnknown(ctx context.Context, sub events.Subscription) {
 }
 
 // listenAddresses are where Syncthing accepts connections.
-func listenAddresses(s Settings) []string {
-	logger.Debug("fileservers/servers/syncthingserv", "listenAddresses")
+func listenAddresses(s Settings) (out0 []string) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "listenAddresses", "&s", &s), &out0)
 	port := strconv.Itoa(s.Port)
 	addrs := []string{"tcp://:" + port, "quic://:" + port}
 	if s.Relays {
@@ -441,8 +445,8 @@ func listenAddresses(s Settings) []string {
 // Fields are only written when they differ, in the order Syncthing keeps
 // them, so applying the same plan again changes nothing and no folder
 // restarts.
-func applyConfig(wrapper config.Wrapper, myID protocol.DeviceID, ec engineConfig, p plan) error {
-	logger.Debug("fileservers/servers/syncthingserv", "applyConfig")
+func applyConfig(wrapper config.Wrapper, myID protocol.DeviceID, ec engineConfig, p plan) (out0 error) {
+	defer logger.Out1(logger.In4("fileservers/servers/syncthingserv", "applyConfig", "&wrapper", &wrapper, "&myID", &myID, "&ec", &ec, "&p", &p), &out0)
 	waiter, err := wrapper.Modify(func(c *config.Configuration) {
 		s := ec.Settings
 
@@ -550,6 +554,7 @@ func applyConfig(wrapper config.Wrapper, myID protocol.DeviceID, ec engineConfig
 		c.Folders = folders
 	})
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return err
 	}
 	waiter.Wait()
@@ -558,10 +563,8 @@ func applyConfig(wrapper config.Wrapper, myID protocol.DeviceID, ec engineConfig
 
 // ignoredFolders keeps the entries Syncthing already has for the folder IDs
 // that stay ignored, so their times and order do not change.
-func ignoredFolders(current []config.ObservedFolder, ids []string) []config.ObservedFolder {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "ignoredFolders: len(current)=%d len(ids)=%d", len(current), len(ids))
-	}
+func ignoredFolders(current []config.ObservedFolder, ids []string) (out0 []config.ObservedFolder) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "ignoredFolders", "current", current, "ids", ids), &out0)
 	want := map[string]bool{}
 	for _, id := range ids {
 		want[id] = true
@@ -592,10 +595,8 @@ func ignoredFolders(current []config.ObservedFolder, ids []string) []config.Obse
 
 // folderDevices is the server plus the given devices, unchanged when the
 // set is the same.
-func folderDevices(current []config.FolderDeviceConfiguration, myID protocol.DeviceID, ids []string, known map[protocol.DeviceID]bool) []config.FolderDeviceConfiguration {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "folderDevices: len(current)=%d len(ids)=%d len(known)=%d", len(current), len(ids), len(known))
-	}
+func folderDevices(current []config.FolderDeviceConfiguration, myID protocol.DeviceID, ids []string, known map[protocol.DeviceID]bool) (out0 []config.FolderDeviceConfiguration) {
+	defer logger.Out1(logger.In4("fileservers/servers/syncthingserv", "folderDevices", "current", current, "&myID", &myID, "ids", ids, "known", known), &out0)
 	want := map[protocol.DeviceID]bool{myID: true}
 	for _, raw := range ids {
 		if id, err := protocol.DeviceIDFromString(raw); err == nil && known[id] {
@@ -626,9 +627,7 @@ func folderDevices(current []config.FolderDeviceConfiguration, myID protocol.Dev
 // setVersioning keeps replaced and deleted files for a number of days in
 // the folder's .stversions, or turns that off.
 func setVersioning(v *config.VersioningConfiguration, days int) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "setVersioning: days=%d", days)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/syncthingserv", "setVersioning", "v", v, "days", days))
 	if days <= 0 {
 		if v.Type != "" {
 			v.Type = ""

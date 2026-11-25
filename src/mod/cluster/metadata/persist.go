@@ -50,8 +50,8 @@ type persister struct {
 	done    chan struct{}
 }
 
-func newPersister(db *database.Database) *persister {
-	logger.Debug("cluster/metadata", "newPersister")
+func newPersister(db *database.Database) (out0 *persister) {
+	defer logger.Out1(logger.In1("cluster/metadata", "newPersister", "db", db), &out0)
 	p := &persister{
 		db:       db,
 		interval: FlushInterval,
@@ -67,11 +67,10 @@ func newPersister(db *database.Database) *persister {
 // put queues a write. The value is marshalled now, so the caller may keep
 // changing its own copy after put returns.
 func (p *persister) put(table string, key string, value interface{}) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "persister.put: table=%.120q", table)
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "persister.put", "p", p, "table", table, "value", value, "!key", key))
 	js, err := json.Marshal(value)
 	if err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		logger.PrintAndLog("Cluster", "Metadata "+table+"/"+key+" could not be encoded", err)
 		return
 	}
@@ -80,14 +79,12 @@ func (p *persister) put(table string, key string, value interface{}) {
 
 // del queues a removal.
 func (p *persister) del(table string, key string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/metadata", "persister.del: table=%.120q", table)
-	}
+	logger.DebugTrace("cluster/metadata", "persister.del")
 	p.enqueue(database.BatchOp{Table: table, Key: key, Delete: true})
 }
 
 func (p *persister) enqueue(op database.BatchOp) {
-	logger.Debug("cluster/metadata", "persister.enqueue")
+	defer logger.Out0(logger.In2("cluster/metadata", "persister.enqueue", "p", p, "&op", &op))
 	p.mu.Lock()
 	if p.stopped {
 		p.mu.Unlock()
@@ -102,7 +99,7 @@ func (p *persister) enqueue(op database.BatchOp) {
 }
 
 func (p *persister) loop() {
-	logger.Debug("cluster/metadata", "persister.loop")
+	defer logger.Out0(logger.In1("cluster/metadata", "persister.loop", "p", p))
 	defer close(p.done)
 	for {
 		select {
@@ -122,7 +119,7 @@ func (p *persister) loop() {
 
 // flush commits everything queued so far and returns once it is on disk.
 func (p *persister) flush() {
-	logger.Debug("cluster/metadata", "persister.flush")
+	defer logger.Out0(logger.In1("cluster/metadata", "persister.flush", "p", p))
 	p.flushMu.Lock()
 	defer p.flushMu.Unlock()
 
@@ -140,6 +137,7 @@ func (p *persister) flush() {
 		ops = append(ops, op)
 	}
 	if err := p.db.WriteBatch(ops); err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		logger.PrintAndLog("Cluster", "Metadata could not be written to disk; retrying", err)
 		//Put the batch back unless a newer change of the same key arrived
 		p.mu.Lock()
@@ -159,8 +157,8 @@ func (p *persister) flush() {
 }
 
 // pending reports how many keys wait to be written (for tests and status).
-func (p *persister) pending() int {
-	logger.Debug("cluster/metadata", "persister.pending")
+func (p *persister) pending() (out0 int) {
+	defer logger.Out1(logger.In1("cluster/metadata", "persister.pending", "p", p), &out0)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return len(p.queue)

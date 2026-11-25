@@ -91,8 +91,8 @@ type Server struct {
 // NewServer starts a TURN relay listening on config.ListenPort (UDP and TCP).
 // The returned Server must be Close()d on shutdown. It is safe for the caller
 // to treat a non-nil error as "relay unavailable" and fall back to STUN-only.
-func NewServer(config Config) (*Server, error) {
-	logger.Debug("network/turn", "NewServer")
+func NewServer(config Config) (out0 *Server, out1 error) {
+	defer logger.Out2(logger.In1("network/turn", "NewServer", "&config", &config), &out0, &out1)
 	if config.ListenPort <= 0 || config.ListenPort > 65535 {
 		return nil, fmt.Errorf("invalid TURN listen port: %d", config.ListenPort)
 	}
@@ -109,12 +109,14 @@ func NewServer(config Config) (*Server, error) {
 
 	relayIP, err := resolveRelayIP(config.PublicIP)
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, err
 	}
 
 	// Random per-process secret for signing ephemeral credentials.
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, err
 	}
 
@@ -145,12 +147,14 @@ func NewServer(config Config) (*Server, error) {
 
 	udpConn, err := net.ListenPacket("udp4", listenAddr)
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, fmt.Errorf("turn udp listen on %s: %w", listenAddr, err)
 	}
 	opened = append(opened, udpConn)
 
 	tcpListener, err := net.Listen("tcp4", listenAddr)
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		closeOpened()
 		return nil, fmt.Errorf("turn tcp listen on %s: %w", listenAddr, err)
 	}
@@ -167,6 +171,7 @@ func NewServer(config Config) (*Server, error) {
 	if config.TLSPort > 0 {
 		tlsListener, err := newTLSListener(config)
 		if err != nil {
+			logger.DebugErr("network/turn", err)
 			logger.PrintAndLog("Arozcast TURN", "TURN-over-TLS (TURNS) listener disabled", err)
 		} else {
 			opened = append(opened, tlsListener)
@@ -190,6 +195,7 @@ func NewServer(config Config) (*Server, error) {
 		ListenerConfigs: listenerConfigs,
 	})
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		closeOpened()
 		return nil, err
 	}
@@ -201,13 +207,14 @@ func NewServer(config Config) (*Server, error) {
 // newTLSListener builds the TLS listener backing the TURN-over-TLS (TURNS)
 // endpoint from the certificate configured in config. The caller takes
 // ownership of the returned listener.
-func newTLSListener(config Config) (net.Listener, error) {
-	logger.Debug("network/turn", "newTLSListener")
+func newTLSListener(config Config) (out0 net.Listener, out1 error) {
+	defer logger.Out2(logger.In1("network/turn", "newTLSListener", "&config", &config), &out0, &out1)
 	if config.TLSCertFile == "" || config.TLSKeyFile == "" {
 		return nil, errors.New("no TLS certificate configured")
 	}
 	cert, err := tls.LoadX509KeyPair(config.TLSCertFile, config.TLSKeyFile)
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, fmt.Errorf("cannot load TLS certificate: %w", err)
 	}
 	tlsAddr := "0.0.0.0:" + strconv.Itoa(config.TLSPort)
@@ -216,6 +223,7 @@ func newTLSListener(config Config) (net.Listener, error) {
 		MinVersion:   tls.VersionTLS12,
 	})
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, fmt.Errorf("turns tcp listen on %s: %w", tlsAddr, err)
 	}
 	return listener, nil
@@ -224,9 +232,7 @@ func newTLSListener(config Config) (net.Listener, error) {
 // authHandler validates an incoming TURN credential. It is the pion AuthHandler
 // callback bound to this server's secret and realm.
 func (s *Server) authHandler(username, realm string, _ net.Addr) ([]byte, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/turn", "Server.authHandler: username=%.120q realm=%.120q", username, realm)
-	}
+	logger.DebugTrace("network/turn", "Server.authHandler")
 	return validateCredential(s.secret, realm, username, time.Now())
 }
 
@@ -234,9 +240,7 @@ func (s *Server) authHandler(username, realm string, _ net.Addr) ([]byte, bool) 
 // identity (typically the logged-in username). The credential is valid for the
 // server's configured TTL.
 func (s *Server) Credentials(identity string) (username, password string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/turn", "Server.Credentials: identity=%.120q", identity)
-	}
+	logger.DebugTrace("network/turn", "Server.Credentials")
 	return buildCredential(s.secret, identity, time.Now().Add(s.ttl))
 }
 
@@ -274,8 +278,8 @@ func (s *Server) Realm() string {
 }
 
 // Close stops the relay and releases its listeners.
-func (s *Server) Close() error {
-	logger.Debug("network/turn", "Server.Close")
+func (s *Server) Close() (out0 error) {
+	defer logger.Out1(logger.In1("network/turn", "Server.Close", "s", s), &out0)
 	if s == nil || s.server == nil {
 		return nil
 	}
@@ -289,9 +293,7 @@ func (s *Server) Close() error {
 //	username = "<unix-expiry>[:identity]"
 //	password = base64(HMAC-SHA1(secret, username))
 func buildCredential(secret []byte, identity string, expiry time.Time) (username, password string) {
-	if logger.IsDebug() {
-		logger.Debugf("network/turn", "buildCredential: identity=%.120q", identity)
-	}
+	defer logger.Out2(logger.In3("network/turn", "buildCredential", "identity", identity, "&expiry", &expiry, "!&secret", &secret), &username, &password)
 	username = strconv.FormatInt(expiry.Unix(), 10)
 	if identity != "" {
 		username += ":" + identity
@@ -300,10 +302,8 @@ func buildCredential(secret []byte, identity string, expiry time.Time) (username
 }
 
 // signCredential computes the base64 HMAC-SHA1 of username keyed by secret.
-func signCredential(secret []byte, username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/turn", "signCredential: username=%.120q", username)
-	}
+func signCredential(secret []byte, username string) (out0 string) {
+	defer logger.Out1(logger.In2("network/turn", "signCredential", "username", username, "!&secret", &secret), &out0)
 	mac := hmac.New(sha1.New, secret)
 	mac.Write([]byte(username))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
@@ -315,9 +315,7 @@ func signCredential(secret []byte, username string) string {
 // wrong-secret credential yields a key the client's password cannot match, so
 // pion's STUN MESSAGE-INTEGRITY check rejects it.
 func validateCredential(secret []byte, realm, username string, now time.Time) (key []byte, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("network/turn", "validateCredential: realm=%.120q username=%.120q", realm, username)
-	}
+	defer logger.Out2(logger.In4("network/turn", "validateCredential", "realm", realm, "username", username, "&now", &now, "!&secret", &secret), &key, &ok)
 	expiryField := username
 	if idx := strings.Index(username, ":"); idx >= 0 {
 		expiryField = username[:idx]
@@ -325,6 +323,7 @@ func validateCredential(secret []byte, realm, username string, now time.Time) (k
 
 	expiry, err := strconv.ParseInt(expiryField, 10, 64)
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, false
 	}
 	if now.Unix() > expiry {
@@ -338,10 +337,8 @@ func validateCredential(secret []byte, realm, username string, now time.Time) (k
 // resolveRelayIP turns the configured public address into the IP advertised to
 // peers. An empty value auto-detects the outbound interface address; a hostname
 // is resolved (IPv4 preferred).
-func resolveRelayIP(configured string) (net.IP, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/turn", "resolveRelayIP: configured=%.120q", configured)
-	}
+func resolveRelayIP(configured string) (out0 net.IP, out1 error) {
+	defer logger.Out2(logger.In1("network/turn", "resolveRelayIP", "configured", configured), &out0, &out1)
 	configured = strings.TrimSpace(configured)
 	if configured == "" {
 		return outboundIP()
@@ -353,6 +350,7 @@ func resolveRelayIP(configured string) (net.IP, error) {
 
 	ips, err := net.LookupIP(configured)
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, fmt.Errorf("cannot resolve TURN public address %q: %w", configured, err)
 	}
 	for _, ip := range ips {
@@ -367,10 +365,11 @@ func resolveRelayIP(configured string) (net.IP, error) {
 }
 
 // outboundIP returns the address of the interface used to reach the Internet.
-func outboundIP() (net.IP, error) {
-	logger.Debug("network/turn", "outboundIP")
+func outboundIP() (out0 net.IP, out1 error) {
+	defer logger.Out2(logger.In0("network/turn", "outboundIP"), &out0, &out1)
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
+		logger.DebugErr("network/turn", err)
 		return nil, errors.New("could not determine outbound IP for TURN relay: " + err.Error())
 	}
 	defer conn.Close()
@@ -417,9 +416,7 @@ func (pionLogger) Warn(msg string) {
 	logger.PrintAndLog("Arozcast TURN", msg, nil)
 }
 func (pionLogger) Warnf(format string, args ...any) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/turn", "pionLogger.Warnf: format=%.120q len(args)=%d", format, len(args))
-	}
+	logger.DebugTrace("network/turn", "pionLogger.Warnf")
 	logger.PrintAndLog("Arozcast TURN", fmt.Sprintf(format, args...), nil)
 }
 func (pionLogger) Error(msg string) {
@@ -427,8 +424,6 @@ func (pionLogger) Error(msg string) {
 	logger.PrintAndLog("Arozcast TURN", msg, nil)
 }
 func (pionLogger) Errorf(format string, args ...any) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/turn", "pionLogger.Errorf: format=%.120q len(args)=%d", format, len(args))
-	}
+	logger.DebugTrace("network/turn", "pionLogger.Errorf")
 	logger.PrintAndLog("Arozcast TURN", fmt.Sprintf(format, args...), nil)
 }

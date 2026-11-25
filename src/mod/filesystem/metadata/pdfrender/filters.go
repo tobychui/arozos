@@ -126,9 +126,7 @@ func isImageCodec(n Name) bool {
 
 // decodeStream applies every filter of the stream
 func (d *Document) decodeStream(s *Stream, limit int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.decodeStream: limit=%d", limit)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.decodeStream")
 	data, _, _, err := d.decodeStreamImage(s, limit, false)
 	return data, err
 }
@@ -136,11 +134,10 @@ func (d *Document) decodeStream(s *Stream, limit int) ([]byte, error) {
 // decodeStreamImage applies the filters, stopping before an image codec
 // when stopAtImage is set. It returns the data and the remaining codec.
 func (d *Document) decodeStreamImage(s *Stream, limit int, stopAtImage bool) ([]byte, Name, Dict, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.decodeStreamImage: limit=%d stopAtImage=%t", limit, stopAtImage)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.decodeStreamImage")
 	data, err := d.rawStream(s)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, "", nil, err
 	}
 	filters := d.filterList(s.Dict)
@@ -198,9 +195,7 @@ type limitWriter struct {
 }
 
 func (w *limitWriter) Write(p []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "limitWriter.Write: len(p)=%d", len(p))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "limitWriter.Write")
 	if w.buf.Len()+len(p) > w.limit {
 		return 0, errTooLarge
 	}
@@ -208,12 +203,11 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 }
 
 func flateDecode(data []byte, limit int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "flateDecode: limit=%d", limit)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "flateDecode")
 	w := &limitWriter{limit: limit}
 	zr, err := zlib.NewReader(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		//Some writers omit the zlib header; try raw deflate
 		fr := flate.NewReader(bytes.NewReader(data))
 		_, err = io.Copy(w, fr)
@@ -236,9 +230,7 @@ func flateDecode(data []byte, limit int) ([]byte, error) {
 }
 
 func nilIfData(err error, n int) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "nilIfData: err=%v n=%d", err, n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "nilIfData")
 	if n > 0 {
 		return nil
 	}
@@ -333,9 +325,7 @@ func applyPredictor(d *Document, data []byte, parms Dict) ([]byte, error) {
 }
 
 func abs(v int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "abs: v=%d", v)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "abs")
 	if v < 0 {
 		return -v
 	}
@@ -344,9 +334,7 @@ func abs(v int) int {
 
 // lzwDecode is the PDF flavour of LZW (MSB first, optional early change)
 func lzwDecode(data []byte, early int, limit int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "lzwDecode: early=%d limit=%d", early, limit)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "lzwDecode")
 	type entry struct {
 		prefix int
 		last   byte
@@ -503,9 +491,7 @@ func ascii85Decode(data []byte) []byte {
 }
 
 func runLengthDecode(data []byte, limit int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "runLengthDecode: limit=%d", limit)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "runLengthDecode")
 	out := make([]byte, 0, len(data)*2)
 	for i := 0; i < len(data); {
 		l := int(data[i])
@@ -537,9 +523,7 @@ func runLengthDecode(data []byte, limit int) ([]byte, error) {
 }
 
 func (d *Document) ccittDecode(data []byte, parms Dict, dict Dict, limit int) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.ccittDecode: limit=%d", limit)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.ccittDecode")
 	k := 0
 	cols := 1728
 	rows := 0

@@ -11,17 +11,17 @@ import (
 )
 
 func (wl *WhiteList) HandleAddWhitelistedIP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleAddWhitelistedIP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/whitelist", "WhiteList.HandleAddWhitelistedIP", "wl", wl, "r", r))
 	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		utils.SendErrorResponse(w, "Invalid ip range given")
 		return
 	}
 
 	err = wl.SetWhitelist(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -30,17 +30,17 @@ func (wl *WhiteList) HandleAddWhitelistedIP(w http.ResponseWriter, r *http.Reque
 }
 
 func (wl *WhiteList) HandleRemoveWhitelistedIP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleRemoveWhitelistedIP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/whitelist", "WhiteList.HandleRemoveWhitelistedIP", "wl", wl, "r", r))
 	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		utils.SendErrorResponse(w, "Invalid ip range given")
 		return
 	}
 
 	err = wl.UnsetWhitelist(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -49,9 +49,7 @@ func (wl *WhiteList) HandleRemoveWhitelistedIP(w http.ResponseWriter, r *http.Re
 }
 
 func (wl *WhiteList) HandleSetWhitelistEnable(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleSetWhitelistEnable: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/whitelist", "WhiteList.HandleSetWhitelistEnable", "wl", wl, "r", r))
 	enableMode, _ := utils.PostPara(r, "enable")
 	if enableMode == "" {
 		//Get the current whitelist status
@@ -72,18 +70,14 @@ func (wl *WhiteList) HandleSetWhitelistEnable(w http.ResponseWriter, r *http.Req
 }
 
 func (wl *WhiteList) HandleListWhitelistedIPs(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.HandleListWhitelistedIPs: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/whitelist", "WhiteList.HandleListWhitelistedIPs", "wl", wl, "r", r))
 	bannedIpRanges := wl.ListWhitelistedIpRanges()
 	js, _ := json.Marshal(bannedIpRanges)
 	utils.SendJSONResponse(w, string(js))
 }
 
-func (wl *WhiteList) CheckIsWhitelistedByRequest(r *http.Request) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.CheckIsWhitelistedByRequest: r=%s", logger.RequestSummary(r))
-	}
+func (wl *WhiteList) CheckIsWhitelistedByRequest(r *http.Request) (out0 bool) {
+	defer logger.Out1(logger.In2("auth/accesscontrol/whitelist", "WhiteList.CheckIsWhitelistedByRequest", "wl", wl, "r", r), &out0)
 	if wl.Enabled == false {
 		//Whitelist not enabled. Always return is whitelisted
 		return true
@@ -91,6 +85,7 @@ func (wl *WhiteList) CheckIsWhitelistedByRequest(r *http.Request) bool {
 	//Get the IP address from the request header
 	requestIP, err := network.GetIpFromRequest(r)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		return false
 	}
 

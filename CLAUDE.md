@@ -633,23 +633,40 @@ The package-level `logger.PrintAndLog` delegates to the system-wide logger wired
 up in [`src/main.go`](src/main.go); you do not need your own `*logger.Logger`
 instance.
 
-**DEBUG level.** `logger.Debug(title, msg)` and `logger.Debugf(title, format,
-args...)` ([`src/mod/info/logger/debug.go`](src/mod/info/logger/debug.go))
-print and log a `[DEBUG]` line only when ArozOS was started with `-debug`
-(`logger.SetDebug`); otherwise they cost one atomic load. Most functions
-start with an entry line naming the function and its plain arguments; give
-new non-trivial functions one too. Guard any line whose arguments must be
-built with `if logger.IsDebug() { ... }` so nothing is formatted or allocated
-while debug is off, describe requests with `logger.RequestSummary(r)` (method
-and path, no query string), and never log passwords, tokens, keys, hashes,
-session data, raw URLs or query strings, or user content (message bodies,
-file or script content, e-mail addresses). Functions called so often that their lines would drown
-the rest (one-statement helpers, io / sort / `String` / `Error` methods,
-recursive walkers, and everything but the exported entry points of the
-byte-level parsers `pdfrender`, the `office` formats and `locale/fonts`) use
-`logger.DebugTrace` / `DebugTracef` guarded by `IsDebugTrace()` instead,
-shown only with `-debug_trace` (which implies `-debug`). Every function
-outside the logger package itself carries one of the two. `NewSlog` loggers pass
+**DEBUG level and tracing.** Started with `-debug`, ArozOS traces its
+functions ([`src/mod/info/logger/trace.go`](src/mod/info/logger/trace.go));
+otherwise every trace call costs one atomic load and no allocation. A traced
+function starts with one line,
+
+```go
+func (fsh *FileSystemHandler) ReadFile(rpath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem", "FileSystemHandler.ReadFile", "fsh", fsh, "rpath", rpath), &out0, &out1)
+```
+
+which logs the inputs and the caller's file and line on entry, and the
+outputs and duration on return. Lines carry the goroutine id (`g41`) and are
+indented by call depth. A panic passing through is logged at the frame that
+raised it, with its line, the stack and the goroutine's last trace lines; each
+traced caller it unwinds through logs its own inputs; the panic then carries on
+unchanged. Rules for new code: give non-trivial functions that line, with
+named results (`out0`, ...) so `OutN` can read them; use the typed
+`In0`-`In8` / `Out0`-`Out4`, never a `...any` wrapper (that allocates while
+off); pass struct and array values by address with a `&` name (`"&opt", &opt`);
+put `logger.DebugErr(title, err)` first in `if err != nil {` blocks; use
+`logger.DebugValue(title, "what", v)` for a value mid-function and
+`logger.DebugRequest` for a request; never add `if logger.IsDebug()` guards.
+Values are described by `describe` (strings cut at 200 runes, structs by
+their identifying fields plus the names of nil pointer and interface fields,
+slices and maps by size and first elements); it masks `password=` / `token=`
+style values and never calls methods of ArozOS types. Never pass passwords,
+tokens, keys, hashes or session data. Functions called so often that they
+would drown the rest (one-statement helpers, io / sort / `String` / `Error`
+methods, recursive walkers outside storage, and all but the exported entry
+points of the byte-level parsers `pdfrender`, the `office` formats and
+`locale/fonts`) only log their name with `logger.DebugTrace`, shown with
+`-debug_trace` (which implies `-debug`); in the storage packages only the per
+chunk io methods (`Read`, `Write`, `Seek`, ...) are on that tier. Every
+function outside the logger package carries one of the two. `NewSlog` loggers pass
 `slog.LevelDebug` records through the same switch. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
 which writes its records through `PrintAndLog`. The only file allowed to wrap the standard `log` package is the logger
 implementation itself ([`src/mod/info/logger/`](src/mod/info/logger/)).

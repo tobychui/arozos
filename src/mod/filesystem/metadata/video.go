@@ -15,10 +15,8 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForVideo: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForVideo", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -36,6 +34,7 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 		//cmd := exec.Command("ffmpeg", "-i", file, "-vf", "thumbnail,scale=-1:480", "-frames:v", "1", cacheFolder+filepath.Base(file)+".jpg")
 		_, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			//log.Println(err.Error())
 			return "", err
 		}
@@ -46,6 +45,7 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 			fshAbs.Remove(outputFile)
 			img, _, err := image.Decode(bytes.NewReader(imageBytes))
 			if err != nil {
+				logger.DebugErr("filesystem/metadata", err)
 				//log.Println(err.Error())
 			} else {
 				//Crop out the center
@@ -82,10 +82,8 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 	}
 }
 
-func pkg_exists(pkgname string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "pkg_exists: pkgname=%.120q", pkgname)
-	}
+func pkg_exists(pkgname string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/metadata", "pkg_exists", "pkgname", pkgname), &out0)
 	installed, _ := apt.PackageExists(pkgname)
 	return installed
 }

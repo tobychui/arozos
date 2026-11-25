@@ -57,9 +57,10 @@ func toAppInfo(ep Endpoint) AppInfo {
 }
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("appproxy", "sendJSON")
+	defer logger.Out0(logger.In1("appproxy", "sendJSON", "v", v))
 	js, err := json.Marshal(v)
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -68,9 +69,7 @@ func sendJSON(w http.ResponseWriter, v interface{}) {
 
 // HandleUserApps lists the apps the requesting user may open
 func (m *Manager) HandleUserApps(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.HandleUserApps: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("appproxy", "Manager.HandleUserApps", "m", m, "r", r))
 	id := m.opts.ResolveUser(w, r)
 	if id == nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -89,9 +88,7 @@ func (m *Manager) HandleUserApps(w http.ResponseWriter, r *http.Request) {
 
 // HandleLaunch returns how a desktop shortcut should open an app
 func (m *Manager) HandleLaunch(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.HandleLaunch: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("appproxy", "Manager.HandleLaunch", "m", m, "r", r))
 	id := m.opts.ResolveUser(w, r)
 	if id == nil {
 		utils.SendErrorResponse(w, "User not logged in")
@@ -99,6 +96,7 @@ func (m *Manager) HandleLaunch(w http.ResponseWriter, r *http.Request) {
 	}
 	slug, err := utils.GetPara(r, "slug")
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, "Invalid app given")
 		return
 	}
@@ -112,9 +110,7 @@ func (m *Manager) HandleLaunch(w http.ResponseWriter, r *http.Request) {
 
 // HandleAdminList lists every endpoint with its counters
 func (m *Manager) HandleAdminList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.HandleAdminList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("appproxy", "Manager.HandleAdminList", "m", m, "r", r))
 	results := []AdminAppInfo{}
 	for _, ep := range m.List() {
 		info := AdminAppInfo{Endpoint: ep, Stats: m.Stats(ep.Slug)}
@@ -128,20 +124,20 @@ func (m *Manager) HandleAdminList(w http.ResponseWriter, r *http.Request) {
 
 // HandleAdminSave creates or updates an endpoint
 func (m *Manager) HandleAdminSave(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.HandleAdminSave: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("appproxy", "Manager.HandleAdminSave", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
 	}
 	data, err := utils.PostPara(r, "data")
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, "Missing app data")
 		return
 	}
 	ep := Endpoint{}
 	if err := json.Unmarshal([]byte(data), &ep); err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, "Invalid app data")
 		return
 	}
@@ -157,6 +153,7 @@ func (m *Manager) HandleAdminSave(w http.ResponseWriter, r *http.Request) {
 
 	saved, err := m.Save(ep, create, username, r.Host)
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -170,19 +167,19 @@ func (m *Manager) HandleAdminSave(w http.ResponseWriter, r *http.Request) {
 
 // HandleAdminDelete removes an endpoint
 func (m *Manager) HandleAdminDelete(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.HandleAdminDelete: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("appproxy", "Manager.HandleAdminDelete", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
 	}
 	slug, err := utils.PostPara(r, "slug")
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, "Invalid app given")
 		return
 	}
 	if err := m.Delete(slug); err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -192,11 +189,10 @@ func (m *Manager) HandleAdminDelete(w http.ResponseWriter, r *http.Request) {
 
 // HandleAdminProbe analyses an upstream and recommends a mode
 func (m *Manager) HandleAdminProbe(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.HandleAdminProbe: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("appproxy", "Manager.HandleAdminProbe", "m", m, "r", r))
 	target, err := utils.GetPara(r, "target")
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		utils.SendErrorResponse(w, "Invalid target given")
 		return
 	}

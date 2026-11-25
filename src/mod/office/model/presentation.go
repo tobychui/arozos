@@ -28,10 +28,8 @@ const (
 
 // SlideSizeFor is the editor size of a slide whose source page is w x h
 // (in any one unit): 960 wide and as tall as the page's shape.
-func SlideSizeFor(w, h float64) (int, int) {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "SlideSizeFor: w=%g h=%g", w, h)
-	}
+func SlideSizeFor(w, h float64) (out0 int, out1 int) {
+	defer logger.Out2(logger.In2("office/model", "SlideSizeFor", "w", w, "h", h), &out0, &out1)
 	if !(w > 0) || !(h > 0) {
 		return SlidePxW, SlidePxH
 	}
@@ -264,25 +262,25 @@ var ThemeText = map[string]string{
 }
 
 // PresentationToJSON serializes a Presentation back to the Slides body JSON
-func PresentationToJSON(p *Presentation) (string, error) {
-	logger.Debug("office/model", "PresentationToJSON")
+func PresentationToJSON(p *Presentation) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("office/model", "PresentationToJSON", "p", p), &out0, &out1)
 	if p == nil {
 		return "", errors.New("nil presentation")
 	}
 	out, err := json.Marshal(p)
 	if err != nil {
+		logger.DebugErr("office/model", err)
 		return "", err
 	}
 	return string(out), nil
 }
 
 // ParsePresentationJSON decodes the Slides body JSON into a Presentation
-func ParsePresentationJSON(jsonStr string) (*Presentation, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "ParsePresentationJSON: jsonStr=%.120q", jsonStr)
-	}
+func ParsePresentationJSON(jsonStr string) (out0 *Presentation, out1 error) {
+	defer logger.Out2(logger.In1("office/model", "ParsePresentationJSON", "jsonStr", jsonStr), &out0, &out1)
 	p := Presentation{}
 	if err := json.Unmarshal([]byte(jsonStr), &p); err != nil {
+		logger.DebugErr("office/model", err)
 		return nil, errors.New("invalid presentation JSON: " + err.Error())
 	}
 	if len(p.Slides) == 0 {

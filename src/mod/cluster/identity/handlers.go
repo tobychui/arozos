@@ -23,7 +23,7 @@ import (
 )
 
 func (i *Manager) registerACNHandlers() {
-	logger.Debug("cluster/identity", "Manager.registerACNHandlers")
+	defer logger.Out0(logger.In1("cluster/identity", "Manager.registerACNHandlers", "i", i))
 	srv := i.m.Server()
 	srv.HandleFunc(acn.BasePath+"/auth/verify", i.handleVerify)
 	srv.HandleFunc(acn.BasePath+"/auth/directory", i.handleDirectory)
@@ -31,8 +31,8 @@ func (i *Manager) registerACNHandlers() {
 }
 
 // requireOrigin rejects node requests when this node is not the identity origin.
-func (i *Manager) requireOrigin(w http.ResponseWriter) bool {
-	logger.Debug("cluster/identity", "Manager.requireOrigin")
+func (i *Manager) requireOrigin(w http.ResponseWriter) (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/identity", "Manager.requireOrigin", "i", i), &out0)
 	if _, self := i.Origin(); !self {
 		acn.WriteError(w, http.StatusConflict, "this node is not the identity origin of the cluster")
 		return false
@@ -41,9 +41,7 @@ func (i *Manager) requireOrigin(w http.ResponseWriter) bool {
 }
 
 func (i *Manager) handleVerify(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.handleVerify: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/identity", "Manager.handleVerify", "i", i, "r", r, "sender", sender, "body", body))
 	if !i.requireOrigin(w) {
 		return
 	}
@@ -65,9 +63,7 @@ func (i *Manager) handleVerify(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (i *Manager) handleDirectory(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.handleDirectory: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/identity", "Manager.handleDirectory", "i", i, "r", r, "sender", sender, "body", body))
 	if !i.requireOrigin(w) {
 		return
 	}
@@ -75,9 +71,7 @@ func (i *Manager) handleDirectory(w http.ResponseWriter, r *http.Request, sender
 }
 
 func (i *Manager) handleSetPassword(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.handleSetPassword: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/identity", "Manager.handleSetPassword", "i", i, "r", r, "sender", sender, "body", body))
 	if !i.requireOrigin(w) {
 		return
 	}
@@ -91,16 +85,15 @@ func (i *Manager) handleSetPassword(w http.ResponseWriter, r *http.Request, send
 		return
 	}
 	if err := i.acc.SetPasswordHash(req.Username, req.PasswordHash); err != nil {
+		logger.DebugErr("cluster/identity", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	acn.WriteJSON(w, map[string]bool{"ok": true})
 }
 
-func constantTimeEqual(a string, b string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "constantTimeEqual: a=%.120q b=%.120q", a, b)
-	}
+func constantTimeEqual(a string, b string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/identity", "constantTimeEqual", "a", a, "b", b), &out0)
 	if len(a) != len(b) {
 		return false
 	}
@@ -117,18 +110,14 @@ func constantTimeEqual(a string, b string) bool {
 
 // HandleStatus returns the identity status.
 func (i *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/identity", "Manager.HandleStatus", "i", i, "r", r))
 	js, _ := json.Marshal(i.Status())
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleOrigin sets the identity origin: id=self, id=<node id>, or id= (disable).
 func (i *Manager) HandleOrigin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.HandleOrigin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/identity", "Manager.HandleOrigin", "i", i, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
@@ -138,6 +127,7 @@ func (i *Manager) HandleOrigin(w http.ResponseWriter, r *http.Request) {
 		id = i.m.NodeID()
 	}
 	if err := i.m.SetIdentityOrigin(id); err != nil {
+		logger.DebugErr("cluster/identity", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -146,10 +136,9 @@ func (i *Manager) HandleOrigin(w http.ResponseWriter, r *http.Request) {
 
 // HandleSync pulls the origin directory immediately.
 func (i *Manager) HandleSync(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.HandleSync: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/identity", "Manager.HandleSync", "i", i, "r", r))
 	if err := i.SyncNow(); err != nil {
+		logger.DebugErr("cluster/identity", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -159,7 +148,7 @@ func (i *Manager) HandleSync(w http.ResponseWriter, r *http.Request) {
 
 // RegisterAdminRoutes mounts the admin handlers on the given register function.
 func (i *Manager) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request))) {
-	logger.Debug("cluster/identity", "Manager.RegisterAdminRoutes")
+	defer logger.Out0(logger.In2("cluster/identity", "Manager.RegisterAdminRoutes", "i", i, "register", register))
 	register("/system/cluster/identity/status", i.HandleStatus)
 	register("/system/cluster/identity/origin", i.HandleOrigin)
 	register("/system/cluster/identity/sync", i.HandleSync)

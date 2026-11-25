@@ -4,18 +4,14 @@ import "imuslab.com/arozos/mod/info/logger"
 import "imuslab.com/arozos/mod/utils"
 
 func (gp *PermissionGroup) AddModule(modulename string) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionGroup.AddModule: modulename=%.120q", modulename)
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionGroup.AddModule", "gp", gp, "modulename", modulename))
 	if !utils.StringInArray(gp.AccessibleModules, modulename) {
 		gp.AccessibleModules = append(gp.AccessibleModules, modulename)
 	}
 }
 
 func (gp *PermissionGroup) RemoveModule(modulename string) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionGroup.RemoveModule: modulename=%.120q", modulename)
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionGroup.RemoveModule", "gp", gp, "modulename", modulename))
 	newModuleList := []string{}
 	if utils.StringInArray(gp.AccessibleModules, modulename) {
 		for _, thisModuleName := range gp.AccessibleModules {
@@ -29,8 +25,8 @@ func (gp *PermissionGroup) RemoveModule(modulename string) {
 }
 
 // GetCronJobPermission returns whether this group can create cron jobs
-func (gp *PermissionGroup) GetCronJobPermission() bool {
-	logger.Debug("permission", "PermissionGroup.GetCronJobPermission")
+func (gp *PermissionGroup) GetCronJobPermission() (out0 bool) {
+	defer logger.Out1(logger.In1("permission", "PermissionGroup.GetCronJobPermission", "gp", gp), &out0)
 	if gp.IsAdmin {
 		return true
 	}
@@ -39,9 +35,7 @@ func (gp *PermissionGroup) GetCronJobPermission() bool {
 
 // SetCronJobPermission sets whether this group can create cron jobs and persists the change
 func (gp *PermissionGroup) SetCronJobPermission(allow bool) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionGroup.SetCronJobPermission: allow=%t", allow)
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionGroup.SetCronJobPermission", "gp", gp, "allow", allow))
 	if gp.IsAdmin {
 		// Admin groups always retain cron permission
 		gp.CanCreateCronJob = true
@@ -57,7 +51,7 @@ func (gp *PermissionGroup) SetCronJobPermission(allow bool) {
 
 // Remove this permission group
 func (gp *PermissionGroup) Remove() {
-	logger.Debug("permission", "PermissionGroup.Remove")
+	defer logger.Out0(logger.In1("permission", "PermissionGroup.Remove", "gp", gp))
 	db := gp.parent.database
 
 	//Close the groups' storage pool

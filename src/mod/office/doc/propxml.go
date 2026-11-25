@@ -14,16 +14,12 @@ import (
 )
 
 func itoa(v int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "itoa: v=%d", v)
-	}
+	logger.DebugTrace("office/doc", "itoa")
 	return strconv.Itoa(v)
 }
 
 func hexRGB(c uint32) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "hexRGB: c=%d", c)
-	}
+	logger.DebugTrace("office/doc", "hexRGB")
 	s := strings.ToUpper(strconv.FormatUint(uint64(c&0xFFFFFF), 16))
 	return strings.Repeat("0", 6-len(s)) + s
 }
@@ -54,9 +50,7 @@ var brcNames = map[uint8]string{
 
 // borderXML writes one border element ("" for a border that is not set)
 func borderXML(tag string, b *brc) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "borderXML: tag=%.120q", tag)
-	}
+	logger.DebugTrace("office/doc", "borderXML")
 	if b == nil || b.typ == 0xFF {
 		return ""
 	}
@@ -127,9 +121,7 @@ func shdXML(s *shd) string {
 // rPrXML writes a run's own formatting; styleToggles are the toggle
 // values its styles give it, which a "flip" inverts
 func (w *writer) rPrXML(c *chp, styleToggles uint32, extra string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.rPrXML: styleToggles=%d extra=%.120q", styleToggles, extra)
-	}
+	logger.DebugTrace("office/doc", "writer.rPrXML")
 	if c == nil {
 		if extra == "" {
 			return ""
@@ -264,9 +256,7 @@ var tabLeader = []string{"none", "dot", "hyphen", "underscore", "heavy", "middle
 // pPrXML writes a paragraph's own formatting (extra is placed where
 // w:rPr / w:sectPr go: at the end)
 func (w *writer) pPrXML(istd int, p *pap, withStyle bool, extra string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.pPrXML: istd=%d withStyle=%t extra=%.120q", istd, withStyle, extra)
-	}
+	logger.DebugTrace("office/doc", "writer.pPrXML")
 	var sb strings.Builder
 	if withStyle {
 		if st := w.d.styles.get(istd); st != nil && st.stk == stkPara && istd != 0 {
@@ -390,9 +380,7 @@ var pgnFormats = map[int]string{0: "decimal", 1: "upperRoman", 2: "lowerRoman", 
 
 // sectPrXML writes a section's properties with its header references
 func sectPrXML(s sep, refs string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "sectPrXML: refs=%.120q", refs)
-	}
+	logger.DebugTrace("office/doc", "sectPrXML")
 	var sb strings.Builder
 	sb.WriteString("<w:sectPr>")
 	sb.WriteString(refs)

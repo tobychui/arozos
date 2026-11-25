@@ -17,10 +17,8 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func SortNaturalFilelist(filelist []*sortBufferedStructure) []*sortBufferedStructure {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fssort", "SortNaturalFilelist: len(filelist)=%d", len(filelist))
-	}
+func SortNaturalFilelist(filelist []*sortBufferedStructure) (out0 []*sortBufferedStructure) {
+	defer logger.Out1(logger.In1("filesystem/fssort", "SortNaturalFilelist", "filelist", filelist), &out0)
 	filenameList := []string{}
 	filenameMap := map[string]*sortBufferedStructure{}
 	for _, file := range filelist {
@@ -37,10 +35,8 @@ func SortNaturalFilelist(filelist []*sortBufferedStructure) []*sortBufferedStruc
 	return sortedFileList
 }
 
-func sortNaturalStrings(array []string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fssort", "sortNaturalStrings: len(array)=%d", len(array))
-	}
+func sortNaturalStrings(array []string) (out0 []string) {
+	defer logger.Out1(logger.In1("filesystem/fssort", "sortNaturalStrings", "array", array), &out0)
 	bufKey := []string{}
 	bufMap := map[string]string{}
 	for _, thisString := range array {

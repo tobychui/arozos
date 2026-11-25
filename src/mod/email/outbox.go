@@ -72,10 +72,8 @@ type outbox struct {
 	busy     bool
 }
 
-func newOutbox(manager *Manager, spoolDir string) *outbox {
-	if logger.IsDebug() {
-		logger.Debugf("email", "newOutbox: spoolDir=%.120q", spoolDir)
-	}
+func newOutbox(manager *Manager, spoolDir string) (out0 *outbox) {
+	defer logger.Out1(logger.In2("email", "newOutbox", "manager", manager, "spoolDir", spoolDir), &out0)
 	box := &outbox{manager: manager, spoolDir: spoolDir}
 	//Items interrupted mid-delivery by a restart are retried
 	items, err := box.all()
@@ -91,9 +89,7 @@ func newOutbox(manager *Manager, spoolDir string) *outbox {
 }
 
 func (o *outbox) spoolPath(id string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "outbox.spoolPath: id=%.120q", id)
-	}
+	logger.DebugTrace("email", "outbox.spoolPath")
 	return filepath.Join(o.spoolDir, id+".eml")
 }
 
@@ -102,10 +98,11 @@ func (o *outbox) save(item *OutboxItem) error {
 	return o.manager.store.db.Write(tableOutbox, ownerKey(item.Owner, item.ID), item)
 }
 
-func (o *outbox) all() ([]*OutboxItem, error) {
-	logger.Debug("email", "outbox.all")
+func (o *outbox) all() (out0 []*OutboxItem, out1 error) {
+	defer logger.Out2(logger.In1("email", "outbox.all", "o", o), &out0, &out1)
 	entries, err := o.manager.store.db.ListTable(tableOutbox)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	items := []*OutboxItem{}
@@ -122,16 +119,15 @@ func (o *outbox) all() ([]*OutboxItem, error) {
 	return items, nil
 }
 
-func (o *outbox) get(owner string, id string) (*OutboxItem, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "outbox.get: owner=%.120q id=%.120q", owner, id)
-	}
+func (o *outbox) get(owner string, id string) (out0 *OutboxItem, out1 error) {
+	defer logger.Out2(logger.In3("email", "outbox.get", "o", o, "owner", owner, "id", id), &out0, &out1)
 	key := ownerKey(owner, id)
 	if !o.manager.store.db.KeyExists(tableOutbox, key) {
 		return nil, errors.New("this message is no longer in the outbox")
 	}
 	item := &OutboxItem{}
 	if err := o.manager.store.db.Read(tableOutbox, key, item); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if item.Owner != owner {
@@ -141,15 +137,13 @@ func (o *outbox) get(owner string, id string) (*OutboxItem, error) {
 }
 
 func (o *outbox) remove(item *OutboxItem) {
-	logger.Debug("email", "outbox.remove")
+	defer logger.Out0(logger.In2("email", "outbox.remove", "o", o, "item", item))
 	o.manager.store.db.Delete(tableOutbox, ownerKey(item.Owner, item.ID))
 	os.Remove(o.spoolPath(item.ID))
 }
 
-func (o *outbox) enqueue(p Principal, account *Account, built *builtMessage, post postSend, sendAt time.Time, subject string, to []string) (*OutboxItem, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "outbox.enqueue: len(to)=%d", len(to))
-	}
+func (o *outbox) enqueue(p Principal, account *Account, built *builtMessage, post postSend, sendAt time.Time, subject string, to []string) (out0 *OutboxItem, out1 error) {
+	defer logger.Out2(logger.In8("email", "outbox.enqueue", "o", o, "&p", &p, "account", account, "built", built, "&post", &post, "&sendAt", &sendAt, "subject", subject, "to", to), &out0, &out1)
 	item := &OutboxItem{
 		ID:         randomID(10),
 		Owner:      p.Username,
@@ -167,9 +161,11 @@ func (o *outbox) enqueue(p Principal, account *Account, built *builtMessage, pos
 		Date:       built.date.Unix(),
 	}
 	if err := os.WriteFile(o.spoolPath(item.ID), built.raw, 0600); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if err := o.save(item); err != nil {
+		logger.DebugErr("email", err)
 		os.Remove(o.spoolPath(item.ID))
 		return nil, err
 	}
@@ -178,7 +174,7 @@ func (o *outbox) enqueue(p Principal, account *Account, built *builtMessage, pos
 
 // processDue delivers every item whose time has come.
 func (o *outbox) processDue(ctx context.Context) {
-	logger.Debug("email", "outbox.processDue")
+	defer logger.Out0(logger.In2("email", "outbox.processDue", "o", o, "ctx", ctx))
 	o.mutex.Lock()
 	if o.busy {
 		o.mutex.Unlock()
@@ -194,6 +190,7 @@ func (o *outbox) processDue(ctx context.Context) {
 
 	items, err := o.all()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	now := o.manager.now().UnixMilli()
@@ -206,7 +203,7 @@ func (o *outbox) processDue(ctx context.Context) {
 }
 
 func (o *outbox) deliver(ctx context.Context, item *OutboxItem) {
-	logger.Debug("email", "outbox.deliver")
+	defer logger.Out0(logger.In3("email", "outbox.deliver", "o", o, "ctx", ctx, "item", item))
 	m := o.manager
 	p := Principal{Username: item.Owner, Admin: item.Admin}
 
@@ -242,11 +239,13 @@ func (o *outbox) deliver(ctx context.Context, item *OutboxItem) {
 
 	account, err := m.account(p, item.AccountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		fail(err)
 		return
 	}
 	raw, err := os.ReadFile(o.spoolPath(item.ID))
 	if err != nil {
+		logger.DebugErr("email", err)
 		fail(errors.New("the queued message file is missing"))
 		return
 	}
@@ -254,6 +253,7 @@ func (o *outbox) deliver(ctx context.Context, item *OutboxItem) {
 	sendCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	if err := m.sendRaw(sendCtx, p, account, item.From, item.Recipients, raw); err != nil {
+		logger.DebugErr("email", err)
 		m.noteAuthError(p, account, err)
 		fail(err)
 		return
@@ -264,11 +264,10 @@ func (o *outbox) deliver(ctx context.Context, item *OutboxItem) {
 
 // dropAccount removes the queued mail of a deleted account.
 func (o *outbox) dropAccount(owner string, accountID string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "outbox.dropAccount: owner=%.120q accountID=%.120q", owner, accountID)
-	}
+	defer logger.Out0(logger.In3("email", "outbox.dropAccount", "o", o, "owner", owner, "accountID", accountID))
 	items, err := o.all()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	for _, item := range items {
@@ -279,10 +278,11 @@ func (o *outbox) dropAccount(owner string, accountID string) {
 }
 
 // Outbox lists a user's queued and failed messages.
-func (m *Manager) Outbox(p Principal) ([]OutboxView, error) {
-	logger.Debug("email", "Manager.Outbox")
+func (m *Manager) Outbox(p Principal) (out0 []OutboxView, out1 error) {
+	defer logger.Out2(logger.In2("email", "Manager.Outbox", "m", m, "&p", &p), &out0, &out1)
 	items, err := m.outbox.all()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	views := []OutboxView{}
@@ -301,13 +301,12 @@ func (m *Manager) Outbox(p Principal) ([]OutboxView, error) {
 
 // OutboxCancel stops a queued message. toDrafts saves it to the Drafts folder
 // so a scheduled message can be edited.
-func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDrafts bool) (*DraftResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.OutboxCancel: id=%.120q toDrafts=%t", id, toDrafts)
-	}
+func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDrafts bool) (out0 *DraftResult, out1 error) {
+	defer logger.Out2(logger.In5("email", "Manager.OutboxCancel", "m", m, "ctx", ctx, "&p", &p, "id", id, "toDrafts", toDrafts), &out0, &out1)
 	m.outbox.mutex.Lock()
 	item, err := m.outbox.get(p.Username, id)
 	if err != nil {
+		logger.DebugErr("email", err)
 		m.outbox.mutex.Unlock()
 		return nil, err
 	}
@@ -324,6 +323,7 @@ func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDr
 	}
 	account, err := m.account(p, item.AccountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if item.Post.BccHeader != "" {
@@ -334,6 +334,7 @@ func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDr
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		drafts, err := m.ensureRoleFolder(c, key, RoleDrafts)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uid, err := appendMessage(c, drafts, raw, draftFlags, time.Unix(item.Date, 0), item.MessageID)
@@ -342,20 +343,20 @@ func (m *Manager) OutboxCancel(ctx context.Context, p Principal, id string, toDr
 		return err
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return result, nil
 }
 
 // OutboxSendNow delivers a queued or failed message at the next tick.
-func (m *Manager) OutboxSendNow(p Principal, id string) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.OutboxSendNow: id=%.120q", id)
-	}
+func (m *Manager) OutboxSendNow(p Principal, id string) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.OutboxSendNow", "m", m, "&p", &p, "id", id), &out0)
 	m.outbox.mutex.Lock()
 	defer m.outbox.mutex.Unlock()
 	item, err := m.outbox.get(p.Username, id)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	if item.Status == "sending" {

@@ -101,8 +101,8 @@ type planResult struct {
 	Gone []string
 }
 
-func buildPlan(in planInput) planResult {
-	logger.Debug("fileservers/servers/syncthingserv", "buildPlan")
+func buildPlan(in planInput) (out0 planResult) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "buildPlan", "&in", &in), &out0)
 	result := planResult{
 		DeviceReasons: map[string]Reason{},
 		FolderReasons: map[string]Reason{},
@@ -236,10 +236,8 @@ func buildPlan(in planInput) planResult {
 
 // overlapsAny reports a path that is one of the claimed paths, or inside or
 // around one of them.
-func overlapsAny(path string, claimed []string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "overlapsAny: path=%.120q len(claimed)=%d", path, len(claimed))
-	}
+func overlapsAny(path string, claimed []string) (out0 bool) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "overlapsAny", "path", path, "claimed", claimed), &out0)
 	for _, other := range claimed {
 		if pathsOverlap(path, other) {
 			return true
@@ -248,10 +246,8 @@ func overlapsAny(path string, claimed []string) bool {
 	return false
 }
 
-func pathsOverlap(a, b string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "pathsOverlap: a=%.120q b=%.120q", a, b)
-	}
+func pathsOverlap(a, b string) (out0 bool) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "pathsOverlap", "a", a, "b", b), &out0)
 	a, b = comparablePath(a), comparablePath(b)
 	if a == "" || b == "" {
 		return false
@@ -263,10 +259,8 @@ func pathsOverlap(a, b string) bool {
 	return strings.HasPrefix(a, strings.TrimSuffix(b, sep)+sep) || strings.HasPrefix(b, strings.TrimSuffix(a, sep)+sep)
 }
 
-func comparablePath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "comparablePath: p=%.120q", p)
-	}
+func comparablePath(p string) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "comparablePath", "p", p), &out0)
 	if p == "" {
 		return ""
 	}

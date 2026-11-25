@@ -58,21 +58,24 @@ var (
 
 // clusterRunHook executes an event hook script as its owner with the event
 // readable through postPara("event") (JSON).
-func clusterRunHook(h events.Hook, ev events.Event) error {
-	logger.Debug("Core", "clusterRunHook")
+func clusterRunHook(h events.Hook, ev events.Event) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "clusterRunHook", "&h", &h, "&ev", &ev), &out0)
 	if AGIGateway == nil {
 		return errors.New("AGI gateway not ready")
 	}
 	u, err := userHandler.GetUserInfoFromUsername(h.Owner)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	fsh, err := u.GetFileSystemHandlerFromVirtualPath(h.Script)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(h.Script, u.Username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	if !fsh.FileSystemAbstraction.FileExists(rpath) {
@@ -93,8 +96,8 @@ func (c *clusterProvider) InCluster() bool {
 	logger.DebugTrace("Core", "clusterProvider.InCluster")
 	return clusterManager != nil && clusterManager.InCluster()
 }
-func (c *clusterProvider) Self() interface{} {
-	logger.Debug("Core", "clusterProvider.Self")
+func (c *clusterProvider) Self() (out0 interface{}) {
+	defer logger.Out1(logger.In1("Core", "clusterProvider.Self", "c", c), &out0)
 	for _, n := range clusterManager.NodeViews() {
 		if n.Local {
 			return n
@@ -106,8 +109,8 @@ func (c *clusterProvider) Nodes() interface{} {
 	logger.DebugTrace("Core", "clusterProvider.Nodes")
 	return clusterManager.NodeViews()
 }
-func (c *clusterProvider) Status() interface{} {
-	logger.Debug("Core", "clusterProvider.Status")
+func (c *clusterProvider) Status() (out0 interface{}) {
+	defer logger.Out1(logger.In1("Core", "clusterProvider.Status", "c", c), &out0)
 	out := map[string]interface{}{"cluster": clusterManager.Cluster(), "identityOrigin": clusterManager.IdentityOrigin()}
 	if clusterMetadata != nil {
 		out["metadata"] = clusterMetadata.Status()
@@ -121,28 +124,22 @@ func (c *clusterProvider) Status() interface{} {
 	}
 	return out
 }
-func (c *clusterProvider) Stat(path string) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.Stat: path=%.120q", path)
-	}
+func (c *clusterProvider) Stat(path string) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In2("Core", "clusterProvider.Stat", "c", c, "path", path), &out0, &out1)
 	if clusterMetadata == nil {
 		return nil, errors.New("metadata store not available")
 	}
 	return clusterMetadata.Stat(path)
 }
-func (c *clusterProvider) List(path string) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.List: path=%.120q", path)
-	}
+func (c *clusterProvider) List(path string) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In2("Core", "clusterProvider.List", "c", c, "path", path), &out0, &out1)
 	if clusterMetadata == nil {
 		return nil, errors.New("metadata store not available")
 	}
 	return clusterMetadata.ListDir(path)
 }
-func (c *clusterProvider) SetReplicas(path string, n int) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.SetReplicas: path=%.120q n=%d", path, n)
-	}
+func (c *clusterProvider) SetReplicas(path string, n int) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "clusterProvider.SetReplicas", "c", c, "path", path, "n", n), &out0)
 	if clusterMetadata == nil {
 		return errors.New("metadata store not available")
 	}
@@ -151,15 +148,14 @@ func (c *clusterProvider) SetReplicas(path string, n int) error {
 	}
 	rec, err := clusterMetadata.Stat(path)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	rec.Replicas = n
 	return clusterMetadata.Submit(metadata.KindFile, rec)
 }
-func (c *clusterProvider) SetPolicy(folder string, n int) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.SetPolicy: folder=%.120q n=%d", folder, n)
-	}
+func (c *clusterProvider) SetPolicy(folder string, n int) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "clusterProvider.SetPolicy", "c", c, "folder", folder, "n", n), &out0)
 	if clusterMetadata == nil {
 		return errors.New("metadata store not available")
 	}
@@ -168,45 +164,39 @@ func (c *clusterProvider) SetPolicy(folder string, n int) error {
 	}
 	return clusterMetadata.Submit(metadata.KindPolicy, &metadata.Policy{Folder: folder, Replicas: n})
 }
-func (c *clusterProvider) AddHook(owner string, types []string, script string) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.AddHook: owner=%.120q len(types)=%d", owner, len(types))
-	}
+func (c *clusterProvider) AddHook(owner string, types []string, script string) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In4("Core", "clusterProvider.AddHook", "c", c, "owner", owner, "types", types, "script", script), &out0, &out1)
 	if clusterEvents == nil {
 		return nil, errors.New("event bus not available")
 	}
 	return clusterEvents.AddHook(owner, types, script)
 }
-func (c *clusterProvider) RemoveHook(id string, owner string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.RemoveHook: id=%.120q owner=%.120q", id, owner)
-	}
+func (c *clusterProvider) RemoveHook(id string, owner string) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "clusterProvider.RemoveHook", "c", c, "id", id, "owner", owner), &out0)
 	if clusterEvents == nil {
 		return errors.New("event bus not available")
 	}
 	return clusterEvents.RemoveHook(id, owner)
 }
-func (c *clusterProvider) Hooks(owner string) interface{} {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.Hooks: owner=%.120q", owner)
-	}
+func (c *clusterProvider) Hooks(owner string) (out0 interface{}) {
+	defer logger.Out1(logger.In2("Core", "clusterProvider.Hooks", "c", c, "owner", owner), &out0)
 	if clusterEvents == nil {
 		return []events.Hook{}
 	}
 	return clusterEvents.Hooks(owner)
 }
-func (c *clusterProvider) SubmitJob(owner string, name string, scriptVpath string, args []byte, inputs []string, features []string, nodes []string, timeoutSec int, dataset string, partitionMax int) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.SubmitJob: owner=%.120q name=%.120q scriptVpath=%.120q len(args)=%d len(inputs)=%d len(features)=%d len(nodes)=%d timeoutSec=%d dataset=%.120q partitionMax=%d", owner, name, scriptVpath, len(args), len(inputs), len(features), len(nodes), timeoutSec, dataset, partitionMax)
-	}
+func (c *clusterProvider) SubmitJob(owner string, name string, scriptVpath string, args []byte, inputs []string, features []string, nodes []string, timeoutSec int, dataset string, partitionMax int) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In8("Core", "clusterProvider.SubmitJob", "c", c, "owner", owner, "name", name, "scriptVpath", scriptVpath, "args", args, "inputs", inputs, "features", features, "nodes", nodes), &out0, &out1)
 	if clusterJobs == nil {
 		return nil, errors.New("cluster jobs not available")
 	}
 	if err := clusterDatasetAllowed(owner, strings.TrimSpace(dataset)); err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	source, err := clusterReadScript(owner, scriptVpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	req := jobs.SubmitRequest{
@@ -219,10 +209,8 @@ func (c *clusterProvider) SubmitJob(owner string, name string, scriptVpath strin
 	}
 	return clusterJobs.Submit(jobs.SpecFrom(req, owner))
 }
-func (c *clusterProvider) JobStatus(id string, requester string, isAdmin bool) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.JobStatus: id=%.120q requester=%.120q isAdmin=%t", id, requester, isAdmin)
-	}
+func (c *clusterProvider) JobStatus(id string, requester string, isAdmin bool) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In4("Core", "clusterProvider.JobStatus", "c", c, "id", id, "requester", requester, "isAdmin", isAdmin), &out0, &out1)
 	if clusterJobs == nil {
 		return nil, errors.New("cluster jobs not available")
 	}
@@ -232,28 +220,22 @@ func (c *clusterProvider) JobStatus(id string, requester string, isAdmin bool) (
 	}
 	return rec, nil
 }
-func (c *clusterProvider) JobList(owner string) interface{} {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.JobList: owner=%.120q", owner)
-	}
+func (c *clusterProvider) JobList(owner string) (out0 interface{}) {
+	defer logger.Out1(logger.In2("Core", "clusterProvider.JobList", "c", c, "owner", owner), &out0)
 	if clusterJobs == nil {
 		return []jobs.Record{}
 	}
 	return clusterJobs.List(owner)
 }
-func (c *clusterProvider) CancelJob(id string, requester string, isAdmin bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.CancelJob: id=%.120q requester=%.120q isAdmin=%t", id, requester, isAdmin)
-	}
+func (c *clusterProvider) CancelJob(id string, requester string, isAdmin bool) (out0 error) {
+	defer logger.Out1(logger.In4("Core", "clusterProvider.CancelJob", "c", c, "id", id, "requester", requester, "isAdmin", isAdmin), &out0)
 	if clusterJobs == nil {
 		return errors.New("cluster jobs not available")
 	}
 	return clusterJobs.Cancel(id, requester, isAdmin)
 }
-func (c *clusterProvider) WaitJob(id string, timeoutSec int, requester string, isAdmin bool) (interface{}, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.WaitJob: id=%.120q timeoutSec=%d requester=%.120q isAdmin=%t", id, timeoutSec, requester, isAdmin)
-	}
+func (c *clusterProvider) WaitJob(id string, timeoutSec int, requester string, isAdmin bool) (out0 interface{}, out1 error) {
+	defer logger.Out2(logger.In5("Core", "clusterProvider.WaitJob", "c", c, "id", id, "timeoutSec", timeoutSec, "requester", requester, "isAdmin", isAdmin), &out0, &out1)
 	if clusterJobs == nil {
 		return nil, errors.New("cluster jobs not available")
 	}
@@ -263,10 +245,8 @@ func (c *clusterProvider) WaitJob(id string, timeoutSec int, requester string, i
 	}
 	return clusterJobs.WaitFor(id, timeoutSec)
 }
-func (c *clusterProvider) Emit(user string, evType string, data []byte) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterProvider.Emit: user=%.120q evType=%.120q", user, evType)
-	}
+func (c *clusterProvider) Emit(user string, evType string, data []byte) (out0 error) {
+	defer logger.Out1(logger.In4("Core", "clusterProvider.Emit", "c", c, "user", user, "evType", evType, "data", data), &out0)
 	if clusterEvents == nil {
 		return errors.New("event bus not available")
 	}
@@ -285,8 +265,8 @@ func (c *clusterProvider) Emit(user string, evType string, data []byte) error {
 }
 
 // clusterLocalRoots lists the local, non-buffered drives a volume may live on.
-func clusterLocalRoots() map[string]string {
-	logger.Debug("Core", "clusterLocalRoots")
+func clusterLocalRoots() (out0 map[string]string) {
+	defer logger.Out1(logger.In0("Core", "clusterLocalRoots"), &out0)
 	roots := map[string]string{}
 	for _, fsh := range GetAllLoadedFsh() {
 		if fsh == nil || fsh.Closed || fsh.RequireBuffer || fsh.UUID == "tmp" || fsh.UUID == "cluster" {
@@ -307,19 +287,16 @@ func toInfo(i storage.Info) clusterfs.Info {
 	logger.DebugTrace("Core", "toInfo")
 	return clusterfs.Info{Path: i.Path, IsDir: i.IsDir, Size: i.Size, ModTime: i.ModTime}
 }
-func (b *clusterBackend) Stat(p string) (clusterfs.Info, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterBackend.Stat: p=%.120q", p)
-	}
+func (b *clusterBackend) Stat(p string) (out0 clusterfs.Info, out1 error) {
+	defer logger.Out2(logger.In2("Core", "clusterBackend.Stat", "b", b, "p", p), &out0, &out1)
 	i, err := b.s.Stat(p)
 	return toInfo(i), err
 }
-func (b *clusterBackend) List(p string) ([]clusterfs.Info, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterBackend.List: p=%.120q", p)
-	}
+func (b *clusterBackend) List(p string) (out0 []clusterfs.Info, out1 error) {
+	defer logger.Out2(logger.In2("Core", "clusterBackend.List", "b", b, "p", p), &out0, &out1)
 	items, err := b.s.List(p)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	out := make([]clusterfs.Info, 0, len(items))
@@ -329,33 +306,23 @@ func (b *clusterBackend) List(p string) ([]clusterfs.Info, error) {
 	return out, nil
 }
 func (b *clusterBackend) Mkdir(p string, owner string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterBackend.Mkdir: p=%.120q owner=%.120q", p, owner)
-	}
+	logger.DebugTrace("Core", "clusterBackend.Mkdir")
 	return b.s.Mkdir(p, owner)
 }
 func (b *clusterBackend) Remove(p string, recursive bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterBackend.Remove: p=%.120q recursive=%t", p, recursive)
-	}
+	logger.DebugTrace("Core", "clusterBackend.Remove")
 	return b.s.Remove(p, recursive)
 }
 func (b *clusterBackend) Rename(o string, n string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterBackend.Rename: o=%.120q n=%.120q", o, n)
-	}
+	logger.DebugTrace("Core", "clusterBackend.Rename")
 	return b.s.Rename(o, n)
 }
 func (b *clusterBackend) OpenRead(p string) (io.ReadCloser, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterBackend.OpenRead: p=%.120q", p)
-	}
+	logger.DebugTrace("Core", "clusterBackend.OpenRead")
 	return b.s.OpenRead(p)
 }
 func (b *clusterBackend) Write(p string, r io.Reader, owner string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterBackend.Write: p=%.120q owner=%.120q", p, owner)
-	}
+	logger.DebugTrace("Core", "clusterBackend.Write")
 	return b.s.Write(p, r, owner)
 }
 func (b *clusterBackend) Ready() bool {
@@ -370,8 +337,8 @@ func (b *clusterBackend) Ready() bool {
 // is in a cluster and the cluster has at least one volume to keep files in.
 // Without either, the drive is left out of File Manager and every other part
 // of the system, nightly tasks included.
-func clusterDriveWanted() bool {
-	logger.Debug("Core", "clusterDriveWanted")
+func clusterDriveWanted() (out0 bool) {
+	defer logger.Out1(logger.In0("Core", "clusterDriveWanted"), &out0)
 	if clusterManager == nil || clusterStorage == nil || clusterMetadata == nil || !clusterManager.InCluster() {
 		return false
 	}
@@ -379,10 +346,8 @@ func clusterDriveWanted() bool {
 }
 
 // clusterHasVolume reports whether any volume is still part of the cluster.
-func clusterHasVolume(vols []metadata.Volume) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterHasVolume: len(vols)=%d", len(vols))
-	}
+func clusterHasVolume(vols []metadata.Volume) (out0 bool) {
+	defer logger.Out1(logger.In1("Core", "clusterHasVolume", "vols", vols), &out0)
 	for _, v := range vols {
 		if !v.Removed {
 			return true
@@ -404,8 +369,8 @@ func clusterHasVolume(vols []metadata.Volume) bool {
 // clusterIsMasterNode reports whether this node maintains the storage shared
 // by the cluster. A node with no cluster is the only node there is, so it is
 // its own master.
-func clusterIsMasterNode() bool {
-	logger.Debug("Core", "clusterIsMasterNode")
+func clusterIsMasterNode() (out0 bool) {
+	defer logger.Out1(logger.In0("Core", "clusterIsMasterNode"), &out0)
 	if *disable_cluster || clusterManager == nil || clusterMetadata == nil || !clusterManager.InCluster() {
 		return true
 	}
@@ -415,8 +380,8 @@ func clusterIsMasterNode() bool {
 // nightlyFshOption returns how nightly maintenance of one file system handler
 // should be run: a drive shared by the whole cluster is maintained by the
 // master node only, every other drive by the host it belongs to.
-func nightlyFshOption(fsh *fs.FileSystemHandler) nightly.TaskOption {
-	logger.Debug("Core", "nightlyFshOption")
+func nightlyFshOption(fsh *fs.FileSystemHandler) (out0 nightly.TaskOption) {
+	defer logger.Out1(logger.In1("Core", "nightlyFshOption", "fsh", fsh), &out0)
 	if fsh != nil && fsh.Filesystem == "cluster" {
 		return nightly.TaskOption{Name: "cluster:/ maintenance", MasterNodeOnly: true}
 	}
@@ -432,7 +397,7 @@ func nightlyShouldMaintainFsh(fsh *fs.FileSystemHandler) bool {
 
 // clusterSyncDrive mounts or unmounts cluster:/ to match clusterDriveWanted.
 func clusterSyncDrive() {
-	logger.Debug("Core", "clusterSyncDrive")
+	defer logger.Out0(logger.In0("Core", "clusterSyncDrive"))
 	if clusterDriveWanted() {
 		clusterMountDrive()
 	} else {
@@ -441,7 +406,7 @@ func clusterSyncDrive() {
 }
 
 func clusterMountDrive() {
-	logger.Debug("Core", "clusterMountDrive")
+	defer logger.Out0(logger.In0("Core", "clusterMountDrive"))
 	clusterMountMu.Lock()
 	defer clusterMountMu.Unlock()
 	if clusterStorage == nil || baseStoragePool == nil || !clusterManager.InCluster() {
@@ -467,6 +432,7 @@ func clusterMountDrive() {
 		},
 	}
 	if err := baseStoragePool.AttachFsHandler(handler); err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Cluster", "Unable to mount cluster drive: "+err.Error(), err)
 		return
 	}
@@ -475,7 +441,7 @@ func clusterMountDrive() {
 }
 
 func clusterUnmountDrive() {
-	logger.Debug("Core", "clusterUnmountDrive")
+	defer logger.Out0(logger.In0("Core", "clusterUnmountDrive"))
 	clusterMountMu.Lock()
 	defer clusterMountMu.Unlock()
 	if baseStoragePool == nil || !baseStoragePool.ContainDiskID("cluster") {
@@ -490,33 +456,23 @@ func clusterUnmountDrive() {
 type clusterAccountStore struct{}
 
 func (s *clusterAccountStore) UserExists(username string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.UserExists: username=%.120q", username)
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.UserExists")
 	return authAgent.UserExists(username)
 }
 func (s *clusterAccountStore) PasswordHash(username string) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.PasswordHash: username=%.120q", username)
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.PasswordHash")
 	return authAgent.GetPasswordHash(username)
 }
 func (s *clusterAccountStore) SetPasswordHash(username string, hash string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.SetPasswordHash: username=%.120q", username)
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.SetPasswordHash")
 	return authAgent.SetPasswordHash(username, hash)
 }
 func (s *clusterAccountStore) Groups(username string) ([]string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.Groups: username=%.120q", username)
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.Groups")
 	return authAgent.GetUserGroups(username)
 }
 func (s *clusterAccountStore) SetGroups(username string, groups []string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.SetGroups: username=%.120q len(groups)=%d", username, len(groups))
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.SetGroups")
 	return authAgent.SetUserGroups(username, groups)
 }
 func (s *clusterAccountStore) ListUsers() []string {
@@ -524,24 +480,18 @@ func (s *clusterAccountStore) ListUsers() []string {
 	return authAgent.ListUsers()
 }
 func (s *clusterAccountStore) DeleteUser(username string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.DeleteUser: username=%.120q", username)
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.DeleteUser")
 	return authAgent.UnregisterUser(username)
 }
 func (s *clusterAccountStore) GroupExists(group string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "clusterAccountStore.GroupExists: group=%.120q", group)
-	}
+	logger.DebugTrace("Core", "clusterAccountStore.GroupExists")
 	return permissionHandler.GroupExists(group)
 }
 
 // clusterNotifyPasswordChanged forwards a password change of a replicated
 // account to the identity origin. Safe to call when clustering is off.
 func clusterNotifyPasswordChanged(username string, passwordHash string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "clusterNotifyPasswordChanged: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("Core", "clusterNotifyPasswordChanged", "username", username, "!passwordHash", passwordHash))
 	if clusterIdentity != nil {
 		clusterIdentity.NotifyPasswordChanged(username, passwordHash)
 	}
@@ -556,8 +506,8 @@ type clusterHealthProvider struct {
 	ramSample time.Time
 }
 
-func (p *clusterHealthProvider) snapshot() membership.Health {
-	logger.Debug("Core", "clusterHealthProvider.snapshot")
+func (p *clusterHealthProvider) snapshot() (out0 membership.Health) {
+	defer logger.Out1(logger.In1("Core", "clusterHealthProvider.snapshot", "p", p), &out0)
 	h := membership.Health{}
 	if cpu, _, _, _, ready := usageinfo.GetCachedStats(); ready {
 		h.CPUUsage = cpu
@@ -579,7 +529,7 @@ func (p *clusterHealthProvider) snapshot() membership.Health {
 }
 
 func ClusterInit() {
-	logger.Debug("Core", "ClusterInit")
+	defer logger.Out0(logger.In0("Core", "ClusterInit"))
 	if *disable_cluster {
 		systemWideLogger.PrintAndLog("Cluster", "Cluster features are disabled by the -disable_cluster flag", nil)
 	} else {
@@ -596,7 +546,7 @@ func ClusterInit() {
 // can create or join a cluster from System Settings regardless of the LAN
 // discovery features.
 func clusterStartAgent() {
-	logger.Debug("Core", "clusterStartAgent")
+	defer logger.Out0(logger.In0("Core", "clusterStartAgent"))
 	health := &clusterHealthProvider{}
 	manager, err := membership.NewManager(membership.Option{
 		NodeID:      deviceUUID,
@@ -607,6 +557,7 @@ func clusterStartAgent() {
 		Health:      health.snapshot,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster agent: "+err.Error(), err)
 	} else {
 		clusterManager = manager
@@ -648,6 +599,7 @@ func clusterStartAgent() {
 			Accounts:   &clusterAccountStore{},
 		})
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster identity service: "+err.Error(), err)
 		} else {
 			clusterIdentity = idm
@@ -658,6 +610,7 @@ func clusterStartAgent() {
 		//Metadata store: replicated namespace index + leader lease
 		mdm, err := metadata.New(metadata.Option{Membership: clusterManager})
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster metadata store: "+err.Error(), err)
 		} else {
 			clusterMetadata = mdm
@@ -665,6 +618,7 @@ func clusterStartAgent() {
 
 			//Placement scoring shared by jobs, writes and replication
 			if sch, err := scheduling.New(clusterManager, clusterMetadata); err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster scheduling: "+err.Error(), err)
 			} else {
 				clusterScheduling = sch
@@ -681,6 +635,7 @@ func clusterStartAgent() {
 				Thumbnailer: clusterRenderThumbnail,
 			})
 			if err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster storage: "+err.Error(), err)
 			} else {
 				clusterStorage = sto
@@ -707,6 +662,7 @@ func clusterStartAgent() {
 				//Event bus: file / replica / node events, script hooks, web feed
 				bus, err := events.New(clusterManager, clusterRunHook)
 				if err != nil {
+					logger.DebugErr("Core", err)
 					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster event bus: "+err.Error(), err)
 				} else {
 					clusterEvents = bus
@@ -744,6 +700,7 @@ func clusterStartAgent() {
 					userRouter.HandleFunc("/system/cluster/events/hooks", func(w http.ResponseWriter, r *http.Request) {
 						u, err := userHandler.GetUserInfoFromRequest(w, r)
 						if err != nil {
+							logger.DebugErr("Core", err)
 							errorHandlePermissionDenied(w, r)
 							return
 						}
@@ -766,6 +723,7 @@ func clusterStartAgent() {
 					LocalityBytes: clusterJobLocality,
 				})
 				if err != nil {
+					logger.DebugErr("Core", err)
 					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster jobs: "+err.Error(), err)
 				} else {
 					clusterJobs = jm
@@ -814,6 +772,7 @@ func clusterStartAgent() {
 					Scheduler:  clusterScheduling,
 				})
 				if err != nil {
+					logger.DebugErr("Core", err)
 					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster replication: "+err.Error(), err)
 				} else {
 					clusterReplication = rep
@@ -835,7 +794,7 @@ func clusterStartAgent() {
 // clusterStartNeighbourhood runs the older mDNS neighbour discovery, which is
 // separate from the cluster and governed by -allow_mdns.
 func clusterStartNeighbourhood() {
-	logger.Debug("Core", "clusterStartNeighbourhood")
+	defer logger.Out0(logger.In0("Core", "clusterStartNeighbourhood"))
 	//Only enable neighbourhood scanning on mdns enabled mode
 	if *allow_mdns && MDNS != nil {
 		//Start the network discovery
@@ -878,7 +837,7 @@ func clusterStartNeighbourhood() {
 
 // ClusterShutdown stops heartbeats and tunnels before the process exits.
 func ClusterShutdown() {
-	logger.Debug("Core", "ClusterShutdown")
+	defer logger.Out0(logger.In0("Core", "ClusterShutdown"))
 	if clusterJobs != nil {
 		clusterJobs.Close()
 	}

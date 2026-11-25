@@ -37,16 +37,16 @@ type progressMark struct {
 	pulledBytes int64 //Grows as blocks of the files being pulled arrive
 }
 
-func markOf(st FolderStatus) progressMark {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "markOf")
+func markOf(st FolderStatus) (out0 progressMark) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "markOf", "&st", &st), &out0)
 	return progressMark{localFiles: st.LocalFiles, localBytes: st.LocalBytes, pulledBytes: st.PulledBytes}
 }
 
 // finished reports a file finished or deleted since the other mark. The
 // pulled bytes also change when a restarted folder picks up its temporary
 // files again, so only these count as real progress for the backoff.
-func (p progressMark) finished(other progressMark) bool {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "progressMark.finished")
+func (p progressMark) finished(other progressMark) (out0 bool) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "progressMark.finished", "&p", &p, "&other", &other), &out0)
 	return p.localFiles != other.localFiles || p.localBytes != other.localBytes
 }
 
@@ -62,17 +62,15 @@ type stallWatch struct {
 	folders map[string]*stallState
 }
 
-func newStallWatch() *stallWatch {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "newStallWatch")
+func newStallWatch() (out0 *stallWatch) {
+	defer logger.Out1(logger.In0("fileservers/servers/syncthingserv", "newStallWatch"), &out0)
 	return &stallWatch{folders: map[string]*stallState{}}
 }
 
 // observe takes the status of a folder and reports whether it has been
 // syncing with nothing arriving long enough to be restarted.
-func (w *stallWatch) observe(id string, st FolderStatus, now time.Time) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stallWatch.observe: id=%.120q", id)
-	}
+func (w *stallWatch) observe(id string, st FolderStatus, now time.Time) (out0 bool) {
+	defer logger.Out1(logger.In4("fileservers/servers/syncthingserv", "stallWatch.observe", "w", w, "id", id, "&st", &st, "&now", &now), &out0)
 	mark := markOf(st)
 	syncing := st.State == stateSyncing
 	s, ok := w.folders[id]
@@ -102,9 +100,7 @@ func (w *stallWatch) observe(id string, st FolderStatus, now time.Time) bool {
 
 // restarted starts the wait of a folder again, twice as long as before.
 func (w *stallWatch) restarted(id string, now time.Time) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stallWatch.restarted: id=%.120q", id)
-	}
+	defer logger.Out0(logger.In3("fileservers/servers/syncthingserv", "stallWatch.restarted", "w", w, "id", id, "&now", &now))
 	s, ok := w.folders[id]
 	if !ok {
 		return
@@ -115,9 +111,7 @@ func (w *stallWatch) restarted(id string, now time.Time) {
 
 // keep forgets the folders that are not in ids.
 func (w *stallWatch) keep(ids map[string]bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "stallWatch.keep: len(ids)=%d", len(ids))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/syncthingserv", "stallWatch.keep", "w", w, "ids", ids))
 	for id := range w.folders {
 		if !ids[id] {
 			delete(w.folders, id)
@@ -128,7 +122,7 @@ func (w *stallWatch) keep(ids map[string]bool) {
 // checkStallsLocked restarts the folders that stopped receiving while
 // syncing. The caller holds m.mu.
 func (m *Manager) checkStallsLocked(now time.Time) {
-	logger.Debug("fileservers/servers/syncthingserv", "Manager.checkStallsLocked")
+	defer logger.Out0(logger.In2("fileservers/servers/syncthingserv", "Manager.checkStallsLocked", "m", m, "&now", &now))
 	active := map[string]bool{}
 	for _, f := range m.result.Plan.Folders {
 		if f.Paused {
@@ -141,6 +135,7 @@ func (m *Manager) checkStallsLocked(now time.Time) {
 		waited := m.stalls.folders[f.ID].timeout
 		m.stalls.restarted(f.ID, now)
 		if err := m.eng.RestartFolder(f.ID); err != nil {
+			logger.DebugErr("fileservers/servers/syncthingserv", err)
 			logger.PrintAndLog(logTitle, "Folder "+f.ID+" ("+f.Label+") stalled, but could not be restarted", err)
 			continue
 		}

@@ -42,8 +42,8 @@ var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 // BuildWellKnownURL returns the standard OIDC discovery URL for issuerURL.
 // It is safe to call with a URL that already ends with the well-known path.
-func BuildWellKnownURL(issuerURL string) string {
-	logger.Debug("auth/oauth2", "BuildWellKnownURL")
+func BuildWellKnownURL(issuerURL string) (out0 string) {
+	defer logger.Out1(logger.In1("auth/oauth2", "BuildWellKnownURL", "issuerURL", issuerURL), &out0)
 	issuerURL = strings.TrimRight(issuerURL, "/")
 	if strings.HasSuffix(issuerURL, ".well-known/openid-configuration") {
 		return issuerURL
@@ -54,8 +54,8 @@ func BuildWellKnownURL(issuerURL string) string {
 // FetchOIDCDiscovery retrieves and parses the OIDC discovery document for
 // issuerURL. The URL may or may not include the /.well-known/openid-configuration
 // suffix — both forms are handled transparently.
-func FetchOIDCDiscovery(issuerURL string) (*OIDCDiscovery, error) {
-	logger.Debug("auth/oauth2", "FetchOIDCDiscovery")
+func FetchOIDCDiscovery(issuerURL string) (out0 *OIDCDiscovery, out1 error) {
+	defer logger.Out2(logger.In1("auth/oauth2", "FetchOIDCDiscovery", "issuerURL", issuerURL), &out0, &out1)
 	if strings.TrimSpace(issuerURL) == "" {
 		return nil, fmt.Errorf("issuer URL must not be empty")
 	}
@@ -64,12 +64,14 @@ func FetchOIDCDiscovery(issuerURL string) (*OIDCDiscovery, error) {
 
 	req, err := http.NewRequest(http.MethodGet, wellKnownURL, nil)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return nil, fmt.Errorf("failed to build discovery request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return nil, fmt.Errorf("OIDC discovery request to %s failed: %w", wellKnownURL, err)
 	}
 	defer resp.Body.Close()
@@ -80,11 +82,13 @@ func FetchOIDCDiscovery(issuerURL string) (*OIDCDiscovery, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return nil, fmt.Errorf("failed to read OIDC discovery response: %w", err)
 	}
 
 	var doc OIDCDiscovery
 	if err := json.Unmarshal(body, &doc); err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return nil, fmt.Errorf("failed to parse OIDC discovery document from %s: %w", wellKnownURL, err)
 	}
 
@@ -101,10 +105,8 @@ func FetchOIDCDiscovery(issuerURL string) (*OIDCDiscovery, error) {
 // getUserInfoFromEndpoint calls the OIDC userinfo endpoint with an access token
 // and returns the value of usernameField from the JSON claims.
 // If usernameField is empty, it defaults to "email".
-func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "getUserInfoFromEndpoint: usernameField=%.120q", usernameField)
-	}
+func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("auth/oauth2", "getUserInfoFromEndpoint", "userinfoURL", userinfoURL, "usernameField", usernameField, "!accessToken", accessToken), &out0, &out1)
 	if userinfoURL == "" {
 		return "", fmt.Errorf("userinfo endpoint URL is not configured")
 	}
@@ -114,6 +116,7 @@ func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (st
 
 	req, err := http.NewRequest(http.MethodGet, userinfoURL, nil)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return "", fmt.Errorf("failed to build userinfo request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -121,6 +124,7 @@ func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (st
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return "", fmt.Errorf("userinfo request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -134,11 +138,13 @@ func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (st
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return "", fmt.Errorf("failed to read userinfo response: %w", err)
 	}
 
 	var claims map[string]interface{}
 	if err := json.Unmarshal(body, &claims); err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return "", fmt.Errorf("failed to parse userinfo response: %w", err)
 	}
 
@@ -157,10 +163,8 @@ func getUserInfoFromEndpoint(accessToken, userinfoURL, usernameField string) (st
 }
 
 // claimKeys returns the sorted key names of a claims map for error messages.
-func claimKeys(m map[string]interface{}) []string {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "claimKeys: len(m)=%d", len(m))
-	}
+func claimKeys(m map[string]interface{}) (out0 []string) {
+	defer logger.Out1(logger.In1("auth/oauth2", "claimKeys", "m", m), &out0)
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

@@ -18,11 +18,10 @@ import (
 */
 
 func (g *Gateway) RenderErrorTemplate(w http.ResponseWriter, errmsg string, scriptpath string) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.RenderErrorTemplate: errmsg=%.120q scriptpath=%.120q", errmsg, scriptpath)
-	}
+	defer logger.Out0(logger.In3("agi", "Gateway.RenderErrorTemplate", "g", g, "errmsg", errmsg, "scriptpath", scriptpath))
 	templateFile, err := os.ReadFile("system/agi/error.html")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -30,6 +29,7 @@ func (g *Gateway) RenderErrorTemplate(w http.ResponseWriter, errmsg string, scri
 	// Define a template
 	tmpl, err := template.New("errorTemplate").Parse(string(templateFile))
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -50,6 +50,7 @@ func (g *Gateway) RenderErrorTemplate(w http.ResponseWriter, errmsg string, scri
 	// Execute the template
 	err = tmpl.Execute(w, data)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

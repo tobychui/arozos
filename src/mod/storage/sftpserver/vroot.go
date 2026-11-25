@@ -47,42 +47,40 @@ type rootEntry struct {
 	thisFsh *filesystem.FileSystemHandler
 }
 
-func NewVrootEmulatedDirEntry(fsh *filesystem.FileSystemHandler) *rootEntry {
-	logger.DebugTrace("storage/sftpserver", "NewVrootEmulatedDirEntry")
+func NewVrootEmulatedDirEntry(fsh *filesystem.FileSystemHandler) (out0 *rootEntry) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "NewVrootEmulatedDirEntry", "fsh", fsh), &out0)
 	return &rootEntry{
 		thisFsh: fsh,
 	}
 }
 
-func (r *rootEntry) Name() string {
-	logger.DebugTrace("storage/sftpserver", "rootEntry.Name")
+func (r *rootEntry) Name() (out0 string) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootEntry.Name", "r", r), &out0)
 	return r.thisFsh.UUID
 }
-func (r *rootEntry) Size() int64 {
-	logger.DebugTrace("storage/sftpserver", "rootEntry.Size")
+func (r *rootEntry) Size() (out0 int64) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootEntry.Size", "r", r), &out0)
 	return 0
 }
-func (r *rootEntry) Mode() os.FileMode {
-	logger.DebugTrace("storage/sftpserver", "rootEntry.Mode")
+func (r *rootEntry) Mode() (out0 os.FileMode) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootEntry.Mode", "r", r), &out0)
 	return fs.ModeDir
 }
-func (r *rootEntry) ModTime() time.Time {
-	logger.DebugTrace("storage/sftpserver", "rootEntry.ModTime")
+func (r *rootEntry) ModTime() (out0 time.Time) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootEntry.ModTime", "r", r), &out0)
 	return time.Now()
 }
-func (r *rootEntry) IsDir() bool {
-	logger.DebugTrace("storage/sftpserver", "rootEntry.IsDir")
+func (r *rootEntry) IsDir() (out0 bool) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootEntry.IsDir", "r", r), &out0)
 	return true
 }
-func (r *rootEntry) Sys() interface{} {
-	logger.DebugTrace("storage/sftpserver", "rootEntry.Sys")
+func (r *rootEntry) Sys() (out0 interface{}) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootEntry.Sys", "r", r), &out0)
 	return nil
 }
 
-func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "GetNewSFTPRoot: username=%.120q", username)
-	}
+func GetNewSFTPRoot(username string, userAccess Access) (out0 sftp.Handlers) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "GetNewSFTPRoot", "username", username, "&userAccess", &userAccess), &out0)
 	root := &root{
 		username:       username,
 		rootFile:       &rootFolder{name: "/", modtime: time.Now(), isdir: true},
@@ -92,10 +90,8 @@ func GetNewSFTPRoot(username string, userAccess Access) sftp.Handlers {
 	return sftp.Handlers{root, root, root, root}
 }
 
-func (fs *root) getFshFromID(fshID string) *filesystem.FileSystemHandler {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.getFshFromID: fshID=%.120q", fshID)
-	}
+func (fs *root) getFshFromID(fshID string) (out0 *filesystem.FileSystemHandler) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.getFshFromID", "fs", fs, "fshID", fshID), &out0)
 	for _, thisFsh := range fs.access.GetAllFileSystemHandler() {
 		if thisFsh.UUID == fshID && !thisFsh.Closed {
 			return thisFsh
@@ -106,12 +102,11 @@ func (fs *root) getFshFromID(fshID string) *filesystem.FileSystemHandler {
 }
 
 // getWritableFsh resolves a path the user is about to change
-func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.getWritableFsh: pathname=%.120q", pathname)
-	}
+func (fs *root) getWritableFsh(pathname string) (out0 *filesystem.FileSystemHandler, out1 string, out2 error) {
+	defer logger.Out3(logger.In2("storage/sftpserver", "root.getWritableFsh", "fs", fs, "pathname", pathname), &out0, &out1, &out2)
 	fsh, subpath, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, "", err
 	}
 	if !fs.access.CanWrite(fsh.UUID + ":/" + subpath) {
@@ -120,8 +115,8 @@ func (fs *root) getWritableFsh(pathname string) (*filesystem.FileSystemHandler, 
 	return fsh, rpath, nil
 }
 
-func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	logger.Debug("storage/sftpserver", "root.Fileread")
+func (fs *root) Fileread(r *sftp.Request) (out0 io.ReaderAt, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.Fileread", "fs", fs, "r", r), &out0, &out1)
 	flags := r.Pflags()
 	if !flags.Read {
 		// sanity check
@@ -131,19 +126,21 @@ func (fs *root) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 	//Read only, or a user without write access could not read at all
 	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(r.Filepath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
 	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDONLY, 0775)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
 	return f, nil
 }
 
-func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
-	logger.Debug("storage/sftpserver", "root.Filewrite")
+func (fs *root) Filewrite(r *sftp.Request) (out0 io.WriterAt, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.Filewrite", "fs", fs, "r", r), &out0, &out1)
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		//Uploading to virtual root folder. Return error
 		return nil, errors.New("ArozOS SFTP root is read only")
@@ -151,29 +148,33 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 
 	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
 	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_WRONLY|openFlags(r.Pflags()), 0775)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
 	return f, nil
 }
 
-func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
-	logger.Debug("storage/sftpserver", "root.OpenFile")
+func (fs *root) OpenFile(r *sftp.Request) (out0 sftp.WriterAtReaderAt, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.OpenFile", "fs", fs, "r", r), &out0, &out1)
 	if arozfs.ToSlash(filepath.Dir(r.Filepath)) == "/" {
 		return nil, errors.New("ArozOS SFTP root is read only")
 	}
 	fsh, rpath, err := fs.getWritableFsh(r.Filepath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
 	f, err := fsh.FileSystemAbstraction.OpenFile(rpath, os.O_RDWR|openFlags(r.Pflags()), 0775)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
@@ -183,8 +184,8 @@ func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
 // openFlags carries the create, truncate, exclusive and append choices of a
 // client over. Without the truncate flag, a smaller file uploaded over a
 // bigger one would keep the old file's tail.
-func openFlags(p sftp.FileOpenFlags) int {
-	logger.Debug("storage/sftpserver", "openFlags")
+func openFlags(p sftp.FileOpenFlags) (out0 int) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "openFlags", "&p", &p), &out0)
 	flags := 0
 	if p.Creat {
 		flags |= os.O_CREATE
@@ -201,8 +202,8 @@ func openFlags(p sftp.FileOpenFlags) int {
 	return flags
 }
 
-func (fs *root) Filecmd(r *sftp.Request) error {
-	logger.Debug("storage/sftpserver", "root.Filecmd")
+func (fs *root) Filecmd(r *sftp.Request) (out0 error) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.Filecmd", "fs", fs, "r", r), &out0)
 	switch r.Method {
 	case "Setstat":
 
@@ -238,16 +239,16 @@ func (fs *root) Filecmd(r *sftp.Request) error {
 	return errors.New("unsupported")
 }
 
-func (fs *root) rename(oldpath, newpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.rename: oldpath=%.120q newpath=%.120q", oldpath, newpath)
-	}
+func (fs *root) rename(oldpath, newpath string) (out0 error) {
+	defer logger.Out1(logger.In3("storage/sftpserver", "root.rename", "fs", fs, "oldpath", oldpath, "newpath", newpath), &out0)
 	oldFsh, realOldPath, err := fs.getWritableFsh(oldpath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return err
 	}
 	newFsh, realNewPath, err := fs.getWritableFsh(newpath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return err
 	}
 
@@ -255,18 +256,21 @@ func (fs *root) rename(oldpath, newpath string) error {
 		//Use rename function
 		err = oldFsh.FileSystemAbstraction.Rename(realOldPath, realNewPath)
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			return err
 		}
 	} else {
 		//Cross root rename (aka move)
 		src, err := oldFsh.FileSystemAbstraction.ReadStream(realOldPath)
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			return err
 		}
 		defer src.Close()
 
 		err = newFsh.FileSystemAbstraction.WriteStream(realNewPath, src, 0775)
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			return err
 		}
 
@@ -277,61 +281,54 @@ func (fs *root) rename(oldpath, newpath string) error {
 	return nil
 }
 
-func (fs *root) PosixRename(r *sftp.Request) error {
-	logger.DebugTrace("storage/sftpserver", "root.PosixRename")
+func (fs *root) PosixRename(r *sftp.Request) (out0 error) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.PosixRename", "fs", fs, "r", r), &out0)
 	return fs.rename(r.Filepath, r.Target)
 }
 
-func (fs *root) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
-	logger.DebugTrace("storage/sftpserver", "root.StatVFS")
+func (fs *root) StatVFS(r *sftp.Request) (out0 *sftp.StatVFS, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.StatVFS", "fs", fs, "r", r), &out0, &out1)
 	return nil, errors.New("unsupported")
 }
 
-func (fs *root) mkdir(pathname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.mkdir: pathname=%.120q", pathname)
-	}
+func (fs *root) mkdir(pathname string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.mkdir", "fs", fs, "pathname", pathname), &out0)
 	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return err
 	}
 
 	return fsh.FileSystemAbstraction.MkdirAll(rpath, 0775)
 }
 
-func (fs *root) rmdir(pathname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.rmdir: pathname=%.120q", pathname)
-	}
+func (fs *root) rmdir(pathname string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.rmdir", "fs", fs, "pathname", pathname), &out0)
 	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return err
 	}
 	return fsh.FileSystemAbstraction.RemoveAll(rpath)
 }
 
-func (fs *root) link(oldpath, newpath string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/sftpserver", "root.link: oldpath=%.120q newpath=%.120q", oldpath, newpath)
-	}
+func (fs *root) link(oldpath, newpath string) (out0 error) {
+	defer logger.Out1(logger.In3("storage/sftpserver", "root.link", "fs", fs, "oldpath", oldpath, "newpath", newpath), &out0)
 	return errors.New("unsupported")
 }
 
 // symlink() creates a symbolic link named `linkpath` which contains the string `target`.
 // NOTE! This would be called with `symlink(req.Filepath, req.Target)` due to different semantics.
-func (fs *root) symlink(target, linkpath string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/sftpserver", "root.symlink: target=%.120q linkpath=%.120q", target, linkpath)
-	}
+func (fs *root) symlink(target, linkpath string) (out0 error) {
+	defer logger.Out1(logger.In3("storage/sftpserver", "root.symlink", "fs", fs, "target", target, "linkpath", linkpath), &out0)
 	return errors.New("unsupported")
 }
 
-func (fs *root) unlink(pathname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.unlink: pathname=%.120q", pathname)
-	}
+func (fs *root) unlink(pathname string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.unlink", "fs", fs, "pathname", pathname), &out0)
 	fsh, rpath, err := fs.getWritableFsh(pathname)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return err
 	}
 
@@ -347,10 +344,8 @@ func (fs *root) unlink(pathname string) error {
 type listerat []os.FileInfo
 
 // Modeled after strings.Reader's ReadAt() implementation
-func (f listerat) ListAt(ls []os.FileInfo, offset int64) (int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "listerat.ListAt: len(ls)=%d offset=%d", len(ls), offset)
-	}
+func (f listerat) ListAt(ls []os.FileInfo, offset int64) (out0 int, out1 error) {
+	defer logger.Out2(logger.In3("storage/sftpserver", "listerat.ListAt", "&f", &f, "ls", ls, "offset", offset), &out0, &out1)
 	var n int
 	if offset >= int64(len(f)) {
 		return 0, io.EOF
@@ -362,12 +357,13 @@ func (f listerat) ListAt(ls []os.FileInfo, offset int64) (int, error) {
 	return n, nil
 }
 
-func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
-	logger.Debug("storage/sftpserver", "root.Filelist")
+func (fs *root) Filelist(r *sftp.Request) (out0 sftp.ListerAt, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.Filelist", "fs", fs, "r", r), &out0, &out1)
 	switch r.Method {
 	case "List":
 		files, err := fs.readdir(r.Filepath)
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			return nil, err
 		}
 		return listerat(files), nil
@@ -375,6 +371,7 @@ func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	case "Stat":
 		file, err := fs.fetch(r.Filepath)
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			return nil, err
 		}
 		return listerat{file}, nil
@@ -386,10 +383,8 @@ func (fs *root) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	return nil, errors.New("unsupported")
 }
 
-func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.readdir: pathname=%.120q", pathname)
-	}
+func (fs *root) readdir(pathname string) (out0 []os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.readdir", "fs", fs, "pathname", pathname), &out0, &out1)
 	if cleanPath(pathname) == "/" {
 		//Handle special root listing
 		results := []os.FileInfo{}
@@ -402,6 +397,7 @@ func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
 	//Get the content of the dir using fsh infrastructure
 	targetFsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(pathname)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 
@@ -412,12 +408,14 @@ func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
 	//Read Dir, and convert the results into os.FileInfo
 	entries, err := targetFsh.FileSystemAbstraction.ReadDir(rpath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	files := []os.FileInfo{}
 	for _, entry := range entries {
 		i, err := entry.Info()
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			continue
 		}
 		files = append(files, i)
@@ -428,28 +426,25 @@ func (fs *root) readdir(pathname string) ([]os.FileInfo, error) {
 	return files, nil
 }
 
-func (fs *root) readlink(pathname string) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/sftpserver", "root.readlink: pathname=%.120q", pathname)
-	}
+func (fs *root) readlink(pathname string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.readlink", "fs", fs, "pathname", pathname), &out0, &out1)
 	return "", errors.New("unsupported")
 }
 
 // implements LstatFileLister interface
-func (fs *root) Lstat(r *sftp.Request) (sftp.ListerAt, error) {
-	logger.Debug("storage/sftpserver", "root.Lstat")
+func (fs *root) Lstat(r *sftp.Request) (out0 sftp.ListerAt, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.Lstat", "fs", fs, "r", r), &out0, &out1)
 	file, err := fs.lfetch(r.Filepath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	return listerat{file}, nil
 }
 
 // implements RealpathFileLister interface
-func (fs *root) Realpath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.Realpath: p=%.120q", p)
-	}
+func (fs *root) Realpath(p string) (out0 string) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "root.Realpath", "fs", fs, "p", p), &out0)
 	if fs.startDirectory == "" || fs.startDirectory == "/" {
 		return cleanPath(p)
 	}
@@ -457,10 +452,8 @@ func (fs *root) Realpath(p string) string {
 }
 
 // Convert sftp raw path into fsh, subpath and realpath. return err if any
-func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.FileSystemHandler, string, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.getFshAndSubpathFromSFTPPathname: pathname=%.120q", pathname)
-	}
+func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (out0 *filesystem.FileSystemHandler, out1 string, out2 string, out3 error) {
+	defer logger.Out4(logger.In2("storage/sftpserver", "root.getFshAndSubpathFromSFTPPathname", "fs", fs, "pathname", pathname), &out0, &out1, &out2, &out3)
 	pathname = strings.TrimSpace(pathname)
 	if pathname[0:1] != "/" {
 		pathname = "/" + pathname
@@ -491,16 +484,15 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(vpath, fs.username)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, "", "", err
 	}
 
 	return fsh, subpath, rpath, nil
 }
 
-func (fs *root) lfetch(path string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.lfetch: path=%.120q", path)
-	}
+func (fs *root) lfetch(path string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.lfetch", "fs", fs, "path", path), &out0, &out1)
 	path = strings.TrimSpace(path)
 	if path == "/" {
 		//fmt.Println("Requesting SFTP Root")
@@ -510,12 +502,14 @@ func (fs *root) lfetch(path string) (os.FileInfo, error) {
 	//Fetching path other than root. Extract the vroot id from the path
 	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(path)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	//Stat only: a file opened here would never be closed again, and every
 	//stat of a client would keep one more file open on the server
 	info, err := fsh.FileSystemAbstraction.Stat(rpath)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, os.ErrNotExist
 		}
@@ -524,54 +518,49 @@ func (fs *root) lfetch(path string) (os.FileInfo, error) {
 	return info, nil
 }
 
-func (fs *root) fetch(path string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "root.fetch: path=%.120q", path)
-	}
+func (fs *root) fetch(path string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/sftpserver", "root.fetch", "fs", fs, "path", path), &out0, &out1)
 	file, err := fs.lfetch(path)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	return file, nil
 }
 
 // Have memFile fulfill os.FileInfo interface
-func (f *rootFolder) Name() string {
-	logger.DebugTrace("storage/sftpserver", "rootFolder.Name")
+func (f *rootFolder) Name() (out0 string) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootFolder.Name", "f", f), &out0)
 	return path.Base(f.name)
 }
-func (f *rootFolder) Size() int64 {
-	logger.DebugTrace("storage/sftpserver", "rootFolder.Size")
+func (f *rootFolder) Size() (out0 int64) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootFolder.Size", "f", f), &out0)
 	return int64(len(f.content))
 }
-func (f *rootFolder) Mode() os.FileMode {
-	logger.DebugTrace("storage/sftpserver", "rootFolder.Mode")
+func (f *rootFolder) Mode() (out0 os.FileMode) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootFolder.Mode", "f", f), &out0)
 	return os.FileMode(0755) | os.ModeDir
 }
-func (f *rootFolder) ModTime() time.Time {
-	logger.DebugTrace("storage/sftpserver", "rootFolder.ModTime")
+func (f *rootFolder) ModTime() (out0 time.Time) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootFolder.ModTime", "f", f), &out0)
 	return f.modtime
 }
-func (f *rootFolder) IsDir() bool {
-	logger.DebugTrace("storage/sftpserver", "rootFolder.IsDir")
+func (f *rootFolder) IsDir() (out0 bool) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootFolder.IsDir", "f", f), &out0)
 	return f.isdir
 }
-func (f *rootFolder) Sys() interface{} {
-	logger.DebugTrace("storage/sftpserver", "rootFolder.Sys")
+func (f *rootFolder) Sys() (out0 interface{}) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "rootFolder.Sys", "f", f), &out0)
 	return nil
 }
 
 func (f *rootFolder) ReadAt(b []byte, off int64) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/sftpserver", "rootFolder.ReadAt: len(b)=%d off=%d", len(b), off)
-	}
+	logger.DebugTrace("storage/sftpserver", "rootFolder.ReadAt")
 	return 0, errors.New("root folder not support writeAt")
 }
 
 func (f *rootFolder) WriteAt(b []byte, off int64) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/sftpserver", "rootFolder.WriteAt: len(b)=%d off=%d", len(b), off)
-	}
+	logger.DebugTrace("storage/sftpserver", "rootFolder.WriteAt")
 	// mimic write delays, should be optional
 	time.Sleep(time.Microsecond * time.Duration(len(b)))
 	return 0, errors.New("root folder not support writeAt")
@@ -584,17 +573,13 @@ func (f *rootFolder) WriteAt(b []byte, off int64) (int, error) {
 */
 
 // Makes sure we have a clean POSIX (/) absolute path to work with
-func cleanPath(p string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/sftpserver", "cleanPath: p=%.120q", p)
-	}
+func cleanPath(p string) (out0 string) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "cleanPath", "p", p), &out0)
 	return cleanPathWithBase("/", p)
 }
 
-func cleanPathWithBase(base, p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "cleanPathWithBase: base=%.120q p=%.120q", base, p)
-	}
+func cleanPathWithBase(base, p string) (out0 string) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "cleanPathWithBase", "base", base, "p", p), &out0)
 	//SFTP paths are POSIX paths on every host: filepath.Clean would read a
 	//leading // as a Windows network path
 	p = path.Clean(filepath.ToSlash(p))

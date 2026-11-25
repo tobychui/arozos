@@ -37,10 +37,8 @@ type Client struct {
 }
 
 // NewClient creates a client for the given endpoint. timeout <= 0 uses DefaultTimeout.
-func NewClient(endpoint string, token string, timeout time.Duration) *Client {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/cnn", "NewClient: endpoint=%.120q", endpoint)
-	}
+func NewClient(endpoint string, token string, timeout time.Duration) (out0 *Client) {
+	defer logger.Out1(logger.In3("aiservers/cnn", "NewClient", "endpoint", endpoint, "&timeout", &timeout, "!token", token), &out0)
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -58,10 +56,8 @@ func NewClient(endpoint string, token string, timeout time.Duration) *Client {
 //     and returned; out is left untouched.
 //   - On any other status, the body is decoded as the API's error envelope
 //     and returned as a *APIError.
-func (c *Client) do(method, path string, body interface{}, out interface{}) (*Job, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/cnn", "Client.do: method=%.120q path=%.120q", method, path)
-	}
+func (c *Client) do(method, path string, body interface{}, out interface{}) (out0 *Job, out1 error) {
+	defer logger.Out2(logger.In5("aiservers/cnn", "Client.do", "c", c, "method", method, "path", path, "body", body, "out", out), &out0, &out1)
 	if strings.TrimSpace(c.Endpoint) == "" {
 		return nil, fmt.Errorf("cnn: server endpoint is not configured")
 	}
@@ -70,6 +66,7 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) (*Jo
 	if body != nil {
 		raw, err := json.Marshal(body)
 		if err != nil {
+			logger.DebugErr("aiservers/cnn", err)
 			return nil, fmt.Errorf("cnn: failed to encode request: %w", err)
 		}
 		reader = bytes.NewReader(raw)
@@ -77,6 +74,7 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) (*Jo
 
 	req, err := http.NewRequest(method, c.Endpoint+path, reader)
 	if err != nil {
+		logger.DebugErr("aiservers/cnn", err)
 		return nil, fmt.Errorf("cnn: failed to build request: %w", err)
 	}
 	if body != nil {
@@ -93,12 +91,14 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) (*Jo
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		logger.DebugErr("aiservers/cnn", err)
 		return nil, fmt.Errorf("cnn: request to %s failed: %w", path, err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("aiservers/cnn", err)
 		return nil, fmt.Errorf("cnn: failed to read response: %w", err)
 	}
 
@@ -106,12 +106,14 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) (*Jo
 	case resp.StatusCode == http.StatusAccepted:
 		job := &Job{}
 		if err := json.Unmarshal(respBody, job); err != nil {
+			logger.DebugErr("aiservers/cnn", err)
 			return nil, fmt.Errorf("cnn: unexpected 202 response: %s", truncate(string(respBody), 300))
 		}
 		return job, nil
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		if out != nil && len(respBody) > 0 {
 			if err := json.Unmarshal(respBody, out); err != nil {
+				logger.DebugErr("aiservers/cnn", err)
 				return nil, fmt.Errorf("cnn: failed to decode response (HTTP %d): %s", resp.StatusCode, truncate(string(respBody), 300))
 			}
 		}
@@ -131,10 +133,8 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) (*Jo
 // doImageCall posts a single-image request and decodes the response into an
 // envelope[T]. A non-nil *Job means the server accepted the call
 // asynchronously instead of returning the result immediately.
-func doImageCall[T any](c *Client, path string, req imageRequest) (*envelope[T], *Job, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/cnn", "doImageCall: path=%.120q", path)
-	}
+func doImageCall[T any](c *Client, path string, req imageRequest) (out0 *envelope[T], out1 *Job, out2 error) {
+	defer logger.Out3(logger.In3("aiservers/cnn", "doImageCall", "c", c, "path", path, "&req", &req), &out0, &out1, &out2)
 	result := &envelope[T]{}
 	job, err := c.do(http.MethodPost, path, req, result)
 	if err != nil || job != nil {
@@ -144,20 +144,16 @@ func doImageCall[T any](c *Client, path string, req imageRequest) (*envelope[T],
 }
 
 // dataURI builds a base64 data URI for the given raw image bytes.
-func dataURI(image []byte, mimeType string) string {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/cnn", "dataURI: len(image)=%d", len(image))
-	}
+func dataURI(image []byte, mimeType string) (out0 string) {
+	defer logger.Out1(logger.In2("aiservers/cnn", "dataURI", "image", image, "mimeType", mimeType), &out0)
 	if strings.TrimSpace(mimeType) == "" {
 		mimeType = "application/octet-stream"
 	}
 	return "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(image)
 }
 
-func truncate(s string, max int) string {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/cnn", "truncate: s=%.120q max=%d", s, max)
-	}
+func truncate(s string, max int) (out0 string) {
+	defer logger.Out1(logger.In2("aiservers/cnn", "truncate", "s", s, "max", max), &out0)
 	s = strings.TrimSpace(s)
 	if len(s) <= max {
 		return s

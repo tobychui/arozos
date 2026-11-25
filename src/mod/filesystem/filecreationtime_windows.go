@@ -12,8 +12,8 @@ import (
 )
 
 // Windows records the creation time in the file attribute data of every file
-func getFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
-	logger.Debug("filesystem", "getFileCreationTime")
+func getFileCreationTime(fileInfo os.FileInfo) (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem", "getFileCreationTime", "fileInfo", fileInfo), &out0, &out1)
 	attributeData, ok := fileInfo.Sys().(*syscall.Win32FileAttributeData)
 	if !ok || attributeData == nil {
 		return 0, false

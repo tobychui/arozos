@@ -60,9 +60,7 @@ func newRelSet() *relSet {
 }
 
 func (rs *relSet) add(typ, target string, external bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "relSet.add: typ=%.120q target=%.120q external=%t", typ, target, external)
-	}
+	logger.DebugTrace("office/doc", "relSet.add")
 	key := typ + "|" + target
 	if id, ok := rs.byKey[key]; ok {
 		return id
@@ -98,9 +96,7 @@ func newWriter(d *docFile) *writer {
 
 // mediaRel stores a picture once in the package and relates it to a part
 func (w *writer) mediaRel(data []byte, ext string, part *partCtx) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.mediaRel: ext=%.120q", ext)
-	}
+	logger.DebugTrace("office/doc", "writer.mediaRel")
 	h := sha256.Sum256(data)
 	name, ok := w.media[h]
 	if !ok {
@@ -112,16 +108,12 @@ func (w *writer) mediaRel(data []byte, ext string, part *partCtx) string {
 }
 
 func emu(twips int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "emu: twips=%d", twips)
-	}
+	logger.DebugTrace("office/doc", "emu")
 	return twips * 635
 }
 
 func (w *writer) graphicXML(pic *picture, rid string, cx, cy int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.graphicXML: rid=%.120q cx=%d cy=%d", rid, cx, cy)
-	}
+	logger.DebugTrace("office/doc", "writer.graphicXML")
 	w.docPr++
 	id := itoa(w.docPr)
 	src := ""
@@ -207,9 +199,7 @@ func (w *writer) anchorDrawing(fo *floatObj, part *partCtx) string {
 
 // textboxXML writes a text box's story as paragraphs
 func (w *writer) textboxXML(idx int, header bool, part *partCtx) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.textboxXML: idx=%d", idx)
-	}
+	logger.DebugTrace("office/doc", "writer.textboxXML")
 	span := w.d.fib.span(w.d.tbl, lcbPlcftxbxTxt)
 	base := w.d.fib.txbxStart()
 	if header {
@@ -234,9 +224,7 @@ func (w *writer) textboxXML(idx int, header bool, part *partCtx) string {
 
 // storyXML writes the paragraphs and tables of a CP range
 func (w *writer) storyXML(cp1, cp2 int, kind storyKind, part *partCtx, sections []section) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.storyXML: cp1=%d cp2=%d len(sections)=%d", cp1, cp2, len(sections))
-	}
+	logger.DebugTrace("office/doc", "writer.storyXML")
 	cp1, cp2 = w.d.clamp(cp1, cp2)
 	if cp2 <= cp1 {
 		return ""
@@ -347,9 +335,7 @@ func (w *writer) sections(docRels *relSet) []section {
 
 // notes writes the footnotes or endnotes and maps their reference CPs
 func (w *writer) notes(refIdx, txtIdx int, start int, byCP map[int]int, kind storyKind, rels *relSet) []string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.notes: refIdx=%d txtIdx=%d start=%d len(byCP)=%d", refIdx, txtIdx, start, len(byCP))
-	}
+	logger.DebugTrace("office/doc", "writer.notes")
 	d := w.d
 	ref := parsePLC(d.fib.span(d.tbl, refIdx), 2)
 	txt := parsePLC(d.fib.span(d.tbl, txtIdx), 0)
@@ -375,9 +361,7 @@ func (w *writer) notes(refIdx, txtIdx int, start int, byCP map[int]int, kind sto
 }
 
 func notesPart(root, tag string, notes []string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "notesPart: root=%.120q tag=%.120q", root, tag)
-	}
+	logger.DebugTrace("office/doc", "notesPart")
 	return `<` + root + ` ` + partNS + `>` +
 		`<` + tag + ` w:type="separator" w:id="0"><w:p><w:r><w:separator/></w:r></w:p></` + tag + `>` +
 		`<` + tag + ` w:type="continuationSeparator" w:id="1"><w:p><w:r><w:continuationSeparator/></w:r></w:p></` + tag + `>` +
@@ -442,9 +426,7 @@ func (w *writer) cmRanges() (map[int][]int, map[int][]int) {
 
 // markersFor collects the bookmarks and comment ranges inside [cp1, cp2]
 func (w *writer) markersFor(cp1, cp2 int, kind storyKind) *markers {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "writer.markersFor: cp1=%d cp2=%d", cp1, cp2)
-	}
+	logger.DebugTrace("office/doc", "writer.markersFor")
 	m := &markers{starts: map[int][]string{}, ends: map[int][]string{}}
 	in := func(cp int) bool { return cp >= cp1 && cp <= cp2 }
 	for _, b := range w.bookmarks {
@@ -502,9 +484,7 @@ func (w *writer) readBookmarks() {
 
 // atnTags reads the tags of SttbfAtnBkmk's entries
 func atnTags(b []byte) []int32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "atnTags: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/doc", "atnTags")
 	le := binary.LittleEndian
 	if len(b) < 6 || le.Uint16(b) != 0xFFFF {
 		return nil

@@ -38,19 +38,19 @@ type SSDPHost struct {
 	closeOnce        sync.Once
 }
 
-func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOption) (*SSDPHost, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/ssdp", "NewSSDPHost: outboundIP=%.120q port=%d templateFile=%.120q", outboundIP, port, templateFile)
-	}
+func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOption) (out0 *SSDPHost, out1 error) {
+	defer logger.Out2(logger.In4("network/ssdp", "NewSSDPHost", "outboundIP", outboundIP, "port", port, "templateFile", templateFile, "&option", &option), &out0, &out1)
 	if runtime.GOOS == "linux" {
 		//In case there are more than 1 network interface connect to the same LAN, choose the first one by default
 		interfaceName, err := getFirstNetworkInterfaceName()
 		if err != nil {
+			logger.DebugErr("network/ssdp", err)
 			//Ignore the interface binding
 			logger.PrintAndLog("Ssdp", "[WARN] No connected network interface. Starting SSDP anyway.", nil)
 		} else {
 			mainNIC, err := net.InterfaceByName(interfaceName)
 			if err != nil {
+				logger.DebugErr("network/ssdp", err)
 				logger.PrintAndLog("Ssdp", "[WARN] Unable to get interface by name: "+interfaceName+". Starting SSDP on all IPv4 interfaces.", nil)
 			} else {
 				ssdp.Interfaces = []net.Interface{*mainNIC}
@@ -66,6 +66,7 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 		"arozos/"+outboundIP, // send as "SERVER"
 		30)                   // send as "maxAge" in "CACHE-CONTROL"
 	if err != nil {
+		logger.DebugErr("network/ssdp", err)
 		return &SSDPHost{}, err
 	}
 
@@ -79,7 +80,7 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 }
 
 func (a *SSDPHost) Start() {
-	logger.Debug("network/ssdp", "SSDPHost.Start")
+	defer logger.Out0(logger.In1("network/ssdp", "SSDPHost.Start", "a", a))
 	//Advertise ssdp
 	http.HandleFunc("/ssdp.xml", a.handleSSDP)
 	logger.PrintAndLog("Ssdp", "Starting SSDP Discovery Service: "+a.Option.URLBase, nil)
@@ -112,7 +113,7 @@ func (a *SSDPHost) Start() {
 // Close sends the SSDP byebye message and stops the advertiser. It waits for
 // the alive loop to exit and is safe to call more than once.
 func (a *SSDPHost) Close() {
-	logger.Debug("network/ssdp", "SSDPHost.Close")
+	defer logger.Out0(logger.In1("network/ssdp", "SSDPHost.Close", "a", a))
 	if a == nil {
 		return
 	}
@@ -128,9 +129,7 @@ func (a *SSDPHost) Close() {
 
 // Serve the xml file with the given properties
 func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/ssdp", "SSDPHost.handleSSDP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("network/ssdp", "SSDPHost.handleSSDP", "a", a, "r", r))
 	//Load the ssdp xml from file
 	template, err := utils.Templateload(a.SSDPTemplateFile, map[string]string{
 		"urlbase":   a.Option.URLBase,
@@ -143,6 +142,7 @@ func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 		"serial":    a.Option.Serial,
 	})
 	if err != nil {
+		logger.DebugErr("network/ssdp", err)
 		w.Write([]byte("SSDP.XML NOT FOUND"))
 		return
 	}
@@ -151,8 +151,8 @@ func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper functions
-func getFirstNetworkInterfaceName() (string, error) {
-	logger.Debug("network/ssdp", "getFirstNetworkInterfaceName")
+func getFirstNetworkInterfaceName() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("network/ssdp", "getFirstNetworkInterfaceName"), &out0, &out1)
 	if runtime.GOOS == "linux" {
 		if pkg_exists("ip") {
 			//Use the fast method
@@ -180,10 +180,8 @@ func getFirstNetworkInterfaceName() (string, error) {
 	return "", errors.New("Not supported platform or missing package")
 }
 
-func pkg_exists(pkgname string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("network/ssdp", "pkg_exists: pkgname=%.120q", pkgname)
-	}
+func pkg_exists(pkgname string) (out0 bool) {
+	defer logger.Out1(logger.In1("network/ssdp", "pkg_exists", "pkgname", pkgname), &out0)
 	cmd := exec.Command("which", pkgname)
 	out, _ := cmd.CombinedOutput()
 

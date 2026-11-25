@@ -53,18 +53,14 @@ type StorageDevicesMeta struct {
 
 // Check if the file format driver is installed on this host
 // if a format is supported, mkfs.(format) should be symlinked under /sbin
-func FormatPackageInstalled(fsType string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("disk/diskfs", "FormatPackageInstalled: fsType=%.120q", fsType)
-	}
+func FormatPackageInstalled(fsType string) (out0 bool) {
+	defer logger.Out1(logger.In1("disk/diskfs", "FormatPackageInstalled", "fsType", fsType), &out0)
 	return utils.FileExists("/sbin/mkfs." + fsType)
 }
 
 // Create file system, support ntfs, ext4 and fat32 only
-func FormatStorageDevice(fsType string, devicePath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "FormatStorageDevice: fsType=%.120q devicePath=%.120q", fsType, devicePath)
-	}
+func FormatStorageDevice(fsType string, devicePath string) (out0 error) {
+	defer logger.Out1(logger.In2("disk/diskfs", "FormatStorageDevice", "fsType", fsType, "devicePath", devicePath), &out0)
 	// Check if the filesystem type is supported
 	switch fsType {
 	case "ext4":
@@ -72,6 +68,7 @@ func FormatStorageDevice(fsType string, devicePath string) error {
 		cmd := exec.Command("sudo", "mkfs."+fsType, devicePath)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("disk/diskfs", err)
 			return errors.New("unable to format device: " + string(output))
 		}
 		return nil
@@ -86,6 +83,7 @@ func FormatStorageDevice(fsType string, devicePath string) error {
 		cmd := exec.Command("sudo", "mkfs.vfat", devicePath)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("disk/diskfs", err)
 			return errors.New("unable to format device: " + string(output))
 		}
 		return nil
@@ -100,6 +98,7 @@ func FormatStorageDevice(fsType string, devicePath string) error {
 		cmd := exec.Command("sudo", "mkfs.ntfs", devicePath)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("disk/diskfs", err)
 			return errors.New("unable to format device: " + string(output))
 		}
 		return nil
@@ -110,12 +109,13 @@ func FormatStorageDevice(fsType string, devicePath string) error {
 }
 
 // List all the storage device in the system, set minSize to 0 for no filter
-func ListAllStorageDevices() (*StorageDevicesMeta, error) {
-	logger.Debug("disk/diskfs", "ListAllStorageDevices")
+func ListAllStorageDevices() (out0 *StorageDevicesMeta, out1 error) {
+	defer logger.Out2(logger.In0("disk/diskfs", "ListAllStorageDevices"), &out0, &out1)
 	cmd := exec.Command("sudo", "lsblk", "-b", "--json")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return nil, fmt.Errorf("lsblk error: %v", err)
 	}
 
@@ -125,10 +125,8 @@ func ListAllStorageDevices() (*StorageDevicesMeta, error) {
 }
 
 // Get block device (e.g. /dev/sdX) info
-func GetBlockDeviceMeta(devicePath string) (*BlockDeviceMeta, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "GetBlockDeviceMeta: devicePath=%.120q", devicePath)
-	}
+func GetBlockDeviceMeta(devicePath string) (out0 *BlockDeviceMeta, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskfs", "GetBlockDeviceMeta", "devicePath", devicePath), &out0, &out1)
 	//Trim the /dev/ part of the device path
 	deviceName := strings.TrimPrefix(devicePath, "/dev/")
 
@@ -144,6 +142,7 @@ func GetBlockDeviceMeta(devicePath string) (*BlockDeviceMeta, error) {
 
 	storageMeta, err := ListAllStorageDevices()
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return nil, err
 	}
 
@@ -157,15 +156,14 @@ func GetBlockDeviceMeta(devicePath string) (*BlockDeviceMeta, error) {
 }
 
 // Get the disk UUID by current device path (e.g. /dev/sda)
-func GetDiskUUID(devicePath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "GetDiskUUID: devicePath=%.120q", devicePath)
-	}
+func GetDiskUUID(devicePath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskfs", "GetDiskUUID", "devicePath", devicePath), &out0, &out1)
 	cmd := exec.Command("sudo", "blkid", "-s", "UUID", "-o", "value", devicePath)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return "", err
 	}
 	uuid := strings.TrimSpace(out.String())
@@ -173,10 +171,8 @@ func GetDiskUUID(devicePath string) (string, error) {
 }
 
 // Get partition information (e.g. /dev/sdX1)
-func GetPartitionMeta(devicePath string) (*PartitionMeta, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "GetPartitionMeta: devicePath=%.120q", devicePath)
-	}
+func GetPartitionMeta(devicePath string) (out0 *PartitionMeta, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskfs", "GetPartitionMeta", "devicePath", devicePath), &out0, &out1)
 	//Trim the /dev/ part of the device path
 	deviceName := strings.TrimPrefix(devicePath, "/dev/")
 
@@ -192,6 +188,7 @@ func GetPartitionMeta(devicePath string) (*PartitionMeta, error) {
 
 	storageMeta, err := ListAllStorageDevices()
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return nil, err
 	}
 
@@ -210,13 +207,12 @@ func GetPartitionMeta(devicePath string) (*PartitionMeta, error) {
 }
 
 // Check if a device is mounted given the path name, like /dev/sdc
-func DeviceIsMounted(devicePath string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "DeviceIsMounted: devicePath=%.120q", devicePath)
-	}
+func DeviceIsMounted(devicePath string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskfs", "DeviceIsMounted", "devicePath", devicePath), &out0, &out1)
 	// Open the mountinfo file
 	file, err := os.Open("/proc/mounts")
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return false, fmt.Errorf("error opening /proc/mounts: %v", err)
 	}
 	defer file.Close()
@@ -241,16 +237,15 @@ func DeviceIsMounted(devicePath string) (bool, error) {
 
 // UnmountDevice unmounts the specified device.
 // Remember to use full path (e.g. /dev/md0) in the devicePath
-func UnmountDevice(devicePath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "UnmountDevice: devicePath=%.120q", devicePath)
-	}
+func UnmountDevice(devicePath string) (out0 error) {
+	defer logger.Out1(logger.In1("disk/diskfs", "UnmountDevice", "devicePath", devicePath), &out0)
 	// Construct the bash command to unmount the device
 	cmd := exec.Command("sudo", "bash", "-c", fmt.Sprintf("umount -l %s", devicePath))
 
 	// Run the command
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		logger.PrintAndLog("Diskfs", "[RAID] Unable to unmount device: "+string(output), nil)
 		return fmt.Errorf("error unmounting device: %v", err)
 	}
@@ -260,16 +255,15 @@ func UnmountDevice(devicePath string) error {
 
 // Force Version of Unmount (dangerous)
 // Remember to use full path (e.g. /dev/md0) in the devicePath
-func ForceUnmountDevice(devicePath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "ForceUnmountDevice: devicePath=%.120q", devicePath)
-	}
+func ForceUnmountDevice(devicePath string) (out0 error) {
+	defer logger.Out1(logger.In1("disk/diskfs", "ForceUnmountDevice", "devicePath", devicePath), &out0)
 	// Construct the bash command to unmount the device
 	cmd := exec.Command("sudo", "bash", "-c", fmt.Sprintf("umount -l %s", devicePath))
 
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return fmt.Errorf("error unmounting device: %v", err)
 	}
 
@@ -277,15 +271,14 @@ func ForceUnmountDevice(devicePath string) error {
 }
 
 // DANGER: Wipe the whole disk given the disk path
-func WipeDisk(diskPath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskfs", "WipeDisk: diskPath=%.120q", diskPath)
-	}
+func WipeDisk(diskPath string) (out0 error) {
+	defer logger.Out1(logger.In1("disk/diskfs", "WipeDisk", "diskPath", diskPath), &out0)
 	// Unmount the disk
 	isMounted, _ := DeviceIsMounted(diskPath)
 	if isMounted {
 		umountCmd := exec.Command("sudo", "umount", diskPath)
 		if err := umountCmd.Run(); err != nil {
+			logger.DebugErr("disk/diskfs", err)
 			return fmt.Errorf("error unmounting disk %s: %v", diskPath, err)
 		}
 	}
@@ -293,6 +286,7 @@ func WipeDisk(diskPath string) error {
 	// Wipe all filesystem signatures on the entire disk
 	wipeCmd := exec.Command("sudo", "wipefs", "--all", "--force", diskPath)
 	if err := wipeCmd.Run(); err != nil {
+		logger.DebugErr("disk/diskfs", err)
 		return fmt.Errorf("error wiping filesystem signatures on %s: %v", diskPath, err)
 	}
 

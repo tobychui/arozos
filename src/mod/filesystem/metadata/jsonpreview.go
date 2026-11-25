@@ -72,14 +72,15 @@ const (
 // extractJSONPreview finds the JSONPreviewKey string at the top level of a
 // JSON object and returns the picture it holds, still encoded (JPEG, PNG,
 // ...). Nested objects are not searched.
-func extractJSONPreview(r io.Reader) ([]byte, error) {
-	logger.Debug("filesystem/metadata", "extractJSONPreview")
+func extractJSONPreview(r io.Reader) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "extractJSONPreview", "r", r), &out0, &out1)
 	br := bufio.NewReader(io.LimitReader(r, jsonPreviewScanLimit))
 
 	//Anything that does not start as an object is not looked at further
 	for {
 		b, err := br.ReadByte()
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return nil, errors.New("not a json object")
 		}
 		if b == ' ' || b == '\t' || b == '\r' || b == '\n' {
@@ -101,16 +102,19 @@ func extractJSONPreview(r io.Reader) ([]byte, error) {
 
 	dec := json.NewDecoder(br)
 	if _, err := dec.Token(); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, err
 	}
 	for dec.More() {
 		keyToken, err := dec.Token()
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return nil, err
 		}
 		key, _ := keyToken.(string)
 		if key != JSONPreviewKey {
 			if err := skipJSONValue(dec); err != nil {
+				logger.DebugErr("filesystem/metadata", err)
 				return nil, err
 			}
 			continue
@@ -118,6 +122,7 @@ func extractJSONPreview(r io.Reader) ([]byte, error) {
 
 		valueToken, err := dec.Token()
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return nil, err
 		}
 		payload, ok := valueToken.(string)
@@ -130,12 +135,13 @@ func extractJSONPreview(r io.Reader) ([]byte, error) {
 }
 
 // skipJSONValue reads past the next value of dec, however deeply nested.
-func skipJSONValue(dec *json.Decoder) error {
-	logger.Debug("filesystem/metadata", "skipJSONValue")
+func skipJSONValue(dec *json.Decoder) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/metadata", "skipJSONValue", "dec", dec), &out0)
 	depth := 0
 	for {
 		token, err := dec.Token()
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return err
 		}
 		if delim, ok := token.(json.Delim); ok {
@@ -153,8 +159,8 @@ func skipJSONValue(dec *json.Decoder) error {
 
 // decodePreviewPayload turns the field's text, bare base64 or a data URL of
 // an image, into the picture's bytes.
-func decodePreviewPayload(payload string) ([]byte, error) {
-	logger.Debug("filesystem/metadata", "decodePreviewPayload")
+func decodePreviewPayload(payload string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "decodePreviewPayload", "payload", payload), &out0, &out1)
 	if len(payload) == 0 {
 		return nil, errors.New(JSONPreviewKey + " is empty")
 	}
@@ -186,9 +192,11 @@ func decodePreviewPayload(payload string) ([]byte, error) {
 
 	data, err := base64.StdEncoding.DecodeString(payload)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		data, err = base64.RawStdEncoding.DecodeString(payload)
 	}
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, errors.New(JSONPreviewKey + " is not valid base64")
 	}
 	if len(data) == 0 {
@@ -199,10 +207,11 @@ func decodePreviewPayload(payload string) ([]byte, error) {
 
 // decodePreviewImage decodes the picture of a preview field: JPEG, PNG or
 // WebP only, refusing ones whose size would take too much memory to decode.
-func decodePreviewImage(data []byte) (image.Image, error) {
-	logger.Debug("filesystem/metadata", "decodePreviewImage")
+func decodePreviewImage(data []byte) (out0 image.Image, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "decodePreviewImage", "data", data), &out0, &out1)
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, err
 	}
 	var decode func(io.Reader) (image.Image, error)
@@ -225,6 +234,7 @@ func decodePreviewImage(data []byte) (image.Image, error) {
 	}
 	img, err := decode(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, err
 	}
 	return img, nil
@@ -235,8 +245,8 @@ func decodePreviewImage(data []byte) (image.Image, error) {
 // always pictures the renderers wrote, but a .metadata/.cache folder sits on
 // the user's own drive, where a file can be put by hand: sending its type as
 // sniffed could serve HTML from this site to whoever opens the thumbnail.
-func SafeThumbnailContentType(data []byte) (string, bool) {
-	logger.Debug("filesystem/metadata", "SafeThumbnailContentType")
+func SafeThumbnailContentType(data []byte) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "SafeThumbnailContentType", "data", data), &out0, &out1)
 	contentType := http.DetectContentType(data)
 	switch contentType {
 	case "image/jpeg", "image/png", "image/gif", "image/webp":
@@ -245,10 +255,8 @@ func SafeThumbnailContentType(data []byte) (string, bool) {
 	return "", false
 }
 
-func generateThumbnailForJSONPreview(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForJSONPreview: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForJSONPreview(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForJSONPreview", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -261,16 +269,19 @@ func generateThumbnailForJSONPreview(fsh *filesystem.FileSystemHandler, cacheFol
 
 	f, err := fshAbs.Open(file)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	data, err := extractJSONPreview(f)
 	f.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
 	img, err := decodePreviewImage(data)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -280,11 +291,13 @@ func generateThumbnailForJSONPreview(fsh *filesystem.FileSystemHandler, cacheFol
 	outputFile := cacheFolder + filepath.Base(file) + ".jpg"
 	outf, err := fshAbs.Create(outputFile)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	err = jpeg.Encode(outf, thumbnail, &jpeg.Options{Quality: 90})
 	outf.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 

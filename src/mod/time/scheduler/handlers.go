@@ -15,11 +15,10 @@ import (
 
 // List all the jobs related to the given user
 func (a *Scheduler) HandleListJobs(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleListJobs: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleListJobs", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -56,11 +55,10 @@ func (a *Scheduler) HandleListJobs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleAddJob: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleAddJob", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -74,6 +72,7 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	//Get required paramaters
 	taskName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "Invalid task name")
 		return
 	}
@@ -94,6 +93,7 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 
 	scriptpath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "Invalid script path")
 		return
 	}
@@ -102,12 +102,14 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	jobDescription, _ := utils.PostPara(r, "desc")
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(scriptpath)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
 	realScriptPath, err := fshAbs.VirtualPathToRealPath(scriptpath, userinfo.Username)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -121,12 +123,14 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	interval := int64(86400) //default 1 day in seconds
 	intervalString, err := utils.PostPara(r, "interval")
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		//Default 1 day
 
 	} else {
 		//Parse the intervalString into int
 		intervalInt, err := strconv.ParseInt(intervalString, 10, 64)
 		if err != nil {
+			logger.DebugErr("time/scheduler", err)
 			//Failed to parse interval to int
 			utils.SendErrorResponse(w, "invalid interval")
 			return
@@ -138,11 +142,13 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	baseUnixTime := time.Now().Unix()
 	baseTimeString, err := utils.PostPara(r, "base")
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		//Use curent timestamp as base
 
 	} else {
 		baseTimeInt, err := strconv.Atoi(baseTimeString)
 		if err != nil {
+			logger.DebugErr("time/scheduler", err)
 			//Failed to parse interval to int
 			utils.SendErrorResponse(w, "Invalid Base Time")
 			return
@@ -171,11 +177,10 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleJobRemoval: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleJobRemoval", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -183,6 +188,7 @@ func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
 	//Get required paramaters
 	taskName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "Invalid task name")
 		return
 	}
@@ -221,11 +227,10 @@ func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
 
 // HandleCheckPermission returns whether the current user has cron job creation permission
 func (a *Scheduler) HandleCheckPermission(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleCheckPermission: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleCheckPermission", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -248,11 +253,10 @@ func (a *Scheduler) HandleCheckPermission(w http.ResponseWriter, r *http.Request
 //	base      – base unix timestamp for interval alignment, default now
 //	desc      – optional description
 func (a *Scheduler) HandleAppRegisterJob(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleAppRegisterJob: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleAppRegisterJob", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -348,11 +352,10 @@ func (a *Scheduler) HandleAppRegisterJob(w http.ResponseWriter, r *http.Request)
 // HandleAppCheckJob checks whether a specific app job is registered for the current user
 // GET params: appname, taskname
 func (a *Scheduler) HandleAppCheckJob(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleAppCheckJob: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleAppCheckJob", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -371,11 +374,10 @@ func (a *Scheduler) HandleAppCheckJob(w http.ResponseWriter, r *http.Request) {
 // HandleAppUnregisterJob removes a cron job registered by a specific app for the current user
 // POST params: appname, taskname
 func (a *Scheduler) HandleAppUnregisterJob(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.HandleAppUnregisterJob: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.HandleAppUnregisterJob", "a", a, "r", r))
 	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}

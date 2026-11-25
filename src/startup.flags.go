@@ -70,7 +70,7 @@ func currentBootFlags() bootFlags {
 
 // applyBootFlags writes the boot flags into the runtime globals
 func applyBootFlags(c bootFlags) {
-	logger.Debug("Core", "applyBootFlags")
+	defer logger.Out0(logger.In1("Core", "applyBootFlags", "&c", &c))
 	*host_name = c.Hostname
 	*max_upload = c.MaxUploadSize
 	max_upload_size = int64(c.MaxUploadSize) << 20
@@ -83,8 +83,8 @@ func applyBootFlags(c bootFlags) {
 }
 
 // validateBootFlags normalises and checks a config before it is applied
-func validateBootFlags(c *bootFlags) error {
-	logger.Debug("Core", "validateBootFlags")
+func validateBootFlags(c *bootFlags) (out0 error) {
+	defer logger.Out1(logger.In1("Core", "validateBootFlags", "c", c), &out0)
 	c.Hostname = strings.TrimSpace(c.Hostname)
 	if c.Hostname == "" {
 		return errors.New("host name cannot be empty")
@@ -102,8 +102,8 @@ func validateBootFlags(c *bootFlags) error {
 }
 
 // explicitStartFlags returns the names of the flags given on the command line
-func explicitStartFlags() map[string]bool {
-	logger.Debug("Core", "explicitStartFlags")
+func explicitStartFlags() (out0 map[string]bool) {
+	defer logger.Out1(logger.In0("Core", "explicitStartFlags"), &out0)
 	set := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) {
 		set[f.Name] = true
@@ -124,10 +124,8 @@ func currentBootFlagsReport() bootFlagsReport {
 	return newBootFlagsReport(currentBootFlags(), explicitStartFlags())
 }
 
-func newBootFlagsReport(flags bootFlags, explicit map[string]bool) bootFlagsReport {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "newBootFlagsReport: len(explicit)=%d", len(explicit))
-	}
+func newBootFlagsReport(flags bootFlags, explicit map[string]bool) (out0 bootFlagsReport) {
+	defer logger.Out1(logger.In2("Core", "newBootFlagsReport", "&flags", &flags, "explicit", explicit), &out0)
 	fromStartFlag := []string{}
 	for field, name := range bootFlagNames {
 		if explicit[name] {
@@ -145,10 +143,8 @@ exists (and is valid), and fall back to the runtime default otherwise. stored
 is kept as raw fields so a config saved by an older version, missing some
 fields, only restores the ones it has.
 */
-func mergeBootFlags(runtime bootFlags, stored map[string]json.RawMessage, explicit map[string]bool) bootFlags {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "mergeBootFlags: len(stored)=%d len(explicit)=%d", len(stored), len(explicit))
-	}
+func mergeBootFlags(runtime bootFlags, stored map[string]json.RawMessage, explicit map[string]bool) (out0 bootFlags) {
+	defer logger.Out1(logger.In3("Core", "mergeBootFlags", "&runtime", &runtime, "stored", stored, "explicit", explicit), &out0)
 	merged := runtime
 	restore := func(field string, target interface{}) {
 		raw, ok := stored[field]
@@ -189,12 +185,13 @@ run right after the system database opens and before any service reads these
 flags (e.g. the host name is captured by several modules at init).
 */
 func StartupFlagsRestore() {
-	logger.Debug("Core", "StartupFlagsRestore")
+	defer logger.Out0(logger.In0("Core", "StartupFlagsRestore"))
 	sysdb.NewTable(bootFlagsTable)
 
 	stored := map[string]json.RawMessage{}
 	if sysdb.KeyExists(bootFlagsTable, bootFlagsKey) {
 		if err := sysdb.Read(bootFlagsTable, bootFlagsKey, &stored); err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("System", "Unable to read stored startup parameters, using defaults", err)
 			stored = map[string]json.RawMessage{}
 		}
@@ -205,12 +202,13 @@ func StartupFlagsRestore() {
 
 	//Write back so the start flags given this boot overwrite the stored values
 	if err := sysdb.Write(bootFlagsTable, bootFlagsKey, merged); err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("System", "Unable to persist startup parameters", err)
 	}
 }
 
 func StartupFlagsInit() {
-	logger.Debug("Core", "StartupFlagsInit")
+	defer logger.Out0(logger.In0("Core", "StartupFlagsInit"))
 	//Create a admin permission router for handling requests
 	//Register a boot flag modifier
 	registerSetting(settingModule{
@@ -234,9 +232,7 @@ func StartupFlagsInit() {
 }
 
 func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleBootFlagsFunction: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleBootFlagsFunction", "r", r))
 	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
 		js, _ := json.Marshal(currentBootFlagsReport())
@@ -245,6 +241,7 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		//Set and update the boot flags
 		newSettings, err := utils.PostPara(r, "value")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid new seting value")
 			return
 		}
@@ -253,11 +250,13 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		newConfig := currentBootFlags()
 		err = json.Unmarshal([]byte(newSettings), &newConfig)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		if err = validateBootFlags(&newConfig); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -266,6 +265,7 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		systemWideLogger.PrintAndLog("System", "Updating boot flag to:"+newSettings, nil)
 		applyBootFlags(newConfig)
 		if err = sysdb.Write(bootFlagsTable, bootFlagsKey, newConfig); err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("System", "Unable to persist startup parameters", err)
 			utils.SendErrorResponse(w, "Applied to runtime but failed to save: "+err.Error())
 			return

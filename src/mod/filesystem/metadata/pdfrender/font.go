@@ -398,9 +398,7 @@ func (d *Document) loadType0(f *pdfFont, fd Dict) {
 
 // decode splits a string into character codes
 func (f *pdfFont) decode(s []byte) []charCode {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "pdfFont.decode: len(s)=%d", len(s))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.decode")
 	out := make([]charCode, 0, len(s))
 	if f.kind != fontType0 {
 		for _, b := range s {
@@ -475,9 +473,7 @@ func (f *pdfFont) programAdvance(c charCode) float64 {
 }
 
 func (f *pdfFont) macCode(name string) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "pdfFont.macCode: name=%.120q", name)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "pdfFont.macCode")
 	if f.macRe == nil {
 		f.macRe = map[string]int{}
 		for c, n := range macRomanEncoding {
@@ -518,9 +514,7 @@ func (f *pdfFont) unicodeFor(c charCode) rune {
 }
 
 func winAnsiRune(b byte) rune {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "winAnsiRune: b=%d", b)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "winAnsiRune")
 	if r, ok := glyphNameToRune(winAnsiEncoding[b]); ok {
 		return r
 	}
@@ -696,9 +690,7 @@ var (
 )
 
 func fallbackFont(name string, flags int, weight float64, italicAngle float64) *ttFont {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "fallbackFont: name=%.120q flags=%d weight=%g italicAngle=%g", name, flags, weight, italicAngle)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "fallbackFont")
 	fallbackOnce.Do(func() {
 		fallbackFonts = map[string]*ttFont{}
 		for key, data := range map[string][]byte{

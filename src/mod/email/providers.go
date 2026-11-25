@@ -230,8 +230,8 @@ var customPreset = Preset{
 }
 
 // Presets returns every known provider, the generic one last.
-func Presets() []Preset {
-	logger.Debug("email", "Presets")
+func Presets() (out0 []Preset) {
+	defer logger.Out1(logger.In0("email", "Presets"), &out0)
 	results := make([]Preset, 0, len(presets)+1)
 	results = append(results, presets...)
 	results = append(results, customPreset)
@@ -239,10 +239,8 @@ func Presets() []Preset {
 }
 
 // PresetByID finds a preset by its identifier.
-func PresetByID(id string) (Preset, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "PresetByID: id=%.120q", id)
-	}
+func PresetByID(id string) (out0 Preset, out1 bool) {
+	defer logger.Out2(logger.In1("email", "PresetByID", "id", id), &out0, &out1)
 	for _, preset := range presets {
 		if preset.ID == id {
 			return preset, true
@@ -256,10 +254,8 @@ func PresetByID(id string) (Preset, bool) {
 
 // presetForDomain matches the domain of an address against the known
 // consumer domains (gmail.com, hotmail.co.uk, yahoo.co.jp, …).
-func presetForDomain(domain string) (Preset, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "presetForDomain: domain=%.120q", domain)
-	}
+func presetForDomain(domain string) (out0 Preset, out1 bool) {
+	defer logger.Out2(logger.In1("email", "presetForDomain", "domain", domain), &out0, &out1)
 	domain = strings.ToLower(strings.TrimSpace(domain))
 	if domain == "" {
 		return Preset{}, false
@@ -280,10 +276,8 @@ func presetForDomain(domain string) (Preset, bool) {
 }
 
 // presetForMX identifies a hosted custom domain from one of its MX hosts.
-func presetForMX(mxHost string) (Preset, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "presetForMX: mxHost=%.120q", mxHost)
-	}
+func presetForMX(mxHost string) (out0 Preset, out1 bool) {
+	defer logger.Out2(logger.In1("email", "presetForMX", "mxHost", mxHost), &out0, &out1)
 	mxHost = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(mxHost), "."))
 	if mxHost == "" {
 		return Preset{}, false
@@ -300,10 +294,8 @@ func presetForMX(mxHost string) (Preset, bool) {
 
 // presetSavesSent reports whether a client must append sent mail to the Sent
 // folder itself for this provider (Gmail and Outlook file it server-side).
-func presetSavesSent(providerID string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("email", "presetSavesSent: providerID=%.120q", providerID)
-	}
+func presetSavesSent(providerID string) (out0 bool) {
+	defer logger.Out1(logger.In1("email", "presetSavesSent", "providerID", providerID), &out0)
 	if preset, ok := PresetByID(providerID); ok {
 		return preset.SaveSent
 	}
@@ -311,10 +303,8 @@ func presetSavesSent(providerID string) bool {
 }
 
 // usernameFor applies the preset username style to an address.
-func usernameFor(style string, address string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "usernameFor: style=%.120q", style)
-	}
+func usernameFor(style string, address string) (out0 string) {
+	defer logger.Out1(logger.In2("email", "usernameFor", "style", style, "address", address), &out0)
 	if style == "localpart" {
 		if at := strings.LastIndex(address, "@"); at > 0 {
 			return address[:at]
@@ -324,8 +314,8 @@ func usernameFor(style string, address string) string {
 }
 
 // domainOf returns the lower-cased domain of an address.
-func domainOf(address string) string {
-	logger.Debug("email", "domainOf")
+func domainOf(address string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "domainOf", "address", address), &out0)
 	address = strings.TrimSpace(address)
 	at := strings.LastIndex(address, "@")
 	if at < 0 || at == len(address)-1 {
@@ -335,10 +325,8 @@ func domainOf(address string) string {
 }
 
 // authHintFor returns the advice shown when a login with a password fails.
-func authHintFor(providerID string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "authHintFor: providerID=%.120q", providerID)
-	}
+func authHintFor(providerID string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "authHintFor", "providerID", providerID), &out0)
 	preset, ok := PresetByID(providerID)
 	if !ok {
 		return ""

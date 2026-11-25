@@ -19,10 +19,11 @@ import (
 )
 
 // ParseOds converts raw .ods bytes into a Workbook
-func ParseOds(data []byte) (*model.Workbook, error) {
-	logger.Debug("office/odf", "ParseOds")
+func ParseOds(data []byte) (out0 *model.Workbook, out1 error) {
+	defer logger.Out2(logger.In1("office/odf", "ParseOds", "data", data), &out0, &out1)
 	files, mime, err := readOdfZip(data)
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, err
 	}
 	if mime != "" && mime != odsMime {
@@ -34,6 +35,7 @@ func ParseOds(data []byte) (*model.Workbook, error) {
 	}
 	tree, err := parseOdfXML(content)
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, errors.New("cannot parse content.xml: " + err.Error())
 	}
 	root := tree.first("document-content")
@@ -242,9 +244,7 @@ func ParseOds(data []byte) (*model.Workbook, error) {
 }
 
 func repeatOf(s string, max int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "repeatOf: s=%.120q max=%d", s, max)
-	}
+	logger.DebugTrace("office/odf", "repeatOf")
 	n := atoiSafe(s)
 	if n < 1 {
 		return 1
@@ -274,9 +274,7 @@ func odsRowHasContent(row *onode) bool {
 
 // odsCellOf converts one table:table-cell to a WorkCell (nil when empty)
 func odsCellOf(cn *onode, styles map[string]*model.CellStyle) *model.WorkCell {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odsCellOf: len(styles)=%d", len(styles))
-	}
+	logger.DebugTrace("office/odf", "odsCellOf")
 	v := ""
 	if f := cn.attr("formula"); f != "" {
 		v = formulaFromOdf(f)

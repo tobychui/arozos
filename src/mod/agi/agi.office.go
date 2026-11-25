@@ -94,9 +94,10 @@ import (
 */
 
 func (g *Gateway) OfficeLibRegister() {
-	logger.Debug("agi", "Gateway.OfficeLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.OfficeLibRegister", "g", g))
 	err := g.RegisterLib("office", g.injectOfficeLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -112,10 +113,12 @@ func officeVpathReader(u *user.User) func(string) ([]byte, error) {
 		}
 		fsh, rp, err := static.VirtualPathToRealPath(vp, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		f, err := fsh.FileSystemAbstraction.ReadStream(rp)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		defer f.Close()
@@ -127,7 +130,7 @@ func officeVpathReader(u *user.User) func(string) ([]byte, error) {
 const officeMaxPayload = 512 << 20
 
 func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectOfficeLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectOfficeLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -138,9 +141,11 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	writeOut := func(destVpath string, data []byte) error {
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return err
 		}
 		if err := destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755); err != nil {
+			logger.DebugErr("agi", err)
 			return err
 		}
 		u.SetOwnerOfFile(destFsh, destVpath)
@@ -150,10 +155,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	readIn := func(srcVpath string) ([]byte, error) {
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		defer f.Close()
@@ -166,11 +173,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_saveDocument", func(call otto.FunctionCall) otto.Value {
 		envelope, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -195,6 +204,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		data, err := office.BuildNativeFile(app, envelope, read)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -204,6 +214,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 				len(expired))))
 		}
 		if err := writeOut(destVpath, data); err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -216,11 +227,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_loadDocument", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		workdirBase, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -239,6 +252,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		data, err := readIn(srcVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -247,6 +261,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		docDirV := workdirBase + "/" + hex.EncodeToString(h[:])[:12]
 		wdFsh, docDirR, err := static.VirtualPathToRealPath(docDirV, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -262,15 +277,18 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 				return link, nil
 			}
 			if err := fsa.MkdirAll(docDirR, 0755); err != nil {
+				logger.DebugErr("agi", err)
 				return "", err
 			}
 			if err := fsa.WriteStream(target, bytes.NewReader(content), 0755); err != nil {
+				logger.DebugErr("agi", err)
 				return "", err
 			}
 			return link, nil
 		}
 		envelope, err := office.ReadNativeFile(app, data, sink)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -284,6 +302,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_readPayload", func(call otto.FunctionCall) otto.Value {
 		vp, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -293,18 +312,21 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		data, err := readIn(vp)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
 			zr, err := gzip.NewReader(bytes.NewReader(data))
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
 			plain, err := io.ReadAll(io.LimitReader(zr, officeMaxPayload+1))
 			zr.Close()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -322,6 +344,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_pptxToPresentation", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -333,6 +356,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -340,23 +364,27 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		// read the whole pptx into memory (zip needs random access)
 		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		data, err := io.ReadAll(f)
 		f.Close()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		pres, err := pptx.Parse(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		jsonBody, err := model.PresentationToJSON(pres)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -369,11 +397,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_presentationToPptx", func(call otto.FunctionCall) otto.Value {
 		jsonStr, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -385,6 +415,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		pres, err := model.ParsePresentationJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -392,17 +423,20 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		// bytes never ride the JSON payload
 		data, mediaZip, err := pptx.BuildMedia(pres, readVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		err = destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -418,11 +452,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			}
 			zipFsh, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 			err = zipFsh.FileSystemAbstraction.WriteStream(zipRpath, bytes.NewReader(mediaZip), 0755)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -439,6 +475,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_xlsxToWorkbook", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -450,28 +487,33 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		data, err := io.ReadAll(f)
 		f.Close()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		wb, err := xlsx.Parse(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		jsonBody, err := model.WorkbookToJSON(wb)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -484,11 +526,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_workbookToXlsx", func(call otto.FunctionCall) otto.Value {
 		jsonStr, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -500,22 +544,26 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		wb, err := model.ParseWorkbookJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		data, err := xlsx.Build(wb)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		err = destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -529,6 +577,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_docxToDocument", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -540,28 +589,33 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		data, err := io.ReadAll(f)
 		f.Close()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		doc, err := docx.Parse(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		jsonBody, err := model.DocumentToJSON(doc)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -574,11 +628,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_documentToDocx", func(call otto.FunctionCall) otto.Value {
 		jsonStr, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -590,22 +646,26 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		data, err := docx.BuildMedia(doc, readVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		err = destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -620,11 +680,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_packToFile", func(call otto.FunctionCall) otto.Value {
 		envelope, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -637,17 +699,20 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		// media?file= links inside the document become embedded assets
 		data, err := office.PackEnvelope(envelope, readVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		err = destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -663,11 +728,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_unpackToWorkdir", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		workdirBase, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -683,17 +750,20 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		data, err := io.ReadAll(f)
 		f.Close()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -703,6 +773,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		docDirV := workdirBase + "/" + hex.EncodeToString(h[:])[:12]
 		wdFsh, docDirR, err := static.VirtualPathToRealPath(docDirV, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -710,6 +781,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		envelope, err := office.UnpackEnvelopeToLinks(data,
 			func(name string, content []byte) error {
 				if err := wdFsh.FileSystemAbstraction.MkdirAll(docDirR, 0755); err != nil {
+					logger.DebugErr("agi", err)
 					return err
 				}
 				return wdFsh.FileSystemAbstraction.WriteStream(
@@ -719,6 +791,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 				return "../../media?file=" + url.QueryEscape(docDirV+"/"+name)
 			})
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -736,6 +809,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		vm.Set(fnName, func(call otto.FunctionCall) otto.Value {
 			srcVpath, err := call.Argument(0).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -745,22 +819,26 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			}
 			srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
 			f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
 			data, err := io.ReadAll(f)
 			f.Close()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
 			jsonBody, err := convert(data)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -773,11 +851,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		vm.Set(fnName, func(call otto.FunctionCall) otto.Value {
 			jsonStr, err := call.Argument(0).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 			destVpath, err := call.Argument(1).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -787,16 +867,19 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			}
 			data, err := convert(jsonStr)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 			destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 			err = destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -811,6 +894,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfImport("_office_docToDocument", func(data []byte) (string, error) {
 		d, err := doc.Parse(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		return model.DocumentToJSON(d)
@@ -818,6 +902,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfImport("_office_xlsToWorkbook", func(data []byte) (string, error) {
 		wb, err := xls.Parse(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		return model.WorkbookToJSON(wb)
@@ -825,6 +910,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfImport("_office_pptToPresentation", func(data []byte) (string, error) {
 		p, err := ppt.Parse(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		return model.PresentationToJSON(p)
@@ -834,11 +920,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_office_convertLegacy", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -852,11 +940,13 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		data, err := readIn(srcVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		app, converted, err := office.ConvertLegacy(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -865,10 +955,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		if err := destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(converted), 0755); err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -879,6 +971,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfImport("_office_odtToDocument", func(data []byte) (string, error) {
 		doc, err := odf.ParseOdt(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		return model.DocumentToJSON(doc)
@@ -887,10 +980,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		// the ODF writers take inline pictures only: read the links here
 		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		return odf.BuildOdt(doc)
@@ -898,6 +993,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfImport("_office_odsToWorkbook", func(data []byte) (string, error) {
 		wb, err := odf.ParseOds(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		return model.WorkbookToJSON(wb)
@@ -905,6 +1001,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfExport("_office_workbookToOds", func(jsonStr string) ([]byte, error) {
 		wb, err := model.ParseWorkbookJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		return odf.BuildOds(wb)
@@ -912,6 +1009,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfImport("_office_odpToPresentation", func(data []byte) (string, error) {
 		pres, err := odf.ParseOdp(data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		return model.PresentationToJSON(pres)
@@ -919,10 +1017,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfExport("_office_presentationToOdp", func(jsonStr string) ([]byte, error) {
 		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		pres, err := model.ParsePresentationJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		return odf.BuildOdp(pres)
@@ -936,10 +1036,12 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfExport("_office_documentToPdf", func(jsonStr string) ([]byte, error) {
 		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		doc, err := model.ParseDocumentJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		return pdf.BuildDoc(doc)
@@ -947,6 +1049,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfExport("_office_workbookPrintToPdf", func(jsonStr string) ([]byte, error) {
 		m, err := pdf.ParseSheetPrintJSON(jsonStr)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, err
 		}
 		return pdf.BuildSheet(m)
@@ -960,6 +1063,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	registerOdfExport("_office_writeBinaryFile", func(b64 string) ([]byte, error) {
 		data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(b64))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, errors.New("payload is not valid base64: " + err.Error())
 		}
 		return data, nil

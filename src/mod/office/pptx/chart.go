@@ -208,6 +208,7 @@ func chartSpecJSON(spec *chartSpec) json.RawMessage {
 	}
 	b, err := json.Marshal(spec)
 	if err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil
 	}
 	return json.RawMessage(b)

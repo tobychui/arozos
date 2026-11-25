@@ -39,7 +39,7 @@ func NightlyTasksInit() {
 }
 
 func SchedulerInit() {
-	logger.Debug("Core", "SchedulerInit")
+	defer logger.Out0(logger.In0("Core", "SchedulerInit"))
 
 	/*
 		System Scheudler
@@ -87,6 +87,7 @@ func SchedulerInit() {
 		CronFile:    "system/cron.json",
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Cron", "ArOZ Emulated Cron Startup Failed. Stopping all scheduled tasks.", err)
 	}
 
@@ -113,6 +114,7 @@ func SchedulerInit() {
 		CanCreate: func(username string) bool {
 			u, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return false
 			}
 			return u.CanCreateCronJob()
@@ -171,9 +173,7 @@ func SchedulerInit() {
 
 // handleListGroupCronPermissions returns all permission groups and their cron creation setting
 func handleListGroupCronPermissions(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleListGroupCronPermissions: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleListGroupCronPermissions", "r", r))
 	ph := permissionHandler
 	permMap := ph.GetGroupCronJobPermissionList()
 
@@ -198,23 +198,24 @@ func handleListGroupCronPermissions(w http.ResponseWriter, r *http.Request) {
 
 // handleSetGroupCronPermission sets the cron creation permission for a given group (admin only)
 func handleSetGroupCronPermission(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleSetGroupCronPermission: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleSetGroupCronPermission", "r", r))
 	groupName, err := utils.PostPara(r, "group")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid group name")
 		return
 	}
 
 	allowStr, err := utils.PostPara(r, "allow")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Missing allow parameter")
 		return
 	}
 
 	allow := (allowStr == "true")
 	if err := permissionHandler.SetGroupCronJobPermission(groupName, allow); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

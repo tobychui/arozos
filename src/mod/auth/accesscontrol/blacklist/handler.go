@@ -16,17 +16,17 @@ import (
 */
 
 func (bl *BlackList) HandleAddBannedIP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.HandleAddBannedIP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/blacklist", "BlackList.HandleAddBannedIP", "bl", bl, "r", r))
 	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/blacklist", err)
 		utils.SendErrorResponse(w, "Invalid ip range given")
 		return
 	}
 
 	err = bl.Ban(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/blacklist", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -35,17 +35,17 @@ func (bl *BlackList) HandleAddBannedIP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (bl *BlackList) HandleRemoveBannedIP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.HandleRemoveBannedIP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/blacklist", "BlackList.HandleRemoveBannedIP", "bl", bl, "r", r))
 	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/blacklist", err)
 		utils.SendErrorResponse(w, "Invalid ip range given")
 		return
 	}
 
 	err = bl.UnBan(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/blacklist", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -54,9 +54,7 @@ func (bl *BlackList) HandleRemoveBannedIP(w http.ResponseWriter, r *http.Request
 }
 
 func (bl *BlackList) HandleSetBlacklistEnable(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.HandleSetBlacklistEnable: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/blacklist", "BlackList.HandleSetBlacklistEnable", "bl", bl, "r", r))
 	enableMode, _ := utils.PostPara(r, "enable")
 	if enableMode == "" {
 		//Get the current blacklist status
@@ -76,9 +74,7 @@ func (bl *BlackList) HandleSetBlacklistEnable(w http.ResponseWriter, r *http.Req
 	}
 }
 func (bl *BlackList) SetBlacklistEnabled(enabled bool) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.SetBlacklistEnabled: enabled=%t", enabled)
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/blacklist", "BlackList.SetBlacklistEnabled", "bl", bl, "enabled", enabled))
 	if enabled {
 		bl.Enabled = true
 		bl.database.Write("ipblacklist", "enable", true)
@@ -89,18 +85,14 @@ func (bl *BlackList) SetBlacklistEnabled(enabled bool) {
 }
 
 func (bl *BlackList) HandleListBannedIPs(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.HandleListBannedIPs: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/blacklist", "BlackList.HandleListBannedIPs", "bl", bl, "r", r))
 	bannedIpRanges := bl.ListBannedIpRanges()
 	js, _ := json.Marshal(bannedIpRanges)
 	utils.SendJSONResponse(w, string(js))
 }
 
-func (bl *BlackList) CheckIsBannedByRequest(r *http.Request) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/blacklist", "BlackList.CheckIsBannedByRequest: r=%s", logger.RequestSummary(r))
-	}
+func (bl *BlackList) CheckIsBannedByRequest(r *http.Request) (out0 bool) {
+	defer logger.Out1(logger.In2("auth/accesscontrol/blacklist", "BlackList.CheckIsBannedByRequest", "bl", bl, "r", r), &out0)
 	if bl.Enabled == false {
 		//Blacklist not enabled. Always return not banned
 		return false
@@ -108,6 +100,7 @@ func (bl *BlackList) CheckIsBannedByRequest(r *http.Request) bool {
 	//Get the IP address from the request header
 	requestIP, err := network.GetIpFromRequest(r)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/blacklist", err)
 		return false
 	}
 

@@ -28,8 +28,8 @@ import (
 )
 
 // BuildOdp serializes a Presentation into a complete .odp file
-func BuildOdp(p *model.Presentation) ([]byte, error) {
-	logger.Debug("office/odf", "BuildOdp")
+func BuildOdp(p *model.Presentation) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/odf", "BuildOdp", "p", p), &out0, &out1)
 	b := &odpBuilder{}
 	var body strings.Builder
 
@@ -102,9 +102,7 @@ type odpBuilder struct {
 }
 
 func (b *odpBuilder) newStyle(family, props string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpBuilder.newStyle: family=%.120q props=%.120q", family, props)
-	}
+	logger.DebugTrace("office/odf", "odpBuilder.newStyle")
 	b.styleSeq++
 	name := fmt.Sprintf("S%d", b.styleSeq)
 	b.styles.WriteString(`<style:style style:name="` + name + `" style:family="` + family + `">` +
@@ -232,9 +230,7 @@ func (b *odpBuilder) emitParagraphs(body *strings.Builder, o *model.Object, p *m
 
 // paraStyleFor mints the automatic paragraph style of one paragraph
 func (b *odpBuilder) paraStyleFor(align string, para slidetext.Para, objLineHeight float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpBuilder.paraStyleFor: align=%.120q objLineHeight=%g", align, objLineHeight)
-	}
+	logger.DebugTrace("office/odf", "odpBuilder.paraStyleFor")
 	props := ""
 	switch align {
 	case "center":
@@ -330,9 +326,7 @@ func (b *odpBuilder) frameStyleFor(o *model.Object) string {
 }
 
 func (b *odpBuilder) emitImage(body *strings.Builder, o *model.Object, src string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpBuilder.emitImage: src=%.120q", src)
-	}
+	logger.DebugTrace("office/odf", "odpBuilder.emitImage")
 	pic := odfPicture(src, &b.media)
 	if pic == "" {
 		return
@@ -605,8 +599,6 @@ func (b *odpBuilder) emitTable(body *strings.Builder, o *model.Object) {
 
 // odfPxCm states a length in css px (1/96") in centimetres
 func odfPxCm(px int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odfPxCm: px=%d", px)
-	}
+	logger.DebugTrace("office/odf", "odfPxCm")
 	return strconv.FormatFloat(float64(px)*2.54/96, 'f', 3, 64) + "cm"
 }

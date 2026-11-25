@@ -7,9 +7,7 @@ import (
 )
 
 func absF(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "absF: v=%g", v)
-	}
+	logger.DebugTrace("office/pptx", "absF")
 	if v < 0 {
 		return -v
 	}
@@ -17,9 +15,7 @@ func absF(v float64) float64 {
 }
 
 func pathExtOf(p string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "pathExtOf: p=%.120q", p)
-	}
+	logger.DebugTrace("office/pptx", "pathExtOf")
 	i := strings.LastIndex(p, ".")
 	if i < 0 {
 		return ""

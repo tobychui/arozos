@@ -72,9 +72,7 @@ If you find any bugs in these code, just remember they are legacy
 code and rewriting the whole thing will save you a lot more time.
 */
 func HandleView(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "HandleView: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskmg", "HandleView", "r", r))
 	if runtime.GOOS == "darwin" {
 		handleViewDarwin(w, r)
 		return
@@ -90,6 +88,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 				cmd := exec.Command("./system/disk/diskmg/DiskmgWin.exe", "-d")
 				o, err := cmd.CombinedOutput()
 				if err != nil {
+					logger.DebugErr("disk/diskmg", err)
 					utils.SendErrorResponse(w, "Permission Denied")
 					return
 				}
@@ -98,6 +97,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 				cmd := exec.Command("./system/disk/diskmg/DiskmgWin.exe")
 				o, err := cmd.CombinedOutput()
 				if err != nil {
+					logger.DebugErr("disk/diskmg", err)
 					utils.SendErrorResponse(w, "Permission Denied")
 					return
 				}
@@ -135,11 +135,13 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("lsblk", "-b", "--json")
 		o, err := cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		err = json.Unmarshal(o, &partition)
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -148,11 +150,13 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("lsblk", "-f", "-b", "--json")
 		o, err = cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		err = json.Unmarshal(o, &format)
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -161,6 +165,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("df")
 		o, err = cmd.CombinedOutput()
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -199,9 +204,7 @@ Manual translated from mountTool.php
 Require GET parameter: dev / format / mnt
 */
 func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "HandleMount: r=%s len(fsHandlers)=%d", logger.RequestSummary(r), len(fsHandlers))
-	}
+	defer logger.Out0(logger.In2("disk/diskmg", "HandleMount", "r", r, "fsHandlers", fsHandlers))
 	if runtime.GOOS == "darwin" {
 		handleMountDarwin(w, r)
 		return
@@ -210,11 +213,13 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 		targetDev, _ := utils.GetPara(r, "dev")
 		format, err := utils.GetPara(r, "format")
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, "format not defined")
 			return
 		}
 		mountPt, err := utils.GetPara(r, "mnt")
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, "Mount Point not defined")
 			return
 		}
@@ -254,6 +259,7 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 			//Unmount the given mountpoint
 			output, err := Unmount(safeMountPoint, fsHandlers)
 			if err != nil {
+				logger.DebugErr("disk/diskmg", err)
 				utils.SendErrorResponse(w, output)
 				return
 			}
@@ -262,6 +268,7 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 		} else {
 			o, err := Mount(devID, safeMountPoint, mountingTool, fsHandlers)
 			if err != nil {
+				logger.DebugErr("disk/diskmg", err)
 				utils.SendErrorResponse(w, o)
 				return
 			}
@@ -279,17 +286,17 @@ Format Tool
 Manual translation from AOB's formatTool.php
 */
 func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "HandleFormat: r=%s len(fsHandlers)=%d", logger.RequestSummary(r), len(fsHandlers))
-	}
+	defer logger.Out0(logger.In2("disk/diskmg", "HandleFormat", "r", r, "fsHandlers", fsHandlers))
 	dev, err := utils.PostPara(r, "dev")
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		utils.SendErrorResponse(w, "dev not defined")
 		return
 	}
 
 	format, err := utils.PostPara(r, "format")
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		utils.SendErrorResponse(w, "format not defined")
 		return
 	}
@@ -315,6 +322,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	//Check if it is mounted. If yes, umount it
 	mounted, err := checkDeviceMounted(devID)
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		//Fail to check if disk mounted
 		logger.PrintAndLog("Diskmg", err.Error(), nil)
 		utils.SendErrorResponse(w, "Failed to check disk mount status")
@@ -326,6 +334,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 		//Close all the fsHandler related to this disk
 		mountpt, err := getDeviceMountPoint(devID)
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -334,6 +343,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 		//Unmount the devices
 		out, err := Unmount(mountpt, fsHandlers)
 		if err != nil {
+			logger.DebugErr("disk/diskmg", err)
 			utils.SendErrorResponse(w, out)
 			return
 		}
@@ -359,6 +369,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	logger.PrintAndLog("Diskmg", "Formatting of "+"/dev/"+devID+" Started", nil)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		logger.PrintAndLog("Diskmg", "Format failed: "+string(output), nil)
 		utils.SendErrorResponse(w, string(output))
 		return
@@ -373,10 +384,8 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 
 }
 
-func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.FileSystemHandler) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "Mount: devID=%.120q mountpt=%.120q mountingTool=%.120q len(fsHandlers)=%d", devID, mountpt, mountingTool, len(fsHandlers))
-	}
+func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.FileSystemHandler) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("disk/diskmg", "Mount", "devID", devID, "mountpt", mountpt, "mountingTool", mountingTool, "fsHandlers", fsHandlers), &out0, &out1)
 	//Loop each fsHandler. If exists one that fits and Closed, reopen it
 	for _, fsh := range fsHandlers {
 		if strings.Contains(filepath.ToSlash(fsh.Path), filepath.ToSlash(mountpt)) {
@@ -389,16 +398,15 @@ func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.F
 	cmd := exec.Command("mount", "-t", mountingTool, "/dev/"+devID, mountpt)
 	o, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		logger.PrintAndLog("Diskmg", fmt.Sprint("Failed to mount "+devID, string(o)), nil)
 	}
 	return string(o), err
 }
 
 // Unmount a given mountpoint
-func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "Unmount: mountpt=%.120q len(fsHandlers)=%d", mountpt, len(fsHandlers))
-	}
+func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("disk/diskmg", "Unmount", "mountpt", mountpt, "fsHandlers", fsHandlers), &out0, &out1)
 	//Unmount the fsHandlers that related to this mountpt
 	for _, fsh := range fsHandlers {
 		if strings.Contains(filepath.ToSlash(fsh.Path), filepath.ToSlash(mountpt)) {
@@ -414,22 +422,19 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 
 // Return a list of mountable directory
 func HandleListMountPoints(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "HandleListMountPoints: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskmg", "HandleListMountPoints", "r", r))
 	mp, _ := filepath.Glob("/media/*")
 	js, _ := json.Marshal(mp)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // Check if the device is mounted
-func checkDeviceMounted(devname string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "checkDeviceMounted: devname=%.120q", devname)
-	}
+func checkDeviceMounted(devname string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskmg", "checkDeviceMounted", "devname", devname), &out0, &out1)
 	cmd := exec.Command("bash", "-c", "lsblk -f -b --json | grep "+devname)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		return false, err
 	}
 
@@ -437,6 +442,7 @@ func checkDeviceMounted(devname string) (bool, error) {
 	jsonMap := make(map[string]interface{})
 	err = json.Unmarshal(output, &jsonMap)
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		return false, err
 	}
 
@@ -448,13 +454,12 @@ func checkDeviceMounted(devname string) (bool, error) {
 
 }
 
-func getDeviceMountPoint(devname string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "getDeviceMountPoint: devname=%.120q", devname)
-	}
+func getDeviceMountPoint(devname string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskmg", "getDeviceMountPoint", "devname", devname), &out0, &out1)
 	cmd := exec.Command("bash", "-c", "lsblk -f -b --json | grep "+devname)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		return "", errors.New("Device not mounted")
 	}
 
@@ -462,6 +467,7 @@ func getDeviceMountPoint(devname string) (string, error) {
 	jsonMap := make(map[string]interface{})
 	err = json.Unmarshal(output, &jsonMap)
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		return "", errors.New("Pharse mountpoint error")
 	}
 
@@ -473,10 +479,8 @@ func getDeviceMountPoint(devname string) (string, error) {
 }
 
 // Check device valid, only usable in linux
-func checkDeviceValid(devname string) (bool, string) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "checkDeviceValid: devname=%.120q", devname)
-	}
+func checkDeviceValid(devname string) (out0 bool, out1 string) {
+	defer logger.Out2(logger.In1("disk/diskmg", "checkDeviceValid", "devname", devname), &out0, &out1)
 	//Check if the device name is valid
 	match, _ := regexp.MatchString("sd[a-z][1-9]", devname)
 	if !match {
@@ -494,9 +498,7 @@ func checkDeviceValid(devname string) (bool, string) {
 }
 
 func HandlePlatform(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "HandlePlatform: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskmg", "HandlePlatform", "r", r))
 	js, _ := json.Marshal(runtime.GOOS)
 	utils.SendJSONResponse(w, string(js))
 }
@@ -547,9 +549,7 @@ type BlockDeviceInfo struct {
 }
 
 func HandleListDevicesWithInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "HandleListDevicesWithInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskmg", "HandleListDevicesWithInfo", "r", r))
 	if runtime.GOOS != "linux" {
 		utils.SendErrorResponse(w, "This function is Linux only")
 		return
@@ -558,12 +558,14 @@ func HandleListDevicesWithInfo(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command("lsblk", "-b", "--json", "-o", "NAME,SIZE,TYPE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL")
 	o, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		utils.SendErrorResponse(w, "lsblk error: "+err.Error())
 		return
 	}
 
 	var raw lsblkFull
 	if err := json.Unmarshal(o, &raw); err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		utils.SendErrorResponse(w, "parse error: "+err.Error())
 		return
 	}

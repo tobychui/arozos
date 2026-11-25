@@ -4,9 +4,7 @@ import "imuslab.com/arozos/mod/info/logger"
 
 // anyFilled reports whether a cell-fill grid states at least one colour
 func anyFilled(grid [][]string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "anyFilled: len(grid)=%d", len(grid))
-	}
+	logger.DebugTrace("office/odf", "anyFilled")
 	for _, row := range grid {
 		for _, c := range row {
 			if c != "" {
@@ -18,9 +16,7 @@ func anyFilled(grid [][]string) bool {
 }
 
 func minF(a, b float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "minF: a=%g b=%g", a, b)
-	}
+	logger.DebugTrace("office/odf", "minF")
 	if a < b {
 		return a
 	}

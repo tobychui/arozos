@@ -33,14 +33,13 @@ type WebDAVFileSystem struct {
 	c         *gowebdav.Client
 }
 
-func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, password string) (*WebDAVFileSystem, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "NewWebDAVMount: UUID=%.120q Hierarchy=%.120q root=%.120q user=%.120q", UUID, Hierarchy, root, user)
-	}
+func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, password string) (out0 *WebDAVFileSystem, out1 error) {
+	defer logger.Out2(logger.In5("filesystem/abstractions/webdavfs", "NewWebDAVMount", "UUID", UUID, "Hierarchy", Hierarchy, "root", root, "user", user, "!password", password), &out0, &out1)
 	//Connect to webdav server
 	c := gowebdav.NewClient(root, user, password)
 	err := c.Connect()
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		logger.PrintAndLog("Webdavfs", fmt.Sprint("[WebDAV FS] Unable to connect to remote: ", err.Error()), nil)
 		return nil, err
 	} else {
@@ -55,95 +54,76 @@ func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, pas
 	}, nil
 }
 
-func (e WebDAVFileSystem) Chmod(filename string, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Chmod: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Chmod(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Chmod", "&e", &e, "filename", filename, "&mode", &mode), &out0)
 	return errors.New("filesystem type not supported")
 }
-func (e WebDAVFileSystem) Chown(filename string, uid int, gid int) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Chown: filename=%.120q uid=%d gid=%d", filename, uid, gid)
-	}
+func (e WebDAVFileSystem) Chown(filename string, uid int, gid int) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Chown", "&e", &e, "filename", filename, "uid", uid, "gid", gid), &out0)
 	return errors.New("filesystem type not supported")
 }
-func (e WebDAVFileSystem) Chtimes(filename string, atime time.Time, mtime time.Time) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Chtimes: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Chtimes(filename string, atime time.Time, mtime time.Time) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Chtimes", "&e", &e, "filename", filename, "&atime", &atime, "&mtime", &mtime), &out0)
 	//WebDAV has no standard way to set a modification time
 	return arozfs.ErrOperationNotSupported
 }
-func (e WebDAVFileSystem) Create(filename string) (arozfs.File, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Create: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Create(filename string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Create", "&e", &e, "filename", filename), &out0, &out1)
 	return nil, errors.New("filesystem type not supported")
 }
-func (e WebDAVFileSystem) Mkdir(filename string, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Mkdir: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Mkdir(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Mkdir", "&e", &e, "filename", filename, "&mode", &mode), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return e.c.Mkdir(filename, mode)
 }
-func (e WebDAVFileSystem) MkdirAll(filename string, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.MkdirAll: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) MkdirAll(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.MkdirAll", "&e", &e, "filename", filename, "&mode", &mode), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return e.c.MkdirAll(filename, mode)
 }
-func (e WebDAVFileSystem) Name() string {
-	logger.DebugTrace("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Name")
+func (e WebDAVFileSystem) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Name", "&e", &e), &out0)
 	return ""
 }
-func (e WebDAVFileSystem) Open(filename string) (arozfs.File, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Open: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Open(filename string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Open", "&e", &e, "filename", filename), &out0, &out1)
 	return nil, errors.New("filesystem type not supported")
 }
-func (e WebDAVFileSystem) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.OpenFile: filename=%.120q flag=%d", filename, flag)
-	}
+func (e WebDAVFileSystem) OpenFile(filename string, flag int, perm os.FileMode) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/abstractions/webdavfs", "WebDAVFileSystem.OpenFile", "&e", &e, "filename", filename, "flag", flag, "&perm", &perm), &out0, &out1)
 	//Buffer the target file to memory
 	//To be implement: Wait for Golang's fs.File.Write function to be released
 	//f := bufffs.New(filename)
 	//return f, nil
 	return nil, errors.New("filesystem type not supported")
 }
-func (e WebDAVFileSystem) Remove(filename string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Remove: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Remove(filename string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Remove", "&e", &e, "filename", filename), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return classify(e.c.Remove(filename))
 }
-func (e WebDAVFileSystem) RemoveAll(filename string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.RemoveAll: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) RemoveAll(filename string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.RemoveAll", "&e", &e, "filename", filename), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return e.c.RemoveAll(filename)
 }
-func (e WebDAVFileSystem) Rename(oldname, newname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Rename: oldname=%.120q newname=%.120q", oldname, newname)
-	}
+func (e WebDAVFileSystem) Rename(oldname, newname string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Rename", "&e", &e, "oldname", oldname, "newname", newname), &out0)
 	oldname = filterFilepath(filepath.ToSlash(filepath.Clean(oldname)))
 	newname = filterFilepath(filepath.ToSlash(filepath.Clean(newname)))
 	err := e.c.Rename(oldname, newname, true)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		//Unable to rename due to reverse proxy issue. Use Copy and Delete
 		f, err := e.c.ReadStream(oldname)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/webdavfs", err)
 			return err
 		}
 
 		err = e.c.WriteStream(newname, f, 0775)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/webdavfs", err)
 			return err
 		}
 		f.Close()
@@ -151,10 +131,8 @@ func (e WebDAVFileSystem) Rename(oldname, newname string) error {
 	}
 	return nil
 }
-func (e WebDAVFileSystem) Stat(filename string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Stat: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) Stat(filename string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Stat", "&e", &e, "filename", filename), &out0, &out1)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	info, err := e.c.Stat(filename)
 	return info, classify(err)
@@ -162,10 +140,8 @@ func (e WebDAVFileSystem) Stat(filename string) (os.FileInfo, error) {
 
 // classify turns the HTTP status gowebdav reports into the error the rest of
 // ArozOS checks for, so os.IsNotExist and errors.Is work on this drive.
-func classify(err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "classify: err=%v", err)
-	}
+func classify(err error) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/webdavfs", "classify", "err", err), &out0)
 	pe, ok := err.(*os.PathError)
 	if !ok {
 		return err
@@ -183,18 +159,14 @@ func classify(err error) error {
 	return err
 }
 
-func (e WebDAVFileSystem) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
-	}
+func (e WebDAVFileSystem) VirtualPathToRealPath(subpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.VirtualPathToRealPath", "&e", &e, "subpath", subpath, "username", username), &out0, &out1)
 	//The generic translator refuses subpaths that climb out of the remote
 	//root or the user's home ("user:../bob")
 	return arozfs.GenericVirtualPathToRealPathTranslator(e.UUID, e.Hierarchy, subpath, username)
 }
-func (e WebDAVFileSystem) RealPathToVirtualPath(rpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.RealPathToVirtualPath: rpath=%.120q username=%.120q", rpath, username)
-	}
+func (e WebDAVFileSystem) RealPathToVirtualPath(rpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.RealPathToVirtualPath", "&e", &e, "rpath", rpath, "username", username), &out0, &out1)
 	rpath = filterFilepath(filepath.ToSlash(filepath.Clean(rpath)))
 	if e.Hierarchy == "user" && strings.HasPrefix(rpath, "/users/"+username) {
 		rpath = strings.TrimPrefix(rpath, "/users/"+username)
@@ -205,10 +177,8 @@ func (e WebDAVFileSystem) RealPathToVirtualPath(rpath string, username string) (
 	}
 	return e.UUID + ":" + rpath, nil
 }
-func (e WebDAVFileSystem) FileExists(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.FileExists: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) FileExists(filename string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.FileExists", "&e", &e, "filename", filename), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	_, err := e.c.Stat(filename)
 	if os.IsNotExist(err) || err != nil {
@@ -217,23 +187,20 @@ func (e WebDAVFileSystem) FileExists(filename string) bool {
 
 	return true
 }
-func (e WebDAVFileSystem) IsDir(filename string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.IsDir: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) IsDir(filename string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.IsDir", "&e", &e, "filename", filename), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	s, err := e.c.Stat(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return false
 	}
 	return s.IsDir()
 }
 
 // Notes: This is not actual Glob function. This just emulate Glob using ReadDir with max depth 1 layer
-func (e WebDAVFileSystem) Glob(wildcard string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Glob: wildcard=%.120q", wildcard)
-	}
+func (e WebDAVFileSystem) Glob(wildcard string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Glob", "&e", &e, "wildcard", wildcard), &out0, &out1)
 	wildcard = filepath.ToSlash(filepath.Clean(wildcard))
 
 	if !strings.HasPrefix(wildcard, "/") {
@@ -245,13 +212,12 @@ func (e WebDAVFileSystem) Glob(wildcard string) ([]string, error) {
 	return results, err
 }
 
-func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.GetFileSize: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) GetFileSize(filename string) (out0 int64) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.GetFileSize", "&e", &e, "filename", filename), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	s, err := e.Stat(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		logger.PrintAndLog("Webdavfs", fmt.Sprint(err), nil)
 		return 0
 	}
@@ -259,46 +225,41 @@ func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
 	return s.Size()
 }
 
-func (e WebDAVFileSystem) GetModTime(filename string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.GetModTime: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) GetModTime(filename string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.GetModTime", "&e", &e, "filename", filename), &out0, &out1)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	s, err := e.Stat(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return 0, err
 	}
 
 	return s.ModTime().Unix(), nil
 }
 
-func (e WebDAVFileSystem) WriteFile(filename string, content []byte, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.WriteFile: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) WriteFile(filename string, content []byte, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/webdavfs", "WebDAVFileSystem.WriteFile", "&e", &e, "filename", filename, "content", content, "&mode", &mode), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return e.c.Write(filename, content, mode)
 }
 
-func (e WebDAVFileSystem) ReadFile(filename string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.ReadFile: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) ReadFile(filename string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.ReadFile", "&e", &e, "filename", filename), &out0, &out1)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	bytes, err := e.c.Read(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return []byte(""), classify(err)
 	}
 	return bytes, nil
 }
 
-func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.ReadDir: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) ReadDir(filename string) (out0 []fs.DirEntry, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.ReadDir", "&e", &e, "filename", filename), &out0, &out1)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	fis, err := e.c.ReadDir(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return []fs.DirEntry{}, classify(err)
 	}
 
@@ -308,42 +269,39 @@ func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 	}
 	return dirEntires, nil
 }
-func (e WebDAVFileSystem) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.WriteStream: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) WriteStream(filename string, stream io.Reader, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/webdavfs", "WebDAVFileSystem.WriteStream", "&e", &e, "filename", filename, "stream", stream, "&mode", &mode), &out0)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return e.c.WriteStream(filename, stream, mode)
 
 }
-func (e WebDAVFileSystem) ReadStream(filename string) (io.ReadCloser, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "WebDAVFileSystem.ReadStream: filename=%.120q", filename)
-	}
+func (e WebDAVFileSystem) ReadStream(filename string) (out0 io.ReadCloser, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/webdavfs", "WebDAVFileSystem.ReadStream", "&e", &e, "filename", filename), &out0, &out1)
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	rc, err := e.c.ReadStream(filename)
 	return rc, classify(err)
 }
 
-func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error {
-	logger.Debug("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Walk")
+func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Walk", "&e", &e, "&walkFn", &walkFn, "!rootpath", rootpath), &out0)
 	rootpath = filepath.ToSlash(filepath.Clean(rootpath))
 	rootStat, err := e.Stat(rootpath)
 	err = walkFn(rootpath, rootStat, err)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return err
 	}
 	return e.walk(rootpath, walkFn)
 }
 
-func (e WebDAVFileSystem) Close() error {
-	logger.Debug("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Close")
+func (e WebDAVFileSystem) Close() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Close", "&e", &e), &out0)
 	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
-func (e WebDAVFileSystem) Heartbeat() error {
-	logger.Debug("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Heartbeat")
+func (e WebDAVFileSystem) Heartbeat() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/webdavfs", "WebDAVFileSystem.Heartbeat", "&e", &e), &out0)
 	_, err := e.c.ReadDir("/")
 	return err
 }
@@ -352,12 +310,11 @@ func (e WebDAVFileSystem) Heartbeat() error {
 	Helper Functions
 */
 
-func (e WebDAVFileSystem) walk(thisPath string, walkFun filepath.WalkFunc) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.walk: thisPath=%.120q", thisPath)
-	}
+func (e WebDAVFileSystem) walk(thisPath string, walkFun filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/webdavfs", "WebDAVFileSystem.walk", "&e", &e, "thisPath", thisPath, "&walkFun", &walkFun), &out0)
 	files, err := e.c.ReadDir(thisPath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return err
 	}
 
@@ -366,15 +323,18 @@ func (e WebDAVFileSystem) walk(thisPath string, walkFun filepath.WalkFunc) error
 		if file.IsDir() {
 			err = walkFun(thisFileFullPath, file, nil)
 			if err != nil {
+				logger.DebugErr("filesystem/abstractions/webdavfs", err)
 				return err
 			}
 			err = e.walk(thisFileFullPath, walkFun)
 			if err != nil {
+				logger.DebugErr("filesystem/abstractions/webdavfs", err)
 				return err
 			}
 		} else {
 			err = walkFun(thisFileFullPath, file, nil)
 			if err != nil {
+				logger.DebugErr("filesystem/abstractions/webdavfs", err)
 				return err
 			}
 		}
@@ -382,10 +342,8 @@ func (e WebDAVFileSystem) walk(thisPath string, walkFun filepath.WalkFunc) error
 	return nil
 }
 
-func (e WebDAVFileSystem) globpath(currentPath string, pathSegments []string, depth int) ([]string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/webdavfs", "WebDAVFileSystem.globpath: currentPath=%.120q len(pathSegments)=%d depth=%d", currentPath, len(pathSegments), depth)
-	}
+func (e WebDAVFileSystem) globpath(currentPath string, pathSegments []string, depth int) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/abstractions/webdavfs", "WebDAVFileSystem.globpath", "&e", &e, "currentPath", currentPath, "pathSegments", pathSegments, "depth", depth), &out0, &out1)
 	const pathSeparatorsLimit = 1000
 	if depth == pathSeparatorsLimit {
 		return nil, errors.New("bad pattern")
@@ -393,6 +351,7 @@ func (e WebDAVFileSystem) globpath(currentPath string, pathSegments []string, de
 
 	// Check pattern is well-formed.
 	if _, err := regexp.MatchString(wildCardToRegexp(strings.Join(pathSegments, "/")), ""); err != nil {
+		logger.DebugErr("filesystem/abstractions/webdavfs", err)
 		return nil, err
 	}
 
@@ -407,6 +366,7 @@ func (e WebDAVFileSystem) globpath(currentPath string, pathSegments []string, de
 		matchPattern := currentPath + thisSegment
 		files, err := e.c.ReadDir(currentPath)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/webdavfs", err)
 			return []string{}, nil
 		}
 
@@ -447,8 +407,8 @@ func (e WebDAVFileSystem) globpath(currentPath string, pathSegments []string, de
 	}
 }
 
-func filterFilepath(rawpath string) string {
-	logger.Debug("filesystem/abstractions/webdavfs", "filterFilepath")
+func filterFilepath(rawpath string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/webdavfs", "filterFilepath", "rawpath", rawpath), &out0)
 	rawpath = strings.TrimSpace(rawpath)
 	if strings.HasPrefix(rawpath, "./") {
 		return rawpath[1:]
@@ -458,10 +418,8 @@ func filterFilepath(rawpath string) string {
 	return rawpath
 }
 
-func wildCardToRegexp(pattern string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/webdavfs", "wildCardToRegexp: pattern=%.120q", pattern)
-	}
+func wildCardToRegexp(pattern string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/webdavfs", "wildCardToRegexp", "pattern", pattern), &out0)
 	var result strings.Builder
 	for i, literal := range strings.Split(pattern, "*") {
 		// Replace * with .*

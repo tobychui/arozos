@@ -169,9 +169,7 @@ func newCryptHandler(d *Document, enc Dict) (*cryptHandler, error) {
 
 // aes256Key derives the file key for R5 / R6 with the empty password
 func aes256Key(r int, u []byte, ue []byte) ([]byte, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "aes256Key: r=%d len(u)=%d len(ue)=%d", r, len(u), len(ue))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "aes256Key")
 	if len(u) < 48 || len(ue) < 32 {
 		return nil, false
 	}
@@ -196,6 +194,7 @@ func aes256Key(r int, u []byte, ue []byte) ([]byte, bool) {
 	}
 	block, err := aes.NewCipher(ik)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, false
 	}
 	key := make([]byte, 32)
@@ -205,9 +204,7 @@ func aes256Key(r int, u []byte, ue []byte) ([]byte, bool) {
 
 // hash2B is algorithm 2.B of ISO 32000-2
 func hash2B(password, salt, udata []byte) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "hash2B: len(udata)=%d", len(udata))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "hash2B")
 	h := sha256.New()
 	h.Write(password)
 	h.Write(salt)
@@ -249,9 +246,7 @@ func hash2B(password, salt, udata []byte) []byte {
 }
 
 func (h *cryptHandler) objectKey(ref Ref, aesMode bool) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cryptHandler.objectKey: aesMode=%t", aesMode)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cryptHandler.objectKey")
 	if h.rev >= 5 {
 		return h.key
 	}
@@ -275,6 +270,7 @@ func (h *cryptHandler) decrypt(data []byte, ref Ref, method cryptMethod) []byte 
 	case cryptRC4:
 		c, err := rc4.NewCipher(h.objectKey(ref, false))
 		if err != nil {
+			logger.DebugErr("filesystem/metadata/pdfrender", err)
 			return data
 		}
 		out := make([]byte, len(data))
@@ -294,6 +290,7 @@ func (h *cryptHandler) decrypt(data []byte, ref Ref, method cryptMethod) []byte 
 		}
 		block, err := aes.NewCipher(key)
 		if err != nil {
+			logger.DebugErr("filesystem/metadata/pdfrender", err)
 			return data
 		}
 		out := make([]byte, len(data)-16)

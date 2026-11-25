@@ -23,9 +23,7 @@ type ScanResults struct {
 
 // Handle HTTP request for scanning and return the result
 func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/neighbour", "Discoverer.HandleScanningRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("network/neighbour", "Discoverer.HandleScanningRequest", "d", d, "r", r))
 	result := new(ScanResults)
 
 	hosts := d.GetNearbyHosts()
@@ -47,17 +45,17 @@ func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Reques
 
 // Get networkHosts that are offline
 func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/neighbour", "Discoverer.HandleScanRecord: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("network/neighbour", "Discoverer.HandleScanRecord", "d", d, "r", r))
 	offlineNodes, err := d.GetOfflineHosts()
 	if err != nil {
+		logger.DebugErr("network/neighbour", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	js, err := json.Marshal(offlineNodes)
 	if err != nil {
+		logger.DebugErr("network/neighbour", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -67,17 +65,17 @@ func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
 
 // Send wake on land to target
 func (d *Discoverer) HandleWakeOnLan(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/neighbour", "Discoverer.HandleWakeOnLan: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("network/neighbour", "Discoverer.HandleWakeOnLan", "d", d, "r", r))
 	mac, err := utils.GetPara(r, "mac")
 	if err != nil {
+		logger.DebugErr("network/neighbour", err)
 		utils.SendErrorResponse(w, "Invalid mac address")
 		return
 	}
 
 	err = d.SendWakeOnLan(mac)
 	if err != nil {
+		logger.DebugErr("network/neighbour", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

@@ -102,8 +102,8 @@ type Record struct {
 }
 
 // Done reports whether the job reached a terminal state.
-func (r *Record) Done() bool {
-	logger.Debug("cluster/jobs", "Record.Done")
+func (r *Record) Done() (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/jobs", "Record.Done", "r", r), &out0)
 	switch r.State.Status {
 	case StatusSucceeded, StatusFailed, StatusCancelled:
 		return true
@@ -188,8 +188,8 @@ var (
 )
 
 // New creates the job service and starts its loops.
-func New(opt Option) (*Manager, error) {
-	logger.Debug("cluster/jobs", "New")
+func New(opt Option) (out0 *Manager, out1 error) {
+	defer logger.Out2(logger.In1("cluster/jobs", "New", "&opt", &opt), &out0, &out1)
 	if opt.Membership == nil || opt.Metadata == nil {
 		return nil, errors.New("membership and metadata are required")
 	}
@@ -211,6 +211,7 @@ func New(opt Option) (*Manager, error) {
 	if opt.Scheduler == nil {
 		sc, err := scheduling.New(opt.Membership, opt.Metadata)
 		if err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			return nil, err
 		}
 		opt.Scheduler = sc
@@ -235,7 +236,7 @@ func New(opt Option) (*Manager, error) {
 
 // Close stops the scheduler and cancels local jobs.
 func (j *Manager) Close() {
-	logger.Debug("cluster/jobs", "Manager.Close")
+	defer logger.Out0(logger.In1("cluster/jobs", "Manager.Close", "j", j))
 	j.once.Do(func() { close(j.stop) })
 	j.mu.Lock()
 	for _, rs := range j.running {
@@ -246,7 +247,7 @@ func (j *Manager) Close() {
 }
 
 func (j *Manager) loop() {
-	logger.Debug("cluster/jobs", "Manager.loop")
+	defer logger.Out0(logger.In1("cluster/jobs", "Manager.loop", "j", j))
 	defer j.wg.Done()
 	ticker := time.NewTicker(j.opt.ScheduleInterval)
 	defer ticker.Stop()
@@ -273,8 +274,8 @@ func (j *Manager) loop() {
 	Record helpers
 */
 
-func (j *Manager) decode(mj *metadata.Job) (Record, bool) {
-	logger.Debug("cluster/jobs", "Manager.decode")
+func (j *Manager) decode(mj *metadata.Job) (out0 Record, out1 bool) {
+	defer logger.Out2(logger.In2("cluster/jobs", "Manager.decode", "j", j, "mj", mj), &out0, &out1)
 	var rec Record
 	if mj == nil || json.Unmarshal(mj.Body, &rec) != nil {
 		return rec, false
@@ -283,10 +284,8 @@ func (j *Manager) decode(mj *metadata.Job) (Record, bool) {
 }
 
 // Get returns one job record.
-func (j *Manager) Get(id string) (Record, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.Get: id=%.120q", id)
-	}
+func (j *Manager) Get(id string) (out0 Record, out1 bool) {
+	defer logger.Out2(logger.In2("cluster/jobs", "Manager.Get", "j", j, "id", id), &out0, &out1)
 	mj, ok := j.meta.Job(id)
 	if !ok || mj.Removed {
 		return Record{}, false
@@ -295,10 +294,8 @@ func (j *Manager) Get(id string) (Record, bool) {
 }
 
 // List returns jobs, newest first; owner "" lists every job.
-func (j *Manager) List(owner string) []Record {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.List: owner=%.120q", owner)
-	}
+func (j *Manager) List(owner string) (out0 []Record) {
+	defer logger.Out1(logger.In2("cluster/jobs", "Manager.List", "j", j, "owner", owner), &out0)
 	out := []Record{}
 	for _, mj := range j.meta.Jobs() {
 		if mj.Removed || (owner != "" && mj.Owner != owner) {
@@ -313,10 +310,11 @@ func (j *Manager) List(owner string) []Record {
 }
 
 // put replicates a record.
-func (j *Manager) put(rec Record) error {
-	logger.Debug("cluster/jobs", "Manager.put")
+func (j *Manager) put(rec Record) (out0 error) {
+	defer logger.Out1(logger.In2("cluster/jobs", "Manager.put", "j", j, "&rec", &rec), &out0)
 	body, err := json.Marshal(rec)
 	if err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		return err
 	}
 	return j.meta.Submit(metadata.KindJob, &metadata.Job{
@@ -334,8 +332,8 @@ func (j *Manager) put(rec Record) error {
 */
 
 // Submit validates and queues a job. The caller supplies the script source.
-func (j *Manager) Submit(spec Spec) (Record, error) {
-	logger.Debug("cluster/jobs", "Manager.Submit")
+func (j *Manager) Submit(spec Spec) (out0 Record, out1 error) {
+	defer logger.Out2(logger.In2("cluster/jobs", "Manager.Submit", "j", j, "&spec", &spec), &out0, &out1)
 	if !j.m.InCluster() {
 		return Record{}, metadata.ErrNotInCluster
 	}
@@ -372,6 +370,7 @@ func (j *Manager) Submit(spec Spec) (Record, error) {
 	}
 	rec := Record{Spec: spec, State: State{Status: StatusQueued}}
 	if err := j.put(rec); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		return Record{}, err
 	}
 	logger.PrintAndLog("Cluster", "Job queued: "+spec.Name+" ("+spec.ID+")", nil)
@@ -384,10 +383,8 @@ func (j *Manager) Submit(spec Spec) (Record, error) {
 }
 
 // Cancel marks a job cancelled; a running node notices within a second.
-func (j *Manager) Cancel(id string, requester string, isAdmin bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.Cancel: id=%.120q requester=%.120q isAdmin=%t", id, requester, isAdmin)
-	}
+func (j *Manager) Cancel(id string, requester string, isAdmin bool) (out0 error) {
+	defer logger.Out1(logger.In4("cluster/jobs", "Manager.Cancel", "j", j, "id", id, "requester", requester, "isAdmin", isAdmin), &out0)
 	rec, ok := j.Get(id)
 	if !ok {
 		return ErrNotFound
@@ -402,6 +399,7 @@ func (j *Manager) Cancel(id string, requester string, isAdmin bool) error {
 	rec.State.Finished = time.Now().Unix()
 	rec.State.Error = "cancelled by " + requester
 	if err := j.put(rec); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		return err
 	}
 	j.mu.Lock()
@@ -413,10 +411,8 @@ func (j *Manager) Cancel(id string, requester string, isAdmin bool) error {
 }
 
 // Wait blocks until the job finishes or the timeout expires.
-func (j *Manager) Wait(id string, timeout time.Duration) (Record, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.Wait: id=%.120q", id)
-	}
+func (j *Manager) Wait(id string, timeout time.Duration) (out0 Record, out1 error) {
+	defer logger.Out2(logger.In3("cluster/jobs", "Manager.Wait", "j", j, "id", id, "&timeout", &timeout), &out0, &out1)
 	deadline := time.Now().Add(timeout)
 	for {
 		rec, ok := j.Get(id)
@@ -448,7 +444,7 @@ func usableState(s membership.NodeState) bool {
 
 // schedule is one scheduling pass.
 func (j *Manager) schedule() {
-	logger.Debug("cluster/jobs", "Manager.schedule")
+	defer logger.Out0(logger.In1("cluster/jobs", "Manager.schedule", "j", j))
 	if !j.meta.IsLeader() {
 		return
 	}
@@ -533,6 +529,7 @@ func (j *Manager) schedule() {
 		rec.State.LeaseExpires = now.Add(j.opt.TaskLease).Unix()
 		rec.State.Reason = ""
 		if err := j.put(rec); err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			continue
 		}
 		loadPerNode[node]++
@@ -543,10 +540,8 @@ func (j *Manager) schedule() {
 // locality reports how many of the input bytes already sit on a node. The
 // host may supply a richer implementation (which also expands directories);
 // otherwise the metadata records answer it directly.
-func (j *Manager) locality(paths []string, nodeID string) (int64, int64) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.locality: len(paths)=%d nodeID=%.120q", len(paths), nodeID)
-	}
+func (j *Manager) locality(paths []string, nodeID string) (out0 int64, out1 int64) {
+	defer logger.Out2(logger.In3("cluster/jobs", "Manager.locality", "j", j, "paths", paths, "nodeID", nodeID), &out0, &out1)
 	if j.opt.LocalityBytes != nil {
 		return j.opt.LocalityBytes(paths, nodeID)
 	}
@@ -574,19 +569,15 @@ func (j *Manager) locality(paths []string, nodeID string) (int64, int64) {
 // pick scores the eligible nodes and returns the best one, or a reason why
 // nothing fits. It also returns the full ranking, which the explain endpoint
 // shows to administrators.
-func (j *Manager) pick(rec Record, nodes []membership.NodeView, load map[string]int) (string, string) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.pick: len(nodes)=%d len(load)=%d", len(nodes), len(load))
-	}
+func (j *Manager) pick(rec Record, nodes []membership.NodeView, load map[string]int) (out0 string, out1 string) {
+	defer logger.Out2(logger.In4("cluster/jobs", "Manager.pick", "j", j, "&rec", &rec, "nodes", nodes, "load", load), &out0, &out1)
 	results := j.rank(rec, nodes, load)
 	return scheduling.Best(results)
 }
 
 // rank scores every node for a job.
-func (j *Manager) rank(rec Record, nodes []membership.NodeView, load map[string]int) []scheduling.Result {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.rank: len(nodes)=%d len(load)=%d", len(nodes), len(load))
-	}
+func (j *Manager) rank(rec Record, nodes []membership.NodeView, load map[string]int) (out0 []scheduling.Result) {
+	defer logger.Out1(logger.In4("cluster/jobs", "Manager.rank", "j", j, "&rec", &rec, "nodes", nodes, "load", load), &out0)
 	blocked := map[string]bool{}
 	for _, id := range rec.State.Blocked {
 		blocked[id] = true
@@ -620,10 +611,8 @@ func (j *Manager) rank(rec Record, nodes []membership.NodeView, load map[string]
 }
 
 // Explain returns the ranking the scheduler would use for a job right now.
-func (j *Manager) Explain(jobID string) ([]scheduling.Result, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.Explain: jobID=%.120q", jobID)
-	}
+func (j *Manager) Explain(jobID string) (out0 []scheduling.Result, out1 error) {
+	defer logger.Out2(logger.In2("cluster/jobs", "Manager.Explain", "j", j, "jobID", jobID), &out0, &out1)
 	rec, ok := j.Get(jobID)
 	if !ok {
 		return nil, ErrNotFound
@@ -644,7 +633,7 @@ func (j *Manager) Explain(jobID string) ([]scheduling.Result, error) {
 // refuses (no account for the owner, cannot execute) is remembered so the
 // scheduler does not offer it the same job again.
 func (j *Manager) assign(rec Record) {
-	logger.Debug("cluster/jobs", "Manager.assign")
+	defer logger.Out0(logger.In2("cluster/jobs", "Manager.assign", "j", j, "&rec", &rec))
 	node := rec.State.Node
 	var err error
 	if node == j.m.NodeID() {
@@ -687,10 +676,8 @@ func (j *Manager) assign(rec Record) {
 // it will never be able to run it: the owner has no account there, or it
 // cannot execute jobs at all. The error may come straight from Start or, for
 // a remote node, as the text the node sent back.
-func refusalIsPermanent(err error) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "refusalIsPermanent: err=%v", err)
-	}
+func refusalIsPermanent(err error) (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/jobs", "refusalIsPermanent", "err", err), &out0)
 	if err == nil {
 		return false
 	}
@@ -701,10 +688,8 @@ func refusalIsPermanent(err error) bool {
 	return strings.Contains(msg, ErrNoUser.Error()) || strings.Contains(msg, ErrNoExecutor.Error())
 }
 
-func contains(list []string, v string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "contains: len(list)=%d v=%.120q", len(list), v)
-	}
+func contains(list []string, v string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/jobs", "contains", "list", list, "v", v), &out0)
 	for _, x := range list {
 		if x == v {
 			return true
@@ -714,7 +699,7 @@ func contains(list []string, v string) bool {
 }
 
 func (j *Manager) finishedEvent(rec Record) {
-	logger.Debug("cluster/jobs", "Manager.finishedEvent")
+	defer logger.Out0(logger.In2("cluster/jobs", "Manager.finishedEvent", "j", j, "&rec", &rec))
 	if j.OnFinished != nil {
 		j.OnFinished(rec)
 	}
@@ -741,10 +726,8 @@ type Status struct {
 }
 
 // Status builds the picture, filtered to owner when non-empty.
-func (j *Manager) Status(owner string) Status {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.Status: owner=%.120q", owner)
-	}
+func (j *Manager) Status(owner string) (out0 Status) {
+	defer logger.Out1(logger.In2("cluster/jobs", "Manager.Status", "j", j, "owner", owner), &out0)
 	st := Status{InCluster: j.m.InCluster(), IsLeader: j.meta.IsLeader(), LocalSlots: j.opt.MaxParallel, Jobs: []Record{}}
 	if l := j.meta.Leader(); l != "" {
 		st.LeaderName = j.m.NodeName(l)

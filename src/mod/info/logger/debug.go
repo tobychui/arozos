@@ -11,12 +11,17 @@ import (
 
 	The DEBUG level. Debug messages are dropped unless debug output was
 	switched on, normally by the -debug flag at startup. Checking is a single
-	atomic load, so a disabled Debug call costs next to nothing; code that has
-	to build its message first should guard it with IsDebug:
+	atomic load.
 
-		if logger.IsDebug() {
-			logger.Debugf("Module", "loaded %d items from %q", n, path)
-		}
+	To trace a function use the tracer in trace.go, one line at the top:
+
+		defer logger.Out2(logger.In2("Module", "Type.Func", "path", path, "fsh", fsh), &out0, &out1)
+
+	It logs the inputs, the outputs and any panic passing through. Use
+	DebugErr in error branches and DebugValue for a value in between; all of
+	them cost nothing while debug is off. Debug and Debugf are for plain
+	messages; Debugf builds its arguments even while debug is off, so keep
+	it out of busy code.
 */
 
 var debugEnabled atomic.Bool

@@ -105,9 +105,7 @@ func (p *wmfPlayer) walk(visit func(fn uint16, prm []byte) bool) {
 
 // wmfS reads the n-th 16-bit signed parameter
 func wmfS(prm []byte, n int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "wmfS: len(prm)=%d n=%d", len(prm), n)
-	}
+	logger.DebugTrace("office/metafile", "wmfS")
 	if 2*n+2 > len(prm) {
 		return 0
 	}
@@ -115,9 +113,7 @@ func wmfS(prm []byte, n int) float64 {
 }
 
 func wmfU(prm []byte, n int) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "wmfU: len(prm)=%d n=%d", len(prm), n)
-	}
+	logger.DebugTrace("office/metafile", "wmfU")
 	if 2*n+2 > len(prm) {
 		return 0
 	}
@@ -125,9 +121,7 @@ func wmfU(prm []byte, n int) uint32 {
 }
 
 func wmfU32(prm []byte, n int) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "wmfU32: len(prm)=%d n=%d", len(prm), n)
-	}
+	logger.DebugTrace("office/metafile", "wmfU32")
 	return wmfU(prm, n) | wmfU(prm, n+1)<<16
 }
 
@@ -141,9 +135,7 @@ func (p *wmfPlayer) baseSize() (float64, float64) {
 
 // wmfPoints reads count (x, y) pairs starting at parameter n
 func wmfPoints(prm []byte, n, count int) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "wmfPoints: len(prm)=%d n=%d count=%d", len(prm), n, count)
-	}
+	logger.DebugTrace("office/metafile", "wmfPoints")
 	if count <= 0 || 2*(n+2*count) > len(prm) {
 		return nil
 	}
@@ -340,9 +332,7 @@ func (p *wmfPlayer) play(c *mfCanvas) error {
 // stretchBlt plays DIBSTRETCHBLT (stretch) and DIBBITBLT. at is the
 // parameter index after the 32-bit raster op.
 func (p *wmfPlayer) stretchBlt(c *mfCanvas, prm []byte, at int, stretch bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "wmfPlayer.stretchBlt: len(prm)=%d at=%d stretch=%t", len(prm), at, stretch)
-	}
+	logger.DebugTrace("office/metafile", "wmfPlayer.stretchBlt")
 	rop := wmfU32(prm, 0)
 	// a record without a bitmap carries one reserved word more than the
 	// parameters and no DIB: it is a pattern fill
@@ -373,6 +363,7 @@ func (p *wmfPlayer) stretchBlt(c *mfCanvas, prm []byte, at int, stretch bool) {
 	}
 	img, info, err := decodePackedDIB(prm[dibAt:], 0)
 	if err != nil {
+		logger.DebugErr("office/metafile", err)
 		return
 	}
 	sr := image.Rect(int(xSrc), int(ySrc), int(xSrc+srcW), int(ySrc+srcH))
@@ -384,9 +375,7 @@ func (p *wmfPlayer) stretchBlt(c *mfCanvas, prm []byte, at int, stretch bool) {
 // bottom-up DIB (fromBottom); the blt records read the DIB as a bitmap
 // whose origin is the top-left corner, like the decoded image.
 func dibSrcRect(r image.Rectangle, info *dibInfo, fromBottom bool) image.Rectangle {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "dibSrcRect: fromBottom=%t", fromBottom)
-	}
+	logger.DebugTrace("office/metafile", "dibSrcRect")
 	r = r.Canon()
 	if fromBottom && !info.topDown {
 		r = image.Rect(r.Min.X, info.h-r.Max.Y, r.Max.X, info.h-r.Min.Y)
@@ -396,9 +385,7 @@ func dibSrcRect(r image.Rectangle, info *dibInfo, fromBottom bool) image.Rectang
 
 // wmfFont reads a WMF LOGFONT (16-bit fields)
 func wmfFont(prm []byte) *mfFont {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "wmfFont: len(prm)=%d", len(prm))
-	}
+	logger.DebugTrace("office/metafile", "wmfFont")
 	f := &mfFont{
 		height:     wmfS(prm, 0),
 		escapement: wmfS(prm, 2),
@@ -423,9 +410,7 @@ func wmfFont(prm []byte) *mfFont {
 // ansiRunes reads 8-bit text as Windows-1252 (close enough for the
 // Western code pages metafiles from Office use)
 func ansiRunes(b []byte) []rune {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "ansiRunes: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/metafile", "ansiRunes")
 	out := make([]rune, 0, len(b))
 	for _, c := range b {
 		if c >= 0x80 && c < 0xA0 {
@@ -444,9 +429,7 @@ var cp1252High = [32]rune{
 
 // utf16Runes reads n UTF-16LE code units
 func utf16Runes(b []byte, n int) []rune {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "utf16Runes: len(b)=%d n=%d", len(b), n)
-	}
+	logger.DebugTrace("office/metafile", "utf16Runes")
 	if 2*n > len(b) {
 		n = len(b) / 2
 	}

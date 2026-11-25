@@ -23,7 +23,7 @@ import (
 )
 
 func (m *Manager) registerACNHandlers() {
-	logger.Debug("cluster/membership", "Manager.registerACNHandlers")
+	defer logger.Out0(logger.In1("cluster/membership", "Manager.registerACNHandlers", "m", m))
 	m.server.HandleRaw(acn.BasePath+"/join", m.handleJoin)
 	m.server.HandleFunc(acn.BasePath+"/heartbeat", m.handleHeartbeat)
 	m.server.HandleFunc(acn.BasePath+"/members", m.handleMembers)
@@ -33,10 +33,8 @@ func (m *Manager) registerACNHandlers() {
 	m.server.HandleFunc(acn.BasePath+"/latency", m.handleLatency)
 }
 
-func sanitizeName(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "sanitizeName: name=%.120q", name)
-	}
+func sanitizeName(name string) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/membership", "sanitizeName", "name", name), &out0)
 	name = strings.TrimSpace(name)
 	if len(name) > 64 {
 		name = name[:64]
@@ -45,20 +43,20 @@ func sanitizeName(name string) string {
 }
 
 func (m *Manager) handleJoin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleJoin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/membership", "Manager.handleJoin", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		acn.WriteError(w, http.StatusMethodNotAllowed, "POST required")
 		return
 	}
 	body, err := acn.ReadBody(r)
 	if err != nil {
+		logger.DebugErr("cluster/membership", err)
 		acn.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	var req JoinRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/membership", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid join request")
 		return
 	}
@@ -88,6 +86,7 @@ func (m *Manager) handleJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := acn.DecodePublicKey(node.PublicKey); err != nil {
+		logger.DebugErr("cluster/membership", err)
 		m.mu.Unlock()
 		acn.WriteError(w, http.StatusBadRequest, "invalid node public key")
 		return
@@ -129,9 +128,7 @@ func (m *Manager) handleJoin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) handleHeartbeat(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleHeartbeat: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/membership", "Manager.handleHeartbeat", "m", m, "r", r, "sender", sender, "body", body))
 	var req HeartbeatRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.Node.ID != sender.NodeID {
 		acn.WriteError(w, http.StatusBadRequest, "invalid heartbeat")
@@ -145,19 +142,16 @@ func (m *Manager) handleHeartbeat(w http.ResponseWriter, r *http.Request, sender
 }
 
 func (m *Manager) handleMembers(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleMembers: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/membership", "Manager.handleMembers", "m", m, "r", r, "sender", sender, "body", body))
 	m.markSeen(sender.NodeID)
 	acn.WriteJSON(w, m.syncPayload())
 }
 
 func (m *Manager) handleSync(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleSync: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/membership", "Manager.handleSync", "m", m, "r", r, "sender", sender, "body", body))
 	var req SyncRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/membership", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid sync payload")
 		return
 	}
@@ -167,9 +161,7 @@ func (m *Manager) handleSync(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (m *Manager) handleLeave(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleLeave: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/membership", "Manager.handleLeave", "m", m, "r", r, "sender", sender, "body", body))
 	m.mu.Lock()
 	rec, ok := m.nodes[sender.NodeID]
 	if ok {
@@ -185,9 +177,7 @@ func (m *Manager) handleLeave(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (m *Manager) handleEvict(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleEvict: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/membership", "Manager.handleEvict", "m", m, "r", r, "sender", sender, "body", body))
 	var req NodeIDRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.NodeID != m.opt.NodeID {
 		acn.WriteError(w, http.StatusBadRequest, "evict notice is not for this node")

@@ -101,12 +101,11 @@ type FreezePane struct {
 }
 
 // ParseWorkbookJSON decodes the Sheets body JSON into a Workbook
-func ParseWorkbookJSON(jsonStr string) (*Workbook, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "ParseWorkbookJSON: jsonStr=%.120q", jsonStr)
-	}
+func ParseWorkbookJSON(jsonStr string) (out0 *Workbook, out1 error) {
+	defer logger.Out2(logger.In1("office/model", "ParseWorkbookJSON", "jsonStr", jsonStr), &out0, &out1)
 	wb := Workbook{}
 	if err := json.Unmarshal([]byte(jsonStr), &wb); err != nil {
+		logger.DebugErr("office/model", err)
 		return nil, errors.New("invalid workbook JSON: " + err.Error())
 	}
 	if len(wb.Sheets) == 0 {
@@ -116,13 +115,14 @@ func ParseWorkbookJSON(jsonStr string) (*Workbook, error) {
 }
 
 // WorkbookToJSON serializes a Workbook back to the Sheets body JSON
-func WorkbookToJSON(wb *Workbook) (string, error) {
-	logger.Debug("office/model", "WorkbookToJSON")
+func WorkbookToJSON(wb *Workbook) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("office/model", "WorkbookToJSON", "wb", wb), &out0, &out1)
 	if wb == nil {
 		return "", errors.New("nil workbook")
 	}
 	out, err := json.Marshal(wb)
 	if err != nil {
+		logger.DebugErr("office/model", err)
 		return "", err
 	}
 	return string(out), nil
@@ -132,10 +132,8 @@ func WorkbookToJSON(wb *Workbook) (string, error) {
 
 var cellKeyRe = regexp.MustCompile(`^([A-Za-z]{1,3})(\d+)$`)
 
-func ColName(i int) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "ColName: i=%d", i)
-	}
+func ColName(i int) (out0 string) {
+	defer logger.Out1(logger.In1("office/model", "ColName", "i", i), &out0)
 	s := ""
 	i = i + 1
 	for i > 0 {
@@ -146,10 +144,8 @@ func ColName(i int) string {
 	return s
 }
 
-func ColIndex(name string) int {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "ColIndex: name=%.120q", name)
-	}
+func ColIndex(name string) (out0 int) {
+	defer logger.Out1(logger.In1("office/model", "ColIndex", "name", name), &out0)
 	n := 0
 	for _, ch := range strings.ToUpper(name) {
 		n = n*26 + int(ch-'A'+1)
@@ -158,16 +154,12 @@ func ColIndex(name string) int {
 }
 
 func CellRef(col, row int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/model", "CellRef: col=%d row=%d", col, row)
-	}
+	logger.DebugTrace("office/model", "CellRef")
 	return ColName(col) + strconv.Itoa(row+1)
 }
 
 func ParseCellRef(ref string) (col, row int, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "ParseCellRef: ref=%.120q", ref)
-	}
+	defer logger.Out3(logger.In1("office/model", "ParseCellRef", "ref", ref), &col, &row, &ok)
 	m := cellKeyRe.FindStringSubmatch(strings.TrimSpace(ref))
 	if m == nil {
 		return 0, 0, false
@@ -183,9 +175,7 @@ func ParseCellRef(ref string) (col, row int, ok bool) {
 var xlsxNumRe = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$`)
 
 func LooksNumeric(s string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/model", "LooksNumeric: s=%.120q", s)
-	}
+	logger.DebugTrace("office/model", "LooksNumeric")
 	return xlsxNumRe.MatchString(strings.TrimSpace(s))
 }
 
@@ -212,9 +202,7 @@ type CfStyle struct {
 type CfOperand string
 
 func (o *CfOperand) UnmarshalJSON(b []byte) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/model", "CfOperand.UnmarshalJSON: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/model", "CfOperand.UnmarshalJSON")
 	var s string
 	if err := json.Unmarshal(b, &s); err == nil {
 		*o = CfOperand(s)
@@ -237,10 +225,8 @@ const (
 
 // TextAsRaw keeps string-typed values as strings in the editor: text that
 // would re-parse as a number/bool gets Excel's leading-quote escape
-func TextAsRaw(s string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "TextAsRaw: s=%.120q", s)
-	}
+func TextAsRaw(s string) (out0 string) {
+	defer logger.Out1(logger.In1("office/model", "TextAsRaw", "s", s), &out0)
 	t := strings.TrimSpace(s)
 	if t == "" {
 		return s
@@ -252,10 +238,8 @@ func TextAsRaw(s string) string {
 	return s
 }
 
-func SanitizeSheetName(name string, idx int, used map[string]bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "SanitizeSheetName: name=%.120q idx=%d len(used)=%d", name, idx, len(used))
-	}
+func SanitizeSheetName(name string, idx int, used map[string]bool) (out0 string) {
+	defer logger.Out1(logger.In3("office/model", "SanitizeSheetName", "name", name, "idx", idx, "used", used), &out0)
 	n := strings.TrimSpace(name)
 	if n == "" {
 		n = fmt.Sprintf("Sheet%d", idx+1)

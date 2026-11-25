@@ -56,9 +56,7 @@ func newPartRels() *partRels {
 }
 
 func (pr *partRels) add(typ, target string, external bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "partRels.add: typ=%.120q target=%.120q external=%t", typ, target, external)
-	}
+	logger.DebugTrace("office/ppt", "partRels.add")
 	k := typ + "|" + target
 	if id, ok := pr.byKey[k]; ok {
 		return id
@@ -89,6 +87,7 @@ func usable(b *officeart.Blip) ([]byte, string, bool) {
 	case "tiff":
 		png, err := metafile.TIFFToPNG(b.Data)
 		if err != nil {
+			logger.DebugErr("office/ppt", err)
 			return nil, "", false
 		}
 		return png, "png", true
@@ -99,9 +98,7 @@ func usable(b *officeart.Blip) ([]byte, string, bool) {
 }
 
 func (w *writer) mediaRel(data []byte, ext string, part *partRels) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "writer.mediaRel: ext=%.120q", ext)
-	}
+	logger.DebugTrace("office/ppt", "writer.mediaRel")
 	h := sha256.Sum256(data)
 	name, ok := w.media[h]
 	if !ok {
@@ -169,9 +166,7 @@ func (c *slideCtx) bgXML(sh *officeart.Shape) string {
 }
 
 func spTree(inner string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "spTree: inner=%.120q", inner)
-	}
+	logger.DebugTrace("office/ppt", "spTree")
 	return `<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm>` +
 		`<a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` + inner + `</p:spTree>`
 }
@@ -180,9 +175,7 @@ const clrMap = `<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accen
 
 // themeXML writes a theme carrying a PowerPoint colour scheme
 func themeXML(name string, scheme [8]uint32, font string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "themeXML: name=%.120q font=%.120q", name, font)
-	}
+	logger.DebugTrace("office/ppt", "themeXML")
 	if font == "" {
 		font = "Arial"
 	}
@@ -368,9 +361,7 @@ func (w *writer) write() ([]byte, error) {
 }
 
 func utf16Encode(s string) []uint16 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "utf16Encode: s=%.120q", s)
-	}
+	logger.DebugTrace("office/ppt", "utf16Encode")
 	out := make([]uint16, 0, len(s))
 	for _, r := range s {
 		if r >= 0x10000 {

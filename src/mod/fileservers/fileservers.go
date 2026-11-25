@@ -9,10 +9,8 @@ import "imuslab.com/arozos/mod/info/logger"
 */
 
 // Utilities
-func GetFileServerById(servers []*Server, id string) *Server {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers", "GetFileServerById: len(servers)=%d id=%.120q", len(servers), id)
-	}
+func GetFileServerById(servers []*Server, id string) (out0 *Server) {
+	defer logger.Out1(logger.In2("fileservers", "GetFileServerById", "servers", servers, "id", id), &out0)
 	for _, server := range servers {
 		if server.ID == id {
 			return server

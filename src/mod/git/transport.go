@@ -31,10 +31,8 @@ const defaultRemote = "origin"
 
 // buildAuth returns the go-git auth method for a username / token pair, or nil
 // when neither is set (anonymous access to a public repository).
-func buildAuth(username string, token string) transport.AuthMethod {
-	if logger.IsDebug() {
-		logger.Debugf("git", "buildAuth: username=%.120q", username)
-	}
+func buildAuth(username string, token string) (out0 transport.AuthMethod) {
+	defer logger.Out1(logger.In2("git", "buildAuth", "username", username, "!token", token), &out0)
 	username = strings.TrimSpace(username)
 	token = strings.TrimSpace(token)
 
@@ -55,12 +53,11 @@ func buildAuth(username string, token string) transport.AuthMethod {
 }
 
 // Fetch updates the remote-tracking refs without touching the working tree.
-func (m *Manager) Fetch(realpath string, req *TransportRequest) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Fetch: realpath=%.120q", realpath)
-	}
+func (m *Manager) Fetch(realpath string, req *TransportRequest) (out0 error) {
+	defer logger.Out1(logger.In3("git", "Manager.Fetch", "m", m, "realpath", realpath, "req", req), &out0)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -83,12 +80,11 @@ func (m *Manager) Fetch(realpath string, req *TransportRequest) error {
 // Pull fetches and merges the upstream branch into the working tree. go-git
 // only performs fast-forward merges, so a diverged branch surfaces as a
 // non-fast-forward error which is passed through verbatim.
-func (m *Manager) Pull(realpath string, req *TransportRequest) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Pull: realpath=%.120q", realpath)
-	}
+func (m *Manager) Pull(realpath string, req *TransportRequest) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.Pull", "m", m, "realpath", realpath, "req", req), &out0, &out1)
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -98,6 +94,7 @@ func (m *Manager) Pull(realpath string, req *TransportRequest) (string, error) {
 	}
 	if req.Branch != "" {
 		if err := validateBranchName(req.Branch); err != nil {
+			logger.DebugErr("git", err)
 			return "", err
 		}
 		options.ReferenceName = plumbing.NewBranchReferenceName(req.Branch)
@@ -111,6 +108,7 @@ func (m *Manager) Pull(realpath string, req *TransportRequest) (string, error) {
 		return "", ErrNoRemote
 	}
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, gogit.ErrNonFastForwardUpdate) {
 			return "", errors.New("local and remote branches have diverged — merge manually before pulling")
 		}
@@ -123,12 +121,11 @@ func (m *Manager) Pull(realpath string, req *TransportRequest) (string, error) {
 // Push sends the current (or named) branch to the remote. When SetUpstream is
 // set the branch is configured to track the remote afterwards, so the next
 // status call can report ahead / behind counters.
-func (m *Manager) Push(realpath string, req *TransportRequest) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Push: realpath=%.120q", realpath)
-	}
+func (m *Manager) Push(realpath string, req *TransportRequest) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.Push", "m", m, "realpath", realpath, "req", req), &out0, &out1)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -144,6 +141,7 @@ func (m *Manager) Push(realpath string, req *TransportRequest) (string, error) {
 		branch = head.Name().Short()
 	}
 	if err := validateBranchName(branch); err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -167,6 +165,7 @@ func (m *Manager) Push(realpath string, req *TransportRequest) (string, error) {
 		return "", ErrNoRemote
 	}
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, gogit.ErrNonFastForwardUpdate) {
 			return "", errors.New("remote has commits you do not have locally — pull first")
 		}
@@ -186,12 +185,11 @@ func (m *Manager) Push(realpath string, req *TransportRequest) (string, error) {
 
 // setUpstream records branch.<name>.remote / .merge so the branch tracks the
 // remote, mirroring `git push -u`.
-func setUpstream(repo *gogit.Repository, branch string, remoteName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "setUpstream: branch=%.120q remoteName=%.120q", branch, remoteName)
-	}
+func setUpstream(repo *gogit.Repository, branch string, remoteName string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "setUpstream", "repo", repo, "branch", branch, "remoteName", remoteName), &out0)
 	cfg, err := repo.Config()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -208,8 +206,8 @@ func setUpstream(repo *gogit.Repository, branch string, remoteName string) error
 }
 
 // remoteOrDefault reads the remote name from a request, defaulting to "origin".
-func remoteOrDefault(req *TransportRequest) string {
-	logger.Debug("git", "remoteOrDefault")
+func remoteOrDefault(req *TransportRequest) (out0 string) {
+	defer logger.Out1(logger.In1("git", "remoteOrDefault", "req", req), &out0)
 	if req == nil || strings.TrimSpace(req.Remote) == "" {
 		return defaultRemote
 	}
@@ -219,8 +217,8 @@ func remoteOrDefault(req *TransportRequest) string {
 // RemoteHost extracts the host of a git remote URL so credentials can be stored
 // and looked up per hosting service. SCP-style addresses (git@host:owner/repo)
 // are understood as well as regular URLs.
-func RemoteHost(remoteURL string) string {
-	logger.Debug("git", "RemoteHost")
+func RemoteHost(remoteURL string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "RemoteHost", "remoteURL", remoteURL), &out0)
 	remoteURL = strings.TrimSpace(remoteURL)
 	if remoteURL == "" {
 		return ""
@@ -243,12 +241,11 @@ func RemoteHost(remoteURL string) string {
 
 // RemoteURLForName returns the first configured URL of a remote, used to work
 // out which stored credential applies to an operation.
-func (m *Manager) RemoteURLForName(realpath string, name string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.RemoteURLForName: realpath=%.120q name=%.120q", realpath, name)
-	}
+func (m *Manager) RemoteURLForName(realpath string, name string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.RemoteURLForName", "m", m, "realpath", realpath, "name", name), &out0, &out1)
 	remotes, err := m.Remotes(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 	if name == "" {

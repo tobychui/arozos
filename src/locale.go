@@ -32,9 +32,7 @@ type localeKeyEntry struct {
 //   - coverage % per language (how many files have that language)
 //   - a deduplicated contributors list
 func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "InfoHandleGetLocaleInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "InfoHandleGetLocaleInfo", "r", r))
 	type LanguageEntry struct {
 		Code       string  `json:"code"`
 		Name       string  `json:"name"`
@@ -52,6 +50,7 @@ func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonFiles []string
 	entries, err := os.ReadDir(localeRoot)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Failed to read locale directory: "+err.Error())
 		return
 	}
@@ -62,6 +61,7 @@ func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
 		if e.IsDir() {
 			subEntries, err2 := os.ReadDir(filepath.Join(localeRoot, e.Name()))
 			if err2 != nil {
+				logger.DebugErr("Core", err2)
 				continue
 			}
 			for _, se := range subEntries {
@@ -77,11 +77,13 @@ func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
 	// ── 2. Parse file_explorer.json to get the baseline language set ────────────
 	baseData, err := os.ReadFile(filepath.Join(localeRoot, "file_explorer.json"))
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Failed to read file_explorer.json: "+err.Error())
 		return
 	}
 	var base localeFileSchema
 	if err = json.Unmarshal(baseData, &base); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Failed to parse file_explorer.json: "+err.Error())
 		return
 	}
@@ -99,10 +101,12 @@ func InfoHandleGetLocaleInfo(w http.ResponseWriter, r *http.Request) {
 	for _, path := range jsonFiles {
 		data, err := os.ReadFile(path)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			continue
 		}
 		var lf localeFileSchema
 		if err = json.Unmarshal(data, &lf); err != nil {
+			logger.DebugErr("Core", err)
 			continue
 		}
 		for _, part := range strings.Split(lf.Author, ",") {

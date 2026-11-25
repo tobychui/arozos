@@ -52,10 +52,8 @@ var htmlMediaAttrRe = regexp.MustCompile(`(?i)(\s(?:src|poster)\s*=\s*)("[^"]*"|
 // embedHTMLMediaLinks rewrites every media?file= link held in a src/poster
 // attribute of an HTML string through embed, which returns the asset name
 // (and false to leave that link as it is).
-func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "embedHTMLMediaLinks: s=%.120q", s)
-	}
+func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) (out0 string) {
+	defer logger.Out1(logger.In2("office", "embedHTMLMediaLinks", "s", s, "embed", embed), &out0)
 	if !strings.Contains(s, "media") {
 		return s
 	}
@@ -85,10 +83,8 @@ var htmlDataAttrRe = regexp.MustCompile(`(?i)(\s(?:src|poster|data-export-src)\s
 // Docs body keeps an inline picture there, and left in place it would be
 // stored twice in the file: once as base64 in the embedded copy and once as
 // the OOXML media part.
-func embedHTMLDataURLs(s string, add func(data []byte, ext string) string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "embedHTMLDataURLs: s=%.120q", s)
-	}
+func embedHTMLDataURLs(s string, add func(data []byte, ext string) string) (out0 string) {
+	defer logger.Out1(logger.In2("office", "embedHTMLDataURLs", "s", s, "add", add), &out0)
 	if !strings.Contains(s, "data:") {
 		return s
 	}
@@ -112,13 +108,14 @@ server is what spares the browser downloading every picture and sending it
 back as base64. Links that are not a png / jpeg / gif, or cannot be read,
 stay as they are.
 */
-func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (string, error) {
-	logger.Debug("office", "InlineMediaLinks")
+func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("office", "InlineMediaLinks", "body", body, "readVpath", readVpath), &out0, &out1)
 	if readVpath == nil || !strings.Contains(body, "media") {
 		return body, nil
 	}
 	var root interface{}
 	if err := json.Unmarshal([]byte(body), &root); err != nil {
+		logger.DebugErr("office", err)
 		return "", errors.New("invalid document JSON: " + err.Error())
 	}
 	done := map[string]string{}
@@ -165,6 +162,7 @@ func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (stri
 	})
 	out, err := marshalNoEscape(root)
 	if err != nil {
+		logger.DebugErr("office", err)
 		return "", err
 	}
 	return string(out), nil
@@ -178,10 +176,8 @@ var assetRefRe = regexp.MustCompile(`asset://([A-Za-z0-9._-]+)`)
 // resolveAssetRefs replaces asset references in s through resolve: the
 // whole string when it is one reference (the original form, which accepts
 // any name), and every reference embedded in it otherwise.
-func resolveAssetRefs(s string, resolve func(name string) (string, bool)) string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "resolveAssetRefs: s=%.120q", s)
-	}
+func resolveAssetRefs(s string, resolve func(name string) (string, bool)) (out0 string) {
+	defer logger.Out1(logger.In2("office", "resolveAssetRefs", "s", s, "resolve", resolve), &out0)
 	if !strings.Contains(s, "asset://") {
 		return s
 	}
@@ -200,10 +196,8 @@ func resolveAssetRefs(s string, resolve func(name string) (string, bool)) string
 
 // assetExt is the extension an embedded file is stored under: the source
 // path's own, lower-cased, when it is a plain one, and "bin" otherwise.
-func assetExt(vpath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "assetExt: vpath=%.120q", vpath)
-	}
+func assetExt(vpath string) (out0 string) {
+	defer logger.Out1(logger.In1("office", "assetExt", "vpath", vpath), &out0)
 	ext := strings.TrimPrefix(strings.ToLower(path.Ext(vpath)), ".")
 	if ext == "" || len(ext) > 10 {
 		return "bin"
@@ -238,12 +232,11 @@ func transformStrings(v interface{}, fn func(string) string) interface{} {
 
 // PackEnvelope converts an envelope JSON string into the zip container.
 // readVpath (optional) resolves media?file= links to file bytes.
-func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error)) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office", "PackEnvelope: envelope=%.120q", envelope)
-	}
+func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error)) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("office", "PackEnvelope", "envelope", envelope, "readVpath", readVpath), &out0, &out1)
 	doc, assets, err := collectAssets(envelope, readVpath)
 	if err != nil {
+		logger.DebugErr("office", err)
 		return nil, err
 	}
 
@@ -251,22 +244,27 @@ func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error))
 	zw := zip.NewWriter(buf)
 	w, err := zw.Create(packedDocName) // deflate: JSON compresses well
 	if err != nil {
+		logger.DebugErr("office", err)
 		return nil, err
 	}
 	if _, err = w.Write(doc); err != nil {
+		logger.DebugErr("office", err)
 		return nil, err
 	}
 	for _, name := range sortedKeys(assets) {
 		// media is usually pre-compressed - store without recompression
 		hw, err := zw.CreateHeader(&zip.FileHeader{Name: "assets/" + name, Method: zip.Store})
 		if err != nil {
+			logger.DebugErr("office", err)
 			return nil, err
 		}
 		if _, err = hw.Write(assets[name]); err != nil {
+			logger.DebugErr("office", err)
 			return nil, err
 		}
 	}
 	if err := zw.Close(); err != nil {
+		logger.DebugErr("office", err)
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -274,10 +272,8 @@ func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error))
 
 // sortedKeys keeps the zip entry order stable, so packing the same
 // document twice produces the same bytes
-func sortedKeys(m map[string][]byte) []string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "sortedKeys: len(m)=%d", len(m))
-	}
+func sortedKeys(m map[string][]byte) (out0 []string) {
+	defer logger.Out1(logger.In1("office", "sortedKeys", "m", m), &out0)
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -293,12 +289,11 @@ reference, and the bytes come back beside the rewritten JSON, deduplicated
 by content hash. Shared by the session container above and by the asset
 store inside the suite's .docx / .xlsx / .pptx files (native.go).
 */
-func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)) ([]byte, map[string][]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office", "collectAssets: envelope=%.120q", envelope)
-	}
+func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)) (out0 []byte, out1 map[string][]byte, out2 error) {
+	defer logger.Out3(logger.In2("office", "collectAssets", "envelope", envelope, "readVpath", readVpath), &out0, &out1, &out2)
 	var root interface{}
 	if err := json.Unmarshal([]byte(envelope), &root); err != nil {
+		logger.DebugErr("office", err)
 		return nil, nil, errors.New("invalid envelope JSON: " + err.Error())
 	}
 
@@ -349,6 +344,7 @@ func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)
 
 	doc, err := marshalNoEscape(root)
 	if err != nil {
+		logger.DebugErr("office", err)
 		return nil, nil, err
 	}
 	return doc, assets, nil
@@ -356,12 +352,13 @@ func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)
 
 // marshalNoEscape is json.Marshal without the HTML escaping: a Docs body is
 // mostly markup, and < for every "<" makes it a third bigger for nothing
-func marshalNoEscape(v interface{}) ([]byte, error) {
-	logger.Debug("office", "marshalNoEscape")
+func marshalNoEscape(v interface{}) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office", "marshalNoEscape", "v", v), &out0, &out1)
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(v); err != nil {
+		logger.DebugErr("office", err)
 		return nil, err
 	}
 	return bytes.TrimRight(buf.Bytes(), "\n"), nil
@@ -373,13 +370,14 @@ func marshalNoEscape(v interface{}) ([]byte, error) {
 // directory). This keeps the JSON small - the browser streams the media
 // instead of carrying megabytes of base64. Legacy plain-JSON files pass
 // through unchanged.
-func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []byte) error, linkFor func(name string) string) (string, error) {
-	logger.Debug("office", "UnpackEnvelopeToLinks")
+func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []byte) error, linkFor func(name string) string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("office", "UnpackEnvelopeToLinks", "data", data, "saveAsset", saveAsset, "linkFor", linkFor), &out0, &out1)
 	if len(data) < 4 || data[0] != 'P' || data[1] != 'K' {
 		return string(data), nil // legacy plain JSON document
 	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
+		logger.DebugErr("office", err)
 		return "", errors.New("corrupted document container")
 	}
 	var doc []byte
@@ -388,11 +386,13 @@ func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []by
 		name := path.Clean(f.Name)
 		rc, err := f.Open()
 		if err != nil {
+			logger.DebugErr("office", err)
 			continue
 		}
 		b, err := io.ReadAll(rc)
 		rc.Close()
 		if err != nil {
+			logger.DebugErr("office", err)
 			continue
 		}
 		if name == packedDocName {
@@ -410,6 +410,7 @@ func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []by
 
 	var root interface{}
 	if err := json.Unmarshal(doc, &root); err != nil {
+		logger.DebugErr("office", err)
 		return "", errors.New("corrupted document.json: " + err.Error())
 	}
 	root = transformStrings(root, func(s string) string {
@@ -422,6 +423,7 @@ func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []by
 	})
 	out, err := json.Marshal(root)
 	if err != nil {
+		logger.DebugErr("office", err)
 		return "", err
 	}
 	return string(out), nil
@@ -429,13 +431,14 @@ func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []by
 
 // UnpackEnvelope restores the envelope JSON from a zip container. Legacy
 // plain-JSON files pass through unchanged.
-func UnpackEnvelope(data []byte) (string, error) {
-	logger.Debug("office", "UnpackEnvelope")
+func UnpackEnvelope(data []byte) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("office", "UnpackEnvelope", "data", data), &out0, &out1)
 	if len(data) < 4 || data[0] != 'P' || data[1] != 'K' {
 		return string(data), nil // legacy plain JSON document
 	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
+		logger.DebugErr("office", err)
 		return "", errors.New("corrupted document container")
 	}
 	var doc []byte
@@ -443,11 +446,13 @@ func UnpackEnvelope(data []byte) (string, error) {
 	for _, f := range zr.File {
 		rc, err := f.Open()
 		if err != nil {
+			logger.DebugErr("office", err)
 			continue
 		}
 		b, err := io.ReadAll(rc)
 		rc.Close()
 		if err != nil {
+			logger.DebugErr("office", err)
 			continue
 		}
 		name := path.Clean(f.Name)
@@ -463,6 +468,7 @@ func UnpackEnvelope(data []byte) (string, error) {
 
 	var root interface{}
 	if err := json.Unmarshal(doc, &root); err != nil {
+		logger.DebugErr("office", err)
 		return "", errors.New("corrupted document.json: " + err.Error())
 	}
 	root = transformStrings(root, func(s string) string {
@@ -476,6 +482,7 @@ func UnpackEnvelope(data []byte) (string, error) {
 	})
 	out, err := json.Marshal(root)
 	if err != nil {
+		logger.DebugErr("office", err)
 		return "", err
 	}
 	return string(out), nil

@@ -28,21 +28,18 @@ const (
 
 // legacyFsdbPath is where the old file system backend kept dbfile.
 func legacyFsdbPath(dbfile string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "legacyFsdbPath: dbfile=%.120q", dbfile)
-	}
+	logger.DebugTrace("database", "legacyFsdbPath")
 	return filepath.Join(legacyFsdbRoot, filepath.Clean(dbfile))
 }
 
 // importLegacyFsdb copies the tables of a legacy file system database into
 // db, skipping keys the bolt file already holds, and returns how many keys
 // were imported. It does not touch the legacy folder.
-func importLegacyFsdb(db *bbolt.DB, legacyDir string) (int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("database", "importLegacyFsdb: legacyDir=%.120q", legacyDir)
-	}
+func importLegacyFsdb(db *bbolt.DB, legacyDir string) (out0 int, out1 error) {
+	defer logger.Out2(logger.In2("database", "importLegacyFsdb", "db", db, "legacyDir", legacyDir), &out0, &out1)
 	tables, err := os.ReadDir(legacyDir)
 	if err != nil {
+		logger.DebugErr("database", err)
 		return 0, err
 	}
 	imported := 0
@@ -53,10 +50,12 @@ func importLegacyFsdb(db *bbolt.DB, legacyDir string) (int, error) {
 			}
 			b, err := tx.CreateBucketIfNotExists([]byte(table.Name()))
 			if err != nil {
+				logger.DebugErr("database", err)
 				return err
 			}
 			entries, err := os.ReadDir(filepath.Join(legacyDir, table.Name()))
 			if err != nil {
+				logger.DebugErr("database", err)
 				return err
 			}
 			for _, entry := range entries {
@@ -70,9 +69,11 @@ func importLegacyFsdb(db *bbolt.DB, legacyDir string) (int, error) {
 				}
 				value, err := os.ReadFile(filepath.Join(legacyDir, table.Name(), entry.Name()))
 				if err != nil {
+					logger.DebugErr("database", err)
 					return err
 				}
 				if err := b.Put([]byte(key), value); err != nil {
+					logger.DebugErr("database", err)
 					return err
 				}
 				imported++
@@ -86,10 +87,8 @@ func importLegacyFsdb(db *bbolt.DB, legacyDir string) (int, error) {
 // migrateLegacyFsdb imports fsdb/<dbfile> when it exists and renames the
 // folder so the import runs only once. A failed import leaves the folder in
 // place to be retried on the next start.
-func migrateLegacyFsdb(db *bbolt.DB, dbfile string) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "migrateLegacyFsdb: dbfile=%.120q", dbfile)
-	}
+func migrateLegacyFsdb(db *bbolt.DB, dbfile string) (out0 error) {
+	defer logger.Out1(logger.In2("database", "migrateLegacyFsdb", "db", db, "dbfile", dbfile), &out0)
 	legacyDir := legacyFsdbPath(dbfile)
 	info, err := os.Stat(legacyDir)
 	if err != nil || !info.IsDir() {
@@ -97,6 +96,7 @@ func migrateLegacyFsdb(db *bbolt.DB, dbfile string) error {
 	}
 	imported, err := importLegacyFsdb(db, legacyDir)
 	if err != nil {
+		logger.DebugErr("database", err)
 		return err
 	}
 	logger.PrintAndLog("Database", "Imported "+strconv.Itoa(imported)+" keys from legacy file system database "+legacyDir, nil)

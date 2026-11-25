@@ -7,9 +7,7 @@ import (
 )
 
 func absF(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "absF: v=%g", v)
-	}
+	logger.DebugTrace("office/docx", "absF")
 	if v < 0 {
 		return -v
 	}
@@ -19,9 +17,7 @@ func absF(v float64) float64 {
 var tagRe = regexp.MustCompile(`<[^>]*>`)
 
 func maxInt(a, b int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "maxInt: a=%d b=%d", a, b)
-	}
+	logger.DebugTrace("office/docx", "maxInt")
 	if a > b {
 		return a
 	}

@@ -15,10 +15,8 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func generateThumbnailForSVG(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForSVG: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForSVG(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForSVG", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -30,12 +28,14 @@ func generateThumbnailForSVG(fsh *filesystem.FileSystemHandler, cacheFolder stri
 	//Read the SVG content
 	content, err := fshAbs.ReadFile(file)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
 	//Parse SVG
 	icon, err := oksvg.ReadIconStream(bytes.NewReader(content))
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -71,6 +71,7 @@ func generateThumbnailForSVG(fsh *filesystem.FileSystemHandler, cacheFolder stri
 		Mode:   cutter.Centered,
 	})
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -78,6 +79,7 @@ func generateThumbnailForSVG(fsh *filesystem.FileSystemHandler, cacheFolder stri
 	outputFile := cacheFolder + filepath.Base(file) + ".jpg"
 	out, err := fshAbs.Create(outputFile)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 

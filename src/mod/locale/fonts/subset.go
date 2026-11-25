@@ -53,31 +53,30 @@ func newSource(font *Font) (*source, error) {
 	}
 	info, cmap, err := Inspect(font)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	offsets, err := glyphOffsets(font, info.Glyphs)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	rules, err := parseGSUB(font.Table("GSUB"), info.Glyphs)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		rules = &substRules{} // unreadable GSUB: slice without it
 	}
 	return &source{font: font, numGlyphs: info.Glyphs, cmap: cmap, offsets: offsets, rules: rules}, nil
 }
 
 func (s *source) glyph(gid int) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "source.glyph: gid=%d", gid)
-	}
+	logger.DebugTrace("locale/fonts", "source.glyph")
 	return s.font.Table("glyf")[s.offsets[gid]:s.offsets[gid+1]]
 }
 
 // components lists the glyphs a composite glyph is built from
 func components(glyph []byte) []uint16 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "components: len(glyph)=%d", len(glyph))
-	}
+	logger.DebugTrace("locale/fonts", "components")
 	if len(glyph) < 10 || int16(binary.BigEndian.Uint16(glyph)) >= 0 {
 		return nil
 	}
@@ -112,9 +111,7 @@ func components(glyph []byte) []uint16 {
 
 // keepSet returns the glyphs a slice of these codepoints needs
 func (s *source) keepSet(codepoints []uint32) ([]bool, []Mapping) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "source.keepSet: len(codepoints)=%d", len(codepoints))
-	}
+	logger.DebugTrace("locale/fonts", "source.keepSet")
 	keep := make([]bool, s.numGlyphs)
 	keep[0] = true
 	var mappings []Mapping
@@ -156,9 +153,7 @@ func (s *source) keepSet(codepoints []uint32) ([]bool, []Mapping) {
 
 // slice returns the tables of a font holding only the given codepoints
 func (s *source) slice(codepoints []uint32) (map[string][]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "source.slice: len(codepoints)=%d", len(codepoints))
-	}
+	logger.DebugTrace("locale/fonts", "source.slice")
 	keep, mappings := s.keepSet(codepoints)
 	tables := map[string][]byte{}
 	for tag, t := range s.font.Tables {
@@ -201,6 +196,7 @@ func (s *source) slice(codepoints []uint32) (map[string][]byte, error) {
 	if gvar := s.font.Table("gvar"); gvar != nil {
 		t, err := sliceGvar(gvar, keep)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			delete(tables, "gvar") // outlines stay at the default instance
 		} else {
 			tables["gvar"] = t
@@ -222,9 +218,7 @@ func (s *source) slice(codepoints []uint32) (map[string][]byte, error) {
 // clearBearings copies an hmtx / vmtx table with the side bearing of every
 // glyph not kept set to zero. The header gives the number of long metrics.
 func clearBearings(mtx, header []byte, keep []bool) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "clearBearings: len(mtx)=%d len(keep)=%d", len(mtx), len(keep))
-	}
+	logger.DebugTrace("locale/fonts", "clearBearings")
 	if len(header) < 36 {
 		return nil, errTruncated
 	}
@@ -249,9 +243,7 @@ func clearBearings(mtx, header []byte, keep []bool) ([]byte, error) {
 
 // sliceGvar rebuilds a gvar table with variation data for kept glyphs only
 func sliceGvar(gvar []byte, keep []bool) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "sliceGvar: len(gvar)=%d len(keep)=%d", len(gvar), len(keep))
-	}
+	logger.DebugTrace("locale/fonts", "sliceGvar")
 	if len(gvar) < 20 {
 		return nil, errTruncated
 	}
@@ -266,6 +258,7 @@ func sliceGvar(gvar []byte, keep []bool) ([]byte, error) {
 	}
 	shared, err := sub(gvar, sharedOffset, int64(sharedCount)*int64(axisCount)*2)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 
@@ -293,12 +286,14 @@ func sliceGvar(gvar []byte, keep []bool) ([]byte, error) {
 
 	start, err := offsetAt(0)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	for gid := 0; gid < glyphCount; gid++ {
 		binary.BigEndian.PutUint32(out[20+4*gid:], uint32(len(out)-base))
 		end, err := offsetAt(gid + 1)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		if end < start {
@@ -307,6 +302,7 @@ func sliceGvar(gvar []byte, keep []bool) ([]byte, error) {
 		if keep[gid] && end > start {
 			data, err := sub(gvar, dataOffset+start, end-start)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil, err
 			}
 			out = append(out, data...)

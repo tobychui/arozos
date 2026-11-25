@@ -29,15 +29,13 @@ type StoragePool struct {
 
 // Create all the required folder structure if it didn't exists
 func init() {
-	logger.DebugTrace("storage", "init")
+	defer logger.Out0(logger.In0("storage", "init"))
 	os.MkdirAll("./system/storage", 0755)
 }
 
 // Create a new StoragePool objects with given uuids
-func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StoragePool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage", "NewStoragePool: len(fsHandlers)=%d owner=%.120q", len(fsHandlers), owner)
-	}
+func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (out0 *StoragePool, out1 error) {
+	defer logger.Out2(logger.In2("storage", "NewStoragePool", "fsHandlers", fsHandlers, "owner", owner), &out0, &out1)
 	//Move all fshandler into the storageHandler
 	storageHandlers := []*fs.FileSystemHandler{}
 	for _, fsHandler := range fsHandlers {
@@ -52,10 +50,8 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 }
 
 // Check if this storage pool contain this particular disk ID
-func (s *StoragePool) ContainDiskID(diskID string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage", "StoragePool.ContainDiskID: diskID=%.120q", diskID)
-	}
+func (s *StoragePool) ContainDiskID(diskID string) (out0 bool) {
+	defer logger.Out1(logger.In2("storage", "StoragePool.ContainDiskID", "s", s, "diskID", diskID), &out0)
 	for _, fsh := range s.Storages {
 		if fsh.UUID == diskID {
 			return true
@@ -66,27 +62,25 @@ func (s *StoragePool) ContainDiskID(diskID string) bool {
 }
 
 // Get fsh from virtual path
-func (s *StoragePool) GetFSHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage", "StoragePool.GetFSHandlerFromVirtualPath: vpath=%.120q", vpath)
-	}
+func (s *StoragePool) GetFSHandlerFromVirtualPath(vpath string) (out0 *fs.FileSystemHandler, out1 string, out2 error) {
+	defer logger.Out3(logger.In2("storage", "StoragePool.GetFSHandlerFromVirtualPath", "s", s, "vpath", vpath), &out0, &out1, &out2)
 	fshid, subpath, err := filesystem.GetIDFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("storage", err)
 		return nil, subpath, err
 	}
 
 	fsh, err := s.GetFsHandlerByUUID(fshid)
 	if err != nil {
+		logger.DebugErr("storage", err)
 		return nil, subpath, err
 	}
 
 	return fsh, subpath, nil
 }
 
-func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage", "StoragePool.GetFsHandlerByUUID: uuid=%.120q", uuid)
-	}
+func (s *StoragePool) GetFsHandlerByUUID(uuid string) (out0 *fs.FileSystemHandler, out1 error) {
+	defer logger.Out2(logger.In2("storage", "StoragePool.GetFsHandlerByUUID", "s", s, "uuid", uuid), &out0, &out1)
 	//Filter out the :/ fropm uuid if exists
 	if strings.Contains(uuid, ":") {
 		uuid = strings.Split(uuid, ":")[0]
@@ -102,8 +96,8 @@ func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, er
 }
 
 // Attach a file system handler to this pool
-func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
-	logger.Debug("storage", "StoragePool.AttachFsHandler")
+func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) (out0 error) {
+	defer logger.Out1(logger.In2("storage", "StoragePool.AttachFsHandler", "s", s, "fsh", fsh), &out0)
 	if s.ContainDiskID(fsh.UUID) {
 		return errors.New("file system handler with same uuid already exists in this pool")
 	}
@@ -114,9 +108,7 @@ func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
 
 // Detech a file system handler from this pool array
 func (s *StoragePool) DetachFsHandler(uuid string) {
-	if logger.IsDebug() {
-		logger.Debugf("storage", "StoragePool.DetachFsHandler: uuid=%.120q", uuid)
-	}
+	defer logger.Out0(logger.In2("storage", "StoragePool.DetachFsHandler", "s", s, "uuid", uuid))
 	newFshList := []*fs.FileSystemHandler{}
 	for _, fsh := range s.Storages {
 		if fsh.UUID != uuid {
@@ -129,7 +121,7 @@ func (s *StoragePool) DetachFsHandler(uuid string) {
 
 // Close all fsHandler under this storage pool
 func (s *StoragePool) Close() {
-	logger.Debug("storage", "StoragePool.Close")
+	defer logger.Out0(logger.In1("storage", "StoragePool.Close", "s", s))
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
 		if !fsh.Closed {

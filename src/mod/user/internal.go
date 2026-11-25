@@ -12,12 +12,11 @@ import (
 */
 
 // Get a fs handler from a virtual path, quick function for getIDFromHandler + GetHandlerFromID
-func getHandlerFromVirtualPath(storages []*fs.FileSystemHandler, vpath string) (*fs.FileSystemHandler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("user", "getHandlerFromVirtualPath: len(storages)=%d vpath=%.120q", len(storages), vpath)
-	}
+func getHandlerFromVirtualPath(storages []*fs.FileSystemHandler, vpath string) (out0 *fs.FileSystemHandler, out1 error) {
+	defer logger.Out2(logger.In2("user", "getHandlerFromVirtualPath", "storages", storages, "vpath", vpath), &out0, &out1)
 	vid, _, err := getIDFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("user", err)
 		return &fs.FileSystemHandler{}, err
 	}
 
@@ -25,10 +24,8 @@ func getHandlerFromVirtualPath(storages []*fs.FileSystemHandler, vpath string) (
 }
 
 // Get a fs handler from the given virtial device id
-func getHandlerFromID(storages []*fs.FileSystemHandler, vid string) (*fs.FileSystemHandler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("user", "getHandlerFromID: len(storages)=%d vid=%.120q", len(storages), vid)
-	}
+func getHandlerFromID(storages []*fs.FileSystemHandler, vid string) (out0 *fs.FileSystemHandler, out1 error) {
+	defer logger.Out2(logger.In2("user", "getHandlerFromID", "storages", storages, "vid", vid), &out0, &out1)
 	for _, storage := range storages {
 		if storage.UUID == vid {
 			//This storage is the one we are looking at
@@ -41,8 +38,6 @@ func getHandlerFromID(storages []*fs.FileSystemHandler, vid string) (*fs.FileSys
 
 // Get the ID part of a virtual path, return ID, subpath and error
 func getIDFromVirtualPath(vpath string) (string, string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("user", "getIDFromVirtualPath: vpath=%.120q", vpath)
-	}
+	logger.DebugTrace("user", "getIDFromVirtualPath")
 	return fs.GetIDFromVirtualPath(vpath)
 }

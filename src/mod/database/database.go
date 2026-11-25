@@ -21,9 +21,7 @@ type Database struct {
 }
 
 func NewDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "NewDatabase: dbfile=%.120q readOnlyMode=%t", dbfile, readOnlyMode)
-	}
+	logger.DebugTrace("database", "NewDatabase")
 	return newDatabase(dbfile, readOnlyMode)
 }
 
@@ -35,41 +33,31 @@ func NewDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
 */
 
 func (d *Database) UpdateReadWriteMode(readOnly bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.UpdateReadWriteMode: readOnly=%t", readOnly)
-	}
+	logger.DebugTrace("database", "Database.UpdateReadWriteMode")
 	d.ReadOnly = readOnly
 }
 
 // Dump the whole db into a log file
 func (d *Database) Dump(filename string) ([]string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.Dump: filename=%.120q", filename)
-	}
+	logger.DebugTrace("database", "Database.Dump")
 	return d.dump(filename)
 }
 
 // Create a new table
 func (d *Database) NewTable(tableName string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.NewTable: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.NewTable")
 	return d.newTable(tableName)
 }
 
 // Check is table exists
 func (d *Database) TableExists(tableName string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.TableExists: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.TableExists")
 	return d.tableExists(tableName)
 }
 
 // Drop the given table
 func (d *Database) DropTable(tableName string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.DropTable: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.DropTable")
 	return d.dropTable(tableName)
 }
 
@@ -87,9 +75,7 @@ Write to database with given tablename and key. Example Usage:
 err := sysdb.Write("MyTable", "username/message",thisDemo);
 */
 func (d *Database) Write(tableName string, key string, value interface{}) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.Write: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.Write")
 	return d.write(tableName, key, value)
 }
 
@@ -104,16 +90,12 @@ func (d *Database) Write(tableName string, key string, value interface{}) error 
 */
 
 func (d *Database) Read(tableName string, key string, assignee interface{}) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.Read: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.Read")
 	return d.read(tableName, key, assignee)
 }
 
 func (d *Database) KeyExists(tableName string, key string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.KeyExists: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.KeyExists")
 	return d.keyExists(tableName, key)
 }
 
@@ -123,9 +105,7 @@ Delete a value from the database table given tablename and key
 err := sysdb.Delete("MyTable", "username/message");
 */
 func (d *Database) Delete(tableName string, key string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.Delete: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.Delete")
 	return d.delete(tableName, key)
 }
 
@@ -150,10 +130,8 @@ in the order given.
 		{Table: "MyTable", Key: "b", Delete: true},
 	})
 */
-func (d *Database) WriteBatch(ops []BatchOp) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.WriteBatch: len(ops)=%d", len(ops))
-	}
+func (d *Database) WriteBatch(ops []BatchOp) (out0 error) {
+	defer logger.Out1(logger.In2("database", "Database.WriteBatch", "d", d, "ops", ops), &out0)
 	if len(ops) == 0 {
 		return nil
 	}
@@ -178,18 +156,14 @@ func (d *Database) WriteBatch(ops []BatchOp) error {
 */
 
 func (d *Database) ListTable(tableName string) ([][][]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.ListTable: tableName=%.120q", tableName)
-	}
+	logger.DebugTrace("database", "Database.ListTable")
 	return d.listTable(tableName)
 }
 
 // ListTableWithPrefix returns only the key/value pairs whose key starts with
 // prefix. Backends use a cursor seek so large tables are not scanned fully.
 func (d *Database) ListTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("database", "Database.ListTableWithPrefix: tableName=%.120q prefix=%.120q", tableName, prefix)
-	}
+	logger.DebugTrace("database", "Database.ListTableWithPrefix")
 	return d.listTableWithPrefix(tableName, prefix)
 }
 

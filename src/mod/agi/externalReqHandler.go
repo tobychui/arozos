@@ -50,7 +50,7 @@ type EndpointStats struct {
 
 // ensureStatsTable creates the stats DB table if it does not yet exist.
 func (g *Gateway) ensureStatsTable() {
-	logger.Debug("agi", "Gateway.ensureStatsTable")
+	defer logger.Out0(logger.In1("agi", "Gateway.ensureStatsTable", "g", g))
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if !sysdb.TableExists(statsTable) {
 		sysdb.NewTable(statsTable)
@@ -60,10 +60,8 @@ func (g *Gateway) ensureStatsTable() {
 // loadStatsFromDB reads persisted EndpointStats for one UUID from BoltDB.
 // Returns nil when no record exists or the data cannot be parsed.
 // Must NOT be called while holding g.statsMux.
-func (g *Gateway) loadStatsFromDB(endpointUUID string) *EndpointStats {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.loadStatsFromDB: endpointUUID=%.120q", endpointUUID)
-	}
+func (g *Gateway) loadStatsFromDB(endpointUUID string) (out0 *EndpointStats) {
+	defer logger.Out1(logger.In2("agi", "Gateway.loadStatsFromDB", "g", g, "endpointUUID", endpointUUID), &out0)
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if !sysdb.TableExists(statsTable) {
 		return nil
@@ -74,10 +72,12 @@ func (g *Gateway) loadStatsFromDB(endpointUUID string) *EndpointStats {
 	// The DB stores values as JSON-encoded strings; Read() decodes one layer.
 	rawJSON := ""
 	if err := sysdb.Read(statsTable, endpointUUID, &rawJSON); err != nil {
+		logger.DebugErr("agi", err)
 		return nil
 	}
 	var s EndpointStats
 	if err := json.Unmarshal([]byte(rawJSON), &s); err != nil {
+		logger.DebugErr("agi", err)
 		return nil
 	}
 	// Ensure slice fields are never nil (avoids JSON "null" in responses).
@@ -93,9 +93,7 @@ func (g *Gateway) loadStatsFromDB(endpointUUID string) *EndpointStats {
 // saveStatsToDB persists the pre-marshalled stats JSON for one endpoint.
 // Must NOT be called while holding g.statsMux (to avoid lock contention on I/O).
 func (g *Gateway) saveStatsToDB(endpointUUID string, jsonBytes []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.saveStatsToDB: endpointUUID=%.120q len(jsonBytes)=%d", endpointUUID, len(jsonBytes))
-	}
+	defer logger.Out0(logger.In3("agi", "Gateway.saveStatsToDB", "g", g, "endpointUUID", endpointUUID, "jsonBytes", jsonBytes))
 	g.ensureStatsTable()
 	sysdb := g.Option.UserHandler.GetDatabase()
 	sysdb.Write(statsTable, endpointUUID, string(jsonBytes))
@@ -103,9 +101,7 @@ func (g *Gateway) saveStatsToDB(endpointUUID string, jsonBytes []byte) {
 
 // deleteStatsFromDB removes persisted stats for one endpoint.
 func (g *Gateway) deleteStatsFromDB(endpointUUID string) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.deleteStatsFromDB: endpointUUID=%.120q", endpointUUID)
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.deleteStatsFromDB", "g", g, "endpointUUID", endpointUUID))
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.TableExists(statsTable) {
 		sysdb.Delete(statsTable, endpointUUID)
@@ -117,9 +113,7 @@ func (g *Gateway) deleteStatsFromDB(endpointUUID string) {
 // recordExecution updates in-memory stats for endpointUUID after one execution
 // and then persists them to BoltDB. Safe for concurrent use.
 func (g *Gateway) recordExecution(endpointUUID, path, requestID, method string, durationMs int64, execErr error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.recordExecution: endpointUUID=%.120q path=%.120q requestID=%.120q method=%.120q durationMs=%d execErr=%v", endpointUUID, path, requestID, method, durationMs, execErr)
-	}
+	defer logger.Out0(logger.In7("agi", "Gateway.recordExecution", "g", g, "endpointUUID", endpointUUID, "path", path, "requestID", requestID, "method", method, "durationMs", durationMs, "execErr", execErr))
 	g.statsMux.Lock()
 
 	stats, exists := g.endpointStats[endpointUUID]
@@ -160,6 +154,7 @@ func (g *Gateway) recordExecution(endpointUUID, path, requestID, method string, 
 	}
 
 	if execErr != nil {
+		logger.DebugErr("agi", execErr)
 		stats.FailedExecs++
 		entry.Message = execErr.Error()
 		stats.RecentFailed = append([]ExecLog{entry}, stats.RecentFailed...)
@@ -189,9 +184,7 @@ func (g *Gateway) recordExecution(endpointUUID, path, requestID, method string, 
 // ExtAPIHandler handles incoming requests from external services via
 // /api/remote/{UUID}.
 func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.ExtAPIHandler: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.ExtAPIHandler", "g", g, "r", r))
 	sysdb := g.Option.UserHandler.GetDatabase()
 
 	if !sysdb.TableExists("external_agi") {
@@ -219,11 +212,13 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromUsername(usernameFromDb)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "invalid request: API author no longer exists", http.StatusBadRequest)
 		return
 	}
 	fsh, realPath, err := static.VirtualPathToRealPath(pathFromDb, userInfo)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "invalid request: backend script path cannot be resolved", http.StatusBadRequest)
 		return
 	}
@@ -244,6 +239,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	g.recordExecution(endpointUUID, pathFromDb, execID, r.Method, durationMs, execErr)
 
 	if execErr != nil {
+		logger.DebugErr("agi", execErr)
 		logger.PrintAndLog("Agi", fmt.Sprintf("[Remote AGI][%s] %s failed to execute: %s", execID, pathFromDb, execErr.Error()), nil)
 		utils.SendErrorResponse(w, execErr.Error())
 		return
@@ -254,11 +250,10 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 // AddExternalEndPoint registers a new serverless endpoint for the current user.
 func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.AddExternalEndPoint: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.AddExternalEndPoint", "g", g, "r", r))
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -269,6 +264,7 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 
 	path, err := utils.GetPara(r, "path")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
@@ -281,6 +277,7 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 
 	jsonStr, err := json.Marshal(dat)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid JSON string: "+err.Error())
 		return
 	}
@@ -292,11 +289,10 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 // RemoveExternalEndPoint deletes a registered endpoint by UUID, including its
 // persisted statistics.
 func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.RemoveExternalEndPoint: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.RemoveExternalEndPoint", "g", g, "r", r))
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -308,6 +304,7 @@ func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request)
 
 	endpointUUID, err := utils.GetPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid uuid given")
 		return
 	}
@@ -337,11 +334,10 @@ func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request)
 
 // ListExternalEndpoint returns all endpoints registered by the current user.
 func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.ListExternalEndpoint: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.ListExternalEndpoint", "g", g, "r", r))
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -355,6 +351,7 @@ func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := sysdb.ListTable("external_agi")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid table")
 		return
 	}
@@ -371,6 +368,7 @@ func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	returnJson, err := json.Marshal(dataFromDB)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid JSON: "+err.Error())
 		return
 	}
@@ -382,11 +380,10 @@ func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 // on a cache miss it loads from BoltDB so that stats survive process restarts.
 // Endpoints that have never been called are included with zeroed counters.
 func (g *Gateway) GetEndpointStats(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.GetEndpointStats: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.GetEndpointStats", "g", g, "r", r))
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -399,6 +396,7 @@ func (g *Gateway) GetEndpointStats(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := sysdb.ListTable("external_agi")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid table")
 		return
 	}
@@ -453,16 +451,15 @@ func (g *Gateway) GetEndpointStats(w http.ResponseWriter, r *http.Request) {
 
 	returnJson, err := json.Marshal(result)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "Invalid JSON: "+err.Error())
 		return
 	}
 	utils.SendJSONResponse(w, string(returnJson))
 }
 
-func (g *Gateway) checkIfExternalEndpointExist(endpointUUID string) (endpointFormat, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.checkIfExternalEndpointExist: endpointUUID=%.120q", endpointUUID)
-	}
+func (g *Gateway) checkIfExternalEndpointExist(endpointUUID string) (out0 endpointFormat, out1 bool) {
+	defer logger.Out2(logger.In2("agi", "Gateway.checkIfExternalEndpointExist", "g", g, "endpointUUID", endpointUUID), &out0, &out1)
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if !sysdb.TableExists("external_agi") {
 		sysdb.NewTable("external_agi")

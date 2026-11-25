@@ -74,6 +74,7 @@ func parseSheetCharts(raw json.RawMessage) []*xlsxChart {
 	}
 	var list []*xlsxChart
 	if err := json.Unmarshal(raw, &list); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil
 	}
 	out := make([]*xlsxChart, 0, len(list))
@@ -92,9 +93,7 @@ func parseSheetCharts(raw json.RawMessage) []*xlsxChart {
 // parseRangeRef parses "A1:C5" (or a single "A1") into a normalized
 // 0-based bounding box
 func parseRangeRef(ref string) (c1, r1, c2, r2 int, ok bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseRangeRef: ref=%.120q", ref)
-	}
+	logger.DebugTrace("office/xlsx", "parseRangeRef")
 	ref = strings.ReplaceAll(strings.TrimSpace(ref), "$", "")
 	parts := strings.Split(ref, ":")
 	if len(parts) == 1 {
@@ -119,9 +118,7 @@ func parseRangeRef(ref string) (c1, r1, c2, r2 int, ok bool) {
 
 // sheetRefPrefix quotes a sheet name for use in a chart series formula
 func sheetRefPrefix(name string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "sheetRefPrefix: name=%.120q", name)
-	}
+	logger.DebugTrace("office/xlsx", "sheetRefPrefix")
 	return "'" + strings.ReplaceAll(name, "'", "''") + "'!"
 }
 
@@ -130,9 +127,7 @@ func sheetRefPrefix(name string) string {
 // cellText returns the literal display text of a cell ("" for formulas -
 // Excel refreshes chart caches from the sheet on load anyway)
 func chartCellText(ws *model.WorkSheet, col, row int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "chartCellText: col=%d row=%d", col, row)
-	}
+	logger.DebugTrace("office/xlsx", "chartCellText")
 	cell, ok := ws.Cells[model.CellRef(col, row)]
 	if !ok || cell == nil {
 		return ""
@@ -146,9 +141,7 @@ func chartCellText(ws *model.WorkSheet, col, row int) string {
 
 // buildChartXML renders one c:chartSpace part for a webapp chart
 func buildChartXML(ws *model.WorkSheet, ch *xlsxChart, sheetName string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "buildChartXML: sheetName=%.120q", sheetName)
-	}
+	logger.DebugTrace("office/xlsx", "buildChartXML")
 	c1, r1, c2, r2, _ := parseRangeRef(ch.Range)
 	dataC1, dataR1 := c1, r1
 	if ch.labelCol() {
@@ -267,9 +260,7 @@ func buildChartXML(ws *model.WorkSheet, ch *xlsxChart, sheetName string) string 
 // buildDrawingXML renders the xl/drawings part for one sheet; chartRelIDs
 // pairs each chart with its relationship id in the drawing's rels
 func buildDrawingXML(charts []*xlsxChart, chartRelIDs []string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "buildDrawingXML: len(charts)=%d len(chartRelIDs)=%d", len(charts), len(chartRelIDs))
-	}
+	logger.DebugTrace("office/xlsx", "buildDrawingXML")
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"` +
@@ -386,9 +377,7 @@ func chartAnchorPx(anchor *xmltree.Node, ws *model.WorkSheet) (x, y, w, h float6
 // parseChartFormulaRange strips the sheet prefix and $ from a series
 // formula reference like "'Sheet 1'!$B$2:$B$10"
 func parseChartFormulaRange(f string) (c1, r1, c2, r2 int, ok bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseChartFormulaRange: f=%.120q", f)
-	}
+	logger.DebugTrace("office/xlsx", "parseChartFormulaRange")
 	f = strings.TrimSpace(f)
 	if i := strings.LastIndex(f, "!"); i >= 0 {
 		f = f[i+1:]
@@ -400,9 +389,7 @@ func parseChartFormulaRange(f string) (c1, r1, c2, r2 int, ok bool) {
 // (bounding range reconstructed from the series formulas); returns nil for
 // chart types the webapp cannot represent
 func parseChartPart(tree *xmltree.Node, idSeq int) *xlsxChart {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseChartPart: idSeq=%d", idSeq)
-	}
+	logger.DebugTrace("office/xlsx", "parseChartPart")
 	chart := tree.First("chart")
 	if chart == nil {
 		return nil
@@ -506,9 +493,7 @@ func parseChartPart(tree *xmltree.Node, idSeq int) *xlsxChart {
 // parseSheetDrawing extracts every chart anchored on a worksheet drawing
 // part and stores them on the WorkSheet in webapp JSON form
 func parseSheetDrawing(files map[string][]byte, sheetPart string, sheetTree *xmltree.Node, ws *model.WorkSheet, idSeq *int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseSheetDrawing: len(files)=%d sheetPart=%.120q", len(files), sheetPart)
-	}
+	logger.DebugTrace("office/xlsx", "parseSheetDrawing")
 	dn := sheetTree.First("drawing")
 	if dn == nil {
 		return
@@ -528,6 +513,7 @@ func parseSheetDrawing(files map[string][]byte, sheetPart string, sheetTree *xml
 	drawingPart := xmltree.ResolvePart(sheetDir, target)
 	tree, err := xmltree.Parse(files[drawingPart])
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return
 	}
 	drawDir := pathDir(drawingPart)
@@ -557,6 +543,7 @@ func parseSheetDrawing(files map[string][]byte, sheetPart string, sheetTree *xml
 		}
 		chartTree, err := xmltree.Parse(files[xmltree.ResolvePart(drawDir, chartTarget)])
 		if err != nil {
+			logger.DebugErr("office/xlsx", err)
 			continue
 		}
 		*idSeq++
@@ -575,9 +562,7 @@ func parseSheetDrawing(files map[string][]byte, sheetPart string, sheetTree *xml
 }
 
 func pathDir(p string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "pathDir: p=%.120q", p)
-	}
+	logger.DebugTrace("office/xlsx", "pathDir")
 	if i := strings.LastIndex(p, "/"); i >= 0 {
 		return p[:i]
 	}
@@ -585,9 +570,7 @@ func pathDir(p string) string {
 }
 
 func pathBase(p string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "pathBase: p=%.120q", p)
-	}
+	logger.DebugTrace("office/xlsx", "pathBase")
 	if i := strings.LastIndex(p, "/"); i >= 0 {
 		return p[i+1:]
 	}

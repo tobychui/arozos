@@ -46,10 +46,8 @@ var (
 // that accept plain system-memory frames (NVENC, QSV, AMF) expect as input -
 // unlike VAAPI, they upload to the GPU internally so no explicit hwupload
 // step is needed.
-func nv12ScaleFilter(scale string) string {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "nv12ScaleFilter: scale=%.120q", scale)
-	}
+func nv12ScaleFilter(scale string) (out0 string) {
+	defer logger.Out1(logger.In1("media/transcoder", "nv12ScaleFilter", "scale", scale), &out0)
 	if scale == "" {
 		return "format=nv12"
 	}
@@ -58,8 +56,8 @@ func nv12ScaleFilter(scale string) string {
 
 // getHWEncoderProfile probes the host once for a working Intel/AMD hardware
 // H.264 encoder and caches the result for the lifetime of the process.
-func getHWEncoderProfile() *hwEncoderProfile {
-	logger.Debug("media/transcoder", "getHWEncoderProfile")
+func getHWEncoderProfile() (out0 *hwEncoderProfile) {
+	defer logger.Out1(logger.In0("media/transcoder", "getHWEncoderProfile"), &out0)
 	hwProfileOnce.Do(func() {
 		hwProfile = probeHWEncoders()
 		if hwProfile != nil {
@@ -75,8 +73,8 @@ func getHWEncoderProfile() *hwEncoderProfile {
 // first one that can actually complete a throwaway encode, since an encoder
 // can be compiled into ffmpeg yet still fail when no compatible GPU/driver
 // is present on this particular machine.
-func probeHWEncoders() *hwEncoderProfile {
-	logger.Debug("media/transcoder", "probeHWEncoders")
+func probeHWEncoders() (out0 *hwEncoderProfile) {
+	defer logger.Out1(logger.In0("media/transcoder", "probeHWEncoders"), &out0)
 	for _, profile := range candidateHWProfiles() {
 		if testHWEncoder(profile) {
 			return profile
@@ -88,8 +86,8 @@ func probeHWEncoders() *hwEncoderProfile {
 // probeArgs builds the ffmpeg argument list for a profile's throwaway probe
 // encode: a single synthetic frame pushed through the real encoder settings
 // and discarded.
-func probeArgs(profile *hwEncoderProfile) []string {
-	logger.Debug("media/transcoder", "probeArgs")
+func probeArgs(profile *hwEncoderProfile) (out0 []string) {
+	defer logger.Out1(logger.In1("media/transcoder", "probeArgs", "profile", profile), &out0)
 	size := profile.ProbeSize
 	if size == "" {
 		size = defaultProbeSize
@@ -109,8 +107,8 @@ func probeArgs(profile *hwEncoderProfile) []string {
 
 // testHWEncoder runs a tiny, throwaway encode against the given profile to
 // confirm ffmpeg has a working hardware path on this host.
-func testHWEncoder(profile *hwEncoderProfile) bool {
-	logger.Debug("media/transcoder", "testHWEncoder")
+func testHWEncoder(profile *hwEncoderProfile) (out0 bool) {
+	defer logger.Out1(logger.In1("media/transcoder", "testHWEncoder", "profile", profile), &out0)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ffmpeg", probeArgs(profile)...)

@@ -34,14 +34,12 @@ var appProxyManager *appproxy.Manager
 
 // appProxyIdentity converts an ArozOS user into the proxy's identity
 func appProxyIdentity(username string, groups []string, isAdmin bool) *appproxy.Identity {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "appProxyIdentity: username=%.120q len(groups)=%d isAdmin=%t", username, len(groups), isAdmin)
-	}
+	logger.DebugTrace("Core", "appProxyIdentity")
 	return &appproxy.Identity{Username: username, Groups: groups, IsAdmin: isAdmin}
 }
 
 func AppProxyInit() {
-	logger.Debug("Core", "AppProxyInit")
+	defer logger.Out0(logger.In0("Core", "AppProxyInit"))
 	manager, err := appproxy.NewManager(appproxy.Options{
 		Store:    sysdb,
 		SelfPort: *listen_port,
@@ -51,6 +49,7 @@ func AppProxyInit() {
 			}
 			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return nil
 			}
 			//Using an app counts as activity on the desktop session
@@ -63,6 +62,7 @@ func AppProxyInit() {
 			}
 			userinfo, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return nil
 			}
 			return appProxyIdentity(userinfo.Username, userinfo.GetUserPermissionGroupNames(), userinfo.IsAdmin())
@@ -79,6 +79,7 @@ func AppProxyInit() {
 		},
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("AppProxy", "Unable to start the container app proxy", err)
 		return
 	}
@@ -140,15 +141,14 @@ type appProxyContainer struct {
 
 // handleAppProxyContainers lists Docker containers with their published web ports
 func handleAppProxyContainers(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleAppProxyContainers: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleAppProxyContainers", "r", r))
 	if dockerManager == nil {
 		utils.SendJSONResponse(w, "[]")
 		return
 	}
 	containers, err := dockerManager.ListContainers()
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

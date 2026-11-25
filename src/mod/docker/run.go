@@ -63,10 +63,8 @@ type UpdateConfig struct {
 }
 
 // validateVolume checks a bind/volume spec format without sandboxing host paths.
-func validateVolume(v string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "validateVolume: v=%.120q", v)
-	}
+func validateVolume(v string) (out0 error) {
+	defer logger.Out1(logger.In1("docker", "validateVolume", "v", v), &out0)
 	if strings.HasPrefix(v, "-") || strings.ContainsAny(v, "\n\r") {
 		return errors.New("invalid volume: " + v)
 	}
@@ -82,11 +80,10 @@ func validateVolume(v string) error {
 
 // buildRunArgs assembles the docker argv for `run` (create=false) or `create`
 // (create=true). Pure function so it is fully unit-testable without a daemon.
-func buildRunArgs(cfg RunConfig, create bool) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "buildRunArgs: create=%t", create)
-	}
+func buildRunArgs(cfg RunConfig, create bool) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("docker", "buildRunArgs", "&cfg", &cfg, "create", create), &out0, &out1)
 	if err := validateImageRef(cfg.Image); err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 
@@ -126,6 +123,7 @@ func buildRunArgs(cfg RunConfig, create bool) ([]string, error) {
 			continue
 		}
 		if err := validateVolume(v); err != nil {
+			logger.DebugErr("docker", err)
 			return nil, err
 		}
 		args = append(args, "-v", v)
@@ -166,37 +164,42 @@ func buildRunArgs(cfg RunConfig, create bool) ([]string, error) {
 }
 
 // RunContainer launches a container in the background and returns its new ID.
-func (d *DockerManager) RunContainer(cfg RunConfig) (string, error) {
-	logger.Debug("docker", "DockerManager.RunContainer")
+func (d *DockerManager) RunContainer(cfg RunConfig) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("docker", "DockerManager.RunContainer", "d", d, "&cfg", &cfg), &out0, &out1)
 	args, err := buildRunArgs(cfg, false)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	out, err := runDocker(args...)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
 }
 
 // CreateContainer creates (but does not start) a container, returning its ID.
-func (d *DockerManager) CreateContainer(cfg RunConfig) (string, error) {
-	logger.Debug("docker", "DockerManager.CreateContainer")
+func (d *DockerManager) CreateContainer(cfg RunConfig) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("docker", "DockerManager.CreateContainer", "d", d, "&cfg", &cfg), &out0, &out1)
 	args, err := buildRunArgs(cfg, true)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	out, err := runDocker(args...)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
 }
 
 // UpdateContainer applies live config changes (restart policy / memory / cpus).
-func (d *DockerManager) UpdateContainer(cfg UpdateConfig) error {
-	logger.Debug("docker", "DockerManager.UpdateContainer")
+func (d *DockerManager) UpdateContainer(cfg UpdateConfig) (out0 error) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.UpdateContainer", "d", d, "&cfg", &cfg), &out0)
 	if err := validateContainerRef(cfg.Ref); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	args := []string{"update"}
@@ -227,11 +230,10 @@ func (d *DockerManager) UpdateContainer(cfg UpdateConfig) error {
 }
 
 // RenameContainer renames a container.
-func (d *DockerManager) RenameContainer(ref, newName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.RenameContainer: ref=%.120q newName=%.120q", ref, newName)
-	}
+func (d *DockerManager) RenameContainer(ref, newName string) (out0 error) {
+	defer logger.Out1(logger.In3("docker", "DockerManager.RenameContainer", "d", d, "ref", ref, "newName", newName), &out0)
 	if err := validateContainerRef(ref); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	if !containerRefRegex.MatchString(newName) {
@@ -244,19 +246,20 @@ func (d *DockerManager) RenameContainer(ref, newName string) error {
 // RecreateContainer force-removes oldRef and launches a fresh container from
 // cfg. This is destructive (the old container is deleted) and is used for
 // settings docker cannot change on a live container (ports, mounts, env).
-func (d *DockerManager) RecreateContainer(oldRef string, cfg RunConfig) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.RecreateContainer: oldRef=%.120q", oldRef)
-	}
+func (d *DockerManager) RecreateContainer(oldRef string, cfg RunConfig) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("docker", "DockerManager.RecreateContainer", "d", d, "oldRef", oldRef, "&cfg", &cfg), &out0, &out1)
 	if err := validateContainerRef(oldRef); err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	//Validate the new config BEFORE removing anything, so a bad config does not
 	//leave the host with the old container already deleted.
 	if _, err := buildRunArgs(cfg, false); err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	if _, err := runDocker("rm", "-f", oldRef); err != nil {
+		logger.DebugErr("docker", err)
 		return "", err
 	}
 	return d.RunContainer(cfg)
@@ -265,16 +268,16 @@ func (d *DockerManager) RecreateContainer(oldRef string, cfg RunConfig) (string,
 /* ---------- HTTP handlers ---------- */
 
 // readRunConfig decodes a RunConfig from a JSON request body.
-func readRunConfig(r *http.Request) (RunConfig, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "readRunConfig: r=%s", logger.RequestSummary(r))
-	}
+func readRunConfig(r *http.Request) (out0 RunConfig, out1 error) {
+	defer logger.Out2(logger.In1("docker", "readRunConfig", "r", r), &out0, &out1)
 	var cfg RunConfig
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return cfg, err
 	}
 	if err := json.Unmarshal(body, &cfg); err != nil {
+		logger.DebugErr("docker", err)
 		return cfg, errors.New("invalid request body")
 	}
 	return cfg, nil
@@ -282,20 +285,20 @@ func readRunConfig(r *http.Request) (RunConfig, error) {
 
 // HandleContainerRun launches a container from a JSON RunConfig body.
 func (d *DockerManager) HandleContainerRun(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerRun: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerRun", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	cfg, err := readRunConfig(r)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	id, err := d.RunContainer(cfg)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -305,20 +308,20 @@ func (d *DockerManager) HandleContainerRun(w http.ResponseWriter, r *http.Reques
 
 // HandleContainerCreate creates (without starting) a container from a JSON body.
 func (d *DockerManager) HandleContainerCreate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerCreate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerCreate", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	cfg, err := readRunConfig(r)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	id, err := d.CreateContainer(cfg)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -329,15 +332,14 @@ func (d *DockerManager) HandleContainerCreate(w http.ResponseWriter, r *http.Req
 // HandleContainerUpdate applies live config changes (POST form: id, restartPolicy,
 // memory, cpus).
 func (d *DockerManager) HandleContainerUpdate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerUpdate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerUpdate", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	ref, err := utils.PostPara(r, "id")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing container id")
 		return
 	}
@@ -345,6 +347,7 @@ func (d *DockerManager) HandleContainerUpdate(w http.ResponseWriter, r *http.Req
 	memory, _ := utils.PostPara(r, "memory")
 	cpus, _ := utils.PostPara(r, "cpus")
 	if err := d.UpdateContainer(UpdateConfig{Ref: ref, RestartPolicy: restartPolicy, Memory: memory, CPUs: cpus}); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -353,24 +356,25 @@ func (d *DockerManager) HandleContainerUpdate(w http.ResponseWriter, r *http.Req
 
 // HandleContainerRename renames a container (POST form: id, name).
 func (d *DockerManager) HandleContainerRename(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerRename: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerRename", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	ref, err := utils.PostPara(r, "id")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing container id")
 		return
 	}
 	newName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing new name")
 		return
 	}
 	if err := d.RenameContainer(ref, newName); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -381,25 +385,26 @@ func (d *DockerManager) HandleContainerRename(w http.ResponseWriter, r *http.Req
 // JSON RunConfig in the body. The old container id is taken from the "oldId"
 // query parameter.
 func (d *DockerManager) HandleContainerRecreate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerRecreate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerRecreate", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	oldRef, err := utils.GetPara(r, "oldId")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing oldId")
 		return
 	}
 	cfg, err := readRunConfig(r)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	id, err := d.RecreateContainer(oldRef, cfg)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

@@ -50,8 +50,8 @@ type Settings struct {
 	Groups []string
 }
 
-func defaultSettings() Settings {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "defaultSettings")
+func defaultSettings() (out0 Settings) {
+	defer logger.Out1(logger.In0("fileservers/servers/syncthingserv", "defaultSettings"), &out0)
 	return Settings{
 		Port:            DefaultPort,
 		GlobalDiscovery: true,
@@ -86,10 +86,8 @@ type Folder struct {
 	Added       int64
 }
 
-func validMode(mode string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "validMode: mode=%.120q", mode)
-	}
+func validMode(mode string) (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "validMode", "mode", mode), &out0)
 	return mode == ModeBackup || mode == ModeMirror || mode == ModeTwoWay
 }
 
@@ -98,16 +96,17 @@ type store struct {
 	db *database.Database
 }
 
-func newStore(db *database.Database) (*store, error) {
-	logger.Debug("fileservers/servers/syncthingserv", "newStore")
+func newStore(db *database.Database) (out0 *store, out1 error) {
+	defer logger.Out2(logger.In1("fileservers/servers/syncthingserv", "newStore", "db", db), &out0, &out1)
 	if err := db.NewTable(settingsTable); err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return nil, err
 	}
 	return &store{db: db}, nil
 }
 
-func (s *store) settings() Settings {
-	logger.Debug("fileservers/servers/syncthingserv", "store.settings")
+func (s *store) settings() (out0 Settings) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "store.settings", "s", s), &out0)
 	settings := defaultSettings()
 	if s.db.KeyExists(settingsTable, keySettings) {
 		s.db.Read(settingsTable, keySettings, &settings)
@@ -121,13 +120,13 @@ func (s *store) settings() Settings {
 	return settings
 }
 
-func (s *store) setSettings(settings Settings) error {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "store.setSettings")
+func (s *store) setSettings(settings Settings) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "store.setSettings", "s", s, "&settings", &settings), &out0)
 	return s.db.Write(settingsTable, keySettings, settings)
 }
 
-func (s *store) enabled() bool {
-	logger.Debug("fileservers/servers/syncthingserv", "store.enabled")
+func (s *store) enabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "store.enabled", "s", s), &out0)
 	enabled := false
 	if s.db.KeyExists(settingsTable, keyEnabled) {
 		s.db.Read(settingsTable, keyEnabled, &enabled)
@@ -135,17 +134,16 @@ func (s *store) enabled() bool {
 	return enabled
 }
 
-func (s *store) setEnabled(enabled bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "store.setEnabled: enabled=%t", enabled)
-	}
+func (s *store) setEnabled(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "store.setEnabled", "s", s, "enabled", enabled), &out0)
 	return s.db.Write(settingsTable, keyEnabled, enabled)
 }
 
-func (s *store) devices() []Device {
-	logger.Debug("fileservers/servers/syncthingserv", "store.devices")
+func (s *store) devices() (out0 []Device) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "store.devices", "s", s), &out0)
 	rows, err := s.db.ListTableWithPrefix(settingsTable, prefixDevice)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return []Device{}
 	}
 	devices := []Device{}
@@ -164,10 +162,8 @@ func (s *store) devices() []Device {
 	return devices
 }
 
-func (s *store) device(id string) (Device, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "store.device: id=%.120q", id)
-	}
+func (s *store) device(id string) (out0 Device, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncthingserv", "store.device", "s", s, "id", id), &out0, &out1)
 	var d Device
 	if !s.db.KeyExists(settingsTable, prefixDevice+id) {
 		return d, false
@@ -176,22 +172,21 @@ func (s *store) device(id string) (Device, bool) {
 	return d, d.ID == id
 }
 
-func (s *store) putDevice(d Device) error {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "store.putDevice")
+func (s *store) putDevice(d Device) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "store.putDevice", "s", s, "&d", &d), &out0)
 	return s.db.Write(settingsTable, prefixDevice+d.ID, d)
 }
 
-func (s *store) deleteDevice(id string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "store.deleteDevice: id=%.120q", id)
-	}
+func (s *store) deleteDevice(id string) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "store.deleteDevice", "s", s, "id", id), &out0)
 	return s.db.Delete(settingsTable, prefixDevice+id)
 }
 
-func (s *store) folders() []Folder {
-	logger.Debug("fileservers/servers/syncthingserv", "store.folders")
+func (s *store) folders() (out0 []Folder) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncthingserv", "store.folders", "s", s), &out0)
 	rows, err := s.db.ListTableWithPrefix(settingsTable, prefixFolder)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncthingserv", err)
 		return []Folder{}
 	}
 	folders := []Folder{}
@@ -210,10 +205,8 @@ func (s *store) folders() []Folder {
 	return folders
 }
 
-func (s *store) folder(id string) (Folder, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "store.folder: id=%.120q", id)
-	}
+func (s *store) folder(id string) (out0 Folder, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncthingserv", "store.folder", "s", s, "id", id), &out0, &out1)
 	var f Folder
 	if !s.db.KeyExists(settingsTable, prefixFolder+id) {
 		return f, false
@@ -222,24 +215,20 @@ func (s *store) folder(id string) (Folder, bool) {
 	return f, f.ID == id
 }
 
-func (s *store) putFolder(f Folder) error {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "store.putFolder")
+func (s *store) putFolder(f Folder) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "store.putFolder", "s", s, "&f", &f), &out0)
 	return s.db.Write(settingsTable, prefixFolder+f.ID, f)
 }
 
-func (s *store) deleteFolder(id string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "store.deleteFolder: id=%.120q", id)
-	}
+func (s *store) deleteFolder(id string) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "store.deleteFolder", "s", s, "id", id), &out0)
 	return s.db.Delete(settingsTable, prefixFolder+id)
 }
 
 // removeDeviceFromFolders takes a device out of every folder it was shared
 // with, so that a device added again later does not get them back unasked.
 func (s *store) removeDeviceFromFolders(deviceID string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncthingserv", "store.removeDeviceFromFolders: deviceID=%.120q", deviceID)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/syncthingserv", "store.removeDeviceFromFolders", "s", s, "deviceID", deviceID))
 	for _, f := range s.folders() {
 		kept := f.Devices[:0]
 		changed := false

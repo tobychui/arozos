@@ -71,9 +71,7 @@ var errOldWord = errors.New("Word 6.0 / 95 and older documents are not supported
 
 // parseFib reads the FIB at the start of the WordDocument stream
 func parseFib(wd []byte) (*fib, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "parseFib: len(wd)=%d", len(wd))
-	}
+	logger.DebugTrace("office/doc", "parseFib")
 	le := binary.LittleEndian
 	if len(wd) < 0x22 || le.Uint16(wd) != 0xA5EC {
 		if len(wd) >= 2 && (le.Uint16(wd) == 0xA5DC || le.Uint16(wd) == 0xA59B) {
@@ -132,9 +130,7 @@ func parseFib(wd []byte) (*fib, error) {
 // span returns the bytes of the table stream structure at FcLcb index i
 // (nil when absent or out of range)
 func (f *fib) span(tbl []byte, i int) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "fib.span: len(tbl)=%d i=%d", len(tbl), i)
-	}
+	logger.DebugTrace("office/doc", "fib.span")
 	if 2*i+1 >= len(f.fcLcb) {
 		return nil
 	}
@@ -148,9 +144,7 @@ func (f *fib) span(tbl []byte, i int) []byte {
 // spanTail returns the table stream from the structure at FcLcb index i
 // to the end: PlfLst's levels follow it beyond the size the FIB states
 func (f *fib) spanTail(tbl []byte, i int) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "fib.spanTail: len(tbl)=%d i=%d", len(tbl), i)
-	}
+	logger.DebugTrace("office/doc", "fib.spanTail")
 	if 2*i+1 >= len(f.fcLcb) || f.fcLcb[2*i+1] == 0 {
 		return nil
 	}

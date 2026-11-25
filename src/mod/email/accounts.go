@@ -55,10 +55,11 @@ func (a *Account) info() AccountInfo {
 }
 
 // ListAccounts returns a user's accounts in sidebar order.
-func (m *Manager) ListAccounts(p Principal) ([]AccountInfo, error) {
-	logger.Debug("email", "Manager.ListAccounts")
+func (m *Manager) ListAccounts(p Principal) (out0 []AccountInfo, out1 error) {
+	defer logger.Out2(logger.In2("email", "Manager.ListAccounts", "m", m, "&p", &p), &out0, &out1)
 	accounts, err := m.store.listAccounts(p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	results := make([]AccountInfo, 0, len(accounts))
@@ -70,19 +71,16 @@ func (m *Manager) ListAccounts(p Principal) ([]AccountInfo, error) {
 
 // account loads one of p's accounts.
 func (m *Manager) account(p Principal, id string) (*Account, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "Manager.account: id=%.120q", id)
-	}
+	logger.DebugTrace("email", "Manager.account")
 	return m.store.getAccount(p.Username, strings.TrimSpace(id))
 }
 
 // GetAccount returns the browser view of one account.
-func (m *Manager) GetAccount(p Principal, id string) (*AccountInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.GetAccount: id=%.120q", id)
-	}
+func (m *Manager) GetAccount(p Principal, id string) (out0 *AccountInfo, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.GetAccount", "m", m, "&p", &p, "id", id), &out0, &out1)
 	account, err := m.account(p, id)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	info := account.info()
@@ -90,8 +88,8 @@ func (m *Manager) GetAccount(p Principal, id string) (*AccountInfo, error) {
 }
 
 // normaliseInput validates an account form and fills preset defaults.
-func (m *Manager) normaliseInput(p Principal, input *AccountInput) error {
-	logger.Debug("email", "Manager.normaliseInput")
+func (m *Manager) normaliseInput(p Principal, input *AccountInput) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.normaliseInput", "m", m, "&p", &p, "input", input), &out0)
 	input.Email = strings.TrimSpace(input.Email)
 	parsed, err := mail.ParseAddress(input.Email)
 	if err != nil || !strings.Contains(parsed.Address, "@") {
@@ -146,9 +144,11 @@ func (m *Manager) normaliseInput(p Principal, input *AccountInput) error {
 		return nil
 	}
 	if err := fill(&input.IMAP, preset.IMAP, "IMAP"); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	if err := fill(&input.SMTP, preset.SMTP, "SMTP"); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 
@@ -164,6 +164,7 @@ func (m *Manager) normaliseInput(p Principal, input *AccountInput) error {
 	input.ReplyTo = strings.TrimSpace(input.ReplyTo)
 	if input.ReplyTo != "" {
 		if _, err := mail.ParseAddress(input.ReplyTo); err != nil {
+			logger.DebugErr("email", err)
 			return errors.New("the reply-to address is not valid")
 		}
 	}
@@ -176,9 +177,10 @@ func (m *Manager) normaliseInput(p Principal, input *AccountInput) error {
 // TestAccount checks the IMAP and SMTP settings without storing anything.
 // Only password accounts can be tested this way; OAuth accounts are tested
 // as part of AddAccount, where the pending token is consumed.
-func (m *Manager) TestAccount(ctx context.Context, p Principal, input AccountInput) TestResult {
-	logger.Debug("email", "Manager.TestAccount")
+func (m *Manager) TestAccount(ctx context.Context, p Principal, input AccountInput) (out0 TestResult) {
+	defer logger.Out1(logger.In4("email", "Manager.TestAccount", "m", m, "ctx", ctx, "&p", &p, "&input", &input), &out0)
 	if err := m.normaliseInput(p, &input); err != nil {
+		logger.DebugErr("email", err)
 		return TestResult{Error: err.Error()}
 	}
 	if input.Auth == AuthOAuth2 {
@@ -186,19 +188,19 @@ func (m *Manager) TestAccount(ctx context.Context, p Principal, input AccountInp
 	}
 	account, err := m.accountFromInput(p, input, nil)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return TestResult{Error: err.Error()}
 	}
 	return m.verifyAccount(ctx, p, account, input.SkipSMTPCheck)
 }
 
 // verifyAccount logs in to both servers of an unsaved account.
-func (m *Manager) verifyAccount(ctx context.Context, p Principal, account *Account, skipSMTP bool) TestResult {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.verifyAccount: skipSMTP=%t", skipSMTP)
-	}
+func (m *Manager) verifyAccount(ctx context.Context, p Principal, account *Account, skipSMTP bool) (out0 TestResult) {
+	defer logger.Out1(logger.In5("email", "Manager.verifyAccount", "m", m, "ctx", ctx, "&p", &p, "account", account, "skipSMTP", skipSMTP), &out0)
 	result := TestResult{}
 	client, err := m.dialIMAP(ctx, p, account)
 	if err != nil {
+		logger.DebugErr("email", err)
 		result.Stage = "imap"
 		result.Error = err.Error()
 		result.AuthFailed = IsAuthError(err)
@@ -212,6 +214,7 @@ func (m *Manager) verifyAccount(ctx context.Context, p Principal, account *Accou
 		return result
 	}
 	if err := m.checkSMTP(ctx, p, account); err != nil {
+		logger.DebugErr("email", err)
 		result.Stage = "smtp"
 		result.Error = err.Error()
 		result.AuthFailed = IsAuthError(err)
@@ -224,8 +227,8 @@ func (m *Manager) verifyAccount(ctx context.Context, p Principal, account *Accou
 
 // accountFromInput builds an Account (with sealed secrets) from a form.
 // existing supplies kept secrets on update.
-func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Account) (*Account, error) {
-	logger.Debug("email", "Manager.accountFromInput")
+func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Account) (out0 *Account, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.accountFromInput", "m", m, "&p", &p, "&input", &input, "existing", existing), &out0, &out1)
 	account := &Account{
 		Owner:       p.Username,
 		Email:       input.Email,
@@ -257,6 +260,7 @@ func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Ac
 		if input.Password != "" {
 			sealed, err := m.box.Seal(input.Password)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, err
 			}
 			account.Secret = sealed
@@ -268,6 +272,7 @@ func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Ac
 		if input.SMTPPassword != "" {
 			sealed, err := m.box.Seal(input.SMTPPassword)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, err
 			}
 			account.SMTPSecret = sealed
@@ -278,6 +283,7 @@ func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Ac
 		if input.OAuthState != "" {
 			pending, err := m.oauth.take(input.OAuthState, p.Username)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, err
 			}
 			if pending.token.RefreshToken == "" {
@@ -285,6 +291,7 @@ func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Ac
 			}
 			sealed, err := m.box.Seal(pending.token.RefreshToken)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, err
 			}
 			account.Secret = sealed
@@ -315,14 +322,16 @@ func (m *Manager) accountFromInput(p Principal, input AccountInput, existing *Ac
 }
 
 // AddAccount verifies and stores a new account.
-func (m *Manager) AddAccount(ctx context.Context, p Principal, input AccountInput) (*AccountInfo, TestResult, error) {
-	logger.Debug("email", "Manager.AddAccount")
+func (m *Manager) AddAccount(ctx context.Context, p Principal, input AccountInput) (out0 *AccountInfo, out1 TestResult, out2 error) {
+	defer logger.Out3(logger.In4("email", "Manager.AddAccount", "m", m, "ctx", ctx, "&p", &p, "&input", &input), &out0, &out1, &out2)
 	if err := m.normaliseInput(p, &input); err != nil {
+		logger.DebugErr("email", err)
 		return nil, TestResult{Error: err.Error()}, err
 	}
 
 	existing, err := m.store.listAccounts(p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, TestResult{}, err
 	}
 	config := m.store.getAdminConfig()
@@ -333,6 +342,7 @@ func (m *Manager) AddAccount(ctx context.Context, p Principal, input AccountInpu
 
 	account, err := m.accountFromInput(p, input, nil)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, TestResult{Error: err.Error()}, err
 	}
 	for _, other := range existing {
@@ -364,6 +374,7 @@ func (m *Manager) AddAccount(ctx context.Context, p Principal, input AccountInpu
 	}
 
 	if err := m.store.saveAccount(account); err != nil {
+		logger.DebugErr("email", err)
 		return nil, result, err
 	}
 	logger.PrintAndLog("Email", "Mail account "+account.Email+" added by "+p.Username, nil)
@@ -373,20 +384,21 @@ func (m *Manager) AddAccount(ctx context.Context, p Principal, input AccountInpu
 
 // UpdateAccount changes an account. Connection settings and credentials are
 // re-verified before anything is stored.
-func (m *Manager) UpdateAccount(ctx context.Context, p Principal, id string, input AccountInput) (*AccountInfo, TestResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.UpdateAccount: id=%.120q", id)
-	}
+func (m *Manager) UpdateAccount(ctx context.Context, p Principal, id string, input AccountInput) (out0 *AccountInfo, out1 TestResult, out2 error) {
+	defer logger.Out3(logger.In5("email", "Manager.UpdateAccount", "m", m, "ctx", ctx, "&p", &p, "id", id, "&input", &input), &out0, &out1, &out2)
 	existing, err := m.account(p, id)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, TestResult{Error: err.Error()}, err
 	}
 	if err := m.normaliseInput(p, &input); err != nil {
+		logger.DebugErr("email", err)
 		return nil, TestResult{Error: err.Error()}, err
 	}
 
 	account, err := m.accountFromInput(p, input, existing)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, TestResult{Error: err.Error()}, err
 	}
 
@@ -409,6 +421,7 @@ func (m *Manager) UpdateAccount(ctx context.Context, p Principal, id string, inp
 
 	account.Updated = m.now().Unix()
 	if err := m.store.saveAccount(account); err != nil {
+		logger.DebugErr("email", err)
 		return nil, result, err
 	}
 	if connectionChanged {
@@ -419,15 +432,15 @@ func (m *Manager) UpdateAccount(ctx context.Context, p Principal, id string, inp
 }
 
 // RemoveAccount deletes an account and everything stored locally for it.
-func (m *Manager) RemoveAccount(p Principal, id string) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.RemoveAccount: id=%.120q", id)
-	}
+func (m *Manager) RemoveAccount(p Principal, id string) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.RemoveAccount", "m", m, "&p", &p, "id", id), &out0)
 	account, err := m.account(p, id)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	if err := m.store.deleteAccount(p.Username, account.ID); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	m.pool.invalidate(poolKey(p.Username, account.ID))
@@ -442,12 +455,11 @@ func (m *Manager) RemoveAccount(p Principal, id string) error {
 }
 
 // ReorderAccounts stores a new sidebar order.
-func (m *Manager) ReorderAccounts(p Principal, ids []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.ReorderAccounts: len(ids)=%d", len(ids))
-	}
+func (m *Manager) ReorderAccounts(p Principal, ids []string) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.ReorderAccounts", "m", m, "&p", &p, "ids", ids), &out0)
 	accounts, err := m.store.listAccounts(p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	position := map[string]int{}
@@ -466,6 +478,7 @@ func (m *Manager) ReorderAccounts(p Principal, ids []string) error {
 		if account.Order != index {
 			account.Order = index
 			if err := m.store.saveAccount(account); err != nil {
+				logger.DebugErr("email", err)
 				return err
 			}
 		}

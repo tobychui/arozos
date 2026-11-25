@@ -16,7 +16,7 @@ import (
 )
 
 func DiskQuotaInit() {
-	logger.Debug("Core", "DiskQuotaInit")
+	defer logger.Out0(logger.In0("Core", "DiskQuotaInit"))
 	//Register Endpoints
 	http.HandleFunc("/system/disk/quota/setQuota", system_disk_quota_setQuota)
 	http.HandleFunc("/system/disk/quota/quotaInfo", system_disk_quota_handleQuotaInfo)
@@ -37,7 +37,7 @@ func DiskQuotaInit() {
 
 // Register the handler for automatically updating all user storage quota
 func system_disk_quota_updateAllUserQuotaEstimation() {
-	logger.Debug("Core", "system_disk_quota_updateAllUserQuotaEstimation")
+	defer logger.Out0(logger.In0("Core", "system_disk_quota_updateAllUserQuotaEstimation"))
 	registeredUsers := authAgent.ListUsers()
 	for _, username := range registeredUsers {
 		//For each user, update their current quota usage
@@ -48,11 +48,10 @@ func system_disk_quota_updateAllUserQuotaEstimation() {
 
 // Set the storage quota of the particular user
 func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_disk_quota_setQuota: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_disk_quota_setQuota", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Unknown User")
 		return
 	}
@@ -65,12 +64,14 @@ func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Group name not defned")
 		return
 	}
 
 	quotaSizeString, err := utils.PostPara(r, "quota")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Quota not defined")
 		return
 	}
@@ -89,11 +90,10 @@ func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 }
 
 func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_disk_quota_handleQuotaInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_disk_quota_handleQuotaInfo", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Unknown User")
 		return
 	}
@@ -143,11 +143,10 @@ var fileExtensions = map[string][]string{
 
 // Get all the users files and return size + count per category
 func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_disk_quota_handleFileDistributionView: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_disk_quota_handleFileDistributionView", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Unknown User")
 		return
 	}
@@ -173,6 +172,7 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 			thispath := filepath.ToSlash(filepath.Clean(thisHandler.Path)) + "/users/" + userinfo.Username + "/"
 			filepath.Walk(thispath, func(fpath string, info os.FileInfo, err error) error {
 				if err != nil {
+					logger.DebugErr("Core", err)
 					return err
 				}
 				if !info.IsDir() {

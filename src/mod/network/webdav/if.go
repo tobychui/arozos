@@ -28,7 +28,7 @@ type ifList struct {
 // should omit the "If:" prefix and have any "\r\n"s collapsed to a " ", as is
 // returned by req.Header.Get("If") for a http.Request req.
 func parseIfHeader(httpHeader string) (h ifHeader, ok bool) {
-	logger.Debug("network/webdav", "parseIfHeader")
+	defer logger.Out2(logger.In1("network/webdav", "parseIfHeader", "httpHeader", httpHeader), &h, &ok)
 	s := strings.TrimSpace(httpHeader)
 	switch tokenType, _, _ := lex(s); tokenType {
 	case '(':
@@ -41,9 +41,7 @@ func parseIfHeader(httpHeader string) (h ifHeader, ok bool) {
 }
 
 func parseNoTagLists(s string) (h ifHeader, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "parseNoTagLists: s=%.120q", s)
-	}
+	defer logger.Out2(logger.In1("network/webdav", "parseNoTagLists", "s", s), &h, &ok)
 	for {
 		l, remaining, ok := parseList(s)
 		if !ok {
@@ -58,9 +56,7 @@ func parseNoTagLists(s string) (h ifHeader, ok bool) {
 }
 
 func parseTaggedLists(s string) (h ifHeader, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "parseTaggedLists: s=%.120q", s)
-	}
+	defer logger.Out2(logger.In1("network/webdav", "parseTaggedLists", "s", s), &h, &ok)
 	resourceTag, n := "", 0
 	for first := true; ; first = false {
 		tokenType, tokenStr, remaining := lex(s)
@@ -90,9 +86,7 @@ func parseTaggedLists(s string) (h ifHeader, ok bool) {
 }
 
 func parseList(s string) (l ifList, remaining string, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "parseList: s=%.120q", s)
-	}
+	defer logger.Out3(logger.In1("network/webdav", "parseList", "s", s), &l, &remaining, &ok)
 	tokenType, _, s := lex(s)
 	if tokenType != '(' {
 		return ifList{}, "", false
@@ -115,9 +109,7 @@ func parseList(s string) (l ifList, remaining string, ok bool) {
 }
 
 func parseCondition(s string) (c Condition, remaining string, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "parseCondition: s=%.120q", s)
-	}
+	defer logger.Out3(logger.In1("network/webdav", "parseCondition", "s", s), &c, &remaining, &ok)
 	tokenType, tokenStr, s := lex(s)
 	if tokenType == notTokenType {
 		c.Not = true
@@ -146,9 +138,7 @@ const (
 )
 
 func lex(s string) (tokenType rune, tokenStr string, remaining string) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "lex: s=%.120q", s)
-	}
+	defer logger.Out3(logger.In1("network/webdav", "lex", "s", s), &tokenType, &tokenStr, &remaining)
 	// The net/textproto Reader that parses the HTTP header will collapse
 	// Linear White Space that spans multiple "\r\n" lines to a single " ",
 	// so we don't need to look for '\r' or '\n'.

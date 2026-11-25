@@ -100,10 +100,8 @@ func (u *UserHandler) ResetQuotaManagers() {
 }
 
 // Get User object from username
-func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
-	if logger.IsDebug() {
-		logger.Debugf("user", "UserHandler.GetUserInfoFromUsername: username=%.120q", username)
-	}
+func (u *UserHandler) GetUserInfoFromUsername(username string) (out0 *User, out1 error) {
+	defer logger.Out2(logger.In2("user", "UserHandler.GetUserInfoFromUsername", "u", u, "username", username), &out0, &out1)
 	//Check if user exists
 	if !u.authAgent.UserExists(username) {
 		return &User{}, errors.New("User not exists")
@@ -112,6 +110,7 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	//Get the user's permission group
 	permissionGroups, err := u.phandler.GetUsersPermissionGroup(username)
 	if err != nil {
+		logger.DebugErr("user", err)
 		return &User{}, err
 	}
 
@@ -174,27 +173,25 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 }
 
 // Get user obejct from session
-func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Request) (*User, error) {
-	if logger.IsDebug() {
-		logger.Debugf("user", "UserHandler.GetUserInfoFromRequest: r=%s", logger.RequestSummary(r))
-	}
+func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Request) (out0 *User, out1 error) {
+	defer logger.Out2(logger.In2("user", "UserHandler.GetUserInfoFromRequest", "u", u, "r", r), &out0, &out1)
 	username, err := u.authAgent.GetUserName(w, r)
 	if err != nil {
+		logger.DebugErr("user", err)
 		return &User{}, err
 	}
 
 	userObject, err := u.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("user", err)
 		return &User{}, err
 	}
 	return userObject, nil
 }
 
 // Get all the users given the permission group name, super IO heavy operation
-func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) ([]*User, error) {
-	if logger.IsDebug() {
-		logger.Debugf("user", "UserHandler.GetUsersInPermissionGroup: permissionGroupName=%.120q", permissionGroupName)
-	}
+func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) (out0 []*User, out1 error) {
+	defer logger.Out2(logger.In2("user", "UserHandler.GetUsersInPermissionGroup", "u", u, "permissionGroupName", permissionGroupName), &out0, &out1)
 	results := []*User{}
 	//Check if the given group exists
 	if u.phandler.GetPermissionGroupByName(permissionGroupName) == nil {
@@ -206,6 +203,7 @@ func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) ([]*
 	for _, thisUser := range AllRegisteredUsers {
 		thisUserInfo, err := u.GetUserInfoFromUsername(thisUser)
 		if err != nil {
+			logger.DebugErr("user", err)
 			continue
 		}
 

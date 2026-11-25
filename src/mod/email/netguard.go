@@ -37,8 +37,8 @@ const (
 var cgnatBlock = &net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)}
 
 // isRestrictedIP reports whether ip points into a local or special network.
-func isRestrictedIP(ip net.IP) bool {
-	logger.Debug("email", "isRestrictedIP")
+func isRestrictedIP(ip net.IP) (out0 bool) {
+	defer logger.Out1(logger.In1("email", "isRestrictedIP", "&ip", &ip), &out0)
 	if ip == nil {
 		return true
 	}
@@ -58,10 +58,8 @@ var lookupIPAddr = func(ctx context.Context, host string) ([]net.IPAddr, error) 
 
 // dialGuarded opens a TCP connection to host:port. With allowPrivate false
 // every resolved address must be public.
-func dialGuarded(ctx context.Context, host string, port int, allowPrivate bool) (net.Conn, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "dialGuarded: host=%.120q port=%d", host, port)
-	}
+func dialGuarded(ctx context.Context, host string, port int, allowPrivate bool) (out0 net.Conn, out1 error) {
+	defer logger.Out2(logger.In4("email", "dialGuarded", "ctx", ctx, "host", host, "port", port, "!allowPrivate", allowPrivate), &out0, &out1)
 	host = strings.TrimSpace(host)
 	if host == "" {
 		return nil, errors.New("server host is empty")
@@ -81,6 +79,7 @@ func dialGuarded(ctx context.Context, host string, port int, allowPrivate bool) 
 	} else {
 		resolved, err := lookupIPAddr(ctx, host)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		for _, address := range resolved {
@@ -106,10 +105,8 @@ func dialGuarded(ctx context.Context, host string, port int, allowPrivate bool) 
 }
 
 // tlsConfigFor builds the client TLS configuration for a server name.
-func tlsConfigFor(host string, nextProto string) *tls.Config {
-	if logger.IsDebug() {
-		logger.Debugf("email", "tlsConfigFor: host=%.120q nextProto=%.120q", host, nextProto)
-	}
+func tlsConfigFor(host string, nextProto string) (out0 *tls.Config) {
+	defer logger.Out1(logger.In2("email", "tlsConfigFor", "host", host, "nextProto", nextProto), &out0)
 	config := &tls.Config{
 		ServerName: strings.Trim(host, "[]"),
 		MinVersion: tls.VersionTLS12,
@@ -121,18 +118,18 @@ func tlsConfigFor(host string, nextProto string) *tls.Config {
 }
 
 // dialTLS opens an implicit-TLS connection with the handshake completed.
-func dialTLS(ctx context.Context, host string, port int, allowPrivate bool, nextProto string) (net.Conn, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "dialTLS: host=%.120q port=%d nextProto=%.120q", host, port, nextProto)
-	}
+func dialTLS(ctx context.Context, host string, port int, allowPrivate bool, nextProto string) (out0 net.Conn, out1 error) {
+	defer logger.Out2(logger.In5("email", "dialTLS", "ctx", ctx, "host", host, "port", port, "nextProto", nextProto, "!allowPrivate", allowPrivate), &out0, &out1)
 	raw, err := dialGuarded(ctx, host, port, allowPrivate)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	tlsConn := tls.Client(raw, tlsConfigFor(host, nextProto))
 	handshakeCtx, cancel := context.WithTimeout(ctx, handshakeTimeout)
 	defer cancel()
 	if err := tlsConn.HandshakeContext(handshakeCtx); err != nil {
+		logger.DebugErr("email", err)
 		raw.Close()
 		return nil, describeTLSError(err)
 	}
@@ -140,10 +137,8 @@ func dialTLS(ctx context.Context, host string, port int, allowPrivate bool, next
 }
 
 // describeTLSError turns the common certificate failures into sentences.
-func describeTLSError(err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "describeTLSError: err=%v", err)
-	}
+func describeTLSError(err error) (out0 error) {
+	defer logger.Out1(logger.In1("email", "describeTLSError", "err", err), &out0)
 	var hostnameErr *tls.CertificateVerificationError
 	if errors.As(err, &hostnameErr) {
 		return fmt.Errorf("the server certificate could not be verified: %v", hostnameErr.Err)
@@ -157,17 +152,19 @@ func describeTLSError(err error) error {
 // guardedHTTPClient returns an HTTP client whose connections obey the same
 // address policy, used for autoconfig documents fetched from a user-typed
 // domain.
-func guardedHTTPClient(allowPrivate bool, timeout time.Duration) *http.Client {
-	logger.Debug("email", "guardedHTTPClient")
+func guardedHTTPClient(allowPrivate bool, timeout time.Duration) (out0 *http.Client) {
+	defer logger.Out1(logger.In2("email", "guardedHTTPClient", "&timeout", &timeout, "!allowPrivate", allowPrivate), &out0)
 	transport := &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			host, portText, err := net.SplitHostPort(address)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, err
 			}
 			port, err := strconv.Atoi(portText)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, err
 			}
 			return dialGuarded(ctx, host, port, allowPrivate)

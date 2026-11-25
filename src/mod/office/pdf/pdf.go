@@ -28,24 +28,21 @@ const pxToMM = 25.4 / 96.0
 
 // pdfSetFillHex / pdfSetTextHex apply "#rrggbb" (or rgb()) colors
 func pdfColor(c string) (int, int, int, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfColor: c=%.120q", c)
-	}
+	logger.DebugTrace("office/pdf", "pdfColor")
 	hexv := htmlutil.CSSColorHex(c)
 	if len(hexv) != 6 {
 		return 0, 0, 0, false
 	}
 	var r, g, b int
 	if _, err := fmt.Sscanf(hexv, "%02X%02X%02X", &r, &g, &b); err != nil {
+		logger.DebugErr("office/pdf", err)
 		return 0, 0, 0, false
 	}
 	return r, g, b, true
 }
 
 func pdfSetTextHex(pdf *fpdf.Fpdf, c string, defR, defG, defB int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfSetTextHex: c=%.120q defR=%d defG=%d defB=%d", c, defR, defG, defB)
-	}
+	logger.DebugTrace("office/pdf", "pdfSetTextHex")
 	if r, g, b, ok := pdfColor(c); ok {
 		pdf.SetTextColor(r, g, b)
 	} else {
@@ -54,9 +51,7 @@ func pdfSetTextHex(pdf *fpdf.Fpdf, c string, defR, defG, defB int) {
 }
 
 func pdfSetFillHex(pdf *fpdf.Fpdf, c string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfSetFillHex: c=%.120q", c)
-	}
+	logger.DebugTrace("office/pdf", "pdfSetFillHex")
 	if r, g, b, ok := pdfColor(c); ok {
 		pdf.SetFillColor(r, g, b)
 		return true
@@ -65,9 +60,7 @@ func pdfSetFillHex(pdf *fpdf.Fpdf, c string) bool {
 }
 
 func pdfSetDrawHex(pdf *fpdf.Fpdf, c string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfSetDrawHex: c=%.120q", c)
-	}
+	logger.DebugTrace("office/pdf", "pdfSetDrawHex")
 	if r, g, b, ok := pdfColor(c); ok {
 		pdf.SetDrawColor(r, g, b)
 	} else {
@@ -77,9 +70,7 @@ func pdfSetDrawHex(pdf *fpdf.Fpdf, c string) {
 
 // pdfStyleStr builds fpdf's font style string
 func pdfStyleStr(b, i, u bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfStyleStr: b=%t i=%t u=%t", b, i, u)
-	}
+	logger.DebugTrace("office/pdf", "pdfStyleStr")
 	s := ""
 	if b {
 		s += "B"
@@ -96,9 +87,7 @@ func pdfStyleStr(b, i, u bool) string {
 // pdfImageFromDataURL registers a data-URL image under a unique name and
 // returns (name, imageType, ok)
 func pdfImageFromDataURL(pdf *fpdf.Fpdf, src string, seq *int) (string, string, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfImageFromDataURL: src=%.120q", src)
-	}
+	logger.DebugTrace("office/pdf", "pdfImageFromDataURL")
 	data, ext, ok := media.DecodeDataURL(src)
 	if !ok {
 		return "", "", false
@@ -122,6 +111,7 @@ func pdfOutput(pdf *fpdf.Fpdf) ([]byte, error) {
 	logger.DebugTrace("office/pdf", "pdfOutput")
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
+		logger.DebugErr("office/pdf", err)
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -132,9 +122,7 @@ func pdfOutput(pdf *fpdf.Fpdf) ([]byte, error) {
 // writes the bytes of a Bookmark title as they are while a core font is
 // set, which is always the case here.
 func pdfTextString(s string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfTextString: s=%.120q", s)
-	}
+	logger.DebugTrace("office/pdf", "pdfTextString")
 	u := utf16.Encode([]rune(s))
 	b := make([]byte, 2, 2+2*len(u))
 	b[0], b[1] = 0xFE, 0xFF
@@ -174,9 +162,7 @@ func pdfTr(pdf *fpdf.Fpdf) func(string) string {
 // drawn) while the cut is made on runes of the original, so a multi-byte
 // character is never split in half.
 func pdfFitText(pdf *fpdf.Fpdf, tr func(string) string, s string, maxW float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "pdfFitText: s=%.120q maxW=%g", s, maxW)
-	}
+	logger.DebugTrace("office/pdf", "pdfFitText")
 	if s == "" || maxW <= 0 {
 		return ""
 	}

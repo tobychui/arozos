@@ -42,8 +42,8 @@ var (
 // PullCopy makes a verified copy of a file on a local volume, fetching the
 // bytes from the source volume (remote through the chunked protocol, or a
 // local copy when the source is on this node too).
-func (s *Service) PullCopy(ctx context.Context, req PullRequest) error {
-	logger.Debug("cluster/storage", "Service.PullCopy")
+func (s *Service) PullCopy(ctx context.Context, req PullRequest) (out0 error) {
+	defer logger.Out1(logger.In3("cluster/storage", "Service.PullCopy", "s", s, "ctx", ctx, "&req", &req), &out0)
 	rec, ok := s.meta.FileByID(req.FileID)
 	if !ok || rec.Removed || rec.IsDir {
 		return ErrFileGone
@@ -58,9 +58,11 @@ func (s *Service) PullCopy(ctx context.Context, req PullRequest) error {
 	}
 	real, err := s.realPath(target, rec.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(real), 0755); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 	part := real + ".part-" + uuid.NewV4().String()
@@ -73,13 +75,16 @@ func (s *Service) PullCopy(ctx context.Context, req PullRequest) error {
 	if source.NodeID == s.m.NodeID() {
 		srcReal, err := s.realPath(source, rec.Path)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		if err := copyFile(srcReal, part); err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		sum, size, err := fileChecksum(part)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		if sum != rec.Checksum || size != rec.Size {
@@ -88,15 +93,18 @@ func (s *Service) PullCopy(ctx context.Context, req PullRequest) error {
 	} else {
 		f, err := os.Create(part)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 		err = s.client.Download(ctx, source.NodeID, source.ID, rec.Path, f, rec.Checksum, nil)
 		f.Close()
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return err
 		}
 	}
 	if err := os.Rename(part, real); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 
@@ -111,6 +119,7 @@ func (s *Service) PullCopy(ctx context.Context, req PullRequest) error {
 		latest.Primary = target.ID
 	}
 	if err := s.meta.Submit(metadata.KindFile, latest); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 	if s.OnReplicaVerified != nil {
@@ -121,10 +130,8 @@ func (s *Service) PullCopy(ctx context.Context, req PullRequest) error {
 
 // DropCopy removes the copy of a file on a volume (local or remote) and
 // forgets it in the record. It never removes the last healthy copy.
-func (s *Service) DropCopy(fileID string, volumeID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.DropCopy: fileID=%.120q volumeID=%.120q", fileID, volumeID)
-	}
+func (s *Service) DropCopy(fileID string, volumeID string) (out0 error) {
+	defer logger.Out1(logger.In3("cluster/storage", "Service.DropCopy", "s", s, "fileID", fileID, "volumeID", volumeID), &out0)
 	rec, ok := s.meta.FileByID(fileID)
 	if !ok {
 		return ErrFileGone
@@ -152,6 +159,7 @@ func (s *Service) DropCopy(fileID string, volumeID string) error {
 		}
 	}
 	if err := s.meta.Submit(metadata.KindFile, rec); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return err
 	}
 	s.deletePhysical(loc, rec.Path)
@@ -170,10 +178,8 @@ type VerifyResult struct {
 // VerifyLocalCopies re-checksums this node's copies, least recently checked
 // first, until budget bytes have been read. Mismatching or missing copies
 // become stale; good ones become verified with a fresh timestamp.
-func (s *Service) VerifyLocalCopies(budget int64) VerifyResult {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.VerifyLocalCopies: budget=%d", budget)
-	}
+func (s *Service) VerifyLocalCopies(budget int64) (out0 VerifyResult) {
+	defer logger.Out1(logger.In2("cluster/storage", "Service.VerifyLocalCopies", "s", s, "budget", budget), &out0)
 	res := VerifyResult{Time: time.Now().Unix()}
 	if !s.Ready() {
 		return res
@@ -205,6 +211,7 @@ func (s *Service) VerifyLocalCopies(budget int64) VerifyResult {
 		}
 		real, err := s.realPath(vol, it.rec.Path)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			continue
 		}
 		res.Checked++
@@ -238,10 +245,8 @@ func (s *Service) VerifyLocalCopies(budget int64) VerifyResult {
 
 // StartEvacuation marks a local volume as evacuating (read only, no new
 // copies); the replication planner then moves its copies elsewhere.
-func (s *Service) StartEvacuation(volumeID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.StartEvacuation: volumeID=%.120q", volumeID)
-	}
+func (s *Service) StartEvacuation(volumeID string) (out0 error) {
+	defer logger.Out1(logger.In2("cluster/storage", "Service.StartEvacuation", "s", s, "volumeID", volumeID), &out0)
 	vol, ok := s.meta.Volume(volumeID)
 	if !ok || vol.Removed {
 		return errors.New("volume not found")
@@ -258,10 +263,8 @@ func (s *Service) StartEvacuation(volumeID string) error {
 }
 
 // CancelEvacuation makes the volume writable again.
-func (s *Service) CancelEvacuation(volumeID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.CancelEvacuation: volumeID=%.120q", volumeID)
-	}
+func (s *Service) CancelEvacuation(volumeID string) (out0 error) {
+	defer logger.Out1(logger.In2("cluster/storage", "Service.CancelEvacuation", "s", s, "volumeID", volumeID), &out0)
 	vol, ok := s.meta.Volume(volumeID)
 	if !ok || vol.Removed || vol.NodeID != s.m.NodeID() {
 		return errors.New("volume not found on this node")
@@ -282,10 +285,8 @@ type EvacuationStatus struct {
 }
 
 // EvacuationStatus counts the copies still held on a volume.
-func (s *Service) EvacuationStatus(volumeID string) EvacuationStatus {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.EvacuationStatus: volumeID=%.120q", volumeID)
-	}
+func (s *Service) EvacuationStatus(volumeID string) (out0 EvacuationStatus) {
+	defer logger.Out1(logger.In2("cluster/storage", "Service.EvacuationStatus", "s", s, "volumeID", volumeID), &out0)
 	st := EvacuationStatus{VolumeID: volumeID}
 	vol, ok := s.meta.Volume(volumeID)
 	if !ok {
@@ -309,10 +310,8 @@ func (s *Service) EvacuationStatus(volumeID string) EvacuationStatus {
 }
 
 // FinishEvacuation retires an evacuating volume once nothing references it.
-func (s *Service) FinishEvacuation(volumeID string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.FinishEvacuation: volumeID=%.120q", volumeID)
-	}
+func (s *Service) FinishEvacuation(volumeID string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("cluster/storage", "Service.FinishEvacuation", "s", s, "volumeID", volumeID), &out0, &out1)
 	vol, ok := s.meta.Volume(volumeID)
 	if !ok || vol.Removed || !vol.Evacuating {
 		return false, nil
@@ -322,6 +321,7 @@ func (s *Service) FinishEvacuation(volumeID string) (bool, error) {
 	}
 	vol.Removed = true
 	if err := s.meta.Submit(metadata.KindVolume, vol); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return false, err
 	}
 	s.forgetVolumeLocations(volumeID)

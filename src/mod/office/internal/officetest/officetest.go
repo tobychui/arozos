@@ -18,10 +18,8 @@ import (
 )
 
 // tiny real PNG with a known non-4:3 aspect (100x25)
-func MakePngDataURL(t *testing.T, w, h int) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "MakePngDataURL: w=%d h=%d", w, h)
-	}
+func MakePngDataURL(t *testing.T, w, h int) (out0 string) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "MakePngDataURL", "t", t, "w", w, "h", h), &out0)
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	for x := 0; x < w; x++ {
@@ -31,16 +29,18 @@ func MakePngDataURL(t *testing.T, w, h int) string {
 	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
+		logger.DebugErr("office/internal/officetest", err)
 		t.Fatalf("png encode: %v", err)
 	}
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
 }
 
-func PngBytes(t *testing.T) []byte {
-	logger.Debug("office/internal/officetest", "PngBytes")
+func PngBytes(t *testing.T) (out0 []byte) {
+	defer logger.Out1(logger.In1("office/internal/officetest", "PngBytes", "t", t), &out0)
 	t.Helper()
 	b, err := base64.StdEncoding.DecodeString(strings.SplitN(PngDataURL, ",", 2)[1])
 	if err != nil {
+		logger.DebugErr("office/internal/officetest", err)
 		t.Fatal("test picture does not decode")
 	}
 	return b
@@ -50,17 +50,19 @@ func PngBytes(t *testing.T) []byte {
 const PngDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 
 // unzipParts reads every text part of a docx/odt package
-func UnzipParts(t *testing.T, data []byte) map[string]string {
-	logger.Debug("office/internal/officetest", "UnzipParts")
+func UnzipParts(t *testing.T, data []byte) (out0 map[string]string) {
+	defer logger.Out1(logger.In2("office/internal/officetest", "UnzipParts", "t", t, "data", data), &out0)
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
+		logger.DebugErr("office/internal/officetest", err)
 		t.Fatalf("output is not a valid zip: %v", err)
 	}
 	out := map[string]string{}
 	for _, f := range zr.File {
 		rc, err := f.Open()
 		if err != nil {
+			logger.DebugErr("office/internal/officetest", err)
 			continue
 		}
 		b, _ := io.ReadAll(rc)
@@ -70,24 +72,25 @@ func UnzipParts(t *testing.T, data []byte) map[string]string {
 	return out
 }
 
-func ZipPart(t *testing.T, data []byte, name string) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "ZipPart: name=%.120q", name)
-	}
+func ZipPart(t *testing.T, data []byte, name string) (out0 []byte) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "ZipPart", "t", t, "data", data, "name", name), &out0)
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
+		logger.DebugErr("office/internal/officetest", err)
 		t.Fatalf("output is not a zip: %v", err)
 	}
 	for _, f := range zr.File {
 		if f.Name == name {
 			rc, err := f.Open()
 			if err != nil {
+				logger.DebugErr("office/internal/officetest", err)
 				t.Fatalf("open %s: %v", name, err)
 			}
 			defer rc.Close()
 			b, err := io.ReadAll(rc)
 			if err != nil {
+				logger.DebugErr("office/internal/officetest", err)
 				t.Fatalf("read %s: %v", name, err)
 			}
 			return b

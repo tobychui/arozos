@@ -2,6 +2,7 @@ package logger
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -220,5 +221,54 @@ func TestGetLogFilepath(t *testing.T) {
 	}
 	if !strings.Contains(path, strconv.Itoa(int(month))) {
 		t.Errorf("expected month in path: %s", path)
+	}
+}
+
+func TestCaptureCrashesNoFile(t *testing.T) {
+	tests := []struct {
+		name string
+		l    *Logger
+	}{
+		{"nil logger", nil},
+		{"console only", &Logger{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.l.CaptureCrashes() //Must not panic or capture anything
+			if tt.l != nil && tt.l.crashCapture {
+				t.Errorf("crash capture turned on without a log file")
+			}
+		})
+	}
+}
+
+// TestCaptureCrashesWritesLog crashes a child copy of the test binary and
+// checks that the panic and its stack reached the log file.
+func TestCaptureCrashesWritesLog(t *testing.T) {
+	if dir := os.Getenv("AROZ_CRASH_TEST_DIR"); dir != "" {
+		l, err := NewLogger("crash", dir, true)
+		if err != nil {
+			os.Exit(3)
+		}
+		l.CaptureCrashes()
+		var m map[string]int
+		m["x"] = 1 //assignment to entry in nil map
+		return
+	}
+	dir := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCaptureCrashesWritesLog$")
+	cmd.Env = append(os.Environ(), "AROZ_CRASH_TEST_DIR="+dir)
+	if err := cmd.Run(); err == nil {
+		t.Fatalf("the child did not crash")
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "crash_*.log"))
+	if len(files) != 1 {
+		t.Fatalf("want one log file, got %v", files)
+	}
+	b, _ := os.ReadFile(files[0])
+	for _, want := range []string{"assignment to entry in nil map", "TestCaptureCrashesWritesLog", "logger_test.go:"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("log file lacks %q:\n%s", want, b)
+		}
 	}
 }

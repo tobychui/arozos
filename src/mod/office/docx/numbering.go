@@ -56,6 +56,7 @@ func parseNumbering(raw []byte) *docxNumDefs {
 	}
 	tree, err := xmltree.Parse(raw)
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return nb
 	}
 	for _, an := range tree.All("abstractNum") {
@@ -63,6 +64,7 @@ func parseNumbering(raw []byte) *docxNumDefs {
 		for _, lvl := range an.All("lvl") {
 			idx, err := strconv.Atoi(lvl.Attr("ilvl"))
 			if err != nil {
+				logger.DebugErr("office/docx", err)
 				continue
 			}
 			levels[idx] = parseNumLevel(lvl)
@@ -77,6 +79,7 @@ func parseNumbering(raw []byte) *docxNumDefs {
 		for _, ov := range num.All("lvlOverride") {
 			idx, err := strconv.Atoi(ov.Attr("ilvl"))
 			if err != nil {
+				logger.DebugErr("office/docx", err)
 				continue
 			}
 			if so := ov.First("startOverride"); so != nil {
@@ -142,9 +145,7 @@ func parseNumLevel(lvl *xmltree.Node) *docxNumLevel {
 
 // level returns the definition of one level of a list instance
 func (nb *docxNumDefs) level(numID string, ilvl int) *docxNumLevel {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxNumDefs.level: numID=%.120q ilvl=%d", numID, ilvl)
-	}
+	logger.DebugTrace("office/docx", "docxNumDefs.level")
 	if ov, ok := nb.override[numID]; ok {
 		if l, ok := ov[ilvl]; ok {
 			return l
@@ -161,9 +162,7 @@ func (nb *docxNumDefs) level(numID string, ilvl int) *docxNumLevel {
 // exists reports whether numID names a real list (numId 0 switches
 // numbering off for a paragraph whose style would otherwise number it)
 func (nb *docxNumDefs) exists(numID string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxNumDefs.exists: numID=%.120q", numID)
-	}
+	logger.DebugTrace("office/docx", "docxNumDefs.exists")
 	if numID == "" || numID == "0" {
 		return false
 	}
@@ -173,9 +172,7 @@ func (nb *docxNumDefs) exists(numID string) bool {
 
 // next advances the counter for an item at ilvl and returns its value
 func (nb *docxNumDefs) next(numID string, ilvl int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxNumDefs.next: numID=%.120q ilvl=%d", numID, ilvl)
-	}
+	logger.DebugTrace("office/docx", "docxNumDefs.next")
 	c := nb.counters[numID]
 	st := nb.started[numID]
 	if c == nil {
@@ -221,9 +218,7 @@ func (nb *docxNumDefs) next(numID string, ilvl int) int {
 // htmlListFormat maps a Word number format onto the editor's list format
 // names (the same vocabulary docs_layout.js understands)
 func htmlListFormat(f string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "htmlListFormat: f=%.120q", f)
-	}
+	logger.DebugTrace("office/docx", "htmlListFormat")
 	switch f {
 	case "bullet", "decimal", "lowerLetter", "upperLetter", "lowerRoman", "upperRoman", "none":
 		return f
@@ -235,9 +230,7 @@ func htmlListFormat(f string) string {
 
 // formatListNumber renders one counter value in a Word number format
 func formatListNumber(v int, f string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "formatListNumber: v=%d f=%.120q", v, f)
-	}
+	logger.DebugTrace("office/docx", "formatListNumber")
 	switch f {
 	case "lowerLetter", "upperLetter":
 		s := alphaNumber(v)
@@ -261,9 +254,7 @@ func formatListNumber(v int, f string) string {
 
 // alphaNumber: 1 -> a, 26 -> z, 27 -> aa (Word repeats the letter)
 func alphaNumber(v int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "alphaNumber: v=%d", v)
-	}
+	logger.DebugTrace("office/docx", "alphaNumber")
 	if v < 1 {
 		return ""
 	}
@@ -272,9 +263,7 @@ func alphaNumber(v int) string {
 }
 
 func romanNumber(v int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "romanNumber: v=%d", v)
-	}
+	logger.DebugTrace("office/docx", "romanNumber")
 	if v < 1 || v > 3999 {
 		return strconv.Itoa(v)
 	}

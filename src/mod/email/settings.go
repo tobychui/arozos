@@ -60,7 +60,7 @@ func DefaultUserSettings() UserSettings {
 // normalise clamps every field into its valid range, so a hand-edited or
 // older record can never put the UI into an impossible state.
 func (s *UserSettings) normalise() {
-	logger.Debug("email", "UserSettings.normalise")
+	defer logger.Out0(logger.In1("email", "UserSettings.normalise", "s", s))
 	defaults := DefaultUserSettings()
 	if !oneOf(s.Theme, "system", "light", "dark") {
 		s.Theme = defaults.Theme
@@ -113,8 +113,8 @@ func (s *UserSettings) normalise() {
 
 // IsTrustedSender reports whether remote content of mail from address loads
 // without asking: either the exact address or its whole domain is trusted.
-func (s *UserSettings) IsTrustedSender(address string) bool {
-	logger.Debug("email", "UserSettings.IsTrustedSender")
+func (s *UserSettings) IsTrustedSender(address string) (out0 bool) {
+	defer logger.Out1(logger.In2("email", "UserSettings.IsTrustedSender", "s", s, "address", address), &out0)
 	address = strings.ToLower(strings.TrimSpace(address))
 	if address == "" {
 		return false
@@ -189,7 +189,7 @@ func defaultAdminConfig() AdminConfig {
 }
 
 func (c *AdminConfig) normalise() {
-	logger.Debug("email", "AdminConfig.normalise")
+	defer logger.Out0(logger.In1("email", "AdminConfig.normalise", "c", c))
 	if !oneOf(c.Google.Flow, FlowRedirect, FlowLoopback) {
 		c.Google.Flow = FlowRedirect
 	}
@@ -222,10 +222,8 @@ func (c *OAuthClient) view() OAuthClientView {
 	}
 }
 
-func oneOf(value string, options ...string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oneOf: value=%.120q len(options)=%d", value, len(options))
-	}
+func oneOf(value string, options ...string) (out0 bool) {
+	defer logger.Out1(logger.In2("email", "oneOf", "value", value, "options", options), &out0)
 	for _, option := range options {
 		if value == option {
 			return true

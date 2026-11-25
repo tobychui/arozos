@@ -216,9 +216,7 @@ func (cv *docxConv) tocFieldOpen() bool {
 
 // isTocInstr reports a TOC field instruction (upper-cased by the reader)
 func isTocInstr(instr string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "isTocInstr: instr=%.120q", instr)
-	}
+	logger.DebugTrace("office/docx", "isTocInstr")
 	w := strings.Fields(instr)
 	return len(w) > 0 && strings.EqualFold(w[0], "TOC")
 }
@@ -234,9 +232,7 @@ var (
 // names (\t "Heading 1,1,Heading 2,2,"); 3 when it says neither, as the
 // editor's own table does
 func tocInstrMaxLevel(instr string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "tocInstrMaxLevel: instr=%.120q", instr)
-	}
+	logger.DebugTrace("office/docx", "tocInstrMaxLevel")
 	max := 0
 	if m := tocOutlineSwitch.FindStringSubmatch(instr); m != nil {
 		if n, err := strconv.Atoi(m[2]); err == nil {
@@ -266,9 +262,7 @@ func tocInstrMaxLevel(instr string) int {
 // paragraph Word ends the field in: it has text, and a page number after
 // a tab or a link to its heading
 func looksLikeTocEntry(inner string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "looksLikeTocEntry: inner=%.120q", inner)
-	}
+	logger.DebugTrace("office/docx", "looksLikeTocEntry")
 	if strings.TrimSpace(stripTags(inner)) == "" {
 		return false
 	}
@@ -325,9 +319,7 @@ func resolveTocLevels(body string) string {
 // tocStyleLevel reports which table of contents line a paragraph style
 // is: 1-9 for "toc 1".."toc 9", -1 for "TOC Heading", 0 for none
 func tocStyleLevel(id, name string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "tocStyleLevel: id=%.120q name=%.120q", id, name)
-	}
+	logger.DebugTrace("office/docx", "tocStyleLevel")
 	n := strings.ToLower(id)
 	if name != "" {
 		n = strings.ToLower(name)
@@ -346,9 +338,7 @@ func tocStyleLevel(id, name string) int {
 // nearest style first: "TOC Heading" is based on Heading 1 in Word, and
 // is a title, not a heading
 func (ss *docxStyleSheet) tocLevel(id string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxStyleSheet.tocLevel: id=%.120q", id)
-	}
+	logger.DebugTrace("office/docx", "docxStyleSheet.tocLevel")
 	if id == "" {
 		return 0
 	}

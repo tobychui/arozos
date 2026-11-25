@@ -30,8 +30,8 @@ type Token struct {
 }
 
 // Create a new CSRF Token Manager
-func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) *TokenManager {
-	logger.Debug("security/csrf", "NewTokenManager")
+func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) (out0 *TokenManager) {
+	defer logger.Out1(logger.In2("security/csrf", "NewTokenManager", "uh", uh, "!tokenExpireTime", tokenExpireTime), &out0)
 	tm := TokenManager{
 		UserHandler:            uh,
 		csrfTokens:             &sync.Map{},
@@ -41,10 +41,8 @@ func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) *TokenManager 
 }
 
 // Generate a new token
-func (m *TokenManager) GenerateNewToken(username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("security/csrf", "TokenManager.GenerateNewToken: username=%.120q", username)
-	}
+func (m *TokenManager) GenerateNewToken(username string) (out0 string) {
+	defer logger.Out1(logger.In2("security/csrf", "TokenManager.GenerateNewToken", "m", m, "username", username), &out0)
 	//Generate a new uuid as the token
 	newUUID := uuid.NewV4().String()
 
@@ -63,10 +61,8 @@ func (m *TokenManager) GenerateNewToken(username string) string {
 	return newUUID
 }
 
-func (m *TokenManager) GetUserTokenMap(username string) *sync.Map {
-	if logger.IsDebug() {
-		logger.Debugf("security/csrf", "TokenManager.GetUserTokenMap: username=%.120q", username)
-	}
+func (m *TokenManager) GetUserTokenMap(username string) (out0 *sync.Map) {
+	defer logger.Out1(logger.In2("security/csrf", "TokenManager.GetUserTokenMap", "m", m, "username", username), &out0)
 	usermap, ok := m.csrfTokens.Load(username)
 	if !ok {
 		//This user do not have his syncmap. Create one and save it
@@ -81,10 +77,8 @@ func (m *TokenManager) GetUserTokenMap(username string) *sync.Map {
 }
 
 // Check if a given token is valud
-func (m *TokenManager) CheckTokenValidation(username string, token string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("security/csrf", "TokenManager.CheckTokenValidation: username=%.120q", username)
-	}
+func (m *TokenManager) CheckTokenValidation(username string, token string) (out0 bool) {
+	defer logger.Out1(logger.In3("security/csrf", "TokenManager.CheckTokenValidation", "m", m, "username", username, "!token", token), &out0)
 	userSyncMap := m.GetUserTokenMap(username)
 	tokenObject, ok := userSyncMap.Load(token)
 	if !ok {
@@ -106,7 +100,7 @@ func (m *TokenManager) CheckTokenValidation(username string, token string) bool 
 }
 
 func (m *TokenManager) ClearExpiredTokens() {
-	logger.Debug("security/csrf", "TokenManager.ClearExpiredTokens")
+	defer logger.Out0(logger.In1("security/csrf", "TokenManager.ClearExpiredTokens", "m", m))
 	currentTime := time.Now().Unix()
 	m.csrfTokens.Range(func(username, usermap interface{}) bool {
 		//For each user tokens

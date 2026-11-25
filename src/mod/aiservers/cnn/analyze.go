@@ -41,10 +41,8 @@ type AnalyzeResult struct {
 
 // Analyze runs several recognition tasks over one image in a single request
 // (the server decodes the image and warms models once).
-func (c *Client) Analyze(image []byte, mimeType string, opt AnalyzeOptions) (*AnalyzeResult, *Job, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/cnn", "Client.Analyze: len(image)=%d", len(image))
-	}
+func (c *Client) Analyze(image []byte, mimeType string, opt AnalyzeOptions) (out0 *AnalyzeResult, out1 *Job, out2 error) {
+	defer logger.Out3(logger.In4("aiservers/cnn", "Client.Analyze", "c", c, "image", image, "mimeType", mimeType, "&opt", &opt), &out0, &out1, &out2)
 	req := analyzeRequest{
 		Image:   dataURI(image, mimeType),
 		Tasks:   opt.Tasks,

@@ -60,14 +60,15 @@ type Scheduler struct {
 
 var ()
 
-func NewScheduler(option *ScheudlerOption) (*Scheduler, error) {
-	logger.Debug("time/scheduler", "NewScheduler")
+func NewScheduler(option *ScheudlerOption) (out0 *Scheduler, out1 error) {
+	defer logger.Out2(logger.In1("time/scheduler", "NewScheduler", "option", option), &out0, &out1)
 	if !utils.FileExists(option.CronFile) {
 		//Cronfile not exists. Create it
 		emptyJobList := []*Job{}
 		ls, _ := json.Marshal(emptyJobList)
 		err := os.WriteFile(option.CronFile, ls, 0755)
 		if err != nil {
+			logger.DebugErr("time/scheduler", err)
 			return nil, err
 		}
 	}
@@ -75,6 +76,7 @@ func NewScheduler(option *ScheudlerOption) (*Scheduler, error) {
 	//Load previous jobs from file
 	jobs, err := loadJobsFromFile(option.CronFile)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		return nil, err
 	}
 
@@ -101,8 +103,8 @@ func NewScheduler(option *ScheudlerOption) (*Scheduler, error) {
 	return &thisScheduler, nil
 }
 
-func (a *Scheduler) createTicker(duration time.Duration) chan bool {
-	logger.Debug("time/scheduler", "Scheduler.createTicker")
+func (a *Scheduler) createTicker(duration time.Duration) (out0 chan bool) {
+	defer logger.Out1(logger.In2("time/scheduler", "Scheduler.createTicker", "a", a, "&duration", &duration), &out0)
 	ticker := time.NewTicker(duration)
 	stop := make(chan bool, 1)
 
@@ -137,9 +139,10 @@ func (a *Scheduler) createTicker(duration time.Duration) chan bool {
 //     ScriptVpath is a virtual path like "user:/path/to/script.agi".
 //     The file is resolved through the creator's storage pool.
 func (a *Scheduler) executeJob(thisJob *Job) {
-	logger.Debug("time/scheduler", "Scheduler.executeJob")
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.executeJob", "a", a, "thisJob", thisJob))
 	targetUser, err := a.options.UserHandler.GetUserInfoFromUsername(thisJob.Creator)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		a.cronlogError("User "+thisJob.Creator+" no longer exists", err)
 		return
 	}
@@ -165,6 +168,7 @@ func (a *Scheduler) executeJob(thisJob *Job) {
 			// fsh == nil --> ExecuteAGIScriptAsUser reads via os.ReadFile
 			execID, resp, execErr := a.options.Gateway.ExecuteAGIScriptAsUser(nil, realPath, u, nil, nil)
 			if execErr != nil {
+				logger.DebugErr("time/scheduler", execErr)
 				a.cronlogError("["+execID+"] "+job.Name+" execution error: "+execErr.Error(), execErr)
 				job.lastExecutionOutput = execErr.Error()
 			} else {
@@ -178,11 +182,13 @@ func (a *Scheduler) executeJob(thisJob *Job) {
 	// ── User virtual-path script ──────────────────────────────────────────
 	fsh, err := targetUser.GetFileSystemHandlerFromVirtualPath(thisJob.ScriptVpath)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		a.cronlogError("Unable to resolve vpath for job: "+thisJob.Name+" (user: "+thisJob.Creator+")", err)
 		return
 	}
 	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(thisJob.ScriptVpath, targetUser.Username)
 	if err != nil {
+		logger.DebugErr("time/scheduler", err)
 		a.cronlogError("Unable to get real path for job: "+thisJob.Name, err)
 		return
 	}
@@ -201,6 +207,7 @@ func (a *Scheduler) executeJob(thisJob *Job) {
 		job.lastExecutionTime = time.Now().Unix()
 		execID, resp, execErr := a.options.Gateway.ExecuteAGIScriptAsUser(f, realPath, u, nil, nil)
 		if execErr != nil {
+			logger.DebugErr("time/scheduler", execErr)
 			a.cronlogError("["+execID+"] "+job.Name+" execution error: "+execErr.Error(), execErr)
 			job.lastExecutionOutput = execErr.Error()
 		} else {
@@ -211,7 +218,7 @@ func (a *Scheduler) executeJob(thisJob *Job) {
 }
 
 func (a *Scheduler) Close() {
-	logger.Debug("time/scheduler", "Scheduler.Close")
+	defer logger.Out0(logger.In1("time/scheduler", "Scheduler.Close", "a", a))
 	if a.ticker != nil {
 		//Stop the ticker
 		a.ticker <- true
@@ -219,16 +226,14 @@ func (a *Scheduler) Close() {
 }
 
 // Add an job object to system scheduler
-func (a *Scheduler) AddJobToScheduler(job *Job) error {
-	logger.Debug("time/scheduler", "Scheduler.AddJobToScheduler")
+func (a *Scheduler) AddJobToScheduler(job *Job) (out0 error) {
+	defer logger.Out1(logger.In2("time/scheduler", "Scheduler.AddJobToScheduler", "a", a, "job", job), &out0)
 	a.jobs = append(a.jobs, job)
 	return nil
 }
 
-func (a *Scheduler) GetScheduledJobByName(name string) *Job {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.GetScheduledJobByName: name=%.120q", name)
-	}
+func (a *Scheduler) GetScheduledJobByName(name string) (out0 *Job) {
+	defer logger.Out1(logger.In2("time/scheduler", "Scheduler.GetScheduledJobByName", "a", a, "name", name), &out0)
 	for _, thisJob := range a.jobs {
 		if thisJob.Name == name {
 			return thisJob
@@ -239,9 +244,7 @@ func (a *Scheduler) GetScheduledJobByName(name string) *Job {
 }
 
 func (a *Scheduler) RemoveJobFromScheduleList(taskName string) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.RemoveJobFromScheduleList: taskName=%.120q", taskName)
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.RemoveJobFromScheduleList", "a", a, "taskName", taskName))
 	newJobSlice := []*Job{}
 	for _, j := range a.jobs {
 		if j.Name != taskName {
@@ -252,10 +255,8 @@ func (a *Scheduler) RemoveJobFromScheduleList(taskName string) {
 	a.jobs = newJobSlice
 }
 
-func (a *Scheduler) JobExists(name string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.JobExists: name=%.120q", name)
-	}
+func (a *Scheduler) JobExists(name string) (out0 bool) {
+	defer logger.Out1(logger.In2("time/scheduler", "Scheduler.JobExists", "a", a, "name", name), &out0)
 	targetJob := a.GetScheduledJobByName(name)
 	if targetJob == nil {
 		return false
@@ -265,10 +266,8 @@ func (a *Scheduler) JobExists(name string) bool {
 }
 
 // GetJobsByApp returns all jobs registered by the given app name
-func (a *Scheduler) GetJobsByApp(appName string) []*Job {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.GetJobsByApp: appName=%.120q", appName)
-	}
+func (a *Scheduler) GetJobsByApp(appName string) (out0 []*Job) {
+	defer logger.Out1(logger.In2("time/scheduler", "Scheduler.GetJobsByApp", "a", a, "appName", appName), &out0)
 	result := []*Job{}
 	for _, j := range a.jobs {
 		if j.AppName == appName {
@@ -280,9 +279,7 @@ func (a *Scheduler) GetJobsByApp(appName string) []*Job {
 
 // RemoveJobsByApp removes all scheduler jobs associated with a given app name and saves to disk
 func (a *Scheduler) RemoveJobsByApp(appName string) {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.RemoveJobsByApp: appName=%.120q", appName)
-	}
+	defer logger.Out0(logger.In2("time/scheduler", "Scheduler.RemoveJobsByApp", "a", a, "appName", appName))
 	newJobSlice := []*Job{}
 	for _, j := range a.jobs {
 		if j.AppName != appName {
@@ -294,10 +291,8 @@ func (a *Scheduler) RemoveJobsByApp(appName string) {
 }
 
 // AppJobExists checks whether a job with the given name was registered by the given app and creator
-func (a *Scheduler) AppJobExists(appName, creator, taskName string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.AppJobExists: appName=%.120q creator=%.120q taskName=%.120q", appName, creator, taskName)
-	}
+func (a *Scheduler) AppJobExists(appName, creator, taskName string) (out0 bool) {
+	defer logger.Out1(logger.In4("time/scheduler", "Scheduler.AppJobExists", "a", a, "appName", appName, "creator", creator, "taskName", taskName), &out0)
 	for _, j := range a.jobs {
 		if j.AppName == appName && j.Creator == creator && j.Name == taskName {
 			return true
@@ -315,10 +310,8 @@ func (a *Scheduler) AppJobExists(appName, creator, taskName string) bool {
 //
 // Otherwise scriptVpath must be a full virtual path (e.g. "user:/path/to/script.agi")
 // and is resolved through the creator's storage pool as usual.
-func (a *Scheduler) RegisterJobFromAGI(creator, appName, taskName, scriptVpath, description string, interval, baseTime int64) error {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.RegisterJobFromAGI: creator=%.120q appName=%.120q taskName=%.120q scriptVpath=%.120q description=%.120q interval=%d baseTime=%d", creator, appName, taskName, scriptVpath, description, interval, baseTime)
-	}
+func (a *Scheduler) RegisterJobFromAGI(creator, appName, taskName, scriptVpath, description string, interval, baseTime int64) (out0 error) {
+	defer logger.Out1(logger.In8("time/scheduler", "Scheduler.RegisterJobFromAGI", "a", a, "creator", creator, "appName", appName, "taskName", taskName, "scriptVpath", scriptVpath, "description", description, "interval", interval, "baseTime", baseTime), &out0)
 	// Validate name uniqueness
 	for _, j := range a.jobs {
 		if j.Name == taskName {
@@ -343,10 +336,12 @@ func (a *Scheduler) RegisterJobFromAGI(creator, appName, taskName, scriptVpath, 
 		// User virtual-path script
 		targetUser, err := a.options.UserHandler.GetUserInfoFromUsername(creator)
 		if err != nil {
+			logger.DebugErr("time/scheduler", err)
 			return err
 		}
 		fsh, err := targetUser.GetFileSystemHandlerFromVirtualPath(scriptVpath)
 		if err != nil {
+			logger.DebugErr("time/scheduler", err)
 			return err
 		}
 		fshID = fsh.UUID
@@ -374,18 +369,14 @@ func (a *Scheduler) RegisterJobFromAGI(creator, appName, taskName, scriptVpath, 
 // Without this alignment, any job with interval < 86400 that was registered
 // at a non-minute boundary will never fire.
 func alignBaseTime(t int64) int64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("time/scheduler", "alignBaseTime: t=%d", t)
-	}
+	logger.DebugTrace("time/scheduler", "alignBaseTime")
 	return (t / 60) * 60
 }
 
 // containsVpathSeparator returns true when s contains the ":" that marks a
 // virtual-path root (e.g. "user:/…" or "tmp:/…").
-func containsVpathSeparator(s string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "containsVpathSeparator: s=%.120q", s)
-	}
+func containsVpathSeparator(s string) (out0 bool) {
+	defer logger.Out1(logger.In1("time/scheduler", "containsVpathSeparator", "s", s), &out0)
 	for _, c := range s {
 		if c == ':' {
 			return true
@@ -395,10 +386,8 @@ func containsVpathSeparator(s string) bool {
 }
 
 // UnregisterJobFromAGI removes a job by task name for a given creator (or admin)
-func (a *Scheduler) UnregisterJobFromAGI(creator, taskName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("time/scheduler", "Scheduler.UnregisterJobFromAGI: creator=%.120q taskName=%.120q", creator, taskName)
-	}
+func (a *Scheduler) UnregisterJobFromAGI(creator, taskName string) (out0 error) {
+	defer logger.Out1(logger.In3("time/scheduler", "Scheduler.UnregisterJobFromAGI", "a", a, "creator", creator, "taskName", taskName), &out0)
 	targetJob := a.GetScheduledJobByName(taskName)
 	if targetJob == nil {
 		return errors.New("job not found: " + taskName)

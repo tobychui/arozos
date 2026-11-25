@@ -73,8 +73,8 @@ type wsConn struct {
 	lastOprTime int64      // unix seconds of last activity; use atomic load/store
 }
 
-func newWsConn(c *websocket.Conn) *wsConn {
-	logger.Debug("agi", "newWsConn")
+func newWsConn(c *websocket.Conn) (out0 *wsConn) {
+	defer logger.Out1(logger.In1("agi", "newWsConn", "c", c), &out0)
 	wsc := &wsConn{
 		conn:    c,
 		msgChan: make(chan wsMsg, 128),
@@ -104,8 +104,8 @@ var connections = sync.Map{}
 
 // checkWebSocketConnectionUpgradeStatus returns whether the current VM has an
 // active WebSocket connection.  Returns (active, connID, *wsConn).
-func checkWebSocketConnectionUpgradeStatus(vm *otto.Otto) (bool, string, *wsConn) {
-	logger.Debug("agi", "checkWebSocketConnectionUpgradeStatus")
+func checkWebSocketConnectionUpgradeStatus(vm *otto.Otto) (out0 bool, out1 string, out2 *wsConn) {
+	defer logger.Out3(logger.In1("agi", "checkWebSocketConnectionUpgradeStatus", "vm", vm), &out0, &out1, &out2)
 	value, err := vm.Get("_websocket_conn_id")
 	if err != nil || value.IsUndefined() || value.IsNull() {
 		return false, "", nil
@@ -129,7 +129,7 @@ func checkWebSocketConnectionUpgradeStatus(vm *otto.Otto) (bool, string, *wsConn
 // connection from both the sync.Map and the VM.
 // MUST be called from the main (script) goroutine so vm.Set is safe.
 func cleanupWsConn(vm *otto.Otto, connID string, wsc *wsConn) {
-	logger.Debug("agi", "cleanupWsConn")
+	defer logger.Out0(logger.In3("agi", "cleanupWsConn", "vm", vm, "connID", connID, "wsc", wsc))
 	if !wsc.isClosed() {
 		wsc.markClosed()
 		wsc.conn.WriteMessage(
@@ -147,7 +147,7 @@ func cleanupWsConn(vm *otto.Otto, connID string, wsc *wsConn) {
 // Passing data through vm.Set avoids the complexities of otto.Value.Call.
 // MUST be called from the main (script) goroutine.
 func dispatchOnMessage(vm *otto.Otto, msg wsMsg) {
-	logger.Debug("agi", "dispatchOnMessage")
+	defer logger.Out0(logger.In2("agi", "dispatchOnMessage", "vm", vm, "&msg", &msg))
 	vm.Set("_ws_incoming", map[string]interface{}{
 		"data":      msg.Data,
 		"timestamp": msg.Timestamp,
@@ -158,15 +158,14 @@ func dispatchOnMessage(vm *otto.Otto, msg wsMsg) {
 			websocket.onMessage(_ws_incoming);
 		}
 	`); err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint("*AGI WebSocket* onMessage handler error:", err), nil)
 	}
 	vm.Set("_ws_incoming", otto.UndefinedValue())
 }
 
 func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.injectWebSocketFunctions: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("agi", "Gateway.injectWebSocketFunctions", "g", g, "vm", vm, "u", u, "r", r))
 
 	// ── websocket.upgrade(timeoutSeconds) ────────────────────────────────────
 	vm.Set("_websocket_upgrade", func(call otto.FunctionCall) otto.Value {
@@ -181,6 +180,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", fmt.Sprint("*AGI WebSocket* upgrade failed:", err), nil)
 			return otto.FalseValue()
 		}
@@ -201,6 +201,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 			for {
 				msgType, message, err := c.ReadMessage()
 				if err != nil {
+					logger.DebugErr("agi", err)
 					return // connection closed or error
 				}
 				wsc.touchLastOpr()
@@ -247,6 +248,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 	vm.Set("_websocket_send", func(call otto.FunctionCall) otto.Value {
 		content, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -255,6 +257,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 			return otto.FalseValue()
 		}
 		if err := wsc.conn.WriteMessage(websocket.TextMessage, []byte(content)); err != nil {
+			logger.DebugErr("agi", err)
 			cleanupWsConn(vm, connID, wsc)
 			return otto.FalseValue()
 		}
@@ -301,6 +304,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 		wsc.touchLastOpr()
 		v, err := otto.ToValue(msg.Data)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		return v

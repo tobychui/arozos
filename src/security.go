@@ -26,7 +26,7 @@ var (
 
 // Initiation function
 func security_init() {
-	logger.Debug("Core", "security_init")
+	defer logger.Out0(logger.In0("Core", "security_init"))
 	//Create a default permission router accessable by everyone
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "",

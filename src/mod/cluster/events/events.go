@@ -90,8 +90,8 @@ type Bus struct {
 }
 
 // New creates the bus and registers its node endpoint.
-func New(m *membership.Manager, runner HookRunner) (*Bus, error) {
-	logger.Debug("cluster/events", "New")
+func New(m *membership.Manager, runner HookRunner) (out0 *Bus, out1 error) {
+	defer logger.Out2(logger.In2("cluster/events", "New", "m", m, "&runner", &runner), &out0, &out1)
 	if m == nil {
 		return nil, errors.New("membership manager is required")
 	}
@@ -121,7 +121,7 @@ func New(m *membership.Manager, runner HookRunner) (*Bus, error) {
 
 // Close stops the background loops.
 func (b *Bus) Close() {
-	logger.Debug("cluster/events", "Bus.Close")
+	defer logger.Out0(logger.In1("cluster/events", "Bus.Close", "b", b))
 	b.once.Do(func() { close(b.stop) })
 	b.wg.Wait()
 }
@@ -132,7 +132,7 @@ func (b *Bus) Close() {
 
 // Publish delivers an event locally and to every online peer.
 func (b *Bus) Publish(ev Event) {
-	logger.Debug("cluster/events", "Bus.Publish")
+	defer logger.Out0(logger.In2("cluster/events", "Bus.Publish", "b", b, "&ev", &ev))
 	if ev.ID == "" {
 		ev.ID = uuid.NewV4().String()
 	}
@@ -154,10 +154,8 @@ func (b *Bus) Publish(ev Event) {
 }
 
 // Subscribe registers a local listener for the given types ("*" = all).
-func (b *Bus) Subscribe(types []string, fn func(Event)) func() {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.Subscribe: len(types)=%d", len(types))
-	}
+func (b *Bus) Subscribe(types []string, fn func(Event)) (out0 func()) {
+	defer logger.Out1(logger.In3("cluster/events", "Bus.Subscribe", "b", b, "types", types, "fn", fn), &out0)
 	s := &subscriber{id: uuid.NewV4().String(), types: map[string]bool{}, fn: fn}
 	for _, t := range types {
 		s.types[strings.ToLower(strings.TrimSpace(t))] = true
@@ -175,10 +173,8 @@ func (b *Bus) Subscribe(types []string, fn func(Event)) func() {
 	}
 }
 
-func matches(types map[string]bool, t string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "matches: len(types)=%d t=%.120q", len(types), t)
-	}
+func matches(types map[string]bool, t string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/events", "matches", "types", types, "t", t), &out0)
 	if types["*"] {
 		return true
 	}
@@ -192,10 +188,8 @@ func matches(types map[string]bool, t string) bool {
 	return false
 }
 
-func (b *Bus) remember(id string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.remember: id=%.120q", id)
-	}
+func (b *Bus) remember(id string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/events", "Bus.remember", "b", b, "id", id), &out0)
 	now := time.Now().Unix()
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -215,7 +209,7 @@ func (b *Bus) remember(id string) bool {
 }
 
 func (b *Bus) deliver(ev Event) {
-	logger.Debug("cluster/events", "Bus.deliver")
+	defer logger.Out0(logger.In2("cluster/events", "Bus.deliver", "b", b, "&ev", &ev))
 	b.mu.RLock()
 	subs := make([]*subscriber, 0, len(b.subs))
 	for _, s := range b.subs {
@@ -241,10 +235,8 @@ func (b *Bus) deliver(ev Event) {
 	}
 }
 
-func typeSet(types []string) map[string]bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "typeSet: len(types)=%d", len(types))
-	}
+func typeSet(types []string) (out0 map[string]bool) {
+	defer logger.Out1(logger.In1("cluster/events", "typeSet", "types", types), &out0)
 	out := map[string]bool{}
 	for _, t := range types {
 		out[strings.ToLower(t)] = true
@@ -253,7 +245,7 @@ func typeSet(types []string) map[string]bool {
 }
 
 func (b *Bus) flushLoop() {
-	logger.Debug("cluster/events", "Bus.flushLoop")
+	defer logger.Out0(logger.In1("cluster/events", "Bus.flushLoop", "b", b))
 	defer b.wg.Done()
 	ticker := time.NewTicker(batchInterval)
 	defer ticker.Stop()
@@ -268,7 +260,7 @@ func (b *Bus) flushLoop() {
 }
 
 func (b *Bus) flush() {
-	logger.Debug("cluster/events", "Bus.flush")
+	defer logger.Out0(logger.In1("cluster/events", "Bus.flush", "b", b))
 	b.batchMu.Lock()
 	batch := b.batch
 	b.batch = nil
@@ -284,6 +276,7 @@ func (b *Bus) flush() {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if err := b.m.Transport().DoJSON(ctx, id, http.MethodPost, pathPublish, batch, nil); err != nil {
+				logger.DebugErr("cluster/events", err)
 				time.Sleep(2 * time.Second)
 				ctx2, cancel2 := context.WithTimeout(context.Background(), 15*time.Second)
 				defer cancel2()
@@ -294,11 +287,10 @@ func (b *Bus) flush() {
 }
 
 func (b *Bus) handlePublish(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.handlePublish: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/events", "Bus.handlePublish", "b", b, "r", r, "sender", sender, "body", body))
 	var batch []Event
 	if err := json.Unmarshal(body, &batch); err != nil {
+		logger.DebugErr("cluster/events", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid batch")
 		return
 	}
@@ -315,7 +307,7 @@ func (b *Bus) handlePublish(w http.ResponseWriter, r *http.Request, sender *acn.
 
 // nodeWatch turns membership state changes into node.* events.
 func (b *Bus) nodeWatch() {
-	logger.Debug("cluster/events", "Bus.nodeWatch")
+	defer logger.Out0(logger.In1("cluster/events", "Bus.nodeWatch", "b", b))
 	defer b.wg.Done()
 	prev := map[string]membership.NodeState{}
 	ticker := time.NewTicker(5 * time.Second)
@@ -360,7 +352,7 @@ func (b *Bus) nodeWatch() {
 // publishLocal delivers node events without fan-out: every node computes the
 // same state transitions itself.
 func (b *Bus) publishLocal(ev Event) {
-	logger.Debug("cluster/events", "Bus.publishLocal")
+	defer logger.Out0(logger.In2("cluster/events", "Bus.publishLocal", "b", b, "&ev", &ev))
 	ev.ID = uuid.NewV4().String()
 	ev.Time = time.Now().Unix()
 	b.deliver(ev)
@@ -371,9 +363,10 @@ func (b *Bus) publishLocal(ev Event) {
 */
 
 func (b *Bus) loadHooks() {
-	logger.Debug("cluster/events", "Bus.loadHooks")
+	defer logger.Out0(logger.In1("cluster/events", "Bus.loadHooks", "b", b))
 	entries, err := b.m.DB().ListTable(tableHooks)
 	if err != nil {
+		logger.DebugErr("cluster/events", err)
 		return
 	}
 	for _, kv := range entries {
@@ -385,10 +378,8 @@ func (b *Bus) loadHooks() {
 }
 
 // AddHook registers a script for event types on behalf of owner.
-func (b *Bus) AddHook(owner string, types []string, script string) (*Hook, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.AddHook: owner=%.120q len(types)=%d", owner, len(types))
-	}
+func (b *Bus) AddHook(owner string, types []string, script string) (out0 *Hook, out1 error) {
+	defer logger.Out2(logger.In4("cluster/events", "Bus.AddHook", "b", b, "owner", owner, "types", types, "script", script), &out0, &out1)
 	if owner == "" || script == "" || len(types) == 0 {
 		return nil, errors.New("owner, script and at least one event type are required")
 	}
@@ -401,10 +392,8 @@ func (b *Bus) AddHook(owner string, types []string, script string) (*Hook, error
 }
 
 // RemoveHook deletes a hook; owner "" removes regardless of owner.
-func (b *Bus) RemoveHook(id string, owner string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.RemoveHook: id=%.120q owner=%.120q", id, owner)
-	}
+func (b *Bus) RemoveHook(id string, owner string) (out0 error) {
+	defer logger.Out1(logger.In3("cluster/events", "Bus.RemoveHook", "b", b, "id", id, "owner", owner), &out0)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	h, ok := b.hooks[id]
@@ -417,10 +406,8 @@ func (b *Bus) RemoveHook(id string, owner string) error {
 }
 
 // Hooks lists hooks, filtered by owner when non-empty.
-func (b *Bus) Hooks(owner string) []Hook {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.Hooks: owner=%.120q", owner)
-	}
+func (b *Bus) Hooks(owner string) (out0 []Hook) {
+	defer logger.Out1(logger.In2("cluster/events", "Bus.Hooks", "b", b, "owner", owner), &out0)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	out := []Hook{}
@@ -433,7 +420,7 @@ func (b *Bus) Hooks(owner string) []Hook {
 }
 
 func (b *Bus) runHook(h Hook, ev Event) {
-	logger.Debug("cluster/events", "Bus.runHook")
+	defer logger.Out0(logger.In3("cluster/events", "Bus.runHook", "b", b, "&h", &h, "&ev", &ev))
 	if b.runner == nil {
 		return
 	}
@@ -446,12 +433,14 @@ func (b *Bus) runHook(h Hook, ev Event) {
 		cur.RunCount++
 		cur.LastErr = ""
 		if err != nil {
+			logger.DebugErr("cluster/events", err)
 			cur.LastErr = err.Error()
 		}
 		b.m.DB().Write(tableHooks, cur.ID, cur)
 	}
 	b.mu.Unlock()
 	if err != nil {
+		logger.DebugErr("cluster/events", err)
 		logger.PrintAndLog("Cluster", "Event hook "+h.Script+" failed: "+err.Error(), nil)
 	}
 }
@@ -462,15 +451,14 @@ func (b *Bus) runHook(h Hook, ev Event) {
 
 // HandleWebSocket streams events to a browser. Optional ?types=a,b filter.
 func (b *Bus) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/events", "Bus.HandleWebSocket: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/events", "Bus.HandleWebSocket", "b", b, "r", r))
 	types := []string{}
 	if q, _ := utils.GetPara(r, "types"); q != "" {
 		types = strings.Split(q, ",")
 	}
 	ws, err := b.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.DebugErr("cluster/events", err)
 		return
 	}
 	var wmu sync.Mutex
@@ -487,6 +475,7 @@ func (b *Bus) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		defer close(done)
 		for {
 			if _, _, err := ws.ReadMessage(); err != nil {
+				logger.DebugErr("cluster/events", err)
 				return
 			}
 		}
@@ -506,6 +495,7 @@ func (b *Bus) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			err := ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second))
 			wmu.Unlock()
 			if err != nil {
+				logger.DebugErr("cluster/events", err)
 				ws.Close()
 				return
 			}

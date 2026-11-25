@@ -70,9 +70,7 @@ func (r cfRect) ref() string {
 // cellsToRects covers a set of cells with rectangles: runs along each row,
 // then equal runs on consecutive rows merged downwards
 func cellsToRects(cells [][2]int) []cfRect {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "cellsToRects: len(cells)=%d", len(cells))
-	}
+	logger.DebugTrace("office/xlsx", "cellsToRects")
 	byRow := map[int][]int{}
 	for _, c := range cells {
 		byRow[c[1]] = append(byRow[c[1]], c[0])
@@ -119,18 +117,14 @@ func cellsToRects(cells [][2]int) []cfRect {
 }
 
 func xlQuote(s string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "xlQuote: s=%.120q", s)
-	}
+	logger.DebugTrace("office/xlsx", "xlQuote")
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
 // cfOperandFormula turns an editor operand into an Excel formula term,
 // moved by (dC, dR) from the rule's anchor to the range's corner
 func cfOperandFormula(v model.CfOperand, kind string, dC, dR int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "cfOperandFormula: kind=%.120q dC=%d dR=%d", kind, dC, dR)
-	}
+	logger.DebugTrace("office/xlsx", "cfOperandFormula")
 	s := strings.TrimSpace(string(v))
 	if s == "" {
 		return `""`
@@ -154,9 +148,7 @@ func cfOperandFormula(v model.CfOperand, kind string, dC, dR int) string {
 
 // dateSerial reads the date forms the editor accepts into an Excel serial
 func dateSerial(s string) (int, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "dateSerial: s=%.120q", s)
-	}
+	logger.DebugTrace("office/xlsx", "dateSerial")
 	for _, layout := range []string{"2006-01-02", "2006/01/02", "2006-1-2", "2006/1/2", "01/02/2006", "1/2/2006"} {
 		if t, err := time.Parse(layout, s); err == nil {
 			base := time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC)
@@ -169,9 +161,7 @@ func dateSerial(s string) (int, bool) {
 // cfRuleXML renders one editor rule as a <cfRule> for a range whose
 // top-left cell is ref, dC / dR away from the rule's anchor
 func cfRuleXML(rule *model.CfRule, dxf, priority int, ref string, dC, dR int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "cfRuleXML: dxf=%d priority=%d ref=%.120q dC=%d dR=%d", dxf, priority, ref, dC, dR)
-	}
+	logger.DebugTrace("office/xlsx", "cfRuleXML")
 	kind := cfKinds[rule.Type]
 	op := func(v model.CfOperand) string { return cfOperandFormula(v, kind, dC, dR) }
 	head := func(typ, extra string) string {
@@ -352,9 +342,7 @@ func filterRange(raw json.RawMessage) string {
 
 // absRange turns "A1:D20" into "$A$1:$D$20" for a defined name
 func absRange(r string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "absRange: r=%.120q", r)
-	}
+	logger.DebugTrace("office/xlsx", "absRange")
 	parts := strings.Split(r, ":")
 	for i, p := range parts {
 		if c, row, ok := model.ParseCellRef(p); ok {
@@ -378,6 +366,7 @@ func parseDxfs(data []byte) []*model.CfStyle {
 	}
 	tree, err := xmltree.Parse(data)
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil
 	}
 	node := tree.First("dxfs")
@@ -406,9 +395,7 @@ func parseDxfs(data []byte) []*model.CfStyle {
 }
 
 func argbToHex(v string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "argbToHex: v=%.120q", v)
-	}
+	logger.DebugTrace("office/xlsx", "argbToHex")
 	v = strings.TrimSpace(v)
 	if len(v) == 8 {
 		v = v[2:]
@@ -417,6 +404,7 @@ func argbToHex(v string) string {
 		return ""
 	}
 	if _, err := strconv.ParseUint(v, 16, 32); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return ""
 	}
 	return "#" + strings.ToLower(v)
@@ -425,9 +413,7 @@ func argbToHex(v string) string {
 // cfOperandFromXl turns an Excel formula term back into what the editor
 // shows in an operand box
 func cfOperandFromXl(f string) model.CfOperand {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "cfOperandFromXl: f=%.120q", f)
-	}
+	logger.DebugTrace("office/xlsx", "cfOperandFromXl")
 	f = strings.TrimSpace(f)
 	if model.LooksNumeric(f) {
 		return model.CfOperand(f)
@@ -441,9 +427,7 @@ func cfOperandFromXl(f string) model.CfOperand {
 // parseSheetExtras reads the tab colour, the filter range and the
 // conditional formats of one worksheet
 func parseSheetExtras(tree *xmltree.Node, ws *model.WorkSheet, dxfs []*model.CfStyle) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseSheetExtras: len(dxfs)=%d", len(dxfs))
-	}
+	logger.DebugTrace("office/xlsx", "parseSheetExtras")
 	if tc := tree.Path("sheetPr", "tabColor"); tc != nil {
 		ws.Color = argbToHex(tc.Attr("rgb"))
 	}
@@ -572,9 +556,7 @@ func cfRuleFromXl(cr *xmltree.Node) *model.CfRule {
 }
 
 func textRule(cond, text string) *model.CfRule {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "textRule: cond=%.120q", cond)
-	}
+	logger.DebugTrace("office/xlsx", "textRule")
 	if text == "" {
 		return nil
 	}

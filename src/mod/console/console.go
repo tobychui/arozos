@@ -21,7 +21,7 @@ func NewConsole(handler func(string) string) *Console {
 }
 
 func (c *Console) ListenAndHandle() {
-	logger.Debug("console", "Console.ListenAndHandle")
+	defer logger.Out0(logger.In1("console", "Console.ListenAndHandle", "c", c))
 	for {
 		reader := bufio.NewReader(os.Stdin)
 		text, _ := reader.ReadString('\n')

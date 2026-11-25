@@ -43,8 +43,8 @@ type nicExtraInfo struct {
 }
 
 // nicType classifies the interface as ethernet / wifi / loopback / vpn / virtual / unknown.
-func nicType(iface net.Interface) string {
-	logger.Debug("network", "nicType")
+func nicType(iface net.Interface) (out0 string) {
+	defer logger.Out1(logger.In1("network", "nicType", "&iface", &iface), &out0)
 	name := strings.ToLower(iface.Name)
 	if iface.Flags&net.FlagLoopback != 0 {
 		return "loopback"
@@ -78,11 +78,10 @@ func nicType(iface net.Interface) string {
 }
 
 func GetNICInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network", "GetNICInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("network", "GetNICInfo", "r", r))
 	interfaces, err := net.Interfaces()
 	if err != nil {
+		logger.DebugErr("network", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -183,6 +182,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 
 	jsonData, err := json.Marshal(NICList)
 	if err != nil {
+		logger.DebugErr("network", err)
 		logger.PrintAndLog("Network", fmt.Sprint(err), nil)
 		utils.SendErrorResponse(w, "Failed to encode NIC data")
 		return
@@ -191,10 +191,11 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get the IP address of the NIC that can conncet to the internet
-func GetOutboundIP() (net.IP, error) {
-	logger.Debug("network", "GetOutboundIP")
+func GetOutboundIP() (out0 net.IP, out1 error) {
+	defer logger.Out2(logger.In0("network", "GetOutboundIP"), &out0, &out1)
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
+		logger.DebugErr("network", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -205,39 +206,43 @@ func GetOutboundIP() (net.IP, error) {
 }
 
 // Get External IP address, will require 3rd party services
-func GetExternalIPAddr() (string, error) {
-	logger.Debug("network", "GetExternalIPAddr")
+func GetExternalIPAddr() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("network", "GetExternalIPAddr"), &out0, &out1)
 	u, err := upnp.Discover()
 	if err != nil {
+		logger.DebugErr("network", err)
 		return "", err
 	}
 	// discover external IP
 	ip, err := u.ExternalIP()
 	if err != nil {
+		logger.DebugErr("network", err)
 		return "", err
 	}
 	return ip, nil
 }
 
-func GetExternalIPAddrVia3rdPartyServices() (string, error) {
-	logger.Debug("network", "GetExternalIPAddrVia3rdPartyServices")
+func GetExternalIPAddrVia3rdPartyServices() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("network", "GetExternalIPAddrVia3rdPartyServices"), &out0, &out1)
 	//Fallback to using Amazon AWS IP resolve service
 	resp, err := http.Get("http://checkip.amazonaws.com/")
 	if err != nil {
+		logger.DebugErr("network", err)
 		return "", err
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("network", err)
 		return "", err
 	}
 
 	return strings.TrimSpace(string(body)), nil
 }
 
-func IsPublicIP(IP net.IP) bool {
-	logger.Debug("network", "IsPublicIP")
+func IsPublicIP(IP net.IP) (out0 bool) {
+	defer logger.Out1(logger.In1("network", "IsPublicIP", "&IP", &IP), &out0)
 	if IP.IsLoopback() || IP.IsLinkLocalMulticast() || IP.IsLinkLocalUnicast() {
 		return false
 	}
@@ -256,10 +261,8 @@ func IsPublicIP(IP net.IP) bool {
 	return false
 }
 
-func IsIPv6Addr(ip string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network", "IsIPv6Addr: ip=%.120q", ip)
-	}
+func IsIPv6Addr(ip string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In1("network", "IsIPv6Addr", "ip", ip), &out0, &out1)
 	if net.ParseIP(ip) == nil {
 		return false, errors.New("Address parsing failed")
 	}
@@ -275,16 +278,12 @@ func IsIPv6Addr(ip string) (bool, error) {
 }
 
 func GetPing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network", "GetPing: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("network", "GetPing")
 	utils.SendJSONResponse(w, "pong")
 }
 
-func GetIpFromRequest(r *http.Request) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network", "GetIpFromRequest: r=%s", logger.RequestSummary(r))
-	}
+func GetIpFromRequest(r *http.Request) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("network", "GetIpFromRequest", "r", r), &out0, &out1)
 	ip := r.Header.Get("X-REAL-IP")
 	netIP := net.ParseIP(ip)
 	if netIP != nil {
@@ -302,6 +301,7 @@ func GetIpFromRequest(r *http.Request) (string, error) {
 
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
+		logger.DebugErr("network", err)
 		return "", err
 	}
 	netIP = net.ParseIP(ip)

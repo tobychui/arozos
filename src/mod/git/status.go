@@ -26,12 +26,11 @@ import (
 const maxAheadBehindWalk = 5000
 
 // Status returns a full snapshot of the repository at realpath.
-func (m *Manager) Status(realpath string) (*RepoStatus, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Status: realpath=%.120q", realpath)
-	}
+func (m *Manager) Status(realpath string) (out0 *RepoStatus, out1 error) {
+	defer logger.Out2(logger.In2("git", "Manager.Status", "m", m, "realpath", realpath), &out0, &out1)
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -65,6 +64,7 @@ func (m *Manager) Status(realpath string) (*RepoStatus, error) {
 		Strategy: gogit.Preload,
 	})
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -118,10 +118,8 @@ func (m *Manager) Status(realpath string) (*RepoStatus, error) {
 // buildFileChange converts one go-git status entry into the UI shape, adding
 // the on-disk facts (size, binary-ness) the front-end needs to decide whether a
 // diff can be rendered.
-func buildFileChange(repoRoot string, path string, fileStatus *gogit.FileStatus) FileChange {
-	if logger.IsDebug() {
-		logger.Debugf("git", "buildFileChange: repoRoot=%.120q path=%.120q", repoRoot, path)
-	}
+func buildFileChange(repoRoot string, path string, fileStatus *gogit.FileStatus) (out0 FileChange) {
+	defer logger.Out1(logger.In3("git", "buildFileChange", "repoRoot", repoRoot, "path", path, "fileStatus", fileStatus), &out0)
 	change := FileChange{
 		Path:     filepath.ToSlash(path),
 		Staging:  statusCodeToString(fileStatus.Staging),
@@ -158,8 +156,8 @@ func buildFileChange(repoRoot string, path string, fileStatus *gogit.FileStatus)
 
 // statusCodeToString maps go-git's single-character status codes onto the
 // vocabulary used across the AGI API and the front-end.
-func statusCodeToString(code gogit.StatusCode) string {
-	logger.Debug("git", "statusCodeToString")
+func statusCodeToString(code gogit.StatusCode) (out0 string) {
+	defer logger.Out1(logger.In1("git", "statusCodeToString", "&code", &code), &out0)
 	switch code {
 	case gogit.Unmodified:
 		return "unmodified"
@@ -185,12 +183,11 @@ func statusCodeToString(code gogit.StatusCode) string {
 // resolveUpstream finds the remote tracking reference for a local branch,
 // returning the reference and its display name (e.g. "origin/master"). Both are
 // zero when the branch has no upstream configured.
-func resolveUpstream(repo *gogit.Repository, branch string) (*plumbing.Reference, string) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "resolveUpstream: branch=%.120q", branch)
-	}
+func resolveUpstream(repo *gogit.Repository, branch string) (out0 *plumbing.Reference, out1 string) {
+	defer logger.Out2(logger.In2("git", "resolveUpstream", "repo", repo, "branch", branch), &out0, &out1)
 	cfg, err := repo.Config()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, ""
 	}
 
@@ -203,6 +200,7 @@ func resolveUpstream(repo *gogit.Repository, branch string) (*plumbing.Reference
 	trackingName := plumbing.NewRemoteReferenceName(remoteName, branch)
 	ref, err := repo.Reference(trackingName, true)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, ""
 	}
 	return ref, remoteName + "/" + branch
@@ -210,14 +208,16 @@ func resolveUpstream(repo *gogit.Repository, branch string) (*plumbing.Reference
 
 // countAheadBehind implements `git rev-list --left-right --count local...remote`
 // by diffing the two ancestor sets.
-func countAheadBehind(repo *gogit.Repository, local plumbing.Hash, remote plumbing.Hash) (int, int, error) {
-	logger.Debug("git", "countAheadBehind")
+func countAheadBehind(repo *gogit.Repository, local plumbing.Hash, remote plumbing.Hash) (out0 int, out1 int, out2 error) {
+	defer logger.Out3(logger.In3("git", "countAheadBehind", "repo", repo, "&local", &local, "&remote", &remote), &out0, &out1, &out2)
 	localSet, err := ancestorSet(repo, local)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return 0, 0, err
 	}
 	remoteSet, err := ancestorSet(repo, remote)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return 0, 0, err
 	}
 
@@ -240,8 +240,8 @@ func countAheadBehind(repo *gogit.Repository, local plumbing.Hash, remote plumbi
 
 // ancestorSet collects the hashes reachable from start, bounded by
 // maxAheadBehindWalk.
-func ancestorSet(repo *gogit.Repository, start plumbing.Hash) (map[plumbing.Hash]struct{}, error) {
-	logger.Debug("git", "ancestorSet")
+func ancestorSet(repo *gogit.Repository, start plumbing.Hash) (out0 map[plumbing.Hash]struct{}, out1 error) {
+	defer logger.Out2(logger.In2("git", "ancestorSet", "repo", repo, "&start", &start), &out0, &out1)
 	seen := map[plumbing.Hash]struct{}{}
 	if start.IsZero() {
 		return seen, nil
@@ -249,6 +249,7 @@ func ancestorSet(repo *gogit.Repository, start plumbing.Hash) (map[plumbing.Hash
 
 	commit, err := repo.CommitObject(start)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return seen, err
 	}
 
@@ -272,10 +273,11 @@ func ancestorSet(repo *gogit.Repository, start plumbing.Hash) (map[plumbing.Hash
 
 // countCommits returns the number of commits reachable from start, capped by
 // maxAheadBehindWalk.
-func countCommits(repo *gogit.Repository, start plumbing.Hash) int {
-	logger.Debug("git", "countCommits")
+func countCommits(repo *gogit.Repository, start plumbing.Hash) (out0 int) {
+	defer logger.Out1(logger.In2("git", "countCommits", "repo", repo, "&start", &start), &out0)
 	set, err := ancestorSet(repo, start)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return 0
 	}
 	return len(set)
@@ -286,12 +288,11 @@ var storerStop = errors.New("walk limit reached")
 
 // fileLooksBinary applies the heuristic git itself uses: a NUL byte inside the
 // first 8000 bytes means "binary".
-func fileLooksBinary(fullPath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("git", "fileLooksBinary: fullPath=%.120q", fullPath)
-	}
+func fileLooksBinary(fullPath string) (out0 bool) {
+	defer logger.Out1(logger.In1("git", "fileLooksBinary", "fullPath", fullPath), &out0)
 	file, err := os.Open(fullPath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return false
 	}
 	defer file.Close()
@@ -305,8 +306,8 @@ func fileLooksBinary(fullPath string) bool {
 }
 
 // commitToInfo converts a go-git commit into the wire type.
-func commitToInfo(commit *object.Commit) *CommitInfo {
-	logger.Debug("git", "commitToInfo")
+func commitToInfo(commit *object.Commit) (out0 *CommitInfo) {
+	defer logger.Out1(logger.In1("git", "commitToInfo", "commit", commit), &out0)
 	if commit == nil {
 		return nil
 	}

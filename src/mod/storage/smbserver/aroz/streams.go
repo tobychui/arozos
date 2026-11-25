@@ -37,10 +37,8 @@ const (
 )
 
 // streamDir is where the streams of a file or folder are kept.
-func streamDir(base string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "streamDir: base=%.120q", base)
-	}
+func streamDir(base string) (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "streamDir", "base", base), &out0)
 	if base == "" {
 		return rootStreams
 	}
@@ -50,10 +48,8 @@ func streamDir(base string) string {
 
 // encodeStream keeps letters, digits and . _ - as they are and escapes the
 // rest as %XX, so any stream name becomes one safe file name.
-func encodeStream(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "encodeStream: name=%.120q", name)
-	}
+func encodeStream(name string) (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "encodeStream", "name", name), &out0)
 	var b strings.Builder
 	for i := 0; i < len(name); i++ {
 		c := name[i]
@@ -67,10 +63,8 @@ func encodeStream(name string) string {
 	return b.String()
 }
 
-func decodeStream(enc string) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "decodeStream: enc=%.120q", enc)
-	}
+func decodeStream(enc string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In1("storage/smbserver/aroz", "decodeStream", "enc", enc), &out0, &out1)
 	var b strings.Builder
 	for i := 0; i < len(enc); i++ {
 		if enc[i] != '%' {
@@ -82,6 +76,7 @@ func decodeStream(enc string) (string, bool) {
 		}
 		var c byte
 		if _, err := fmt.Sscanf(enc[i+1:i+3], "%02X", &c); err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			return "", false
 		}
 		b.WriteByte(c)
@@ -91,10 +86,8 @@ func decodeStream(enc string) (string, bool) {
 }
 
 // sharePath turns a stream path into the share path of its sidecar file.
-func sharePath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "sharePath: p=%.120q", p)
-	}
+func sharePath(p string) (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "sharePath", "p", p), &out0)
 	base, stream, ok := strings.Cut(p, smbsrv.StreamSeparator)
 	if !ok {
 		return p
@@ -103,21 +96,18 @@ func sharePath(p string) string {
 }
 
 // basePath strips the stream, for questions about the file it belongs to.
-func basePath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "basePath: p=%.120q", p)
-	}
+func basePath(p string) (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "basePath", "p", p), &out0)
 	base, _, _ := strings.Cut(p, smbsrv.StreamSeparator)
 	return base
 }
 
 // Streams lists the streams of a file or folder.
-func (s *share) Streams(p string) []smbsrv.FileInfo {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Streams: p=%.120q", p)
-	}
+func (s *share) Streams(p string) (out0 []smbsrv.FileInfo) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.Streams", "s", s, "p", p), &out0)
 	entries, err := s.ReadDir(streamDir(basePath(p)))
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil
 	}
 	out := []smbsrv.FileInfo{}
@@ -136,12 +126,11 @@ func (s *share) Streams(p string) []smbsrv.FileInfo {
 }
 
 // makeStreamDir creates the folder a new stream goes in.
-func (s *share) makeStreamDir(p string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.makeStreamDir: p=%.120q", p)
-	}
+func (s *share) makeStreamDir(p string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.makeStreamDir", "s", s, "p", p), &out0)
 	rdir, err := s.real(path.Dir(sharePath(p)))
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	return s.fsh.FileSystemAbstraction.MkdirAll(rdir, 0775)
@@ -149,11 +138,10 @@ func (s *share) makeStreamDir(p string) error {
 
 // dropStreams deletes what a deleted file or folder kept beside it.
 func (s *share) dropStreams(p string) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.dropStreams: p=%.120q", p)
-	}
+	defer logger.Out0(logger.In2("storage/smbserver/aroz", "share.dropStreams", "s", s, "p", p))
 	rdir, err := s.real(streamDir(p))
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return
 	}
 	fsa := s.fsh.FileSystemAbstraction
@@ -166,15 +154,15 @@ func (s *share) dropStreams(p string) {
 // kept for the new name goes first, even when the file brings none: they
 // belong to the file the rename replaced, or to one deleted outside SMB.
 func (s *share) moveStreams(oldPath, newPath string) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.moveStreams: oldPath=%.120q newPath=%.120q", oldPath, newPath)
-	}
+	defer logger.Out0(logger.In3("storage/smbserver/aroz", "share.moveStreams", "s", s, "oldPath", oldPath, "newPath", newPath))
 	from, err := s.real(streamDir(oldPath))
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return
 	}
 	to, err := s.real(streamDir(newPath))
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return
 	}
 	fsa := s.fsh.FileSystemAbstraction

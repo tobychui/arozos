@@ -13,10 +13,8 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func generateThumbnailForAudio(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForAudio: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForAudio(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForAudio", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -24,11 +22,13 @@ func generateThumbnailForAudio(fsh *filesystem.FileSystemHandler, cacheFolder st
 	//This extension is supported by id4. Call to library
 	f, err := fshAbs.Open(file)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	defer f.Close()
 	m, err := tag.ReadFrom(f)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -36,6 +36,7 @@ func generateThumbnailForAudio(fsh *filesystem.FileSystemHandler, cacheFolder st
 		//Convert the picture bytecode to image object
 		img, _, err := image.Decode(bytes.NewReader(m.Picture().Data))
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			//Fail to convert this image. Continue next one
 			return "", err
 		}
@@ -43,6 +44,7 @@ func generateThumbnailForAudio(fsh *filesystem.FileSystemHandler, cacheFolder st
 		//Create an empty file
 		out, err := fshAbs.Create(cacheFolder + filepath.Base(file) + ".jpg")
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return "", err
 		}
 		defer out.Close()

@@ -11,13 +11,12 @@ import (
 )
 
 // Break an ip range text into independent ip strings
-func BreakdownIpRange(ipRange string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol", "BreakdownIpRange: ipRange=%.120q", ipRange)
-	}
+func BreakdownIpRange(ipRange string) (out0 []string) {
+	defer logger.Out1(logger.In1("auth/accesscontrol", "BreakdownIpRange", "ipRange", ipRange), &out0)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	err := ValidateIpRange(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol", err)
 		return []string{}
 	}
 	if !strings.Contains(ipRange, "-") {
@@ -32,10 +31,12 @@ func BreakdownIpRange(ipRange string) []string {
 	subnet := ips[0][:strings.LastIndex(ips[0], ".")]
 	startD := ips[0][strings.LastIndex(ips[0], ".")+1:]
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol", err)
 		return []string{}
 	}
 	endD := ips[1][strings.LastIndex(ips[0], ".")+1:]
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol", err)
 		return []string{}
 	}
 
@@ -52,10 +53,8 @@ func BreakdownIpRange(ipRange string) []string {
 }
 
 // Check if an given ip in the given range
-func IpInRange(ip string, ipRange string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol", "IpInRange: ip=%.120q ipRange=%.120q", ip, ipRange)
-	}
+func IpInRange(ip string, ipRange string) (out0 bool) {
+	defer logger.Out1(logger.In2("auth/accesscontrol", "IpInRange", "ip", ip, "ipRange", ipRange), &out0)
 	ip = strings.TrimSpace(ip)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	if ip == ipRange {
@@ -91,10 +90,8 @@ func IpInRange(ip string, ipRange string) bool {
 }
 
 // Check if the given IP Range string is actually an IP range
-func ValidateIpRange(ipRange string) error {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol", "ValidateIpRange: ipRange=%.120q", ipRange)
-	}
+func ValidateIpRange(ipRange string) (out0 error) {
+	defer logger.Out1(logger.In1("auth/accesscontrol", "ValidateIpRange", "ipRange", ipRange), &out0)
 	ipRange = strings.TrimSpace(ipRange)
 	ipRange = strings.ReplaceAll(ipRange, " ", "")
 	if strings.Contains(ipRange, "-") {

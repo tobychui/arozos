@@ -16,10 +16,8 @@ import (
 )
 
 // Generate thumbnail for image. Require real filepath
-func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForImage: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForImage", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -37,10 +35,12 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 		//Webp image format
 		imageBytes, err := fshAbs.ReadFile(file)
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return "", err
 		}
 		img, err = handleWebpDecoding(imageBytes)
 		if err != nil {
+			logger.DebugErr("filesystem/metadata", err)
 			return "", err
 		}
 	} else {
@@ -49,22 +49,26 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 			//This fsh is remote. Buffer to RAM
 			imageBytes, err := fshAbs.ReadFile(file)
 			if err != nil {
+				logger.DebugErr("filesystem/metadata", err)
 				return "", err
 			}
 
 			img, _, err = image.Decode(bytes.NewReader(imageBytes))
 
 			if err != nil {
+				logger.DebugErr("filesystem/metadata", err)
 				return "", err
 			}
 		} else {
 			srcImage, err := fshAbs.OpenFile(file, os.O_RDONLY, 0775)
 			if err != nil {
+				logger.DebugErr("filesystem/metadata", err)
 				return "", err
 			}
 			defer srcImage.Close()
 			img, _, err = image.Decode(srcImage)
 			if err != nil {
+				logger.DebugErr("filesystem/metadata", err)
 				return "", err
 			}
 		}
@@ -91,12 +95,14 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 	})
 
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
 	//Create the thumbnail
 	out, err := fshAbs.Create(cacheFolder + filepath.Base(file) + ".jpg")
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -113,8 +119,8 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 	}
 }
 
-func handleWebpDecoding(fileContent []byte) (image.Image, error) {
-	logger.Debug("filesystem/metadata", "handleWebpDecoding")
+func handleWebpDecoding(fileContent []byte) (out0 image.Image, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "handleWebpDecoding", "fileContent", fileContent), &out0, &out1)
 	img, err := webp.Decode(bytes.NewReader(fileContent))
 	return img, err
 }

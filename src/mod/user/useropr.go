@@ -14,7 +14,7 @@ func (u *User) Parent() *UserHandler {
 
 // Remove the current user
 func (u *User) RemoveUser() {
-	logger.Debug("user", "User.RemoveUser")
+	defer logger.Out0(logger.In1("user", "User.RemoveUser", "u", u))
 	//Remove the user storage quota settings
 	logger.PrintAndLog("User", fmt.Sprint("Removing User Quota: ", u.Username), nil)
 	u.StorageQuota.RemoveUserQuota()
@@ -24,8 +24,8 @@ func (u *User) RemoveUser() {
 }
 
 // Get the target user icon
-func (u *User) GetUserIcon() string {
-	logger.Debug("user", "User.GetUserIcon")
+func (u *User) GetUserIcon() (out0 string) {
+	defer logger.Out1(logger.In1("user", "User.GetUserIcon", "u", u), &out0)
 	var userIconpath []byte
 	u.parent.database.Read("auth", "profilepic/"+u.Username, &userIconpath)
 	return string(userIconpath)
@@ -33,8 +33,6 @@ func (u *User) GetUserIcon() string {
 
 // Set the current user icon
 func (u *User) SetUserIcon(base64data string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("user", "User.SetUserIcon: base64data=%.120q", base64data)
-	}
+	logger.DebugTrace("user", "User.SetUserIcon")
 	u.parent.database.Write("auth", "profilepic/"+u.Username, []byte(base64data))
 }

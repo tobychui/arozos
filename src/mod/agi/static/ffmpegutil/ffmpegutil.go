@@ -65,10 +65,8 @@ set to 512, then the output will be 512 * 1024
 
 Set compression to 0 if resizing / compression is not required
 */
-func FFmpeg_conv(input string, output string, compression int) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "FFmpeg_conv: input=%.120q output=%.120q compression=%d", input, output, compression)
-	}
+func FFmpeg_conv(input string, output string, compression int) (out0 error) {
+	defer logger.Out1(logger.In3("agi/static/ffmpegutil", "FFmpeg_conv", "input", input, "output", output, "compression", compression), &out0)
 	var cmd *exec.Cmd
 
 	switch {
@@ -116,6 +114,7 @@ func FFmpeg_conv(input string, output string, compression int) error {
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return fmt.Errorf("error running ffmpeg command: %v", err)
 	}
 
@@ -123,30 +122,24 @@ func FFmpeg_conv(input string, output string, compression int) error {
 }
 
 // Helper functions to check file types
-func isVideo(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "isVideo: filename=%.120q", filename)
-	}
+func isVideo(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "isVideo", "filename", filename), &out0)
 	videoFormats := []string{
 		".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm",
 	}
 	return utils.StringInArray(videoFormats, filepath.Ext(filename))
 }
 
-func isAudio(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "isAudio: filename=%.120q", filename)
-	}
+func isAudio(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "isAudio", "filename", filename), &out0)
 	audioFormats := []string{
 		".mp3", ".wav", ".aac", ".ogg", ".flac",
 	}
 	return utils.StringInArray(audioFormats, filepath.Ext(filename))
 }
 
-func isImage(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "isImage: filename=%.120q", filename)
-	}
+func isImage(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "isImage", "filename", filename), &out0)
 	imageFormats := []string{
 		".jpg", ".png", ".gif", ".bmp", ".tiff", ".webp",
 	}
@@ -154,10 +147,8 @@ func isImage(filename string) bool {
 }
 
 // isLossyImage returns true for image formats that support lossy compression.
-func isLossyImage(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "isLossyImage: filename=%.120q", filename)
-	}
+func isLossyImage(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "isLossyImage", "filename", filename), &out0)
 	lossyFormats := []string{".jpg", ".jpeg", ".webp"}
 	return utils.StringInArray(lossyFormats, strings.ToLower(filepath.Ext(filename)))
 }
@@ -166,10 +157,8 @@ func isLossyImage(filename string) bool {
 
 // conversionJobKey normalises a progress file path so that the path used when a
 // conversion starts and the one used when it is cancelled always match.
-func conversionJobKey(progressFile string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "conversionJobKey: progressFile=%.120q", progressFile)
-	}
+func conversionJobKey(progressFile string) (out0 string) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "conversionJobKey", "progressFile", progressFile), &out0)
 	if progressFile == "" {
 		return ""
 	}
@@ -179,9 +168,7 @@ func conversionJobKey(progressFile string) string {
 // registerConversion records the ffmpeg process running the job identified by
 // progressFile. A empty progressFile means the job is not cancellable.
 func registerConversion(progressFile string, cmd *exec.Cmd) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "registerConversion: progressFile=%.120q", progressFile)
-	}
+	defer logger.Out0(logger.In2("agi/static/ffmpegutil", "registerConversion", "progressFile", progressFile, "cmd", cmd))
 	key := conversionJobKey(progressFile)
 	if key == "" || cmd == nil {
 		return
@@ -191,9 +178,7 @@ func registerConversion(progressFile string, cmd *exec.Cmd) {
 
 // unregisterConversion removes a finished job from the registry.
 func unregisterConversion(progressFile string) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "unregisterConversion: progressFile=%.120q", progressFile)
-	}
+	defer logger.Out0(logger.In1("agi/static/ffmpegutil", "unregisterConversion", "progressFile", progressFile))
 	key := conversionJobKey(progressFile)
 	if key == "" {
 		return
@@ -203,10 +188,8 @@ func unregisterConversion(progressFile string) {
 
 // ConversionIsRunning reports whether a cancellable conversion is currently
 // registered under the given progress file path.
-func ConversionIsRunning(progressFile string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "ConversionIsRunning: progressFile=%.120q", progressFile)
-	}
+func ConversionIsRunning(progressFile string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "ConversionIsRunning", "progressFile", progressFile), &out0)
 	key := conversionJobKey(progressFile)
 	if key == "" {
 		return false
@@ -220,10 +203,8 @@ func ConversionIsRunning(progressFile string) bool {
 // is running (already finished, never started, or started without a progress
 // file). The conversion function itself reports the killed process as a normal
 // conversion failure, so the caller decides how a cancelled job is presented.
-func CancelConversion(progressFile string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "CancelConversion: progressFile=%.120q", progressFile)
-	}
+func CancelConversion(progressFile string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "CancelConversion", "progressFile", progressFile), &out0)
 	key := conversionJobKey(progressFile)
 	if key == "" {
 		return false
@@ -237,6 +218,7 @@ func CancelConversion(progressFile string) bool {
 		return false
 	}
 	if err := cmd.Process.Kill(); err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return false
 	}
 	return true
@@ -245,14 +227,13 @@ func CancelConversion(progressFile string) bool {
 // runFFmpeg runs ffmpeg with the given arguments, registering the process under
 // cancelKey (when not empty) so that CancelConversion can terminate it while it
 // is still running.
-func runFFmpeg(args []string, cancelKey string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "runFFmpeg: len(args)=%d", len(args))
-	}
+func runFFmpeg(args []string, cancelKey string) (out0 error) {
+	defer logger.Out1(logger.In2("agi/static/ffmpegutil", "runFFmpeg", "args", args, "!cancelKey", cancelKey), &out0)
 	cmd := exec.Command("ffmpeg", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return err
 	}
 	registerConversion(cancelKey, cmd)
@@ -263,10 +244,8 @@ func runFFmpeg(args []string, cancelKey string) error {
 // --- Progress helpers ---
 
 // fileSize returns the byte size of path, or 0 if the file is not accessible.
-func fileSize(path string) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "fileSize: path=%.120q", path)
-	}
+func fileSize(path string) (out0 int64) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "fileSize", "path", path), &out0)
 	if info, err := os.Stat(path); err == nil {
 		return info.Size()
 	}
@@ -275,13 +254,12 @@ func fileSize(path string) int64 {
 
 // getMediaDurationMs returns the total duration of a media file in milliseconds
 // by invoking ffprobe.
-func getMediaDurationMs(input string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "getMediaDurationMs: input=%.120q", input)
-	}
+func getMediaDurationMs(input string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In1("agi/static/ffmpegutil", "getMediaDurationMs", "input", input), &out0, &out1)
 	cmd := exec.Command("ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", input)
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return 0, err
 	}
 	var result struct {
@@ -290,10 +268,12 @@ func getMediaDurationMs(input string) (int64, error) {
 		} `json:"format"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return 0, err
 	}
 	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return 0, err
 	}
 	return int64(duration * 1000), nil
@@ -302,14 +282,13 @@ func getMediaDurationMs(input string) (int64, error) {
 // getVideoDimensions returns the width and height of the first video stream of
 // input by invoking ffprobe. It returns an error if ffprobe is unavailable or
 // the file carries no video stream.
-func getVideoDimensions(input string) (int, int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "getVideoDimensions: input=%.120q", input)
-	}
+func getVideoDimensions(input string) (out0 int, out1 int, out2 error) {
+	defer logger.Out3(logger.In1("agi/static/ffmpegutil", "getVideoDimensions", "input", input), &out0, &out1, &out2)
 	cmd := exec.Command("ffprobe", "-v", "quiet", "-print_format", "json",
 		"-select_streams", "v:0", "-show_entries", "stream=width,height", input)
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return 0, 0, err
 	}
 	var result struct {
@@ -319,6 +298,7 @@ func getVideoDimensions(input string) (int, int, error) {
 		} `json:"streams"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return 0, 0, err
 	}
 	if len(result.Streams) == 0 || result.Streams[0].Width <= 0 || result.Streams[0].Height <= 0 {
@@ -332,10 +312,8 @@ func getVideoDimensions(input string) (int, int, error) {
 // libx265 with yuv420p chroma subsampling). Sources such as browser screen
 // recordings frequently carry odd sizes (e.g. 1643x1042), which makes those
 // encoders fail with "width not divisible by 2".
-func requiresEvenDimensions(output string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "requiresEvenDimensions: output=%.120q", output)
-	}
+func requiresEvenDimensions(output string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi/static/ffmpegutil", "requiresEvenDimensions", "output", output), &out0)
 	evenOnlyFormats := []string{".mp4", ".m4v", ".mkv", ".mov", ".flv", ".ts", ".avi", ".webm"}
 	return utils.StringInArray(evenOnlyFormats, strings.ToLower(filepath.Ext(output)))
 }
@@ -356,10 +334,8 @@ const evenDimensionFilter = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 //     the dimensions already are even.
 //
 // It returns an empty string when no scaling is required.
-func videoScaleFilter(input, output, resolution string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "videoScaleFilter: input=%.120q output=%.120q resolution=%.120q", input, output, resolution)
-	}
+func videoScaleFilter(input, output, resolution string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("agi/static/ffmpegutil", "videoScaleFilter", "input", input, "output", output, "resolution", resolution), &out0, &out1)
 	if resolution != "" {
 		resHeight, ok := resolutionHeightMap[strings.ToLower(resolution)]
 		if !ok {
@@ -375,6 +351,7 @@ func videoScaleFilter(input, output, resolution string) (string, error) {
 
 	width, height, err := getVideoDimensions(input)
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		// Source could not be measured, let ffmpeg round the frame itself
 		return evenDimensionFilter, nil
 	}
@@ -387,9 +364,7 @@ func videoScaleFilter(input, output, resolution string) (string, error) {
 // writeProgressJSON writes a ConversionProgress snapshot as JSON to progressFile.
 // Errors are silently ignored so that a progress-write failure never aborts a conversion.
 func writeProgressJSON(progressFile string, inputSize int64, outputFile string, startTime time.Time, percentage float64, completed bool) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "writeProgressJSON: progressFile=%.120q inputSize=%d outputFile=%.120q percentage=%g completed=%t", progressFile, inputSize, outputFile, percentage, completed)
-	}
+	defer logger.Out0(logger.In6("agi/static/ffmpegutil", "writeProgressJSON", "progressFile", progressFile, "inputSize", inputSize, "outputFile", outputFile, "&startTime", &startTime, "percentage", percentage, "completed", completed))
 	progress := ConversionProgress{
 		InputSize:      inputSize,
 		OutputSize:     fileSize(outputFile),
@@ -399,6 +374,7 @@ func writeProgressJSON(progressFile string, inputSize int64, outputFile string, 
 	}
 	data, err := json.Marshal(progress)
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return
 	}
 	os.WriteFile(progressFile, data, 0644) //nolint:errcheck
@@ -407,9 +383,7 @@ func writeProgressJSON(progressFile string, inputSize int64, outputFile string, 
 // monitorFFmpegProgress reads the ffmpeg -progress pipe file every 500 ms and writes
 // updated JSON to userProgressFile.  It exits when done is closed.
 func monitorFFmpegProgress(ffmpegPipeFile, userProgressFile, outputFile string, inputSize, totalDurationMs int64, startTime time.Time, done <-chan struct{}) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "monitorFFmpegProgress: ffmpegPipeFile=%.120q userProgressFile=%.120q outputFile=%.120q inputSize=%d totalDurationMs=%d", ffmpegPipeFile, userProgressFile, outputFile, inputSize, totalDurationMs)
-	}
+	defer logger.Out0(logger.In7("agi/static/ffmpegutil", "monitorFFmpegProgress", "ffmpegPipeFile", ffmpegPipeFile, "userProgressFile", userProgressFile, "outputFile", outputFile, "inputSize", inputSize, "totalDurationMs", totalDurationMs, "&startTime", &startTime, "done", done))
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -419,6 +393,7 @@ func monitorFFmpegProgress(ffmpegPipeFile, userProgressFile, outputFile string, 
 		case <-ticker.C:
 			data, err := os.ReadFile(ffmpegPipeFile)
 			if err != nil {
+				logger.DebugErr("agi/static/ffmpegutil", err)
 				continue
 			}
 			// Parse ffmpeg key=value progress output
@@ -449,10 +424,8 @@ func monitorFFmpegProgress(ffmpegPipeFile, userProgressFile, outputFile string, 
 // startProgressMonitor launches the background goroutine that updates userProgressFile.
 // Returns the done channel (to be closed when conversion finishes) and a WaitGroup to
 // wait for the goroutine to exit before removing the pipe file.
-func startProgressMonitor(ffmpegPipeFile, userProgressFile, outputFile string, inputSize, totalDurationMs int64, startTime time.Time) (chan struct{}, *sync.WaitGroup) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "startProgressMonitor: ffmpegPipeFile=%.120q userProgressFile=%.120q outputFile=%.120q inputSize=%d totalDurationMs=%d", ffmpegPipeFile, userProgressFile, outputFile, inputSize, totalDurationMs)
-	}
+func startProgressMonitor(ffmpegPipeFile, userProgressFile, outputFile string, inputSize, totalDurationMs int64, startTime time.Time) (out0 chan struct{}, out1 *sync.WaitGroup) {
+	defer logger.Out2(logger.In6("agi/static/ffmpegutil", "startProgressMonitor", "ffmpegPipeFile", ffmpegPipeFile, "userProgressFile", userProgressFile, "outputFile", outputFile, "inputSize", inputSize, "totalDurationMs", totalDurationMs, "&startTime", &startTime), &out0, &out1)
 	doneCh := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -466,9 +439,7 @@ func startProgressMonitor(ffmpegPipeFile, userProgressFile, outputFile string, i
 // stopProgressMonitor signals the goroutine to stop, waits for it, and removes the
 // internal ffmpeg pipe file.  If convErr is nil it also writes the final 100 % entry.
 func stopProgressMonitor(doneCh chan struct{}, wg *sync.WaitGroup, ffmpegPipeFile, userProgressFile, outputFile string, inputSize int64, startTime time.Time, convErr error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "stopProgressMonitor: ffmpegPipeFile=%.120q userProgressFile=%.120q outputFile=%.120q inputSize=%d convErr=%v", ffmpegPipeFile, userProgressFile, outputFile, inputSize, convErr)
-	}
+	defer logger.Out0(logger.In8("agi/static/ffmpegutil", "stopProgressMonitor", "doneCh", doneCh, "wg", wg, "ffmpegPipeFile", ffmpegPipeFile, "userProgressFile", userProgressFile, "outputFile", outputFile, "inputSize", inputSize, "&startTime", &startTime, "convErr", convErr))
 	close(doneCh)
 	wg.Wait()
 	os.Remove(ffmpegPipeFile)
@@ -485,10 +456,8 @@ func stopProgressMonitor(doneCh chan struct{}, wg *sync.WaitGroup, ffmpegPipeFil
 //   - progressFile – real filesystem path to write JSON progress updates; "" disables tracking.
 //
 // The internal ffmpeg progress pipe file is cleaned up before the function returns.
-func FFmpeg_audio_conv(input, output string, sampleRate int, progressFile string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "FFmpeg_audio_conv: input=%.120q output=%.120q sampleRate=%d progressFile=%.120q", input, output, sampleRate, progressFile)
-	}
+func FFmpeg_audio_conv(input, output string, sampleRate int, progressFile string) (out0 error) {
+	defer logger.Out1(logger.In4("agi/static/ffmpegutil", "FFmpeg_audio_conv", "input", input, "output", output, "sampleRate", sampleRate, "progressFile", progressFile), &out0)
 	startTime := time.Now()
 	inputSize := fileSize(input)
 
@@ -515,6 +484,7 @@ func FFmpeg_audio_conv(input, output string, sampleRate int, progressFile string
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)
 	}
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return fmt.Errorf("ffmpeg audio conversion failed: %v", err)
 	}
 	return nil
@@ -529,10 +499,8 @@ func FFmpeg_audio_conv(input, output string, sampleRate int, progressFile string
 //   - progressFile   – real filesystem path used as the cancellation key and to write
 //     the start/finish JSON progress entries; "" disables both. Image conversions have
 //     no timeline, so the progress file only reports 0 % and, on success, 100 %.
-func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRate int, progressFile string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "FFmpeg_image_conv: input=%.120q output=%.120q scaleFactor=%g compressionRate=%d progressFile=%.120q", input, output, scaleFactor, compressionRate, progressFile)
-	}
+func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRate int, progressFile string) (out0 error) {
+	defer logger.Out1(logger.In5("agi/static/ffmpegutil", "FFmpeg_image_conv", "input", input, "output", output, "scaleFactor", scaleFactor, "compressionRate", compressionRate, "progressFile", progressFile), &out0)
 	startTime := time.Now()
 	inputSize := fileSize(input)
 
@@ -565,6 +533,7 @@ func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRat
 	}
 	err := runFFmpeg(args, progressFile)
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return fmt.Errorf("ffmpeg image conversion failed: %v", err)
 	}
 	if progressFile != "" {
@@ -582,10 +551,8 @@ func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRat
 //   - progressFile   – real filesystem path to write JSON progress updates; "" disables tracking.
 //
 // The internal ffmpeg progress pipe file is cleaned up before the function returns.
-func FFmpeg_video_conv(input, output, resolution string, compressionRate int, progressFile string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "FFmpeg_video_conv: input=%.120q output=%.120q resolution=%.120q compressionRate=%d progressFile=%.120q", input, output, resolution, compressionRate, progressFile)
-	}
+func FFmpeg_video_conv(input, output, resolution string, compressionRate int, progressFile string) (out0 error) {
+	defer logger.Out1(logger.In5("agi/static/ffmpegutil", "FFmpeg_video_conv", "input", input, "output", output, "resolution", resolution, "compressionRate", compressionRate, "progressFile", progressFile), &out0)
 	startTime := time.Now()
 	inputSize := fileSize(input)
 
@@ -593,6 +560,7 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 
 	scaleFilter, err := videoScaleFilter(input, output, resolution)
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return err
 	}
 	if scaleFilter != "" {
@@ -623,6 +591,7 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)
 	}
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return fmt.Errorf("ffmpeg video conversion failed: %v", err)
 	}
 	return nil
@@ -635,10 +604,8 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 //   - progressFile – real filesystem path to write JSON progress updates; "" disables tracking.
 //
 // The internal ffmpeg progress pipe file is cleaned up before the function returns.
-func FFmpeg_conv_with_progress(input, output, progressFile string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi/static/ffmpegutil", "FFmpeg_conv_with_progress: input=%.120q output=%.120q progressFile=%.120q", input, output, progressFile)
-	}
+func FFmpeg_conv_with_progress(input, output, progressFile string) (out0 error) {
+	defer logger.Out1(logger.In3("agi/static/ffmpegutil", "FFmpeg_conv_with_progress", "input", input, "output", output, "progressFile", progressFile), &out0)
 	startTime := time.Now()
 	inputSize := fileSize(input)
 
@@ -669,6 +636,7 @@ func FFmpeg_conv_with_progress(input, output, progressFile string) error {
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)
 	}
 	if err != nil {
+		logger.DebugErr("agi/static/ffmpegutil", err)
 		return fmt.Errorf("ffmpeg conversion failed: %v", err)
 	}
 	return nil

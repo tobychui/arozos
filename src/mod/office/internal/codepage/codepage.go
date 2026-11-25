@@ -27,10 +27,8 @@ type Decoder struct {
 
 // For returns the decoder of a Windows code page number; an unknown code
 // page decodes as cp1252
-func For(cp int) Decoder {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/codepage", "For: cp=%d", cp)
-	}
+func For(cp int) (out0 Decoder) {
+	defer logger.Out1(logger.In1("office/internal/codepage", "For", "cp", cp), &out0)
 	var e encoding.Encoding
 	switch cp {
 	case 874:
@@ -74,10 +72,8 @@ func For(cp int) Decoder {
 }
 
 // ForCharset maps a font charset (LOGFONT lfCharSet) to its code page
-func ForCharset(charset int) Decoder {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/codepage", "ForCharset: charset=%d", charset)
-	}
+func ForCharset(charset int) (out0 Decoder) {
+	defer logger.Out1(logger.In1("office/internal/codepage", "ForCharset", "charset", charset), &out0)
 	switch charset {
 	case 128:
 		return For(932)
@@ -111,9 +107,7 @@ func ForCharset(charset int) Decoder {
 
 // Decode converts b; undecodable bytes become U+FFFD
 func (d Decoder) Decode(b []byte) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/codepage", "Decoder.Decode: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/internal/codepage", "Decoder.Decode")
 	if len(b) == 0 {
 		return ""
 	}
@@ -123,6 +117,7 @@ func (d Decoder) Decode(b []byte) string {
 	}
 	out, err := enc.NewDecoder().Bytes(b)
 	if err != nil {
+		logger.DebugErr("office/internal/codepage", err)
 		return Latin1(b)
 	}
 	return string(out)
@@ -130,10 +125,8 @@ func (d Decoder) Decode(b []byte) string {
 
 // Latin1 maps each byte to the code point of the same value (the
 // "compressed" strings of Excel 97 and PowerPoint 97)
-func Latin1(b []byte) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/codepage", "Latin1: len(b)=%d", len(b))
-	}
+func Latin1(b []byte) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/codepage", "Latin1", "b", b), &out0)
 	u := make([]uint16, len(b))
 	for i, c := range b {
 		u[i] = uint16(c)
@@ -152,10 +145,8 @@ var cp1252High = [32]rune{
 
 // Rune1252 maps one cp1252 byte to its character (Word 97's compressed
 // text)
-func Rune1252(c byte) rune {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/codepage", "Rune1252: c=%d", c)
-	}
+func Rune1252(c byte) (out0 rune) {
+	defer logger.Out1(logger.In1("office/internal/codepage", "Rune1252", "c", c), &out0)
 	if c >= 0x80 && c <= 0x9F {
 		return cp1252High[c-0x80]
 	}

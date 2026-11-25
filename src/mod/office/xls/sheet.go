@@ -89,9 +89,7 @@ type sheet struct {
 }
 
 func cellKey(row, col int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "cellKey: row=%d col=%d", row, col)
-	}
+	logger.DebugTrace("office/xls", "cellKey")
 	return row*256 + col
 }
 
@@ -110,9 +108,7 @@ type sharedRec struct {
 // rk decodes an RK number: a 30-bit integer or the top 30 bits of a
 // double, optionally divided by 100
 func rk(v uint32) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "rk: v=%d", v)
-	}
+	logger.DebugTrace("office/xls", "rk")
 	var f float64
 	if v&0x02 != 0 {
 		f = float64(int32(v) >> 2)
@@ -127,9 +123,7 @@ func rk(v uint32) float64 {
 
 // parseSheet reads the substream whose BOF starts at records[start]
 func (b *book) parseSheet(start int, name string) *sheet {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "book.parseSheet: start=%d name=%.120q", start, name)
-	}
+	logger.DebugTrace("office/xls", "book.parseSheet")
 	s := &sheet{name: name, cells: map[int]*cell{}, rows: map[int]*rowInfo{}, defRowHeight: 15}
 	le := binary.LittleEndian
 	var pending []pendingFormula
@@ -566,9 +560,7 @@ func (b *book) parseHLink(s *sheet, r *record) {
 
 // parseSheetExt reads the sheet tab colour (SHEETEXT, Excel 2002+)
 func (b *book) parseSheetExt(s *sheet, d []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "book.parseSheetExt: len(d)=%d", len(d))
-	}
+	logger.DebugTrace("office/xls", "book.parseSheetExt")
 	le := binary.LittleEndian
 	if len(d) < 20 {
 		return
@@ -588,9 +580,7 @@ func (b *book) parseSheetExt(s *sheet, d []byte) {
 }
 
 func hex6(c uint32) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "hex6: c=%d", c)
-	}
+	logger.DebugTrace("office/xls", "hex6")
 	s := strconv.FormatUint(uint64(c&0xFFFFFF), 16)
 	return strings.Repeat("0", 6-len(s)) + s
 }

@@ -76,11 +76,10 @@ func (d *Document) imageParams(dict Dict, res Dict) (imageParams, error) {
 
 // loadImage decodes an image, reduced towards maxW x maxH device pixels
 func (d *Document) loadImage(s *Stream, res Dict, maxW, maxH int) (*pdfImage, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.loadImage: maxW=%d maxH=%d", maxW, maxH)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadImage")
 	p, err := d.imageParams(s.Dict, res)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	limit := int64(p.w)*int64(p.h)*4*2 + 1<<16
@@ -119,6 +118,7 @@ func (d *Document) loadImage(s *Stream, res Dict, maxW, maxH int) (*pdfImage, er
 		img, err = decodeSamples(data, p, fx, fy)
 	}
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	if p.mask {
@@ -135,9 +135,7 @@ func (d *Document) loadImage(s *Stream, res Dict, maxW, maxH int) (*pdfImage, er
 }
 
 func reduceFactor(size, target int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "reduceFactor: size=%d target=%d", size, target)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "reduceFactor")
 	if target <= 0 {
 		return 1
 	}
@@ -151,11 +149,10 @@ func reduceFactor(size, target int) int {
 // applyAlphaImage multiplies alpha by a soft mask (grey levels) or a
 // stencil mask (1 = masked out)
 func (d *Document) applyAlphaImage(img *pdfImage, s *Stream, soft bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.applyAlphaImage: soft=%t", soft)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.applyAlphaImage")
 	p, err := d.imageParams(s.Dict, nil)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return
 	}
 	if soft {
@@ -211,9 +208,7 @@ type reducer struct {
 }
 
 func newReducer(w, h, fx, fy int) *reducer {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "newReducer: w=%d h=%d fx=%d fy=%d", w, h, fx, fy)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "newReducer")
 	r := &reducer{w: w, h: h, fx: fx, fy: fy}
 	r.ow = (w + fx - 1) / fx
 	r.oh = (h + fy - 1) / fy
@@ -223,9 +218,7 @@ func newReducer(w, h, fx, fy int) *reducer {
 }
 
 func (r *reducer) addRow(row []uint8) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "reducer.addRow: len(row)=%d", len(row))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "reducer.addRow")
 	if r.fx == 1 && r.fy == 1 {
 		copy(r.out.pix[r.oy*r.ow*4:], row)
 		r.oy++
@@ -276,9 +269,7 @@ func (r *reducer) finish() *pdfImage {
 
 // decodeSamples converts raw image samples
 func decodeSamples(data []byte, p imageParams, fx, fy int) (*pdfImage, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "decodeSamples: fx=%d fy=%d", fx, fy)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "decodeSamples")
 	ncomp := 1
 	if !p.mask {
 		ncomp = p.cs.nComps()
@@ -443,9 +434,7 @@ func decodeSamples(data []byte, p imageParams, fx, fy int) (*pdfImage, error) {
 }
 
 func to8(v float64) uint8 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "to8: v=%g", v)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "to8")
 	if v <= 0 || math.IsNaN(v) {
 		return 0
 	}
@@ -456,11 +445,10 @@ func to8(v float64) uint8 {
 }
 
 func (d *Document) decodeJPEG(data []byte, p imageParams, fx, fy int) (*pdfImage, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.decodeJPEG: fx=%d fy=%d", fx, fy)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.decodeJPEG")
 	cfg, err := jpeg.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	if int64(cfg.Width)*int64(cfg.Height) > maxImagePixels {
@@ -468,6 +456,7 @@ func (d *Document) decodeJPEG(data []byte, p imageParams, fx, fy int) (*pdfImage
 	}
 	src, err := jpeg.Decode(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	b := src.Bounds()

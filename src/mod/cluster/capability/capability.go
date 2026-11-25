@@ -57,8 +57,8 @@ var toolFeatures = map[string]string{
 }
 
 // Detect builds the manifest of the local machine.
-func Detect() Manifest {
-	logger.Debug("cluster/capability", "Detect")
+func Detect() (out0 Manifest) {
+	defer logger.Out1(logger.In0("cluster/capability", "Detect"), &out0)
 	m := Manifest{
 		OS:         runtime.GOOS,
 		Arch:       runtime.GOARCH,
@@ -91,26 +91,22 @@ func Detect() Manifest {
 	return m
 }
 
-func lookPath(binary string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/capability", "lookPath: binary=%.120q", binary)
-	}
+func lookPath(binary string) (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/capability", "lookPath", "binary", binary), &out0)
 	_, err := exec.LookPath(binary)
 	return err == nil
 }
 
 // Has reports whether a feature is present.
 func (m Manifest) Has(feature string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/capability", "Manifest.Has: feature=%.120q", feature)
-	}
+	logger.DebugTrace("cluster/capability", "Manifest.Has")
 	return m.Features != nil && m.Features[strings.ToLower(feature)]
 }
 
 // Satisfies checks the manifest against job requirements and explains the
 // first unmet one.
-func (m Manifest) Satisfies(r Requirements) (bool, string) {
-	logger.Debug("cluster/capability", "Manifest.Satisfies")
+func (m Manifest) Satisfies(r Requirements) (out0 bool, out1 string) {
+	defer logger.Out2(logger.In2("cluster/capability", "Manifest.Satisfies", "&m", &m, "&r", &r), &out0, &out1)
 	for _, f := range r.Features {
 		if !m.Has(f) {
 			return false, "missing feature " + f
@@ -132,8 +128,8 @@ func (m Manifest) Satisfies(r Requirements) (bool, string) {
 }
 
 // EnabledFeatures returns the sorted-insensitive list of features that are true.
-func (m Manifest) EnabledFeatures() []string {
-	logger.Debug("cluster/capability", "Manifest.EnabledFeatures")
+func (m Manifest) EnabledFeatures() (out0 []string) {
+	defer logger.Out1(logger.In1("cluster/capability", "Manifest.EnabledFeatures", "&m", &m), &out0)
 	out := []string{}
 	for f, on := range m.Features {
 		if on {
@@ -143,10 +139,8 @@ func (m Manifest) EnabledFeatures() []string {
 	return out
 }
 
-func containsFold(list []string, v string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/capability", "containsFold: len(list)=%d v=%.120q", len(list), v)
-	}
+func containsFold(list []string, v string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/capability", "containsFold", "list", list, "v", v), &out0)
 	for _, item := range list {
 		if strings.EqualFold(item, v) {
 			return true

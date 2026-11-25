@@ -40,10 +40,8 @@ type ActionResult struct {
 	Permanent   bool   `json:"permanent,omitempty"`
 }
 
-func uidSetOf(uids []uint32) (imap.UIDSet, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "uidSetOf: len(uids)=%d", len(uids))
-	}
+func uidSetOf(uids []uint32) (out0 imap.UIDSet, out1 error) {
+	defer logger.Out2(logger.In1("email", "uidSetOf", "uids", uids), &out0, &out1)
 	if len(uids) == 0 {
 		return nil, errors.New("no messages selected")
 	}
@@ -58,24 +56,25 @@ func uidSetOf(uids []uint32) (imap.UIDSet, error) {
 }
 
 // SetFlag adds or removes a flag on messages.
-func (m *Manager) SetFlag(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, flag string, value bool) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.SetFlag: accountID=%.120q folder=%.120q len(uids)=%d flag=%.120q value=%t", accountID, folder, len(uids), flag, value)
-	}
+func (m *Manager) SetFlag(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, flag string, value bool) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In8("email", "Manager.SetFlag", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uids", uids, "flag", flag, "value", value), &out0, &out1)
 	imapFlag, ok := flagNames[strings.ToLower(flag)]
 	if !ok {
 		return nil, errors.New("unknown flag " + flag)
 	}
 	set, err := uidSetOf(uids)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		op := imap.StoreFlagsAdd
@@ -85,35 +84,38 @@ func (m *Manager) SetFlag(ctx context.Context, p Principal, accountID string, fo
 		return c.Store(set, &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{imapFlag}}, nil).Close()
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return &ActionResult{Count: len(uids)}, nil
 }
 
 // Move moves messages to another folder of the same account.
-func (m *Manager) Move(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, destination string) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.Move: accountID=%.120q folder=%.120q len(uids)=%d destination=%.120q", accountID, folder, len(uids), destination)
-	}
+func (m *Manager) Move(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, destination string) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In7("email", "Manager.Move", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uids", uids, "destination", destination), &out0, &out1)
 	if destination == "" || destination == folder {
 		return nil, errors.New("choose a different folder")
 	}
 	set, err := uidSetOf(uids)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		_, err := c.Move(set, destination).Wait()
 		return err
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.forgetLocalState(p, account.ID, folder, uids)
@@ -121,26 +123,28 @@ func (m *Manager) Move(ctx context.Context, p Principal, accountID string, folde
 }
 
 // Copy copies messages to another folder of the same account.
-func (m *Manager) Copy(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, destination string) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.Copy: accountID=%.120q folder=%.120q len(uids)=%d destination=%.120q", accountID, folder, len(uids), destination)
-	}
+func (m *Manager) Copy(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, destination string) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In7("email", "Manager.Copy", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uids", uids, "destination", destination), &out0, &out1)
 	set, err := uidSetOf(uids)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		_, err := c.Copy(set, destination).Wait()
 		return err
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return &ActionResult{Count: len(uids), Destination: destination}, nil
@@ -148,16 +152,16 @@ func (m *Manager) Copy(ctx context.Context, p Principal, accountID string, folde
 
 // MoveToRole moves messages to the folder playing a role (trash, archive,
 // junk, inbox), creating that folder when the server has none.
-func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, role string) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.MoveToRole: accountID=%.120q folder=%.120q len(uids)=%d role=%.120q", accountID, folder, len(uids), role)
-	}
+func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, role string) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In7("email", "Manager.MoveToRole", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uids", uids, "role", role), &out0, &out1)
 	set, err := uidSetOf(uids)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	key := poolKey(p.Username, account.ID)
@@ -166,6 +170,7 @@ func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string,
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		folders, err := m.foldersQuick(c, key)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		currentRole := roleOf(folders, folder)
@@ -187,6 +192,7 @@ func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string,
 			destination, err = m.ensureRoleFolder(c, key, role)
 		}
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if destination == folder || (role == RoleArchive && (currentRole == RoleAll || currentRole == RoleArchive)) {
@@ -194,6 +200,7 @@ func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string,
 		}
 
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if role == RoleJunk || (role == RoleInbox && currentRole == RoleJunk) {
@@ -210,6 +217,7 @@ func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string,
 		return err
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.forgetLocalState(p, account.ID, folder, uids)
@@ -218,16 +226,16 @@ func (m *Manager) MoveToRole(ctx context.Context, p Principal, accountID string,
 
 // Delete moves messages to Trash, or removes them for good when they already
 // are in Trash / Junk or permanent is set.
-func (m *Manager) Delete(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, permanent bool) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.Delete: accountID=%.120q folder=%.120q len(uids)=%d permanent=%t", accountID, folder, len(uids), permanent)
-	}
+func (m *Manager) Delete(ctx context.Context, p Principal, accountID string, folder string, uids []uint32, permanent bool) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In7("email", "Manager.Delete", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uids", uids, "permanent", permanent), &out0, &out1)
 	set, err := uidSetOf(uids)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	key := poolKey(p.Username, account.ID)
@@ -236,17 +244,20 @@ func (m *Manager) Delete(ctx context.Context, p Principal, accountID string, fol
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		folders, err := m.foldersQuick(c, key)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		currentRole := roleOf(folders, folder)
 		if !permanent && currentRole != RoleTrash && currentRole != RoleJunk {
 			trash, err := m.ensureRoleFolder(c, key, RoleTrash)
 			if err != nil {
+				logger.DebugErr("email", err)
 				//Never fall back to a silent permanent delete
 				return errors.New("no Trash folder is available on this account (" + err.Error() + "), delete permanently instead")
 			}
 			if trash != folder {
 				if _, err := selectFolder(c, folder); err != nil {
+					logger.DebugErr("email", err)
 					return err
 				}
 				_, err = c.Move(set, trash).Wait()
@@ -257,11 +268,13 @@ func (m *Manager) Delete(ctx context.Context, p Principal, accountID string, fol
 
 		result.Permanent = true
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		return expungeUIDs(c, set)
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.forgetLocalState(p, account.ID, folder, uids)
@@ -270,9 +283,10 @@ func (m *Manager) Delete(ctx context.Context, p Principal, accountID string, fol
 
 // expungeUIDs permanently removes exactly the given messages when the server
 // supports UIDPLUS; otherwise EXPUNGE removes every \Deleted message.
-func expungeUIDs(c *imapclient.Client, set imap.UIDSet) error {
-	logger.Debug("email", "expungeUIDs")
+func expungeUIDs(c *imapclient.Client, set imap.UIDSet) (out0 error) {
+	defer logger.Out1(logger.In2("email", "expungeUIDs", "c", c, "&set", &set), &out0)
 	if err := c.Store(set, &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagDeleted}}, nil).Close(); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	if c.Caps().Has(imap.CapUIDPlus) || c.Caps().Has(imap.CapIMAP4rev2) {
@@ -282,21 +296,22 @@ func expungeUIDs(c *imapclient.Client, set imap.UIDSet) error {
 }
 
 // MarkAllRead marks every unread message of a folder as read.
-func (m *Manager) MarkAllRead(ctx context.Context, p Principal, accountID string, folder string) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.MarkAllRead: accountID=%.120q folder=%.120q", accountID, folder)
-	}
+func (m *Manager) MarkAllRead(ctx context.Context, p Principal, accountID string, folder string) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In5("email", "Manager.MarkAllRead", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	result := &ActionResult{}
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		data, err := c.UIDSearch(&imap.SearchCriteria{NotFlag: []imap.Flag{imap.FlagSeen}}, nil).Wait()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uids := data.AllUIDs()
@@ -307,18 +322,18 @@ func (m *Manager) MarkAllRead(ctx context.Context, p Principal, accountID string
 		return c.Store(imap.UIDSetNum(uids...), &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}, nil).Close()
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return result, nil
 }
 
 // EmptyFolder permanently deletes every message of the Trash or Junk folder.
-func (m *Manager) EmptyFolder(ctx context.Context, p Principal, accountID string, folder string) (*ActionResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.EmptyFolder: accountID=%.120q folder=%.120q", accountID, folder)
-	}
+func (m *Manager) EmptyFolder(ctx context.Context, p Principal, accountID string, folder string) (out0 *ActionResult, out1 error) {
+	defer logger.Out2(logger.In5("email", "Manager.EmptyFolder", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	key := poolKey(p.Username, account.ID)
@@ -326,16 +341,19 @@ func (m *Manager) EmptyFolder(ctx context.Context, p Principal, accountID string
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		folders, err := m.foldersQuick(c, key)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if role := roleOf(folders, folder); role != RoleTrash && role != RoleJunk {
 			return errors.New("only the Trash and Junk folders can be emptied")
 		}
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		data, err := c.UIDSearch(&imap.SearchCriteria{}, nil).Wait()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uids := data.AllUIDs()
@@ -346,6 +364,7 @@ func (m *Manager) EmptyFolder(ctx context.Context, p Principal, accountID string
 		return expungeUIDs(c, imap.UIDSetNum(uids...))
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return result, nil
@@ -353,24 +372,25 @@ func (m *Manager) EmptyFolder(ctx context.Context, p Principal, accountID string
 
 // appendMessage stores a raw message in a folder and returns its UID when
 // the server reports it (UIDPLUS), otherwise looks it up by Message-ID.
-func appendMessage(c *imapclient.Client, folder string, raw []byte, flags []imap.Flag, date time.Time, messageID string) (uint32, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "appendMessage: folder=%.120q len(flags)=%d messageID=%.120q", folder, len(flags), messageID)
-	}
+func appendMessage(c *imapclient.Client, folder string, raw []byte, flags []imap.Flag, date time.Time, messageID string) (out0 uint32, out1 error) {
+	defer logger.Out2(logger.In6("email", "appendMessage", "c", c, "folder", folder, "raw", raw, "flags", flags, "&date", &date, "messageID", messageID), &out0, &out1)
 	options := &imap.AppendOptions{Flags: flags}
 	if !date.IsZero() {
 		options.Time = date
 	}
 	command := c.Append(folder, int64(len(raw)), options)
 	if _, err := command.Write(raw); err != nil {
+		logger.DebugErr("email", err)
 		command.Close()
 		return 0, err
 	}
 	if err := command.Close(); err != nil {
+		logger.DebugErr("email", err)
 		return 0, err
 	}
 	data, err := command.Wait()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return 0, err
 	}
 	if data != nil && data.UID != 0 {
@@ -380,10 +400,12 @@ func appendMessage(c *imapclient.Client, folder string, raw []byte, flags []imap
 		return 0, nil
 	}
 	if _, err := selectFolder(c, folder); err != nil {
+		logger.DebugErr("email", err)
 		return 0, nil
 	}
 	found, err := c.UIDSearch(&imap.SearchCriteria{Header: []imap.SearchCriteriaHeaderField{{Key: "Message-ID", Value: messageID}}}, nil).Wait()
 	if err != nil {
+		logger.DebugErr("email", err)
 		return 0, nil
 	}
 	uids := found.AllUIDs()
@@ -394,10 +416,8 @@ func appendMessage(c *imapclient.Client, folder string, raw []byte, flags []imap
 }
 
 // ImportMessage appends a raw RFC 822 message (an .eml file) to a folder.
-func (m *Manager) ImportMessage(ctx context.Context, p Principal, accountID string, folder string, raw []byte) (uint32, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.ImportMessage: accountID=%.120q folder=%.120q", accountID, folder)
-	}
+func (m *Manager) ImportMessage(ctx context.Context, p Principal, accountID string, folder string, raw []byte) (out0 uint32, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.ImportMessage", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "raw", raw), &out0, &out1)
 	if len(raw) == 0 {
 		return 0, errors.New("the message is empty")
 	}
@@ -406,6 +426,7 @@ func (m *Manager) ImportMessage(ctx context.Context, p Principal, accountID stri
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return 0, err
 	}
 	header := parseHeaderBytes(raw)

@@ -40,18 +40,14 @@ var validServiceActions = map[string]bool{
 
 // HandleServiceStatus serves the docker service status as JSON.
 func (d *DockerManager) HandleServiceStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleServiceStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleServiceStatus", "d", d, "r", r))
 	js, _ := json.Marshal(dockerServiceStatus())
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleServiceAction performs a whitelisted service action (POST: action).
 func (d *DockerManager) HandleServiceAction(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleServiceAction: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleServiceAction", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
@@ -62,6 +58,7 @@ func (d *DockerManager) HandleServiceAction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err := dockerServiceAction(action); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

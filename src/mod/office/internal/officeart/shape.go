@@ -60,9 +60,7 @@ func (s *Shape) Deleted() bool {
 }
 
 func rect32(b []byte) *[4]int32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "rect32: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/internal/officeart", "rect32")
 	if len(b) < 16 {
 		return nil
 	}
@@ -71,8 +69,8 @@ func rect32(b []byte) *[4]int32 {
 }
 
 // ReadShape decodes an SpContainer
-func ReadShape(sp *Record) *Shape {
-	logger.Debug("office/internal/officeart", "ReadShape")
+func ReadShape(sp *Record) (out0 *Shape) {
+	defer logger.Out1(logger.In1("office/internal/officeart", "ReadShape", "sp", sp), &out0)
 	s := &Shape{Container: sp}
 	props := Props{vals: map[uint16]uint32{}, complex: map[uint16][]byte{}, blip: map[uint16]bool{}}
 	for _, c := range sp.Children {
@@ -138,7 +136,7 @@ func ReadGroup(spgr *Record) *Shape {
 // Walk calls fn for every shape below s (s included), depth first, with
 // the chain of groups above it
 func Walk(s *Shape, fn func(sh *Shape, parents []*Shape)) {
-	logger.Debug("office/internal/officeart", "Walk")
+	defer logger.Out0(logger.In2("office/internal/officeart", "Walk", "s", s, "fn", fn))
 	var walk func(*Shape, []*Shape)
 	walk = func(n *Shape, up []*Shape) {
 		fn(n, up)

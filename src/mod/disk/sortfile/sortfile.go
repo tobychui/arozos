@@ -20,19 +20,18 @@ type LargeFileScanner struct {
 	userHandler *user.UserHandler
 }
 
-func NewLargeFileScanner(u *user.UserHandler) *LargeFileScanner {
-	logger.DebugTrace("disk/sortfile", "NewLargeFileScanner")
+func NewLargeFileScanner(u *user.UserHandler) (out0 *LargeFileScanner) {
+	defer logger.Out1(logger.In1("disk/sortfile", "NewLargeFileScanner", "u", u), &out0)
 	return &LargeFileScanner{
 		userHandler: u,
 	}
 }
 
 func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/sortfile", "LargeFileScanner.HandleLargeFileList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/sortfile", "LargeFileScanner.HandleLargeFileList", "s", s, "r", r))
 	userinfo, err := s.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("disk/sortfile", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -40,12 +39,14 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 	//Check if limit is set. If yes, use the limit in return
 	limit, err := utils.GetPara(r, "number")
 	if err != nil {
+		logger.DebugErr("disk/sortfile", err)
 		limit = "20"
 	}
 
 	//Try convert the limit to integer
 	limitInt, err := strconv.Atoi(limit)
 	if err != nil {
+		logger.DebugErr("disk/sortfile", err)
 		limitInt = 20
 	}
 

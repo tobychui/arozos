@@ -118,10 +118,8 @@ func newOAuthManager(manager *Manager) *oauthManager {
 
 // providerConfig builds the oauth2 configuration of a provider. publicClient
 // drops the secret (Microsoft device-flow clients must not send one).
-func (o *oauthManager) providerConfig(provider string, flow string, redirectURI string) (*oauth2.Config, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oauthManager.providerConfig: provider=%.120q flow=%.120q", provider, flow)
-	}
+func (o *oauthManager) providerConfig(provider string, flow string, redirectURI string) (out0 *oauth2.Config, out1 error) {
+	defer logger.Out2(logger.In4("email", "oauthManager.providerConfig", "o", o, "provider", provider, "flow", flow, "redirectURI", redirectURI), &out0, &out1)
 	config := o.manager.store.getAdminConfig()
 
 	var client OAuthClient
@@ -159,6 +157,7 @@ func (o *oauthManager) providerConfig(provider string, flow string, redirectURI 
 	if flow != FlowDevice {
 		opened, err := o.manager.box.Open(client.ClientSecret)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, errors.New("the OAuth client secret cannot be decrypted, ask the administrator to enter it again")
 		}
 		secret = opened
@@ -174,8 +173,8 @@ func (o *oauthManager) providerConfig(provider string, flow string, redirectURI 
 }
 
 // httpContext carries the HTTP client used for token requests.
-func (o *oauthManager) httpContext(ctx context.Context) context.Context {
-	logger.Debug("email", "oauthManager.httpContext")
+func (o *oauthManager) httpContext(ctx context.Context) (out0 context.Context) {
+	defer logger.Out1(logger.In2("email", "oauthManager.httpContext", "o", o, "ctx", ctx), &out0)
 	client := o.manager.options.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
@@ -184,8 +183,8 @@ func (o *oauthManager) httpContext(ctx context.Context) context.Context {
 }
 
 // OAuthProviders lists the OAuth providers and whether they are configured.
-func (m *Manager) OAuthProviders() []OAuthProviderInfo {
-	logger.Debug("email", "Manager.OAuthProviders")
+func (m *Manager) OAuthProviders() (out0 []OAuthProviderInfo) {
+	defer logger.Out1(logger.In1("email", "Manager.OAuthProviders", "m", m), &out0)
 	config := m.store.getAdminConfig()
 	return []OAuthProviderInfo{
 		{ID: "google", Name: "Google", Enabled: config.Google.Enabled && config.Google.ClientID != "", Flow: config.Google.Flow},
@@ -195,10 +194,8 @@ func (m *Manager) OAuthProviders() []OAuthProviderInfo {
 
 // OAuthStart begins a sign-in. redirectURI is the /Mail/oauth.html address
 // as the browser sees it, used by the redirect flow only.
-func (m *Manager) OAuthStart(ctx context.Context, p Principal, provider string, emailAddress string, redirectURI string) (*OAuthStartResult, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.OAuthStart: provider=%.120q", provider)
-	}
+func (m *Manager) OAuthStart(ctx context.Context, p Principal, provider string, emailAddress string, redirectURI string) (out0 *OAuthStartResult, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.OAuthStart", "m", m, "ctx", ctx, "&p", &p, "provider", provider, "emailAddress", emailAddress, "redirectURI", redirectURI), &out0, &out1)
 	admin := m.store.getAdminConfig()
 	flow := FlowRedirect
 	switch provider {
@@ -213,6 +210,7 @@ func (m *Manager) OAuthStart(ctx context.Context, p Principal, provider string, 
 		redirectURI = loopbackRedirect
 	case FlowRedirect:
 		if err := validateRedirectURI(redirectURI); err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 	case FlowDevice:
@@ -221,6 +219,7 @@ func (m *Manager) OAuthStart(ctx context.Context, p Principal, provider string, 
 
 	config, err := m.oauth.providerConfig(provider, flow, redirectURI)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -240,6 +239,7 @@ func (m *Manager) OAuthStart(ctx context.Context, p Principal, provider string, 
 		deviceCtx := m.oauth.httpContext(ctx)
 		response, err := config.DeviceAuth(deviceCtx)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, describeOAuthError(err)
 		}
 		result.UserCode = response.UserCode
@@ -273,10 +273,8 @@ func (m *Manager) OAuthStart(ctx context.Context, p Principal, provider string, 
 
 // OAuthComplete finishes a redirect or loopback sign-in. input is either the
 // authorization code or the full URL the provider redirected to.
-func (m *Manager) OAuthComplete(ctx context.Context, p Principal, state string, input string) (*OAuthStatus, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.OAuthComplete: state=%.120q input=%.120q", state, input)
-	}
+func (m *Manager) OAuthComplete(ctx context.Context, p Principal, state string, input string) (out0 *OAuthStatus, out1 error) {
+	defer logger.Out2(logger.In5("email", "Manager.OAuthComplete", "m", m, "ctx", ctx, "&p", &p, "state", state, "input", input), &out0, &out1)
 	input = strings.TrimSpace(input)
 	code := input
 	if strings.Contains(input, "://") || strings.HasPrefix(input, "?") || strings.Contains(input, "code=") {
@@ -287,6 +285,7 @@ func (m *Manager) OAuthComplete(ctx context.Context, p Principal, state string, 
 		query = strings.TrimPrefix(query, "?")
 		values, err := url.ParseQuery(query)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, errors.New("the pasted address is not a valid sign-in result")
 		}
 		if providerError := values.Get("error"); providerError != "" {
@@ -310,6 +309,7 @@ func (m *Manager) OAuthComplete(ctx context.Context, p Principal, state string, 
 
 	pending, err := m.oauth.get(state, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if pending.flow == FlowDevice {
@@ -318,12 +318,14 @@ func (m *Manager) OAuthComplete(ctx context.Context, p Principal, state string, 
 
 	config, err := m.oauth.providerConfig(pending.provider, pending.flow, pending.redirectURI)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	exchangeCtx, cancel := context.WithTimeout(m.oauth.httpContext(ctx), 30*time.Second)
 	defer cancel()
 	token, err := config.Exchange(exchangeCtx, code, oauth2.VerifierOption(pending.verifier))
 	if err != nil {
+		logger.DebugErr("email", err)
 		message := describeOAuthError(err).Error()
 		m.oauth.fail(state, p.Username, message)
 		return nil, errors.New(message)
@@ -333,12 +335,11 @@ func (m *Manager) OAuthComplete(ctx context.Context, p Principal, state string, 
 }
 
 // OAuthStatusOf reports a pending sign-in to the wizard.
-func (m *Manager) OAuthStatusOf(p Principal, state string) (*OAuthStatus, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.OAuthStatusOf: state=%.120q", state)
-	}
+func (m *Manager) OAuthStatusOf(p Principal, state string) (out0 *OAuthStatus, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.OAuthStatusOf", "m", m, "&p", &p, "state", state), &out0, &out1)
 	pending, err := m.oauth.get(state, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.oauth.mutex.Lock()
@@ -355,9 +356,7 @@ func (m *Manager) OAuthStatusOf(p Principal, state string) (*OAuthStatus, error)
 
 // OAuthCancel abandons a pending sign-in.
 func (m *Manager) OAuthCancel(p Principal, state string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.OAuthCancel: state=%.120q", state)
-	}
+	defer logger.Out0(logger.In3("email", "Manager.OAuthCancel", "m", m, "&p", &p, "state", state))
 	m.oauth.mutex.Lock()
 	defer m.oauth.mutex.Unlock()
 	if pending, ok := m.oauth.pending[state]; ok && pending.owner == p.Username {
@@ -369,16 +368,14 @@ func (m *Manager) OAuthCancel(p Principal, state string) {
 }
 
 func (o *oauthManager) put(pending *pendingOAuth) {
-	logger.Debug("email", "oauthManager.put")
+	defer logger.Out0(logger.In2("email", "oauthManager.put", "o", o, "pending", pending))
 	o.mutex.Lock()
 	o.pending[pending.state] = pending
 	o.mutex.Unlock()
 }
 
-func (o *oauthManager) get(state string, owner string) (*pendingOAuth, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oauthManager.get: state=%.120q owner=%.120q", state, owner)
-	}
+func (o *oauthManager) get(state string, owner string) (out0 *pendingOAuth, out1 error) {
+	defer logger.Out2(logger.In3("email", "oauthManager.get", "o", o, "state", state, "owner", owner), &out0, &out1)
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	pending, ok := o.pending[state]
@@ -389,10 +386,8 @@ func (o *oauthManager) get(state string, owner string) (*pendingOAuth, error) {
 }
 
 // take removes a finished sign-in so its token can be stored in an account.
-func (o *oauthManager) take(state string, owner string) (*pendingOAuth, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oauthManager.take: state=%.120q owner=%.120q", state, owner)
-	}
+func (o *oauthManager) take(state string, owner string) (out0 *pendingOAuth, out1 error) {
+	defer logger.Out2(logger.In3("email", "oauthManager.take", "o", o, "state", state, "owner", owner), &out0, &out1)
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	pending, ok := o.pending[state]
@@ -407,9 +402,7 @@ func (o *oauthManager) take(state string, owner string) (*pendingOAuth, error) {
 }
 
 func (o *oauthManager) fail(state string, owner string, message string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oauthManager.fail: state=%.120q owner=%.120q", state, owner)
-	}
+	defer logger.Out0(logger.In4("email", "oauthManager.fail", "o", o, "state", state, "owner", owner, "message", message))
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	if pending, ok := o.pending[state]; ok && (owner == "" || pending.owner == owner) {
@@ -419,9 +412,7 @@ func (o *oauthManager) fail(state string, owner string, message string) {
 }
 
 func (o *oauthManager) succeed(state string, token *oauth2.Token) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oauthManager.succeed: state=%.120q", state)
-	}
+	defer logger.Out0(logger.In3("email", "oauthManager.succeed", "o", o, "state", state, "!token", token))
 	idEmail := emailFromIDToken(token)
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
@@ -434,12 +425,11 @@ func (o *oauthManager) succeed(state string, token *oauth2.Token) {
 }
 
 func (o *oauthManager) pollDevice(ctx context.Context, cancel context.CancelFunc, config *oauth2.Config, response *oauth2.DeviceAuthResponse, state string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "oauthManager.pollDevice: state=%.120q", state)
-	}
+	defer logger.Out0(logger.In6("email", "oauthManager.pollDevice", "o", o, "ctx", ctx, "&cancel", &cancel, "config", config, "response", response, "state", state))
 	defer cancel()
 	token, err := config.DeviceAccessToken(ctx, response)
 	if err != nil {
+		logger.DebugErr("email", err)
 		if errors.Is(err, context.Canceled) {
 			return
 		}
@@ -451,7 +441,7 @@ func (o *oauthManager) pollDevice(ctx context.Context, cancel context.CancelFunc
 
 // cleanup forgets sign-ins nobody finished.
 func (o *oauthManager) cleanup() {
-	logger.Debug("email", "oauthManager.cleanup")
+	defer logger.Out0(logger.In1("email", "oauthManager.cleanup", "o", o))
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	for state, pending := range o.pending {
@@ -465,7 +455,7 @@ func (o *oauthManager) cleanup() {
 }
 
 func (o *oauthManager) resetTokenCache() {
-	logger.Debug("email", "oauthManager.resetTokenCache")
+	defer logger.Out0(logger.In1("email", "oauthManager.resetTokenCache", "o", o))
 	o.tokenMutex.Lock()
 	o.tokens = map[string]cachedToken{}
 	o.tokenMutex.Unlock()
@@ -474,7 +464,7 @@ func (o *oauthManager) resetTokenCache() {
 // seed caches the access token of a sign-in that just finished, saving a
 // refresh round trip for the verification login that follows.
 func (o *oauthManager) seed(account *Account) {
-	logger.Debug("email", "oauthManager.seed")
+	defer logger.Out0(logger.In2("email", "oauthManager.seed", "o", o, "account", account))
 	if account.freshAccessToken == "" || account.ID == "" {
 		return
 	}
@@ -488,7 +478,7 @@ func (o *oauthManager) seed(account *Account) {
 }
 
 func (o *oauthManager) forget(account *Account) {
-	logger.Debug("email", "oauthManager.forget")
+	defer logger.Out0(logger.In2("email", "oauthManager.forget", "o", o, "account", account))
 	o.tokenMutex.Lock()
 	delete(o.tokens, account.Owner+"/"+account.ID)
 	o.tokenMutex.Unlock()
@@ -496,8 +486,8 @@ func (o *oauthManager) forget(account *Account) {
 
 // accessToken returns a valid access token for an OAuth account, refreshing
 // (and persisting a rotated refresh token) when needed.
-func (o *oauthManager) accessToken(ctx context.Context, account *Account) (string, error) {
-	logger.Debug("email", "oauthManager.accessToken")
+func (o *oauthManager) accessToken(ctx context.Context, account *Account) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("email", "oauthManager.accessToken", "o", o, "ctx", ctx, "account", account), &out0, &out1)
 	key := account.Owner + "/" + account.ID
 
 	o.tokenMutex.Lock()
@@ -529,12 +519,14 @@ func (o *oauthManager) accessToken(ctx context.Context, account *Account) (strin
 
 	config, err := o.providerConfig(account.OAuthProvider, account.OAuthFlow, "")
 	if err != nil {
+		logger.DebugErr("email", err)
 		return "", err
 	}
 	refreshCtx, cancel := context.WithTimeout(o.httpContext(ctx), 30*time.Second)
 	defer cancel()
 	token, err := config.TokenSource(refreshCtx, &oauth2.Token{RefreshToken: refreshToken}).Token()
 	if err != nil {
+		logger.DebugErr("email", err)
 		var retrieveErr *oauth2.RetrieveError
 		if errors.As(err, &retrieveErr) && (retrieveErr.ErrorCode == "invalid_grant" || retrieveErr.ErrorCode == "unauthorized_client" || retrieveErr.ErrorCode == "interaction_required") {
 			return "", &AuthError{Server: "OAuth", Detail: describeOAuthError(err).Error(), Hint: "Your sign-in has expired or was revoked. Reconnect the account to sign in again."}
@@ -559,19 +551,22 @@ func (o *oauthManager) accessToken(ctx context.Context, account *Account) (strin
 
 // persistRefreshToken stores a rotated refresh token.
 func (m *Manager) persistRefreshToken(account *Account, refreshToken string) {
-	logger.Debug("email", "Manager.persistRefreshToken")
+	defer logger.Out0(logger.In3("email", "Manager.persistRefreshToken", "m", m, "account", account, "!refreshToken", refreshToken))
 	sealed, err := m.box.Seal(refreshToken)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	m.store.mutex.Lock()
 	defer m.store.mutex.Unlock()
 	stored, err := m.store.getAccount(account.Owner, account.ID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	stored.Secret = sealed
 	if err := m.store.saveAccount(stored); err != nil {
+		logger.DebugErr("email", err)
 		logger.PrintAndLog("Email", "Unable to store a rotated OAuth token for "+account.Email, err)
 		return
 	}
@@ -579,8 +574,8 @@ func (m *Manager) persistRefreshToken(account *Account, refreshToken string) {
 }
 
 // validateRedirectURI only accepts the Mail app's own landing page.
-func validateRedirectURI(redirectURI string) error {
-	logger.Debug("email", "validateRedirectURI")
+func validateRedirectURI(redirectURI string) (out0 error) {
+	defer logger.Out1(logger.In1("email", "validateRedirectURI", "redirectURI", redirectURI), &out0)
 	parsed, err := url.Parse(strings.TrimSpace(redirectURI))
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
 		return errors.New("invalid OAuth redirect address")
@@ -592,10 +587,8 @@ func validateRedirectURI(redirectURI string) error {
 }
 
 // describeOAuthError turns provider error responses into readable text.
-func describeOAuthError(err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "describeOAuthError: err=%v", err)
-	}
+func describeOAuthError(err error) (out0 error) {
+	defer logger.Out1(logger.In1("email", "describeOAuthError", "err", err), &out0)
 	var retrieveErr *oauth2.RetrieveError
 	if errors.As(err, &retrieveErr) {
 		detail := retrieveErr.ErrorDescription
@@ -620,8 +613,8 @@ func describeOAuthError(err error) error {
 // emailFromIDToken reads the address from an OpenID Connect id_token. The
 // token came straight from the provider's token endpoint over TLS, so the
 // signature does not need verifying for this purpose.
-func emailFromIDToken(token *oauth2.Token) string {
-	logger.Debug("email", "emailFromIDToken")
+func emailFromIDToken(token *oauth2.Token) (out0 string) {
+	defer logger.Out1(logger.In1("email", "emailFromIDToken", "!token", token), &out0)
 	if token == nil {
 		return ""
 	}
@@ -635,6 +628,7 @@ func emailFromIDToken(token *oauth2.Token) string {
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(parts[1], "="))
 	if err != nil {
+		logger.DebugErr("email", err)
 		return ""
 	}
 	var claims struct {
@@ -643,6 +637,7 @@ func emailFromIDToken(token *oauth2.Token) string {
 		UPN               string `json:"upn"`
 	}
 	if err := json.Unmarshal(payload, &claims); err != nil {
+		logger.DebugErr("email", err)
 		return ""
 	}
 	for _, candidate := range []string{claims.Email, claims.PreferredUsername, claims.UPN} {

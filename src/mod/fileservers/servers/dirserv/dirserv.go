@@ -35,8 +35,8 @@ type Manager struct {
 }
 
 // Create a new web directory server
-func NewDirectoryServer(option *Option) *Manager {
-	logger.Debug("fileservers/servers/dirserv", "NewDirectoryServer")
+func NewDirectoryServer(option *Option) (out0 *Manager) {
+	defer logger.Out1(logger.In1("fileservers/servers/dirserv", "NewDirectoryServer", "option", option), &out0)
 	//Create a table to store which user enabled dirlisting on their own root
 	option.Sysdb.NewTable("dirserv")
 
@@ -51,22 +51,20 @@ func NewDirectoryServer(option *Option) *Manager {
 	}
 }
 
-func (m *Manager) DirServerEnabled() bool {
-	logger.DebugTrace("fileservers/servers/dirserv", "Manager.DirServerEnabled")
+func (m *Manager) DirServerEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/dirserv", "Manager.DirServerEnabled", "m", m), &out0)
 	return m.enabled
 }
 
-func (m *Manager) Toggle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/dirserv", "Manager.Toggle: enabled=%t", enabled)
-	}
+func (m *Manager) Toggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/dirserv", "Manager.Toggle", "m", m, "enabled", enabled), &out0)
 	m.enabled = enabled
 	m.option.Sysdb.Write("dirserv", "enabled", m.enabled)
 	return nil
 }
 
-func (m *Manager) ListEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	logger.Debug("fileservers/servers/dirserv", "Manager.ListEndpoints")
+func (m *Manager) ListEndpoints(userinfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/dirserv", "Manager.ListEndpoints", "m", m, "userinfo", userinfo), &out0)
 	results := []*fileservers.Endpoint{}
 	results = append(results, &fileservers.Endpoint{
 		ProtocolName: "//",
@@ -81,9 +79,7 @@ func (m *Manager) ListEndpoints(userinfo *user.User) []*fileservers.Endpoint {
 */
 
 func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/dirserv", "Manager.ServerWebFileRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/dirserv", "Manager.ServerWebFileRequest", "m", m, "r", r))
 	if !m.enabled {
 		//Dirlisting is not enabled.
 		http.NotFound(w, r)
@@ -108,6 +104,7 @@ func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
 	//Get user info
 	userinfo, err := m.option.UserManager.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/dirserv", err)
 		http.Error(w, "500 - Internal Server Error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -133,12 +130,14 @@ func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
 		subpath := strings.Join(pathChunks[1:], "/")
 		targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(fshId + ":/")
 		if err != nil {
+			logger.DebugErr("fileservers/servers/dirserv", err)
 			http.Error(w, "404 - Not Found: "+err.Error(), http.StatusNotFound)
 			return
 		}
 
 		sp, err := url.QueryUnescape(subpath)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/dirserv", err)
 			sp = subpath
 		}
 		subpath = sp
@@ -146,6 +145,7 @@ func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
 		fshAbs := targetFsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/dirserv", err)
 			http.Error(w, "500 - Virtual Path Conversion Failed: "+err.Error(), http.StatusNotFound)
 			return
 		}
@@ -156,6 +156,7 @@ func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
 			//Load Directory
 			entries, err := fshAbs.ReadDir(rpath)
 			if err != nil {
+				logger.DebugErr("fileservers/servers/dirserv", err)
 				http.Error(w, "500 - Internal Server Error: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -163,6 +164,7 @@ func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range entries {
 				finfo, err := entry.Info()
 				if err != nil {
+					logger.DebugErr("fileservers/servers/dirserv", err)
 					continue
 				}
 				html += getItemHTML(entry.Name(), arozfs.ToSlash(filepath.Join(r.RequestURI, entry.Name())), entry.IsDir(), finfo.ModTime().Format("2006-01-02 15:04:05"), byteCountIEC(finfo.Size()))
@@ -175,6 +177,7 @@ func (m *Manager) ServerWebFileRequest(w http.ResponseWriter, r *http.Request) {
 			//Serve the file
 			f, err := fshAbs.ReadStream(rpath)
 			if err != nil {
+				logger.DebugErr("fileservers/servers/dirserv", err)
 				fmt.Println(err)
 				http.Error(w, "500 - Internal Server Error: "+err.Error(), http.StatusInternalServerError)
 				return

@@ -29,14 +29,15 @@ import (
 )
 
 // Parse converts raw .xlsx bytes into a Workbook
-func Parse(data []byte) (*model.Workbook, error) {
-	logger.Debug("office/xlsx", "Parse")
+func Parse(data []byte) (out0 *model.Workbook, out1 error) {
+	defer logger.Out2(logger.In1("office/xlsx", "Parse", "data", data), &out0, &out1)
 	if len(data) > 8 && data[0] == 0xD0 && data[1] == 0xCF {
 		// an Excel 97-2003 file: package xls converts it into an .xlsx first
 		return nil, errors.New("this is an Excel 97-2003 (.xls) workbook; open it with xls.Parse")
 	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, errors.New("not a valid xlsx (zip) file")
 	}
 
@@ -46,11 +47,13 @@ func Parse(data []byte) (*model.Workbook, error) {
 		if strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels") {
 			rc, err := f.Open()
 			if err != nil {
+				logger.DebugErr("office/xlsx", err)
 				continue
 			}
 			b, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
+				logger.DebugErr("office/xlsx", err)
 				continue
 			}
 			files[name] = b
@@ -63,6 +66,7 @@ func Parse(data []byte) (*model.Workbook, error) {
 	}
 	wbTree, err := xmltree.Parse(wbXML)
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, errors.New("cannot parse workbook.xml: " + err.Error())
 	}
 
@@ -103,6 +107,7 @@ func Parse(data []byte) (*model.Workbook, error) {
 		}
 		tree, err := xmltree.Parse(raw)
 		if err != nil {
+			logger.DebugErr("office/xlsx", err)
 			continue
 		}
 		ws := parseWorksheet(tree, shared, styleMap)
@@ -171,6 +176,7 @@ func parseSharedStrings(data []byte) []string {
 	}
 	tree, err := xmltree.Parse(data)
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil
 	}
 	var out []string
@@ -196,6 +202,7 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 	}
 	tree, err := xmltree.Parse(data)
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil
 	}
 
@@ -367,9 +374,7 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 
 // numFmtIDToName maps builtin/custom number format ids to webapp fmt names
 func numFmtIDToName(id int, custom map[int]string) (string, int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "numFmtIDToName: id=%d len(custom)=%d", id, len(custom))
-	}
+	logger.DebugTrace("office/xlsx", "numFmtIDToName")
 	switch {
 	case id >= 1 && id <= 2:
 		return "number", decimalsInCode("0.00")
@@ -410,9 +415,7 @@ func numFmtIDToName(id int, custom map[int]string) (string, int) {
 }
 
 func decimalsInCode(code string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "decimalsInCode: code=%.120q", code)
-	}
+	logger.DebugTrace("office/xlsx", "decimalsInCode")
 	i := strings.Index(code, ".")
 	if i < 0 {
 		return 0
@@ -427,9 +430,7 @@ func decimalsInCode(code string) int {
 /* ---------- worksheet ---------- */
 
 func parseWorksheet(tree *xmltree.Node, sharedStr []string, styleMap []xlsxXfInfo) *model.WorkSheet {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseWorksheet: len(sharedStr)=%d len(styleMap)=%d", len(sharedStr), len(styleMap))
-	}
+	logger.DebugTrace("office/xlsx", "parseWorksheet")
 	ws := &model.WorkSheet{
 		Cells: map[string]*model.WorkCell{},
 		ColW:  map[string]float64{},
@@ -477,6 +478,7 @@ func parseWorksheet(tree *xmltree.Node, sharedStr []string, styleMap []xlsxXfInf
 		for _, row := range sd.All("row") {
 			rIdx, err := strconv.Atoi(row.Attr("r"))
 			if err != nil {
+				logger.DebugErr("office/xlsx", err)
 				continue
 			}
 			if ht, err := strconv.ParseFloat(row.Attr("ht"), 64); err == nil && row.Attr("customHeight") == "1" {
@@ -583,9 +585,7 @@ func parseWorksheet(tree *xmltree.Node, sharedStr []string, styleMap []xlsxXfInf
 
 // parseXlsxCell extracts the raw editor value from a <c> element
 func parseXlsxCell(c *xmltree.Node, shared []string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseXlsxCell: len(shared)=%d", len(shared))
-	}
+	logger.DebugTrace("office/xlsx", "parseXlsxCell")
 	// formulas win: the webapp recalculates them
 	if f := c.First("f"); f != nil && strings.TrimSpace(f.Text) != "" {
 		return "=" + stripXlPrefixes(f.Text)

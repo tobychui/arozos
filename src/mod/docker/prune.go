@@ -18,18 +18,16 @@ import (
 )
 
 // SystemDF returns the human-readable `docker system df` output.
-func (d *DockerManager) SystemDF() (string, error) {
-	logger.Debug("docker", "DockerManager.SystemDF")
+func (d *DockerManager) SystemDF() (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("docker", "DockerManager.SystemDF", "d", d), &out0, &out1)
 	out, err := runDocker("system", "df")
 	return string(out), err
 }
 
 // SystemPrune reclaims unused docker data. When volumes is true, unused volumes
 // are pruned too (additionally destructive).
-func (d *DockerManager) SystemPrune(volumes bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.SystemPrune: volumes=%t", volumes)
-	}
+func (d *DockerManager) SystemPrune(volumes bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("docker", "DockerManager.SystemPrune", "d", d, "volumes", volumes), &out0, &out1)
 	args := []string{"system", "prune", "-f"}
 	if volumes {
 		args = append(args, "--volumes")
@@ -42,11 +40,10 @@ func (d *DockerManager) SystemPrune(volumes bool) (string, error) {
 
 // HandleDiskUsage serves `docker system df` output as JSON {output}.
 func (d *DockerManager) HandleDiskUsage(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleDiskUsage: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleDiskUsage", "d", d, "r", r))
 	out, err := d.SystemDF()
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -57,9 +54,7 @@ func (d *DockerManager) HandleDiskUsage(w http.ResponseWriter, r *http.Request) 
 // HandlePrune runs `docker system prune` (POST: volumes bool) and returns the
 // reclamation output as JSON {output}.
 func (d *DockerManager) HandlePrune(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandlePrune: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandlePrune", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
@@ -67,6 +62,7 @@ func (d *DockerManager) HandlePrune(w http.ResponseWriter, r *http.Request) {
 	volumes, _ := utils.PostBool(r, "volumes")
 	out, err := d.SystemPrune(volumes)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

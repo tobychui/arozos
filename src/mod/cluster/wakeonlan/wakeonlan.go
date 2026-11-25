@@ -18,13 +18,12 @@ import (
 
 type magicPacket [102]byte
 
-func WakeTarget(macAddr string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/wakeonlan", "WakeTarget: macAddr=%.120q", macAddr)
-	}
+func WakeTarget(macAddr string) (out0 error) {
+	defer logger.Out1(logger.In1("cluster/wakeonlan", "WakeTarget", "macAddr", macAddr), &out0)
 	packet := magicPacket{}
 	mac, err := net.ParseMAC(macAddr)
 	if err != nil {
+		logger.DebugErr("cluster/wakeonlan", err)
 		return err
 	}
 
@@ -44,6 +43,7 @@ func WakeTarget(macAddr string) error {
 	//Most devices listen to either port 7 or 9, send to both of them
 	err = sendPacket("255.255.255.255:7", packet)
 	if err != nil {
+		logger.DebugErr("cluster/wakeonlan", err)
 		return err
 	}
 
@@ -51,15 +51,17 @@ func WakeTarget(macAddr string) error {
 
 	err = sendPacket("255.255.255.255:9", packet)
 	if err != nil {
+		logger.DebugErr("cluster/wakeonlan", err)
 		return err
 	}
 	return nil
 }
 
-func sendPacket(addr string, packet magicPacket) error {
-	logger.Debug("cluster/wakeonlan", "sendPacket")
+func sendPacket(addr string, packet magicPacket) (out0 error) {
+	defer logger.Out1(logger.In2("cluster/wakeonlan", "sendPacket", "addr", addr, "&packet", &packet), &out0)
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
+		logger.DebugErr("cluster/wakeonlan", err)
 		return err
 	}
 	defer conn.Close()

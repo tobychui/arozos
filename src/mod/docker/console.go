@@ -54,15 +54,15 @@ type consoleControlMsg struct {
 // HandleExecConsole upgrades to a websocket and bridges it to an interactive
 // shell inside the container given by ?id=, using ?shell= (default "sh").
 func (d *DockerManager) HandleExecConsole(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleExecConsole: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleExecConsole", "d", d, "r", r))
 	ref, err := utils.GetPara(r, "id")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, "missing container id", http.StatusBadRequest)
 		return
 	}
 	if err := validateContainerRef(ref); err != nil {
+		logger.DebugErr("docker", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -78,12 +78,14 @@ func (d *DockerManager) HandleExecConsole(w http.ResponseWriter, r *http.Request
 
 	conn, err := dockerWsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return
 	}
 	defer conn.Close()
 
 	session, err := startDockerExecPTY(ref, shell)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("Failed to start console: "+err.Error()))
 		return
 	}

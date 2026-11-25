@@ -35,7 +35,7 @@ import (
 */
 
 func NotificationSettingInit() {
-	logger.Debug("Core", "NotificationSettingInit")
+	defer logger.Out0(logger.In0("Core", "NotificationSettingInit"))
 	//Register the settings tab. It is visible to all users; the admin-only
 	//sections are hidden client side and enforced server side.
 	registerSetting(settingModule{
@@ -87,9 +87,7 @@ type notificationAgentInfo struct {
 }
 
 func handleNotificationAgentList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleNotificationAgentList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleNotificationAgentList", "r", r))
 	if notificationQueue == nil {
 		utils.SendErrorResponse(w, "Notification system not ready")
 		return
@@ -123,11 +121,10 @@ func handleNotificationAgentList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleNotificationPreference(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleNotificationPreference: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleNotificationPreference", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -178,12 +175,14 @@ func handleNotificationPreference(w http.ResponseWriter, r *http.Request) {
 	//Reject an invalid webhook URL early so the user gets feedback.
 	if pref.Webhook.URL != "" {
 		if err := webhookn.ValidateTarget(pref.Webhook); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 	}
 
 	if err := notificationPreferenceStore.Set(userinfo.Username, pref); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -191,11 +190,10 @@ func handleNotificationPreference(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDesktopNotificationList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleDesktopNotificationList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleDesktopNotificationList", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -209,11 +207,10 @@ func handleDesktopNotificationList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleNotificationTest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleNotificationTest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleNotificationTest", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -239,6 +236,7 @@ func handleNotificationTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := sendUserNotification(payload); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -254,9 +252,7 @@ type telegramConfigView struct {
 }
 
 func handleTelegramConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleTelegramConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleTelegramConfig", "r", r))
 	if r.Method == http.MethodGet {
 		view := telegramConfigView{
 			BotTokenSet: telegramNotificationAgent != nil && telegramNotificationAgent.IsConfigured(),
@@ -269,6 +265,7 @@ func handleTelegramConfig(w http.ResponseWriter, r *http.Request) {
 	//POST: update the bot token
 	botToken, err := utils.PostPara(r, "botToken")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "botToken is required")
 		return
 	}
@@ -278,6 +275,7 @@ func handleTelegramConfig(w http.ResponseWriter, r *http.Request) {
 	conf := map[string]string{"BotToken": botToken}
 	js, _ := json.MarshalIndent(conf, "", " ")
 	if err := os.WriteFile(telegramConfigPath, js, 0775); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Unable to save Telegram config: "+err.Error())
 		return
 	}
@@ -308,9 +306,7 @@ type smtpConfigFile struct {
 }
 
 func handleSMTPConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleSMTPConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleSMTPConfig", "r", r))
 	if r.Method == http.MethodGet {
 		conf := readSMTPConfig()
 		view := smtpConfigView{
@@ -347,6 +343,7 @@ func handleSMTPConfig(w http.ResponseWriter, r *http.Request) {
 
 	js, _ := json.MarshalIndent(conf, "", " ")
 	if err := os.WriteFile(smtpnConfigPath, js, 0775); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Unable to save SMTP config: "+err.Error())
 		return
 	}
@@ -365,8 +362,8 @@ func handleSMTPConfig(w http.ResponseWriter, r *http.Request) {
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 // parsePriority accepts either a numeric or textual priority.
-func parsePriority(raw string) int {
-	logger.Debug("Core", "parsePriority")
+func parsePriority(raw string) (out0 int) {
+	defer logger.Out1(logger.In1("Core", "parsePriority", "raw", raw), &out0)
 	raw = strings.TrimSpace(raw)
 	if n, err := strconv.Atoi(raw); err == nil {
 		return notification.NormalizePriority(n)
@@ -374,11 +371,12 @@ func parsePriority(raw string) int {
 	return notification.PriorityFromString(raw)
 }
 
-func readSMTPConfig() smtpConfigFile {
-	logger.Debug("Core", "readSMTPConfig")
+func readSMTPConfig() (out0 smtpConfigFile) {
+	defer logger.Out1(logger.In0("Core", "readSMTPConfig"), &out0)
 	conf := smtpConfigFile{}
 	data, err := os.ReadFile(smtpnConfigPath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return conf
 	}
 	json.Unmarshal(data, &conf)
@@ -386,8 +384,8 @@ func readSMTPConfig() smtpConfigFile {
 }
 
 // smtpConfigured reports whether the SMTP agent has enough config to send mail.
-func smtpConfigured() bool {
-	logger.Debug("Core", "smtpConfigured")
+func smtpConfigured() (out0 bool) {
+	defer logger.Out1(logger.In0("Core", "smtpConfigured"), &out0)
 	conf := readSMTPConfig()
 	return conf.SMTPSender != "" && conf.SMTPDomain != "" && conf.SMTPPort != 0
 }

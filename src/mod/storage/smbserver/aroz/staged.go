@@ -66,10 +66,8 @@ type stagedFile struct {
 
 // openStaged opens a file of a buffered drive. truncate and create follow the
 // os flags: a file that starts empty needs nothing downloaded.
-func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int, cfg stageConfig) (*stagedFile, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "openStaged: rpath=%.120q vpath=%.120q flag=%d", rpath, vpath, flag)
-	}
+func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int, cfg stageConfig) (out0 *stagedFile, out1 error) {
+	defer logger.Out2(logger.In5("storage/smbserver/aroz", "openStaged", "fsh", fsh, "rpath", rpath, "vpath", vpath, "flag", flag, "&cfg", &cfg), &out0, &out1)
 	fsa := fsh.FileSystemAbstraction
 	exists := fsa.FileExists(rpath)
 	if flag&os.O_CREATE != 0 && flag&os.O_EXCL != 0 && exists {
@@ -82,6 +80,7 @@ func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int
 	if !empty {
 		info, err := fsa.Stat(rpath)
 		if err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			return nil, err
 		}
 		if info.IsDir() {
@@ -93,10 +92,12 @@ func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int
 	}
 
 	if err := os.MkdirAll(cfg.dir, 0700); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	local, err := os.CreateTemp(cfg.dir, "stage-*")
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil, err
 	}
 	s := &stagedFile{fsh: fsh, rpath: rpath, vpath: vpath, localPath: local.Name(), local: local, keepDir: cfg.keepDir}
@@ -106,6 +107,7 @@ func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int
 		//The file must exist, and be empty, the moment the open succeeds:
 		//others listing the folder see it, as on a local drive
 		if err := fsa.WriteStream(rpath, bytes.NewReader(nil), 0775); err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			local.Close()
 			os.Remove(s.localPath)
 			return nil, err
@@ -117,13 +119,14 @@ func openStaged(fsh *filesystem.FileSystemHandler, rpath, vpath string, flag int
 
 // startDownload begins the background copy, once.
 func (s *stagedFile) startDownload() {
-	logger.Debug("storage/smbserver/aroz", "stagedFile.startDownload")
+	defer logger.Out0(logger.In1("storage/smbserver/aroz", "stagedFile.startDownload", "s", s))
 	if s.started {
 		return
 	}
 	s.started = true
 	stream, err := s.fsh.FileSystemAbstraction.ReadStream(s.rpath)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		s.loadErr = err
 		s.changed.Broadcast()
 		return
@@ -133,7 +136,7 @@ func (s *stagedFile) startDownload() {
 }
 
 func (s *stagedFile) download(stream io.ReadCloser) {
-	logger.Debug("storage/smbserver/aroz", "stagedFile.download")
+	defer logger.Out0(logger.In2("storage/smbserver/aroz", "stagedFile.download", "s", s, "stream", stream))
 	defer stream.Close()
 	buf := make([]byte, 1<<20)
 	var offset int64
@@ -150,6 +153,7 @@ func (s *stagedFile) download(stream io.ReadCloser) {
 			s.mu.Unlock()
 		}
 		if err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			s.mu.Lock()
 			if errors.Is(err, io.EOF) {
 				s.loaded = true
@@ -165,10 +169,8 @@ func (s *stagedFile) download(stream io.ReadCloser) {
 
 // waitFor blocks until the first end bytes are local, or the copy ended.
 // The caller holds s.mu.
-func (s *stagedFile) waitFor(end int64) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "stagedFile.waitFor: end=%d", end)
-	}
+func (s *stagedFile) waitFor(end int64) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "stagedFile.waitFor", "s", s, "end", end), &out0)
 	s.startDownload()
 	for !s.loaded && s.loadErr == nil && !s.closed && s.have < end {
 		s.changed.Wait()
@@ -183,23 +185,23 @@ func (s *stagedFile) waitFor(end int64) error {
 }
 
 func (s *stagedFile) ReadAt(b []byte, off int64) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/smbserver/aroz", "stagedFile.ReadAt: len(b)=%d off=%d", len(b), off)
-	}
+	logger.DebugTrace("storage/smbserver/aroz", "stagedFile.ReadAt")
 	s.mu.Lock()
 	err := s.waitFor(off + int64(len(b)))
 	s.mu.Unlock()
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return 0, err
 	}
 	return s.local.ReadAt(b, off)
 }
 
 // whole waits for the complete copy, which every change needs.
-func (s *stagedFile) whole() error {
-	logger.Debug("storage/smbserver/aroz", "stagedFile.whole")
+func (s *stagedFile) whole() (out0 error) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "stagedFile.whole", "s", s), &out0)
 	for {
 		if err := s.waitFor(1 << 62); err != nil {
+			logger.DebugErr("storage/smbserver/aroz", err)
 			return err
 		}
 		if s.loaded {
@@ -209,25 +211,23 @@ func (s *stagedFile) whole() error {
 }
 
 func (s *stagedFile) WriteAt(b []byte, off int64) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/smbserver/aroz", "stagedFile.WriteAt: len(b)=%d off=%d", len(b), off)
-	}
+	logger.DebugTrace("storage/smbserver/aroz", "stagedFile.WriteAt")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.whole(); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return 0, err
 	}
 	s.dirty = true
 	return s.local.WriteAt(b, off)
 }
 
-func (s *stagedFile) Truncate(size int64) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "stagedFile.Truncate: size=%d", size)
-	}
+func (s *stagedFile) Truncate(size int64) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "stagedFile.Truncate", "s", s, "size", size), &out0)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.whole(); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	s.dirty = true
@@ -236,8 +236,8 @@ func (s *stagedFile) Truncate(size int64) error {
 
 // PendingSize reports the size of a copy that has changes the drive has not
 // received yet.
-func (s *stagedFile) PendingSize() (int64, bool) {
-	logger.Debug("storage/smbserver/aroz", "stagedFile.PendingSize")
+func (s *stagedFile) PendingSize() (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In1("storage/smbserver/aroz", "stagedFile.PendingSize", "s", s), &out0, &out1)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty || s.closed {
@@ -245,20 +245,21 @@ func (s *stagedFile) PendingSize() (int64, bool) {
 	}
 	fi, err := s.local.Stat()
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return 0, false
 	}
 	return fi.Size(), true
 }
 
 // Sync keeps the data local. It reaches the drive at close, in one piece.
-func (s *stagedFile) Sync() error {
-	logger.DebugTrace("storage/smbserver/aroz", "stagedFile.Sync")
+func (s *stagedFile) Sync() (out0 error) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "stagedFile.Sync", "s", s), &out0)
 	return nil
 }
 
 // Close uploads what was written. A failed upload keeps the staged copy.
-func (s *stagedFile) Close() error {
-	logger.Debug("storage/smbserver/aroz", "stagedFile.Close")
+func (s *stagedFile) Close() (out0 error) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "stagedFile.Close", "s", s), &out0)
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
@@ -279,9 +280,11 @@ func (s *stagedFile) Close() error {
 	}
 
 	if _, err := s.local.Seek(0, io.SeekStart); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return s.keep(err)
 	}
 	if err := s.fsh.FileSystemAbstraction.WriteStream(s.rpath, s.local, 0775); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return s.keep(err)
 	}
 	s.local.Close()
@@ -290,14 +293,13 @@ func (s *stagedFile) Close() error {
 
 // keep moves a staged file whose upload failed out of the way, where an admin
 // can find it, and passes the error on.
-func (s *stagedFile) keep(cause error) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "stagedFile.keep: cause=%v", cause)
-	}
+func (s *stagedFile) keep(cause error) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "stagedFile.keep", "s", s, "cause", cause), &out0)
 	s.local.Close()
 	name := strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(s.vpath)
 	target := filepath.Join(s.keepDir, fmt.Sprintf("%s.%d", name, time.Now().Unix()))
 	if err := moveFile(s.localPath, target); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		logger.PrintAndLog("SMB", "Upload to "+s.vpath+" failed, the data is still in "+s.localPath, cause)
 		return cause
 	}
@@ -306,11 +308,10 @@ func (s *stagedFile) keep(cause error) error {
 }
 
 // moveFile renames, or copies when the folders are on different disks.
-func moveFile(from, to string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "moveFile: from=%.120q to=%.120q", from, to)
-	}
+func moveFile(from, to string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "moveFile", "from", from, "to", to), &out0)
 	if err := os.MkdirAll(filepath.Dir(to), 0700); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	if err := os.Rename(from, to); err == nil {
@@ -318,19 +319,23 @@ func moveFile(from, to string) error {
 	}
 	src, err := os.Open(from)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	defer src.Close()
 	dst, err := os.OpenFile(to, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return err
 	}
 	if _, err := io.Copy(dst, src); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		dst.Close()
 		os.Remove(to)
 		return err
 	}
 	if err := dst.Close(); err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		os.Remove(to)
 		return err
 	}

@@ -87,9 +87,10 @@ type cachedFile struct {
 
 // NewServer prepares the locale server and reads the language list and the
 // characters each language uses
-func NewServer(opts Options) (*Server, error) {
-	logger.Debug("locale", "NewServer")
+func NewServer(opts Options) (out0 *Server, out1 error) {
+	defer logger.Out2(logger.In1("locale", "NewServer", "&opts", &opts), &out0, &out1)
 	if _, err := os.Stat(opts.Root); err != nil {
+		logger.DebugErr("locale", err)
 		return nil, err
 	}
 	s := &Server{opts: opts, cache: map[string]*cachedFile{}}
@@ -104,16 +105,16 @@ func (s *Server) Root() string {
 }
 
 // Languages lists the languages of the system's interface strings
-func (s *Server) Languages() []Language {
-	logger.Debug("locale", "Server.Languages")
+func (s *Server) Languages() (out0 []Language) {
+	defer logger.Out1(logger.In1("locale", "Server.Languages", "s", s), &out0)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]Language(nil), s.languages...)
 }
 
 // LanguageCodes lists the language codes, lower case
-func (s *Server) LanguageCodes() []string {
-	logger.Debug("locale", "Server.LanguageCodes")
+func (s *Server) LanguageCodes() (out0 []string) {
+	defer logger.Out1(logger.In1("locale", "Server.LanguageCodes", "s", s), &out0)
 	langs := s.Languages()
 	codes := make([]string, len(langs))
 	for i, l := range langs {
@@ -126,13 +127,14 @@ func (s *Server) LanguageCodes() []string {
 // system_settings.json, else file_explorer.json) and the text of each
 // language, which it hands to the font library
 func (s *Server) Rescan() {
-	logger.Debug("locale", "Server.Rescan")
+	defer logger.Out0(logger.In1("locale", "Server.Rescan", "s", s))
 	texts := map[string]*strings.Builder{}
 	names := map[string]string{}
 	var order []string
 
 	filepath.Walk(s.opts.Root, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
+			logger.DebugErr("locale", err)
 			return nil
 		}
 		if info.IsDir() {
@@ -146,6 +148,7 @@ func (s *Server) Rescan() {
 		}
 		raw, err := os.ReadFile(p)
 		if err != nil {
+			logger.DebugErr("locale", err)
 			return nil
 		}
 		var doc struct {
@@ -219,10 +222,8 @@ func collectText(v interface{}, b *strings.Builder) {
 }
 
 // resolve maps a path below URLPrefix to a file, nil when it is not served
-func (s *Server) resolve(rel string) (string, os.FileInfo) {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "Server.resolve: rel=%.120q", rel)
-	}
+func (s *Server) resolve(rel string) (out0 string, out1 os.FileInfo) {
+	defer logger.Out2(logger.In2("locale", "Server.resolve", "s", s, "rel", rel), &out0, &out1)
 	if rel == "" || strings.ContainsAny(rel, "\\\x00:") || strings.HasPrefix(rel, "/") {
 		return "", nil
 	}
@@ -252,9 +253,7 @@ func (s *Server) resolve(rel string) (string, os.FileInfo) {
 
 // Serve answers a request below URLPrefix for a logged in user
 func (s *Server) Serve(w http.ResponseWriter, r *http.Request, username string) {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "Server.Serve: r=%s username=%.120q", logger.RequestSummary(r), username)
-	}
+	defer logger.Out0(logger.In3("locale", "Server.Serve", "s", s, "r", r, "username", username))
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -308,11 +307,10 @@ func (s *Server) Serve(w http.ResponseWriter, r *http.Request, username string) 
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, full string, st os.FileInfo) {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "serveFile: r=%s full=%.120q", logger.RequestSummary(r), full)
-	}
+	defer logger.Out0(logger.In3("locale", "serveFile", "r", r, "full", full, "st", st))
 	f, err := os.Open(full)
 	if err != nil {
+		logger.DebugErr("locale", err)
 		http.NotFound(w, r)
 		return
 	}
@@ -323,9 +321,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, full string, st os.FileIn
 
 // sendRevalidated sends a per user response the browser revalidates by ETag
 func sendRevalidated(w http.ResponseWriter, r *http.Request, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "sendRevalidated: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("locale", "sendRevalidated", "r", r, "body", body))
 	sum := sha1.Sum(body)
 	etag := `"` + hex.EncodeToString(sum[:10]) + `"`
 	w.Header().Set("Cache-Control", "private, no-cache")
@@ -341,10 +337,8 @@ func sendRevalidated(w http.ResponseWriter, r *http.Request, body []byte) {
 }
 
 // load returns a locale file, parsed, from the cache while it is unchanged
-func (s *Server) load(full string, st os.FileInfo) *cachedFile {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "Server.load: full=%.120q", full)
-	}
+func (s *Server) load(full string, st os.FileInfo) (out0 *cachedFile) {
+	defer logger.Out1(logger.In3("locale", "Server.load", "s", s, "full", full, "st", st), &out0)
 	s.mu.Lock()
 	c := s.cache[full]
 	s.mu.Unlock()
@@ -372,10 +366,8 @@ func (s *Server) load(full string, st os.FileInfo) *cachedFile {
 // render returns a locale file with the user's library fonts filled in, or
 // nil when no language of the file uses one. Everything else, including the
 // order of the keys, stays as the file has it.
-func (s *Server) render(file *cachedFile, depth int, username string) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "Server.render: depth=%d username=%.120q", depth, username)
-	}
+func (s *Server) render(file *cachedFile, depth int, username string) (out0 []byte) {
+	defer logger.Out1(logger.In4("locale", "Server.render", "s", s, "file", file, "depth", depth, "username", username), &out0)
 	if file.keysAt < 0 {
 		return nil
 	}
@@ -389,6 +381,7 @@ func (s *Server) render(file *cachedFile, depth int, username string) []byte {
 		}
 		block, err := objectMembers(m.value)
 		if err != nil {
+			logger.DebugErr("locale", err)
 			continue
 		}
 		stack := ""
@@ -439,8 +432,8 @@ type member struct {
 }
 
 // objectMembers splits a JSON object into its members, in order
-func objectMembers(raw []byte) ([]member, error) {
-	logger.Debug("locale", "objectMembers")
+func objectMembers(raw []byte) (out0 []member, out1 error) {
+	defer logger.Out2(logger.In1("locale", "objectMembers", "raw", raw), &out0, &out1)
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
 		return nil, errors.New("not a JSON object")
@@ -449,6 +442,7 @@ func objectMembers(raw []byte) ([]member, error) {
 	for dec.More() {
 		tok, err := dec.Token()
 		if err != nil {
+			logger.DebugErr("locale", err)
 			return nil, err
 		}
 		key, ok := tok.(string)
@@ -457,6 +451,7 @@ func objectMembers(raw []byte) ([]member, error) {
 		}
 		var value json.RawMessage
 		if err := dec.Decode(&value); err != nil {
+			logger.DebugErr("locale", err)
 			return nil, err
 		}
 		members = append(members, member{key, value})
@@ -467,10 +462,8 @@ func objectMembers(raw []byte) ([]member, error) {
 	return members, nil
 }
 
-func encodeObject(members []member) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "encodeObject: len(members)=%d", len(members))
-	}
+func encodeObject(members []member) (out0 []byte) {
+	defer logger.Out1(logger.In1("locale", "encodeObject", "members", members), &out0)
 	var b bytes.Buffer
 	b.WriteByte('{')
 	for i, m := range members {
@@ -486,10 +479,8 @@ func encodeObject(members []member) []byte {
 	return b.Bytes()
 }
 
-func stringMember(key, value string) member {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "stringMember: value=%.120q", value)
-	}
+func stringMember(key, value string) (out0 member) {
+	defer logger.Out1(logger.In2("locale", "stringMember", "value", value, "!key", key), &out0)
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
@@ -499,9 +490,7 @@ func stringMember(key, value string) member {
 
 // serveStyleSheet sends the user's font style sheet, or the preview one
 func (s *Server) serveStyleSheet(w http.ResponseWriter, r *http.Request, username string) {
-	if logger.IsDebug() {
-		logger.Debugf("locale", "Server.serveStyleSheet: r=%s username=%.120q", logger.RequestSummary(r), username)
-	}
+	defer logger.Out0(logger.In3("locale", "Server.serveStyleSheet", "s", s, "r", r, "username", username))
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	var css string
 	if r.URL.Query().Get("preview") != "" {

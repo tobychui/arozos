@@ -23,9 +23,7 @@ type publicUserInfo struct {
 }
 
 func (s *Service) handleHostInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleHostInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleHostInfo", "s", s, "r", r))
 	info := HostInfo{}
 	if s.opts.HostInfo != nil {
 		info = s.opts.HostInfo()
@@ -36,11 +34,10 @@ func (s *Service) handleHostInfo(w http.ResponseWriter, r *http.Request) {
 
 // handleUserInfo returns the current user's info, or the public info of the user named by "target"
 func (s *Service) handleUserInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleUserInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleUserInfo", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -50,6 +47,7 @@ func (s *Service) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		searchingUser, err := s.opts.Users.GetUserInfoFromUsername(targetUser)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			utils.SendErrorResponse(w, "User not found")
 			return
 		}

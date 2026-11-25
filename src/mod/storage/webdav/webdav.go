@@ -50,10 +50,8 @@ type WindowClientInfo struct {
 }
 
 // NewServer create a new WebDAV server object required by arozos
-func NewServer(hostname string, prefix string, tmpdir string, tlsMode bool, userHandler *user.UserHandler) *Server {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "NewServer: hostname=%.120q prefix=%.120q tmpdir=%.120q tlsMode=%t", hostname, prefix, tmpdir, tlsMode)
-	}
+func NewServer(hostname string, prefix string, tmpdir string, tlsMode bool, userHandler *user.UserHandler) (out0 *Server) {
+	defer logger.Out1(logger.In5("storage/webdav", "NewServer", "hostname", hostname, "prefix", prefix, "tmpdir", tmpdir, "tlsMode", tlsMode, "userHandler", userHandler), &out0)
 	//Generate a default handler
 	os.MkdirAll(filepath.Join(tmpdir, "webdav"), 0777)
 
@@ -75,9 +73,7 @@ func NewServer(hostname string, prefix string, tmpdir string, tlsMode bool, user
 }
 
 func (s *Server) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.HandleClearAllPending: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("storage/webdav", "Server.HandleClearAllPending", "s", s, "r", r))
 	//Clear all pending client requests
 	keys := []string{}
 	s.windowsClientNotLoggedIn.Range(func(key, value interface{}) bool {
@@ -95,23 +91,24 @@ func (s *Server) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
 
 // Handle allow and remove permission of a windows WebDAV Client
 func (s *Server) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.HandlePermissionEdit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("storage/webdav", "Server.HandlePermissionEdit", "s", s, "r", r))
 	opr, err := utils.PostPara(r, "opr")
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		sendErrorResponse(w, "Invalid operations")
 		return
 	}
 
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		sendErrorResponse(w, "Invalid uuid")
 		return
 	}
 
 	userinfo, err := s.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		sendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -157,9 +154,7 @@ func (s *Server) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.HandleConnectionList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("storage/webdav", "Server.HandleConnectionList", "s", s, "r", r))
 	target, _ := utils.GetPara(r, "target")
 	results := []*WindowClientInfo{}
 	if target == "" {
@@ -172,6 +167,7 @@ func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
 	} else if target == "loggedin" {
 		userinfo, err := s.userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("storage/webdav", err)
 			sendErrorResponse(w, "User not logged in")
 			return
 		}
@@ -206,9 +202,7 @@ func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.HandleRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("storage/webdav", "Server.HandleRequest", "s", s, "r", r))
 	//Check if this is enabled
 	if !s.Enabled {
 		http.NotFound(w, r)
@@ -278,6 +272,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Resolve the vroot to realpath
 	userinfo, err := s.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		logger.PrintAndLog("Webdav", err.Error(), nil)
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
@@ -296,10 +291,8 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 // whether it is owned by claimedUsername. Both the token and the claimed
 // username must be supplied and agree, mirroring how X-Access-Token and
 // X-Aroz-User are required together on the wire.
-func autoLoginTokenMatchesUsername(authAgent *auth.AuthAgent, accessToken string, claimedUsername string) (bool, string) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "autoLoginTokenMatchesUsername: claimedUsername=%.120q", claimedUsername)
-	}
+func autoLoginTokenMatchesUsername(authAgent *auth.AuthAgent, accessToken string, claimedUsername string) (out0 bool, out1 string) {
+	defer logger.Out2(logger.In3("storage/webdav", "autoLoginTokenMatchesUsername", "claimedUsername", claimedUsername, "!authAgent", authAgent, "!accessToken", accessToken), &out0, &out1)
 	if accessToken == "" || claimedUsername == "" {
 		return false, ""
 	}
@@ -320,9 +313,7 @@ success connection in order to store the cookie. If nothing is served,
 File Explorer will not cache the cookie in its cache
 */
 func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.serveReadOnlyWebDav: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("storage/webdav", "Server.serveReadOnlyWebDav", "s", s, "r", r))
 	if r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
 		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE" {
 		//Not allowed
@@ -338,20 +329,16 @@ func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
 // Finder LOCKs a file and then PUTs the content with the lock token in an If
 // header, which fails with 412 against a fresh lock system and leaves a 0
 // byte file behind.
-func (s *Server) getLockSystem(username string) webdav.LockSystem {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.getLockSystem: username=%.120q", username)
-	}
+func (s *Server) getLockSystem(username string) (out0 webdav.LockSystem) {
+	defer logger.Out1(logger.In2("storage/webdav", "Server.getLockSystem", "s", s, "username", username), &out0)
 	ls, _ := s.filesystems.LoadOrStore(username, webdav.NewMemLS())
 	return ls.(webdav.LockSystem)
 }
 
 // getRootFs builds the WebDAV handler of a user, with the virtual root
 // listing every given storage (see RootFsWebDAVAdapter).
-func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) *webdav.Handler {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "Server.getRootFs: len(fshs)=%d username=%.120q", len(fshs), username)
-	}
+func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string, canWrite WriteChecker) (out0 *webdav.Handler) {
+	defer logger.Out1(logger.In4("storage/webdav", "Server.getRootFs", "s", s, "fshs", fshs, "username", username, "&canWrite", &canWrite), &out0)
 	rootfs := NewRootFsWebDAVAdapter(fshs, username, canWrite)
 	fs := &webdav.Handler{
 		Prefix:     s.prefix,
@@ -364,6 +351,7 @@ func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string
 		//Generate thumbnail in the background if listed
 		fsh, vpath, err := rootfs.VirtualPath(path)
 		if err != nil {
+			logger.DebugErr("storage/webdav", err)
 			//The virtual root has no thumbnails to build
 			return
 		}

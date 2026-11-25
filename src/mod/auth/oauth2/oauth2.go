@@ -61,9 +61,10 @@ type Config struct {
 }
 
 // NewOauthHandler creates and initialises the OAuth2 handler.
-func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database) *OauthHandler {
-	logger.Debug("auth/oauth2", "NewOauthHandler")
+func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database) (out0 *OauthHandler) {
+	defer logger.Out1(logger.In3("auth/oauth2", "NewOauthHandler", "register", register, "coreDb", coreDb, "!authAgent", authAgent), &out0)
 	if err := coreDb.NewTable("oauth"); err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		logger.PrintAndLog("Oauth2", "Failed to create oauth database. Terminating.", nil)
 		panic(err)
 	}
@@ -77,8 +78,8 @@ func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, c
 
 // buildOAuthConfig constructs a golang.org/x/oauth2.Config from the stored settings.
 // Returns nil when the configuration is incomplete.
-func (oh *OauthHandler) buildOAuthConfig() *oauth2.Config {
-	logger.Debug("auth/oauth2", "OauthHandler.buildOAuthConfig")
+func (oh *OauthHandler) buildOAuthConfig() (out0 *oauth2.Config) {
+	defer logger.Out1(logger.In1("auth/oauth2", "OauthHandler.buildOAuthConfig", "oh", oh), &out0)
 	authEndpoint := oh.readSingleConfig("authendpoint")
 	tokenEndpoint := oh.readSingleConfig("tokenendpoint")
 	clientID := oh.readSingleConfig("clientid")
@@ -110,9 +111,7 @@ func (oh *OauthHandler) buildOAuthConfig() *oauth2.Config {
 // HandleLogin initiates the OAuth2 / OIDC login flow by redirecting the user
 // to the provider's authorization endpoint.
 func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.HandleLogin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/oauth2", "OauthHandler.HandleLogin", "oh", oh, "r", r))
 	if oh.readSingleConfig("enabled") != "true" {
 		utils.SendTextResponse(w, "OAuth disabled")
 		return
@@ -127,6 +126,7 @@ func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	redirect, err := utils.GetPara(r, "redirect")
 	var uuid string
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		uuid = oh.syncDb.Store("/")
 	} else {
 		uuid = oh.syncDb.Store(redirect)
@@ -139,9 +139,7 @@ func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 // HandleAuthorize processes the OAuth2 callback, exchanges the code for a token,
 // fetches the user identity, and logs the user into ArozOS.
 func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.HandleAuthorize: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/oauth2", "OauthHandler.HandleAuthorize", "oh", oh, "r", r))
 	if oh.readSingleConfig("enabled") != "true" {
 		utils.SendTextResponse(w, "OAuth disabled")
 		return
@@ -149,12 +147,14 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 
 	uuidCookie, err := r.Cookie("uuid_login")
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendTextResponse(w, "Invalid redirect URI.")
 		return
 	}
 
 	state, err := utils.PostPara(r, "state")
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendTextResponse(w, "Invalid state parameter.")
 		return
 	}
@@ -165,12 +165,14 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 
 	code, err := utils.PostPara(r, "code")
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendTextResponse(w, "Authorization code missing.")
 		return
 	}
 
 	username, err := oh.exchangeCodeForUsername(r.Context(), code)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		oh.ag.Logger.LogAuthByRequestInfo("", r.RemoteAddr, time.Now().Unix(), false, "web")
 		utils.SendTextResponse(w, "Authentication failed: "+err.Error())
 		return
@@ -209,10 +211,8 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 // exchangeCodeForUsername exchanges the OAuth2 authorization code for an access
 // token and then fetches the username from the userinfo endpoint.
 // This function is separated to make it independently testable.
-func (oh *OauthHandler) exchangeCodeForUsername(ctx context.Context, code string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.exchangeCodeForUsername: code=%.120q", code)
-	}
+func (oh *OauthHandler) exchangeCodeForUsername(ctx context.Context, code string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("auth/oauth2", "OauthHandler.exchangeCodeForUsername", "oh", oh, "ctx", ctx, "code", code), &out0, &out1)
 	cfg := oh.buildOAuthConfig()
 	if cfg == nil {
 		return "", errors.New("oauth is not properly configured")
@@ -220,6 +220,7 @@ func (oh *OauthHandler) exchangeCodeForUsername(ctx context.Context, code string
 
 	token, err := cfg.Exchange(ctx, code)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		return "", fmt.Errorf("token exchange failed: %w", err) //nolint:wrapcheck
 	}
 
@@ -231,9 +232,7 @@ func (oh *OauthHandler) exchangeCodeForUsername(ctx context.Context, code string
 // CheckOAuth reports whether OAuth is enabled and whether auto-redirect is active.
 // Used by the login page.
 func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.CheckOAuth: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/oauth2", "OauthHandler.CheckOAuth", "oh", oh, "r", r))
 	type result struct {
 		Enabled      bool `json:"enabled"`
 		AutoRedirect bool `json:"auto_redirect"`
@@ -243,6 +242,7 @@ func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 		AutoRedirect: oh.readSingleConfig("autoredirect") == "true",
 	})
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendErrorResponse(w, "Error marshalling response")
 		return
 	}
@@ -255,13 +255,13 @@ func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 // and returns the discovered endpoints to the frontend.
 // Query / POST parameter: issuerurl
 func (oh *OauthHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.HandleDiscover: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/oauth2", "OauthHandler.HandleDiscover", "oh", oh, "r", r))
 	issuerURL, err := utils.GetPara(r, "issuerurl")
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		issuerURL, err = utils.PostPara(r, "issuerurl")
 		if err != nil {
+			logger.DebugErr("auth/oauth2", err)
 			utils.SendErrorResponse(w, "issuerurl parameter is required")
 			return
 		}
@@ -269,6 +269,7 @@ func (oh *OauthHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 
 	doc, err := FetchOIDCDiscovery(issuerURL)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -283,6 +284,7 @@ func (oh *OauthHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 
 	j, err := json.Marshal(result)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendErrorResponse(w, "Error marshalling discovery result")
 		return
 	}
@@ -291,15 +293,15 @@ func (oh *OauthHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 
 // ReadConfig returns the full OAuth2 / OIDC configuration as JSON.
 func (oh *OauthHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.ReadConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/oauth2", "OauthHandler.ReadConfig", "oh", oh, "r", r))
 	enabled, err := strconv.ParseBool(oh.readSingleConfig("enabled"))
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		enabled = false
 	}
 	autoredirect, err := strconv.ParseBool(oh.readSingleConfig("autoredirect"))
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		autoredirect = false
 	}
 
@@ -319,6 +321,7 @@ func (oh *OauthHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 
 	j, err := json.Marshal(cfg)
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		empty, _ := json.Marshal(Config{})
 		utils.SendJSONResponse(w, string(empty))
 		return
@@ -330,16 +333,16 @@ func (oh *OauthHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 // All endpoint fields may either come from OIDC discovery (triggered by the
 // frontend) or be provided manually.
 func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2", "OauthHandler.WriteConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/oauth2", "OauthHandler.WriteConfig", "oh", oh, "r", r))
 	enabled, err := utils.PostPara(r, "enabled")
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendErrorResponse(w, "enabled field is required")
 		return
 	}
 	autoredirect, err := utils.PostPara(r, "autoredirect")
 	if err != nil {
+		logger.DebugErr("auth/oauth2", err)
 		utils.SendErrorResponse(w, "autoredirect field is required")
 		return
 	}
@@ -400,9 +403,7 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("auth/oauth2", "OauthHandler.addCookie: name=%.120q value=%.120q", name, value)
-	}
+	logger.DebugTrace("auth/oauth2", "OauthHandler.addCookie")
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -411,15 +412,15 @@ func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl
 	})
 }
 
-func (oh *OauthHandler) readSingleConfig(key string) string {
-	logger.Debug("auth/oauth2", "OauthHandler.readSingleConfig")
+func (oh *OauthHandler) readSingleConfig(key string) (out0 string) {
+	defer logger.Out1(logger.In2("auth/oauth2", "OauthHandler.readSingleConfig", "oh", oh, "!key", key), &out0)
 	var v string
 	oh.coredb.Read("oauth", key, &v)
 	return v
 }
 
-func readSingleConfig(key string, coredb *db.Database) string {
-	logger.Debug("auth/oauth2", "readSingleConfig")
+func readSingleConfig(key string, coredb *db.Database) (out0 string) {
+	defer logger.Out1(logger.In2("auth/oauth2", "readSingleConfig", "coredb", coredb, "!key", key), &out0)
 	var v string
 	coredb.Read("oauth", key, &v)
 	return v

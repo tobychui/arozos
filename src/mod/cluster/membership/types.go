@@ -64,8 +64,8 @@ type Health struct {
 }
 
 // Degraded reports whether the snapshot indicates an overloaded node.
-func (h Health) Degraded() bool {
-	logger.Debug("cluster/membership", "Health.Degraded")
+func (h Health) Degraded() (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/membership", "Health.Degraded", "&h", &h), &out0)
 	if h.Timestamp == 0 {
 		return false
 	}
@@ -101,8 +101,8 @@ type NodeRecord struct {
 }
 
 // Clone returns a deep enough copy for handing out of the manager.
-func (n *NodeRecord) Clone() *NodeRecord {
-	logger.Debug("cluster/membership", "NodeRecord.Clone")
+func (n *NodeRecord) Clone() (out0 *NodeRecord) {
+	defer logger.Out1(logger.In1("cluster/membership", "NodeRecord.Clone", "n", n), &out0)
 	c := *n
 	if n.Capabilities.Features != nil {
 		c.Capabilities.Features = map[string]bool{}
@@ -115,10 +115,8 @@ func (n *NodeRecord) Clone() *NodeRecord {
 
 // ComputeState derives the liveness state of a record at time now. Local is
 // true for the record describing this very node.
-func (n *NodeRecord) ComputeState(now time.Time, local bool) NodeState {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "NodeRecord.ComputeState: local=%t", local)
-	}
+func (n *NodeRecord) ComputeState(now time.Time, local bool) (out0 NodeState) {
+	defer logger.Out1(logger.In3("cluster/membership", "NodeRecord.ComputeState", "n", n, "&now", &now, "local", local), &out0)
 	switch n.AdminState {
 	case AdminStateMaintenance:
 		return StateMaintenance
@@ -222,19 +220,15 @@ type NodeIDRequest struct {
 
 // NextVersion is the exported form of nextVersion for sibling cluster packages.
 func NextVersion(prev int64) int64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/membership", "NextVersion: prev=%d", prev)
-	}
+	logger.DebugTrace("cluster/membership", "NextVersion")
 	return nextVersion(prev)
 }
 
 // nextVersion returns a record version stamp that is strictly greater than
 // prev, so a change made in the same millisecond as the previous one still
 // wins the last-writer-wins merge on every other node.
-func nextVersion(prev int64) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "nextVersion: prev=%d", prev)
-	}
+func nextVersion(prev int64) (out0 int64) {
+	defer logger.Out1(logger.In1("cluster/membership", "nextVersion", "prev", prev), &out0)
 	v := time.Now().UnixMilli()
 	if v <= prev {
 		v = prev + 1

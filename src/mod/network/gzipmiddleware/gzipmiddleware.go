@@ -30,17 +30,13 @@ type gzipResponseWriter struct {
 }
 
 func (w *gzipResponseWriter) WriteHeader(status int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/gzipmiddleware", "gzipResponseWriter.WriteHeader: status=%d", status)
-	}
+	logger.DebugTrace("network/gzipmiddleware", "gzipResponseWriter.WriteHeader")
 	//w.Header().Del("Content-Length")
 	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *gzipResponseWriter) Write(b []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/gzipmiddleware", "gzipResponseWriter.Write: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("network/gzipmiddleware", "gzipResponseWriter.Write")
 	return w.Writer.Write(b)
 }
 
@@ -95,9 +91,7 @@ type gzipFuncResponseWriter struct {
 }
 
 func (w gzipFuncResponseWriter) Write(b []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/gzipmiddleware", "gzipFuncResponseWriter.Write: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("network/gzipmiddleware", "gzipFuncResponseWriter.Write")
 	return w.Writer.Write(b)
 }
 

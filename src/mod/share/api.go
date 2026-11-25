@@ -37,7 +37,7 @@ type EndpointRegistrar interface {
 // RegisterAPIEndpoints mounts the share management API on the given router.
 // The router is expected to handle login and module permission checks.
 func (s *Manager) RegisterAPIEndpoints(router EndpointRegistrar) {
-	logger.Debug("share", "Manager.RegisterAPIEndpoints")
+	defer logger.Out0(logger.In2("share", "Manager.RegisterAPIEndpoints", "s", s, "&router", &router))
 	router.HandleFunc(APIPrefix+"info", s.HandleShareInfo)
 	router.HandleFunc(APIPrefix+"create", s.HandleCreateShare)
 	router.HandleFunc(APIPrefix+"update", s.HandleUpdateShare)
@@ -93,9 +93,10 @@ func newShareInfo(so *shareEntry.ShareOption, now time.Time) *ShareInfo {
 }
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("share", "sendJSON")
+	defer logger.Out0(logger.In1("share", "sendJSON", "v", v))
 	js, err := json.Marshal(v)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Unable to encode response")
 		return
 	}
@@ -104,10 +105,8 @@ func sendJSON(w http.ResponseWriter, v interface{}) {
 
 // requirePost rejects requests that change state through GET, so a share
 // cannot be created or edited by an image tag or a link on another site.
-func requirePost(w http.ResponseWriter, r *http.Request) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "requirePost: r=%s", logger.RequestSummary(r))
-	}
+func requirePost(w http.ResponseWriter, r *http.Request) (out0 bool) {
+	defer logger.Out1(logger.In1("share", "requirePost", "r", r), &out0)
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		utils.SendErrorResponse(w, "Method not allowed")
@@ -131,10 +130,8 @@ is optional, a missing field is left unchanged.
 	expireAt       unix timestamp in seconds, 0 for never
 	expireIn       seconds from now, takes priority over expireAt
 */
-func parseShareSettings(r *http.Request) (shareEntry.ShareSettings, error) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "parseShareSettings: r=%s", logger.RequestSummary(r))
-	}
+func parseShareSettings(r *http.Request) (out0 shareEntry.ShareSettings, out1 error) {
+	defer logger.Out2(logger.In1("share", "parseShareSettings", "r", r), &out0, &out1)
 	settings := shareEntry.ShareSettings{}
 	r.ParseForm()
 
@@ -184,6 +181,7 @@ func parseShareSettings(r *http.Request) (shareEntry.ShareSettings, error) {
 	} else if expireAtStr := strings.TrimSpace(r.Form.Get("expireAt")); expireAtStr != "" {
 		expireAt, err := strconv.ParseInt(expireAtStr, 10, 64)
 		if err != nil {
+			logger.DebugErr("share", err)
 			return settings, errors.New("Invalid expiry date")
 		}
 		settings.ExpireAt = &expireAt
@@ -192,10 +190,8 @@ func parseShareSettings(r *http.Request) (shareEntry.ShareSettings, error) {
 	return settings, nil
 }
 
-func splitNameList(list string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "splitNameList: list=%.120q", list)
-	}
+func splitNameList(list string) (out0 []string) {
+	defer logger.Out1(logger.In1("share", "splitNameList", "list", list), &out0)
 	results := []string{}
 	for _, name := range strings.Split(list, ",") {
 		if name = strings.TrimSpace(name); name != "" {
@@ -212,10 +208,8 @@ will return
 2. permission type: {basic / groups / users}
 3. mode string
 */
-func validateShareModes(mode string) (bool, string, []string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "validateShareModes: mode=%.120q", mode)
-	}
+func validateShareModes(mode string) (out0 bool, out1 string, out2 []string) {
+	defer logger.Out3(logger.In1("share", "validateShareModes", "mode", mode), &out0, &out1, &out2)
 	// user:a,b,c,d
 	validModes := []string{shareEntry.PermissionAnyone, shareEntry.PermissionSignedIn, shareEntry.PermissionSameGroup}
 	if utils.StringInArray(validModes, mode) {
@@ -255,23 +249,24 @@ folderStat walks a shared folder to report its size and file count, which can
 be slow on a large folder, so the dialog asks for it separately.
 */
 func (s *Manager) HandleShareInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleShareInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleShareInfo", "s", s, "r", r))
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	vpath, err := utils.GetPara(r, "path")
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
@@ -311,32 +306,34 @@ func (s *Manager) HandleShareInfo(w http.ResponseWriter, r *http.Request) {
 
 // HandleCreateShare always adds a new share to the given path (POST path + settings)
 func (s *Manager) HandleCreateShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleCreateShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleCreateShare", "s", s, "r", r))
 	if !requirePost(w, r) {
 		return
 	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	settings, err := parseShareSettings(r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	so, err := s.CreateShare(userinfo, vpath, settings)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -345,32 +342,34 @@ func (s *Manager) HandleCreateShare(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdateShare changes the settings of a share (POST uuid + settings)
 func (s *Manager) HandleUpdateShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleUpdateShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleUpdateShare", "s", s, "r", r))
 	if !requirePost(w, r) {
 		return
 	}
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid share uuid given")
 		return
 	}
 
 	settings, err := parseShareSettings(r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	so, err := s.UpdateShare(userinfo, uuid, settings)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -379,12 +378,11 @@ func (s *Manager) HandleUpdateShare(w http.ResponseWriter, r *http.Request) {
 
 // Check if a file is shared. Returns the first share of the path for older callers.
 func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleShareCheck: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleShareCheck", "s", s, "r", r))
 	//Get the vpath from paramters
 	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
@@ -392,6 +390,7 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -422,12 +421,11 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 
 // Legacy: return the first share of the path, creating one if it is not shared yet
 func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleCreateNewShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleCreateNewShare", "s", s, "r", r))
 	//Get the vpath from paramters
 	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
@@ -435,6 +433,7 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -448,6 +447,7 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 
 	share, err := s.CreateNewShare(userinfo, vpathSourceFsh, vpath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -465,17 +465,17 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 // signedin: Anyone logged in to this system
 // samegroup: The requesting user has the same (or more) user group as the share owner
 func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleEditShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleEditShare", "s", s, "r", r))
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
@@ -497,6 +497,7 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 		Accessibles: names,
 	})
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -506,12 +507,11 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 
 // Delete a share by uuid, or every share on a path by vpath
 func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleDeleteShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleDeleteShare", "s", s, "r", r))
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -538,6 +538,7 @@ func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, err.Error())
 	} else {
 		utils.SendOK(w)
@@ -549,11 +550,10 @@ HandleListRecipients lists the users and permission groups a share can be
 given to, for the invite pickers of the share dialog.
 */
 func (s *Manager) HandleListRecipients(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleListRecipients: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleListRecipients", "s", s, "r", r))
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -597,11 +597,10 @@ func (s *Manager) HandleListRecipients(w http.ResponseWriter, r *http.Request) {
 
 // List all the shares the user can see (used by the Shares Manager)
 func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleListAllShares: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleListAllShares", "s", s, "r", r))
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -623,6 +622,7 @@ func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
 		//List fsh only
 		targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(fshId)
 		if err != nil {
+			logger.DebugErr("share", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}

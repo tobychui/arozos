@@ -59,8 +59,8 @@ type postSend struct {
 }
 
 // shouldSaveSent applies the account's Sent-copy policy.
-func shouldSaveSent(account *Account) bool {
-	logger.Debug("email", "shouldSaveSent")
+func shouldSaveSent(account *Account) (out0 bool) {
+	defer logger.Out1(logger.In1("email", "shouldSaveSent", "account", account), &out0)
 	switch account.SaveSent {
 	case "always":
 		return true
@@ -77,14 +77,16 @@ func shouldSaveSent(account *Account) bool {
 }
 
 // Send delivers (or queues) a message.
-func (m *Manager) Send(ctx context.Context, p Principal, request *ComposeRequest) (*SendResult, error) {
-	logger.Debug("email", "Manager.Send")
+func (m *Manager) Send(ctx context.Context, p Principal, request *ComposeRequest) (out0 *SendResult, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.Send", "m", m, "ctx", ctx, "&p", &p, "request", request), &out0, &out1)
 	account, err := m.account(p, request.AccountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	built, err := m.buildMessage(ctx, p, account, request, false)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -113,12 +115,14 @@ func (m *Manager) Send(ctx context.Context, p Principal, request *ComposeRequest
 	if !sendAt.IsZero() && sendAt.After(m.now().Add(time.Second)) {
 		item, err := m.outbox.enqueue(p, account, built, post, sendAt, request.Subject, request.To)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		return &SendResult{Queued: true, OutboxID: item.ID, SendAt: item.SendAt, MessageID: built.messageID}, nil
 	}
 
 	if err := m.sendRaw(ctx, p, account, built.from, built.recipients, built.raw); err != nil {
+		logger.DebugErr("email", err)
 		m.noteAuthError(p, account, err)
 		return nil, err
 	}
@@ -126,12 +130,13 @@ func (m *Manager) Send(ctx context.Context, p Principal, request *ComposeRequest
 	return &SendResult{MessageID: built.messageID, Warning: warning}, nil
 }
 
-func recipientAddresses(request *ComposeRequest) []Address {
-	logger.Debug("email", "recipientAddresses")
+func recipientAddresses(request *ComposeRequest) (out0 []Address) {
+	defer logger.Out1(logger.In1("email", "recipientAddresses", "request", request), &out0)
 	results := []Address{}
 	for _, list := range [][]string{request.To, request.Cc, request.Bcc} {
 		parsed, err := parseRecipients(list)
 		if err != nil {
+			logger.DebugErr("email", err)
 			continue
 		}
 		for _, address := range parsed {
@@ -143,10 +148,8 @@ func recipientAddresses(request *ComposeRequest) []Address {
 
 // afterDelivery runs the follow-up work. Failures here never undo a sent
 // message, they are returned as a warning.
-func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Account, raw []byte, messageID string, date time.Time, post postSend) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.afterDelivery: messageID=%.120q", messageID)
-	}
+func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Account, raw []byte, messageID string, date time.Time, post postSend) (out0 string) {
+	defer logger.Out1(logger.In8("email", "Manager.afterDelivery", "m", m, "ctx", ctx, "&p", &p, "account", account, "raw", raw, "messageID", messageID, "&date", &date, "&post", &post), &out0)
 	warnings := []string{}
 	key := poolKey(p.Username, account.ID)
 
@@ -161,6 +164,7 @@ func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Accou
 				_, err = appendMessage(c, sent, copyRaw, []imap.Flag{imap.FlagSeen}, date, "")
 			}
 			if err != nil {
+				logger.DebugErr("email", err)
 				warnings = append(warnings, "the message was sent but could not be saved to the Sent folder: "+err.Error())
 			}
 		}
@@ -183,6 +187,7 @@ func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Accou
 		return nil
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		warnings = append(warnings, "the message was sent, but the mailbox could not be updated: "+err.Error())
 	}
 
@@ -197,14 +202,16 @@ func (m *Manager) afterDelivery(ctx context.Context, p Principal, account *Accou
 
 // SaveDraft stores the composer content in the Drafts folder, replacing the
 // previous version of the same draft.
-func (m *Manager) SaveDraft(ctx context.Context, p Principal, request *ComposeRequest) (*DraftResult, error) {
-	logger.Debug("email", "Manager.SaveDraft")
+func (m *Manager) SaveDraft(ctx context.Context, p Principal, request *ComposeRequest) (out0 *DraftResult, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.SaveDraft", "m", m, "ctx", ctx, "&p", &p, "request", request), &out0, &out1)
 	account, err := m.account(p, request.AccountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	built, err := m.buildMessage(ctx, p, account, request, true)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -213,10 +220,12 @@ func (m *Manager) SaveDraft(ctx context.Context, p Principal, request *ComposeRe
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		drafts, err := m.ensureRoleFolder(c, key, RoleDrafts)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uid, err := appendMessage(c, drafts, built.raw, draftFlags, built.date, built.messageID)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		result.Folder = drafts
@@ -249,25 +258,26 @@ func (m *Manager) SaveDraft(ctx context.Context, p Principal, request *ComposeRe
 		return nil
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return result, nil
 }
 
 // DeleteDraft removes a draft the user discarded.
-func (m *Manager) DeleteDraft(ctx context.Context, p Principal, accountID string, folder string, uid uint32) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.DeleteDraft: accountID=%.120q folder=%.120q uid=%d", accountID, folder, uid)
-	}
+func (m *Manager) DeleteDraft(ctx context.Context, p Principal, accountID string, folder string, uid uint32) (out0 error) {
+	defer logger.Out1(logger.In6("email", "Manager.DeleteDraft", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "folder", folder, "uid", uid), &out0)
 	if uid == 0 || folder == "" {
 		return errors.New("no draft to delete")
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	return m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		if _, err := selectFolder(c, folder); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		return expungeUIDs(c, imap.UIDSetNum(imap.UID(uid)))

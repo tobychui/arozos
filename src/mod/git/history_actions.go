@@ -38,20 +38,21 @@ const maxApplyBytes = 50 * 1024 * 1024
 
 // CheckoutCommit checks a commit out in detached HEAD state. The working tree
 // must be clean, so no uncommitted work is silently discarded.
-func (m *Manager) CheckoutCommit(realpath string, hash string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.CheckoutCommit: realpath=%.120q", realpath)
-	}
+func (m *Manager) CheckoutCommit(realpath string, hash string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "Manager.CheckoutCommit", "m", m, "realpath", realpath, "!hash", hash), &out0)
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if err := requireCleanWorktree(tree); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -60,22 +61,23 @@ func (m *Manager) CheckoutCommit(realpath string, hash string) error {
 
 // ResetToCommit moves the current branch to a commit. mode is "soft" (move HEAD
 // only), "mixed" (also reset the index) or "hard" (also reset the working tree).
-func (m *Manager) ResetToCommit(realpath string, hash string, mode string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.ResetToCommit: realpath=%.120q mode=%.120q", realpath, mode)
-	}
+func (m *Manager) ResetToCommit(realpath string, hash string, mode string) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.ResetToCommit", "m", m, "realpath", realpath, "mode", mode, "!hash", hash), &out0)
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	resetMode, err := parseResetMode(mode)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -83,6 +85,7 @@ func (m *Manager) ResetToCommit(realpath string, hash string, mode string) error
 	//by surprise when the user has uncommitted work they forgot about.
 	if resetMode == gogit.HardReset {
 		if err := requireCleanWorktree(tree); err != nil {
+			logger.DebugErr("git", err)
 			return errors.New("hard reset would discard your uncommitted changes — commit or discard them first")
 		}
 	}
@@ -94,22 +97,23 @@ func (m *Manager) ResetToCommit(realpath string, hash string, mode string) error
 }
 
 // CreateBranchAt creates a branch pointing at a commit and checks it out.
-func (m *Manager) CreateBranchAt(realpath string, branch string, hash string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.CreateBranchAt: realpath=%.120q branch=%.120q", realpath, branch)
-	}
+func (m *Manager) CreateBranchAt(realpath string, branch string, hash string) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.CreateBranchAt", "m", m, "realpath", realpath, "branch", branch, "!hash", hash), &out0)
 	branch = strings.TrimSpace(branch)
 	if err := validateBranchName(branch); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -119,6 +123,7 @@ func (m *Manager) CreateBranchAt(realpath string, branch string, hash string) er
 	}
 
 	if err := repo.Storer.SetReference(plumbing.NewHashReference(referenceName, commit.Hash)); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -131,22 +136,23 @@ func (m *Manager) CreateBranchAt(realpath string, branch string, hash string) er
 // CreateTag creates a tag at a commit. A non-empty message produces an
 // annotated tag (signed by name / email, falling back to the repository's git
 // config), otherwise a lightweight one.
-func (m *Manager) CreateTag(realpath string, tag string, hash string, message string, name string, email string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.CreateTag: realpath=%.120q tag=%.120q name=%.120q", realpath, tag, name)
-	}
+func (m *Manager) CreateTag(realpath string, tag string, hash string, message string, name string, email string) (out0 error) {
+	defer logger.Out1(logger.In7("git", "Manager.CreateTag", "m", m, "realpath", realpath, "tag", tag, "message", message, "name", name, "email", email, "!hash", hash), &out0)
 	tag = strings.TrimSpace(tag)
 	if err := validateTagName(tag); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -171,21 +177,22 @@ func (m *Manager) CreateTag(realpath string, tag string, hash string, message st
 
 // TagsForCommit returns the names of tags pointing at a commit, resolving
 // annotated tag objects to the commit they wrap.
-func (m *Manager) TagsForCommit(realpath string, hash string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.TagsForCommit: realpath=%.120q", realpath)
-	}
+func (m *Manager) TagsForCommit(realpath string, hash string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.TagsForCommit", "m", m, "realpath", realpath, "!hash", hash), &out0, &out1)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	tagMap, err := buildTagMap(repo)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 	return tagMap[commit.Hash], nil
@@ -193,25 +200,27 @@ func (m *Manager) TagsForCommit(realpath string, hash string) ([]string, error) 
 
 // RevertCommit creates a new commit that undoes a commit's changes. It is the
 // reverse transition: from the commit's tree back to its parent's tree.
-func (m *Manager) RevertCommit(realpath string, hash string, req *CommitRequest) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.RevertCommit: realpath=%.120q", realpath)
-	}
+func (m *Manager) RevertCommit(realpath string, hash string, req *CommitRequest) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("git", "Manager.RevertCommit", "m", m, "realpath", realpath, "req", req, "!hash", hash), &out0, &out1)
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 	if err := requireCleanWorktree(tree); err != nil {
+		logger.DebugErr("git", err)
 		return "", errors.New("commit or discard your changes before reverting")
 	}
 
 	commitTree, err := commit.Tree()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -224,11 +233,13 @@ func (m *Manager) RevertCommit(realpath string, hash string, req *CommitRequest)
 			return "", perr
 		}
 		if parentTree, err = parent.Tree(); err != nil {
+			logger.DebugErr("git", err)
 			return "", err
 		}
 	}
 
 	if err := m.applyTransition(tree, commitTree, parentTree); err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -242,25 +253,27 @@ func (m *Manager) RevertCommit(realpath string, hash string, req *CommitRequest)
 
 // CherryPickCommit applies a commit's changes onto the current HEAD. It is the
 // forward transition: from the commit's parent tree to the commit's tree.
-func (m *Manager) CherryPickCommit(realpath string, hash string, req *CommitRequest) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.CherryPickCommit: realpath=%.120q", realpath)
-	}
+func (m *Manager) CherryPickCommit(realpath string, hash string, req *CommitRequest) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("git", "Manager.CherryPickCommit", "m", m, "realpath", realpath, "req", req, "!hash", hash), &out0, &out1)
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	commit, err := resolveCommit(repo, hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 	if err := requireCleanWorktree(tree); err != nil {
+		logger.DebugErr("git", err)
 		return "", errors.New("commit or discard your changes before cherry-picking")
 	}
 
 	commitTree, err := commit.Tree()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -271,11 +284,13 @@ func (m *Manager) CherryPickCommit(realpath string, hash string, req *CommitRequ
 			return "", perr
 		}
 		if parentTree, err = parent.Tree(); err != nil {
+			logger.DebugErr("git", err)
 			return "", err
 		}
 	}
 
 	if err := m.applyTransition(tree, parentTree, commitTree); err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -292,21 +307,21 @@ func (m *Manager) CherryPickCommit(realpath string, hash string, req *CommitRequ
 
 // AmendCommitMessage rewrites the message of the HEAD commit, keeping its tree,
 // parents and author. Only a branch tip can be amended.
-func (m *Manager) AmendCommitMessage(realpath string, message string, req *CommitRequest) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.AmendCommitMessage: realpath=%.120q", realpath)
-	}
+func (m *Manager) AmendCommitMessage(realpath string, message string, req *CommitRequest) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("git", "Manager.AmendCommitMessage", "m", m, "realpath", realpath, "message", message, "req", req), &out0, &out1)
 	if strings.TrimSpace(message) == "" {
 		return "", errors.New("commit message cannot be empty")
 	}
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	head, err := repo.Head()
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, plumbing.ErrReferenceNotFound) {
 			return "", ErrUnbornBranch
 		}
@@ -318,11 +333,13 @@ func (m *Manager) AmendCommitMessage(realpath string, message string, req *Commi
 
 	headCommit, err := repo.CommitObject(head.Hash())
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	committer, err := resolveSignature(repo, req.Name, req.Email)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -336,14 +353,17 @@ func (m *Manager) AmendCommitMessage(realpath string, message string, req *Commi
 
 	encoded := repo.Storer.NewEncodedObject()
 	if err := amended.Encode(encoded); err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 	newHash, err := repo.Storer.SetEncodedObject(encoded)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	if err := repo.Storer.SetReference(plumbing.NewHashReference(head.Name(), newHash)); err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 	return newHash.String(), nil
@@ -357,10 +377,11 @@ Before touching a file it checks the current (clean) working tree still matches
 the fromTree version. If any file has diverged the whole operation is refused,
 so a revert or cherry-pick either applies cleanly in full or not at all.
 */
-func (m *Manager) applyTransition(tree *gogit.Worktree, fromTree *object.Tree, toTree *object.Tree) error {
-	logger.Debug("git", "Manager.applyTransition")
+func (m *Manager) applyTransition(tree *gogit.Worktree, fromTree *object.Tree, toTree *object.Tree) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.applyTransition", "m", m, "tree", tree, "fromTree", fromTree, "toTree", toTree), &out0)
 	paths, err := unionTreePaths(fromTree, toTree)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -395,9 +416,11 @@ func (m *Manager) applyTransition(tree *gogit.Worktree, fromTree *object.Tree, t
 		fullPath := filepath.Join(repoRoot, filepath.FromSlash(path))
 		if toExists {
 			if err := os.MkdirAll(filepath.Dir(fullPath), 0775); err != nil {
+				logger.DebugErr("git", err)
 				return err
 			}
 			if err := os.WriteFile(fullPath, toContent, 0664); err != nil {
+				logger.DebugErr("git", err)
 				return err
 			}
 		} else if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
@@ -405,6 +428,7 @@ func (m *Manager) applyTransition(tree *gogit.Worktree, fromTree *object.Tree, t
 		}
 
 		if _, err := tree.Add(path); err != nil {
+			logger.DebugErr("git", err)
 			return errors.New("cannot stage " + path + ": " + err.Error())
 		}
 		applied++
@@ -419,14 +443,15 @@ func (m *Manager) applyTransition(tree *gogit.Worktree, fromTree *object.Tree, t
 // commitStaged writes a commit from the current index. author is used when the
 // original author should be preserved (cherry-pick), otherwise the caller's or
 // the repository's identity is used for both roles.
-func (m *Manager) commitStaged(repo *gogit.Repository, tree *gogit.Worktree, message string, req *CommitRequest, author *object.Signature) (string, error) {
-	logger.Debug("git", "Manager.commitStaged")
+func (m *Manager) commitStaged(repo *gogit.Repository, tree *gogit.Worktree, message string, req *CommitRequest, author *object.Signature) (out0 string, out1 error) {
+	defer logger.Out2(logger.In6("git", "Manager.commitStaged", "m", m, "repo", repo, "tree", tree, "message", message, "req", req, "!author", author), &out0, &out1)
 	if req == nil {
 		req = &CommitRequest{}
 	}
 
 	committer, err := resolveSignature(repo, req.Name, req.Email)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -442,6 +467,7 @@ func (m *Manager) commitStaged(repo *gogit.Repository, tree *gogit.Worktree, mes
 		Committer: committer,
 	})
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, gogit.ErrEmptyCommit) {
 			return "", errors.New("nothing to commit — the change is already present")
 		}
@@ -451,24 +477,26 @@ func (m *Manager) commitStaged(repo *gogit.Repository, tree *gogit.Worktree, mes
 }
 
 // resolveCommit validates a hash and loads its commit object.
-func resolveCommit(repo *gogit.Repository, hash string) (*object.Commit, error) {
-	logger.Debug("git", "resolveCommit")
+func resolveCommit(repo *gogit.Repository, hash string) (out0 *object.Commit, out1 error) {
+	defer logger.Out2(logger.In2("git", "resolveCommit", "repo", repo, "!hash", hash), &out0, &out1)
 	hash = strings.TrimSpace(hash)
 	if !commitHashPattern.MatchString(hash) {
 		return nil, errors.New("not a commit hash: " + hash)
 	}
 	commit, err := repo.CommitObject(plumbing.NewHash(hash))
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, errors.New("no such commit: " + hash)
 	}
 	return commit, nil
 }
 
 // requireCleanWorktree refuses when there are uncommitted changes.
-func requireCleanWorktree(tree *gogit.Worktree) error {
-	logger.Debug("git", "requireCleanWorktree")
+func requireCleanWorktree(tree *gogit.Worktree) (out0 error) {
+	defer logger.Out1(logger.In1("git", "requireCleanWorktree", "tree", tree), &out0)
 	status, err := tree.Status()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if !status.IsClean() {
@@ -478,10 +506,8 @@ func requireCleanWorktree(tree *gogit.Worktree) error {
 }
 
 // parseResetMode maps the front-end vocabulary onto go-git's reset modes.
-func parseResetMode(mode string) (gogit.ResetMode, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "parseResetMode: mode=%.120q", mode)
-	}
+func parseResetMode(mode string) (out0 gogit.ResetMode, out1 error) {
+	defer logger.Out2(logger.In1("git", "parseResetMode", "mode", mode), &out0, &out1)
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case "", "mixed":
 		return gogit.MixedReset, nil
@@ -495,22 +521,21 @@ func parseResetMode(mode string) (gogit.ResetMode, error) {
 }
 
 // validateTagName rejects the ref-name characters git forbids in a tag.
-func validateTagName(tag string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "validateTagName: tag=%.120q", tag)
-	}
+func validateTagName(tag string) (out0 error) {
+	defer logger.Out1(logger.In1("git", "validateTagName", "tag", tag), &out0)
 	if tag == "" {
 		return errors.New("tag name cannot be empty")
 	}
 	if err := plumbing.NewTagReferenceName(tag).Validate(); err != nil {
+		logger.DebugErr("git", err)
 		return errors.New("invalid tag name: " + tag)
 	}
 	return nil
 }
 
 // commitSubject returns the first line of a commit message.
-func commitSubject(commit *object.Commit) string {
-	logger.Debug("git", "commitSubject")
+func commitSubject(commit *object.Commit) (out0 string) {
+	defer logger.Out1(logger.In1("git", "commitSubject", "commit", commit), &out0)
 	subject := commit.Message
 	if index := strings.IndexByte(subject, '\n'); index >= 0 {
 		subject = subject[:index]
@@ -520,12 +545,13 @@ func commitSubject(commit *object.Commit) string {
 
 // buildTagMap indexes every tag by the commit hash it ultimately points at,
 // following annotated tag objects to their target.
-func buildTagMap(repo *gogit.Repository) (map[plumbing.Hash][]string, error) {
-	logger.Debug("git", "buildTagMap")
+func buildTagMap(repo *gogit.Repository) (out0 map[plumbing.Hash][]string, out1 error) {
+	defer logger.Out2(logger.In1("git", "buildTagMap", "repo", repo), &out0, &out1)
 	tagMap := map[plumbing.Hash][]string{}
 
 	iter, err := repo.Tags()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return tagMap, err
 	}
 	defer iter.Close()
@@ -548,8 +574,8 @@ func buildTagMap(repo *gogit.Repository) (map[plumbing.Hash][]string, error) {
 }
 
 // unionTreePaths lists every file path present in either tree.
-func unionTreePaths(a *object.Tree, b *object.Tree) ([]string, error) {
-	logger.Debug("git", "unionTreePaths")
+func unionTreePaths(a *object.Tree, b *object.Tree) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("git", "unionTreePaths", "a", a, "b", b), &out0, &out1)
 	seen := map[string]struct{}{}
 
 	for _, tree := range []*object.Tree{a, b} {
@@ -563,6 +589,7 @@ func unionTreePaths(a *object.Tree, b *object.Tree) ([]string, error) {
 		})
 		iter.Close()
 		if err != nil {
+			logger.DebugErr("git", err)
 			return nil, err
 		}
 	}
@@ -575,16 +602,15 @@ func unionTreePaths(a *object.Tree, b *object.Tree) ([]string, error) {
 }
 
 // treeBytes reads a path from a tree, reporting whether it exists.
-func treeBytes(tree *object.Tree, path string) ([]byte, bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "treeBytes: path=%.120q", path)
-	}
+func treeBytes(tree *object.Tree, path string) (out0 []byte, out1 bool, out2 error) {
+	defer logger.Out3(logger.In2("git", "treeBytes", "tree", tree, "path", path), &out0, &out1, &out2)
 	if tree == nil {
 		return nil, false, nil
 	}
 
 	file, err := tree.File(path)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, false, nil
 	}
 	if file.Size > maxApplyBytes {
@@ -593,26 +619,27 @@ func treeBytes(tree *object.Tree, path string) ([]byte, bool, error) {
 
 	reader, err := file.Reader()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, true, err
 	}
 	defer reader.Close()
 
 	content, err := io.ReadAll(reader)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, true, err
 	}
 	return content, true, nil
 }
 
 // worktreeBytes reads a path from the working tree, reporting whether it exists.
-func worktreeBytes(repoRoot string, path string) ([]byte, bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "worktreeBytes: repoRoot=%.120q path=%.120q", repoRoot, path)
-	}
+func worktreeBytes(repoRoot string, path string) (out0 []byte, out1 bool, out2 error) {
+	defer logger.Out3(logger.In2("git", "worktreeBytes", "repoRoot", repoRoot, "path", path), &out0, &out1, &out2)
 	fullPath := filepath.Join(repoRoot, filepath.FromSlash(path))
 
 	info, err := os.Stat(fullPath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		if os.IsNotExist(err) {
 			return nil, false, nil
 		}
@@ -624,6 +651,7 @@ func worktreeBytes(repoRoot string, path string) ([]byte, bool, error) {
 
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, false, err
 	}
 	return content, true, nil

@@ -11,10 +11,8 @@ import (
 )
 
 // FirstFamily picks the first concrete family out of a CSS font stack
-func FirstFamily(stack string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/fonts", "FirstFamily: stack=%.120q", stack)
-	}
+func FirstFamily(stack string) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/fonts", "FirstFamily", "stack", stack), &out0)
 	for _, part := range strings.Split(stack, ",") {
 		name := strings.TrimSpace(part)
 		name = strings.Trim(name, "'\"")
@@ -34,10 +32,8 @@ func FirstFamily(stack string) string {
 // StackFor turns a pptx typeface pair into a CSS font-family list.
 // The east-asian face is kept as a second entry so a browser picks it per
 // glyph, exactly the way PowerPoint switches fonts mid-run for CJK text.
-func StackFor(latin, ea string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/fonts", "StackFor: latin=%.120q ea=%.120q", latin, ea)
-	}
+func StackFor(latin, ea string) (out0 string) {
+	defer logger.Out1(logger.In2("office/internal/fonts", "StackFor", "latin", latin, "ea", ea), &out0)
 	var parts []string
 	seen := map[string]bool{}
 	add := func(name string) {
@@ -100,10 +96,8 @@ var shippedFontFallbacks = []string{
 	"Noto Sans", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR",
 }
 
-func QuoteName(n string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/fonts", "QuoteName: n=%.120q", n)
-	}
+func QuoteName(n string) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/fonts", "QuoteName", "n", n), &out0)
 	if strings.ContainsAny(n, " '\"") {
 		return "'" + strings.ReplaceAll(n, "'", "") + "'"
 	}
@@ -122,10 +116,8 @@ var fontWeightSuffixes = []struct {
 
 // BaseName strips a trailing weight word ("Open Sans SemiBold" ->
 // "Open Sans"); returns the name unchanged when there is none
-func BaseName(n string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/fonts", "BaseName: n=%.120q", n)
-	}
+func BaseName(n string) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/fonts", "BaseName", "n", n), &out0)
 	l := strings.ToLower(n)
 	for _, w := range fontWeightSuffixes {
 		if strings.HasSuffix(l, w.suffix) {
@@ -136,10 +128,8 @@ func BaseName(n string) string {
 }
 
 // WeightOf reads the weight a font name implies, 0 when it implies none
-func WeightOf(n string) int {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/fonts", "WeightOf: n=%.120q", n)
-	}
+func WeightOf(n string) (out0 int) {
+	defer logger.Out1(logger.In1("office/internal/fonts", "WeightOf", "n", n), &out0)
 	l := strings.ToLower(n)
 	for _, w := range fontWeightSuffixes {
 		if strings.HasSuffix(l, w.suffix) {

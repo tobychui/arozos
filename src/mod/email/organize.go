@@ -52,10 +52,8 @@ var defaultLabels = []Label{
 	{ID: "newsletters", Name: "Newsletters", Color: "#a855f7"},
 }
 
-func localKey(accountID string, messageID string, folder string, uid uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "localKey: accountID=%.120q messageID=%.120q folder=%.120q uid=%d", accountID, messageID, folder, uid)
-	}
+func localKey(accountID string, messageID string, folder string, uid uint32) (out0 string) {
+	defer logger.Out1(logger.In4("email", "localKey", "accountID", accountID, "messageID", messageID, "folder", folder, "uid", uid), &out0)
 	messageID = strings.ToLower(strings.Trim(strings.TrimSpace(messageID), "<>"))
 	if messageID != "" {
 		return accountID + ":mid:" + messageID
@@ -69,8 +67,8 @@ func summaryKey(summary MessageSummary) string {
 }
 
 // Labels returns the user's label definitions.
-func (m *Manager) Labels(p Principal) []Label {
-	logger.Debug("email", "Manager.Labels")
+func (m *Manager) Labels(p Principal) (out0 []Label) {
+	defer logger.Out1(logger.In2("email", "Manager.Labels", "m", m, "&p", &p), &out0)
 	labels := []Label{}
 	if m.store.db.KeyExists(tableLabels, p.Username) {
 		if err := m.store.db.Read(tableLabels, p.Username, &labels); err == nil {
@@ -82,10 +80,8 @@ func (m *Manager) Labels(p Principal) []Label {
 
 // SaveLabels replaces the label definitions. Labels removed from the list are
 // also removed from every message.
-func (m *Manager) SaveLabels(p Principal, labels []Label) ([]Label, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.SaveLabels: len(labels)=%d", len(labels))
-	}
+func (m *Manager) SaveLabels(p Principal, labels []Label) (out0 []Label, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.SaveLabels", "m", m, "&p", &p, "labels", labels), &out0, &out1)
 	if len(labels) > 60 {
 		return nil, errors.New("too many labels")
 	}
@@ -115,6 +111,7 @@ func (m *Manager) SaveLabels(p Principal, labels []Label) ([]Label, error) {
 	m.store.mutex.Lock()
 	defer m.store.mutex.Unlock()
 	if err := m.store.db.Write(tableLabels, p.Username, cleaned); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -139,11 +136,10 @@ func (m *Manager) SaveLabels(p Principal, labels []Label) ([]Label, error) {
 }
 
 // SetMessageLabels assigns labels to a message.
-func (m *Manager) SetMessageLabels(p Principal, summary MessageSummary, labelIDs []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.SetMessageLabels: len(labelIDs)=%d", len(labelIDs))
-	}
+func (m *Manager) SetMessageLabels(p Principal, summary MessageSummary, labelIDs []string) (out0 error) {
+	defer logger.Out1(logger.In4("email", "Manager.SetMessageLabels", "m", m, "&p", &p, "&summary", &summary, "labelIDs", labelIDs), &out0)
 	if _, err := m.account(p, summary.AccountID); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	known := map[string]bool{}
@@ -173,12 +169,11 @@ func (m *Manager) SetMessageLabels(p Principal, summary MessageSummary, labelIDs
 }
 
 // LabelMessages lists the messages carrying a label, newest first.
-func (m *Manager) LabelMessages(p Principal, labelID string) ([]MessageSummary, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.LabelMessages: labelID=%.120q", labelID)
-	}
+func (m *Manager) LabelMessages(p Principal, labelID string) (out0 []MessageSummary, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.LabelMessages", "m", m, "&p", &p, "labelID", labelID), &out0, &out1)
 	records, err := listOwned[localMessage](m.store, tableLabelMap, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	results := []MessageSummary{}
@@ -198,11 +193,10 @@ func (m *Manager) LabelMessages(p Principal, labelID string) ([]MessageSummary, 
 }
 
 // Snooze hides a message until a time (unix ms).
-func (m *Manager) Snooze(p Principal, summary MessageSummary, until int64) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.Snooze: until=%d", until)
-	}
+func (m *Manager) Snooze(p Principal, summary MessageSummary, until int64) (out0 error) {
+	defer logger.Out1(logger.In4("email", "Manager.Snooze", "m", m, "&p", &p, "&summary", &summary, "until", until), &out0)
 	if _, err := m.account(p, summary.AccountID); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	if until <= m.now().UnixMilli() {
@@ -216,8 +210,8 @@ func (m *Manager) Snooze(p Principal, summary MessageSummary, until int64) error
 }
 
 // Unsnooze brings a snoozed message back now.
-func (m *Manager) Unsnooze(p Principal, summary MessageSummary) error {
-	logger.Debug("email", "Manager.Unsnooze")
+func (m *Manager) Unsnooze(p Principal, summary MessageSummary) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.Unsnooze", "m", m, "&p", &p, "&summary", &summary), &out0)
 	dbKey := ownerKey(p.Username, summaryKey(summary))
 	m.store.mutex.Lock()
 	defer m.store.mutex.Unlock()
@@ -228,11 +222,12 @@ func (m *Manager) Unsnooze(p Principal, summary MessageSummary) error {
 }
 
 // SnoozedMessages lists snoozed mail, soonest first.
-func (m *Manager) SnoozedMessages(p Principal) ([]MessageSummary, error) {
-	logger.Debug("email", "Manager.SnoozedMessages")
+func (m *Manager) SnoozedMessages(p Principal) (out0 []MessageSummary, out1 error) {
+	defer logger.Out2(logger.In2("email", "Manager.SnoozedMessages", "m", m, "&p", &p), &out0, &out1)
 	m.wakeSnoozed(p)
 	records, err := listOwned[localMessage](m.store, tableSnooze, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].Until < records[j].Until })
@@ -249,9 +244,10 @@ func (m *Manager) SnoozedMessages(p Principal) ([]MessageSummary, error) {
 // wakeSnoozed ends expired snoozes and marks those messages unread so they
 // stand out when they come back.
 func (m *Manager) wakeSnoozed(p Principal) {
-	logger.Debug("email", "Manager.wakeSnoozed")
+	defer logger.Out0(logger.In2("email", "Manager.wakeSnoozed", "m", m, "&p", &p))
 	records, err := listOwned[localMessage](m.store, tableSnooze, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	now := m.now().UnixMilli()
@@ -269,6 +265,7 @@ func (m *Manager) wakeSnoozed(p Principal) {
 	for accountID, summaries := range woken {
 		account, err := m.account(p, accountID)
 		if err != nil {
+			logger.DebugErr("email", err)
 			continue
 		}
 		go func(account *Account, summaries []MessageSummary) {
@@ -279,6 +276,7 @@ func (m *Manager) wakeSnoozed(p Principal) {
 				}
 				for folder, uids := range byFolder {
 					if _, err := selectFolder(c, folder); err != nil {
+						logger.DebugErr("email", err)
 						continue
 					}
 					c.Store(imap.UIDSetNum(uids...), &imap.StoreFlags{Op: imap.StoreFlagsDel, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}, nil).Close()
@@ -291,9 +289,7 @@ func (m *Manager) wakeSnoozed(p Principal) {
 
 // applyLocalState attaches labels and snooze times to listed messages.
 func (m *Manager) applyLocalState(p Principal, summaries []MessageSummary) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.applyLocalState: len(summaries)=%d", len(summaries))
-	}
+	defer logger.Out0(logger.In3("email", "Manager.applyLocalState", "m", m, "&p", &p, "summaries", summaries))
 	if len(summaries) == 0 {
 		return
 	}
@@ -324,9 +320,7 @@ func (m *Manager) applyLocalState(p Principal, summaries []MessageSummary) {
 // forgetLocalState drops folder+UID keyed records of messages that moved or
 // were deleted; Message-ID keyed records stay valid.
 func (m *Manager) forgetLocalState(p Principal, accountID string, folder string, uids []uint32) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.forgetLocalState: accountID=%.120q folder=%.120q len(uids)=%d", accountID, folder, len(uids))
-	}
+	defer logger.Out0(logger.In5("email", "Manager.forgetLocalState", "m", m, "&p", &p, "accountID", accountID, "folder", folder, "uids", uids))
 	m.store.mutex.Lock()
 	defer m.store.mutex.Unlock()
 	for _, uid := range uids {
@@ -347,16 +341,15 @@ type LocatedMessage struct {
 
 // LocateMessage finds a message by Message-ID after it moved, searching the
 // likely folders first.
-func (m *Manager) LocateMessage(ctx context.Context, p Principal, accountID string, messageID string, hint string) (*LocatedMessage, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.LocateMessage: accountID=%.120q messageID=%.120q hint=%.120q", accountID, messageID, hint)
-	}
+func (m *Manager) LocateMessage(ctx context.Context, p Principal, accountID string, messageID string, hint string) (out0 *LocatedMessage, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.LocateMessage", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "messageID", messageID, "hint", hint), &out0, &out1)
 	messageID = strings.Trim(strings.TrimSpace(messageID), "<>")
 	if messageID == "" {
 		return nil, ErrMessageNotFound
 	}
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	key := poolKey(p.Username, account.ID)
@@ -364,6 +357,7 @@ func (m *Manager) LocateMessage(ctx context.Context, p Principal, accountID stri
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		folders, err := m.foldersQuick(c, key)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		order := []string{}
@@ -389,10 +383,12 @@ func (m *Manager) LocateMessage(ctx context.Context, p Principal, accountID stri
 		criteria := &imap.SearchCriteria{Header: []imap.SearchCriteriaHeaderField{{Key: "Message-ID", Value: messageID}}}
 		for _, folder := range order {
 			if _, err := selectFolder(c, folder); err != nil {
+				logger.DebugErr("email", err)
 				continue
 			}
 			data, err := c.UIDSearch(criteria, nil).Wait()
 			if err != nil {
+				logger.DebugErr("email", err)
 				continue
 			}
 			if uids := data.AllUIDs(); len(uids) > 0 {

@@ -10,10 +10,8 @@ import (
 
 // AlphaMarker is the n-th letter marker of an "a." / "A." list (1 = a, 27 =
 // aa), counted from base ('a' or 'A')
-func AlphaMarker(n int, base byte) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/slidetext", "AlphaMarker: n=%d base=%d", n, base)
-	}
+func AlphaMarker(n int, base byte) (out0 string) {
+	defer logger.Out1(logger.In2("office/internal/slidetext", "AlphaMarker", "n", n, "base", base), &out0)
 	if n < 1 {
 		n = 1
 	}
@@ -27,10 +25,8 @@ func AlphaMarker(n int, base byte) string {
 }
 
 // RomanMarker is n in upper-case Roman numerals ("" below 1)
-func RomanMarker(n int) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/slidetext", "RomanMarker: n=%d", n)
-	}
+func RomanMarker(n int) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/slidetext", "RomanMarker", "n", n), &out0)
 	if n < 1 {
 		return ""
 	}

@@ -37,8 +37,8 @@ type Handler struct {
 /*
 New WebRoot Handler create a new handler for handling and routing webroots
 */
-func NewWebRootHandler(options Options) *Handler {
-	logger.Debug("www", "NewWebRootHandler")
+func NewWebRootHandler(options Options) (out0 *Handler) {
+	defer logger.Out1(logger.In1("www", "NewWebRootHandler", "&options", &options), &out0)
 	//Create the homepage database table
 	options.Database.NewTable("www")
 
@@ -49,9 +49,7 @@ func NewWebRootHandler(options Options) *Handler {
 }
 
 func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("www", "Handler.RouteRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("www", "Handler.RouteRequest", "h", h, "r", r))
 	//Check if it is reaching www root folder or any files directly under www.
 	if filepath.ToSlash(filepath.Clean(r.URL.Path)) == "/www" {
 		//Direct access of the root folder. Serve the homepage description.
@@ -67,6 +65,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	//Escape the URL
 	decodedValue, err := url.QueryUnescape(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("www", err)
 		//failed to decode. Just use its raw value
 		decodedValue = r.URL.Path
 	}
@@ -84,6 +83,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 
 	userinfo, err := h.Options.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("www", err)
 		serveNotFoundTemplate(w, r)
 		return
 	}
@@ -98,6 +98,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	//Check if the user have his webroot correctly configured
 	webroot, err := h.GetUserWebRoot(userinfo.Username)
 	if err != nil {
+		logger.DebugErr("www", err)
 		//User do not have a correctly configured webroot. Serve instruction
 		handleWebrootError(w)
 		return
@@ -106,12 +107,14 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	//User webroot real path conversion
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(webroot)
 	if err != nil {
+		logger.DebugErr("www", err)
 		handleWebrootError(w)
 		return
 	}
 
 	webrootRealpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(webroot, userinfo.Username)
 	if err != nil {
+		logger.DebugErr("www", err)
 		handleWebrootError(w)
 		return
 	}
@@ -155,6 +158,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	if fsh.FileSystemAbstraction.FileExists(targetFilePath) && filepath.Ext(targetFilePath) == ".agi" {
 		_, result, err := h.Options.AgiGateway.ExecuteAGIScriptAsUser(fsh, targetFilePath, userinfo, w, r)
 		if err != nil {
+			logger.DebugErr("www", err)
 			w.Write([]byte("500 - Internal Server Error \n" + err.Error()))
 			return
 		}
@@ -169,6 +173,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		f, err := fsh.FileSystemAbstraction.ReadStream(targetFilePath)
 		if err != nil {
+			logger.DebugErr("www", err)
 			w.Write([]byte(err.Error()))
 			return
 		}
@@ -179,18 +184,17 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveNotFoundTemplate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("www", "serveNotFoundTemplate: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("www", "serveNotFoundTemplate")
 	http.ServeFile(w, r, "system/errors/notfound.html")
 }
 
 func handleWebrootError(w http.ResponseWriter) {
-	logger.Debug("www", "handleWebrootError")
+	defer logger.Out0(logger.In0("www", "handleWebrootError"))
 	w.WriteHeader(http.StatusInternalServerError)
 	if utils.FileExists("./system/www/nowebroot.html") {
 		content, err := os.ReadFile("./system/www/nowebroot.html")
 		if err != nil {
+			logger.DebugErr("www", err)
 			w.Write([]byte("500 - Internal Server Error"))
 		} else {
 			w.Write(content)

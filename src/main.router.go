@@ -27,9 +27,7 @@ func mrouter(h http.Handler) http.Handler {
 		/*
 			You can also check the path for url using r.URL.Path
 		*/
-		if logger.IsDebug() {
-			logger.Debugf("Router", "%s from %s", logger.RequestSummary(r), r.RemoteAddr)
-		}
+		logger.DebugRequest("Router", r)
 
 		//Container apps come first: an app hostname, /app/<slug>/, or a root
 		//request made by an app page (which must never be answered from the
@@ -59,6 +57,7 @@ func mrouter(h http.Handler) http.Handler {
 				"login_addr":       "system/auth/login",
 			})
 			if err != nil {
+				logger.DebugErr("Core", err)
 				panic("Error. Unable to parse login page. Is web directory data exists?")
 			}
 			w.Header().Add("Content-Type", "text/html; charset=UTF-8")
@@ -130,6 +129,7 @@ func mrouter(h http.Handler) http.Handler {
 			w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
 			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				//ERROR!! Server default
 				h.ServeHTTP(w, r)
 			} else {
@@ -239,8 +239,8 @@ func mrouter(h http.Handler) http.Handler {
 
 // fileExistsInWebOrVendor reports whether a URL path resolves to a file in
 // either the standard ./web directory or the vendorResRoot/web/ overlay.
-func fileExistsInWebOrVendor(urlPath string) bool {
-	logger.Debug("Core", "fileExistsInWebOrVendor")
+func fileExistsInWebOrVendor(urlPath string) (out0 bool) {
+	defer logger.Out1(logger.In1("Core", "fileExistsInWebOrVendor", "urlPath", urlPath), &out0)
 	if fs.FileExists("web" + urlPath) {
 		return true
 	}
@@ -248,9 +248,7 @@ func fileExistsInWebOrVendor(urlPath string) bool {
 }
 
 func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "routerStaticContentServer: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("Core", "routerStaticContentServer", "h", h, "r", r))
 	if *enable_gzip {
 		gzipmiddleware.Compress(h).ServeHTTP(w, r)
 	} else {
@@ -262,10 +260,8 @@ func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Re
 // modules are all disabled, and reports whether it did. The Setup module goes
 // back to the startup interface once it is finished, other apps are not found.
 // Images stay reachable, so the module manager can still show the app's icon.
-func serveDisabledModuleFolder(w http.ResponseWriter, r *http.Request) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "serveDisabledModuleFolder: r=%s", logger.RequestSummary(r))
-	}
+func serveDisabledModuleFolder(w http.ResponseWriter, r *http.Request) (out0 bool) {
+	defer logger.Out1(logger.In1("Core", "serveDisabledModuleFolder", "r", r), &out0)
 	if moduleHandler == nil {
 		return false
 	}

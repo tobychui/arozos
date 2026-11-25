@@ -89,8 +89,8 @@ func DefaultShareOption() *ShareOption {
 
 // migrate upgrades a share loaded from an older database record. It returns
 // true if the record was changed and should be written back.
-func (s *ShareOption) migrate() bool {
-	logger.Debug("share/shareEntry", "ShareOption.migrate")
+func (s *ShareOption) migrate() (out0 bool) {
+	defer logger.Out1(logger.In1("share/shareEntry", "ShareOption.migrate", "s", s), &out0)
 	if s.SchemaVersion >= currentSchemaVersion {
 		return false
 	}
@@ -107,24 +107,20 @@ func (s *ShareOption) migrate() bool {
 
 // Clone returns a deep copy of this share, so callers can read it without
 // racing against updates.
-func (s *ShareOption) Clone() *ShareOption {
-	logger.Debug("share/shareEntry", "ShareOption.Clone")
+func (s *ShareOption) Clone() (out0 *ShareOption) {
+	defer logger.Out1(logger.In1("share/shareEntry", "ShareOption.Clone", "s", s), &out0)
 	c := *s
 	c.Accessibles = append([]string{}, s.Accessibles...)
 	return &c
 }
 
 func (s *ShareOption) IsOwnedBy(username string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("share/shareEntry", "ShareOption.IsOwnedBy: username=%.120q", username)
-	}
+	logger.DebugTrace("share/shareEntry", "ShareOption.IsOwnedBy")
 	return s.Owner == username
 }
 
-func (s *ShareOption) IsAccessibleBy(username string, usergroup []string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share/shareEntry", "ShareOption.IsAccessibleBy: username=%.120q len(usergroup)=%d", username, len(usergroup))
-	}
+func (s *ShareOption) IsAccessibleBy(username string, usergroup []string) (out0 bool) {
+	defer logger.Out1(logger.In3("share/shareEntry", "ShareOption.IsAccessibleBy", "s", s, "username", username, "usergroup", usergroup), &out0)
 	if s.Permission == PermissionAnyone || s.Permission == PermissionSignedIn {
 		return true
 	} else if s.Permission == PermissionSameGroup || s.Permission == PermissionGroups {
@@ -172,8 +168,8 @@ func (s *ShareOption) CanUpload() bool {
 
 // SetPassword hashes and stores the given password. An empty password
 // removes the protection.
-func (s *ShareOption) SetPassword(password string) error {
-	logger.Debug("share/shareEntry", "ShareOption.SetPassword")
+func (s *ShareOption) SetPassword(password string) (out0 error) {
+	defer logger.Out1(logger.In2("share/shareEntry", "ShareOption.SetPassword", "s", s, "!password", password), &out0)
 	if password == "" {
 		s.PasswordHash = ""
 		return nil
@@ -183,6 +179,7 @@ func (s *ShareOption) SetPassword(password string) error {
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
+		logger.DebugErr("share/shareEntry", err)
 		return err
 	}
 	s.PasswordHash = string(hash)
@@ -191,8 +188,8 @@ func (s *ShareOption) SetPassword(password string) error {
 
 // CheckPassword reports whether the given password unlocks this share. A
 // share without password accepts anything.
-func (s *ShareOption) CheckPassword(password string) bool {
-	logger.Debug("share/shareEntry", "ShareOption.CheckPassword")
+func (s *ShareOption) CheckPassword(password string) (out0 bool) {
+	defer logger.Out1(logger.In2("share/shareEntry", "ShareOption.CheckPassword", "s", s, "!password", password), &out0)
 	if !s.HasPassword() {
 		return true
 	}
@@ -201,8 +198,8 @@ func (s *ShareOption) CheckPassword(password string) bool {
 
 // Apply validates the given settings and writes them into this share. The
 // share is left untouched if any setting is invalid.
-func (s *ShareOption) Apply(settings ShareSettings, now time.Time) error {
-	logger.Debug("share/shareEntry", "ShareOption.Apply")
+func (s *ShareOption) Apply(settings ShareSettings, now time.Time) (out0 error) {
+	defer logger.Out1(logger.In3("share/shareEntry", "ShareOption.Apply", "s", s, "&settings", &settings, "&now", &now), &out0)
 	next := s.Clone()
 	if settings.Permission != nil {
 		accessibles := cleanNameList(settings.Accessibles)
@@ -255,6 +252,7 @@ func (s *ShareOption) Apply(settings ShareSettings, now time.Time) error {
 
 	if settings.Password != nil {
 		if err := next.SetPassword(*settings.Password); err != nil {
+			logger.DebugErr("share/shareEntry", err)
 			return err
 		}
 	}
@@ -264,10 +262,8 @@ func (s *ShareOption) Apply(settings ShareSettings, now time.Time) error {
 }
 
 // cleanNameList trims the given names and drops empty and duplicated ones
-func cleanNameList(names []string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("share/shareEntry", "cleanNameList: len(names)=%d", len(names))
-	}
+func cleanNameList(names []string) (out0 []string) {
+	defer logger.Out1(logger.In1("share/shareEntry", "cleanNameList", "names", names), &out0)
 	results := []string{}
 	for _, name := range names {
 		name = strings.TrimSpace(name)

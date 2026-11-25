@@ -18,7 +18,7 @@ var (
 )
 
 func RegisterSystemInit() {
-	logger.Debug("Core", "RegisterSystemInit")
+	defer logger.Out0(logger.In0("Core", "RegisterSystemInit"))
 	//Register the endpoints for public registration
 	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
 	if !fs.FileExists(imgsrc) {
@@ -92,18 +92,14 @@ func RegisterSystemInit() {
 }
 
 func register_handleRegisterCleaning(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "register_handleRegisterCleaning: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "register_handleRegisterCleaning", "r", r))
 	//Get all user emails from the registerHandler
 	registerHandler.CleanRegisters()
 	utils.SendOK(w)
 }
 
 func register_handleEmailListing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "register_handleEmailListing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "register_handleEmailListing", "r", r))
 	//Get all user emails from the registerHandler
 	userRegisterInfos := registerHandler.ListAllUserEmails()
 
@@ -132,9 +128,7 @@ func register_handleEmailListing(w http.ResponseWriter, r *http.Request) {
 }
 
 func register_handleSetDefaultGroup(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "register_handleSetDefaultGroup: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "register_handleSetDefaultGroup", "r", r))
 	getDefaultGroup, _ := utils.PostPara(r, "get")
 	if getDefaultGroup == "true" {
 		jsonString, _ := json.Marshal(registerHandler.DefaultUserGroup)
@@ -143,11 +137,13 @@ func register_handleSetDefaultGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	newDefaultGroup, err := utils.PostPara(r, "defaultGroup")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "defaultGroup not defined")
 		return
 	}
 	err = registerHandler.SetDefaultUserGroup(newDefaultGroup)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -155,19 +151,16 @@ func register_handleSetDefaultGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func register_handleGetAllowRegistry(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "register_handleGetAllowRegistry: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "register_handleGetAllowRegistry", "r", r))
 	jsonString, _ := json.Marshal(registerHandler.AllowRegistry)
 	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func register_handleToggleRegistry(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "register_handleToggleRegistry: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "register_handleToggleRegistry", "r", r))
 	allowReg, err := utils.PostPara(r, "allow")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		allowReg = "false"
 	}
 	registerHandler.SetAllowRegistry(allowReg == "true")

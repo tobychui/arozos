@@ -117,10 +117,11 @@ func mrDescribeRoom(room *meetroom.Room) mrRoomInfo {
 
 // mrMarshalOrDrop marshals v, returning nil when marshalling fails (the
 // frame is simply not sent - all inputs are server-constructed).
-func mrMarshalOrDrop(v interface{}) []byte {
-	logger.Debug("Core", "mrMarshalOrDrop")
+func mrMarshalOrDrop(v interface{}) (out0 []byte) {
+	defer logger.Out1(logger.In1("Core", "mrMarshalOrDrop", "v", v), &out0)
 	js, err := json.Marshal(v)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil
 	}
 	return js
@@ -128,9 +129,7 @@ func mrMarshalOrDrop(v interface{}) []byte {
 
 // mrEndMeeting broadcasts room-closed and tears the room down.
 func mrEndMeeting(roomID string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "mrEndMeeting: roomID=%.120q", roomID)
-	}
+	defer logger.Out0(logger.In1("Core", "mrEndMeeting", "roomID", roomID))
 	room, ok := meetRoomManager.GetRoom(roomID)
 	if !ok {
 		return
@@ -141,8 +140,8 @@ func mrEndMeeting(roomID string) {
 
 // mrAttendanceList renders a room's join/leave log for the client. leftat is
 // 0 while the participant is still connected.
-func mrAttendanceList(room *meetroom.Room) []map[string]interface{} {
-	logger.Debug("Core", "mrAttendanceList")
+func mrAttendanceList(room *meetroom.Room) (out0 []map[string]interface{}) {
+	defer logger.Out1(logger.In1("Core", "mrAttendanceList", "room", room), &out0)
 	records := room.Attendance()
 	list := make([]map[string]interface{}, 0, len(records))
 	for _, record := range records {
@@ -166,7 +165,7 @@ func mrAttendanceList(room *meetroom.Room) []map[string]interface{} {
 // file frames. Peer ID 0 marks server-side senders: real participants are
 // numbered from 1.
 func mrSpaceItemBroadcast(room *meetroom.Room, item *sharedspace.Item) {
-	logger.Debug("Core", "mrSpaceItemBroadcast")
+	defer logger.Out0(logger.In2("Core", "mrSpaceItemBroadcast", "room", room, "item", item))
 	if item.Type == sharedspace.ItemTypeText {
 		room.Broadcast(mrMarshalOrDrop(map[string]interface{}{
 			"type":     "chat",
@@ -190,7 +189,7 @@ func mrSpaceItemBroadcast(room *meetroom.Room, item *sharedspace.Item) {
 
 // MeetRoomInit wires up the MeetRoom video conferencing endpoints.
 func MeetRoomInit() {
-	logger.Debug("Core", "MeetRoomInit")
+	defer logger.Out0(logger.In0("Core", "MeetRoomInit"))
 	meetRoomManager = meetroom.NewManager("")
 
 	//Give every room a shared space (chat + files mirror into it, AGI
@@ -222,6 +221,7 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/create", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
@@ -242,6 +242,7 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/join", func(w http.ResponseWriter, r *http.Request) {
 		roomID, err := utils.PostPara(r, "roomid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing room ID")
 			return
 		}
@@ -249,6 +250,7 @@ func MeetRoomInit() {
 
 		room, err := meetRoomManager.ValidateJoin(meetroom.NormalizeRoomID(roomID), password)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -264,6 +266,7 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/info", func(w http.ResponseWriter, r *http.Request) {
 		roomID, err := utils.GetPara(r, "roomid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing room ID")
 			return
 		}
@@ -285,11 +288,13 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/end", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
 		roomID, err := utils.GetPara(r, "roomid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing room ID")
 			return
 		}
@@ -326,21 +331,25 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/upload", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
 		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid upload")
 			return
 		}
 		roomID := meetroom.NormalizeRoomID(r.FormValue("roomid"))
 		password := r.FormValue("password")
 		if _, err := meetRoomManager.ValidateJoin(roomID, password); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		file, header, err := r.FormFile("file")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing file")
 			return
 		}
@@ -348,6 +357,7 @@ func MeetRoomInit() {
 
 		attachment, err := meetRoomManager.SaveAttachment(roomID, header.Filename, userinfo.Username, file, meetroom.DefaultMaxUpload)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -368,17 +378,20 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/attachfile", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
 		roomID := meetroom.NormalizeRoomID(r.FormValue("roomid"))
 		password := r.FormValue("password")
 		if _, err := meetRoomManager.ValidateJoin(roomID, password); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		vpath, err := utils.PostPara(r, "path")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing file path")
 			return
 		}
@@ -386,17 +399,20 @@ func MeetRoomInit() {
 		//Resolve the virtual path within the requesting user's file system
 		fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "File not accessible")
 			return
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, userinfo.Username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid file path")
 			return
 		}
 		fileStat, err := fshAbs.Stat(rpath)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "File not found")
 			return
 		}
@@ -407,6 +423,7 @@ func MeetRoomInit() {
 
 		stream, err := fshAbs.ReadStream(rpath)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Could not open the file")
 			return
 		}
@@ -414,6 +431,7 @@ func MeetRoomInit() {
 
 		attachment, err := meetRoomManager.SaveAttachment(roomID, path.Base(vpath), userinfo.Username, stream, meetroom.DefaultMaxUpload)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -431,10 +449,12 @@ func MeetRoomInit() {
 		password := r.URL.Query().Get("password")
 		fileID, err := utils.GetPara(r, "fileid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing file ID")
 			return
 		}
 		if _, err := meetRoomManager.ValidateJoin(roomID, password); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -445,6 +465,7 @@ func MeetRoomInit() {
 		}
 		f, err := os.Open(attachment.DiskPath)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			http.NotFound(w, r)
 			return
 		}
@@ -480,6 +501,7 @@ func MeetRoomInit() {
 	router.HandleFunc("/system/meetroom/ws", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			http.Error(w, "Not logged in", http.StatusUnauthorized)
 			return
 		}
@@ -488,12 +510,14 @@ func MeetRoomInit() {
 
 		room, err := meetRoomManager.ValidateJoin(roomID, password)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		}
 
 		conn, err := meetRoomUpgrader.Upgrade(w, r, nil)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			return
 		}
 		conn.SetReadLimit(mrMaxSocketFrame)
@@ -509,6 +533,7 @@ func MeetRoomInit() {
 
 		participant, err := room.AddParticipant(userinfo.Username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			conn.Close()
 			return
 		}
@@ -527,11 +552,13 @@ func MeetRoomInit() {
 					}
 					conn.SetWriteDeadline(time.Now().Add(mrWriteTimeout))
 					if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+						logger.DebugErr("Core", err)
 						return
 					}
 				case <-pinger.C:
 					conn.SetWriteDeadline(time.Now().Add(mrWriteTimeout))
 					if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+						logger.DebugErr("Core", err)
 						return
 					}
 				}
@@ -577,6 +604,7 @@ func MeetRoomInit() {
 		for {
 			_, raw, err := conn.ReadMessage()
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return
 			}
 			conn.SetReadDeadline(time.Now().Add(mrReadTimeout))
@@ -694,10 +722,8 @@ func MeetRoomInit() {
 
 // filepathExt returns the extension of a display file name (which never
 // contains a path separator by the time it reaches the server).
-func filepathExt(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "filepathExt: name=%.120q", name)
-	}
+func filepathExt(name string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "filepathExt", "name", name), &out0)
 	if idx := strings.LastIndex(name, "."); idx >= 0 {
 		return name[idx:]
 	}

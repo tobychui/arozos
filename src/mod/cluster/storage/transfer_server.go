@@ -117,7 +117,7 @@ type session struct {
 }
 
 func (s *Service) registerACNHandlers() {
-	logger.Debug("cluster/storage", "Service.registerACNHandlers")
+	defer logger.Out0(logger.In1("cluster/storage", "Service.registerACNHandlers", "s", s))
 	srv := s.m.Server()
 	srv.HandleFunc(pathBegin, s.handleBegin)
 	srv.HandleFunc(pathChunk, s.handleChunk)
@@ -135,10 +135,8 @@ func (s *Service) registerACNHandlers() {
 }
 
 // localVolumePath resolves a request onto a local volume path.
-func (s *Service) localVolumePath(volumeID string, logical string) (*metadata.Volume, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.localVolumePath: volumeID=%.120q logical=%.120q", volumeID, logical)
-	}
+func (s *Service) localVolumePath(volumeID string, logical string) (out0 *metadata.Volume, out1 string, out2 error) {
+	defer logger.Out3(logger.In3("cluster/storage", "Service.localVolumePath", "s", s, "volumeID", volumeID, "logical", logical), &out0, &out1, &out2)
 	vol, ok := s.meta.Volume(volumeID)
 	if !ok || vol.Removed {
 		return nil, "", errors.New("volume not found")
@@ -148,15 +146,14 @@ func (s *Service) localVolumePath(volumeID string, logical string) (*metadata.Vo
 	}
 	real, err := s.realPath(vol, logical)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		return nil, "", err
 	}
 	return vol, real, nil
 }
 
-func statusFor(err error) int {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "statusFor: err=%v", err)
-	}
+func statusFor(err error) (out0 int) {
+	defer logger.Out1(logger.In1("cluster/storage", "statusFor", "err", err), &out0)
 	switch {
 	case errors.Is(err, ErrNotLocalVolume), errors.Is(err, os.ErrNotExist):
 		return http.StatusNotFound
@@ -169,9 +166,7 @@ func statusFor(err error) int {
 }
 
 func (s *Service) handleBegin(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleBegin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleBegin", "s", s, "r", r, "sender", sender, "body", body))
 	var req BeginRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.Size < 0 || req.Checksum == "" {
 		acn.WriteError(w, http.StatusBadRequest, "invalid begin request")
@@ -179,10 +174,12 @@ func (s *Service) handleBegin(w http.ResponseWriter, r *http.Request, sender *ac
 	}
 	_, real, err := s.localVolumePath(req.VolumeID, req.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(real), 0755); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -211,6 +208,7 @@ func (s *Service) handleBegin(w http.ResponseWriter, r *http.Request, sender *ac
 	sess.partPath = real + ".part-" + sess.ID
 	f, err := os.Create(sess.partPath)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -222,8 +220,8 @@ func (s *Service) handleBegin(w http.ResponseWriter, r *http.Request, sender *ac
 	acn.WriteJSON(w, BeginResponse{SessionID: sess.ID, Have: []int{}})
 }
 
-func (sess *session) haveList() []int {
-	logger.Debug("cluster/storage", "session.haveList")
+func (sess *session) haveList() (out0 []int) {
+	defer logger.Out1(logger.In1("cluster/storage", "session.haveList", "sess", sess), &out0)
 	out := make([]int, 0, len(sess.received))
 	for i := range sess.received {
 		out = append(out, i)
@@ -231,18 +229,16 @@ func (sess *session) haveList() []int {
 	return out
 }
 
-func (sess *session) chunkCount() int {
-	logger.Debug("cluster/storage", "session.chunkCount")
+func (sess *session) chunkCount() (out0 int) {
+	defer logger.Out1(logger.In1("cluster/storage", "session.chunkCount", "sess", sess), &out0)
 	if sess.Size == 0 {
 		return 0
 	}
 	return int((sess.Size + ChunkSize - 1) / ChunkSize)
 }
 
-func (s *Service) getSession(id string) (*session, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.getSession: id=%.120q", id)
-	}
+func (s *Service) getSession(id string) (out0 *session, out1 bool) {
+	defer logger.Out2(logger.In2("cluster/storage", "Service.getSession", "s", s, "id", id), &out0, &out1)
 	s.sessMu.Lock()
 	defer s.sessMu.Unlock()
 	sess, ok := s.sessions[id]
@@ -253,9 +249,7 @@ func (s *Service) getSession(id string) (*session, bool) {
 }
 
 func (s *Service) dropSession(id string, removePart bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.dropSession: id=%.120q removePart=%t", id, removePart)
-	}
+	defer logger.Out0(logger.In3("cluster/storage", "Service.dropSession", "s", s, "id", id, "removePart", removePart))
 	s.sessMu.Lock()
 	sess, ok := s.sessions[id]
 	delete(s.sessions, id)
@@ -266,9 +260,7 @@ func (s *Service) dropSession(id string, removePart bool) {
 }
 
 func (s *Service) handleChunk(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleChunk: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleChunk", "s", s, "r", r, "sender", sender, "body", body))
 	q := r.URL.Query()
 	sess, ok := s.getSession(q.Get("session"))
 	if !ok {
@@ -296,12 +288,14 @@ func (s *Service) handleChunk(w http.ResponseWriter, r *http.Request, sender *ac
 	}
 	f, err := os.OpenFile(sess.partPath, os.O_WRONLY, 0644)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	_, err = f.WriteAt(body, offset)
 	f.Close()
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -313,11 +307,10 @@ func (s *Service) handleChunk(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (s *Service) handleCommit(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleCommit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleCommit", "s", s, "r", r, "sender", sender, "body", body))
 	var req SessionRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -332,6 +325,7 @@ func (s *Service) handleCommit(w http.ResponseWriter, r *http.Request, sender *a
 	}
 	sum, size, err := fileChecksum(sess.partPath)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -342,11 +336,13 @@ func (s *Service) handleCommit(w http.ResponseWriter, r *http.Request, sender *a
 	}
 	_, real, err := s.localVolumePath(sess.VolumeID, sess.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		s.dropSession(sess.ID, true)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	if err := os.Rename(sess.partPath, real); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		s.dropSession(sess.ID, true)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -356,11 +352,10 @@ func (s *Service) handleCommit(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (s *Service) handleAbort(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleAbort: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleAbort", "s", s, "r", r, "sender", sender, "body", body))
 	var req SessionRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -369,12 +364,11 @@ func (s *Service) handleAbort(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleRead: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleRead", "s", s, "r", r, "sender", sender, "body", body))
 	q := r.URL.Query()
 	_, real, err := s.localVolumePath(q.Get("volume"), q.Get("path"))
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
@@ -386,6 +380,7 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, sender *acn
 	}
 	f, err := os.Open(real)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusNotFound, "file not found on volume")
 		return
 	}
@@ -418,17 +413,17 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (s *Service) handleStatFile(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleStatFile: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleStatFile", "s", s, "r", r, "sender", sender, "body", body))
 	q := r.URL.Query()
 	_, real, err := s.localVolumePath(q.Get("volume"), q.Get("path"))
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	fi, err := os.Stat(real)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteJSON(w, StatResponse{Exists: false})
 		return
 	}
@@ -436,20 +431,21 @@ func (s *Service) handleStatFile(w http.ResponseWriter, r *http.Request, sender 
 }
 
 func (s *Service) handleMkdir(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleMkdir: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleMkdir", "s", s, "r", r, "sender", sender, "body", body))
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 	_, real, err := s.localVolumePath(req.VolumeID, req.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	if err := os.MkdirAll(real, 0755); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -457,16 +453,16 @@ func (s *Service) handleMkdir(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleDelete: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleDelete", "s", s, "r", r, "sender", sender, "body", body))
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 	vol, real, err := s.localVolumePath(req.VolumeID, req.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
@@ -488,9 +484,7 @@ func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (s *Service) handleRename(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleRename: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleRename", "s", s, "r", r, "sender", sender, "body", body))
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.NewPath == "" {
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
@@ -498,19 +492,23 @@ func (s *Service) handleRename(w http.ResponseWriter, r *http.Request, sender *a
 	}
 	vol, src, err := s.localVolumePath(req.VolumeID, req.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	dst, err := s.realPath(vol, req.NewPath)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := os.Rename(src, dst); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -518,17 +516,17 @@ func (s *Service) handleRename(w http.ResponseWriter, r *http.Request, sender *a
 }
 
 func (s *Service) handleList(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleList", "s", s, "r", r, "sender", sender, "body", body))
 	q := r.URL.Query()
 	_, real, err := s.localVolumePath(q.Get("volume"), q.Get("path"))
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	entries, err := os.ReadDir(real)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -539,6 +537,7 @@ func (s *Service) handleList(w http.ResponseWriter, r *http.Request, sender *acn
 		}
 		fi, err := e.Info()
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			continue
 		}
 		out = append(out, ListEntry{Name: e.Name(), IsDir: e.IsDir(), Size: fi.Size(), ModTime: fi.ModTime().Unix()})
@@ -547,21 +546,22 @@ func (s *Service) handleList(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (s *Service) handleChecksum(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handleChecksum: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handleChecksum", "s", s, "r", r, "sender", sender, "body", body))
 	var req PathRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 	_, real, err := s.localVolumePath(req.VolumeID, req.Path)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, statusFor(err), err.Error())
 		return
 	}
 	sum, size, err := fileChecksum(real)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -569,15 +569,14 @@ func (s *Service) handleChecksum(w http.ResponseWriter, r *http.Request, sender 
 }
 
 func (s *Service) handlePlace(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "Service.handlePlace: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/storage", "Service.handlePlace", "s", s, "r", r, "sender", sender, "body", body))
 	if !s.meta.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, "this node is not the metadata leader")
 		return
 	}
 	var req PlaceRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -587,6 +586,7 @@ func (s *Service) handlePlace(w http.ResponseWriter, r *http.Request, sender *ac
 	}
 	vol, err := s.pickVolume(req.Size, req.PreferNode, req.PreferVolume, exclude)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		acn.WriteError(w, http.StatusInsufficientStorage, err.Error())
 		return
 	}
@@ -595,7 +595,7 @@ func (s *Service) handlePlace(w http.ResponseWriter, r *http.Request, sender *ac
 
 // sweepSessions drops abandoned uploads and their part files.
 func (s *Service) sweepSessions() {
-	logger.Debug("cluster/storage", "Service.sweepSessions")
+	defer logger.Out0(logger.In1("cluster/storage", "Service.sweepSessions", "s", s))
 	cutoff := time.Now().Add(-SessionTTL)
 	s.sessMu.Lock()
 	stale := []*session{}

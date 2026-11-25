@@ -60,7 +60,7 @@ type CNNServerConfig struct {
 // ── Library registration ─────────────────────────────────────────────────────
 
 func (g *Gateway) CNNLibRegister() {
-	logger.Debug("agi", "Gateway.CNNLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.CNNLibRegister", "g", g))
 	//Make sure the storage table exists before any read / write happens.
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if !sysdb.TableExists(cnnDBTable) {
@@ -69,13 +69,14 @@ func (g *Gateway) CNNLibRegister() {
 
 	err := g.RegisterLib("cnn", g.injectCNNFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectCNNFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectCNNFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -84,11 +85,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_classify", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.Classify(data, mimeType, opt)
@@ -99,11 +102,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_detect", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.Detect(data, mimeType, opt)
@@ -114,11 +119,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_segment", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.Segment(data, mimeType, opt)
@@ -129,11 +136,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_pose", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.Pose(data, mimeType, opt)
@@ -144,11 +153,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_oriented", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.Oriented(data, mimeType, opt)
@@ -159,11 +170,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_faceDetect", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.FaceDetect(data, mimeType, opt)
@@ -174,11 +187,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_faceLandmarks", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.FaceLandmarks(data, mimeType, opt)
@@ -189,11 +204,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_faceEmbedding", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.FaceEmbedding(data, mimeType, opt)
@@ -204,11 +221,13 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_faceAttributes", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNOptions(getOttoStringArg(call, 1))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.FaceAttributes(data, mimeType, opt)
@@ -219,15 +238,18 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_faceCompare", func(call otto.FunctionCall) otto.Value {
 		dataA, mimeA, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		dataB, mimeB, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 1))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		opt := parseCNNComparisonOptions(getOttoStringArg(call, 2))
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, err := client.FaceCompare(dataA, dataB, mimeA, mimeB, opt)
@@ -240,6 +262,7 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_analyze", func(call otto.FunctionCall) otto.Value {
 		data, mimeType, err := g.cnnReadImage(scriptFsh, vm, u, getOttoStringArg(call, 0))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 
@@ -264,6 +287,7 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		result, job, err := client.Analyze(data, mimeType, opt)
@@ -275,6 +299,7 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 		id, _ := call.Argument(0).ToString()
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		job, err := client.GetJob(id)
@@ -285,6 +310,7 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_models", func(call otto.FunctionCall) otto.Value {
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		models, err := client.ListModels()
@@ -295,6 +321,7 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_cnn_health", func(call otto.FunctionCall) otto.Value {
 		client, err := g.cnnClient()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("CNNError", err.Error()))
 		}
 		health, err := client.Health()
@@ -352,8 +379,8 @@ func (g *Gateway) injectCNNFunctions(payload *static.AgiLibInjectionPayload) {
 // ── Core helpers ──────────────────────────────────────────────────────────────
 
 // cnnClient builds a cnn.Client from the persisted configuration.
-func (g *Gateway) cnnClient() (*cnn.Client, error) {
-	logger.Debug("agi", "Gateway.cnnClient")
+func (g *Gateway) cnnClient() (out0 *cnn.Client, out1 error) {
+	defer logger.Out2(logger.In1("agi", "Gateway.cnnClient", "g", g), &out0, &out1)
 	cfg := g.getCNNConfig()
 	if strings.TrimSpace(cfg.Endpoint) == "" {
 		return nil, errors.New("CNN inference server is not configured (System Settings > AI Integration > CNN Inference)")
@@ -363,10 +390,8 @@ func (g *Gateway) cnnClient() (*cnn.Client, error) {
 
 // cnnReadImage resolves a script vpath to its raw bytes and a best-effort
 // mime type, enforcing the calling user's read permission.
-func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, u *user.User, vpath string) ([]byte, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.cnnReadImage: vpath=%.120q", vpath)
-	}
+func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, u *user.User, vpath string) (out0 []byte, out1 string, out2 error) {
+	defer logger.Out3(logger.In5("agi", "Gateway.cnnReadImage", "g", g, "scriptFsh", scriptFsh, "vm", vm, "u", u, "vpath", vpath), &out0, &out1, &out2)
 	//Resolve relative paths against the script's directory
 	vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
@@ -376,6 +401,7 @@ func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto
 
 	fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, "", err
 	}
 	if !fsh.FileSystemAbstraction.FileExists(rpath) {
@@ -384,6 +410,7 @@ func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto
 
 	content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, "", err
 	}
 
@@ -402,11 +429,10 @@ func (g *Gateway) cnnReadImage(scriptFsh *filesystem.FileSystemHandler, vm *otto
 // value returned to the script: an error panics, an async submission returns
 // the job object, otherwise the typed result is marshalled back as-is so the
 // script receives the exact server envelope shape.
-func cnnRespond(vm *otto.Otto, result interface{}, job *cnn.Job, err error) otto.Value {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "cnnRespond: err=%v", err)
-	}
+func cnnRespond(vm *otto.Otto, result interface{}, job *cnn.Job, err error) (out0 otto.Value) {
+	defer logger.Out1(logger.In4("agi", "cnnRespond", "vm", vm, "result", result, "job", job, "err", err), &out0)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		panic(vm.MakeCustomError("CNNError", err.Error()))
 	}
 	var out []byte
@@ -419,10 +445,8 @@ func cnnRespond(vm *otto.Otto, result interface{}, job *cnn.Job, err error) otto
 	return reply
 }
 
-func cnnIsImageExt(ext string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "cnnIsImageExt: ext=%.120q", ext)
-	}
+func cnnIsImageExt(ext string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi", "cnnIsImageExt", "ext", ext), &out0)
 	switch ext {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp":
 		return true
@@ -430,10 +454,8 @@ func cnnIsImageExt(ext string) bool {
 	return false
 }
 
-func parseCNNOptions(s string) cnn.RequestOptions {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "parseCNNOptions: s=%.120q", s)
-	}
+func parseCNNOptions(s string) (out0 cnn.RequestOptions) {
+	defer logger.Out1(logger.In1("agi", "parseCNNOptions", "s", s), &out0)
 	opt := cnn.RequestOptions{}
 	s = strings.TrimSpace(s)
 	if s == "" || s == "undefined" || s == "null" {
@@ -443,10 +465,8 @@ func parseCNNOptions(s string) cnn.RequestOptions {
 	return opt
 }
 
-func parseCNNComparisonOptions(s string) cnn.ComparisonOptions {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "parseCNNComparisonOptions: s=%.120q", s)
-	}
+func parseCNNComparisonOptions(s string) (out0 cnn.ComparisonOptions) {
+	defer logger.Out1(logger.In1("agi", "parseCNNComparisonOptions", "s", s), &out0)
 	opt := cnn.ComparisonOptions{}
 	s = strings.TrimSpace(s)
 	if s == "" || s == "undefined" || s == "null" {
@@ -458,8 +478,8 @@ func parseCNNComparisonOptions(s string) cnn.ComparisonOptions {
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
-func (g *Gateway) getCNNConfig() CNNServerConfig {
-	logger.Debug("agi", "Gateway.getCNNConfig")
+func (g *Gateway) getCNNConfig() (out0 CNNServerConfig) {
+	defer logger.Out1(logger.In1("agi", "Gateway.getCNNConfig", "g", g), &out0)
 	cfg := CNNServerConfig{TimeoutSeconds: cnnDefaultTimeoutSeconds}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(cnnDBTable, "config") {
@@ -471,8 +491,8 @@ func (g *Gateway) getCNNConfig() CNNServerConfig {
 	return cfg
 }
 
-func cnnMaskToken(token string) string {
-	logger.Debug("agi", "cnnMaskToken")
+func cnnMaskToken(token string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "cnnMaskToken", "!token", token), &out0)
 	if token == "" {
 		return ""
 	}
@@ -488,9 +508,7 @@ func cnnMaskToken(token string) string {
 // GET  /system/cnn/config
 // POST /system/cnn/config  (endpoint, timeoutSeconds, token, cleartoken)
 func (g *Gateway) HandleCNNConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleCNNConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleCNNConfig", "g", g, "r", r))
 	if r.Method == http.MethodGet {
 		cfg := g.getCNNConfig()
 		js, _ := json.Marshal(map[string]interface{}{
@@ -521,6 +539,7 @@ func (g *Gateway) HandleCNNConfig(w http.ResponseWriter, r *http.Request) {
 
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if err := sysdb.Write(cnnDBTable, "config", cfg); err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "failed to save config: "+err.Error())
 		return
 	}
@@ -532,9 +551,7 @@ func (g *Gateway) HandleCNNConfig(w http.ResponseWriter, r *http.Request) {
 // endpoint/token overrides so the admin can test before saving.
 // POST /system/cnn/test
 func (g *Gateway) HandleCNNTest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleCNNTest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleCNNTest", "g", g, "r", r))
 	cfg := g.getCNNConfig()
 	endpoint := cfg.Endpoint
 	token := cfg.Token
@@ -554,11 +571,13 @@ func (g *Gateway) HandleCNNTest(w http.ResponseWriter, r *http.Request) {
 	client := cnn.NewClient(endpoint, token, time.Duration(timeoutSeconds)*time.Second)
 	health, err := client.Health()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	models, err := client.ListModels()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

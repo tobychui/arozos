@@ -42,16 +42,12 @@ type cmap struct {
 }
 
 func codeKey(n int, code uint32) uint64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "codeKey: n=%d code=%d", n, code)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "codeKey")
 	return uint64(n)<<32 | uint64(code)
 }
 
 func bytesToCode(b []byte) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "bytesToCode: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "bytesToCode")
 	var v uint32
 	for _, c := range b {
 		v = v<<8 | uint32(c)
@@ -61,9 +57,7 @@ func bytesToCode(b []byte) uint32 {
 
 // predefinedCMap builds what is known about a CMap given by name
 func predefinedCMap(name string) *cmap {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "predefinedCMap: name=%.120q", name)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "predefinedCMap")
 	cm := &cmap{cidSingles: map[uint64]int{}}
 	cm.vertical = strings.HasSuffix(name, "-V")
 	switch {
@@ -229,9 +223,7 @@ func parseCMap(data []byte) *cmap {
 }
 
 func utf16BE(b []byte) []rune {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "utf16BE: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "utf16BE")
 	u := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
 		u = append(u, uint16(b[i])<<8|uint16(b[i+1]))
@@ -244,9 +236,7 @@ func utf16BE(b []byte) []rune {
 
 // nextCode splits the next character code off s
 func (cm *cmap) nextCode(s []byte) (uint32, int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cmap.nextCode: len(s)=%d", len(s))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cmap.nextCode")
 	for n := 1; n <= 4 && n <= len(s); n++ {
 		code := bytesToCode(s[:n])
 		for _, r := range cm.codespace {
@@ -272,9 +262,7 @@ func (cm *cmap) nextCode(s []byte) (uint32, int) {
 }
 
 func (cm *cmap) cid(code uint32, n int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cmap.cid: code=%d n=%d", code, n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cmap.cid")
 	if cm.identity && n == 2 {
 		return int(code)
 	}
@@ -294,9 +282,7 @@ func (cm *cmap) cid(code uint32, n int) int {
 
 // unicodeOf looks a code up in a ToUnicode map
 func (cm *cmap) unicodeOf(code uint32, n int) []rune {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cmap.unicodeOf: code=%d n=%d", code, n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cmap.unicodeOf")
 	if cm == nil {
 		return nil
 	}

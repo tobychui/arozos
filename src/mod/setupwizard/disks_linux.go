@@ -29,12 +29,11 @@ const formatTimeout = 30 * time.Minute
 var formatLock sync.Mutex
 
 // ListDisks lists the disks of this host
-func ListDisks(used []UsedDrive) ([]Disk, error) {
-	if logger.IsDebug() {
-		logger.Debugf("setupwizard", "ListDisks: len(used)=%d", len(used))
-	}
+func ListDisks(used []UsedDrive) (out0 []Disk, out1 error) {
+	defer logger.Out2(logger.In1("setupwizard", "ListDisks", "used", used), &out0, &out1)
 	out, err := exec.Command("lsblk", "-b", "-J", "-o", "NAME,TYPE,SIZE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL,RM").Output()
 	if err != nil {
+		logger.DebugErr("setupwizard", err)
 		return nil, fmt.Errorf("lsblk failed: %v", err)
 	}
 	return ParseDisks(out, used)
@@ -43,9 +42,7 @@ func ListDisks(used []UsedDrive) ([]Disk, error) {
 // Format creates a file system on a partition, or on a disk with no
 // partitions, after checking on a fresh listing that nothing uses the disk
 func Format(device string, fstype string, label string, used []UsedDrive) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("setupwizard", "Format: device=%.120q fstype=%.120q label=%.120q len(used)=%d", device, fstype, label, len(used))
-	}
+	logger.DebugTrace("setupwizard", "Format")
 	if !formatLock.TryLock() {
 		return errors.New("Another disk is being formatted, please wait")
 	}
@@ -53,17 +50,21 @@ func Format(device string, fstype string, label string, used []UsedDrive) error 
 
 	disks, err := ListDisks(used)
 	if err != nil {
+		logger.DebugErr("setupwizard", err)
 		return err
 	}
 	if _, err := CheckFormat(disks, device); err != nil {
+		logger.DebugErr("setupwizard", err)
 		return err
 	}
 	bin, args, err := FormatCommand(fstype, label, device)
 	if err != nil {
+		logger.DebugErr("setupwizard", err)
 		return err
 	}
 	binPath, err := exec.LookPath(bin)
 	if err != nil {
+		logger.DebugErr("setupwizard", err)
 		return fmt.Errorf("%s is not installed on this server", bin)
 	}
 
@@ -71,6 +72,7 @@ func Format(device string, fstype string, label string, used []UsedDrive) error 
 	defer cancel()
 	out, err := exec.CommandContext(ctx, binPath, args...).CombinedOutput()
 	if err != nil {
+		logger.DebugErr("setupwizard", err)
 		message := strings.TrimSpace(string(out))
 		if message == "" {
 			message = err.Error()
@@ -86,10 +88,8 @@ func Format(device string, fstype string, label string, used []UsedDrive) error 
 }
 
 // PrepareMountPoint returns an empty folder to mount a new drive on
-func PrepareMountPoint(id string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("setupwizard", "PrepareMountPoint: id=%.120q", id)
-	}
+func PrepareMountPoint(id string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("setupwizard", "PrepareMountPoint", "id", id), &out0, &out1)
 	if !ValidDriveID(id) {
 		return "", errors.New("A drive id can only contain letters, numbers, - and _")
 	}
@@ -101,6 +101,7 @@ func PrepareMountPoint(id string) (string, error) {
 		}
 		entries, err := os.ReadDir(mountpoint)
 		if err != nil {
+			logger.DebugErr("setupwizard", err)
 			return "", err
 		}
 		if len(entries) > 0 {

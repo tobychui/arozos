@@ -16,11 +16,10 @@ import (
 )
 
 func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/netstat", "HandleGetNetworkInterfaceStats: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("network/netstat", "HandleGetNetworkInterfaceStats", "r", r))
 	rx, tx, err := GetNetworkInterfaceStats()
 	if err != nil {
+		logger.DebugErr("network/netstat", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -38,13 +37,14 @@ func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get network interface stats, return accumulated rx bits, tx bits and error if any
-func GetNetworkInterfaceStats() (int64, int64, error) {
-	logger.Debug("network/netstat", "GetNetworkInterfaceStats")
+func GetNetworkInterfaceStats() (out0 int64, out1 int64, out2 error) {
+	defer logger.Out3(logger.In0("network/netstat", "GetNetworkInterfaceStats"), &out0, &out1, &out2)
 	switch runtime.GOOS {
 	case "windows":
 		cmd := exec.Command("wmic", "path", "Win32_PerfRawData_Tcpip_NetworkInterface", "Get", "BytesReceivedPersec,BytesSentPersec,BytesTotalPersec")
 		out, err := cmd.Output()
 		if err != nil {
+			logger.DebugErr("network/netstat", err)
 			return 0, 0, err
 		}
 
@@ -84,6 +84,7 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 	case "linux":
 		allIfaceRxByteFiles, err := filepath.Glob("/sys/class/net/*/statistics/rx_bytes")
 		if err != nil {
+			logger.DebugErr("network/netstat", err)
 			//Permission denied
 			return 0, 0, errors.New("Access denied")
 		}
@@ -122,6 +123,7 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 		cmd := exec.Command("netstat", "-ib") //get data from netstat -ib
 		out, err := cmd.Output()
 		if err != nil {
+			logger.DebugErr("network/netstat", err)
 			return 0, 0, err
 		}
 
@@ -133,11 +135,13 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 
 					rxSum, errRX := strconv.Atoi(outStrSplit[6]) //received bytes sum
 					if errRX != nil {
+						logger.DebugErr("network/netstat", errRX)
 						return 0, 0, errRX
 					}
 
 					txSum, errTX := strconv.Atoi(outStrSplit[9]) //transmitted bytes sum
 					if errTX != nil {
+						logger.DebugErr("network/netstat", errTX)
 						return 0, 0, errTX
 					}
 

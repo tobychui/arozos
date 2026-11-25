@@ -35,14 +35,13 @@ type RAIDDevice struct {
 }
 
 // Return the uuid of the disk by its path name (e.g. /dev/sda)
-func (m *Manager) GetDiskUUIDByPath(devicePath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.GetDiskUUIDByPath: devicePath=%.120q", devicePath)
-	}
+func (m *Manager) GetDiskUUIDByPath(devicePath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("disk/raid", "Manager.GetDiskUUIDByPath", "m", m, "devicePath", devicePath), &out0, &out1)
 	cmd := exec.Command("sudo", "blkid", devicePath)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return "", fmt.Errorf("blkid error: %v", err)
 	}
 
@@ -60,10 +59,8 @@ func (m *Manager) GetDiskUUIDByPath(devicePath string) (string, error) {
 }
 
 // CreateRAIDDevice creates a RAID device using the mdadm command.
-func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel int, raidDeviceIds []string, spareDeviceIds []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.CreateRAIDDevice: devName=%.120q raidName=%.120q raidLevel=%d len(raidDeviceIds)=%d len(spareDeviceIds)=%d", devName, raidName, raidLevel, len(raidDeviceIds), len(spareDeviceIds))
-	}
+func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel int, raidDeviceIds []string, spareDeviceIds []string) (out0 error) {
+	defer logger.Out1(logger.In6("disk/raid", "Manager.CreateRAIDDevice", "m", m, "devName", devName, "raidName", raidName, "raidLevel", raidLevel, "raidDeviceIds", raidDeviceIds, "spareDeviceIds", spareDeviceIds), &out0)
 	//Calculate the size of the raid devices
 	raidDev := len(raidDeviceIds)
 	spareDevice := len(spareDeviceIds)
@@ -122,6 +119,7 @@ func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel in
 
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("error running mdadm command: %v", err)
 	}
 
@@ -130,14 +128,15 @@ func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel in
 
 // GetRAIDDevicesFromProcMDStat retrieves information about RAID devices from /proc/mdstat.
 // if your RAID array is in auto-read-only mode, it is (usually) brand new
-func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
-	logger.Debug("disk/raid", "Manager.GetRAIDDevicesFromProcMDStat")
+func (m *Manager) GetRAIDDevicesFromProcMDStat() (out0 []RAIDDevice, out1 error) {
+	defer logger.Out2(logger.In1("disk/raid", "Manager.GetRAIDDevicesFromProcMDStat", "m", m), &out0, &out1)
 	// Execute the cat command to read /proc/mdstat
 	cmd := exec.Command("cat", "/proc/mdstat")
 
 	// Run the command and capture its output
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return nil, fmt.Errorf("error running cat command: %v", err)
 	}
 
@@ -205,6 +204,7 @@ func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
 			}
 			seqInt, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(tmp[1]), "]"))
 			if err != nil {
+				logger.DebugErr("disk/raid", err)
 				//Not an integer?
 				logger.PrintAndLog("Raid", "[RAID] Unable to parse "+disk+" sequence ID", nil)
 				continue
@@ -237,12 +237,11 @@ func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
 }
 
 // Check if a disk is failed in given array
-func (m *Manager) DiskIsFailed(mdDevice, diskPath string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.DiskIsFailed: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
-	}
+func (m *Manager) DiskIsFailed(mdDevice, diskPath string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In3("disk/raid", "Manager.DiskIsFailed", "m", m, "mdDevice", mdDevice, "diskPath", diskPath), &out0, &out1)
 	raidDevices, err := m.GetRAIDDeviceByDevicePath(mdDevice)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return false, err
 	}
 
@@ -258,10 +257,8 @@ func (m *Manager) DiskIsFailed(mdDevice, diskPath string) (bool, error) {
 }
 
 // FailDisk label a disk as failed
-func (m *Manager) FailDisk(mdDevice, diskPath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.FailDisk: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
-	}
+func (m *Manager) FailDisk(mdDevice, diskPath string) (out0 error) {
+	defer logger.Out1(logger.In3("disk/raid", "Manager.FailDisk", "m", m, "mdDevice", mdDevice, "diskPath", diskPath), &out0)
 	//mdadm commands require full path
 	if !strings.HasPrefix(diskPath, "/dev/") {
 		diskPath = filepath.Join("/dev/", diskPath)
@@ -272,6 +269,7 @@ func (m *Manager) FailDisk(mdDevice, diskPath string) error {
 
 	cmd := exec.Command("sudo", "mdadm", mdDevice, "--fail", diskPath)
 	if err := cmd.Run(); err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("failed to fail disk: %v", err)
 	}
 	return nil
@@ -279,10 +277,8 @@ func (m *Manager) FailDisk(mdDevice, diskPath string) error {
 
 // RemoveDisk removes a failed disk from the specified RAID array using mdadm.
 // must be failed before remove
-func (m *Manager) RemoveDisk(mdDevice, diskPath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.RemoveDisk: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
-	}
+func (m *Manager) RemoveDisk(mdDevice, diskPath string) (out0 error) {
+	defer logger.Out1(logger.In3("disk/raid", "Manager.RemoveDisk", "m", m, "mdDevice", mdDevice, "diskPath", diskPath), &out0)
 	//mdadm commands require full path
 	if !strings.HasPrefix(diskPath, "/dev/") {
 		diskPath = filepath.Join("/dev/", diskPath)
@@ -293,16 +289,15 @@ func (m *Manager) RemoveDisk(mdDevice, diskPath string) error {
 
 	cmd := exec.Command("sudo", "mdadm", mdDevice, "--remove", diskPath)
 	if err := cmd.Run(); err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("failed to remove disk: %v", err)
 	}
 	return nil
 }
 
 // Add disk to a given RAID array, must be unmounted and not in-use
-func (m *Manager) AddDisk(mdDevice, diskPath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.AddDisk: mdDevice=%.120q diskPath=%.120q", mdDevice, diskPath)
-	}
+func (m *Manager) AddDisk(mdDevice, diskPath string) (out0 error) {
+	defer logger.Out1(logger.In3("disk/raid", "Manager.AddDisk", "m", m, "mdDevice", mdDevice, "diskPath", diskPath), &out0)
 	//mdadm commands require full path
 	if !strings.HasPrefix(diskPath, "/dev/") {
 		diskPath = filepath.Join("/dev/", diskPath)
@@ -313,16 +308,15 @@ func (m *Manager) AddDisk(mdDevice, diskPath string) error {
 
 	cmd := exec.Command("sudo", "mdadm", mdDevice, "--add", diskPath)
 	if err := cmd.Run(); err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("failed to add disk: %v", err)
 	}
 	return nil
 }
 
 // GrowRAIDDevice grows the specified RAID device to its maximum size
-func (m *Manager) GrowRAIDDevice(deviceName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.GrowRAIDDevice: deviceName=%.120q", deviceName)
-	}
+func (m *Manager) GrowRAIDDevice(deviceName string) (out0 error) {
+	defer logger.Out1(logger.In2("disk/raid", "Manager.GrowRAIDDevice", "m", m, "deviceName", deviceName), &out0)
 	//Prevent anyone passing /dev/md0 into the deviceName field
 	deviceName = strings.TrimPrefix(deviceName, "/dev/")
 
@@ -332,6 +326,7 @@ func (m *Manager) GrowRAIDDevice(deviceName string) error {
 	// Execute the command
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("failed to grow RAID device: %v, output: %s", err, string(output))
 	}
 

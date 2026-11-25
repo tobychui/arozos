@@ -21,18 +21,18 @@ import (
 
 // Handle remove a member disk (sdX) from RAID volume (mdX)
 func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleRemoveDiskFromRAIDVol: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleRemoveDiskFromRAIDVol", "m", m, "r", r))
 	//mdadm --remove /dev/md0 /dev/sdb1
 	mdDev, err := utils.PostPara(r, "raidDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid raid device given")
 		return
 	}
 
 	sdXDev, err := utils.PostPara(r, "memDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid member device given")
 		return
 	}
@@ -52,6 +52,7 @@ func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Req
 	//Check if the disk is already failed
 	diskAlreadyFailed, err := m.DiskIsFailed(mdDev, sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		logger.PrintAndLog("Raid", "[RAID] Unable to validate if disk failed: "+err.Error(), nil)
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -60,6 +61,7 @@ func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Req
 	if !diskAlreadyFailed {
 		err = m.FailDisk(mdDev, sdXDev)
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -71,6 +73,7 @@ func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Req
 	//Done. Remove the device from array
 	err = m.RemoveDisk(mdDev, sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -80,18 +83,18 @@ func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Req
 
 // Handle adding a disk (mdX) to RAID volume (mdX)
 func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleAddDiskToRAIDVol: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleAddDiskToRAIDVol", "m", m, "r", r))
 	//mdadm --add /dev/md0 /dev/sdb1
 	mdDev, err := utils.PostPara(r, "raidDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid raid device given")
 		return
 	}
 
 	sdXDev, err := utils.PostPara(r, "memDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid member device given")
 		return
 	}
@@ -105,6 +108,7 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 	//Check if disk already in another RAID array or mounted
 	isMounted, err := diskfs.DeviceIsMounted(sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "unable to read device state")
 		return
 	}
@@ -116,6 +120,7 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 
 	diskUsedByAnotherRAID, err := m.DiskIsUsedInAnotherRAIDVol(sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 	}
 
@@ -126,6 +131,7 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 
 	isOSDisk, err := m.DiskIsRoot(sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 	}
 
@@ -137,6 +143,7 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 	//OK! Clear the disk
 	err = m.ClearSuperblock(sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "unable to clear superblock of device")
 		return
 	}
@@ -144,6 +151,7 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 	//Add it to the target RAID array
 	err = m.AddDisk(mdDev, sdXDev)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "adding disk to RAID volume failed")
 		return
 	}
@@ -155,11 +163,10 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 
 // Handle force flush reloading mdadm to solve the md0 become md127 problem
 func (m *Manager) HandleMdadmFlushReload(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleMdadmFlushReload: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleMdadmFlushReload", "m", m, "r", r))
 	err := m.FlushReload()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "reload failed: "+strings.ReplaceAll(err.Error(), "\n", " "))
 		return
 	}
@@ -168,11 +175,10 @@ func (m *Manager) HandleMdadmFlushReload(w http.ResponseWriter, r *http.Request)
 
 // Handle resolving the disk model label, might return null
 func (m *Manager) HandleResolveDiskModelLabel(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleResolveDiskModelLabel: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleResolveDiskModelLabel", "m", m, "r", r))
 	devName, err := utils.GetPara(r, "devName")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid device name given")
 		return
 	}
@@ -182,6 +188,7 @@ func (m *Manager) HandleResolveDiskModelLabel(w http.ResponseWriter, r *http.Req
 
 	labelSize, labelModel, err := diskfs.GetDiskModelByName(devName)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -192,11 +199,10 @@ func (m *Manager) HandleResolveDiskModelLabel(w http.ResponseWriter, r *http.Req
 
 // Handle force flush reloading mdadm to solve the md0 become md127 problem
 func (m *Manager) HandlListChildrenDeviceInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandlListChildrenDeviceInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandlListChildrenDeviceInfo", "m", m, "r", r))
 	devName, err := utils.GetPara(r, "devName")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid device name given")
 		return
 	}
@@ -208,6 +214,7 @@ func (m *Manager) HandlListChildrenDeviceInfo(w http.ResponseWriter, r *http.Req
 	//Get the children devices for this RAID
 	raidDevice, err := m.GetRAIDDeviceByDevicePath(devName)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -217,6 +224,7 @@ func (m *Manager) HandlListChildrenDeviceInfo(w http.ResponseWriter, r *http.Req
 	for _, blockdevice := range raidDevice.Members {
 		bdm, err := diskfs.GetBlockDeviceMeta("/dev/" + blockdevice.Name)
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			logger.PrintAndLog("Raid", "[RAID] Unable to load block device info: "+err.Error(), nil)
 			results[blockdevice.Name] = &diskfs.BlockDeviceMeta{
 				Name: blockdevice.Name,
@@ -235,11 +243,10 @@ func (m *Manager) HandlListChildrenDeviceInfo(w http.ResponseWriter, r *http.Req
 
 // Handle list all the disks that is usable
 func (m *Manager) HandleListUsableDevices(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleListUsableDevices: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleListUsableDevices", "m", m, "r", r))
 	storageDevices, err := diskfs.ListAllStorageDevices()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -259,11 +266,10 @@ func (m *Manager) HandleListUsableDevices(w http.ResponseWriter, r *http.Request
 
 // Handle loading the detail of a given RAID array
 func (m *Manager) HandleLoadArrayDetail(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleLoadArrayDetail: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleLoadArrayDetail", "m", m, "r", r))
 	devName, err := utils.GetPara(r, "devName")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid device name given")
 		return
 	}
@@ -281,6 +287,7 @@ func (m *Manager) HandleLoadArrayDetail(w http.ResponseWriter, r *http.Request) 
 	//Get status of the array
 	targetRAIDInfo, err := m.GetRAIDInfo(devName)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -291,17 +298,17 @@ func (m *Manager) HandleLoadArrayDetail(w http.ResponseWriter, r *http.Request) 
 
 // Handle formating a device
 func (m *Manager) HandleFormatRaidDevice(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleFormatRaidDevice: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleFormatRaidDevice", "m", m, "r", r))
 	devName, err := utils.GetPara(r, "devName")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid device name given")
 		return
 	}
 
 	format, err := utils.GetPara(r, "format")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid device name given")
 		return
 	}
@@ -319,6 +326,7 @@ func (m *Manager) HandleFormatRaidDevice(w http.ResponseWriter, r *http.Request)
 	//Format the drive
 	err = diskfs.FormatStorageDevice(format, devName)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -328,11 +336,10 @@ func (m *Manager) HandleFormatRaidDevice(w http.ResponseWriter, r *http.Request)
 
 // List all the raid device in this system
 func (m *Manager) HandleListRaidDevices(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleListRaidDevices: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleListRaidDevices", "m", m, "r", r))
 	rdevs, err := m.GetRAIDDevicesFromProcMDStat()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -341,6 +348,7 @@ func (m *Manager) HandleListRaidDevices(w http.ResponseWriter, r *http.Request) 
 	for _, rdev := range rdevs {
 		arrayInfo, err := m.GetRAIDInfo("/dev/" + rdev.Name)
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			continue
 		}
 
@@ -353,37 +361,40 @@ func (m *Manager) HandleListRaidDevices(w http.ResponseWriter, r *http.Request) 
 
 // Create a RAID storage pool
 func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleCreateRAIDDevice: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleCreateRAIDDevice", "m", m, "r", r))
 	devName, err := utils.PostPara(r, "devName")
 	if err != nil || devName == "" {
 		//Use auto generated one
 		devName, err = GetNextAvailableMDDevice()
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 	}
 	raidName, err := utils.PostPara(r, "raidName")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid raid storage name given")
 		return
 	}
 	raidLevelStr, err := utils.PostPara(r, "level")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid raid level given")
 		return
 	}
 
 	raidDevicesJSON, err := utils.PostPara(r, "raidDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid raid device array given")
 		return
 	}
 
 	spareDevicesJSON, err := utils.PostPara(r, "spareDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid spare device array given")
 		return
 	}
@@ -391,6 +402,7 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 	//Get if superblock require all zeroed (will also do formating after raid constructed)
 	zerosuperblock, err := utils.PostBool(r, "zerosuperblock")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		zerosuperblock = false
 	}
 
@@ -400,12 +412,14 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 
 	err = json.Unmarshal([]byte(raidDevicesJSON), &raidDevices)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "unable to parse raid device into array")
 		return
 	}
 
 	err = json.Unmarshal([]byte(spareDevicesJSON), &spareDevices)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "unable to parse spare devices into array")
 		return
 	}
@@ -420,6 +434,7 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 	raidLevelStr = strings.TrimPrefix(raidLevelStr, "raid")
 	raidLevel, err := strconv.Atoi(raidLevelStr)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "invalid raid level given")
 		return
 	}
@@ -464,6 +479,7 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 			m.Options.Logger.PrintAndLog("RAID", "Clearning superblock for disk "+clearPendingDisk, nil)
 			err = m.ClearSuperblock(clearPendingDisk)
 			if err != nil {
+				logger.DebugErr("disk/raid", err)
 				m.Options.Logger.PrintAndLog("RAID", "Unable to format "+clearPendingDisk+": "+err.Error(), err)
 				utils.SendErrorResponse(w, err.Error())
 				return
@@ -474,6 +490,7 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 	//Create the RAID device
 	err = m.CreateRAIDDevice(devName, raidName, raidLevel, raidDevices, spareDevices)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -481,6 +498,7 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 	//Update the mdadm config
 	err = m.UpdateMDADMConfig()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -490,11 +508,10 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 
 // Request to reload the RAID manager and scan new / fix missing raid pools
 func (m *Manager) HandleRaidDevicesAssemble(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleRaidDevicesAssemble: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleRaidDevicesAssemble", "m", m, "r", r))
 	err := m.RestartRAIDService()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -504,12 +521,11 @@ func (m *Manager) HandleRaidDevicesAssemble(w http.ResponseWriter, r *http.Reque
 
 // Remove a given raid device with its name, USE WITH CAUTION
 func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleRemoveRaideDevice: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleRemoveRaideDevice", "m", m, "r", r))
 	//TODO: Add protection and switch to POST
 	targetDevice, err := utils.PostPara(r, "raidDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "target device not given")
 		return
 	}
@@ -523,6 +539,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 	//Get the RAID device memeber disks
 	targetRAIDDevice, err := m.GetRAIDDeviceByDevicePath(targetDevice)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "error occured when trying to load target RAID device info")
 		return
 	}
@@ -534,6 +551,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 
 	mounted, err := diskfs.DeviceIsMounted(targetDevice)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		m.Options.Logger.PrintAndLog("RAID", "Unmount failed: "+err.Error(), err)
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -543,6 +561,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 		m.Options.Logger.PrintAndLog("RAID", targetDevice+" is mounted. Trying to unmount...", nil)
 		err = diskfs.UnmountDevice(targetDevice)
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			logger.PrintAndLog("Raid", "[RAID] Unmount failed: "+err.Error(), nil)
 			utils.SendErrorResponse(w, err.Error())
 			return
@@ -576,6 +595,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 	//Stop & Remove RAID service on the target device
 	err = m.StopRAIDDevice(targetDevice)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		m.Options.Logger.PrintAndLog("RAID", "Stop RAID partition failed: "+err.Error(), err)
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -591,6 +611,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 
 		err = m.ClearSuperblock(name)
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			m.Options.Logger.PrintAndLog("RAID", "Unable to clear superblock on device "+name, err)
 			continue
 		}
@@ -599,6 +620,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 	//Update the mdadm config
 	err = m.UpdateMDADMConfig()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -609,11 +631,10 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 
 // Force reload all RAID config from file
 func (m *Manager) HandleForceAssembleReload(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleForceAssembleReload: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleForceAssembleReload", "m", m, "r", r))
 	err := m.FlushReload()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		m.Options.Logger.PrintAndLog("RAID", "mdadm reload failed: "+err.Error(), err)
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -624,11 +645,10 @@ func (m *Manager) HandleForceAssembleReload(w http.ResponseWriter, r *http.Reque
 
 // Grow the raid array to maxmium possible size of the current disks
 func (m *Manager) HandleGrowRAIDArray(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleGrowRAIDArray: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleGrowRAIDArray", "m", m, "r", r))
 	deviceName, err := utils.PostPara(r, "raidDev")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "raid device not given")
 		return
 	}
@@ -641,6 +661,7 @@ func (m *Manager) HandleGrowRAIDArray(w http.ResponseWriter, r *http.Request) {
 	//Check the raid is healthy and ok for expansion
 	raidNotHealthy, err := m.RAIDArrayContainsFailedDisks(deviceName)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, "unable to check health state before expansion")
 		return
 	}
@@ -652,12 +673,14 @@ func (m *Manager) HandleGrowRAIDArray(w http.ResponseWriter, r *http.Request) {
 	//Expand the raid array
 	err = m.GrowRAIDDevice(deviceName)
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	err = m.RestartRAIDService()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -667,12 +690,11 @@ func (m *Manager) HandleGrowRAIDArray(w http.ResponseWriter, r *http.Request) {
 
 // HandleRenderOverview List the info and health of all loaded RAID array
 func (m *Manager) HandleRenderOverview(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.HandleRenderOverview: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/raid", "Manager.HandleRenderOverview", "m", m, "r", r))
 	//Get all raid device from procmd
 	rdevs, err := m.GetRAIDDevicesFromProcMDStat()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

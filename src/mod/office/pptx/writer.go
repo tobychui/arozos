@@ -58,9 +58,7 @@ var shapeKindToPrst = map[string]string{
 // shapeKindPrst is the preset to write for an editor shape kind, and
 // "rect" for one this package has never heard of.
 func shapeKindPrst(kind string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "shapeKindPrst: kind=%.120q", kind)
-	}
+	logger.DebugTrace("office/pptx", "shapeKindPrst")
 	if p, ok := shapeKindToPrst[kind]; ok {
 		return p
 	}
@@ -73,8 +71,8 @@ func shapeKindPrst(kind string) string {
 // Build serializes a Presentation without a media resolver (video /
 // audio objects render as poster pictures; media?file= sources cannot be
 // collected into a sidecar without a resolver)
-func Build(p *model.Presentation) ([]byte, error) {
-	logger.Debug("office/pptx", "Build")
+func Build(p *model.Presentation) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/pptx", "Build", "p", p), &out0, &out1)
 	data, _, err := BuildMedia(p, nil)
 	return data, err
 }
@@ -92,18 +90,14 @@ func BuildMedia(p *model.Presentation, readVpath func(string) ([]byte, error)) (
 
 // BuildPackage writes the .pptx alone; the video / audio files are not
 // collected (the suite's own files carry them in the embedded copy)
-func BuildPackage(p *model.Presentation, readVpath func(string) ([]byte, error), withSidecar bool) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office/pptx", "BuildPackage: withSidecar=%t", withSidecar)
-	}
+func BuildPackage(p *model.Presentation, readVpath func(string) ([]byte, error), withSidecar bool) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In3("office/pptx", "BuildPackage", "p", p, "readVpath", readVpath, "withSidecar", withSidecar), &out0, &out1)
 	data, _, err := buildPptxPackage(p, readVpath, withSidecar)
 	return data, err
 }
 
 func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, error), withSidecar bool) ([]byte, []byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildPptxPackage: withSidecar=%t", withSidecar)
-	}
+	logger.DebugTrace("office/pptx", "buildPptxPackage")
 	if p == nil || len(p.Slides) == 0 {
 		return nil, nil, errors.New("presentation has no slides")
 	}
@@ -113,6 +107,7 @@ func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, err
 	addFile := func(name, content string) error {
 		w, err := zw.Create(name)
 		if err != nil {
+			logger.DebugErr("office/pptx", err)
 			return err
 		}
 		_, err = w.Write([]byte(content))
@@ -121,6 +116,7 @@ func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, err
 	addBinFile := func(name string, content []byte) error {
 		w, err := zw.Create(name)
 		if err != nil {
+			logger.DebugErr("office/pptx", err)
 			return err
 		}
 		_, err = w.Write(content)
@@ -129,27 +125,35 @@ func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, err
 
 	// ---- static package parts ----
 	if err := addFile("_rels/.rels", pptxRootRels); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("docProps/core.xml", pptxCoreProps); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("docProps/app.xml", pptxAppProps); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("ppt/theme/theme1.xml", pptxTheme); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("ppt/slideMasters/slideMaster1.xml", pptxSlideMaster); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("ppt/slideMasters/_rels/slideMaster1.xml.rels", pptxSlideMasterRels); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("ppt/slideLayouts/slideLayout1.xml", pptxSlideLayout); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("ppt/slideLayouts/_rels/slideLayout1.xml.rels", pptxSlideLayoutRels); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 
@@ -170,12 +174,14 @@ func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, err
 		`<p:notesSz cx="6858000" cy="9144000"/>` +
 		`</p:presentation>`
 	if err := addFile("ppt/presentation.xml", presentation); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	if err := addFile("ppt/_rels/presentation.xml.rels",
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+"\n"+
 			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
 			presRels.String()+`</Relationships>`); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 
@@ -186,17 +192,21 @@ func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, err
 	for i, slide := range p.Slides {
 		slideXML, slideRels, slideMedia, slideSidecar, err := buildSlideXML(p, slide, mediaSet, readVpath, withSidecar)
 		if err != nil {
+			logger.DebugErr("office/pptx", err)
 			return nil, nil, err
 		}
 		sidecar = append(sidecar, slideSidecar...)
 		if err := addFile(fmt.Sprintf("ppt/slides/slide%d.xml", i+1), slideXML); err != nil {
+			logger.DebugErr("office/pptx", err)
 			return nil, nil, err
 		}
 		if err := addFile(fmt.Sprintf("ppt/slides/_rels/slide%d.xml.rels", i+1), slideRels); err != nil {
+			logger.DebugErr("office/pptx", err)
 			return nil, nil, err
 		}
 		for _, m := range slideMedia {
 			if err := addBinFile(fmt.Sprintf("ppt/media/image%d.%s", m.Index, m.Ext), m.Data); err != nil {
+				logger.DebugErr("office/pptx", err)
 				return nil, nil, err
 			}
 			mediaExts = append(mediaExts, m.Ext)
@@ -205,14 +215,17 @@ func buildPptxPackage(p *model.Presentation, readVpath func(string) ([]byte, err
 
 	// ---- content types (needs the media extension list) ----
 	if err := addFile("[Content_Types].xml", buildContentTypes(len(p.Slides), mediaExts)); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 
 	if err := zw.Close(); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	sidecarZip, err := buildSidecarZip(sidecar)
 	if err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, nil, err
 	}
 	return buf.Bytes(), sidecarZip, nil
@@ -249,9 +262,7 @@ type sidecarFile struct {
 // buildSlideXML renders one slide part plus its .rels, media payloads and
 // the video/audio files destined for the sidecar zip
 func buildSlideXML(p *model.Presentation, slide *model.Slide, mediaSet *pptxMediaSet, readVpath func(string) ([]byte, error), withSidecar bool) (string, string, []media.Entry, []sidecarFile, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildSlideXML: withSidecar=%t", withSidecar)
-	}
+	logger.DebugTrace("office/pptx", "buildSlideXML")
 	var sb strings.Builder
 	var rels strings.Builder
 	var pics []media.Entry
@@ -408,9 +419,7 @@ func buildSlideXML(p *model.Presentation, slide *model.Slide, mediaSet *pptxMedi
 
 // pathBaseOf returns the last element of a virtual path
 func pathBaseOf(p string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "pathBaseOf: p=%.120q", p)
-	}
+	logger.DebugTrace("office/pptx", "pathBaseOf")
 	p = strings.TrimRight(p, "/")
 	if i := strings.LastIndexAny(p, "/\\"); i >= 0 {
 		return p[i+1:]
@@ -422,9 +431,7 @@ func pathBaseOf(p string) string {
 // zip: the original basename for media?file= links, media<N>.<ext> for
 // data-URL sources
 func sidecarName(src string, n int, ext string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "sidecarName: src=%.120q n=%d ext=%.120q", src, n, ext)
-	}
+	logger.DebugTrace("office/pptx", "sidecarName")
 	if vp := media.LinkVpath(src); vp != "" {
 		if base := pathBaseOf(vp); base != "" {
 			return base
@@ -436,9 +443,7 @@ func sidecarName(src string, n int, ext string) string {
 // buildSidecarZip packs the collected media files into a zip; returns
 // nil when there is nothing to pack
 func buildSidecarZip(files []sidecarFile) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildSidecarZip: len(files)=%d", len(files))
-	}
+	logger.DebugTrace("office/pptx", "buildSidecarZip")
 	if len(files) == 0 {
 		return nil, nil
 	}
@@ -453,13 +458,16 @@ func buildSidecarZip(files []sidecarFile) ([]byte, error) {
 		seen[name] = true
 		w, err := zw.Create(name)
 		if err != nil {
+			logger.DebugErr("office/pptx", err)
 			return nil, err
 		}
 		if _, err := w.Write(f.data); err != nil {
+			logger.DebugErr("office/pptx", err)
 			return nil, err
 		}
 	}
 	if err := zw.Close(); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -476,9 +484,7 @@ var mediaExtBySubtype = map[string]string{
 // data:video|audio;base64 URL or an in-app media?file= link (through the
 // caller-supplied vpath reader)
 func mediaSrcBytes(src, kind string, readVpath func(string) ([]byte, error)) ([]byte, string, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "mediaSrcBytes: src=%.120q kind=%.120q", src, kind)
-	}
+	logger.DebugTrace("office/pptx", "mediaSrcBytes")
 	if strings.HasPrefix(src, "data:video/") || strings.HasPrefix(src, "data:audio/") {
 		comma := strings.Index(src, ",")
 		if comma < 0 || !strings.Contains(src[:comma], ";base64") {
@@ -499,6 +505,7 @@ func mediaSrcBytes(src, kind string, readVpath func(string) ([]byte, error)) ([]
 		}
 		raw, err := base64.StdEncoding.DecodeString(src[comma+1:])
 		if err != nil {
+			logger.DebugErr("office/pptx", err)
 			return nil, "", false
 		}
 		return raw, ext, true
@@ -550,6 +557,7 @@ func mediaPosterPNG() []byte {
 	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
+		logger.DebugErr("office/pptx", err)
 		return []byte{}
 	}
 	mediaPosterCache = buf.Bytes()
@@ -557,9 +565,7 @@ func mediaPosterPNG() []byte {
 }
 
 func themeBgColor(theme string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "themeBgColor: theme=%.120q", theme)
-	}
+	logger.DebugTrace("office/pptx", "themeBgColor")
 	if c, ok := model.ThemeBg[theme]; ok {
 		return c
 	}
@@ -567,9 +573,7 @@ func themeBgColor(theme string) string {
 }
 
 func themeTextColor(theme string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "themeTextColor: theme=%.120q", theme)
-	}
+	logger.DebugTrace("office/pptx", "themeTextColor")
 	if c, ok := model.ThemeText[theme]; ok {
 		return c
 	}
@@ -578,9 +582,7 @@ func themeTextColor(theme string) string {
 
 // xfrm builds the transform block; rot is in degrees
 func xfrm(x, y, w, h, rot float64, flipH, flipV bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "xfrm: x=%g y=%g w=%g h=%g rot=%g flipH=%t flipV=%t", x, y, w, h, rot, flipH, flipV)
-	}
+	logger.DebugTrace("office/pptx", "xfrm")
 	attrs := ""
 	if rot != 0 {
 		attrs += fmt.Sprintf(` rot="%d"`, int64(rot*60000))
@@ -596,9 +598,7 @@ func xfrm(x, y, w, h, rot float64, flipH, flipV bool) string {
 }
 
 func maxF(a, b float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "maxF: a=%g b=%g", a, b)
-	}
+	logger.DebugTrace("office/pptx", "maxF")
 	if a > b {
 		return a
 	}
@@ -609,9 +609,7 @@ func maxF(a, b float64) float64 {
 // Rounded, not truncated: the reader's 28pt comes back as 37.33px, and
 // truncating that wrote 27.99pt.
 func fontSizeToSz(px float64) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "fontSizeToSz: px=%g", px)
-	}
+	logger.DebugTrace("office/pptx", "fontSizeToSz")
 	if px <= 0 {
 		px = 24
 	}
@@ -619,9 +617,7 @@ func fontSizeToSz(px float64) int {
 }
 
 func alignToAlgn(align string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "alignToAlgn: align=%.120q", align)
-	}
+	logger.DebugTrace("office/pptx", "alignToAlgn")
 	switch align {
 	case "center":
 		return "ctr"
@@ -637,9 +633,7 @@ func alignToAlgn(align string) string {
 // callers that genuinely have plain text (shape captions written in the
 // editor, table cells) - rich HTML goes through buildRichBody instead.
 func buildRuns(lines []string, fontSizePx float64, color string, bold, italic, underline bool, align string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildRuns: len(lines)=%d fontSizePx=%g color=%.120q bold=%t italic=%t underline=%t align=%.120q", len(lines), fontSizePx, color, bold, italic, underline, align)
-	}
+	logger.DebugTrace("office/pptx", "buildRuns")
 	var sb strings.Builder
 	rpr := fmt.Sprintf(`<a:rPr lang="en-US" sz="%d"`, fontSizeToSz(fontSizePx))
 	if bold {
@@ -668,9 +662,7 @@ func buildRuns(lines []string, fontSizePx float64, color string, bold, italic, u
 
 // pxToEmuRound converts CSS pixels to EMU
 func pxToEmuRound(px float64) int64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "pxToEmuRound: px=%g", px)
-	}
+	logger.DebugTrace("office/pptx", "pxToEmuRound")
 	return int64(px*units.EmuPerPx + 0.5)
 }
 
@@ -678,9 +670,7 @@ func pxToEmuRound(px float64) int64 {
 // paragraphs, keeping per-run font, size, weight, colour and highlight and
 // per-paragraph alignment, spacing, indents and bullets.
 func buildRichBody(o *model.Object, fallbackColor string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildRichBody: fallbackColor=%.120q", fallbackColor)
-	}
+	logger.DebugTrace("office/pptx", "buildRichBody")
 	p := o.Props
 	base := slidetext.Style{
 		SizePx: p.FontSize,
@@ -795,9 +785,7 @@ func runRPr(r slidetext.Run, base slidetext.Style) string {
 // runProps renders run properties under the given element name (<a:rPr>,
 // or <a:endParaRPr> for the style an empty paragraph keeps)
 func runProps(tag string, r slidetext.Run, base slidetext.Style) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "runProps: tag=%.120q", tag)
-	}
+	logger.DebugTrace("office/pptx", "runProps")
 	size := r.SizePx
 	if size <= 0 {
 		size = base.SizePx
@@ -841,9 +829,7 @@ func runProps(tag string, r slidetext.Run, base slidetext.Style) string {
 // bodyPrFor renders the <a:bodyPr> for an object, honouring the vertical
 // anchor and the text insets an imported deck carries
 func bodyPrFor(p model.Props, defaultAnchor string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "bodyPrFor: defaultAnchor=%.120q", defaultAnchor)
-	}
+	logger.DebugTrace("office/pptx", "bodyPrFor")
 	anchor := defaultAnchor
 	switch p.VAlign {
 	case "middle":
@@ -869,9 +855,7 @@ func bodyPrFor(p model.Props, defaultAnchor string) string {
 // prompt while it is empty. The layout this writer produces has no
 // placeholders to inherit from, so the shape keeps every look it states.
 func textSpNv(id int, role string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "textSpNv: id=%d role=%.120q", id, role)
-	}
+	logger.DebugTrace("office/pptx", "textSpNv")
 	ph, name := "", "TextBox"
 	switch role {
 	case "title":
@@ -889,9 +873,7 @@ func textSpNv(id int, role string) string {
 }
 
 func buildTextSp(id int, o *model.Object, theme string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildTextSp: id=%d theme=%.120q", id, theme)
-	}
+	logger.DebugTrace("office/pptx", "buildTextSp")
 	p := o.Props
 	color := p.Color
 	if color == "" {
@@ -908,9 +890,7 @@ func buildTextSp(id int, o *model.Object, theme string) string {
 }
 
 func buildShapeSp(id int, o *model.Object) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildShapeSp: id=%d", id)
-	}
+	logger.DebugTrace("office/pptx", "buildShapeSp")
 	p := o.Props
 	prst := shapeKindPrst(p.Kind)
 	// the adjustments an imported preset came with go back as they were
@@ -983,9 +963,7 @@ func buildShapeSp(id int, o *model.Object) string {
 }
 
 func minF(a, b float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "minF: a=%g b=%g", a, b)
-	}
+	logger.DebugTrace("office/pptx", "minF")
 	if a < b {
 		return a
 	}
@@ -993,9 +971,7 @@ func minF(a, b float64) float64 {
 }
 
 func buildLineSp(id int, o *model.Object) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildLineSp: id=%d", id)
-	}
+	logger.DebugTrace("office/pptx", "buildLineSp")
 	p := o.Props
 	if len(p.Points) > 2 {
 		return buildPolylineSp(id, o)
@@ -1047,9 +1023,7 @@ func lineLn(p model.Props) string {
 // flips from the path; a custGeom states the very path the editor draws, so
 // nothing can drift.
 func buildPolylineSp(id int, o *model.Object) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildPolylineSp: id=%d", id)
-	}
+	logger.DebugTrace("office/pptx", "buildPolylineSp")
 	pts := o.Props.Points
 	minX, minY := pts[0][0], pts[0][1]
 	maxX, maxY := minX, minY
@@ -1080,9 +1054,7 @@ func buildPolylineSp(id int, o *model.Object) string {
 }
 
 func buildPicSp(id int, o *model.Object, rid string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildPicSp: id=%d rid=%.120q", id, rid)
-	}
+	logger.DebugTrace("office/pptx", "buildPicSp")
 	p := o.Props
 	srcRect := ""
 	if len(p.Crop) == 4 {
@@ -1174,9 +1146,7 @@ func pictureEffects(p model.Props) string {
 }
 
 func buildTableFrame(id int, o *model.Object) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildTableFrame: id=%d", id)
-	}
+	logger.DebugTrace("office/pptx", "buildTableFrame")
 	p := o.Props
 	rows := p.Rows
 	if len(rows) == 0 {
@@ -1336,9 +1306,7 @@ func buildTableFrame(id int, o *model.Object) string {
 }
 
 func boolAttr(b bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "boolAttr: b=%t", b)
-	}
+	logger.DebugTrace("office/pptx", "boolAttr")
 	if b {
 		return "1"
 	}
@@ -1346,9 +1314,7 @@ func boolAttr(b bool) string {
 }
 
 func buildContentTypes(slideCount int, mediaExts []string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "buildContentTypes: slideCount=%d len(mediaExts)=%d", slideCount, len(mediaExts))
-	}
+	logger.DebugTrace("office/pptx", "buildContentTypes")
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`)
@@ -1428,9 +1394,7 @@ const pptxTheme = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 // slideJump reads the editor's "#N" slide link (1-based)
 func slideJump(link string) (int, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "slideJump: link=%.120q", link)
-	}
+	logger.DebugTrace("office/pptx", "slideJump")
 	if !strings.HasPrefix(link, "#") || len(link) < 2 {
 		return 0, false
 	}
@@ -1449,9 +1413,7 @@ func slideJump(link string) (int, bool) {
 
 // withClickLink puts an <a:hlinkClick> into the first cNvPr of a shape's XML
 func withClickLink(shapeXML, hlink string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "withClickLink: shapeXML=%.120q hlink=%.120q", shapeXML, hlink)
-	}
+	logger.DebugTrace("office/pptx", "withClickLink")
 	i := strings.Index(shapeXML, "<p:cNvPr ")
 	if i < 0 {
 		return shapeXML
@@ -1468,9 +1430,7 @@ func withClickLink(shapeXML, hlink string) string {
 // transitionXML is the slide's entry transition in PresentationML: the
 // editor's three map onto PowerPoint's fade, push and zoom
 func transitionXML(t string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "transitionXML: t=%.120q", t)
-	}
+	logger.DebugTrace("office/pptx", "transitionXML")
 	switch t {
 	case "fade":
 		return `<p:transition spd="med"><p:fade/></p:transition>`

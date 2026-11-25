@@ -24,9 +24,7 @@ import (
 // pictureTurns reads a DrawingML rotation (60000ths of a degree, clockwise)
 // as a count of quarter turns; ok is false for any other angle
 func pictureTurns(rot float64) (int, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "pictureTurns: rot=%g", rot)
-	}
+	logger.DebugTrace("office/docx", "pictureTurns")
 	deg := rot / 60000
 	q := math.Round(deg / 90)
 	if math.Abs(deg-q*90) > 1 {
@@ -37,9 +35,7 @@ func pictureTurns(rot float64) (int, bool) {
 
 // orientPixels mirrors (first) and then turns an image clockwise
 func orientPixels(src image.Image, turns int, flipH, flipV bool) *image.NRGBA {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "orientPixels: turns=%d flipH=%t flipV=%t", turns, flipH, flipV)
-	}
+	logger.DebugTrace("office/docx", "orientPixels")
 	b := src.Bounds()
 	w, h := b.Dx(), b.Dy()
 	in := image.NewNRGBA(image.Rect(0, 0, w, h))
@@ -78,25 +74,26 @@ func orientPixels(src image.Image, turns int, flipH, flipV bool) *image.NRGBA {
 // orientPicture re-encodes a picture turned and mirrored as DrawingML asks;
 // ok is false when the format cannot be decoded (the picture stays as is)
 func orientPicture(data []byte, ext string, turns int, flipH, flipV bool) ([]byte, string, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "orientPicture: ext=%.120q turns=%d flipH=%t flipV=%t", ext, turns, flipH, flipV)
-	}
+	logger.DebugTrace("office/docx", "orientPicture")
 	if turns == 0 && !flipH && !flipV {
 		return data, ext, true
 	}
 	img, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return data, ext, false
 	}
 	out := orientPixels(img, turns, flipH, flipV)
 	var buf bytes.Buffer
 	if format == "jpeg" {
 		if err := jpeg.Encode(&buf, out, &jpeg.Options{Quality: 92}); err != nil {
+			logger.DebugErr("office/docx", err)
 			return data, ext, false
 		}
 		return buf.Bytes(), "jpeg", true
 	}
 	if err := png.Encode(&buf, out); err != nil {
+		logger.DebugErr("office/docx", err)
 		return data, ext, false
 	}
 	return buf.Bytes(), "png", true
@@ -104,9 +101,7 @@ func orientPicture(data []byte, ext string, turns int, flipH, flipV bool) ([]byt
 
 // orientInsets moves a crop (top, right, bottom, left) with the bitmap
 func orientInsets(in [4]float64, turns int, flipH, flipV bool) [4]float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "orientInsets: turns=%d flipH=%t flipV=%t", turns, flipH, flipV)
-	}
+	logger.DebugTrace("office/docx", "orientInsets")
 	t, r, b, l := in[0], in[1], in[2], in[3]
 	if flipH {
 		l, r = r, l

@@ -29,10 +29,11 @@ import (
 )
 
 func UserSystemInit() {
-	logger.Debug("Core", "UserSystemInit")
+	defer logger.Out0(logger.In0("Core", "UserSystemInit"))
 	//Create a new User Handler
 	uh, err := user.NewUserHandler(sysdb, authAgent, permissionHandler, baseStoragePool, &shareEntryTable)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		panic(err)
 	}
 	userHandler = uh
@@ -119,9 +120,7 @@ func UserSystemInit() {
 
 // Remove a user from the system
 func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "user_handleUserRemove: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "user_handleUserRemove", "r", r))
 	// Check if multiple usernames are provided (new format)
 	usernamesJSON, err := utils.PostPara(r, "usernames")
 	var usernames []string
@@ -130,6 +129,7 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 		// New format: multiple usernames as JSON array
 		err = json.Unmarshal([]byte(usernamesJSON), &usernames)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid usernames format")
 			return
 		}
@@ -137,6 +137,7 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 		// Old format: single username (for backward compatibility)
 		username, err := utils.PostPara(r, "username")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Username not defined")
 			return
 		}
@@ -150,6 +151,7 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 
 	currentUserinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//This user has not logged in
 		utils.SendErrorResponse(w, "User not logged in")
 		return
@@ -169,6 +171,7 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 		// Get user info
 		userinfo, err := userHandler.GetUserInfoFromUsername(username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			errors = append(errors, username+": "+err.Error())
 			continue
 		}
@@ -210,11 +213,10 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "user_handleUserEdit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "user_handleUserEdit", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//This user has not logged in
 		utils.SendErrorResponse(w, "User not logged in")
 		return
@@ -244,6 +246,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		iconData := getUserIcon(username)
 		userGroup, err := permissionHandler.GetUsersPermissionGroup(username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Unable to get user group")
 			return
 		}
@@ -269,6 +272,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		//Update the target user's group
 		newgroup, err := utils.PostPara(r, "newgroup")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			utils.SendErrorResponse(w, "New Group not defined")
 			return
@@ -276,6 +280,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 
 		newQuota, err := utils.PostPara(r, "quota")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			utils.SendErrorResponse(w, "Quota not defined")
 			return
@@ -283,6 +288,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 
 		quotaInt, err := strconv.Atoi(newQuota)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			utils.SendErrorResponse(w, "Invalid Quota Value")
 			return
@@ -291,6 +297,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		newGroupKeys := []string{}
 		err = json.Unmarshal([]byte(newgroup), &newGroupKeys)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			utils.SendErrorResponse(w, "Unable to parse new groups")
 			return
@@ -312,6 +319,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		//OK to proceed
 		userinfo, err := userHandler.GetUserInfoFromUsername(username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -336,6 +344,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		//Set the user's permission to these groups
 		userinfo.SetUserPermissionGroup(newPermissioGroups)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -351,6 +360,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		hashedPassword := auth.Hash(tmppassword)
 		err := sysdb.Write("auth", "passhash/"+username, hashedPassword)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -366,11 +376,10 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 
 // Get the user interface info for the user to launch into
 func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "user_getInterfaceInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "user_getInterfaceInfo", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//User not logged in
 		utils.SendErrorResponse(w, "User not logged in")
 		return
@@ -394,17 +403,17 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 
 // return the user profile picture as image file
 func user_getProfilePic(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "user_getProfilePic: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "user_getProfilePic", "r", r))
 	thisUsername, err := authAgent.GetUserName(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	targetUsername, err := utils.GetPara(r, "user")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		targetUsername = thisUsername
 	}
 
@@ -422,12 +431,14 @@ func user_getProfilePic(w http.ResponseWriter, r *http.Request) {
 
 	imgBytes, err := base64.StdEncoding.DecodeString(base64Image)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		http.Error(w, "Failed to decode base64 string", http.StatusInternalServerError)
 		return
 	}
 
 	img, format, err := image.Decode(strings.NewReader(string(imgBytes)))
 	if err != nil {
+		logger.DebugErr("Core", err)
 		http.Error(w, "Failed to decode image", http.StatusInternalServerError)
 		return
 	}
@@ -448,16 +459,16 @@ func user_getProfilePic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 	}
 }
 
 func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "user_handleUserInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "user_handleUserInfo", "r", r))
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -468,6 +479,7 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		iconData := getUserIcon(username)
 		userGroup, err := permissionHandler.GetUsersPermissionGroup(username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Unable to get user group")
 			return
 		}
@@ -530,11 +542,10 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func user_handleList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "user_handleList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "user_handleList", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//This user has not logged in
 		utils.SendErrorResponse(w, "User not logged in")
 		return
@@ -571,19 +582,15 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserIcon(username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "getUserIcon: username=%.120q", username)
-	}
+func getUserIcon(username string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "getUserIcon", "username", username), &out0)
 	var userIconpath []byte
 	sysdb.Read("auth", "profilepic/"+username, &userIconpath)
 	return string(userIconpath)
 }
 
 func setUserIcon(username string, base64data string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "setUserIcon: username=%.120q base64data=%.120q", username, base64data)
-	}
+	defer logger.Out0(logger.In2("Core", "setUserIcon", "username", username, "base64data", base64data))
 	sysdb.Write("auth", "profilepic/"+username, []byte(base64data))
 	return
 }

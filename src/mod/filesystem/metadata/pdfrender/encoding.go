@@ -129,9 +129,7 @@ func init() {
 // glyphNameToRune maps a glyph name to Unicode, including the uniXXXX,
 // uXXXX and suffixed (a.sc, f_i) forms
 func glyphNameToRune(name string) (rune, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "glyphNameToRune: name=%.120q", name)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "glyphNameToRune")
 	if r, ok := nameToRune[name]; ok {
 		return r, true
 	}

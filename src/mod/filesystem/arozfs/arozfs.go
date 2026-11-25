@@ -87,10 +87,8 @@ var (
 )
 
 // Generate a File Manager redirection error message
-func NewRedirectionError(targetVpath string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/arozfs", "NewRedirectionError: targetVpath=%.120q", targetVpath)
-	}
+func NewRedirectionError(targetVpath string) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "NewRedirectionError", "targetVpath", targetVpath), &out0)
 	return errors.New("Redirect:" + targetVpath)
 }
 
@@ -98,10 +96,8 @@ func NewRedirectionError(targetVpath string) error {
 // a local disk: "share" (files other users shared, see abstractions/sharefs)
 // lives on whatever drives those files are on, and has no path of its own on
 // this host for disk tools, Samba or the cluster to use.
-func IsNetworkDrive(fstype string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "IsNetworkDrive: fstype=%.120q", fstype)
-	}
+func IsNetworkDrive(fstype string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "IsNetworkDrive", "fstype", fstype), &out0)
 	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" || fstype == "cluster" || fstype == "share" {
 		return true
 	}
@@ -110,8 +106,8 @@ func IsNetworkDrive(fstype string) bool {
 }
 
 // Get a list of supported file system types for mounting via arozos
-func GetSupportedFileSystemTypes() []string {
-	logger.DebugTrace("filesystem/arozfs", "GetSupportedFileSystemTypes")
+func GetSupportedFileSystemTypes() (out0 []string) {
+	defer logger.Out1(logger.In0("filesystem/arozfs", "GetSupportedFileSystemTypes"), &out0)
 	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp", "s3", "cluster"}
 }
 
@@ -129,10 +125,8 @@ are refused as well: Windows strips trailing dots and spaces from a path
 element, so it may read them as the parent folder. utils.ValidateFilename
 refuses the same names, so no file created through ArozOS carries one.
 */
-func SubpathEscapesRoot(subpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "SubpathEscapesRoot: subpath=%.120q", subpath)
-	}
+func SubpathEscapesRoot(subpath string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "SubpathEscapesRoot", "subpath", subpath), &out0)
 	depth := 0
 	for _, element := range strings.Split(ToSlash(subpath), "/") {
 		switch element {
@@ -159,10 +153,8 @@ path rooted at "/", so joining it onto a storage or home folder can never
 leave that folder. A subpath that tries to climb above its root returns
 ErrPathEscapesRoot instead of being clamped to it.
 */
-func CleanSubpath(subpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "CleanSubpath: subpath=%.120q", subpath)
-	}
+func CleanSubpath(subpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/arozfs", "CleanSubpath", "subpath", subpath), &out0, &out1)
 	subpath = ToSlash(strings.TrimSpace(subpath))
 	if SubpathEscapesRoot(subpath) {
 		return "", ErrPathEscapesRoot
@@ -177,14 +169,13 @@ The "uuid:" prefix of a full virtual path is cut off before anything is
 cleaned. Cleaning the whole path first read "user:.." as one ordinary element,
 so "user:../bob/notes.txt" kept its ".." and resolved into bob's home.
 */
-func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "GenericVirtualPathToRealPathTranslator: uuid=%.120q hierarchy=%.120q subpath=%.120q username=%.120q", uuid, hierarchy, subpath, username)
-	}
+func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/arozfs", "GenericVirtualPathToRealPathTranslator", "uuid", uuid, "hierarchy", hierarchy, "subpath", subpath, "username", username), &out0, &out1)
 	subpath = strings.TrimPrefix(ToSlash(strings.TrimSpace(subpath)), "./")
 	subpath = strings.TrimPrefix(subpath, uuid+":")
 	subpath, err := CleanSubpath(subpath)
 	if err != nil {
+		logger.DebugErr("filesystem/arozfs", err)
 		return "", err
 	}
 
@@ -202,10 +193,8 @@ func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpa
 }
 
 // Generic real path to virtual path translator
-func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "GenericRealPathToVirtualPathTranslator: uuid=%.120q hierarchy=%.120q rpath=%.120q username=%.120q", uuid, hierarchy, rpath, username)
-	}
+func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/arozfs", "GenericRealPathToVirtualPathTranslator", "uuid", uuid, "hierarchy", hierarchy, "rpath", rpath, "username", username), &out0, &out1)
 	rpath = ToSlash(filepath.Clean(strings.TrimSpace(rpath)))
 	if strings.HasPrefix(rpath, "./") {
 		rpath = rpath[1:]
@@ -228,10 +217,8 @@ func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath
 }
 
 // Generic function for abstraction driver to filter incoming paths
-func GenericPathFilter(filename string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "GenericPathFilter: filename=%.120q", filename)
-	}
+func GenericPathFilter(filename string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "GenericPathFilter", "filename", filename), &out0)
 	filename = ToSlash(filepath.Clean(filename))
 	rawpath := strings.TrimSpace(filename)
 	if strings.HasPrefix(rawpath, "./") {
@@ -243,10 +230,8 @@ func GenericPathFilter(filename string) string {
 }
 
 // Filter illegal characters in filename
-func FilterIllegalCharInFilename(filename string, replacement string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "FilterIllegalCharInFilename: filename=%.120q replacement=%.120q", filename, replacement)
-	}
+func FilterIllegalCharInFilename(filename string, replacement string) (out0 string) {
+	defer logger.Out1(logger.In2("filesystem/arozfs", "FilterIllegalCharInFilename", "filename", filename, "replacement", replacement), &out0)
 	re, _ := regexp.Compile(`[\\\[\]$?#<>+%!"'|{}:@]`)
 	return re.ReplaceAllString(filename, replacement)
 }
@@ -255,10 +240,8 @@ func FilterIllegalCharInFilename(filename string, replacement string) string {
 	OS Independent filepath functions
 */
 
-func ToSlash(filename string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/arozfs", "ToSlash: filename=%.120q", filename)
-	}
+func ToSlash(filename string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "ToSlash", "filename", filename), &out0)
 	return strings.ReplaceAll(filename, "\\", "/")
 }
 
@@ -269,17 +252,13 @@ func ToSlash(filename string) string {
 // a volume name and guards the result with a "./" prefix, so the same path
 // normalises differently there than on Linux. Going through path.Clean keeps
 // the result identical on every platform.
-func Clean(filename string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/arozfs", "Clean: filename=%.120q", filename)
-	}
+func Clean(filename string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "Clean", "filename", filename), &out0)
 	return path.Clean(ToSlash(filename))
 }
 
-func Base(filename string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "Base: filename=%.120q", filename)
-	}
+func Base(filename string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/arozfs", "Base", "filename", filename), &out0)
 	filename = ToSlash(filename)
 	if filename == "" {
 		return "."
@@ -301,12 +280,11 @@ func Base(filename string) string {
 
 // ResolvePathWithinRoot decodes a relative path, normalizes separators, and
 // ensures the final path remains under rootPath.
-func ResolvePathWithinRoot(rootPath string, relativePath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/arozfs", "ResolvePathWithinRoot: relativePath=%.120q", relativePath)
-	}
+func ResolvePathWithinRoot(rootPath string, relativePath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/arozfs", "ResolvePathWithinRoot", "relativePath", relativePath, "!rootPath", rootPath), &out0, &out1)
 	decodedRelPath, err := url.PathUnescape(relativePath)
 	if err != nil {
+		logger.DebugErr("filesystem/arozfs", err)
 		return "", err
 	}
 
@@ -316,6 +294,7 @@ func ResolvePathWithinRoot(rootPath string, relativePath string) (string, error)
 
 	relToRoot, err := filepath.Rel(cleanRoot, targetPath)
 	if err != nil {
+		logger.DebugErr("filesystem/arozfs", err)
 		return "", err
 	}
 

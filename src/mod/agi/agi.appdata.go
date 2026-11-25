@@ -27,22 +27,24 @@ import (
 var webRoot string = "./web" //The web folder root
 
 func (g *Gateway) AppdataLibRegister() {
-	logger.Debug("agi", "Gateway.AppdataLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.AppdataLibRegister", "g", g))
 	err := g.RegisterLib("appdata", g.injectAppdataLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectAppdataLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectAppdataLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -50,6 +52,7 @@ func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPaylo
 		//Check if this is path escape
 		escaped, err := static.CheckRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -64,6 +67,7 @@ func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPaylo
 		if utils.FileExists(targetFile) && !filesystem.IsDir(targetFile) {
 			content, err := os.ReadFile(targetFile)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -84,6 +88,7 @@ func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_appdata_listdir", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -91,6 +96,7 @@ func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPaylo
 		//Check if this is path escape
 		escaped, err := static.CheckRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -106,6 +112,7 @@ func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPaylo
 			//Glob the directory for filelist
 			files, err := filepath.Glob(filepath.ToSlash(filepath.Clean(targetFolder)) + "/*")
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}

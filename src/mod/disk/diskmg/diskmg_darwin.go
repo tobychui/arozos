@@ -88,12 +88,11 @@ type DarwinPartition struct {
 
 // diskutilToJSON runs diskutil with the given args, pipes the plist output
 // through plutil to get JSON, and returns the raw JSON bytes.
-func diskutilToJSON(args ...string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "diskutilToJSON: len(args)=%d", len(args))
-	}
+func diskutilToJSON(args ...string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskmg", "diskutilToJSON", "args", args), &out0, &out1)
 	duOut, err := exec.Command("diskutil", args...).Output()
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		return nil, err
 	}
 	plCmd := exec.Command("plutil", "-convert", "json", "-o", "-", "-")
@@ -103,8 +102,8 @@ func diskutilToJSON(args ...string) ([]byte, error) {
 
 // contentToFstype maps a diskutil "Content" partition type to a conventional
 // filesystem label shown in the UI.
-func contentToFstype(content string) string {
-	logger.Debug("disk/diskmg", "contentToFstype")
+func contentToFstype(content string) (out0 string) {
+	defer logger.Out1(logger.In1("disk/diskmg", "contentToFstype", "content", content), &out0)
 	switch content {
 	case "EFI":
 		return "msdos"
@@ -129,18 +128,18 @@ func contentToFstype(content string) string {
 // It returns a JSON array of DarwinDisk objects covering every physical disk
 // and APFS container (with volumes) visible to diskutil.
 func handleViewDarwin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "handleViewDarwin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskmg", "handleViewDarwin", "r", r))
 	// One call gives us the complete disk/partition/APFS-volume tree.
 	jsonOut, err := diskutilToJSON("list", "-plist")
 	if err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		utils.SendErrorResponse(w, "diskutil list failed: "+err.Error())
 		return
 	}
 
 	var dl duListOutput
 	if err := json.Unmarshal(jsonOut, &dl); err != nil {
+		logger.DebugErr("disk/diskmg", err)
 		utils.SendErrorResponse(w, "parse diskutil list: "+err.Error())
 		return
 	}
@@ -220,9 +219,7 @@ func handleViewDarwin(w http.ResponseWriter, r *http.Request) {
 // The format and mnt parameters accepted by the Linux handler are ignored here
 // because diskutil determines the mount point automatically.
 func handleMountDarwin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "handleMountDarwin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskmg", "handleMountDarwin", "r", r))
 	targetDev, err := utils.GetPara(r, "dev")
 	if err != nil || targetDev == "" {
 		utils.SendErrorResponse(w, "dev not defined")
@@ -245,6 +242,7 @@ func handleMountDarwin(w http.ResponseWriter, r *http.Request) {
 	out, cmdErr := cmd.CombinedOutput()
 	msg := strings.TrimSpace(string(out))
 	if cmdErr != nil {
+		logger.DebugErr("disk/diskmg", cmdErr)
 		utils.SendErrorResponse(w, msg)
 		return
 	}
@@ -253,10 +251,8 @@ func handleMountDarwin(w http.ResponseWriter, r *http.Request) {
 
 // isDarwinDeviceValid returns true when id looks like a valid macOS disk
 // identifier: disk<N> or disk<N>s<N>[s<N>...], e.g. disk0, disk0s1, disk1s4s1.
-func isDarwinDeviceValid(id string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskmg", "isDarwinDeviceValid: id=%.120q", id)
-	}
+func isDarwinDeviceValid(id string) (out0 bool) {
+	defer logger.Out1(logger.In1("disk/diskmg", "isDarwinDeviceValid", "id", id), &out0)
 	if !strings.HasPrefix(id, "disk") {
 		return false
 	}

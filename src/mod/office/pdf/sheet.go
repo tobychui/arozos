@@ -49,12 +49,11 @@ type SheetPrintModel struct {
 }
 
 // ParseSheetPrintJSON decodes the print model posted by sheets.js
-func ParseSheetPrintJSON(jsonStr string) (*SheetPrintModel, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office/pdf", "ParseSheetPrintJSON: jsonStr=%.120q", jsonStr)
-	}
+func ParseSheetPrintJSON(jsonStr string) (out0 *SheetPrintModel, out1 error) {
+	defer logger.Out2(logger.In1("office/pdf", "ParseSheetPrintJSON", "jsonStr", jsonStr), &out0, &out1)
 	m := SheetPrintModel{}
 	if err := json.Unmarshal([]byte(jsonStr), &m); err != nil {
+		logger.DebugErr("office/pdf", err)
 		return nil, errors.New("invalid print model JSON: " + err.Error())
 	}
 	if len(m.Sheets) == 0 {
@@ -90,9 +89,7 @@ const (
 // once the table is shrunk onto the page.
 func sheetFitColumns(pdf *fpdf.Fpdf, tr func(string) string, sheet *SheetPrintSheet,
 	widths []float64, usableW float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "sheetFitColumns: len(widths)=%d usableW=%g", len(widths), usableW)
-	}
+	logger.DebugTrace("office/pdf", "sheetFitColumns")
 	for _, row := range sheet.Rows {
 		for c := 0; c < len(widths) && c < len(row); c++ {
 			cell := row[c]
@@ -114,8 +111,8 @@ func sheetFitColumns(pdf *fpdf.Fpdf, tr func(string) string, sheet *SheetPrintSh
 }
 
 // BuildSheet renders the print model into PDF bytes
-func BuildSheet(m *SheetPrintModel) ([]byte, error) {
-	logger.Debug("office/pdf", "BuildSheet")
+func BuildSheet(m *SheetPrintModel) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/pdf", "BuildSheet", "m", m), &out0, &out1)
 	const marginMM = 12.0
 	pdf := fpdf.New("L", "mm", "A4", "")
 	pdf.SetMargins(marginMM, marginMM, marginMM)

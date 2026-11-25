@@ -33,15 +33,13 @@ type noSymlinkFS struct {
 	stfs.Filesystem
 }
 
-func (f *noSymlinkFS) CreateSymlink(target, name string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "noSymlinkFS.CreateSymlink: target=%.120q name=%.120q", target, name)
-	}
+func (f *noSymlinkFS) CreateSymlink(target, name string) (out0 error) {
+	defer logger.Out1(logger.In3("fileservers/servers/syncthingserv", "noSymlinkFS.CreateSymlink", "f", f, "target", target, "name", name), &out0)
 	return errSymlink
 }
 
 func registerNoSymlinkFS() {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "registerNoSymlinkFS")
+	defer logger.Out0(logger.In0("fileservers/servers/syncthingserv", "registerNoSymlinkFS"))
 	stfs.RegisterFilesystemType(fsTypeArozOS, func(root string, opts ...stfs.Option) (stfs.Filesystem, error) {
 		return &noSymlinkFS{Filesystem: stfs.NewFilesystem(stfs.FilesystemTypeBasic, root, opts...)}, nil
 	})
@@ -53,7 +51,7 @@ func registerNoSymlinkFS() {
 // The handler below puts slog records into the system log, and the log
 // package gets its own output back (os.Stderr, as before Syncthing loaded).
 func installLogBridge() {
-	logger.Debug("fileservers/servers/syncthingserv", "installLogBridge")
+	defer logger.Out0(logger.In0("fileservers/servers/syncthingserv", "installLogBridge"))
 	slog.SetDefault(slog.New(&slogBridge{}))
 	log.SetOutput(os.Stderr)
 	log.SetFlags(log.LstdFlags)
@@ -65,13 +63,13 @@ type slogBridge struct {
 	groups []string
 }
 
-func (h *slogBridge) Enabled(_ context.Context, level slog.Level) bool {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "slogBridge.Enabled")
+func (h *slogBridge) Enabled(_ context.Context, level slog.Level) (out0 bool) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "slogBridge.Enabled", "h", h, "&level", &level), &out0)
 	return level >= slog.LevelInfo
 }
 
-func (h *slogBridge) Handle(_ context.Context, r slog.Record) error {
-	logger.DebugTrace("fileservers/servers/syncthingserv", "slogBridge.Handle")
+func (h *slogBridge) Handle(_ context.Context, r slog.Record) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "slogBridge.Handle", "h", h, "&r", &r), &out0)
 	var b strings.Builder
 	switch {
 	case r.Level >= slog.LevelError:
@@ -105,19 +103,15 @@ func (h *slogBridge) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 
-func (h *slogBridge) WithAttrs(attrs []slog.Attr) slog.Handler {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "slogBridge.WithAttrs: len(attrs)=%d", len(attrs))
-	}
+func (h *slogBridge) WithAttrs(attrs []slog.Attr) (out0 slog.Handler) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "slogBridge.WithAttrs", "h", h, "attrs", attrs), &out0)
 	next := &slogBridge{groups: h.groups}
 	next.attrs = append(append([]slog.Attr{}, h.attrs...), attrs...)
 	return next
 }
 
-func (h *slogBridge) WithGroup(name string) slog.Handler {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncthingserv", "slogBridge.WithGroup: name=%.120q", name)
-	}
+func (h *slogBridge) WithGroup(name string) (out0 slog.Handler) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncthingserv", "slogBridge.WithGroup", "h", h, "name", name), &out0)
 	if name == "" {
 		return h
 	}

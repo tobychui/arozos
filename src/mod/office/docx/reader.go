@@ -74,14 +74,15 @@ import (
 )
 
 // Parse converts raw .docx bytes into a Document
-func Parse(data []byte) (*model.Document, error) {
-	logger.Debug("office/docx", "Parse")
+func Parse(data []byte) (out0 *model.Document, out1 error) {
+	defer logger.Out2(logger.In1("office/docx", "Parse", "data", data), &out0, &out1)
 	if len(data) > 8 && data[0] == 0xD0 && data[1] == 0xCF {
 		// a Word 97-2003 file: package doc converts it into a .docx first
 		return nil, errors.New("this is a Word 97-2003 (.doc) document; open it with doc.Parse")
 	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return nil, errors.New("not a valid docx (zip) file")
 	}
 
@@ -92,11 +93,13 @@ func Parse(data []byte) (*model.Document, error) {
 			strings.HasPrefix(name, "word/media/") || strings.HasPrefix(name, "media/") {
 			rc, err := f.Open()
 			if err != nil {
+				logger.DebugErr("office/docx", err)
 				continue
 			}
 			b, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
+				logger.DebugErr("office/docx", err)
 				continue
 			}
 			files[name] = b
@@ -109,6 +112,7 @@ func Parse(data []byte) (*model.Document, error) {
 	}
 	tree, err := xmltree.Parse(docXML)
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return nil, errors.New("cannot parse document.xml: " + err.Error())
 	}
 	body := tree.First("body")
@@ -222,16 +226,12 @@ func Parse(data []byte) (*model.Document, error) {
 }
 
 func round1(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "round1: v=%g", v)
-	}
+	logger.DebugTrace("office/docx", "round1")
 	return float64(int(v*10+0.5)) / 10
 }
 
 func round3(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "round3: v=%g", v)
-	}
+	logger.DebugTrace("office/docx", "round3")
 	if v < 0 {
 		return -round3(-v)
 	}
@@ -239,9 +239,7 @@ func round3(v float64) float64 {
 }
 
 func abs(v int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "abs: v=%d", v)
-	}
+	logger.DebugTrace("office/docx", "abs")
 	if v < 0 {
 		return -v
 	}
@@ -249,9 +247,7 @@ func abs(v int) int {
 }
 
 func twipsAttr(n *xmltree.Node, name string, def float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "twipsAttr: name=%.120q def=%g", name, def)
-	}
+	logger.DebugTrace("office/docx", "twipsAttr")
 	if v := numAttr(n, name); v.set {
 		return v.v
 	}
@@ -317,9 +313,7 @@ func parseSectPage(sect *xmltree.Node) *model.PageConf {
 }
 
 func twipsToMmF(tw float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "twipsToMmF: tw=%g", tw)
-	}
+	logger.DebugTrace("office/docx", "twipsToMmF")
 	return tw * 25.4 / 1440.0
 }
 
@@ -407,9 +401,7 @@ const autoPageNumberStyle = "ArozPageNumber"
 
 // part loads the relationships of one XML part
 func (cv *docxConv) part(name string) *docxPartCtx {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.part: name=%.120q", name)
-	}
+	logger.DebugTrace("office/docx", "docxConv.part")
 	if cv.parts == nil {
 		cv.parts = map[string]*docxPartCtx{}
 	}
@@ -435,9 +427,7 @@ func (cv *docxConv) part(name string) *docxPartCtx {
 
 // hfPart finds the part path a header/footer reference points at
 func (cv *docxConv) hfPart(sect *xmltree.Node, kind, typ string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.hfPart: kind=%.120q typ=%.120q", kind, typ)
-	}
+	logger.DebugTrace("office/docx", "docxConv.hfPart")
 	docPart := cv.part("word/document.xml")
 	for _, ref := range sect.All(kind) {
 		t := ref.Attr("type")
@@ -458,15 +448,14 @@ func (cv *docxConv) hfPart(sect *xmltree.Node, kind, typ string) string {
 
 // hfHTML converts a header/footer part; returns its HTML and plain text
 func (cv *docxConv) hfHTML(partName string) (string, string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.hfHTML: partName=%.120q", partName)
-	}
+	logger.DebugTrace("office/docx", "docxConv.hfHTML")
 	raw, ok := cv.files[partName]
 	if !ok {
 		return "", ""
 	}
 	tree, err := xmltree.Parse(raw)
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return "", ""
 	}
 	// the page number our own export adds is the editor's page-number
@@ -700,18 +689,14 @@ var emptyBlockRe = regexp.MustCompile(`^<[a-z0-9]+[^>]*><br></[a-z0-9]+>$`)
 // emptyBlockHTML reports whether s is one block holding nothing but its
 // empty line
 func emptyBlockHTML(s string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "emptyBlockHTML: s=%.120q", s)
-	}
+	logger.DebugTrace("office/docx", "emptyBlockHTML")
 	return emptyBlockRe.MatchString(s)
 }
 
 // dropMarginBottom removes the spacing-after from the opening tag of the
 // block HTML that starts s (only when s is a single block)
 func dropMarginBottom(s string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "dropMarginBottom: s=%.120q", s)
-	}
+	logger.DebugTrace("office/docx", "dropMarginBottom")
 	end := strings.Index(s, ">")
 	if end < 0 {
 		return s
@@ -785,9 +770,7 @@ func (cv *docxConv) placeListItem(sb *strings.Builder, lists *[]listFrame, it pa
 
 // ptStr formats a length in points
 func ptStr(v float64) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "ptStr: v=%g", v)
-	}
+	logger.DebugTrace("office/docx", "ptStr")
 	return units.TrimFloat(units.Round2(v)) + "pt"
 }
 
@@ -795,9 +778,7 @@ func ptStr(v float64) string {
 
 // paragraph converts one w:p
 func (cv *docxConv) paragraph(p *xmltree.Node, part *docxPartCtx, ctx blockCtx, spanAll bool) paraOutput {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.paragraph: spanAll=%t", spanAll)
-	}
+	logger.DebugTrace("office/docx", "docxConv.paragraph")
 	direct := parsePPr(p.First("pPr"))
 	styleP, styleR := cv.ss.paraStyle(direct.style)
 	eff := *styleP
@@ -1041,9 +1022,7 @@ var docxMetricFallback = map[string]string{
 // faces, which are wider and taller, and every line wraps and stacks
 // differently from the source.
 func docxFontStack(latin, ea string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxFontStack: latin=%.120q ea=%.120q", latin, ea)
-	}
+	logger.DebugTrace("office/docx", "docxFontStack")
 	if alias, ok := docxFontAlias[strings.ToLower(latin)]; ok {
 		latin = alias
 	}
@@ -1081,9 +1060,7 @@ func docxFontStack(latin, ea string) string {
 // blockStyle renders a paragraph's layout properties as inline CSS plus
 // data attributes
 func (cv *docxConv) blockStyle(tag string, eff docxPPr, r docxRPr, isList bool, level int, preWrap bool) (string, string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.blockStyle: tag=%.120q isList=%t level=%d preWrap=%t", tag, isList, level, preWrap)
-	}
+	logger.DebugTrace("office/docx", "docxConv.blockStyle")
 	var css []string
 	add := func(k, v string) { css = append(css, k+":"+v) }
 	heading := tag != "p"
@@ -1364,9 +1341,7 @@ var cssRunKeys = []string{"font-family", "font-size", "font-weight", "font-style
 
 // hasCJK reports whether text holds Chinese, Japanese or Korean characters
 func hasCJK(s string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "hasCJK: s=%.120q", s)
-	}
+	logger.DebugTrace("office/docx", "hasCJK")
 	for _, r := range s {
 		if (r >= 0x3000 && r <= 0x9fff) || (r >= 0xac00 && r <= 0xd7af) || (r >= 0xff00 && r <= 0xffef) {
 			return true
@@ -1378,9 +1353,7 @@ func hasCJK(s string) bool {
 // isCJKFontName reports whether a typeface is a Chinese, Japanese or Korean
 // one (by its name, which is all a document states)
 func isCJKFontName(name string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "isCJKFontName: name=%.120q", name)
-	}
+	logger.DebugTrace("office/docx", "isCJKFontName")
 	l := strings.ToLower(name)
 	for _, r := range l {
 		if (r >= 0x2e80 && r <= 0x9fff) || (r >= 0xac00 && r <= 0xd7af) || (r >= 0xf900 && r <= 0xfaff) {
@@ -1400,9 +1373,7 @@ func isCJKFontName(name string) bool {
 
 // runCSSDiff renders the properties in which a run differs from its block
 func runCSSDiff(run, block map[string]string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "runCSSDiff: len(run)=%d len(block)=%d", len(run), len(block))
-	}
+	logger.DebugTrace("office/docx", "runCSSDiff")
 	var parts []string
 	for _, k := range cssRunKeys {
 		rv, bv := run[k], block[k]
@@ -1547,9 +1518,7 @@ func (cv *docxConv) fieldKind() string {
 
 func (cv *docxConv) run(r *xmltree.Node, part *docxPartCtx, baseR docxRPr, blockCSS map[string]string,
 	link string, pieces *[]inlinePiece, res *runsResult, pageBreak func()) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.run: len(blockCSS)=%d link=%.120q", len(blockCSS), link)
-	}
+	logger.DebugTrace("office/docx", "docxConv.run")
 
 	direct := parseRPr(r.First("rPr"))
 	eff := baseR
@@ -1708,9 +1677,7 @@ func (cv *docxConv) reviewed(p inlinePiece) inlinePiece {
 // joinPieces merges adjacent pieces sharing one format into one span.
 // Nesting, outermost first: comment anchor, link, tracked change, style.
 func joinPieces(pieces []inlinePiece) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "joinPieces: len(pieces)=%d", len(pieces))
-	}
+	logger.DebugTrace("office/docx", "joinPieces")
 	var sb strings.Builder
 	groupBy(len(pieces), func(a, b int) bool { return pieces[a].cmt == pieces[b].cmt }, func(i, j int) {
 		inner := joinLinks(pieces[i:j])
@@ -1726,9 +1693,7 @@ func joinPieces(pieces []inlinePiece) string {
 // groupBy calls emit(i, j) for every run [i, j) of neighbours same says
 // belong together
 func groupBy(n int, same func(a, b int) bool, emit func(i, j int)) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "groupBy: n=%d", n)
-	}
+	logger.DebugTrace("office/docx", "groupBy")
 	i := 0
 	for i < n {
 		j := i + 1
@@ -1741,9 +1706,7 @@ func groupBy(n int, same func(a, b int) bool, emit func(i, j int)) {
 }
 
 func joinLinks(pieces []inlinePiece) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "joinLinks: len(pieces)=%d", len(pieces))
-	}
+	logger.DebugTrace("office/docx", "joinLinks")
 	var sb strings.Builder
 	groupBy(len(pieces), func(a, b int) bool { return pieces[a].link == pieces[b].link }, func(i, j int) {
 		var inner strings.Builder
@@ -1767,9 +1730,7 @@ func joinLinks(pieces []inlinePiece) string {
 }
 
 func joinStyled(pieces []inlinePiece) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "joinStyled: len(pieces)=%d", len(pieces))
-	}
+	logger.DebugTrace("office/docx", "joinStyled")
 	var sb strings.Builder
 	groupBy(len(pieces), func(a, b int) bool {
 		return pieces[a].css == pieces[b].css && pieces[a].vert == pieces[b].vert
@@ -1794,18 +1755,14 @@ func joinStyled(pieces []inlinePiece) string {
 }
 
 func stripTags(s string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "stripTags: s=%.120q", s)
-	}
+	logger.DebugTrace("office/docx", "stripTags")
 	return tagRe.ReplaceAllString(s, "")
 }
 
 /* ---------------- pictures ---------------- */
 
 func (cv *docxConv) mediaData(part *docxPartCtx, rid string) (string, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.mediaData: rid=%.120q", rid)
-	}
+	logger.DebugTrace("office/docx", "docxConv.mediaData")
 	data, ext, ok := cv.mediaBytes(part, rid)
 	if !ok {
 		return "", false
@@ -1815,9 +1772,7 @@ func (cv *docxConv) mediaData(part *docxPartCtx, rid string) (string, bool) {
 
 // mediaBytes resolves an embedded picture to its bytes and image format
 func (cv *docxConv) mediaBytes(part *docxPartCtx, rid string) ([]byte, string, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.mediaBytes: rid=%.120q", rid)
-	}
+	logger.DebugTrace("office/docx", "docxConv.mediaBytes")
 	target, ok := part.rels[rid]
 	if !ok || part.ext[rid] {
 		return nil, "", false
@@ -2016,9 +1971,7 @@ func (cv *docxConv) drawing(n *xmltree.Node, part *docxPartCtx) string {
 }
 
 func findFirst(n *xmltree.Node, local string) *xmltree.Node {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "findFirst: local=%.120q", local)
-	}
+	logger.DebugTrace("office/docx", "findFirst")
 	var all []*xmltree.Node
 	n.FindAll(local, &all)
 	if len(all) == 0 {
@@ -2059,9 +2012,7 @@ func (cv *docxConv) vmlImage(n *xmltree.Node, part *docxPartCtx) string {
 
 // cssLengthPt converts a CSS length (pt, px, in, cm, mm) to points
 func cssLengthPt(s string) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "cssLengthPt: s=%.120q", s)
-	}
+	logger.DebugTrace("office/docx", "cssLengthPt")
 	s = strings.TrimSpace(strings.ToLower(s))
 	units := []struct {
 		suf string
@@ -2092,9 +2043,7 @@ type docxCell struct {
 }
 
 func (cv *docxConv) table(tbl *xmltree.Node, part *docxPartCtx, spanAll bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.table: spanAll=%t", spanAll)
-	}
+	logger.DebugTrace("office/docx", "docxConv.table")
 	direct := parseTblPr(tbl.First("tblPr"))
 	tp := *cv.ss.tableStyle(direct.style)
 	tp.merge(direct)
@@ -2272,9 +2221,7 @@ func (cv *docxConv) table(tbl *xmltree.Node, part *docxPartCtx, spanAll bool) st
 }
 
 func (cv *docxConv) cell(c *docxCell, tp docxTblPr, row, nRows, nCols, rowspan int, part *docxPartCtx) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxConv.cell: row=%d nRows=%d nCols=%d rowspan=%d", row, nRows, nCols, rowspan)
-	}
+	logger.DebugTrace("office/docx", "docxConv.cell")
 	var tcBorders map[string]docxBorder
 	var tcMar map[string]optNum
 	shd, vAlign := "", ""

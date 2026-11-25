@@ -21,7 +21,7 @@ import (
 )
 
 func (mgr *Manager) registerACNHandlers() {
-	logger.Debug("cluster/metadata", "Manager.registerACNHandlers")
+	defer logger.Out0(logger.In1("cluster/metadata", "Manager.registerACNHandlers", "mgr", mgr))
 	srv := mgr.m.Server()
 	srv.HandleFunc(pathAppend, mgr.handleAppend)
 	srv.HandleFunc(pathSubmit, mgr.handleSubmit)
@@ -32,11 +32,10 @@ func (mgr *Manager) registerACNHandlers() {
 }
 
 func (mgr *Manager) handleAppend(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.handleAppend: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "Manager.handleAppend", "mgr", mgr, "r", r, "sender", sender, "body", body))
 	var req AppendRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid append payload")
 		return
 	}
@@ -55,9 +54,7 @@ func (mgr *Manager) handleAppend(w http.ResponseWriter, r *http.Request, sender 
 }
 
 func (mgr *Manager) handleSubmit(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.handleSubmit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "Manager.handleSubmit", "mgr", mgr, "r", r, "sender", sender, "body", body))
 	if !mgr.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, "this node is not the metadata leader")
 		return
@@ -73,9 +70,7 @@ func (mgr *Manager) handleSubmit(w http.ResponseWriter, r *http.Request, sender 
 }
 
 func (mgr *Manager) handleLog(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.handleLog: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "Manager.handleLog", "mgr", mgr, "r", r, "sender", sender, "body", body))
 	if !mgr.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, "this node is not the metadata leader")
 		return
@@ -91,9 +86,7 @@ func (mgr *Manager) handleLog(w http.ResponseWriter, r *http.Request, sender *ac
 }
 
 func (mgr *Manager) handleSnapshot(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.handleSnapshot: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "Manager.handleSnapshot", "mgr", mgr, "r", r, "sender", sender, "body", body))
 	if !mgr.IsLeader() {
 		acn.WriteError(w, http.StatusConflict, "this node is not the metadata leader")
 		return
@@ -104,9 +97,7 @@ func (mgr *Manager) handleSnapshot(w http.ResponseWriter, r *http.Request, sende
 }
 
 func (mgr *Manager) handleLease(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.handleLease: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "Manager.handleLease", "mgr", mgr, "r", r, "sender", sender, "body", body))
 	var req LeaseRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.Lease.Holder != sender.NodeID {
 		acn.WriteError(w, http.StatusBadRequest, "invalid lease")
@@ -124,11 +115,10 @@ func (mgr *Manager) handleLease(w http.ResponseWriter, r *http.Request, sender *
 }
 
 func (mgr *Manager) handleStat(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.handleStat: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/metadata", "Manager.handleStat", "mgr", mgr, "r", r, "sender", sender, "body", body))
 	rec, err := mgr.Stat(r.URL.Query().Get("path"))
 	if err != nil {
+		logger.DebugErr("cluster/metadata", err)
 		acn.WriteError(w, http.StatusNotFound, err.Error())
 		return
 	}

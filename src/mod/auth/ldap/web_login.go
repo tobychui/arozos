@@ -14,9 +14,7 @@ import (
 // LOGIN related function
 // functions basically same as arozos's original function
 func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.HandleLoginPage: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.HandleLoginPage", "ldap", ldap, "r", r))
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -38,6 +36,7 @@ func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request)
 		"login_addr":       "system/auth/ldap/login",
 	})
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		panic("Error. Unable to parse login page. Is web directory data exists?")
 	}
 	w.Header().Add("Content-Type", "text/html; charset=UTF-8")
@@ -45,9 +44,7 @@ func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request)
 }
 
 func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.HandleNewPasswordPage: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.HandleNewPasswordPage", "ldap", ldap, "r", r))
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -56,16 +53,19 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 	//get the parameter from the request
 	acc, err := utils.GetPara(r, "username")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	displayname, err := utils.GetPara(r, "displayname")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	key, err := utils.GetPara(r, "authkey")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -82,6 +82,7 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 		"key":          key,
 	})
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		logger.PrintAndLog("Ldap", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -90,9 +91,7 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 }
 
 func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.HandleLogin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.HandleLogin", "ldap", ldap, "r", r))
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -101,6 +100,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	//Get username from request using POST mode
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		//Username not defined
 		logger.PrintAndLog("Ldap", "[System Auth] Someone trying to login with username: "+username, nil)
 		//Write to log
@@ -112,6 +112,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	//Get password from request using POST mode
 	password, err := utils.PostPara(r, "password")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		//Password not defined
 		ldap.ag.Logger.LogAuth(r, false)
 		utils.SendErrorResponse(w, "Password not defined or empty.")
@@ -128,6 +129,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	//Check the database and see if this user is in the database
 	passwordCorrect, err := ldap.ldapreader.Authenticate(username, password)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		ldap.ag.Logger.LogAuth(r, false)
 		utils.SendErrorResponse(w, "Unable to connect to LDAP server")
 		logger.PrintAndLog("Ldap", "LDAP Authentication error, "+err.Error(), nil)
@@ -158,9 +160,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.HandleSetPassword: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.HandleSetPassword", "ldap", ldap, "r", r))
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
 		utils.SendTextResponse(w, "LDAP not enabled.")
@@ -169,16 +169,19 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 	//get paramters from request
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	password, err := utils.PostPara(r, "password")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	authkey, err := utils.PostPara(r, "authkey")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -193,6 +196,7 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 			//get the user from ldap server
 			ldapUser, err := ldap.ldapreader.GetUser(username)
 			if err != nil {
+				logger.DebugErr("auth/ldap", err)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}
@@ -200,6 +204,7 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 			convertedInfo := ldap.convertGroup(ldapUser)
 			//create user account and login
 			if err := ldap.ag.CreateUserAccount(username, password, convertedInfo.EquivGroup); err != nil {
+				logger.DebugErr("auth/ldap", err)
 				utils.SendErrorResponse(w, "This LDAP account cannot be used here: "+err.Error())
 				return
 			}
@@ -221,9 +226,7 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 
 // HandleCheckLDAP check if ldap is enabled
 func (ldap *ldapHandler) HandleCheckLDAP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.HandleCheckLDAP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.HandleCheckLDAP", "ldap", ldap, "r", r))
 	enabledB := false
 	enabled := ldap.readSingleConfig("enabled")
 	if enabled == "true" {
@@ -235,6 +238,7 @@ func (ldap *ldapHandler) HandleCheckLDAP(w http.ResponseWriter, r *http.Request)
 	}
 	json, err := json.Marshal(returnFormat{Enabled: enabledB})
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, "Error occurred while marshalling JSON response")
 	}
 	utils.SendJSONResponse(w, string(json))

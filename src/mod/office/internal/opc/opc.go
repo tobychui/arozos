@@ -68,9 +68,7 @@ func New() *Package {
 // Add stores a part with an explicit content type ("" leaves it to the
 // extension default, as for media)
 func (p *Package) Add(name, contentType string, data []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/opc", "Package.Add: name=%.120q", name)
-	}
+	logger.DebugTrace("office/internal/opc", "Package.Add")
 	name = strings.TrimPrefix(name, "/")
 	p.parts = append(p.parts, part{name, data})
 	if contentType != "" {
@@ -87,9 +85,7 @@ func (p *Package) Add(name, contentType string, data []byte) {
 
 // AddXML stores an XML part, prefixing the XML declaration
 func (p *Package) AddXML(name, contentType, body string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/opc", "Package.AddXML: name=%.120q", name)
-	}
+	logger.DebugTrace("office/internal/opc", "Package.AddXML")
 	p.Add(name, contentType, []byte(XMLHeader+body))
 }
 
@@ -124,12 +120,14 @@ func (p *Package) Bytes() ([]byte, error) {
 	write := func(name string, data []byte, method uint16) error {
 		w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: method})
 		if err != nil {
+			logger.DebugErr("office/internal/opc", err)
 			return err
 		}
 		_, err = w.Write(data)
 		return err
 	}
 	if err := write("[Content_Types].xml", []byte(ct.String()), zip.Deflate); err != nil {
+		logger.DebugErr("office/internal/opc", err)
 		return nil, err
 	}
 	for _, pt := range p.parts {
@@ -139,10 +137,12 @@ func (p *Package) Bytes() ([]byte, error) {
 			method = zip.Store // compressed already
 		}
 		if err := write(pt.name, pt.data, method); err != nil {
+			logger.DebugErr("office/internal/opc", err)
 			return nil, err
 		}
 	}
 	if err := zw.Close(); err != nil {
+		logger.DebugErr("office/internal/opc", err)
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -160,9 +160,7 @@ type rel struct {
 
 // Add records a relationship and returns its id (rId1, rId2, ...)
 func (r *Rels) Add(typ, target string, external bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/opc", "Rels.Add: typ=%.120q target=%.120q external=%t", typ, target, external)
-	}
+	logger.DebugTrace("office/internal/opc", "Rels.Add")
 	id := "rId" + strconv.Itoa(len(r.list)+1)
 	r.list = append(r.list, rel{id, typ, target, external})
 	return id
@@ -192,10 +190,8 @@ func (r *Rels) XML() string {
 
 // RelsPath is the relationship part of a part: word/document.xml ->
 // word/_rels/document.xml.rels
-func RelsPath(partName string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/opc", "RelsPath: partName=%.120q", partName)
-	}
+func RelsPath(partName string) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/opc", "RelsPath", "partName", partName), &out0)
 	dir, file := path.Split(strings.TrimPrefix(partName, "/"))
 	return dir + "_rels/" + file + ".rels"
 }

@@ -34,9 +34,7 @@ type piece struct {
 
 // pieceTable reads the CLX: property groups (Prc) then the PlcPcd
 func pieceTable(clx []byte, total int) ([]piece, [][]byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "pieceTable: len(clx)=%d total=%d", len(clx), total)
-	}
+	logger.DebugTrace("office/doc", "pieceTable")
 	le := binary.LittleEndian
 	var grpprls [][]byte
 	p := 0
@@ -84,9 +82,7 @@ func pieceTable(clx []byte, total int) ([]piece, [][]byte) {
 
 // textUnits builds the UTF-16 code units of every CP of the document
 func textUnits(wd []byte, pieces []piece, total int) []uint16 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "textUnits: len(wd)=%d len(pieces)=%d total=%d", len(wd), len(pieces), total)
-	}
+	logger.DebugTrace("office/doc", "textUnits")
 	units := make([]uint16, total)
 	le := binary.LittleEndian
 	for _, pc := range pieces {
@@ -110,9 +106,7 @@ func textUnits(wd []byte, pieces []piece, total int) []uint16 {
 
 // pieceAt finds the piece holding cp
 func pieceAt(pieces []piece, cp int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "pieceAt: len(pieces)=%d cp=%d", len(pieces), cp)
-	}
+	logger.DebugTrace("office/doc", "pieceAt")
 	i := sort.Search(len(pieces), func(i int) bool { return pieces[i].cpEnd > cp })
 	if i < len(pieces) && pieces[i].cpStart <= cp {
 		return i
@@ -122,9 +116,7 @@ func pieceAt(pieces []piece, cp int) int {
 
 // fcOf is the byte offset of a CP's character
 func fcOf(pieces []piece, cp int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "fcOf: len(pieces)=%d cp=%d", len(pieces), cp)
-	}
+	logger.DebugTrace("office/doc", "fcOf")
 	i := pieceAt(pieces, cp)
 	if i < 0 {
 		return -1
@@ -146,9 +138,7 @@ type plc struct {
 }
 
 func parsePLC(b []byte, size int) *plc {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "parsePLC: len(b)=%d size=%d", len(b), size)
-	}
+	logger.DebugTrace("office/doc", "parsePLC")
 	if len(b) < 4 {
 		return &plc{}
 	}
@@ -170,9 +160,7 @@ func (p *plc) n() int {
 }
 
 func (p *plc) item(i int) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "plc.item: i=%d", i)
-	}
+	logger.DebugTrace("office/doc", "plc.item")
 	if p.size == 0 || (i+1)*p.size > len(p.data) {
 		return nil
 	}
@@ -182,9 +170,7 @@ func (p *plc) item(i int) []byte {
 // sttb decodes a string table (extended UTF-16 or 8-bit); extra data
 // after each string is skipped
 func sttb(b []byte) []string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "sttb: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/doc", "sttb")
 	le := binary.LittleEndian
 	if len(b) < 4 {
 		return nil
@@ -229,9 +215,7 @@ func sttb(b []byte) []string {
 }
 
 func utf16le(b []byte) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "utf16le: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/doc", "utf16le")
 	u := make([]uint16, len(b)/2)
 	for i := range u {
 		u[i] = binary.LittleEndian.Uint16(b[2*i:])
@@ -242,9 +226,7 @@ func utf16le(b []byte) string {
 // xst reads a Xst / Xstz (count of UTF-16 units, then the units) at p,
 // returning the string and the offset after it
 func xst(b []byte, p int) (string, int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "xst: len(b)=%d p=%d", len(b), p)
-	}
+	logger.DebugTrace("office/doc", "xst")
 	if p+2 > len(b) {
 		return "", len(b)
 	}
@@ -266,9 +248,7 @@ type fkpRun struct {
 
 // readFKPs loads every run of the CHPX or PAPX pages a bin table lists
 func readFKPs(wd, bte []byte, papx bool) []fkpRun {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "readFKPs: len(wd)=%d len(bte)=%d papx=%t", len(wd), len(bte), papx)
-	}
+	logger.DebugTrace("office/doc", "readFKPs")
 	le := binary.LittleEndian
 	bin := parsePLC(bte, 4)
 	var runs []fkpRun
@@ -337,9 +317,7 @@ func readFKPs(wd, bte []byte, papx bool) []fkpRun {
 
 // runAt finds the run covering fc (-1 when none does)
 func runAt(runs []fkpRun, fc int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "runAt: len(runs)=%d fc=%d", len(runs), fc)
-	}
+	logger.DebugTrace("office/doc", "runAt")
 	i := sort.Search(len(runs), func(i int) bool { return runs[i].fcEnd > fc })
 	if i < len(runs) && runs[i].fcStart <= fc {
 		return i

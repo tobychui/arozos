@@ -97,10 +97,8 @@ type wlanPhyRadioState struct {
 }
 
 // utf16String decodes a fixed size, NUL terminated WCHAR array
-func utf16String(b []byte) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "utf16String: len(b)=%d", len(b))
-	}
+func utf16String(b []byte) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "utf16String", "b", b), &out0)
 	u := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
 		c := binary.LittleEndian.Uint16(b[i:])
@@ -113,10 +111,8 @@ func utf16String(b []byte) string {
 }
 
 // dot11SSID decodes a DOT11_SSID (length + 32 bytes)
-func dot11SSID(b []byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "dot11SSID: len(b)=%d", len(b))
-	}
+func dot11SSID(b []byte) (out0 []byte) {
+	defer logger.Out1(logger.In1("network/wifi", "dot11SSID", "b", b), &out0)
 	if len(b) < dot11SSIDSize {
 		return nil
 	}
@@ -128,8 +124,8 @@ func dot11SSID(b []byte) []byte {
 }
 
 // guidString formats a Windows GUID stored in its in-memory byte order
-func guidString(g [16]byte) string {
-	logger.Debug("network/wifi", "guidString")
+func guidString(g [16]byte) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "guidString", "&g", &g), &out0)
 	le := binary.LittleEndian
 	return strings.ToUpper(
 		"{" + hex32(le.Uint32(g[0:4])) + "-" + hex16(le.Uint16(g[4:6])) + "-" + hex16(le.Uint16(g[6:8])) + "-" +
@@ -137,21 +133,15 @@ func guidString(g [16]byte) string {
 }
 
 func hex32(v uint32) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "hex32: v=%d", v)
-	}
+	logger.DebugTrace("network/wifi", "hex32")
 	return hexBytes([]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)})
 }
 func hex16(v uint16) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/wifi", "hex16: v=%d", v)
-	}
+	logger.DebugTrace("network/wifi", "hex16")
 	return hexBytes([]byte{byte(v >> 8), byte(v)})
 }
-func hexBytes(b []byte) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "hexBytes: len(b)=%d", len(b))
-	}
+func hexBytes(b []byte) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "hexBytes", "b", b), &out0)
 	const digits = "0123456789abcdef"
 	s := make([]byte, 0, len(b)*2)
 	for _, c := range b {
@@ -161,10 +151,8 @@ func hexBytes(b []byte) string {
 }
 
 // parseWlanInterfaceList decodes a WLAN_INTERFACE_INFO_LIST
-func parseWlanInterfaceList(b []byte) ([]wlanInterfaceInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseWlanInterfaceList: len(b)=%d", len(b))
-	}
+func parseWlanInterfaceList(b []byte) (out0 []wlanInterfaceInfo, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "parseWlanInterfaceList", "b", b), &out0, &out1)
 	if len(b) < 8 {
 		return nil, errWlanTruncated
 	}
@@ -186,10 +174,8 @@ func parseWlanInterfaceList(b []byte) ([]wlanInterfaceInfo, error) {
 }
 
 // parseWlanAvailableNetworkList decodes a WLAN_AVAILABLE_NETWORK_LIST
-func parseWlanAvailableNetworkList(b []byte) ([]wlanAvailableNetwork, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseWlanAvailableNetworkList: len(b)=%d", len(b))
-	}
+func parseWlanAvailableNetworkList(b []byte) (out0 []wlanAvailableNetwork, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "parseWlanAvailableNetworkList", "b", b), &out0, &out1)
 	if len(b) < 8 {
 		return nil, errWlanTruncated
 	}
@@ -217,10 +203,8 @@ func parseWlanAvailableNetworkList(b []byte) ([]wlanAvailableNetwork, error) {
 
 // parseWlanBSSList decodes a WLAN_BSS_LIST, including the information
 // elements that follow each entry
-func parseWlanBSSList(b []byte) ([]wlanBSSEntry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseWlanBSSList: len(b)=%d", len(b))
-	}
+func parseWlanBSSList(b []byte) (out0 []wlanBSSEntry, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "parseWlanBSSList", "b", b), &out0, &out1)
 	if len(b) < 8 {
 		return nil, errWlanTruncated
 	}
@@ -277,10 +261,8 @@ func parseWlanBSSList(b []byte) ([]wlanBSSEntry, error) {
 }
 
 // parseWlanConnectionAttributes decodes WLAN_CONNECTION_ATTRIBUTES
-func parseWlanConnectionAttributes(b []byte) (*wlanConnectionAttributes, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseWlanConnectionAttributes: len(b)=%d", len(b))
-	}
+func parseWlanConnectionAttributes(b []byte) (out0 *wlanConnectionAttributes, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "parseWlanConnectionAttributes", "b", b), &out0, &out1)
 	if len(b) < wlanConnectionAttrSize {
 		return nil, errWlanTruncated
 	}
@@ -308,10 +290,8 @@ func parseWlanConnectionAttributes(b []byte) (*wlanConnectionAttributes, error) 
 }
 
 // parseWlanRadioState decodes WLAN_RADIO_STATE
-func parseWlanRadioState(b []byte) ([]wlanPhyRadioState, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseWlanRadioState: len(b)=%d", len(b))
-	}
+func parseWlanRadioState(b []byte) (out0 []wlanPhyRadioState, out1 error) {
+	defer logger.Out2(logger.In1("network/wifi", "parseWlanRadioState", "b", b), &out0, &out1)
 	if len(b) < 4 {
 		return nil, errWlanTruncated
 	}
@@ -336,8 +316,8 @@ func parseWlanRadioState(b []byte) ([]wlanPhyRadioState, error) {
 }
 
 // bssInfoFromEntry turns one WLAN_BSS_ENTRY into a WiFiInfo
-func bssInfoFromEntry(e wlanBSSEntry) WiFiInfo {
-	logger.Debug("network/wifi", "bssInfoFromEntry")
+func bssInfoFromEntry(e wlanBSSEntry) (out0 WiFiInfo) {
+	defer logger.Out1(logger.In1("network/wifi", "bssInfoFromEntry", "&e", &e), &out0)
 	ies := parseIEs(e.InformationElt)
 	privacy := e.Capability&0x0010 != 0
 
@@ -420,10 +400,8 @@ func bssInfoFromEntry(e wlanBSSEntry) WiFiInfo {
 	DOT11 / WLAN enumeration names
 */
 
-func dot11PhyName(t uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "dot11PhyName: t=%d", t)
-	}
+func dot11PhyName(t uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "dot11PhyName", "t", t), &out0)
 	switch t {
 	case 1:
 		return "802.11 FHSS"
@@ -451,10 +429,8 @@ func dot11PhyName(t uint32) string {
 	return ""
 }
 
-func dot11BSSTypeName(t uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "dot11BSSTypeName: t=%d", t)
-	}
+func dot11BSSTypeName(t uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "dot11BSSTypeName", "t", t), &out0)
 	switch t {
 	case 1:
 		return "Infrastructure"
@@ -464,10 +440,8 @@ func dot11BSSTypeName(t uint32) string {
 	return ""
 }
 
-func dot11AuthName(t uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "dot11AuthName: t=%d", t)
-	}
+func dot11AuthName(t uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "dot11AuthName", "t", t), &out0)
 	switch t {
 	case 1:
 		return "Open"
@@ -498,10 +472,8 @@ func dot11AuthName(t uint32) string {
 	return ""
 }
 
-func dot11CipherName(t uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "dot11CipherName: t=%d", t)
-	}
+func dot11CipherName(t uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "dot11CipherName", "t", t), &out0)
 	switch t {
 	case 0x00:
 		return "None"
@@ -532,10 +504,8 @@ func dot11CipherName(t uint32) string {
 	return ""
 }
 
-func wlanInterfaceStateName(s uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "wlanInterfaceStateName: s=%d", s)
-	}
+func wlanInterfaceStateName(s uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "wlanInterfaceStateName", "s", s), &out0)
 	switch s {
 	case 0:
 		return "not ready"
@@ -557,10 +527,8 @@ func wlanInterfaceStateName(s uint32) string {
 	return "unknown"
 }
 
-func wlanConnectionModeName(m uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "wlanConnectionModeName: m=%d", m)
-	}
+func wlanConnectionModeName(m uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "wlanConnectionModeName", "m", m), &out0)
 	switch m {
 	case 0:
 		return "Profile"
@@ -576,10 +544,8 @@ func wlanConnectionModeName(m uint32) string {
 	return ""
 }
 
-func dot11RadioStateName(s uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "dot11RadioStateName: s=%d", s)
-	}
+func dot11RadioStateName(s uint32) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "dot11RadioStateName", "s", s), &out0)
 	switch s {
 	case 1:
 		return "on"

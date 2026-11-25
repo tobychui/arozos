@@ -15,7 +15,7 @@ import "imuslab.com/arozos/mod/info/logger"
 import "fmt"
 
 func main() {
-	logger.Debug("wasm/office", "main")
+	defer logger.Out0(logger.In0("wasm/office", "main"))
 	in, out := ConverterNames()
 	fmt.Println("ArozOS Office WebAssembly bridge")
 	fmt.Println("This package is only useful as a WebAssembly module. Build it with:")

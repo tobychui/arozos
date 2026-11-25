@@ -20,23 +20,23 @@ import (
 */
 
 func system_resetpw_init() {
-	logger.Debug("Core", "system_resetpw_init")
+	defer logger.Out0(logger.In0("Core", "system_resetpw_init"))
 	http.HandleFunc("/system/reset/validateResetKey", system_resetpw_validateResetKeyHandler)
 	http.HandleFunc("/system/reset/confirmPasswordReset", system_resetpw_confirmReset)
 }
 
 // Validate if the ysername and rkey is valid
 func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_resetpw_validateResetKeyHandler: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_resetpw_validateResetKeyHandler", "r", r))
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid username or key")
 		return
 	}
 	rkey, err := utils.PostPara(r, "rkey")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid username or key")
 		return
 	}
@@ -49,6 +49,7 @@ func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Reque
 	//Check if the pair is valid
 	err = system_resetpw_validateResetKey(username, rkey)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -58,9 +59,7 @@ func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_resetpw_confirmReset: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_resetpw_confirmReset", "r", r))
 	username, _ := utils.PostPara(r, "username")
 	rkey, _ := utils.PostPara(r, "rkey")
 	newpw, _ := utils.PostPara(r, "pw")
@@ -78,6 +77,7 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
 	//Validate rkey
 	err := system_resetpw_validateResetKey(username, rkey)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -86,6 +86,7 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
 	newHashedPassword := auth.Hash(newpw)
 	err = sysdb.Write("auth", "passhash/"+username, newHashedPassword)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -94,14 +95,13 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func system_resetpw_validateResetKey(username string, key string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_resetpw_validateResetKey: username=%.120q", username)
-	}
+func system_resetpw_validateResetKey(username string, key string) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "system_resetpw_validateResetKey", "username", username, "!key", key), &out0)
 	//Get current password from db
 	passwordInDB := ""
 	err := sysdb.Read("auth", "passhash/"+username, &passwordInDB)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 
@@ -115,9 +115,7 @@ func system_resetpw_validateResetKey(username string, key string) error {
 }
 
 func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_resetpw_handlePasswordReset: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_resetpw_handlePasswordReset", "r", r))
 	//Check if the user click on this link with reset password key string. If not, ask the user to input one
 	acc, err := utils.GetPara(r, "acc")
 	if err != nil || acc == "" {
@@ -134,6 +132,7 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 	//Check if the code is valid
 	err = system_resetpw_validateResetKey(acc, resetkey)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid username or resetKey")
 		return
 	}
@@ -151,6 +150,7 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 		"rkey":        resetkey,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -159,9 +159,7 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 }
 
 func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_resetpw_serveIdEnterInterface: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_resetpw_serveIdEnterInterface", "r", r))
 	//Reset Key or Username not found, Serve entering interface
 	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
 	if !fs.FileExists(imgsrc) {
@@ -173,6 +171,7 @@ func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request
 		"host_name":   *host_name,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}

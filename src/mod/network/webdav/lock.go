@@ -133,14 +133,14 @@ type memLS struct {
 	byExpiry byExpiry
 }
 
-func (m *memLS) nextToken() string {
-	logger.Debug("network/webdav", "memLS.nextToken")
+func (m *memLS) nextToken() (out0 string) {
+	defer logger.Out1(logger.In1("network/webdav", "memLS.nextToken", "m", m), &out0)
 	m.gen++
 	return strconv.FormatUint(m.gen, 10)
 }
 
 func (m *memLS) collectExpiredNodes(now time.Time) {
-	logger.Debug("network/webdav", "memLS.collectExpiredNodes")
+	defer logger.Out0(logger.In2("network/webdav", "memLS.collectExpiredNodes", "m", m, "&now", &now))
 	for len(m.byExpiry) > 0 {
 		if now.Before(m.byExpiry[0].expiry) {
 			break
@@ -149,10 +149,8 @@ func (m *memLS) collectExpiredNodes(now time.Time) {
 	}
 }
 
-func (m *memLS) Confirm(now time.Time, name0, name1 string, conditions ...Condition) (func(), error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memLS.Confirm: name0=%.120q name1=%.120q len(conditions)=%d", name0, name1, len(conditions))
-	}
+func (m *memLS) Confirm(now time.Time, name0, name1 string, conditions ...Condition) (out0 func(), out1 error) {
+	defer logger.Out2(logger.In5("network/webdav", "memLS.Confirm", "m", m, "&now", &now, "name0", name0, "name1", name1, "conditions", conditions), &out0, &out1)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -198,9 +196,7 @@ func (m *memLS) Confirm(now time.Time, name0, name1 string, conditions ...Condit
 //
 // n may be a parent of the named resource, if n is an infinite depth lock.
 func (m *memLS) lookup(name string, conditions ...Condition) (n *memLSNode) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memLS.lookup: name=%.120q len(conditions)=%d", name, len(conditions))
-	}
+	defer logger.Out1(logger.In3("network/webdav", "memLS.lookup", "m", m, "name", name, "conditions", conditions), &n)
 	// TODO: support Condition.Not and Condition.ETag.
 	for _, c := range conditions {
 		n = m.byToken[c.Token]
@@ -221,7 +217,7 @@ func (m *memLS) lookup(name string, conditions ...Condition) (n *memLSNode) {
 }
 
 func (m *memLS) hold(n *memLSNode) {
-	logger.Debug("network/webdav", "memLS.hold")
+	defer logger.Out0(logger.In2("network/webdav", "memLS.hold", "m", m, "n", n))
 	if n.held {
 		panic("webdav: memLS inconsistent held state")
 	}
@@ -232,7 +228,7 @@ func (m *memLS) hold(n *memLSNode) {
 }
 
 func (m *memLS) unhold(n *memLSNode) {
-	logger.Debug("network/webdav", "memLS.unhold")
+	defer logger.Out0(logger.In2("network/webdav", "memLS.unhold", "m", m, "n", n))
 	if !n.held {
 		panic("webdav: memLS inconsistent held state")
 	}
@@ -242,8 +238,8 @@ func (m *memLS) unhold(n *memLSNode) {
 	}
 }
 
-func (m *memLS) Create(now time.Time, details LockDetails) (string, error) {
-	logger.Debug("network/webdav", "memLS.Create")
+func (m *memLS) Create(now time.Time, details LockDetails) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("network/webdav", "memLS.Create", "m", m, "&now", &now, "&details", &details), &out0, &out1)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -263,8 +259,8 @@ func (m *memLS) Create(now time.Time, details LockDetails) (string, error) {
 	return n.token, nil
 }
 
-func (m *memLS) Refresh(now time.Time, token string, duration time.Duration) (LockDetails, error) {
-	logger.Debug("network/webdav", "memLS.Refresh")
+func (m *memLS) Refresh(now time.Time, token string, duration time.Duration) (out0 LockDetails, out1 error) {
+	defer logger.Out2(logger.In4("network/webdav", "memLS.Refresh", "m", m, "&now", &now, "&duration", &duration, "!token", token), &out0, &out1)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.collectExpiredNodes(now)
@@ -305,9 +301,7 @@ func (m *memLS) Unlock(now time.Time, token string) error {
 }
 
 func (m *memLS) canCreate(name string, zeroDepth bool) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "memLS.canCreate: name=%.120q zeroDepth=%t", name, zeroDepth)
-	}
+	logger.DebugTrace("network/webdav", "memLS.canCreate")
 	return walkToRoot(name, func(name0 string, first bool) bool {
 		n := m.byName[name0]
 		if n == nil {
@@ -332,9 +326,7 @@ func (m *memLS) canCreate(name string, zeroDepth bool) bool {
 }
 
 func (m *memLS) create(name string) (ret *memLSNode) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memLS.create: name=%.120q", name)
-	}
+	defer logger.Out1(logger.In2("network/webdav", "memLS.create", "m", m, "name", name), &ret)
 	walkToRoot(name, func(name0 string, first bool) bool {
 		n := m.byName[name0]
 		if n == nil {
@@ -356,7 +348,7 @@ func (m *memLS) create(name string) (ret *memLSNode) {
 }
 
 func (m *memLS) remove(n *memLSNode) {
-	logger.Debug("network/webdav", "memLS.remove")
+	defer logger.Out0(logger.In2("network/webdav", "memLS.remove", "m", m, "n", n))
 	delete(m.byToken, n.token)
 	n.token = ""
 	walkToRoot(n.details.Root, func(name0 string, first bool) bool {
@@ -372,10 +364,8 @@ func (m *memLS) remove(n *memLSNode) {
 	}
 }
 
-func walkToRoot(name string, f func(name0 string, first bool) bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "walkToRoot: name=%.120q", name)
-	}
+func walkToRoot(name string, f func(name0 string, first bool) bool) (out0 bool) {
+	defer logger.Out1(logger.In2("network/webdav", "walkToRoot", "name", name, "f", f), &out0)
 	for first := true; ; first = false {
 		if !f(name, first) {
 			return false
@@ -417,30 +407,26 @@ func (b *byExpiry) Len() int {
 }
 
 func (b *byExpiry) Less(i, j int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "byExpiry.Less: i=%d j=%d", i, j)
-	}
+	logger.DebugTrace("network/webdav", "byExpiry.Less")
 	return (*b)[i].expiry.Before((*b)[j].expiry)
 }
 
 func (b *byExpiry) Swap(i, j int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "byExpiry.Swap: i=%d j=%d", i, j)
-	}
+	logger.DebugTrace("network/webdav", "byExpiry.Swap")
 	(*b)[i], (*b)[j] = (*b)[j], (*b)[i]
 	(*b)[i].byExpiryIndex = i
 	(*b)[j].byExpiryIndex = j
 }
 
 func (b *byExpiry) Push(x interface{}) {
-	logger.Debug("network/webdav", "byExpiry.Push")
+	defer logger.Out0(logger.In2("network/webdav", "byExpiry.Push", "b", b, "x", x))
 	n := x.(*memLSNode)
 	n.byExpiryIndex = len(*b)
 	*b = append(*b, n)
 }
 
-func (b *byExpiry) Pop() interface{} {
-	logger.Debug("network/webdav", "byExpiry.Pop")
+func (b *byExpiry) Pop() (out0 interface{}) {
+	defer logger.Out1(logger.In1("network/webdav", "byExpiry.Pop", "b", b), &out0)
 	i := len(*b) - 1
 	n := (*b)[i]
 	(*b)[i] = nil
@@ -453,10 +439,8 @@ const infiniteTimeout = -1
 
 // parseTimeout parses the Timeout HTTP header, as per section 10.7. If s is
 // empty, an infiniteTimeout is returned.
-func parseTimeout(s string) (time.Duration, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "parseTimeout: s=%.120q", s)
-	}
+func parseTimeout(s string) (out0 time.Duration, out1 error) {
+	defer logger.Out2(logger.In1("network/webdav", "parseTimeout", "s", s), &out0, &out1)
 	if s == "" {
 		return infiniteTimeout, nil
 	}

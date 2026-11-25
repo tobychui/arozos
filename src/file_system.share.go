@@ -36,10 +36,8 @@ import (
 // FileSystemInit creates the share manager, so it is looked up per call.
 type sharedDriveResolver struct{}
 
-func (sharedDriveResolver) Items(username string) []*sharefs.Item {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sharedDriveResolver.Items: username=%.120q", username)
-	}
+func (sharedDriveResolver) Items(username string) (out0 []*sharefs.Item) {
+	defer logger.Out1(logger.In1("Core", "sharedDriveResolver.Items", "username", username), &out0)
 	if shareManager == nil {
 		return nil
 	}
@@ -48,15 +46,14 @@ func (sharedDriveResolver) Items(username string) []*sharefs.Item {
 
 // sharedDriveThumbnail renders the thumbnail of a shared file on its owner's
 // drive, where the owner's own thumbnail cache is kept
-func sharedDriveThumbnail(fsh *fs.FileSystemHandler, rpath string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sharedDriveThumbnail: rpath=%.120q", rpath)
-	}
+func sharedDriveThumbnail(fsh *fs.FileSystemHandler, rpath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("Core", "sharedDriveThumbnail", "fsh", fsh, "rpath", rpath), &out0, &out1)
 	if thumbRenderHandler == nil || !metadata.ThumbnailSupported(rpath) {
 		return nil, arozfs.ErrNoThumbnail
 	}
 	encoded, err := thumbRenderHandler.LoadCache(fsh, rpath, false)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	data, err := base64.StdEncoding.DecodeString(encoded)
@@ -66,8 +63,8 @@ func sharedDriveThumbnail(fsh *fs.FileSystemHandler, rpath string) ([]byte, erro
 	return data, nil
 }
 
-func newSharedDriveHandler() *fs.FileSystemHandler {
-	logger.Debug("Core", "newSharedDriveHandler")
+func newSharedDriveHandler() (out0 *fs.FileSystemHandler) {
+	defer logger.Out1(logger.In0("Core", "newSharedDriveHandler"), &out0)
 	abs := sharefs.New(share.SharedDriveUUID, sharedDriveResolver{}, sharefs.Options{
 		Thumbnail: sharedDriveThumbnail,
 		BufferDir: filepath.Join(*tmp_directory, "sharefs"),
@@ -99,10 +96,8 @@ func newSharedDriveHandler() *fs.FileSystemHandler {
 
 // sharedDriveAttach adds the drive to the handlers of the base storage pool,
 // unless a configured storage already uses its id
-func sharedDriveAttach(handlers []*fs.FileSystemHandler) []*fs.FileSystemHandler {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sharedDriveAttach: len(handlers)=%d", len(handlers))
-	}
+func sharedDriveAttach(handlers []*fs.FileSystemHandler) (out0 []*fs.FileSystemHandler) {
+	defer logger.Out1(logger.In1("Core", "sharedDriveAttach", "handlers", handlers), &out0)
 	for _, fsh := range handlers {
 		if fsh.UUID == share.SharedDriveUUID {
 			systemWideLogger.PrintAndLog("Storage", "A storage is mounted as "+share.SharedDriveUUID+
@@ -116,10 +111,8 @@ func sharedDriveAttach(handlers []*fs.FileSystemHandler) []*fs.FileSystemHandler
 // sharedDriveOwnerOf returns who shared a file on the share:/ drive with the
 // user, or "" for anything else (another drive, the drive root, a path that
 // is not shared). The file ownership records only know a user's own home.
-func sharedDriveOwnerOf(userinfo *user.User, fsh *fs.FileSystemHandler, vpath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sharedDriveOwnerOf: vpath=%.120q", vpath)
-	}
+func sharedDriveOwnerOf(userinfo *user.User, fsh *fs.FileSystemHandler, vpath string) (out0 string) {
+	defer logger.Out1(logger.In3("Core", "sharedDriveOwnerOf", "userinfo", userinfo, "fsh", fsh, "vpath", vpath), &out0)
 	if !share.IsSharedDrive(fsh) {
 		return ""
 	}
@@ -133,10 +126,8 @@ func sharedDriveOwnerOf(userinfo *user.User, fsh *fs.FileSystemHandler, vpath st
 // sharedDriveCopyDenied returns why a copy of one of the given files cannot be
 // taken, or nil: a file shared with the user whose owner does not allow
 // downloading it, or the drive root itself.
-func sharedDriveCopyDenied(userinfo *user.User, vpaths []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sharedDriveCopyDenied: len(vpaths)=%d", len(vpaths))
-	}
+func sharedDriveCopyDenied(userinfo *user.User, vpaths []string) (out0 error) {
+	defer logger.Out1(logger.In2("Core", "sharedDriveCopyDenied", "userinfo", userinfo, "vpaths", vpaths), &out0)
 	for _, vpath := range vpaths {
 		fsh, _, err := GetFSHandlerSubpathFromVpath(vpath)
 		if err != nil || !share.IsSharedDrive(fsh) {
@@ -145,6 +136,7 @@ func sharedDriveCopyDenied(userinfo *user.User, vpaths []string) error {
 		drive := fsh.FileSystemAbstraction.(*sharefs.ShareFileSystem)
 		item, err := drive.ItemOf(vpath, userinfo.Username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			return errors.New("Source file not exists")
 		}
 		if item == nil {

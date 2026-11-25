@@ -32,7 +32,7 @@ var (
 )
 
 func SystemSettingInit() {
-	logger.Debug("Core", "SystemSettingInit")
+	defer logger.Out0(logger.In0("Core", "SystemSettingInit"))
 	http.HandleFunc("/system/setting/list", system_setting_handleListing)
 
 	//Register the module
@@ -51,8 +51,8 @@ func SystemSettingInit() {
 }
 
 // Setting group defination. Your setting module defination must match the group in-order to be shown
-func system_setting_getSettingGroups() []settingGroup {
-	logger.Debug("Core", "system_setting_getSettingGroups")
+func system_setting_getSettingGroups() (out0 []settingGroup) {
+	defer logger.Out1(logger.In0("Core", "system_setting_getSettingGroups"), &out0)
 	groups := []settingGroup{
 		{
 			Name:     "Host Information",
@@ -171,10 +171,8 @@ type settingGroupTree struct {
 // buildSettingTree pairs every group with the pages a user may see in it, in
 // registration order. Groups left without a visible page are dropped, so the
 // sidebar never shows an empty group.
-func buildSettingTree(groups []settingGroup, mods []settingModule, isAdmin bool) []settingGroupTree {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "buildSettingTree: len(groups)=%d len(mods)=%d isAdmin=%t", len(groups), len(mods), isAdmin)
-	}
+func buildSettingTree(groups []settingGroup, mods []settingModule, isAdmin bool) (out0 []settingGroupTree) {
+	defer logger.Out1(logger.In3("Core", "buildSettingTree", "groups", groups, "mods", mods, "isAdmin", isAdmin), &out0)
 	tree := []settingGroupTree{}
 	for _, g := range groups {
 		visible := []settingModule{}
@@ -192,11 +190,10 @@ func buildSettingTree(groups []settingGroup, mods []settingModule, isAdmin bool)
 
 // List all the setting modules and output it as JSON
 func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "system_setting_handleListing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "system_setting_handleListing", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}

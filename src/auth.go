@@ -12,7 +12,7 @@ import (
 )
 
 func AuthInit() {
-	logger.Debug("Core", "AuthInit")
+	defer logger.Out0(logger.In0("Core", "AuthInit"))
 	//Generate session key for authentication module if empty
 	sysdb.NewTable("auth")
 	if *session_key == "" {
@@ -57,7 +57,7 @@ func AuthInit() {
 }
 
 func AuthSettingsInit() {
-	logger.Debug("Core", "AuthSettingsInit")
+	defer logger.Out0(logger.In0("Core", "AuthSettingsInit"))
 	//Authentication related settings
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",
@@ -154,12 +154,11 @@ func AuthSettingsInit() {
 // Validate secure request that use authreq.html
 // Require POST: password and admin permission
 // return true if authentication passed
-func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request, requireAdmin bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "AuthValidateSecureRequest: r=%s requireAdmin=%t", logger.RequestSummary(r), requireAdmin)
-	}
+func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request, requireAdmin bool) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "AuthValidateSecureRequest", "r", r, "requireAdmin", requireAdmin), &out0)
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 Unauthorized"))
 		return false
@@ -176,6 +175,7 @@ func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request, requireAd
 	//Double check password for this user
 	password, err := utils.PostPara(r, "password")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 Unauthorized"))
 		return false

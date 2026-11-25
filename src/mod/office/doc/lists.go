@@ -58,9 +58,7 @@ type lists struct {
 
 // readLvl reads one LVL at p, returning it and the offset after it
 func readLvl(b []byte, p int) (*lvl, int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "readLvl: len(b)=%d p=%d", len(b), p)
-	}
+	logger.DebugTrace("office/doc", "readLvl")
 	le := binary.LittleEndian
 	if p+28 > len(b) {
 		return nil, len(b)
@@ -102,9 +100,7 @@ func readLvl(b []byte, p int) (*lvl, int) {
 // parseLists reads PlfLst and PlfLfo; both slices run to the end of the
 // table stream, since the level data follows each beyond its stated size
 func parseLists(plfLst, plfLfo []byte) *lists {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "parseLists: len(plfLst)=%d len(plfLfo)=%d", len(plfLst), len(plfLfo))
-	}
+	logger.DebugTrace("office/doc", "parseLists")
 	le := binary.LittleEndian
 	ls := &lists{}
 	if len(plfLst) >= 2 {
@@ -165,9 +161,7 @@ func parseLists(plfLst, plfLfo []byte) *lists {
 
 // defIndex finds the definition an override uses
 func (ls *lists) defIndex(lsid int32) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "lists.defIndex: lsid=%d", lsid)
-	}
+	logger.DebugTrace("office/doc", "lists.defIndex")
 	for i, d := range ls.defs {
 		if d.lsid == lsid {
 			return i

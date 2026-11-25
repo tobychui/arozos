@@ -119,20 +119,22 @@ type pres struct {
 }
 
 // ToPptx converts a PowerPoint 97-2003 presentation into a .pptx file
-func ToPptx(data []byte) ([]byte, error) {
-	logger.Debug("office/ppt", "ToPptx")
+func ToPptx(data []byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/ppt", "ToPptx", "data", data), &out0, &out1)
 	p, err := open(data)
 	if err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil, err
 	}
 	return newWriter(p).write()
 }
 
 // Parse converts a PowerPoint 97-2003 presentation into the Slides model
-func Parse(data []byte) (*model.Presentation, error) {
-	logger.Debug("office/ppt", "Parse")
+func Parse(data []byte) (out0 *model.Presentation, out1 error) {
+	defer logger.Out2(logger.In1("office/ppt", "Parse", "data", data), &out0, &out1)
 	x, err := ToPptx(data)
 	if err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil, err
 	}
 	return pptx.Parse(x)
@@ -145,6 +147,7 @@ func open(data []byte) (*pres, error) {
 	}
 	cf, err := cfb.Open(data)
 	if err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil, err
 	}
 	if cf.Has("EncryptedSummary") {
@@ -158,6 +161,7 @@ func open(data []byte) (*pres, error) {
 	}
 	p := &pres{masterByID: map[uint32]*slideRec{}, notesByID: map[uint32]*slideRec{}, links: map[uint32]link{}}
 	if p.doc, err = cf.Stream("PowerPoint Document"); err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil, err
 	}
 	if cf.Has("Pictures") {
@@ -168,9 +172,11 @@ func open(data []byte) (*pres, error) {
 		cu, _ = cf.Stream("Current User")
 	}
 	if err := p.readPersist(cu); err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil, err
 	}
 	if err := p.readDocument(); err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil, err
 	}
 	return p, nil
@@ -179,9 +185,7 @@ func open(data []byte) (*pres, error) {
 // readPersist follows the edit chain from the current edit back to the
 // first save; a newer edit's entries win
 func (p *pres) readPersist(cu []byte) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "pres.readPersist: len(cu)=%d", len(cu))
-	}
+	logger.DebugTrace("office/ppt", "pres.readPersist")
 	le := binary.LittleEndian
 	p.persist = map[uint32]int{}
 	off := -1
@@ -253,15 +257,14 @@ func (p *pres) readPersist(cu []byte) error {
 
 // record returns the record a persist id points at
 func (p *pres) record(id uint32) *officeart.Record {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "pres.record: id=%d", id)
-	}
+	logger.DebugTrace("office/ppt", "pres.record")
 	off, ok := p.persist[id]
 	if !ok {
 		return nil
 	}
 	r, _, err := officeart.ParseOne(p.doc, off)
 	if err != nil {
+		logger.DebugErr("office/ppt", err)
 		return nil
 	}
 	return r
@@ -403,18 +406,14 @@ func (p *pres) readSlide(s *slideRec) {
 // slideHidden reads fHidden, the third flag bit after the effect bytes of
 // a SlideShowSlideInfoAtom: PowerPoint's Hide Slide
 func slideHidden(info []byte) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "slideHidden: len(info)=%d", len(info))
-	}
+	logger.DebugTrace("office/ppt", "slideHidden")
 	return len(info) > 10 && info[10]&0x04 != 0
 }
 
 // transitionName maps a SlideShowSlideInfoAtom effect onto the
 // PresentationML transition element
 func transitionName(effect, dir int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "transitionName: effect=%d dir=%d", effect, dir)
-	}
+	logger.DebugTrace("office/ppt", "transitionName")
 	switch effect {
 	case 0:
 		return ""
@@ -462,9 +461,7 @@ func transitionName(effect, dir int) string {
 
 // utf16z decodes UTF-16 up to the first NUL
 func utf16z(b []byte) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/ppt", "utf16z: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/ppt", "utf16z")
 	u := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
 		c := binary.LittleEndian.Uint16(b[i:])

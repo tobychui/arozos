@@ -50,9 +50,7 @@ type substRules struct {
 // parseGSUB collects the substitutions of the default features. A font with
 // no GSUB, or one this cannot read, yields no rules.
 func parseGSUB(table []byte, numGlyphs int) (*substRules, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "parseGSUB: len(table)=%d numGlyphs=%d", len(table), numGlyphs)
-	}
+	logger.DebugTrace("locale/fonts", "parseGSUB")
 	rules := &substRules{}
 	if table == nil {
 		return rules, nil
@@ -70,6 +68,7 @@ func parseGSUB(table []byte, numGlyphs int) (*substRules, error) {
 	p := &gsubParser{table: table, numGlyphs: numGlyphs, rules: rules, visited: map[int]bool{}}
 	lookupCount, err := u16(table, int(lookupList))
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	p.lookupList, p.lookupCount = int(lookupList), int(lookupCount)
@@ -77,12 +76,14 @@ func parseGSUB(table []byte, numGlyphs int) (*substRules, error) {
 	// lookups of the default features
 	featureCount, err := u16(table, int(featureList))
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	tags := make([]string, featureCount)
 	for i := 0; i < int(featureCount); i++ {
 		rec, err := sub(table, int64(featureList)+2+6*int64(i), 6)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		tags[i] = string(rec[:4])
@@ -102,6 +103,7 @@ func parseGSUB(table []byte, numGlyphs int) (*substRules, error) {
 		index := p.queue[0]
 		p.queue = p.queue[1:]
 		if err := p.lookup(index); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 	}
@@ -120,9 +122,7 @@ type gsubParser struct {
 }
 
 func (p *gsubParser) enqueue(index int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.enqueue: index=%d", index)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.enqueue")
 	if index < p.lookupCount && !p.visited[index] {
 		p.visited[index] = true
 		p.queue = append(p.queue, index)
@@ -130,11 +130,10 @@ func (p *gsubParser) enqueue(index int) {
 }
 
 func (p *gsubParser) queueFeature(off int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.queueFeature: off=%d", off)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.queueFeature")
 	count, err := u16(p.table, off+2)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return
 	}
 	for i := 0; i < int(count); i++ {
@@ -145,14 +144,13 @@ func (p *gsubParser) queueFeature(off int) {
 }
 
 func (p *gsubParser) queueFeatureVariations(off int64, tags []string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.queueFeatureVariations: off=%d len(tags)=%d", off, len(tags))
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.queueFeatureVariations")
 	if off > int64(len(p.table)) {
 		return
 	}
 	count, err := u32(p.table, int(off)+4)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return
 	}
 	for i := int64(0); i < int64(count) && i < 4096; i++ {
@@ -166,6 +164,7 @@ func (p *gsubParser) queueFeatureVariations(off int64, tags []string) {
 		}
 		n, err := u16(p.table, int(ftsOff)+4)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			continue
 		}
 		for k := int64(0); k < int64(n); k++ {
@@ -182,9 +181,7 @@ func (p *gsubParser) queueFeatureVariations(off int64, tags []string) {
 }
 
 func (p *gsubParser) addPair(in, out uint16) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.addPair: in=%d out=%d", in, out)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.addPair")
 	if int(in) >= p.numGlyphs || int(out) >= p.numGlyphs {
 		return nil
 	}
@@ -197,11 +194,10 @@ func (p *gsubParser) addPair(in, out uint16) error {
 }
 
 func (p *gsubParser) lookup(index int) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.lookup: index=%d", index)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.lookup")
 	rel, err := u16(p.table, p.lookupList+2+2*index)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil
 	}
 	off := p.lookupList + int(rel)
@@ -213,6 +209,7 @@ func (p *gsubParser) lookup(index int) error {
 	for i := 0; i < int(count); i++ {
 		subRel, err := u16(p.table, off+6+2*i)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil
 		}
 		subOff := off + int(subRel)
@@ -226,6 +223,7 @@ func (p *gsubParser) lookup(index int) error {
 			subKind, subOff = extKind, subOff+int(extOff)
 		}
 		if err := p.subtable(subKind, subOff); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return err
 		}
 	}
@@ -234,15 +232,15 @@ func (p *gsubParser) lookup(index int) error {
 
 // coverage returns the glyphs of a coverage table in coverage index order
 func (p *gsubParser) coverage(off int) []uint16 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.coverage: off=%d", off)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.coverage")
 	format, err := u16(p.table, off)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil
 	}
 	count, err := u16(p.table, off+2)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil
 	}
 	switch format {
@@ -251,6 +249,7 @@ func (p *gsubParser) coverage(off int) []uint16 {
 		for i := 0; i < int(count); i++ {
 			g, err := u16(p.table, off+4+2*i)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				break
 			}
 			glyphs = append(glyphs, g)
@@ -282,27 +281,29 @@ func (p *gsubParser) coverage(off int) []uint16 {
 }
 
 func (p *gsubParser) subtable(kind uint16, off int) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.subtable: kind=%d off=%d", kind, off)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.subtable")
 	format, err := u16(p.table, off)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil
 	}
 	switch kind {
 	case 1: // single
 		covOff, err := u16(p.table, off+2)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil
 		}
 		cov := p.coverage(off + int(covOff))
 		if format == 1 {
 			delta, err := u16(p.table, off+4)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil
 			}
 			for _, g := range cov {
 				if err := p.addPair(g, g+delta); err != nil {
+					logger.DebugErr("locale/fonts", err)
 					return err
 				}
 			}
@@ -310,9 +311,11 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 			for i, g := range cov {
 				out, err := u16(p.table, off+6+2*i)
 				if err != nil {
+					logger.DebugErr("locale/fonts", err)
 					break
 				}
 				if err := p.addPair(g, out); err != nil {
+					logger.DebugErr("locale/fonts", err)
 					return err
 				}
 			}
@@ -321,25 +324,30 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 	case 2, 3: // multiple, alternate: every glyph of the sequence / set
 		covOff, err := u16(p.table, off+2)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil
 		}
 		cov := p.coverage(off + int(covOff))
 		for i, g := range cov {
 			seqRel, err := u16(p.table, off+6+2*i)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				break
 			}
 			seq := off + int(seqRel)
 			n, err := u16(p.table, seq)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				continue
 			}
 			for k := 0; k < int(n); k++ {
 				out, err := u16(p.table, seq+2+2*k)
 				if err != nil {
+					logger.DebugErr("locale/fonts", err)
 					break
 				}
 				if err := p.addPair(g, out); err != nil {
+					logger.DebugErr("locale/fonts", err)
 					return err
 				}
 			}
@@ -348,22 +356,26 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 	case 4: // ligature
 		covOff, err := u16(p.table, off+2)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil
 		}
 		cov := p.coverage(off + int(covOff))
 		for i, first := range cov {
 			setRel, err := u16(p.table, off+6+2*i)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				break
 			}
 			set := off + int(setRel)
 			n, err := u16(p.table, set)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				continue
 			}
 			for k := 0; k < int(n); k++ {
 				ligRel, err := u16(p.table, set+2+2*k)
 				if err != nil {
+					logger.DebugErr("locale/fonts", err)
 					break
 				}
 				lig := set + int(ligRel)
@@ -376,6 +388,7 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 				for c := 1; c < int(comps); c++ {
 					g, err := u16(p.table, lig+2+2*c)
 					if err != nil {
+						logger.DebugErr("locale/fonts", err)
 						break
 					}
 					l.components = append(l.components, g)
@@ -394,6 +407,7 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 	case 8: // reverse chaining single
 		covOff, err := u16(p.table, off+2)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil
 		}
 		cov := p.coverage(off + int(covOff))
@@ -401,20 +415,24 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 		for i := 0; i < 2; i++ { // skip the backtrack and lookahead coverages
 			n, err := u16(p.table, pos)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil
 			}
 			pos += 2 + 2*int(n)
 		}
 		n, err := u16(p.table, pos)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil
 		}
 		for i := 0; i < int(n) && i < len(cov); i++ {
 			out, err := u16(p.table, pos+2+2*i)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				break
 			}
 			if err := p.addPair(cov[i], out); err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return err
 			}
 		}
@@ -424,9 +442,7 @@ func (p *gsubParser) subtable(kind uint16, off int) error {
 
 // nestedLookups reads the SubstLookupRecords of a (chained) context subtable
 func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "gsubParser.nestedLookups: kind=%d format=%d off=%d", kind, format, off)
-	}
+	logger.DebugTrace("locale/fonts", "gsubParser.nestedLookups")
 	records := func(pos, count int) {
 		for i := 0; i < count; i++ {
 			if index, err := u16(p.table, pos+4*i+2); err == nil {
@@ -447,6 +463,7 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 		}
 		backtrack, err := u16(p.table, pos)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return
 		}
 		pos += 2 + 2*int(backtrack)
@@ -457,11 +474,13 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 		pos += 2 + 2*(int(input)-1)
 		lookahead, err := u16(p.table, pos)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return
 		}
 		pos += 2 + 2*int(lookahead)
 		substs, err := u16(p.table, pos)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return
 		}
 		records(pos+2, int(substs))
@@ -470,6 +489,7 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 	ruleSets := func(countPos, firstPos int) {
 		count, err := u16(p.table, countPos)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return
 		}
 		for i := 0; i < int(count); i++ {
@@ -480,6 +500,7 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 			set := off + int(setRel)
 			n, err := u16(p.table, set)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				continue
 			}
 			for k := 0; k < int(n); k++ {
@@ -508,6 +529,7 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 		for i := 0; i < 3; i++ {
 			n, err := u16(p.table, pos)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return
 			}
 			pos += 2 + 2*int(n)
@@ -521,9 +543,7 @@ func (p *gsubParser) nestedLookups(kind, format uint16, off int) {
 // closure marks every glyph the rules can reach from the kept ones. It
 // reports whether it added anything.
 func (r *substRules) closure(keep []bool) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "substRules.closure: len(keep)=%d", len(keep))
-	}
+	logger.DebugTrace("locale/fonts", "substRules.closure")
 	grew := false
 	for pass := 0; pass < 64; pass++ {
 		changed := false

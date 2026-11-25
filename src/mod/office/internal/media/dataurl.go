@@ -10,8 +10,8 @@ import (
 
 // dataURL decodes a data:image/...;base64,... URL. Returns bytes, file
 // extension (png/jpeg/gif) and ok.
-func DecodeDataURL(durl string) ([]byte, string, bool) {
-	logger.Debug("office/internal/media", "DecodeDataURL")
+func DecodeDataURL(durl string) (out0 []byte, out1 string, out2 bool) {
+	defer logger.Out3(logger.In1("office/internal/media", "DecodeDataURL", "durl", durl), &out0, &out1, &out2)
 	if !strings.HasPrefix(durl, "data:image/") {
 		return nil, "", false
 	}
@@ -33,6 +33,7 @@ func DecodeDataURL(durl string) ([]byte, string, bool) {
 	}
 	raw, err := base64.StdEncoding.DecodeString(durl[comma+1:])
 	if err != nil {
+		logger.DebugErr("office/internal/media", err)
 		return nil, "", false
 	}
 	return raw, ext, true
@@ -46,10 +47,8 @@ rather than the browser downloading and re-uploading every one). Only the
 formats Word and PowerPoint embed as they are qualify - the editors turn
 anything else (SVG charts, WebP, BMP) into PNG before saving.
 */
-func ImageSrcBytes(src string, readVpath func(string) ([]byte, error)) ([]byte, string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/media", "ImageSrcBytes: src=%.120q", src)
-	}
+func ImageSrcBytes(src string, readVpath func(string) ([]byte, error)) (out0 []byte, out1 string, out2 bool) {
+	defer logger.Out3(logger.In2("office/internal/media", "ImageSrcBytes", "src", src, "readVpath", readVpath), &out0, &out1, &out2)
 	if data, ext, ok := DecodeDataURL(src); ok {
 		return data, ext, true
 	}
@@ -73,8 +72,8 @@ func ImageSrcBytes(src string, readVpath func(string) ([]byte, error)) ([]byte, 
 
 // SniffImageExt names png / jpeg / gif content by its signature ("" for
 // anything else)
-func SniffImageExt(data []byte) string {
-	logger.Debug("office/internal/media", "SniffImageExt")
+func SniffImageExt(data []byte) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/media", "SniffImageExt", "data", data), &out0)
 	switch {
 	case len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n":
 		return "png"
@@ -87,10 +86,8 @@ func SniffImageExt(data []byte) string {
 }
 
 // EncodeDataURL builds a data URL from raw image bytes
-func EncodeDataURL(data []byte, ext string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/media", "EncodeDataURL: ext=%.120q", ext)
-	}
+func EncodeDataURL(data []byte, ext string) (out0 string) {
+	defer logger.Out1(logger.In2("office/internal/media", "EncodeDataURL", "data", data, "ext", ext), &out0)
 	mime := "image/png"
 	switch strings.ToLower(ext) {
 	case "jpg", "jpeg":
@@ -127,10 +124,8 @@ var ExtToMime = func() map[string]string {
 }()
 
 // ParseAnyDataURL decodes any base64 data URL (images, video, audio, ...)
-func ParseAnyDataURL(s string) ([]byte, string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/media", "ParseAnyDataURL: s=%.120q", s)
-	}
+func ParseAnyDataURL(s string) (out0 []byte, out1 string, out2 bool) {
+	defer logger.Out3(logger.In1("office/internal/media", "ParseAnyDataURL", "s", s), &out0, &out1, &out2)
 	if !strings.HasPrefix(s, "data:") {
 		return nil, "", false
 	}
@@ -149,15 +144,14 @@ func ParseAnyDataURL(s string) ([]byte, string, bool) {
 	}
 	raw, err := base64.StdEncoding.DecodeString(s[comma+1:])
 	if err != nil {
+		logger.DebugErr("office/internal/media", err)
 		return nil, "", false
 	}
 	return raw, ext, true
 }
 
-func DataURLOf(data []byte, ext string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/media", "DataURLOf: ext=%.120q", ext)
-	}
+func DataURLOf(data []byte, ext string) (out0 string) {
+	defer logger.Out1(logger.In2("office/internal/media", "DataURLOf", "data", data, "ext", ext), &out0)
 	mime, ok := ExtToMime[strings.ToLower(ext)]
 	if !ok {
 		mime = "application/octet-stream"
@@ -167,10 +161,8 @@ func DataURLOf(data []byte, ext string) string {
 
 // LinkVpath extracts the virtual path from an in-app media link such
 // as "../media?file=user:/Photo/cat.png" (any number of leading ../ or ./)
-func LinkVpath(s string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/media", "LinkVpath: s=%.120q", s)
-	}
+func LinkVpath(s string) (out0 string) {
+	defer logger.Out1(logger.In1("office/internal/media", "LinkVpath", "s", s), &out0)
 	t := s
 	for strings.HasPrefix(t, "../") || strings.HasPrefix(t, "./") {
 		t = strings.TrimPrefix(strings.TrimPrefix(t, "../"), "./")
@@ -186,6 +178,7 @@ func LinkVpath(s string) string {
 	}
 	vals, err := url.ParseQuery(q)
 	if err != nil {
+		logger.DebugErr("office/internal/media", err)
 		return ""
 	}
 	return vals.Get("file")

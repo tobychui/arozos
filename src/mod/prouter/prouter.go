@@ -50,10 +50,8 @@ func NewModuleRouter(option RouterOption) *RouterDef {
 	}
 }
 
-func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseWriter, *http.Request)) error {
-	if logger.IsDebug() {
-		logger.Debugf("prouter", "RouterDef.HandleFunc: endpoint=%.120q", endpoint)
-	}
+func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseWriter, *http.Request)) (out0 error) {
+	defer logger.Out1(logger.In3("prouter", "RouterDef.HandleFunc", "router", router, "endpoint", endpoint, "handler", handler), &out0)
 	//Check if the endpoint already registered
 	if _, exist := router.endpoints[endpoint]; exist {
 		logger.PrintAndLog("Prouter", "WARNING! Duplicated registering of web endpoint: "+endpoint, nil)
@@ -66,16 +64,19 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 		router.permissionDeniedHandler(w, r)
 	}
 
+	userLabel := endpoint + " user" //Built once, not per request
+
 	//OK. Register handler
 	http.HandleFunc(endpoint, func(w http.ResponseWriter, r *http.Request) {
 		//Check authentication of the user
 		authAgent.HandleCheckAuth(w, r, func(w http.ResponseWriter, r *http.Request) {
 			//Check if the user has permission to access this module
 			userinfo, err := router.userHandler.GetUserInfoFromRequest(w, r)
-			if err == nil && logger.IsDebug() {
-				logger.Debugf("prouter", "%s by %q (module %q, admin only %t)", logger.RequestSummary(r), userinfo.Username, router.moduleUUID, router.adminOnly)
+			if err == nil {
+				logger.DebugValue("prouter", userLabel, userinfo.Username)
 			}
 			if err != nil {
+				logger.DebugErr("prouter", err)
 				denied(w, r, "user info unavailable")
 				return
 			}

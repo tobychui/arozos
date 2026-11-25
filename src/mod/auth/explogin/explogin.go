@@ -35,10 +35,8 @@ type ExpLoginHandler struct {
 }
 
 // Create a new exponential login handler object
-func NewExponentialLoginHandler(baseDelay int, ceiling int) *ExpLoginHandler {
-	if logger.IsDebug() {
-		logger.Debugf("auth/explogin", "NewExponentialLoginHandler: baseDelay=%d ceiling=%d", baseDelay, ceiling)
-	}
+func NewExponentialLoginHandler(baseDelay int, ceiling int) (out0 *ExpLoginHandler) {
+	defer logger.Out1(logger.In2("auth/explogin", "NewExponentialLoginHandler", "baseDelay", baseDelay, "ceiling", ceiling), &out0)
 	recordMap := sync.Map{}
 
 	return &ExpLoginHandler{
@@ -49,12 +47,11 @@ func NewExponentialLoginHandler(baseDelay int, ceiling int) *ExpLoginHandler {
 }
 
 // Check allow access now, if false return how many seconds till next retry
-func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request) (bool, int64) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/explogin", "ExpLoginHandler.AllowImmediateAccess: username=%.120q r=%s", username, logger.RequestSummary(r))
-	}
+func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request) (out0 bool, out1 int64) {
+	defer logger.Out2(logger.In3("auth/explogin", "ExpLoginHandler.AllowImmediateAccess", "e", e, "username", username, "r", r), &out0, &out1)
 	userip, err := getIpFromRequest(r)
 	if err != nil {
+		logger.DebugErr("auth/explogin", err)
 		//No ip information. Use 0.0.0.0
 		userip = "0.0.0.0"
 	}
@@ -80,11 +77,10 @@ func (e *ExpLoginHandler) AllowImmediateAccess(username string, r *http.Request)
 
 // Add a user retry count after failed login
 func (e *ExpLoginHandler) AddUserRetrycount(username string, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/explogin", "ExpLoginHandler.AddUserRetrycount: username=%.120q r=%s", username, logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("auth/explogin", "ExpLoginHandler.AddUserRetrycount", "e", e, "username", username, "r", r))
 	userip, err := getIpFromRequest(r)
 	if err != nil {
+		logger.DebugErr("auth/explogin", err)
 		//No ip information. Use 0.0.0.0
 		userip = "0.0.0.0"
 	}
@@ -116,11 +112,10 @@ func (e *ExpLoginHandler) AddUserRetrycount(username string, r *http.Request) {
 
 // Reset a user retry count after successful login
 func (e *ExpLoginHandler) ResetUserRetryCount(username string, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/explogin", "ExpLoginHandler.ResetUserRetryCount: username=%.120q r=%s", username, logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("auth/explogin", "ExpLoginHandler.ResetUserRetryCount", "e", e, "username", username, "r", r))
 	userip, err := getIpFromRequest(r)
 	if err != nil {
+		logger.DebugErr("auth/explogin", err)
 		//No ip information. Use 0.0.0.0
 		userip = "0.0.0.0"
 	}
@@ -139,10 +134,8 @@ func (e *ExpLoginHandler) ResetAllUserRetryCounter() {
 }
 
 // Get the next delay time
-func (e *ExpLoginHandler) getDelayTimeFromRetryCount(retryCount int) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("auth/explogin", "ExpLoginHandler.getDelayTimeFromRetryCount: retryCount=%d", retryCount)
-	}
+func (e *ExpLoginHandler) getDelayTimeFromRetryCount(retryCount int) (out0 int64) {
+	defer logger.Out1(logger.In2("auth/explogin", "ExpLoginHandler.getDelayTimeFromRetryCount", "e", e, "retryCount", retryCount), &out0)
 	delaySecs := int64(math.Floor((math.Pow(2, float64(retryCount)) - 1) * 0.5))
 	if delaySecs > int64(e.DelayCeiling)-int64(e.BaseDelay) {
 		delaySecs = int64(e.DelayCeiling) - int64(e.BaseDelay)
@@ -157,10 +150,8 @@ func (e *ExpLoginHandler) getDelayTimeFromRetryCount(retryCount int) int64 {
 
 */
 
-func getIpFromRequest(r *http.Request) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/explogin", "getIpFromRequest: r=%s", logger.RequestSummary(r))
-	}
+func getIpFromRequest(r *http.Request) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("auth/explogin", "getIpFromRequest", "r", r), &out0, &out1)
 	ip := r.Header.Get("X-REAL-IP")
 	netIP := net.ParseIP(ip)
 	if netIP != nil {
@@ -178,6 +169,7 @@ func getIpFromRequest(r *http.Request) (string, error) {
 
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
+		logger.DebugErr("auth/explogin", err)
 		return "", err
 	}
 	netIP = net.ParseIP(ip)

@@ -56,8 +56,8 @@ func (p *mimePart) isMultipart() bool {
 }
 
 // filename returns the decoded file name of a part, if any.
-func (p *mimePart) filename() string {
-	logger.Debug("email", "mimePart.filename")
+func (p *mimePart) filename() (out0 string) {
+	defer logger.Out1(logger.In1("email", "mimePart.filename", "p", p), &out0)
 	name := rfc2231Param(p.DispParams, "filename")
 	if name == "" {
 		name = rfc2231Param(p.Params, "name")
@@ -67,8 +67,8 @@ func (p *mimePart) filename() string {
 
 // insideRelated reports whether the part belongs to a multipart/related
 // group (inline resources of an HTML body).
-func (p *mimePart) insideRelated() bool {
-	logger.Debug("email", "mimePart.insideRelated")
+func (p *mimePart) insideRelated() (out0 bool) {
+	defer logger.Out1(logger.In1("email", "mimePart.insideRelated", "p", p), &out0)
 	for parent := p.Parent; parent != nil; parent = parent.Parent {
 		if parent.Type == "multipart" && parent.Subtype == "related" {
 			return true
@@ -79,7 +79,7 @@ func (p *mimePart) insideRelated() bool {
 
 // walk visits every part depth first.
 func (p *mimePart) walk(visit func(*mimePart)) {
-	logger.Debug("email", "mimePart.walk")
+	defer logger.Out0(logger.In2("email", "mimePart.walk", "p", p, "visit", visit))
 	visit(p)
 	for _, child := range p.Children {
 		child.walk(visit)
@@ -87,10 +87,8 @@ func (p *mimePart) walk(visit func(*mimePart)) {
 }
 
 // find returns the part with the given path.
-func (p *mimePart) find(path string) *mimePart {
-	if logger.IsDebug() {
-		logger.Debugf("email", "mimePart.find: path=%.120q", path)
-	}
+func (p *mimePart) find(path string) (out0 *mimePart) {
+	defer logger.Out1(logger.In2("email", "mimePart.find", "p", p, "path", path), &out0)
 	var found *mimePart
 	p.walk(func(part *mimePart) {
 		if found == nil && part.Path == path && !part.isMultipart() {
@@ -100,10 +98,8 @@ func (p *mimePart) find(path string) *mimePart {
 	return found
 }
 
-func lowerParams(params map[string]string) map[string]string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "lowerParams: len(params)=%d", len(params))
-	}
+func lowerParams(params map[string]string) (out0 map[string]string) {
+	defer logger.Out1(logger.In1("email", "lowerParams", "params", params), &out0)
 	result := map[string]string{}
 	for key, value := range params {
 		result[strings.ToLower(key)] = value
@@ -111,10 +107,8 @@ func lowerParams(params map[string]string) map[string]string {
 	return result
 }
 
-func joinPath(path []int) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "joinPath: len(path)=%d", len(path))
-	}
+func joinPath(path []int) (out0 string) {
+	defer logger.Out1(logger.In1("email", "joinPath", "path", path), &out0)
 	parts := make([]string, len(path))
 	for i, n := range path {
 		parts[i] = strconv.Itoa(n)
@@ -123,8 +117,8 @@ func joinPath(path []int) string {
 }
 
 // treeFromBodyStructure converts an IMAP BODYSTRUCTURE.
-func treeFromBodyStructure(bs imap.BodyStructure) *mimePart {
-	logger.Debug("email", "treeFromBodyStructure")
+func treeFromBodyStructure(bs imap.BodyStructure) (out0 *mimePart) {
+	defer logger.Out1(logger.In1("email", "treeFromBodyStructure", "&bs", &bs), &out0)
 	if bs == nil {
 		return nil
 	}
@@ -175,8 +169,8 @@ func treeFromBodyStructure(bs imap.BodyStructure) *mimePart {
 
 // treeFromEntity converts a parsed local message. Bodies are decoded into
 // memory, which is fine for .eml files a user opens one at a time.
-func treeFromEntity(entity *gomessage.Entity) *mimePart {
-	logger.Debug("email", "treeFromEntity")
+func treeFromEntity(entity *gomessage.Entity) (out0 *mimePart) {
+	defer logger.Out1(logger.In1("email", "treeFromEntity", "entity", entity), &out0)
 	var build func(e *gomessage.Entity, path []int, parent *mimePart) *mimePart
 	build = func(e *gomessage.Entity, path []int, parent *mimePart) *mimePart {
 		mediaType, params, _ := e.Header.ContentType()
@@ -205,6 +199,7 @@ func treeFromEntity(entity *gomessage.Entity) *mimePart {
 			for {
 				child, err := reader.NextPart()
 				if err != nil {
+					logger.DebugErr("email", err)
 					break
 				}
 				index++
@@ -238,8 +233,8 @@ type displayParts struct {
 	calendar    bool
 }
 
-func selectDisplayParts(root *mimePart) displayParts {
-	logger.Debug("email", "selectDisplayParts")
+func selectDisplayParts(root *mimePart) (out0 displayParts) {
+	defer logger.Out1(logger.In1("email", "selectDisplayParts", "root", root), &out0)
 	result := displayParts{}
 	if root == nil {
 		return result
@@ -338,8 +333,8 @@ func selectDisplayParts(root *mimePart) displayParts {
 }
 
 // hasRealAttachments decides the paper clip in the message list.
-func hasRealAttachments(root *mimePart) bool {
-	logger.Debug("email", "hasRealAttachments")
+func hasRealAttachments(root *mimePart) (out0 bool) {
+	defer logger.Out1(logger.In1("email", "hasRealAttachments", "root", root), &out0)
 	parts := selectDisplayParts(root)
 	for _, part := range parts.attachments {
 		if part.Type == "image" && part.ContentID != "" && part.insideRelated() {
@@ -351,10 +346,8 @@ func hasRealAttachments(root *mimePart) bool {
 }
 
 // attachmentInfo converts parts to the browser structure.
-func attachmentInfo(parts []*mimePart) []Attachment {
-	if logger.IsDebug() {
-		logger.Debugf("email", "attachmentInfo: len(parts)=%d", len(parts))
-	}
+func attachmentInfo(parts []*mimePart) (out0 []Attachment) {
+	defer logger.Out1(logger.In1("email", "attachmentInfo", "parts", parts), &out0)
 	results := []Attachment{}
 	used := map[string]int{}
 	for _, part := range parts {
@@ -386,8 +379,8 @@ func attachmentInfo(parts []*mimePart) []Attachment {
 }
 
 // defaultFilename names an attachment that came without one.
-func defaultFilename(part *mimePart) string {
-	logger.Debug("email", "defaultFilename")
+func defaultFilename(part *mimePart) (out0 string) {
+	defer logger.Out1(logger.In1("email", "defaultFilename", "part", part), &out0)
 	switch part.mediaType() {
 	case "message/rfc822":
 		return "Attached message.eml"
@@ -414,8 +407,8 @@ func defaultFilename(part *mimePart) string {
 }
 
 // estimateDecodedSize turns a transfer-encoded size into the file size.
-func estimateDecodedSize(part *mimePart) int64 {
-	logger.Debug("email", "estimateDecodedSize")
+func estimateDecodedSize(part *mimePart) (out0 int64) {
+	defer logger.Out1(logger.In1("email", "estimateDecodedSize", "part", part), &out0)
 	if part.body != nil {
 		return int64(len(part.body))
 	}
@@ -426,10 +419,8 @@ func estimateDecodedSize(part *mimePart) int64 {
 }
 
 // sanitizeFilename strips characters that are unsafe in file names.
-func sanitizeFilename(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "sanitizeFilename: name=%.120q", name)
-	}
+func sanitizeFilename(name string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "sanitizeFilename", "name", name), &out0)
 	name = strings.TrimSpace(name)
 	replacer := strings.NewReplacer("/", "_", "\\", "_", ":", "_", "*", "_", "?", "_", "\"", "'", "<", "(", ">", ")", "|", "_", "\x00", "")
 	name = replacer.Replace(name)
@@ -453,10 +444,8 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
-func truncateUTF8(text string, max int) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "truncateUTF8: max=%d", max)
-	}
+func truncateUTF8(text string, max int) (out0 string) {
+	defer logger.Out1(logger.In2("email", "truncateUTF8", "text", text, "max", max), &out0)
 	if len(text) <= max {
 		return text
 	}
@@ -469,10 +458,8 @@ func truncateUTF8(text string, max int) string {
 
 // decodeTransfer undoes a Content-Transfer-Encoding. partial tolerates a
 // truncated body (preview snippets fetched with a byte range).
-func decodeTransfer(data []byte, encoding string, partial bool) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("email", "decodeTransfer: encoding=%.120q partial=%t", encoding, partial)
-	}
+func decodeTransfer(data []byte, encoding string, partial bool) (out0 []byte) {
+	defer logger.Out1(logger.In3("email", "decodeTransfer", "data", data, "encoding", encoding, "partial", partial), &out0)
 	switch strings.ToLower(strings.TrimSpace(encoding)) {
 	case "base64":
 		cleaned := make([]byte, 0, len(data))
@@ -487,6 +474,7 @@ func decodeTransfer(data []byte, encoding string, partial bool) []byte {
 		decoded := make([]byte, base64.StdEncoding.DecodedLen(len(cleaned)))
 		n, err := base64.StdEncoding.Decode(decoded, cleaned)
 		if err != nil {
+			logger.DebugErr("email", err)
 			//Missing padding is common in the wild
 			n2, err2 := base64.RawStdEncoding.Decode(decoded, bytes.TrimRight(cleaned, "="))
 			if err2 == nil {
@@ -507,10 +495,8 @@ func decodeTransfer(data []byte, encoding string, partial bool) []byte {
 }
 
 // decodeCharset converts text in charset to UTF-8, best effort.
-func decodeCharset(data []byte, charsetName string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "decodeCharset: charsetName=%.120q", charsetName)
-	}
+func decodeCharset(data []byte, charsetName string) (out0 string) {
+	defer logger.Out1(logger.In2("email", "decodeCharset", "data", data, "charsetName", charsetName), &out0)
 	charsetName = strings.ToLower(strings.Trim(strings.TrimSpace(charsetName), "\"'"))
 	switch charsetName {
 	case "", "utf-8", "utf8", "us-ascii", "ascii":
@@ -518,6 +504,7 @@ func decodeCharset(data []byte, charsetName string) string {
 	}
 	reader, err := charset.Reader(charsetName, bytes.NewReader(data))
 	if err != nil {
+		logger.DebugErr("email", err)
 		return strings.ToValidUTF8(string(data), "�")
 	}
 	decoded, err := io.ReadAll(reader)
@@ -528,10 +515,8 @@ func decodeCharset(data []byte, charsetName string) string {
 }
 
 // partText decodes a text part's raw section (transfer encoding + charset).
-func partText(part *mimePart, raw []byte, partial bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "partText: partial=%t", partial)
-	}
+func partText(part *mimePart, raw []byte, partial bool) (out0 string) {
+	defer logger.Out1(logger.In3("email", "partText", "part", part, "raw", raw, "partial", partial), &out0)
 	if part.body != nil {
 		//Local entities are already transfer-decoded and charset-converted
 		//by go-message, which yields UTF-8.
@@ -541,13 +526,14 @@ func partText(part *mimePart, raw []byte, partial bool) string {
 }
 
 // decodeHeaderWords decodes RFC 2047 encoded words in any known charset.
-func decodeHeaderWords(text string) string {
-	logger.Debug("email", "decodeHeaderWords")
+func decodeHeaderWords(text string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "decodeHeaderWords", "text", text), &out0)
 	if !strings.Contains(text, "=?") {
 		return text
 	}
 	decoded, err := wordDecoder.DecodeHeader(text)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return text
 	}
 	return decoded
@@ -555,10 +541,8 @@ func decodeHeaderWords(text string) string {
 
 // rfc2231Param reads a parameter that may use RFC 2231 extended syntax
 // (name*=utf-8”..., or split into name*0*, name*1*, …).
-func rfc2231Param(params map[string]string, key string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "rfc2231Param: len(params)=%d", len(params))
-	}
+func rfc2231Param(params map[string]string, key string) (out0 string) {
+	defer logger.Out1(logger.In2("email", "rfc2231Param", "params", params, "!key", key), &out0)
 	if value, ok := params[key]; ok && value != "" {
 		return value
 	}
@@ -581,6 +565,7 @@ func rfc2231Param(params map[string]string, key string) string {
 		rest = strings.TrimSuffix(rest, "*")
 		index, err := strconv.Atoi(rest)
 		if err != nil {
+			logger.DebugErr("email", err)
 			continue
 		}
 		segments = append(segments, segment{index: index, value: value, encoded: encoded})
@@ -610,10 +595,8 @@ func rfc2231Param(params map[string]string, key string) string {
 	return decodeCharset(builder.Bytes(), charsetName)
 }
 
-func decodeRFC2231Value(value string, withCharset bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "decodeRFC2231Value: value=%.120q withCharset=%t", value, withCharset)
-	}
+func decodeRFC2231Value(value string, withCharset bool) (out0 string) {
+	defer logger.Out1(logger.In2("email", "decodeRFC2231Value", "value", value, "withCharset", withCharset), &out0)
 	charsetName := ""
 	if withCharset {
 		if parts := strings.SplitN(value, "'", 3); len(parts) == 3 {

@@ -31,9 +31,10 @@ import (
 const meetRoomModuleName = "MeetRoom"
 
 func (g *Gateway) MeetRoomLibRegister() {
-	logger.Debug("agi", "Gateway.MeetRoomLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.MeetRoomLibRegister", "g", g))
 	err := g.RegisterLib("meetroom", g.injectMeetRoomFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -43,10 +44,8 @@ func (g *Gateway) MeetRoomLibRegister() {
 // includeSpace controls whether the room's shared space ID is revealed;
 // the space ID is a capability, so it is only shared with the host or a
 // caller who passed the room password check.
-func agiDescribeRoom(room *meetroom.Room, includeSpace bool) map[string]interface{} {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "agiDescribeRoom: includeSpace=%t", includeSpace)
-	}
+func agiDescribeRoom(room *meetroom.Room, includeSpace bool) (out0 map[string]interface{}) {
+	defer logger.Out1(logger.In2("agi", "agiDescribeRoom", "room", room, "includeSpace", includeSpace), &out0)
 	desc := map[string]interface{}{
 		"roomid":       room.ID,
 		"displayid":    meetroom.FormatRoomID(room.ID),
@@ -63,10 +62,8 @@ func agiDescribeRoom(room *meetroom.Room, includeSpace bool) map[string]interfac
 }
 
 // agiAttendanceList renders a room's attendance log for AGI scripts.
-func agiAttendanceList(records []meetroom.AttendanceRecord) []map[string]interface{} {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "agiAttendanceList: len(records)=%d", len(records))
-	}
+func agiAttendanceList(records []meetroom.AttendanceRecord) (out0 []map[string]interface{}) {
+	defer logger.Out1(logger.In1("agi", "agiAttendanceList", "records", records), &out0)
 	list := make([]map[string]interface{}, 0, len(records))
 	for _, record := range records {
 		entry := map[string]interface{}{
@@ -84,7 +81,7 @@ func agiAttendanceList(records []meetroom.AttendanceRecord) []map[string]interfa
 }
 
 func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectMeetRoomFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectMeetRoomFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	manager := g.Option.MeetRoomManager
@@ -102,6 +99,7 @@ func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload
 	jsonReply := func(v interface{}) otto.Value {
 		js, err := json.Marshal(v)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		val, _ := vm.ToValue(string(js))
@@ -130,6 +128,7 @@ func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_meetroom_getRoomInfo", func(call otto.FunctionCall) otto.Value {
 		roomID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		room, ok := manager.GetRoom(meetroom.NormalizeRoomID(roomID))
@@ -146,11 +145,13 @@ func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_meetroom_getRoomSpace", func(call otto.FunctionCall) otto.Value {
 		roomID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		password := optionalString(call, 1)
 		room, err := manager.ValidateJoin(meetroom.NormalizeRoomID(roomID), password)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		if room.SpaceID == "" {
@@ -174,6 +175,7 @@ func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_meetroom_endRoom", func(call otto.FunctionCall) otto.Value {
 		roomID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		room, ok := manager.GetRoom(meetroom.NormalizeRoomID(roomID))
@@ -189,6 +191,7 @@ func (g *Gateway) injectMeetRoomFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_meetroom_getAttendance", func(call otto.FunctionCall) otto.Value {
 		roomID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		room, ok := manager.GetRoom(meetroom.NormalizeRoomID(roomID))

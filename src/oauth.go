@@ -9,7 +9,7 @@ import (
 )
 
 func OAuthInit() {
-	logger.Debug("Core", "OAuthInit")
+	defer logger.Out0(logger.In0("Core", "OAuthInit"))
 	oAuthHandler := oauth.NewOauthHandler(authAgent, registerHandler, sysdb)
 
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{

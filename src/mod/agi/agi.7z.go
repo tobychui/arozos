@@ -28,7 +28,7 @@ import (
 // inject7zLibFunctions registers all 7z functions into the ziplib JS namespace.
 // Must be called after the main vm.Run block that creates `var ziplib = {}`.
 func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.inject7zLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.inject7zLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -38,11 +38,13 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_ziplib_list7zFileDir", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		dirPath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			dirPath = ""
 		}
 
@@ -53,12 +55,14 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		filelist, err := szListDir(zipRpath, dirPath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -71,6 +75,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_ziplib_list7zFileContents", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -82,12 +87,14 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		jsonStr, err := sz7zListContentsJSON(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -100,11 +107,13 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_ziplib_getFileFrom7z", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		fileIn7z, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -116,12 +125,14 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		r, err := sevenzip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -141,6 +152,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		tmpFsh, err := u.GetFileSystemHandlerFromVirtualPath("tmp:/")
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -151,12 +163,14 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		rc, err := target.Open()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		defer rc.Close()
 
 		if err = tmpFsh.FileSystemAbstraction.WriteStream(tmpRpath, rc, 0755); err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -170,11 +184,13 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_ziplib_extract7zFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -191,16 +207,19 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		_, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		if err = sz7zExtractAll(srcRpath, destFsh, destRpath); err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -226,16 +245,19 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_ziplib_extractPartial7z", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		pathsObj, err := call.Argument(1).Export()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(2).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -258,17 +280,20 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		r, err := sevenzip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -289,6 +314,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 			rc, err := f.Open()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				continue
 			}
 			destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
@@ -308,6 +334,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_ziplib_get7zFileInfo", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -319,12 +346,14 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		jsonStr, err := sz7zGetFileInfo(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -349,12 +378,11 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 // szListDir returns the immediate children of dirPath inside the 7z at rpath.
 // Handles archives without explicit directory entries by inferring dirs from
 // file paths (common in 7z).
-func szListDir(rpath, dirPath string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "szListDir: rpath=%.120q dirPath=%.120q", rpath, dirPath)
-	}
+func szListDir(rpath, dirPath string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("agi", "szListDir", "rpath", rpath, "dirPath", dirPath), &out0, &out1)
 	r, err := sevenzip.OpenReader(rpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 	defer r.Close()
@@ -414,12 +442,11 @@ func szListDir(rpath, dirPath string) ([]string, error) {
 
 // sz7zListContentsJSON builds a JSON tree (same schema as listZipFileContents)
 // from all entries in the 7z archive at rpath.
-func sz7zListContentsJSON(rpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "sz7zListContentsJSON: rpath=%.120q", rpath)
-	}
+func sz7zListContentsJSON(rpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("agi", "sz7zListContentsJSON", "rpath", rpath), &out0, &out1)
 	r, err := sevenzip.OpenReader(rpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	defer r.Close()
@@ -458,18 +485,18 @@ func sz7zListContentsJSON(rpath string) (string, error) {
 
 	data, err := json.Marshal(root)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	return string(data), nil
 }
 
 // sz7zGetFileInfo returns JSON metadata for the 7z archive at rpath.
-func sz7zGetFileInfo(rpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "sz7zGetFileInfo: rpath=%.120q", rpath)
-	}
+func sz7zGetFileInfo(rpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("agi", "sz7zGetFileInfo", "rpath", rpath), &out0, &out1)
 	r, err := sevenzip.OpenReader(rpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	defer r.Close()
@@ -492,6 +519,7 @@ func sz7zGetFileInfo(rpath string) (string, error) {
 
 	data, err := json.Marshal(info)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	return string(data), nil
@@ -499,12 +527,11 @@ func sz7zGetFileInfo(rpath string) (string, error) {
 
 // sz7zExtractAll extracts every entry in the 7z at srcRpath into destRpath
 // using the provided filesystem handler.
-func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "sz7zExtractAll: srcRpath=%.120q destRpath=%.120q", srcRpath, destRpath)
-	}
+func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) (out0 error) {
+	defer logger.Out1(logger.In3("agi", "sz7zExtractAll", "srcRpath", srcRpath, "destFsh", destFsh, "destRpath", destRpath), &out0)
 	r, err := sevenzip.OpenReader(srcRpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return err
 	}
 	defer r.Close()
@@ -521,6 +548,7 @@ func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, dest
 
 		rc, err := f.Open()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			continue
 		}
 		destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
@@ -531,8 +559,8 @@ func sz7zExtractAll(srcRpath string, destFsh *filesystem.FileSystemHandler, dest
 
 // szParsePathsArg converts the second argument of extractPartial7z / extractPartialZip
 // (JS array or raw JSON string) into a []string.  Returns nil on unrecognised type.
-func szParsePathsArg(pathsObj interface{}) []string {
-	logger.Debug("agi", "szParsePathsArg")
+func szParsePathsArg(pathsObj interface{}) (out0 []string) {
+	defer logger.Out1(logger.In1("agi", "szParsePathsArg", "pathsObj", pathsObj), &out0)
 	var result []string
 	switch v := pathsObj.(type) {
 	case []string:
@@ -569,10 +597,8 @@ func szParsePathsArg(pathsObj interface{}) []string {
 // szMatchPartialPath returns the output-relative path for fName given the list
 // of selected targetPaths, applying the same strip-parent-for-folders /
 // flatten-for-files semantics as extractPartialZip.  Returns "" if not matched.
-func szMatchPartialPath(fName string, targetPaths []string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "szMatchPartialPath: fName=%.120q len(targetPaths)=%d", fName, len(targetPaths))
-	}
+func szMatchPartialPath(fName string, targetPaths []string) (out0 string) {
+	defer logger.Out1(logger.In2("agi", "szMatchPartialPath", "fName", fName, "targetPaths", targetPaths), &out0)
 	for _, target := range targetPaths {
 		if target == "" || target == "/" {
 			return fName

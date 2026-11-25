@@ -70,8 +70,8 @@ _job_output(JSON.stringify(__out));
 }
 
 // sourceFor picks the right wrapper for a job kind.
-func sourceFor(rec Record) string {
-	logger.Debug("cluster/jobs", "sourceFor")
+func sourceFor(rec Record) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/jobs", "sourceFor", "&rec", &rec), &out0)
 	switch rec.Spec.Kind {
 	case KindMap:
 		return buildMapSource(rec.Spec.Script)
@@ -82,10 +82,8 @@ func sourceFor(rec Record) string {
 }
 
 // children returns the child jobs of a parent.
-func (j *Manager) children(parentID string) []Record {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.children: parentID=%.120q", parentID)
-	}
+func (j *Manager) children(parentID string) (out0 []Record) {
+	defer logger.Out1(logger.In2("cluster/jobs", "Manager.children", "j", j, "parentID", parentID), &out0)
 	out := []Record{}
 	for _, mj := range j.meta.Jobs() {
 		if mj.Removed {
@@ -104,9 +102,7 @@ func (j *Manager) children(parentID string) []Record {
 // expandDataset lists the files of a dataset and groups them by the node
 // holding a healthy copy (files with no reachable copy are reported).
 func (j *Manager) expandDataset(pattern string) (byNode map[string][]metadata.FileRecord, orphans []string) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.expandDataset: pattern=%.120q", pattern)
-	}
+	defer logger.Out2(logger.In2("cluster/jobs", "Manager.expandDataset", "j", j, "pattern", pattern), &byNode, &orphans)
 	byNode = map[string][]metadata.FileRecord{}
 	for _, rec := range j.meta.Glob(pattern) {
 		best := ""
@@ -134,7 +130,7 @@ func (j *Manager) expandDataset(pattern string) (byNode map[string][]metadata.Fi
 // once per parent: submitting a child re-enters the scheduler, so the parent
 // is marked running before any child exists.
 func (j *Manager) startMapReduce(parent Record) {
-	logger.Debug("cluster/jobs", "Manager.startMapReduce")
+	defer logger.Out0(logger.In2("cluster/jobs", "Manager.startMapReduce", "j", j, "&parent", &parent))
 	id := parent.Spec.ID
 	j.mu.Lock()
 	if j.starting[id] {
@@ -185,6 +181,7 @@ func (j *Manager) startMapReduce(parent Record) {
 	parent.State.Started = time.Now().Unix()
 	parent.State.Progress = 0
 	if err := j.put(parent); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		return
 	}
 
@@ -208,6 +205,7 @@ func (j *Manager) startMapReduce(parent Record) {
 			child.Inputs = inputs
 			child.Dataset = ""
 			if _, err := j.Submit(child); err != nil {
+				logger.DebugErr("cluster/jobs", err)
 				j.failParent(parent, "could not create a map task: "+err.Error())
 				return
 			}
@@ -236,7 +234,7 @@ func (j *Manager) startMapReduce(parent Record) {
 // creates the reduce task when the map half is complete, and publishes the
 // final result.
 func (j *Manager) advanceMapReduce(parent Record) {
-	logger.Debug("cluster/jobs", "Manager.advanceMapReduce")
+	defer logger.Out0(logger.In2("cluster/jobs", "Manager.advanceMapReduce", "j", j, "&parent", &parent))
 	kids := j.children(parent.Spec.ID)
 	if len(kids) == 0 {
 		return
@@ -303,6 +301,7 @@ func (j *Manager) advanceMapReduce(parent Record) {
 			continue
 		}
 		if err := json.Unmarshal(k.State.Output, &emitted); err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			j.failParent(parent, k.Spec.Name+" produced an unreadable result")
 			return
 		}
@@ -313,6 +312,7 @@ func (j *Manager) advanceMapReduce(parent Record) {
 	}
 	args, err := json.Marshal(reduceArgs{Groups: groups})
 	if err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		j.failParent(parent, "could not assemble the reduce input: "+err.Error())
 		return
 	}
@@ -329,6 +329,7 @@ func (j *Manager) advanceMapReduce(parent Record) {
 	child.Dataset = ""
 	child.Args = json.RawMessage(args)
 	if _, err := j.Submit(child); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		j.failParent(parent, "could not create the reduce task: "+err.Error())
 		return
 	}
@@ -338,9 +339,7 @@ func (j *Manager) advanceMapReduce(parent Record) {
 }
 
 func (j *Manager) failParent(parent Record, reason string) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.failParent: reason=%.120q", reason)
-	}
+	defer logger.Out0(logger.In3("cluster/jobs", "Manager.failParent", "j", j, "&parent", &parent, "reason", reason))
 	parent.State.Status = StatusFailed
 	parent.State.Error = reason
 	parent.State.Finished = time.Now().Unix()

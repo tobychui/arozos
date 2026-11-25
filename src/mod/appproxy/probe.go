@@ -98,10 +98,8 @@ var (
 )
 
 // matchKnownApp finds the well known entry of an image, or nil
-func matchKnownApp(image string) *knownApp {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "matchKnownApp: image=%.120q", image)
-	}
+func matchKnownApp(image string) (out0 *knownApp) {
+	defer logger.Out1(logger.In1("appproxy", "matchKnownApp", "image", image), &out0)
 	image = strings.ToLower(image)
 	if image == "" {
 		return nil
@@ -118,9 +116,7 @@ func matchKnownApp(image string) *knownApp {
 
 // classifyRef sorts one URL found in the page
 func classifyRef(v string, upstreamHost string, res *ProbeResult) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "classifyRef: v=%.120q upstreamHost=%.120q", v, upstreamHost)
-	}
+	defer logger.Out0(logger.In3("appproxy", "classifyRef", "v", v, "upstreamHost", upstreamHost, "res", res))
 	v = strings.TrimSpace(v)
 	lower := strings.ToLower(v)
 	switch {
@@ -138,10 +134,8 @@ func classifyRef(v string, upstreamHost string, res *ProbeResult) {
 }
 
 // analyzePage fills the page level findings and returns the script URLs worth scanning
-func analyzePage(page string, upstreamHost string, res *ProbeResult) []string {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "analyzePage: page=%.120q upstreamHost=%.120q", page, upstreamHost)
-	}
+func analyzePage(page string, upstreamHost string, res *ProbeResult) (out0 []string) {
+	defer logger.Out1(logger.In3("appproxy", "analyzePage", "page", page, "upstreamHost", upstreamHost, "res", res), &out0)
 	scripts := []string{}
 	z := html.NewTokenizer(strings.NewReader(page))
 	inTitle := false
@@ -188,9 +182,7 @@ func analyzePage(page string, upstreamHost string, res *ProbeResult) []string {
 
 // decideVerdict turns the findings into a recommendation
 func decideVerdict(res *ProbeResult, known *knownApp, prefix string) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "decideVerdict: prefix=%.120q", prefix)
-	}
+	defer logger.Out0(logger.In3("appproxy", "decideVerdict", "res", res, "known", known, "prefix", prefix))
 	if known != nil {
 		res.KnownApp = known.name
 		res.Verdict = known.verdict
@@ -245,14 +237,13 @@ func decideVerdict(res *ProbeResult, known *knownApp, prefix string) {
 }
 
 // Probe fetches the start page of an upstream and recommends a mode
-func (m *Manager) Probe(target string, targetTLS bool, skipVerify bool, image string, slug string) ProbeResult {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.Probe: target=%.120q targetTLS=%t skipVerify=%t image=%.120q slug=%.120q", target, targetTLS, skipVerify, image, slug)
-	}
+func (m *Manager) Probe(target string, targetTLS bool, skipVerify bool, image string, slug string) (out0 ProbeResult) {
+	defer logger.Out1(logger.In6("appproxy", "Manager.Probe", "m", m, "target", target, "targetTLS", targetTLS, "skipVerify", skipVerify, "image", image, "slug", slug), &out0)
 	res := ProbeResult{Frameworks: []string{}, Reasons: []string{}}
 	prefix := "/app/" + slug
 	known := matchKnownApp(image)
 	if err := validateTarget(target); err != nil {
+		logger.DebugErr("appproxy", err)
 		res.Error = err.Error()
 		decideVerdict(&res, known, prefix)
 		return res
@@ -275,6 +266,7 @@ func (m *Manager) Probe(target string, targetTLS bool, skipVerify bool, image st
 
 	resp, err := client.Get(base.String() + "/")
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		res.Error = err.Error()
 		decideVerdict(&res, known, prefix)
 		return res
@@ -292,6 +284,7 @@ func (m *Manager) Probe(target string, targetTLS bool, skipVerify bool, image st
 	for _, s := range scripts {
 		ref, err := url.Parse(strings.TrimSpace(s))
 		if err != nil {
+			logger.DebugErr("appproxy", err)
 			continue
 		}
 		abs := pageURL.ResolveReference(ref)
@@ -305,12 +298,11 @@ func (m *Manager) Probe(target string, targetTLS bool, skipVerify bool, image st
 	return res
 }
 
-func countScriptHints(client *http.Client, u string) int {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "countScriptHints: u=%.120q", u)
-	}
+func countScriptHints(client *http.Client, u string) (out0 int) {
+	defer logger.Out1(logger.In2("appproxy", "countScriptHints", "client", client, "u", u), &out0)
 	resp, err := client.Get(u)
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		return 0
 	}
 	defer resp.Body.Close()

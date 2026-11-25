@@ -28,16 +28,17 @@ import (
 */
 
 func (g *Gateway) ZipLibRegister() {
-	logger.Debug("agi", "Gateway.ZipLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.ZipLibRegister", "g", g))
 	err := g.RegisterLib("ziplib", g.injectZipFileLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectZipFileLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectZipFileLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -46,11 +47,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_extractZipFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -70,11 +73,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Get real paths
 		_, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -83,6 +88,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		z := archiver.Zip{}
 		err = z.Unarchive(srcRpath, destRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -104,11 +110,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_createZipFile", func(call otto.FunctionCall) otto.Value {
 		sourcesObj, err := call.Argument(0).Export()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		outputVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -141,6 +149,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		for _, src := range sources {
 			fsh, rpath, err := static.VirtualPathToRealPath(src, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -150,6 +159,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		outputFsh, outputRpath, err := static.VirtualPathToRealPath(outputVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -157,6 +167,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Create zip file
 		err = filesystem.ArozZipFile(sourceFshs, sourceRpaths, outputFsh, outputRpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -172,11 +183,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_createTarFile", func(call otto.FunctionCall) otto.Value {
 		sourcesObj, err := call.Argument(0).Export()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		outputVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -205,6 +218,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		for _, src := range sources {
 			_, rpath, err := static.VirtualPathToRealPath(src, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -213,6 +227,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		outputFsh, outputRpath, err := static.VirtualPathToRealPath(outputVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -220,6 +235,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		tar := archiver.Tar{}
 		err = tar.Archive(sourceRpaths, outputRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -234,11 +250,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_extractTarFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -255,11 +273,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -267,6 +287,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		tar := archiver.Tar{}
 		err = tar.Unarchive(srcRpath, destRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -288,11 +309,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_createTarGzFile", func(call otto.FunctionCall) otto.Value {
 		sourcesObj, err := call.Argument(0).Export()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		outputVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -321,6 +344,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		for _, src := range sources {
 			_, rpath, err := static.VirtualPathToRealPath(src, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -329,6 +353,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		outputFsh, outputRpath, err := static.VirtualPathToRealPath(outputVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -336,6 +361,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		tgz := archiver.NewTarGz()
 		err = tgz.Archive(sourceRpaths, outputRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -350,11 +376,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_extractTarGzFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -371,11 +399,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -383,6 +413,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		tgz := archiver.NewTarGz()
 		err = tgz.Unarchive(srcRpath, destRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -404,11 +435,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_createGzFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		outputVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -425,11 +458,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		outputFsh, outputRpath, err := static.VirtualPathToRealPath(outputVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -437,6 +472,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Compress using Gz - open source file and create output file
 		srcFile, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -444,6 +480,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		outFile, err := outputFsh.FileSystemAbstraction.Create(outputRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -452,6 +489,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		gz := archiver.Gz{}
 		err = gz.Compress(srcFile, outFile)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -466,11 +504,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_extractGzFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -487,11 +527,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -499,6 +541,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Decompress using Gz - open source file and create output file
 		srcFile, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -506,6 +549,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		outFile, err := destFsh.FileSystemAbstraction.Create(destRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -514,6 +558,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		gz := archiver.Gz{}
 		err = gz.Decompress(srcFile, outFile)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -528,6 +573,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_isValidZipFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -540,6 +586,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -547,15 +594,18 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Try to detect format using archiver library
 		_, err = archiver.ByExtension(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			// Try by header
 			f, err := os.Open(rpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 			_, err = archiver.ByHeader(f)
 			f.Close()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -569,6 +619,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_listZipFileContents", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -581,6 +632,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -589,6 +641,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if strings.EqualFold(filepath.Ext(rpath), ".7z") {
 			jsonStr, err := sz7zListContentsJSON(rpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -598,6 +651,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		r, err := zip.OpenReader(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -646,6 +700,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		jsonData, err := json.Marshal(root)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -658,11 +713,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_listZipFileDir", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		dirPath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			// Default to root if not provided
 			dirPath = ""
 		}
@@ -675,6 +732,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -683,6 +741,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
 			filelist, err := szListDir(zipRpath, dirPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -693,6 +752,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Open zip file
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -766,11 +826,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_getFileFromZip", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		fileInZip, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -783,6 +845,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -791,6 +854,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
 			r7z, err := sevenzip.OpenReader(zipRpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -810,6 +874,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 			tmpFsh7z, err := u.GetFileSystemHandlerFromVirtualPath("tmp:/")
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -818,11 +883,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			tmpRpath7z, _ := tmpFsh7z.FileSystemAbstraction.VirtualPathToRealPath(tmpVpath7z, u.Username)
 			rc7z, err := target7z.Open()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
 			defer rc7z.Close()
 			if err = tmpFsh7z.FileSystemAbstraction.WriteStream(tmpRpath7z, rc7z, 0755); err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -834,6 +901,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Open zip file
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -856,6 +924,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Extract to tmp
 		tmpFsh, err := u.GetFileSystemHandlerFromVirtualPath("tmp:/")
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -866,6 +935,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		rc, err := targetFile.Open()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -873,6 +943,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		err = tmpFsh.FileSystemAbstraction.WriteStream(tmpRpath, rc, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -887,6 +958,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_getCompressFileType", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -899,6 +971,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -950,11 +1023,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_extractAnyFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -971,11 +1046,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -983,6 +1060,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// 7z is not handled by the archiver library; dispatch separately
 		if strings.EqualFold(filepath.Ext(srcRpath), ".7z") {
 			if err = sz7zExtractAll(srcRpath, destFsh, destRpath); err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -1000,15 +1078,18 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Detect format
 		format, err := archiver.ByExtension(srcRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			// Try by header
 			f, err := os.Open(srcRpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 			format, err = archiver.ByHeader(f)
 			f.Close()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -1018,6 +1099,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if u, ok := format.(archiver.Unarchiver); ok {
 			err = u.Unarchive(srcRpath, destRpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -1043,16 +1125,19 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_createAnyZipFile", func(call otto.FunctionCall) otto.Value {
 		sourcesObj, err := call.Argument(0).Export()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		outputVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		format, err := call.Argument(2).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			// Default to zip
 			format = "zip"
 		}
@@ -1081,6 +1166,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		for _, src := range sources {
 			_, rpath, err := static.VirtualPathToRealPath(src, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -1089,6 +1175,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		outputFsh, outputRpath, err := static.VirtualPathToRealPath(outputVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1112,6 +1199,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1126,16 +1214,19 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_extractPartialZip", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		pathsObj, err := call.Argument(1).Export()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destVpath, err := call.Argument(2).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1158,11 +1249,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1171,6 +1264,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
 			r7z, err := sevenzip.OpenReader(zipRpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -1189,6 +1283,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 				destFsh.FileSystemAbstraction.MkdirAll(filepath.Dir(outPath), 0755)
 				rc, err := f.Open()
 				if err != nil {
+					logger.DebugErr("agi", err)
 					continue
 				}
 				destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
@@ -1204,6 +1299,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1224,6 +1320,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 			rc, err := f.Open()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				continue
 			}
 			destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
@@ -1243,11 +1340,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_addFileToZip", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		srcVpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1267,11 +1366,13 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1279,6 +1380,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Open existing zip for reading
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -1286,6 +1388,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Create temp file in the same directory to allow os.Rename
 		tmpFile, err := os.CreateTemp(filepath.Dir(zipRpath), "arozos_zip_*.tmp")
 		if err != nil {
+			logger.DebugErr("agi", err)
 			r.Close()
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -1297,6 +1400,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		// Copy all existing entries preserving compression
 		for _, f := range r.File {
 			if err := w.Copy(f); err != nil {
+				logger.DebugErr("agi", err)
 				w.Close()
 				tmpFile.Close()
 				r.Close()
@@ -1322,6 +1426,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 				}
 				rel, err := filepath.Rel(filepath.Dir(srcRpath), path)
 				if err != nil {
+					logger.DebugErr("agi", err)
 					rel = filepath.Join(srcBase, info.Name())
 				}
 				entries = append(entries, addEntry{arcName: filepath.ToSlash(rel), rpath: path})
@@ -1334,6 +1439,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		for _, entry := range entries {
 			fw, err := w.Create(entry.arcName)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				w.Close()
 				tmpFile.Close()
 				os.Remove(tmpPath)
@@ -1342,6 +1448,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			}
 			rc, err := srcFsh.FileSystemAbstraction.ReadStream(entry.rpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				w.Close()
 				tmpFile.Close()
 				os.Remove(tmpPath)
@@ -1351,6 +1458,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			_, copyErr := io.Copy(fw, rc)
 			rc.Close()
 			if copyErr != nil {
+				logger.DebugErr("agi", copyErr)
 				w.Close()
 				tmpFile.Close()
 				os.Remove(tmpPath)
@@ -1364,14 +1472,17 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		// Replace original zip with temp file
 		if renameErr := os.Rename(tmpPath, zipRpath); renameErr != nil {
+			logger.DebugErr("agi", renameErr)
 			// Fallback to copy+delete if rename fails (cross-device)
 			content, readErr := os.ReadFile(tmpPath)
 			os.Remove(tmpPath)
 			if readErr != nil {
+				logger.DebugErr("agi", readErr)
 				g.RaiseError(renameErr)
 				return otto.FalseValue()
 			}
 			if writeErr := os.WriteFile(zipRpath, content, 0644); writeErr != nil {
+				logger.DebugErr("agi", writeErr)
 				g.RaiseError(writeErr)
 				return otto.FalseValue()
 			}
@@ -1385,6 +1496,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 	vm.Set("_ziplib_getZipFileInfo", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -1397,6 +1509,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -1404,6 +1517,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
 			jsonStr, err := sz7zGetFileInfo(zipRpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.NullValue()
 			}
@@ -1413,6 +1527,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -1438,6 +1553,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 
 		jsonData, err := json.Marshal(info)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -1483,7 +1599,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 // items are skipped); a single string is one source. ok is false for any other
 // value, such as undefined or a number.
 func ziplibSourceList(sourcesObj interface{}) (sources []string, ok bool) {
-	logger.Debug("agi", "ziplibSourceList")
+	defer logger.Out2(logger.In1("agi", "ziplibSourceList", "sourcesObj", sourcesObj), &sources, &ok)
 	switch v := sourcesObj.(type) {
 	case []string:
 		return append([]string{}, v...), true

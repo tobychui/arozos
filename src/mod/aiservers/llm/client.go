@@ -33,10 +33,8 @@ type Client struct {
 
 // NewClient creates a client for the given endpoint. timeout <= 0 uses
 // DefaultTimeout; format defaults to "openai" unless exactly "anthropic".
-func NewClient(endpoint, apikey, format string, timeout time.Duration) *Client {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "NewClient: endpoint=%.120q format=%.120q", endpoint, format)
-	}
+func NewClient(endpoint, apikey, format string, timeout time.Duration) (out0 *Client) {
+	defer logger.Out1(logger.In4("aiservers/llm", "NewClient", "endpoint", endpoint, "format", format, "&timeout", &timeout, "!apikey", apikey), &out0)
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -54,10 +52,8 @@ func NewClient(endpoint, apikey, format string, timeout time.Duration) *Client {
 // Chat sends a chat completion request and returns the unified response,
 // dispatching to the configured wire format. GenerationMs/TokensPerSecond
 // in the returned Usage are computed from the wall-clock request duration.
-func (c *Client) Chat(messages []Message, opt ChatOptions) (*ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "Client.Chat: len(messages)=%d", len(messages))
-	}
+func (c *Client) Chat(messages []Message, opt ChatOptions) (out0 *ChatResponse, out1 error) {
+	defer logger.Out2(logger.In3("aiservers/llm", "Client.Chat", "c", c, "messages", messages, "&opt", &opt), &out0, &out1)
 	start := time.Now()
 	var resp *ChatResponse
 	var err error
@@ -67,6 +63,7 @@ func (c *Client) Chat(messages []Message, opt ChatOptions) (*ChatResponse, error
 		resp, err = c.chatOpenAI(messages, opt)
 	}
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	elapsed := time.Since(start)
@@ -82,10 +79,8 @@ func (c *Client) Chat(messages []Message, opt ChatOptions) (*ChatResponse, error
 // (with accumulated content/reasoning and usage) once the stream ends. It
 // dispatches to the configured wire format. GenerationMs/TokensPerSecond are
 // computed from the wall-clock request duration, exactly like Chat.
-func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "Client.ChatStream: len(messages)=%d", len(messages))
-	}
+func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallback) (out0 *ChatResponse, out1 error) {
+	defer logger.Out2(logger.In4("aiservers/llm", "Client.ChatStream", "c", c, "messages", messages, "&opt", &opt, "&cb", &cb), &out0, &out1)
 	start := time.Now()
 	var resp *ChatResponse
 	var err error
@@ -95,6 +90,7 @@ func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallba
 		resp, err = c.chatOpenAIStream(messages, opt, cb)
 	}
 	if err != nil {
+		logger.DebugErr("aiservers/llm", err)
 		return nil, err
 	}
 	elapsed := time.Since(start)
@@ -108,26 +104,24 @@ func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallba
 // ListModels lists model IDs exposed by the endpoint, dispatching to the
 // configured wire format. Used by connectivity tests and AGI scripts; does
 // not consume any tokens.
-func (c *Client) ListModels() ([]string, error) {
-	logger.Debug("aiservers/llm", "Client.ListModels")
+func (c *Client) ListModels() (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("aiservers/llm", "Client.ListModels", "c", c), &out0, &out1)
 	if c.APIFormat == "anthropic" {
 		return c.listModelsAnthropic()
 	}
 	return c.listModelsOpenAI()
 }
 
-func (c *Client) httpClient() *http.Client {
-	logger.Debug("aiservers/llm", "Client.httpClient")
+func (c *Client) httpClient() (out0 *http.Client) {
+	defer logger.Out1(logger.In1("aiservers/llm", "Client.httpClient", "c", c), &out0)
 	if c.HTTP == nil {
 		return &http.Client{Timeout: DefaultTimeout}
 	}
 	return c.HTTP
 }
 
-func truncate(s string, max int) string {
-	if logger.IsDebug() {
-		logger.Debugf("aiservers/llm", "truncate: s=%.120q max=%d", s, max)
-	}
+func truncate(s string, max int) (out0 string) {
+	defer logger.Out1(logger.In2("aiservers/llm", "truncate", "s", s, "max", max), &out0)
 	s = strings.TrimSpace(s)
 	if len(s) <= max {
 		return s

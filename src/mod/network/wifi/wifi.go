@@ -20,10 +20,8 @@ type WiFiManager struct {
 }
 
 // Create a new WiFi manager
-func NewWiFiManager(database *db.Database, useSudo bool, wpapath string, wlanname string) *WiFiManager {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "NewWiFiManager: useSudo=%t wpapath=%.120q wlanname=%.120q", useSudo, wpapath, wlanname)
-	}
+func NewWiFiManager(database *db.Database, useSudo bool, wpapath string, wlanname string) (out0 *WiFiManager) {
+	defer logger.Out1(logger.In4("network/wifi", "NewWiFiManager", "database", database, "useSudo", useSudo, "wpapath", wpapath, "wlanname", wlanname), &out0)
 	//Create a database table for wifi
 	database.NewTable("wifi")
 	return &WiFiManager{

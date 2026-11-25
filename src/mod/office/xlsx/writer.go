@@ -62,9 +62,7 @@ func newStyleTable() *xlsxStyleTable {
 }
 
 func (t *xlsxStyleTable) font(xml string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "xlsxStyleTable.font: xml=%.120q", xml)
-	}
+	logger.DebugTrace("office/xlsx", "xlsxStyleTable.font")
 	if i, ok := t.fontIdx[xml]; ok {
 		return i
 	}
@@ -74,9 +72,7 @@ func (t *xlsxStyleTable) font(xml string) int {
 }
 
 func (t *xlsxStyleTable) fill(xml string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "xlsxStyleTable.fill: xml=%.120q", xml)
-	}
+	logger.DebugTrace("office/xlsx", "xlsxStyleTable.fill")
 	if i, ok := t.fillIdx[xml]; ok {
 		return i
 	}
@@ -86,9 +82,7 @@ func (t *xlsxStyleTable) fill(xml string) int {
 }
 
 func (t *xlsxStyleTable) numFmt(code string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "xlsxStyleTable.numFmt: code=%.120q", code)
-	}
+	logger.DebugTrace("office/xlsx", "xlsxStyleTable.numFmt")
 	if code == "" {
 		return 0
 	}
@@ -264,8 +258,8 @@ func (t *xlsxStyleTable) render() string {
 /* ---------- workbook writer ---------- */
 
 // Build serializes a Workbook into a complete .xlsx file
-func Build(wb *model.Workbook) ([]byte, error) {
-	logger.Debug("office/xlsx", "Build")
+func Build(wb *model.Workbook) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/xlsx", "Build", "wb", wb), &out0, &out1)
 	if wb == nil || len(wb.Sheets) == 0 {
 		return nil, errors.New("workbook has no sheets")
 	}
@@ -275,6 +269,7 @@ func Build(wb *model.Workbook) ([]byte, error) {
 	addFile := func(name, content string) error {
 		w, err := zw.Create(name)
 		if err != nil {
+			logger.DebugErr("office/xlsx", err)
 			return err
 		}
 		_, err = w.Write([]byte(content))
@@ -369,6 +364,7 @@ func Build(wb *model.Workbook) ([]byte, error) {
 	}
 	ct.WriteString(`</Types>`)
 	if err := addFile("[Content_Types].xml", ct.String()); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, err
 	}
 
@@ -377,6 +373,7 @@ func Build(wb *model.Workbook) ([]byte, error) {
 			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
 			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>`+
 			`</Relationships>`); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, err
 	}
 
@@ -424,22 +421,27 @@ func Build(wb *model.Workbook) ([]byte, error) {
 	if anyDynamic {
 		wbRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata" Target="metadata.xml"/>`, len(wb.Sheets)+2))
 		if err := addFile("xl/metadata.xml", dynamicArrayMetadata); err != nil {
+			logger.DebugErr("office/xlsx", err)
 			return nil, err
 		}
 	}
 	wbRels.WriteString(`</Relationships>`)
 	if err := addFile("xl/workbook.xml", wbXML.String()); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, err
 	}
 	if err := addFile("xl/_rels/workbook.xml.rels", wbRels.String()); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, err
 	}
 
 	if err := addFile("xl/styles.xml", styles.render()); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, err
 	}
 	for i, xml := range sheetXMLs {
 		if err := addFile(fmt.Sprintf("xl/worksheets/sheet%d.xml", i+1), xml); err != nil {
+			logger.DebugErr("office/xlsx", err)
 			return nil, err
 		}
 	}
@@ -474,15 +476,18 @@ func Build(wb *model.Workbook) ([]byte, error) {
 				dRels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart%d.xml"/>`, relIDs[j], chartNo))
 				if err := addFile(fmt.Sprintf("xl/charts/chart%d.xml", chartNo),
 					buildChartXML(ws, ch, sheetNames[i])); err != nil {
+					logger.DebugErr("office/xlsx", err)
 					return nil, err
 				}
 			}
 			dRels.WriteString(`</Relationships>`)
 			if err := addFile(fmt.Sprintf("xl/drawings/_rels/drawing%d.xml.rels", drawingNo), dRels.String()); err != nil {
+				logger.DebugErr("office/xlsx", err)
 				return nil, err
 			}
 			if err := addFile(fmt.Sprintf("xl/drawings/drawing%d.xml", drawingNo),
 				buildDrawingXML(charts, relIDs)); err != nil {
+				logger.DebugErr("office/xlsx", err)
 				return nil, err
 			}
 		}
@@ -493,19 +498,23 @@ func Build(wb *model.Workbook) ([]byte, error) {
 			rid++
 			sRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing" Target="../drawings/vmlDrawing%d.vml"/>`, rid, commentsNo))
 			if err := addFile(fmt.Sprintf("xl/comments%d.xml", commentsNo), buildCommentsXML(notes)); err != nil {
+				logger.DebugErr("office/xlsx", err)
 				return nil, err
 			}
 			if err := addFile(fmt.Sprintf("xl/drawings/vmlDrawing%d.vml", commentsNo), buildVmlXML(notes)); err != nil {
+				logger.DebugErr("office/xlsx", err)
 				return nil, err
 			}
 		}
 		sRels.WriteString(`</Relationships>`)
 		if err := addFile(fmt.Sprintf("xl/worksheets/_rels/sheet%d.xml.rels", i+1), sRels.String()); err != nil {
+			logger.DebugErr("office/xlsx", err)
 			return nil, err
 		}
 	}
 
 	if err := zw.Close(); err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -517,9 +526,7 @@ type xlsxCellOut struct {
 }
 
 func buildWorksheetXML(ws *model.WorkSheet, styles *xlsxStyleTable, hasDrawing bool, legacyRid string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "buildWorksheetXML: hasDrawing=%t legacyRid=%.120q", hasDrawing, legacyRid)
-	}
+	logger.DebugTrace("office/xlsx", "buildWorksheetXML")
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"` +
@@ -655,9 +662,7 @@ func buildWorksheetXML(ws *model.WorkSheet, styles *xlsxStyleTable, hasDrawing b
 }
 
 func buildCellXML(col, row int, cell *model.WorkCell, styles *xlsxStyleTable) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "buildCellXML: col=%d row=%d", col, row)
-	}
+	logger.DebugTrace("office/xlsx", "buildCellXML")
 	v := cell.V
 	xf := styles.xfFor(cell.S)
 	sAttr := ""
@@ -698,9 +703,7 @@ func buildCellXML(col, row int, cell *model.WorkCell, styles *xlsxStyleTable) st
 }
 
 func inlineStrCell(ref, sAttr, text string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "inlineStrCell: ref=%.120q sAttr=%.120q", ref, sAttr)
-	}
+	logger.DebugTrace("office/xlsx", "inlineStrCell")
 	return fmt.Sprintf(`<c r="%s"%s t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>`,
 		ref, sAttr, xmltree.Escape(text))
 }

@@ -61,12 +61,13 @@ const defaultTableName = "notification"
 
 // NewStore creates a preference store backed by the given KVStore, ensuring the
 // backing table exists.
-func NewStore(db KVStore) (*Store, error) {
-	logger.Debug("notification/preference", "NewStore")
+func NewStore(db KVStore) (out0 *Store, out1 error) {
+	defer logger.Out2(logger.In1("notification/preference", "NewStore", "&db", &db), &out0, &out1)
 	if db == nil {
 		return nil, errors.New("nil KVStore provided")
 	}
 	if err := db.NewTable(defaultTableName); err != nil {
+		logger.DebugErr("notification/preference", err)
 		return nil, err
 	}
 	return &Store{db: db, table: defaultTableName}, nil
@@ -85,18 +86,14 @@ func DefaultPreference() UserPreference {
 }
 
 func prefKey(username string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("notification/preference", "prefKey: username=%.120q", username)
-	}
+	logger.DebugTrace("notification/preference", "prefKey")
 	return "pref/" + username
 }
 
 // normalizeChannels ensures the matrix is non-nil and only contains valid
 // priority labels.
-func normalizeChannels(channels map[string]map[string]bool) map[string]map[string]bool {
-	if logger.IsDebug() {
-		logger.Debugf("notification/preference", "normalizeChannels: len(channels)=%d", len(channels))
-	}
+func normalizeChannels(channels map[string]map[string]bool) (out0 map[string]map[string]bool) {
+	defer logger.Out1(logger.In1("notification/preference", "normalizeChannels", "channels", channels), &out0)
 	normalized := map[string]map[string]bool{}
 	for agent, priorities := range channels {
 		if priorities == nil {
@@ -117,10 +114,8 @@ func normalizeChannels(channels map[string]map[string]bool) map[string]map[strin
 
 // Get returns the stored preference for a user, or DefaultPreference when the
 // user has none saved.
-func (s *Store) Get(username string) UserPreference {
-	if logger.IsDebug() {
-		logger.Debugf("notification/preference", "Store.Get: username=%.120q", username)
-	}
+func (s *Store) Get(username string) (out0 UserPreference) {
+	defer logger.Out1(logger.In2("notification/preference", "Store.Get", "s", s, "username", username), &out0)
 	if !s.db.KeyExists(s.table, prefKey(username)) {
 		return DefaultPreference()
 	}
@@ -130,6 +125,7 @@ func (s *Store) Get(username string) UserPreference {
 	}
 	var pref UserPreference
 	if err := json.Unmarshal([]byte(raw), &pref); err != nil {
+		logger.DebugErr("notification/preference", err)
 		return DefaultPreference()
 	}
 	pref.Channels = normalizeChannels(pref.Channels)
@@ -137,16 +133,15 @@ func (s *Store) Get(username string) UserPreference {
 }
 
 // Set persists the given preference for a user after normalising it.
-func (s *Store) Set(username string, pref UserPreference) error {
-	if logger.IsDebug() {
-		logger.Debugf("notification/preference", "Store.Set: username=%.120q", username)
-	}
+func (s *Store) Set(username string, pref UserPreference) (out0 error) {
+	defer logger.Out1(logger.In3("notification/preference", "Store.Set", "s", s, "username", username, "&pref", &pref), &out0)
 	if username == "" {
 		return errors.New("username cannot be empty")
 	}
 	pref.Channels = normalizeChannels(pref.Channels)
 	js, err := json.Marshal(pref)
 	if err != nil {
+		logger.DebugErr("notification/preference", err)
 		return err
 	}
 	return s.db.Write(s.table, prefKey(username), string(js))
@@ -183,10 +178,8 @@ func (s *Store) WebhookResolver() func(string) (webhookn.Target, error) {
 // matrix. requestedAgents, when non-empty, further restricts delivery to the
 // intersection with the producer's requested channels. Returns nil when no
 // channel is enabled for this user at this priority.
-func (s *Store) ResolveAgents(username string, priority int, availableAgents []string, requestedAgents []string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("notification/preference", "Store.ResolveAgents: username=%.120q priority=%d len(availableAgents)=%d len(requestedAgents)=%d", username, priority, len(availableAgents), len(requestedAgents))
-	}
+func (s *Store) ResolveAgents(username string, priority int, availableAgents []string, requestedAgents []string) (out0 []string) {
+	defer logger.Out1(logger.In5("notification/preference", "Store.ResolveAgents", "s", s, "username", username, "priority", priority, "availableAgents", availableAgents, "requestedAgents", requestedAgents), &out0)
 	pref := s.Get(username)
 	label := notification.PriorityToString(notification.NormalizePriority(priority))
 
@@ -207,10 +200,8 @@ func (s *Store) ResolveAgents(username string, priority int, availableAgents []s
 	return resolved
 }
 
-func contains(list []string, item string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("notification/preference", "contains: len(list)=%d item=%.120q", len(list), item)
-	}
+func contains(list []string, item string) (out0 bool) {
+	defer logger.Out1(logger.In2("notification/preference", "contains", "list", list, "item", item), &out0)
 	for _, v := range list {
 		if v == item {
 			return true

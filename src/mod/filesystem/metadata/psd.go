@@ -11,10 +11,8 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForPSD: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForPSD", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -28,6 +26,7 @@ func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder stri
 
 	f, err := fshAbs.Open(file)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -35,11 +34,13 @@ func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder stri
 	img, _, err := image.Decode(f)
 	f.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
 	//Scale, crop the centre and flatten transparency onto white
 	if err := writeCroppedThumbnail(fsh, img, outputFile); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 

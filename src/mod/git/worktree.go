@@ -27,21 +27,22 @@ import (
 
 // Add stages the given repo-relative paths. Deleted paths are removed from the
 // index, which is what go-git's Add already does for a missing file.
-func (m *Manager) Add(realpath string, files []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Add: realpath=%.120q len(files)=%d", realpath, len(files))
-	}
+func (m *Manager) Add(realpath string, files []string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "Manager.Add", "m", m, "realpath", realpath, "files", files), &out0)
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	for _, file := range files {
 		cleaned, err := cleanRepoPath(file)
 		if err != nil {
+			logger.DebugErr("git", err)
 			return err
 		}
 		if _, err := tree.Add(cleaned); err != nil {
+			logger.DebugErr("git", err)
 			return errors.New("cannot stage " + cleaned + ": " + err.Error())
 		}
 	}
@@ -49,12 +50,11 @@ func (m *Manager) Add(realpath string, files []string) error {
 }
 
 // AddAll stages every change in the working tree, equivalent to `git add -A`.
-func (m *Manager) AddAll(realpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.AddAll: realpath=%.120q", realpath)
-	}
+func (m *Manager) AddAll(realpath string) (out0 error) {
+	defer logger.Out1(logger.In2("git", "Manager.AddAll", "m", m, "realpath", realpath), &out0)
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -63,17 +63,17 @@ func (m *Manager) AddAll(realpath string) error {
 
 // Unstage removes the given paths from the index while leaving the working tree
 // untouched, equivalent to `git restore --staged`.
-func (m *Manager) Unstage(realpath string, files []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Unstage: realpath=%.120q len(files)=%d", realpath, len(files))
-	}
+func (m *Manager) Unstage(realpath string, files []string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "Manager.Unstage", "m", m, "realpath", realpath, "files", files), &out0)
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	cleanedFiles, err := cleanRepoPaths(files)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if len(cleanedFiles) == 0 {
@@ -90,17 +90,17 @@ func (m *Manager) Unstage(realpath string, files []string) error {
 // them from the index (`git restore`). Untracked files have nothing to restore
 // from, so they are deleted instead — the same thing GitHub Desktop's "Discard
 // changes" does.
-func (m *Manager) Discard(realpath string, files []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Discard: realpath=%.120q len(files)=%d", realpath, len(files))
-	}
+func (m *Manager) Discard(realpath string, files []string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "Manager.Discard", "m", m, "realpath", realpath, "files", files), &out0)
 	_, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	cleanedFiles, err := cleanRepoPaths(files)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if len(cleanedFiles) == 0 {
@@ -109,6 +109,7 @@ func (m *Manager) Discard(realpath string, files []string) error {
 
 	status, err := tree.Status()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -138,31 +139,33 @@ func (m *Manager) Discard(realpath string, files []string) error {
 
 // Commit stages req.Files (or every tracked change when req.All is set) and
 // writes a commit. The new commit hash is returned.
-func (m *Manager) Commit(realpath string, req *CommitRequest) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Commit: realpath=%.120q", realpath)
-	}
+func (m *Manager) Commit(realpath string, req *CommitRequest) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.Commit", "m", m, "realpath", realpath, "req", req), &out0, &out1)
 	if req == nil || strings.TrimSpace(req.Message) == "" {
 		return "", errors.New("commit message cannot be empty")
 	}
 
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	if req.All {
 		if err := tree.AddWithOptions(&gogit.AddOptions{All: true}); err != nil {
+			logger.DebugErr("git", err)
 			return "", err
 		}
 	} else if len(req.Files) > 0 {
 		if err := m.Add(realpath, req.Files); err != nil {
+			logger.DebugErr("git", err)
 			return "", err
 		}
 	}
 
 	signature, err := resolveSignature(repo, req.Name, req.Email)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -171,6 +174,7 @@ func (m *Manager) Commit(realpath string, req *CommitRequest) (string, error) {
 		Committer: signature,
 	})
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, gogit.ErrEmptyCommit) {
 			return "", errors.New("nothing to commit — select at least one changed file")
 		}
@@ -184,10 +188,8 @@ func (m *Manager) Commit(realpath string, req *CommitRequest) (string, error) {
 // the caller and falling back to the repository's own git config. go-git
 // refuses to commit without an author, so an explicit error beats its generic
 // validation message.
-func resolveSignature(repo *gogit.Repository, name string, email string) (*object.Signature, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "resolveSignature: name=%.120q", name)
-	}
+func resolveSignature(repo *gogit.Repository, name string, email string) (out0 *object.Signature, out1 error) {
+	defer logger.Out2(logger.In3("git", "resolveSignature", "repo", repo, "name", name, "email", email), &out0, &out1)
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(email)
 
@@ -223,10 +225,8 @@ func resolveSignature(repo *gogit.Repository, name string, email string) (*objec
 
 // sanitiseLocalEmail turns an author name into a usable placeholder address for
 // users who never configured one.
-func sanitiseLocalEmail(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "sanitiseLocalEmail: name=%.120q", name)
-	}
+func sanitiseLocalEmail(name string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "sanitiseLocalEmail", "name", name), &out0)
 	local := strings.Map(func(r rune) rune {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
@@ -245,10 +245,8 @@ func sanitiseLocalEmail(name string) string {
 }
 
 // cleanRepoPaths normalises a list of repo-relative paths, dropping empties.
-func cleanRepoPaths(files []string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "cleanRepoPaths: len(files)=%d", len(files))
-	}
+func cleanRepoPaths(files []string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In1("git", "cleanRepoPaths", "files", files), &out0, &out1)
 	results := []string{}
 	for _, file := range files {
 		if strings.TrimSpace(file) == "" {
@@ -256,6 +254,7 @@ func cleanRepoPaths(files []string) ([]string, error) {
 		}
 		cleaned, err := cleanRepoPath(file)
 		if err != nil {
+			logger.DebugErr("git", err)
 			return nil, err
 		}
 		results = append(results, cleaned)
@@ -265,10 +264,8 @@ func cleanRepoPaths(files []string) ([]string, error) {
 
 // cleanRepoPath validates that a path stays inside the repository. Paths come
 // from the browser, so a "../" escape must never reach the filesystem.
-func cleanRepoPath(file string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "cleanRepoPath: file=%.120q", file)
-	}
+func cleanRepoPath(file string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("git", "cleanRepoPath", "file", file), &out0, &out1)
 	//Treat backslashes as separators on every platform. filepath.Clean only
 	//knows the host separator, so a Windows-style path would otherwise slip
 	//through unchanged on Linux and fail the cross-platform checks below.

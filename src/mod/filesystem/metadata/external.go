@@ -55,25 +55,23 @@ var (
 // SetExternalCacheDir sets the folder that keeps the thumbnails of drives
 // implementing arozfs.ThumbnailRenderer.
 func SetExternalCacheDir(dir string) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "SetExternalCacheDir: dir=%.120q", dir)
-	}
+	defer logger.Out0(logger.In1("filesystem/metadata", "SetExternalCacheDir", "dir", dir))
 	externalCacheMu.Lock()
 	defer externalCacheMu.Unlock()
 	externalCacheDir = filepath.Clean(dir)
 }
 
 // ExternalCacheDir returns the folder set by SetExternalCacheDir.
-func ExternalCacheDir() string {
-	logger.Debug("filesystem/metadata", "ExternalCacheDir")
+func ExternalCacheDir() (out0 string) {
+	defer logger.Out1(logger.In0("filesystem/metadata", "ExternalCacheDir"), &out0)
 	externalCacheMu.RLock()
 	defer externalCacheMu.RUnlock()
 	return externalCacheDir
 }
 
 // thumbnailRendererOf returns the renderer of a drive, if it has one.
-func thumbnailRendererOf(fsh *filesystem.FileSystemHandler) (arozfs.ThumbnailRenderer, bool) {
-	logger.Debug("filesystem/metadata", "thumbnailRendererOf")
+func thumbnailRendererOf(fsh *filesystem.FileSystemHandler) (out0 arozfs.ThumbnailRenderer, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "thumbnailRendererOf", "fsh", fsh), &out0, &out1)
 	if fsh == nil || fsh.FileSystemAbstraction == nil {
 		return nil, false
 	}
@@ -84,8 +82,8 @@ func thumbnailRendererOf(fsh *filesystem.FileSystemHandler) (arozfs.ThumbnailRen
 // externalCachePath is where the thumbnail for a content key is kept. The key
 // is hashed so that whatever characters an abstraction puts in it, the file
 // name is safe, and the first two characters spread the files over folders.
-func externalCachePath(key string) string {
-	logger.Debug("filesystem/metadata", "externalCachePath")
+func externalCachePath(key string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/metadata", "externalCachePath", "!key", key), &out0)
 	sum := sha256.Sum256([]byte(key))
 	name := hex.EncodeToString(sum[:])
 	return filepath.Join(ExternalCacheDir(), name[:2], name+".thumb")
@@ -93,10 +91,8 @@ func externalCachePath(key string) string {
 
 // externalCacheFile returns the cache path of a file and whether the
 // thumbnail is there.
-func externalCacheFile(r arozfs.ThumbnailRenderer, rpath string) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "externalCacheFile: rpath=%.120q", rpath)
-	}
+func externalCacheFile(r arozfs.ThumbnailRenderer, rpath string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In2("filesystem/metadata", "externalCacheFile", "&r", &r, "rpath", rpath), &out0, &out1)
 	if !ThumbnailSupported(rpath) {
 		return "", false
 	}
@@ -118,15 +114,14 @@ type renderFlight struct {
 }
 
 // loadExternalCache is LoadCache for a drive implementing ThumbnailRenderer.
-func (rh *RenderHandler) loadExternalCache(r arozfs.ThumbnailRenderer, rpath string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "RenderHandler.loadExternalCache: rpath=%.120q generateOnly=%t", rpath, generateOnly)
-	}
+func (rh *RenderHandler) loadExternalCache(r arozfs.ThumbnailRenderer, rpath string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "RenderHandler.loadExternalCache", "rh", rh, "&r", &r, "rpath", rpath, "generateOnly", generateOnly), &out0, &out1)
 	if !ThumbnailSupported(rpath) {
 		return "", errors.New("no supported format")
 	}
 	key, err := r.ThumbnailKey(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	if key == "" {
@@ -153,6 +148,7 @@ func (rh *RenderHandler) loadExternalCache(r arozfs.ThumbnailRenderer, rpath str
 
 	data, err := rh.renderExternal(r, rpath, key, cachePath)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	if generateOnly {
@@ -163,10 +159,8 @@ func (rh *RenderHandler) loadExternalCache(r arozfs.ThumbnailRenderer, rpath str
 
 // renderExternal asks the drive for a thumbnail and keeps it, making sure
 // one piece of content is rendered once however many requests want it.
-func (rh *RenderHandler) renderExternal(r arozfs.ThumbnailRenderer, rpath string, key string, cachePath string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "RenderHandler.renderExternal: rpath=%.120q cachePath=%.120q", rpath, cachePath)
-	}
+func (rh *RenderHandler) renderExternal(r arozfs.ThumbnailRenderer, rpath string, key string, cachePath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In5("filesystem/metadata", "RenderHandler.renderExternal", "rh", rh, "&r", &r, "rpath", rpath, "cachePath", cachePath, "!key", key), &out0, &out1)
 	flight := &renderFlight{done: make(chan struct{})}
 	if existing, loaded := rh.externalFlights.LoadOrStore(key, flight); loaded {
 		other := existing.(*renderFlight)
@@ -190,6 +184,7 @@ func (rh *RenderHandler) renderExternal(r arozfs.ThumbnailRenderer, rpath string
 		err = errors.New("thumbnail too large")
 	}
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		ttl := externalRetryFailureTTL
 		if errors.Is(err, arozfs.ErrNoThumbnail) {
 			ttl = externalFailureTTL
@@ -206,28 +201,31 @@ func (rh *RenderHandler) renderExternal(r arozfs.ThumbnailRenderer, rpath string
 
 // writeFileAtomic writes to a temporary file next to path and renames it in
 // place, so a reader never sees half a thumbnail.
-func writeFileAtomic(path string, data []byte) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "writeFileAtomic: path=%.120q", path)
-	}
+func writeFileAtomic(path string, data []byte) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/metadata", "writeFileAtomic", "path", path, "data", data), &out0)
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".render-*")
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return err
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		tmp.Close()
 		os.Remove(tmpName)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		os.Remove(tmpName)
 		return err
 	}
 	if err := os.Rename(tmpName, path); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		os.Remove(tmpName)
 		return err
 	}
@@ -236,8 +234,8 @@ func writeFileAtomic(path string, data []byte) error {
 
 // PruneExternalCache removes the kept thumbnails that have not been used for
 // maxAge, and returns how many it removed.
-func PruneExternalCache(maxAge time.Duration) int {
-	logger.Debug("filesystem/metadata", "PruneExternalCache")
+func PruneExternalCache(maxAge time.Duration) (out0 int) {
+	defer logger.Out1(logger.In1("filesystem/metadata", "PruneExternalCache", "&maxAge", &maxAge), &out0)
 	root := ExternalCacheDir()
 	cutoff := time.Now().Add(-maxAge)
 	removed := 0
@@ -258,12 +256,11 @@ func PruneExternalCache(maxAge time.Duration) int {
 // RenderLocalFile renders the thumbnail of a file this host can open by its OS
 // path and returns the encoded image. The renderers write their output into a
 // scratch folder, never next to the file.
-func RenderLocalFile(osPath string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "RenderLocalFile: osPath=%.120q", osPath)
-	}
+func RenderLocalFile(osPath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "RenderLocalFile", "osPath", osPath), &out0, &out1)
 	info, err := os.Stat(osPath)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, err
 	}
 	if info.IsDir() || !ThumbnailSupported(osPath) {
@@ -272,6 +269,7 @@ func RenderLocalFile(osPath string) ([]byte, error) {
 
 	scratch, err := os.MkdirTemp("", "arozos-thumb-")
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, err
 	}
 	defer os.RemoveAll(scratch)
@@ -294,6 +292,7 @@ func RenderLocalFile(osPath string) ([]byte, error) {
 
 	encoded, err := renderThumbnail(fsh, cacheFolder, filepath.ToSlash(osPath), false)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return nil, err
 	}
 	if encoded == "" {

@@ -24,7 +24,7 @@ var (
 )
 
 func WiFiInit() {
-	logger.Debug("Core", "WiFiInit")
+	defer logger.Out0(logger.In0("Core", "WiFiInit"))
 	//Start the Wifi Manager
 	wifiManager = wifi.NewWiFiManager(sysdb, sudo_mode, *wpa_supplicant_path, *wan_interface_name)
 
@@ -77,12 +77,11 @@ func WiFiInit() {
 }
 
 func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "network_wifi_handleWiFiPower: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "network_wifi_handleWiFiPower", "r", r))
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
@@ -97,6 +96,7 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 		//Show current power status
 		infs, err := wifiManager.GetWirelessInterfaces()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -124,6 +124,7 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 		//Change current power status
 		wlaninterface, err := utils.PostPara(r, "interface")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid interface")
 			return
 		}
@@ -131,6 +132,7 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 		if status == "on" {
 			err := wifiManager.SetInterfacePower(wlaninterface, true)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				utils.SendErrorResponse(w, err.Error())
 			} else {
 				utils.SendOK(w)
@@ -138,6 +140,7 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 		} else if status == "off" {
 			err := wifiManager.SetInterfacePower(wlaninterface, false)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				utils.SendErrorResponse(w, err.Error())
 			} else {
 				utils.SendOK(w)
@@ -150,12 +153,11 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "network_wifi_handleScan: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "network_wifi_handleScan", "r", r))
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
@@ -168,6 +170,7 @@ func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
 	//Get a list of current on system wireless interface
 	wirelessInterfaces, err := wifiManager.GetWirelessInterfaces()
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -197,6 +200,7 @@ func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
 	}
 	scannedWiFiInfo, err := wifiManager.ScanNearbyWiFi(strings.TrimSpace(scanInterface))
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -205,11 +209,10 @@ func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "network_wifi_handleConnect: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "network_wifi_handleConnect", "r", r))
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
@@ -221,6 +224,7 @@ func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	ssid, err := utils.PostPara(r, "ESSID")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "ESSID not given")
 		return
 	}
@@ -230,16 +234,19 @@ func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	identity, err := utils.PostPara(r, "identity")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		identity = ""
 	}
 
 	result, err := wifiManager.ConnectWiFi(ssid, password, connType, identity)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	jsonString, err := json.Marshal(result)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -250,12 +257,11 @@ func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "network_wifi_handleWiFiRemove: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "network_wifi_handleWiFiRemove", "r", r))
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
@@ -268,12 +274,14 @@ func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
 	//Get ESSID from post request
 	ESSID, err := utils.PostPara(r, "ESSID")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "ESSID not given")
 		return
 	}
 
 	err = wifiManager.RemoveWifi(ESSID)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -281,12 +289,11 @@ func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "network_wifi_handleWiFiInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "network_wifi_handleWiFiInfo", "r", r))
 	//Get and return the current conencted WiFi Information
 	_, err := authAgent.GetUserName(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -294,6 +301,7 @@ func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
 	//Detailed state of every wireless interface
 	interfaces, err := wifiManager.GetInterfaceStatus()
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Failed to retrieve WiFi Information: "+err.Error())
 		return
 	}
@@ -313,6 +321,7 @@ func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
 		//Platforms without a status implementation
 		ESSID, interfaceName, err = wifiManager.GetConnectedWiFi()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Failed to retrieve WiFi Information")
 			return
 		}

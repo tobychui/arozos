@@ -46,14 +46,12 @@ type ring struct {
 }
 
 func newRing(size int) *ring {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("info/usageinfo", "newRing: size=%d", size)
-	}
+	logger.DebugTrace("info/usageinfo", "newRing")
 	return &ring{points: make([]HistoryPoint, size)}
 }
 
 func (r *ring) push(p HistoryPoint) {
-	logger.Debug("info/usageinfo", "ring.push")
+	defer logger.Out0(logger.In2("info/usageinfo", "ring.push", "r", r, "&p", &p))
 	size := len(r.points)
 	if r.count < size {
 		r.points[(r.start+r.count)%size] = p
@@ -64,8 +62,8 @@ func (r *ring) push(p HistoryPoint) {
 	r.start = (r.start + 1) % size
 }
 
-func (r *ring) list() []HistoryPoint {
-	logger.Debug("info/usageinfo", "ring.list")
+func (r *ring) list() (out0 []HistoryPoint) {
+	defer logger.Out1(logger.In1("info/usageinfo", "ring.list", "r", r), &out0)
 	out := make([]HistoryPoint, r.count)
 	for i := 0; i < r.count; i++ {
 		out[i] = r.points[(r.start+i)%len(r.points)]
@@ -82,18 +80,14 @@ type accumulator struct {
 }
 
 func (a *accumulator) add(cpu, ram float64) {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "accumulator.add: cpu=%g ram=%g", cpu, ram)
-	}
+	defer logger.Out0(logger.In3("info/usageinfo", "accumulator.add", "a", a, "cpu", cpu, "ram", ram))
 	a.cpu += cpu
 	a.ram += ram
 	a.n++
 }
 
 func (a *accumulator) addNet(rx, tx float64) {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "accumulator.addNet: rx=%g tx=%g", rx, tx)
-	}
+	defer logger.Out0(logger.In3("info/usageinfo", "accumulator.addNet", "a", a, "rx", rx, "tx", tx))
 	if rx < 0 || tx < 0 {
 		return
 	}
@@ -102,8 +96,8 @@ func (a *accumulator) addNet(rx, tx float64) {
 	a.nNet++
 }
 
-func (a *accumulator) point(t time.Time) HistoryPoint {
-	logger.Debug("info/usageinfo", "accumulator.point")
+func (a *accumulator) point(t time.Time) (out0 HistoryPoint) {
+	defer logger.Out1(logger.In2("info/usageinfo", "accumulator.point", "a", a, "&t", &t), &out0)
 	p := HistoryPoint{T: t.Unix(), RX: -1, TX: -1}
 	if a.n > 0 {
 		p.CPU = round1(a.cpu / float64(a.n))
@@ -117,9 +111,7 @@ func (a *accumulator) point(t time.Time) HistoryPoint {
 }
 
 func round1(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("info/usageinfo", "round1: v=%g", v)
-	}
+	logger.DebugTrace("info/usageinfo", "round1")
 	return math.Round(v*10) / 10
 }
 
@@ -146,9 +138,7 @@ func NewHistory() *History {
 
 // AddSample records one CPU / RAM reading, in percent
 func (h *History) AddSample(cpu, ram float64) {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "History.AddSample: cpu=%g ram=%g", cpu, ram)
-	}
+	defer logger.Out0(logger.In3("info/usageinfo", "History.AddSample", "h", h, "cpu", cpu, "ram", ram))
 	h.mu.Lock()
 	h.step.add(cpu, ram)
 	h.mu.Unlock()
@@ -159,9 +149,7 @@ func (h *History) AddSample(cpu, ram float64) {
 // CPU / RAM sample are skipped, so a stalled monitor leaves a gap rather than
 // a run of zeros.
 func (h *History) Commit(t time.Time, rx, tx float64) {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "History.Commit: rx=%g tx=%g", rx, tx)
-	}
+	defer logger.Out0(logger.In4("info/usageinfo", "History.Commit", "h", h, "&t", &t, "rx", rx, "tx", tx))
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.step.n == 0 {
@@ -184,10 +172,8 @@ func (h *History) Commit(t time.Time, rx, tx float64) {
 
 // Series returns the points of a range, oldest first, and the period length
 // of each point. rangeName is "1h" or "24h"; anything else means "1h".
-func (h *History) Series(rangeName string) ([]HistoryPoint, time.Duration) {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "History.Series: rangeName=%.120q", rangeName)
-	}
+func (h *History) Series(rangeName string) (out0 []HistoryPoint, out1 time.Duration) {
+	defer logger.Out2(logger.In2("info/usageinfo", "History.Series", "h", h, "rangeName", rangeName), &out0, &out1)
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if rangeName == "24h" {
@@ -211,7 +197,7 @@ var (
 // HistoryStep to compute the network rate. Without a source the network part
 // of the history stays empty.
 func SetNetworkCounterSource(source func() (rx int64, tx int64, err error)) {
-	logger.Debug("info/usageinfo", "SetNetworkCounterSource")
+	defer logger.Out0(logger.In1("info/usageinfo", "SetNetworkCounterSource", "source", source))
 	netSourceMu.Lock()
 	netSource = source
 	netSourceMu.Unlock()
@@ -219,9 +205,7 @@ func SetNetworkCounterSource(source func() (rx int64, tx int64, err error)) {
 
 // GetHistory returns the recorded usage history of a range ("1h" or "24h")
 func GetHistory(rangeName string) ([]HistoryPoint, time.Duration) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("info/usageinfo", "GetHistory: rangeName=%.120q", rangeName)
-	}
+	logger.DebugTrace("info/usageinfo", "GetHistory")
 	return globalHistory.Series(rangeName)
 }
 
@@ -234,11 +218,10 @@ type rateTracker struct {
 
 // next returns the rate since the previous reading, or -1, -1 when there is no
 // usable previous reading (first call, read error or a counter reset)
-func (r *rateTracker) next(rx, tx int64, err error, now time.Time) (float64, float64) {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "rateTracker.next: rx=%d tx=%d err=%v", rx, tx, err)
-	}
+func (r *rateTracker) next(rx, tx int64, err error, now time.Time) (out0 float64, out1 float64) {
+	defer logger.Out2(logger.In5("info/usageinfo", "rateTracker.next", "r", r, "rx", rx, "tx", tx, "err", err, "&now", &now), &out0, &out1)
 	if err != nil {
+		logger.DebugErr("info/usageinfo", err)
 		r.ok = false
 		return -1, -1
 	}
@@ -253,7 +236,7 @@ func (r *rateTracker) next(rx, tx int64, err error, now time.Time) (float64, flo
 
 // startHistoryCommitter closes one history period every HistoryStep
 func startHistoryCommitter() {
-	logger.Debug("info/usageinfo", "startHistoryCommitter")
+	defer logger.Out0(logger.In0("info/usageinfo", "startHistoryCommitter"))
 	go func() {
 		tracker := &rateTracker{}
 		readNet := func(now time.Time) (float64, float64) {

@@ -37,14 +37,13 @@ const (
 // of libx264 to keep CPU load down (probed once and cached by
 // getHWEncoderProfile); otherwise this falls back to the original software path.
 func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "TranscodeAndStream: r=%s inputFile=%.120q startTime=%g", logger.RequestSummary(r), inputFile, startTime)
-	}
+	defer logger.Out0(logger.In4("media/transcoder", "TranscodeAndStream", "r", r, "inputFile", inputFile, "&resolution", &resolution, "startTime", startTime))
 	// Build the FFmpeg command based on the resolution parameter
 	var cmd *exec.Cmd
 
 	scale, err := resolutionScaleFilter(resolution)
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}
@@ -96,6 +95,7 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	// Get the command output pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Failed to create output pipe", http.StatusInternalServerError)
 		return
 	}
@@ -103,6 +103,7 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	// Get the command error pipe to capture standard error
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Failed to create error pipe", http.StatusInternalServerError)
 		logger.PrintAndLog("Transcoder", fmt.Sprintf("Failed to create error pipe: %v", err), nil)
 		return
@@ -110,6 +111,7 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Failed to start FFmpeg", http.StatusInternalServerError)
 		return
 	}
@@ -129,6 +131,7 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	// Copy the command output to the HTTP response in a separate goroutine
 	go func() {
 		if _, err := io.Copy(w, stdout); err != nil {
+			logger.DebugErr("media/transcoder", err)
 			cmd.Process.Kill()
 		}
 		// Signal natural end so the handler returns and the chunked-transfer
@@ -146,6 +149,7 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 
 	go func() {
 		if err := cmd.Wait(); err != nil {
+			logger.DebugErr("media/transcoder", err)
 			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg process exited: %v", err), nil)
 			return
 		}
@@ -167,9 +171,7 @@ const (
 // TranscodeAndStreamAudio transcodes an audio file to MP3 and streams it.
 // startTime is the seek offset in seconds; pass 0 to start from the beginning.
 func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile string, sampleRate TranscodeAudioSampleRate, startTime float64) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "TranscodeAndStreamAudio: r=%s inputFile=%.120q startTime=%g", logger.RequestSummary(r), inputFile, startTime)
-	}
+	defer logger.Out0(logger.In4("media/transcoder", "TranscodeAndStreamAudio", "r", r, "inputFile", inputFile, "&sampleRate", &sampleRate, "startTime", startTime))
 	var args []string
 	if startTime > 0.001 {
 		args = append(args, "-ss", fmt.Sprintf("%.3f", startTime))
@@ -192,15 +194,18 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Failed to create output pipe", http.StatusInternalServerError)
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Failed to create error pipe", http.StatusInternalServerError)
 		return
 	}
 	if err := cmd.Start(); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		http.Error(w, "Failed to start FFmpeg", http.StatusInternalServerError)
 		return
 	}
@@ -218,6 +223,7 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 
 	go func() {
 		if _, err := io.Copy(w, stdout); err != nil {
+			logger.DebugErr("media/transcoder", err)
 			cmd.Process.Kill()
 		}
 		// Signal even on a clean finish so the handler returns and the HTTP
@@ -236,6 +242,7 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 
 	go func() {
 		if err := cmd.Wait(); err != nil {
+			logger.DebugErr("media/transcoder", err)
 			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg audio process exited: %v", err), nil)
 		}
 	}()
@@ -245,10 +252,8 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 }
 
 // GetAudioDuration returns the duration of a local audio file in seconds using ffprobe.
-func GetAudioDuration(inputFile string) (float64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "GetAudioDuration: inputFile=%.120q", inputFile)
-	}
+func GetAudioDuration(inputFile string) (out0 float64, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "GetAudioDuration", "inputFile", inputFile), &out0, &out1)
 	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
@@ -257,6 +262,7 @@ func GetAudioDuration(inputFile string) (float64, error) {
 	)
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return 0, fmt.Errorf("ffprobe failed: %w", err)
 	}
 
@@ -266,11 +272,13 @@ func GetAudioDuration(inputFile string) (float64, error) {
 		} `json:"format"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return 0, fmt.Errorf("failed to parse ffprobe output: %w", err)
 	}
 
 	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return 0, fmt.Errorf("invalid duration value: %w", err)
 	}
 	return duration, nil

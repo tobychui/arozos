@@ -60,8 +60,8 @@ type gcodeThumbnail struct {
 // ExtractGcodeThumbnails returns every embedded preview found in the header of
 // a G-code stream, in the order they appear. Reading stops after
 // gcodeThumbnailScanLimit bytes.
-func extractGcodeThumbnails(r io.Reader) ([]gcodeThumbnail, error) {
-	logger.Debug("filesystem/metadata", "extractGcodeThumbnails")
+func extractGcodeThumbnails(r io.Reader) (out0 []gcodeThumbnail, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "extractGcodeThumbnails", "r", r), &out0, &out1)
 	scanner := bufio.NewScanner(io.LimitReader(r, gcodeThumbnailScanLimit))
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
@@ -102,6 +102,7 @@ func extractGcodeThumbnails(r io.Reader) ([]gcodeThumbnail, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return found, err
 	}
 	return found, nil
@@ -109,10 +110,8 @@ func extractGcodeThumbnails(r io.Reader) ([]gcodeThumbnail, error) {
 
 // pickGcodeThumbnails orders the candidates best first: the untagged previews
 // before the alternate angles, and larger before smaller within each group.
-func pickGcodeThumbnails(thumbnails []gcodeThumbnail) []gcodeThumbnail {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "pickGcodeThumbnails: len(thumbnails)=%d", len(thumbnails))
-	}
+func pickGcodeThumbnails(thumbnails []gcodeThumbnail) (out0 []gcodeThumbnail) {
+	defer logger.Out1(logger.In1("filesystem/metadata", "pickGcodeThumbnails", "thumbnails", thumbnails), &out0)
 	ordered := make([]gcodeThumbnail, len(thumbnails))
 	copy(ordered, thumbnails)
 	sort.SliceStable(ordered, func(i, j int) bool {
@@ -128,8 +127,8 @@ func pickGcodeThumbnails(thumbnails []gcodeThumbnail) []gcodeThumbnail {
 // a decoded image. Candidates are tried best first, so a preview in a format
 // this build cannot decode (some slicers can emit QOI) falls through to the
 // next one instead of failing the whole file.
-func decodeGcodeThumbnail(r io.Reader) (image.Image, error) {
-	logger.Debug("filesystem/metadata", "decodeGcodeThumbnail")
+func decodeGcodeThumbnail(r io.Reader) (out0 image.Image, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/metadata", "decodeGcodeThumbnail", "r", r), &out0, &out1)
 	thumbnails, err := extractGcodeThumbnails(r)
 	if err != nil && len(thumbnails) == 0 {
 		return nil, err
@@ -151,8 +150,8 @@ func decodeGcodeThumbnail(r io.Reader) (image.Image, error) {
 // pixels. Slicer previews render the model onto a transparent plate with a
 // generous margin, so without this the model ends up as a small island in the
 // middle of the thumbnail. An image with no transparency is returned unchanged.
-func trimTransparent(src image.Image) image.Image {
-	logger.Debug("filesystem/metadata", "trimTransparent")
+func trimTransparent(src image.Image) (out0 image.Image) {
+	defer logger.Out1(logger.In1("filesystem/metadata", "trimTransparent", "&src", &src), &out0)
 	bounds := src.Bounds()
 	minX, minY := bounds.Max.X, bounds.Max.Y
 	maxX, maxY := bounds.Min.X, bounds.Min.Y
@@ -201,10 +200,8 @@ func trimTransparent(src image.Image) image.Image {
 // an opaque background. Slicer previews are usually transparent and are often
 // far from square, so they are letterboxed rather than center cropped: cropping
 // a 230x110 preview to a square would cut most of the model out of frame.
-func fitOnCanvas(src image.Image, size int, background color.Color) image.Image {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "fitOnCanvas: size=%d", size)
-	}
+func fitOnCanvas(src image.Image, size int, background color.Color) (out0 image.Image) {
+	defer logger.Out1(logger.In3("filesystem/metadata", "fitOnCanvas", "&src", &src, "size", size, "&background", &background), &out0)
 	bounds := src.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
@@ -228,10 +225,8 @@ func fitOnCanvas(src image.Image, size int, background color.Color) image.Image 
 	return canvas
 }
 
-func generateThumbnailForGcode(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForGcode: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForGcode(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForGcode", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -244,11 +239,13 @@ func generateThumbnailForGcode(fsh *filesystem.FileSystemHandler, cacheFolder st
 
 	f, err := fshAbs.Open(file)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	img, err := decodeGcodeThumbnail(f)
 	f.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 
@@ -260,11 +257,13 @@ func generateThumbnailForGcode(fsh *filesystem.FileSystemHandler, cacheFolder st
 	outputFile := cacheFolder + filepath.Base(file) + ".jpg"
 	outf, err := fshAbs.Create(outputFile)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	err = jpeg.Encode(outf, thumbnail, &jpeg.Options{Quality: 90})
 	outf.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 

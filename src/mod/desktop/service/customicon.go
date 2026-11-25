@@ -41,8 +41,8 @@ const (
 )
 
 // decodeCustomIcon validates a square PNG data URL and returns it re-encoded
-func decodeCustomIcon(dataURL string) ([]byte, error) {
-	logger.Debug("desktop/service", "decodeCustomIcon")
+func decodeCustomIcon(dataURL string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("desktop/service", "decodeCustomIcon", "dataURL", dataURL), &out0, &out1)
 	if !strings.HasPrefix(dataURL, pngDataURLPrefix) {
 		return nil, errors.New("Icon must be a PNG image")
 	}
@@ -52,12 +52,14 @@ func decodeCustomIcon(dataURL string) ([]byte, error) {
 	}
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, errors.New("Icon image is corrupted")
 	}
 
 	//Check the size before decoding the pixels
 	config, err := png.DecodeConfig(bytes.NewReader(raw))
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, errors.New("Icon image is corrupted")
 	}
 	if config.Width != config.Height {
@@ -69,47 +71,44 @@ func decodeCustomIcon(dataURL string) ([]byte, error) {
 
 	img, err := png.Decode(bytes.NewReader(raw))
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, errors.New("Icon image is corrupted")
 	}
 	var clean bytes.Buffer
 	if err := png.Encode(&clean, img); err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, err
 	}
 	return clean.Bytes(), nil
 }
 
 // customIconFilename names an icon by its content
-func customIconFilename(content []byte) string {
-	logger.Debug("desktop/service", "customIconFilename")
+func customIconFilename(content []byte) (out0 string) {
+	defer logger.Out1(logger.In1("desktop/service", "customIconFilename", "content", content), &out0)
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:8]) + ".png"
 }
 
 // customIconVpath is the virtual path of an icon stored next to the given shortcut
 func customIconVpath(shortcutVpath string, filename string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("desktop/service", "customIconVpath: shortcutVpath=%.120q filename=%.120q", shortcutVpath, filename)
-	}
+	logger.DebugTrace("desktop/service", "customIconVpath")
 	return path.Join(path.Dir(shortcutVpath), customIconFolder, filename)
 }
 
 // mediaURL is the web path the desktop loads a user file through
 func mediaURL(vpath string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("desktop/service", "mediaURL: vpath=%.120q", vpath)
-	}
+	logger.DebugTrace("desktop/service", "mediaURL")
 	return "media/?file=" + url.QueryEscape(vpath)
 }
 
 // writeCustomIcon stores the icon next to the shortcut at shortcutRpath
-func writeCustomIcon(fsh *filesystem.FileSystemHandler, shortcutRpath string, filename string, content []byte) error {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "writeCustomIcon: shortcutRpath=%.120q filename=%.120q", shortcutRpath, filename)
-	}
+func writeCustomIcon(fsh *filesystem.FileSystemHandler, shortcutRpath string, filename string, content []byte) (out0 error) {
+	defer logger.Out1(logger.In4("desktop/service", "writeCustomIcon", "fsh", fsh, "shortcutRpath", shortcutRpath, "filename", filename, "content", content), &out0)
 	fshAbs := fsh.FileSystemAbstraction
 	iconDir := arozfs.ToSlash(filepath.Join(filepath.Dir(shortcutRpath), customIconFolder))
 	if !fshAbs.FileExists(iconDir) {
 		if err := fshAbs.MkdirAll(iconDir, 0755); err != nil {
+			logger.DebugErr("desktop/service", err)
 			return err
 		}
 	}

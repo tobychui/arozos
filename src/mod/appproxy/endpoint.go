@@ -78,10 +78,8 @@ var (
 )
 
 // NormalizeSlug turns a free text name (e.g. a container name) into a valid slug
-func NormalizeSlug(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "NormalizeSlug: name=%.120q", name)
-	}
+func NormalizeSlug(name string) (out0 string) {
+	defer logger.Out1(logger.In1("appproxy", "NormalizeSlug", "name", name), &out0)
 	name = strings.ToLower(strings.TrimSpace(name))
 	var b strings.Builder
 	lastDash := true
@@ -103,17 +101,13 @@ func NormalizeSlug(name string) string {
 
 // ValidSlug reports whether s can be used as an endpoint slug
 func ValidSlug(s string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("appproxy", "ValidSlug: s=%.120q", s)
-	}
+	logger.DebugTrace("appproxy", "ValidSlug")
 	return slugRegex.MatchString(s)
 }
 
 // NormalizeHostname lower-cases a host name and drops any port
-func NormalizeHostname(host string) string {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "NormalizeHostname: host=%.120q", host)
-	}
+func NormalizeHostname(host string) (out0 string) {
+	defer logger.Out1(logger.In1("appproxy", "NormalizeHostname", "host", host), &out0)
 	host = strings.ToLower(strings.TrimSpace(host))
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
@@ -122,10 +116,8 @@ func NormalizeHostname(host string) string {
 }
 
 // normalizeWindowSize clamps a float window dimension, 0 means default
-func normalizeWindowSize(v int) int {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "normalizeWindowSize: v=%d", v)
-	}
+func normalizeWindowSize(v int) (out0 int) {
+	defer logger.Out1(logger.In1("appproxy", "normalizeWindowSize", "v", v), &out0)
 	if v <= 0 {
 		return 0
 	}
@@ -139,12 +131,11 @@ func normalizeWindowSize(v int) int {
 }
 
 // validateTarget checks a host:port upstream address
-func validateTarget(target string) error {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "validateTarget: target=%.120q", target)
-	}
+func validateTarget(target string) (out0 error) {
+	defer logger.Out1(logger.In1("appproxy", "validateTarget", "target", target), &out0)
 	host, port, err := net.SplitHostPort(target)
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		return errors.New("Target must be host:port, e.g. 127.0.0.1:8081")
 	}
 	if host == "" || strings.ContainsAny(host, "/?#@ ") {
@@ -158,10 +149,8 @@ func validateTarget(target string) error {
 }
 
 // isLoopbackHost reports whether host points back at this machine
-func isLoopbackHost(host string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "isLoopbackHost: host=%.120q", host)
-	}
+func isLoopbackHost(host string) (out0 bool) {
+	defer logger.Out1(logger.In1("appproxy", "isLoopbackHost", "host", host), &out0)
 	host = strings.ToLower(host)
 	if host == "localhost" || host == "0.0.0.0" || host == "::" {
 		return true
@@ -171,10 +160,8 @@ func isLoopbackHost(host string) bool {
 }
 
 // validateOrigin checks a scheme://host[:port] origin without a path
-func validateOrigin(origin string) error {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "validateOrigin: origin=%.120q", origin)
-	}
+func validateOrigin(origin string) (out0 error) {
+	defer logger.Out1(logger.In1("appproxy", "validateOrigin", "origin", origin), &out0)
 	u, err := url.Parse(origin)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return errors.New("Portal origin must look like https://nas.example.com")
@@ -187,10 +174,8 @@ func validateOrigin(origin string) error {
 
 // Normalize fills defaults and validates the endpoint. selfPort is the port
 // ArozOS itself listens on (a loopback target on it would proxy into itself)
-func (e *Endpoint) Normalize(selfPort int) error {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Endpoint.Normalize: selfPort=%d", selfPort)
-	}
+func (e *Endpoint) Normalize(selfPort int) (out0 error) {
+	defer logger.Out1(logger.In2("appproxy", "Endpoint.Normalize", "e", e, "selfPort", selfPort), &out0)
 	e.Slug = strings.TrimSpace(e.Slug)
 	if !ValidSlug(e.Slug) {
 		return errors.New("Slug may only contain a-z, 0-9 and - (max 63 characters)")
@@ -213,6 +198,7 @@ func (e *Endpoint) Normalize(selfPort int) error {
 	e.Target = strings.TrimPrefix(strings.TrimPrefix(e.Target, "http://"), "https://")
 	e.Target = strings.TrimSuffix(e.Target, "/")
 	if err := validateTarget(e.Target); err != nil {
+		logger.DebugErr("appproxy", err)
 		return err
 	}
 	if selfPort > 0 {
@@ -235,6 +221,7 @@ func (e *Endpoint) Normalize(selfPort int) error {
 		}
 		e.PortalOrigin = strings.TrimSuffix(strings.TrimSpace(e.PortalOrigin), "/")
 		if err := validateOrigin(e.PortalOrigin); err != nil {
+			logger.DebugErr("appproxy", err)
 			return err
 		}
 		portal, _ := url.Parse(e.PortalOrigin)
@@ -275,8 +262,8 @@ func (e *Endpoint) PathPrefix() string {
 }
 
 // UpstreamURL is the base URL requests are forwarded to
-func (e *Endpoint) UpstreamURL() *url.URL {
-	logger.Debug("appproxy", "Endpoint.UpstreamURL")
+func (e *Endpoint) UpstreamURL() (out0 *url.URL) {
+	defer logger.Out1(logger.In1("appproxy", "Endpoint.UpstreamURL", "e", e), &out0)
 	scheme := "http"
 	if e.TargetTLS {
 		scheme = "https"
@@ -286,8 +273,8 @@ func (e *Endpoint) UpstreamURL() *url.URL {
 
 // CanAccess reports whether a user may open the endpoint. A nil identity is
 // an anonymous visitor
-func (e *Endpoint) CanAccess(id *Identity) bool {
-	logger.Debug("appproxy", "Endpoint.CanAccess")
+func (e *Endpoint) CanAccess(id *Identity) (out0 bool) {
+	defer logger.Out1(logger.In2("appproxy", "Endpoint.CanAccess", "e", e, "id", id), &out0)
 	if !e.RequireLogin {
 		return true
 	}

@@ -17,7 +17,7 @@ var (
 )
 
 func ModuleServiceInit() {
-	logger.Debug("Core", "ModuleServiceInit")
+	defer logger.Out0(logger.In0("Core", "ModuleServiceInit"))
 	//Create a new module handler
 	moduleHandler = module.NewModuleHandler(userHandler, *tmp_directory)
 
@@ -57,6 +57,7 @@ func ModuleServiceInit() {
 		//Check if the user is admin
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "User not logged in")
 			return
 		}
@@ -66,12 +67,14 @@ func ModuleServiceInit() {
 			//Get the installation file path
 			installerPath, err := utils.PostPara(r, "path")
 			if err != nil {
+				logger.DebugErr("Core", err)
 				utils.SendErrorResponse(w, "Invalid installer path")
 				return
 			}
 
 			fsh, subpath, err := GetFSHandlerSubpathFromVpath(installerPath)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				utils.SendErrorResponse(w, "Invalid installer path")
 				return
 			}
@@ -79,6 +82,7 @@ func ModuleServiceInit() {
 			//Translate it to realpath
 			rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("Module Installer", "Failed to install module: "+err.Error(), err)
 				utils.SendErrorResponse(w, "Invalid installer path")
 				return
@@ -97,6 +101,7 @@ func ModuleServiceInit() {
 	http.HandleFunc("/system/modules/uploadAndInstall", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "User not logged in")
 			return
 		}
@@ -137,12 +142,14 @@ func ModuleServiceInit() {
 
 	err := sysdb.NewTable("module")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 
 	//Modules switched off by an admin must be known before any module registers
 	if err := moduleHandler.LoadDisabledModules(sysdb); err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Modules", "Could not read the disabled module list", err)
 	}
 	moduleHandler.InterfaceModuleUsers = groupsBootingInto
@@ -150,10 +157,8 @@ func ModuleServiceInit() {
 
 // groupsBootingInto lists the permission groups whose interface module is the
 // given module. Such a module cannot be switched off.
-func groupsBootingInto(moduleName string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "groupsBootingInto: moduleName=%.120q", moduleName)
-	}
+func groupsBootingInto(moduleName string) (out0 []string) {
+	defer logger.Out1(logger.In1("Core", "groupsBootingInto", "moduleName", moduleName), &out0)
 	groups := []string{}
 	if permissionHandler == nil {
 		return groups
@@ -170,7 +175,7 @@ func groupsBootingInto(moduleName string) []string {
 Handle endpoint registry for Module installer
 */
 func ModuleInstallerInit() {
-	logger.Debug("Core", "ModuleInstallerInit")
+	defer logger.Out0(logger.In0("Core", "ModuleInstallerInit"))
 	//Register module installation setting
 	registerSetting(settingModule{
 		Name:         "Add & Remove Module",
@@ -197,9 +202,7 @@ func ModuleInstallerInit() {
 
 // Handle module installation request
 func HandleModuleInstall(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "HandleModuleInstall: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "HandleModuleInstall", "r", r))
 	opr, _ := utils.PostPara(r, "opr")
 
 	if opr == "gitinstall" {
@@ -213,6 +216,7 @@ func HandleModuleInstall(w http.ResponseWriter, r *http.Request) {
 		//Install the module using git
 		err := moduleHandler.InstallModuleViaGit(url, AGIGateway)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -232,6 +236,7 @@ func HandleModuleInstall(w http.ResponseWriter, r *http.Request) {
 		//Remove the module
 		err := moduleHandler.UninstallModule(module)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}

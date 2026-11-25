@@ -27,9 +27,7 @@ var odsRefRe = regexp.MustCompile(`(\$?[A-Za-z]{1,3}\$?\d+)(:(\$?[A-Za-z]{1,3}\$
 
 // formulaToOdf rewrites "=SUM(A1:B2)+C3" into `of:=SUM([.A1:.B2])+[.C3]`
 func formulaToOdf(f string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "formulaToOdf: f=%.120q", f)
-	}
+	logger.DebugTrace("office/odf", "formulaToOdf")
 	f = strings.TrimPrefix(f, "=")
 	var out strings.Builder
 	inStr := false
@@ -70,9 +68,7 @@ var odfBracketRe = regexp.MustCompile(`\[([^\]]+)\]`)
 
 // formulaFromOdf rewrites `of:=SUM([.A1:.B2])` back into "=SUM(A1:B2)"
 func formulaFromOdf(f string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "formulaFromOdf: f=%.120q", f)
-	}
+	logger.DebugTrace("office/odf", "formulaFromOdf")
 	f = strings.TrimPrefix(f, "of:")
 	f = strings.TrimPrefix(f, "=")
 	f = odfBracketRe.ReplaceAllStringFunc(f, func(m string) string {
@@ -90,8 +86,8 @@ func formulaFromOdf(f string) string {
 }
 
 // BuildOds serializes a Workbook into a complete .ods file
-func BuildOds(wb *model.Workbook) ([]byte, error) {
-	logger.Debug("office/odf", "BuildOds")
+func BuildOds(wb *model.Workbook) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/odf", "BuildOds", "wb", wb), &out0, &out1)
 	var body strings.Builder
 	var styles strings.Builder
 	styleSeq := 0

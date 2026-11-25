@@ -37,10 +37,11 @@ type odtStyleInfo struct {
 }
 
 // ParseOdt converts raw .odt bytes into a Document
-func ParseOdt(data []byte) (*model.Document, error) {
-	logger.Debug("office/odf", "ParseOdt")
+func ParseOdt(data []byte) (out0 *model.Document, out1 error) {
+	defer logger.Out2(logger.In1("office/odf", "ParseOdt", "data", data), &out0, &out1)
 	files, mime, err := readOdfZip(data)
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, err
 	}
 	if mime != "" && mime != odtMime {
@@ -52,6 +53,7 @@ func ParseOdt(data []byte) (*model.Document, error) {
 	}
 	tree, err := parseOdfXML(content)
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, errors.New("cannot parse content.xml: " + err.Error())
 	}
 	docRoot := tree.first("document-content")
@@ -447,9 +449,7 @@ func odtReadPageStyles(root *onode, doc *model.Document) {
 }
 
 func atoiSafe(s string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "atoiSafe: s=%.120q", s)
-	}
+	logger.DebugTrace("office/odf", "atoiSafe")
 	n := 0
 	for _, r := range s {
 		if r < '0' || r > '9' {
@@ -461,9 +461,7 @@ func atoiSafe(s string) int {
 }
 
 func absF(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "absF: v=%g", v)
-	}
+	logger.DebugTrace("office/odf", "absF")
 	if v < 0 {
 		return -v
 	}
@@ -471,9 +469,7 @@ func absF(v float64) float64 {
 }
 
 func pathExtOf(p string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "pathExtOf: p=%.120q", p)
-	}
+	logger.DebugTrace("office/odf", "pathExtOf")
 	i := strings.LastIndex(p, ".")
 	if i < 0 {
 		return ""

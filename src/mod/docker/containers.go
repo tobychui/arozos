@@ -43,10 +43,8 @@ type ContainerInfo struct {
 }
 
 // validateContainerRef rejects empty or malformed container references.
-func validateContainerRef(ref string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "validateContainerRef: ref=%.120q", ref)
-	}
+func validateContainerRef(ref string) (out0 error) {
+	defer logger.Out1(logger.In1("docker", "validateContainerRef", "ref", ref), &out0)
 	if ref == "" {
 		return errors.New("empty container reference")
 	}
@@ -57,10 +55,11 @@ func validateContainerRef(ref string) error {
 }
 
 // ListContainers returns all containers, running and stopped.
-func (d *DockerManager) ListContainers() ([]ContainerInfo, error) {
-	logger.Debug("docker", "DockerManager.ListContainers")
+func (d *DockerManager) ListContainers() (out0 []ContainerInfo, out1 error) {
+	defer logger.Out2(logger.In1("docker", "DockerManager.ListContainers", "d", d), &out0, &out1)
 	out, err := runDocker("ps", "-a", "--no-trunc", "--format", "{{json .}}")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 	return parseContainerList(out)
@@ -68,10 +67,8 @@ func (d *DockerManager) ListContainers() ([]ContainerInfo, error) {
 
 // parseContainerList parses the line-delimited JSON of `docker ps`. Malformed
 // lines are skipped defensively rather than failing the whole listing.
-func parseContainerList(out []byte) ([]ContainerInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "parseContainerList: len(out)=%d", len(out))
-	}
+func parseContainerList(out []byte) (out0 []ContainerInfo, out1 error) {
+	defer logger.Out2(logger.In1("docker", "parseContainerList", "out", out), &out0, &out1)
 	results := []ContainerInfo{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		line = strings.TrimSpace(line)
@@ -80,6 +77,7 @@ func parseContainerList(out []byte) ([]ContainerInfo, error) {
 		}
 		var c ContainerInfo
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
+			logger.DebugErr("docker", err)
 			continue
 		}
 		results = append(results, c)
@@ -89,11 +87,10 @@ func parseContainerList(out []byte) ([]ContainerInfo, error) {
 
 // simpleContainerAction runs a one-argument docker subcommand (start/stop/
 // restart) against a validated container reference.
-func (d *DockerManager) simpleContainerAction(action, ref string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.simpleContainerAction: action=%.120q ref=%.120q", action, ref)
-	}
+func (d *DockerManager) simpleContainerAction(action, ref string) (out0 error) {
+	defer logger.Out1(logger.In3("docker", "DockerManager.simpleContainerAction", "d", d, "action", action, "ref", ref), &out0)
 	if err := validateContainerRef(ref); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	_, err := runDocker(action, ref)
@@ -101,11 +98,10 @@ func (d *DockerManager) simpleContainerAction(action, ref string) error {
 }
 
 // RemoveContainer force-removes a container (stopping it first if running).
-func (d *DockerManager) RemoveContainer(ref string) error {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.RemoveContainer: ref=%.120q", ref)
-	}
+func (d *DockerManager) RemoveContainer(ref string) (out0 error) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.RemoveContainer", "d", d, "ref", ref), &out0)
 	if err := validateContainerRef(ref); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	_, err := runDocker("rm", "-f", ref)
@@ -113,11 +109,10 @@ func (d *DockerManager) RemoveContainer(ref string) error {
 }
 
 // InspectContainer returns the raw `docker inspect` JSON for one container.
-func (d *DockerManager) InspectContainer(ref string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.InspectContainer: ref=%.120q", ref)
-	}
+func (d *DockerManager) InspectContainer(ref string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("docker", "DockerManager.InspectContainer", "d", d, "ref", ref), &out0, &out1)
 	if err := validateContainerRef(ref); err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 	return runDocker("inspect", ref)
@@ -127,11 +122,10 @@ func (d *DockerManager) InspectContainer(ref string) ([]byte, error) {
 
 // HandleContainerList serves the full container list as JSON.
 func (d *DockerManager) HandleContainerList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerList", "d", d, "r", r))
 	containers, err := d.ListContainers()
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -141,16 +135,16 @@ func (d *DockerManager) HandleContainerList(w http.ResponseWriter, r *http.Reque
 
 // HandleContainerInspect serves raw inspect JSON for one container.
 func (d *DockerManager) HandleContainerInspect(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleContainerInspect: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleContainerInspect", "d", d, "r", r))
 	ref, err := utils.GetPara(r, "id")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing container id")
 		return
 	}
 	out, err := d.InspectContainer(ref)
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -160,19 +154,19 @@ func (d *DockerManager) HandleContainerInspect(w http.ResponseWriter, r *http.Re
 // handleContainerAction is the shared POST handler body for start/stop/restart/
 // remove. actionFn performs the work for the validated reference.
 func (d *DockerManager) handleContainerAction(w http.ResponseWriter, r *http.Request, actionFn func(ref string) error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.handleContainerAction: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("docker", "DockerManager.handleContainerAction", "d", d, "r", r, "actionFn", actionFn))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	ref, err := utils.PostPara(r, "id")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "missing container id")
 		return
 	}
 	if err := actionFn(ref); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -180,29 +174,21 @@ func (d *DockerManager) handleContainerAction(w http.ResponseWriter, r *http.Req
 }
 
 func (d *DockerManager) HandleContainerStart(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleContainerStart: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleContainerStart")
 	d.handleContainerAction(w, r, func(ref string) error { return d.simpleContainerAction("start", ref) })
 }
 
 func (d *DockerManager) HandleContainerStop(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleContainerStop: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleContainerStop")
 	d.handleContainerAction(w, r, func(ref string) error { return d.simpleContainerAction("stop", ref) })
 }
 
 func (d *DockerManager) HandleContainerRestart(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleContainerRestart: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleContainerRestart")
 	d.handleContainerAction(w, r, func(ref string) error { return d.simpleContainerAction("restart", ref) })
 }
 
 func (d *DockerManager) HandleContainerRemove(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "DockerManager.HandleContainerRemove: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("docker", "DockerManager.HandleContainerRemove")
 	d.handleContainerAction(w, r, d.RemoveContainer)
 }

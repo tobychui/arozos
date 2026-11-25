@@ -19,14 +19,15 @@ type WhiteList struct {
 	Enabled  bool
 }
 
-func NewWhitelistManager(sysdb *database.Database) *WhiteList {
-	logger.Debug("auth/accesscontrol/whitelist", "NewWhitelistManager")
+func NewWhitelistManager(sysdb *database.Database) (out0 *WhiteList) {
+	defer logger.Out1(logger.In1("auth/accesscontrol/whitelist", "NewWhitelistManager", "sysdb", sysdb), &out0)
 	sysdb.NewTable("ipwhitelist")
 
 	whitelistEnabled := false
 	if sysdb.KeyExists("ipwhitelist", "enable") {
 		err := sysdb.Read("ipwhitelist", "enable", &whitelistEnabled)
 		if err != nil {
+			logger.DebugErr("auth/accesscontrol/whitelist", err)
 			logger.PrintAndLog("Whitelist", "[Auth/Whitelist] Unable to load previous enable state from database. Using default.", nil)
 		}
 	}
@@ -38,9 +39,7 @@ func NewWhitelistManager(sysdb *database.Database) *WhiteList {
 }
 
 func (wl *WhiteList) SetWhitelistEnabled(enable bool) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.SetWhitelistEnabled: enable=%t", enable)
-	}
+	defer logger.Out0(logger.In2("auth/accesscontrol/whitelist", "WhiteList.SetWhitelistEnabled", "wl", wl, "enable", enable))
 	if enable {
 		wl.Enabled = true
 		wl.database.Write("ipwhitelist", "enable", true)
@@ -50,10 +49,8 @@ func (wl *WhiteList) SetWhitelistEnabled(enable bool) {
 	}
 }
 
-func (wl *WhiteList) IsWhitelisted(ip string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.IsWhitelisted: ip=%.120q", ip)
-	}
+func (wl *WhiteList) IsWhitelisted(ip string) (out0 bool) {
+	defer logger.Out1(logger.In2("auth/accesscontrol/whitelist", "WhiteList.IsWhitelisted", "wl", wl, "ip", ip), &out0)
 	//Check if whitelist is enabled
 	if wl.Enabled == false {
 		return true
@@ -79,10 +76,11 @@ func (wl *WhiteList) IsWhitelisted(ip string) bool {
 	return false
 }
 
-func (wl *WhiteList) ListWhitelistedIpRanges() []string {
-	logger.Debug("auth/accesscontrol/whitelist", "WhiteList.ListWhitelistedIpRanges")
+func (wl *WhiteList) ListWhitelistedIpRanges() (out0 []string) {
+	defer logger.Out1(logger.In1("auth/accesscontrol/whitelist", "WhiteList.ListWhitelistedIpRanges", "wl", wl), &out0)
 	entries, err := wl.database.ListTable("ipwhitelist")
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		return []string{}
 	}
 	results := []string{"127.0.0.1"}
@@ -97,13 +95,12 @@ func (wl *WhiteList) ListWhitelistedIpRanges() []string {
 	return results
 }
 
-func (wl *WhiteList) SetWhitelist(ipRange string) error {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.SetWhitelist: ipRange=%.120q", ipRange)
-	}
+func (wl *WhiteList) SetWhitelist(ipRange string) (out0 error) {
+	defer logger.Out1(logger.In2("auth/accesscontrol/whitelist", "WhiteList.SetWhitelist", "wl", wl, "ipRange", ipRange), &out0)
 	//Check if the IP range is correct
 	err := accesscontrol.ValidateIpRange(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		return err
 	}
 
@@ -113,13 +110,12 @@ func (wl *WhiteList) SetWhitelist(ipRange string) error {
 	return wl.database.Write("ipwhitelist", ipRange, true)
 }
 
-func (wl *WhiteList) UnsetWhitelist(ipRange string) error {
-	if logger.IsDebug() {
-		logger.Debugf("auth/accesscontrol/whitelist", "WhiteList.UnsetWhitelist: ipRange=%.120q", ipRange)
-	}
+func (wl *WhiteList) UnsetWhitelist(ipRange string) (out0 error) {
+	defer logger.Out1(logger.In2("auth/accesscontrol/whitelist", "WhiteList.UnsetWhitelist", "wl", wl, "ipRange", ipRange), &out0)
 	//Check if the IP range is correct
 	err := accesscontrol.ValidateIpRange(ipRange)
 	if err != nil {
+		logger.DebugErr("auth/accesscontrol/whitelist", err)
 		return err
 	}
 

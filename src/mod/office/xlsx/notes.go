@@ -97,9 +97,7 @@ func buildVmlXML(notes []xlsxNote) string {
 // parseSheetComments reads a worksheet's comments part (if any) back into
 // the cells' "n" note field
 func parseSheetComments(files map[string][]byte, sheetPart string, ws *model.WorkSheet) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xlsx", "parseSheetComments: len(files)=%d sheetPart=%.120q", len(files), sheetPart)
-	}
+	logger.DebugTrace("office/xlsx", "parseSheetComments")
 	sheetDir := pathDir(sheetPart)
 	relsRaw, ok := files[sheetDir+"/_rels/"+pathBase(sheetPart)+".rels"]
 	if !ok {
@@ -107,6 +105,7 @@ func parseSheetComments(files map[string][]byte, sheetPart string, ws *model.Wor
 	}
 	relsTree, err := xmltree.Parse(relsRaw)
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return
 	}
 	commentsPart := ""
@@ -120,6 +119,7 @@ func parseSheetComments(files map[string][]byte, sheetPart string, ws *model.Wor
 	}
 	tree, err := xmltree.Parse(files[commentsPart])
 	if err != nil {
+		logger.DebugErr("office/xlsx", err)
 		return
 	}
 	cl := tree.First("commentList")

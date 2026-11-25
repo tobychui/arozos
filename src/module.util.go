@@ -20,7 +20,7 @@ import (
 //Register the utilities here
 
 func util_init() {
-	logger.Debug("Core", "util_init")
+	defer logger.Out0(logger.In0("Core", "util_init"))
 	/*
 		ArOZ Video Player - The basic video player
 	*/

@@ -25,10 +25,8 @@ var (
 	reDarwinDuplex = regexp.MustCompile(`(?i)<(full|half)-duplex>`)
 )
 
-func formatMbps(mbps int) string {
-	if logger.IsDebug() {
-		logger.Debugf("network", "formatMbps: mbps=%d", mbps)
-	}
+func formatMbps(mbps int) (out0 string) {
+	defer logger.Out1(logger.In1("network", "formatMbps", "mbps", mbps), &out0)
 	if mbps >= 1000 {
 		if mbps%1000 == 0 {
 			return fmt.Sprintf("%d Gbps", mbps/1000)
@@ -41,10 +39,8 @@ func formatMbps(mbps int) string {
 // nicExtraAll returns enhanced NIC details for all interfaces on macOS.
 // Uses ifconfig(8) per interface; returns N/A fields when the command
 // is unavailable or produces no parseable output.
-func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
-	if logger.IsDebug() {
-		logger.Debugf("network", "nicExtraAll: len(ifaces)=%d", len(ifaces))
-	}
+func nicExtraAll(ifaces []net.Interface) (out0 map[string]nicExtraInfo) {
+	defer logger.Out1(logger.In1("network", "nicExtraAll", "ifaces", ifaces), &out0)
 	result := make(map[string]nicExtraInfo, len(ifaces))
 	for _, iface := range ifaces {
 		result[iface.Name] = darwinNICExtra(iface)
@@ -52,8 +48,8 @@ func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
 	return result
 }
 
-func darwinNICExtra(iface net.Interface) nicExtraInfo {
-	logger.Debug("network", "darwinNICExtra")
+func darwinNICExtra(iface net.Interface) (out0 nicExtraInfo) {
+	defer logger.Out1(logger.In1("network", "darwinNICExtra", "&iface", &iface), &out0)
 	// Fallback state from Go flags
 	state := "down"
 	if iface.Flags&net.FlagUp != 0 {
@@ -62,6 +58,7 @@ func darwinNICExtra(iface net.Interface) nicExtraInfo {
 
 	out, err := exec.Command("ifconfig", iface.Name).Output()
 	if err != nil {
+		logger.DebugErr("network", err)
 		return nicExtraInfo{OperState: state, Speed: "N/A", Duplex: "N/A"}
 	}
 	output := string(out)

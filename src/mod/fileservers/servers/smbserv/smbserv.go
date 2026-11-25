@@ -93,13 +93,15 @@ type Manager struct {
 }
 
 // NewManager prepares the manager and starts the server if it was left on.
-func NewManager(opt *ManagerOption) (*Manager, error) {
-	logger.Debug("fileservers/servers/smbserv", "NewManager")
+func NewManager(opt *ManagerOption) (out0 *Manager, out1 error) {
+	defer logger.Out2(logger.In1("fileservers/servers/smbserv", "NewManager", "opt", opt), &out0, &out1)
 	if err := opt.Sysdb.NewTable(settingsTable); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		return nil, err
 	}
 	creds, err := aroz.OpenCredentialDB(opt.Sysdb, opt.SecretDir)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		return nil, err
 	}
 	m := &Manager{
@@ -109,6 +111,7 @@ func NewManager(opt *ManagerOption) (*Manager, error) {
 	}
 	if m.savedEnabled() {
 		if err := m.ServerToggle(true); err != nil {
+			logger.DebugErr("fileservers/servers/smbserv", err)
 			//The choice is kept: the port may be free again at the next boot
 			logger.PrintAndLog(logTitle, "The SMB server could not start", err)
 			m.opt.Sysdb.Write(settingsTable, "enabled", true)
@@ -117,8 +120,8 @@ func NewManager(opt *ManagerOption) (*Manager, error) {
 	return m, nil
 }
 
-func (m *Manager) savedEnabled() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.savedEnabled")
+func (m *Manager) savedEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.savedEnabled", "m", m), &out0)
 	enabled := false
 	if m.opt.Sysdb.KeyExists(settingsTable, "enabled") {
 		m.opt.Sysdb.Read(settingsTable, "enabled", &enabled)
@@ -127,8 +130,8 @@ func (m *Manager) savedEnabled() bool {
 }
 
 // Port returns the configured port.
-func (m *Manager) Port() int {
-	logger.Debug("fileservers/servers/smbserv", "Manager.Port")
+func (m *Manager) Port() (out0 int) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.Port", "m", m), &out0)
 	port := DefaultPort
 	if m.opt.Sysdb.KeyExists(settingsTable, "port") {
 		m.opt.Sysdb.Read(settingsTable, "port", &port)
@@ -140,8 +143,8 @@ func (m *Manager) Port() int {
 // default: SMB keeps the password as an NT hash, which a short password does
 // not survive if it is ever taken. Passwords already set are not touched when
 // the minimum comes back.
-func (m *Manager) allowShortPasswords() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.allowShortPasswords")
+func (m *Manager) allowShortPasswords() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.allowShortPasswords", "m", m), &out0)
 	allow := false
 	if m.opt.Sysdb.KeyExists(settingsTable, "shortpw") {
 		m.opt.Sysdb.Read(settingsTable, "shortpw", &allow)
@@ -150,16 +153,16 @@ func (m *Manager) allowShortPasswords() bool {
 }
 
 // minPasswordLength is the shortest SMB password a user may set now.
-func (m *Manager) minPasswordLength() int {
-	logger.Debug("fileservers/servers/smbserv", "Manager.minPasswordLength")
+func (m *Manager) minPasswordLength() (out0 int) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.minPasswordLength", "m", m), &out0)
 	if m.allowShortPasswords() {
 		return 1
 	}
 	return minPasswordLength
 }
 
-func (m *Manager) allowPublic() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.allowPublic")
+func (m *Manager) allowPublic() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.allowPublic", "m", m), &out0)
 	allow := false
 	if m.opt.Sysdb.KeyExists(settingsTable, "public") {
 		m.opt.Sysdb.Read(settingsTable, "public", &allow)
@@ -170,8 +173,8 @@ func (m *Manager) allowPublic() bool {
 // requireEncryption refuses clients that cannot encrypt. On by default, the
 // setting Windows 10 and 11 connect with out of the box; turning it off lets
 // SMB 2.1 clients in at the cost of sending files in the clear.
-func (m *Manager) requireEncryption() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.requireEncryption")
+func (m *Manager) requireEncryption() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.requireEncryption", "m", m), &out0)
 	on := true
 	if m.opt.Sysdb.KeyExists(settingsTable, "encrypt") {
 		m.opt.Sysdb.Read(settingsTable, "encrypt", &on)
@@ -182,8 +185,8 @@ func (m *Manager) requireEncryption() bool {
 // useTrash sends deletes to the trash bin. On by default, so a delete from
 // Explorer can be undone from the web desktop, even though Explorer warns
 // that a delete on a network drive is permanent.
-func (m *Manager) useTrash() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.useTrash")
+func (m *Manager) useTrash() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.useTrash", "m", m), &out0)
 	if m.opt.Trash == nil {
 		return false
 	}
@@ -199,8 +202,8 @@ func (m *Manager) useTrash() bool {
 const DefaultStageLimitMB = aroz.DefaultStageLimit >> 20
 
 // stageLimitMB is the setting as the page shows it. Zero means no limit.
-func (m *Manager) stageLimitMB() int64 {
-	logger.Debug("fileservers/servers/smbserv", "Manager.stageLimitMB")
+func (m *Manager) stageLimitMB() (out0 int64) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.stageLimitMB", "m", m), &out0)
 	mb := int64(DefaultStageLimitMB)
 	if m.opt.Sysdb.KeyExists(settingsTable, "stagelimit") {
 		m.opt.Sysdb.Read(settingsTable, "stagelimit", &mb)
@@ -208,8 +211,8 @@ func (m *Manager) stageLimitMB() int64 {
 	return mb
 }
 
-func (m *Manager) stageLimit() int64 {
-	logger.Debug("fileservers/servers/smbserv", "Manager.stageLimit")
+func (m *Manager) stageLimit() (out0 int64) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.stageLimit", "m", m), &out0)
 	mb := m.stageLimitMB()
 	if mb <= 0 {
 		return -1
@@ -217,8 +220,8 @@ func (m *Manager) stageLimit() int64 {
 	return mb << 20
 }
 
-func (m *Manager) backend() (*aroz.Backend, error) {
-	logger.DebugTrace("fileservers/servers/smbserv", "Manager.backend")
+func (m *Manager) backend() (out0 *aroz.Backend, out1 error) {
+	defer logger.Out2(logger.In1("fileservers/servers/smbserv", "Manager.backend", "m", m), &out0, &out1)
 	return aroz.New(aroz.Options{
 		Credentials:          m.creds,
 		LookupUser:           m.opt.LookupUser,
@@ -240,10 +243,8 @@ func (m *Manager) backend() (*aroz.Backend, error) {
 // with no SMB password is left at the flat delay: Windows tries the signed in
 // user on every new connection before anything else, and that must not make
 // connecting slower and slower.
-func (m *Manager) failureDelay(username, remote string, ok bool) time.Duration {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.failureDelay: username=%.120q remote=%.120q ok=%t", username, remote, ok)
-	}
+func (m *Manager) failureDelay(username, remote string, ok bool) (out0 time.Duration) {
+	defer logger.Out1(logger.In4("fileservers/servers/smbserv", "Manager.failureDelay", "m", m, "username", username, "remote", remote, "ok", ok), &out0)
 	request := &http.Request{RemoteAddr: remote, Header: http.Header{}}
 	if ok {
 		m.delays.ResetUserRetryCount(username, request)
@@ -269,10 +270,8 @@ func (e *startError) Error() string {
 }
 
 // bindError turns a failure to listen into something an admin can act on.
-func bindError(port int, err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "bindError: port=%d err=%v", port, err)
-	}
+func bindError(port int, err error) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "bindError", "port", port, "err", err), &out0)
 	text := strings.ToLower(err.Error())
 	switch {
 	case runtime.GOOS == "windows" && port == DefaultPort:
@@ -287,9 +286,7 @@ func bindError(port int, err error) error {
 
 // recordError keeps a failure for the settings page. The caller holds m.mu.
 func (m *Manager) recordError(err error) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.recordError: err=%v", err)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.recordError", "m", m, "err", err))
 	m.lastError, m.lastErrorKey = "", ""
 	if err == nil {
 		return
@@ -302,8 +299,8 @@ func (m *Manager) recordError(err error) {
 }
 
 // start brings the server up. The caller holds m.mu.
-func (m *Manager) start() error {
-	logger.Debug("fileservers/servers/smbserv", "Manager.start")
+func (m *Manager) start() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.start", "m", m), &out0)
 	port := m.Port()
 	if port == DefaultPort && m.opt.PortConflict != nil {
 		if other := m.opt.PortConflict(); other != "" {
@@ -312,6 +309,7 @@ func (m *Manager) start() error {
 	}
 	backend, err := m.backend()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		return err
 	}
 	var guid [16]byte
@@ -331,9 +329,11 @@ func (m *Manager) start() error {
 		Apple:             m.appleOn(),
 	})
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		return err
 	}
 	if err := server.Start(); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		server.Close()
 		return bindError(port, err)
 	}
@@ -343,8 +343,8 @@ func (m *Manager) start() error {
 }
 
 // stopServer ends the server and its announcements. The caller holds m.mu.
-func (m *Manager) stopServer() error {
-	logger.Debug("fileservers/servers/smbserv", "Manager.stopServer")
+func (m *Manager) stopServer() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.stopServer", "m", m), &out0)
 	m.announcer.stop()
 	m.announcer = nil
 	if m.server == nil {
@@ -356,10 +356,8 @@ func (m *Manager) stopServer() error {
 }
 
 // ServerToggle implements fileservers.Server.
-func (m *Manager) ServerToggle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.ServerToggle: enabled=%t", enabled)
-	}
+func (m *Manager) ServerToggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "Manager.ServerToggle", "m", m, "enabled", enabled), &out0)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if enabled == (m.server != nil) {
@@ -372,6 +370,7 @@ func (m *Manager) ServerToggle(enabled bool) error {
 		return err
 	}
 	if err := m.start(); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		m.recordError(err)
 		m.opt.Sysdb.Write(settingsTable, "enabled", false)
 		return err
@@ -381,22 +380,22 @@ func (m *Manager) ServerToggle(enabled bool) error {
 }
 
 // IsEnabled implements fileservers.Server.
-func (m *Manager) IsEnabled() bool {
-	logger.Debug("fileservers/servers/smbserv", "Manager.IsEnabled")
+func (m *Manager) IsEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.IsEnabled", "m", m), &out0)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.server != nil
 }
 
 // HoldsDefaultPort reports whether this server stands in the way of Samba.
-func (m *Manager) HoldsDefaultPort() bool {
-	logger.DebugTrace("fileservers/servers/smbserv", "Manager.HoldsDefaultPort")
+func (m *Manager) HoldsDefaultPort() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/smbserv", "Manager.HoldsDefaultPort", "m", m), &out0)
 	return m.IsEnabled() && m.Port() == DefaultPort
 }
 
 // GetEndpoints implements fileservers.Server.
-func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	logger.Debug("fileservers/servers/smbserv", "Manager.GetEndpoints")
+func (m *Manager) GetEndpoints(userinfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "Manager.GetEndpoints", "m", m, "userinfo", userinfo), &out0)
 	port := m.Port()
 	if port == DefaultPort {
 		port = 0 //Every client assumes it, and an address with it may not parse
@@ -406,16 +405,14 @@ func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
 
 // Close stops the server without changing the setting.
 func (m *Manager) Close() {
-	logger.Debug("fileservers/servers/smbserv", "Manager.Close")
+	defer logger.Out0(logger.In1("fileservers/servers/smbserv", "Manager.Close", "m", m))
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stopServer()
 }
 
 func (m *Manager) dropUser(username string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.dropUser: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.dropUser", "m", m, "username", username))
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.server != nil {
@@ -424,9 +421,10 @@ func (m *Manager) dropUser(username string) {
 }
 
 func sendJSON(w http.ResponseWriter, value any) {
-	logger.Debug("fileservers/servers/smbserv", "sendJSON")
+	defer logger.Out0(logger.In1("fileservers/servers/smbserv", "sendJSON", "value", value))
 	js, err := json.Marshal(value)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -435,10 +433,8 @@ func sendJSON(w http.ResponseWriter, value any) {
 
 // postOnly reads a form value from the body alone. A password must never be
 // taken from a URL, where it would end up in logs and history.
-func postOnly(r *http.Request, key string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "postOnly: r=%s", logger.RequestSummary(r))
-	}
+func postOnly(r *http.Request, key string) (out0 string) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "postOnly", "r", r, "!key", key), &out0)
 	if r.Method != http.MethodPost {
 		return ""
 	}
@@ -465,11 +461,10 @@ type UserStatus struct {
 
 // HandleStatus reports the service as the signed in user sees it.
 func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleStatus", "m", m, "r", r))
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -494,10 +489,8 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 
 // validPassword checks a new SMB password against the shortest length allowed.
 // Even with the minimum lifted, a password cannot be empty.
-func validPassword(password string, minLength int) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "validPassword: minLength=%d", minLength)
-	}
+func validPassword(password string, minLength int) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/smbserv", "validPassword", "minLength", minLength, "!password", password), &out0)
 	if minLength < 1 {
 		minLength = 1
 	}
@@ -516,20 +509,20 @@ func validPassword(password string, minLength int) error {
 // password has to come with it, so that a browser left open cannot be used to
 // open the account to the network.
 func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleActivate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleActivate", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
 	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	password := postOnly(r, "smbpassword")
 	if err := validPassword(password, m.minPasswordLength()); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -537,6 +530,7 @@ func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := m.creds.Set(username, password); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		logger.PrintAndLog(logTitle, "Could not store the SMB password of "+username, err)
 		utils.SendErrorResponse(w, "The password could not be stored")
 		return
@@ -549,15 +543,14 @@ func (m *Manager) HandleActivate(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeactivate removes the signed in user's SMB access.
 func (m *Manager) HandleDeactivate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleDeactivate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleDeactivate", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
 	}
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -565,10 +558,9 @@ func (m *Manager) HandleDeactivate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) revoke(w http.ResponseWriter, username string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.revoke: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.revoke", "m", m, "username", username))
 	if err := m.creds.Remove(username); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -596,9 +588,7 @@ type AdminConfig struct {
 
 // HandleConfig reads or changes the settings.
 func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleConfig", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		m.mu.Lock()
 		config := AdminConfig{Running: m.server != nil, LastError: m.lastError, LastErrorKey: m.lastErrorKey}
@@ -678,6 +668,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	//the old settings back, so one typo cannot take the service away.
 	m.stopServer()
 	if err := m.start(); err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		m.opt.Sysdb.Write(settingsTable, "port", oldPort)
 		m.opt.Sysdb.Write(settingsTable, "public", oldPublic)
 		m.opt.Sysdb.Write(settingsTable, "encrypt", oldEncrypt)
@@ -697,9 +688,7 @@ type ConfigResult struct {
 
 // HandleClients lists who is connected.
 func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleClients: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleClients", "m", m, "r", r))
 	m.mu.Lock()
 	server := m.server
 	m.mu.Unlock()
@@ -712,11 +701,10 @@ func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
 
 // HandleUsers lists who has enabled SMB.
 func (m *Manager) HandleUsers(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleUsers: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleUsers", "m", m, "r", r))
 	list, err := m.creds.List()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -725,9 +713,7 @@ func (m *Manager) HandleUsers(w http.ResponseWriter, r *http.Request) {
 
 // HandleRevoke removes a user's SMB access, and is for admins.
 func (m *Manager) HandleRevoke(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleRevoke: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleRevoke", "m", m, "r", r))
 	username := postOnly(r, "username")
 	if username == "" {
 		utils.SendErrorResponse(w, "No user given")
@@ -739,9 +725,7 @@ func (m *Manager) HandleRevoke(w http.ResponseWriter, r *http.Request) {
 // HandleImport takes over the passwords of Samba users, so that they need not
 // set one again. A user who already has an SMB password keeps it.
 func (m *Manager) HandleImport(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/smbserv", "Manager.HandleImport: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/smbserv", "Manager.HandleImport", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "This request must be a POST")
 		return
@@ -752,6 +736,7 @@ func (m *Manager) HandleImport(w http.ResponseWriter, r *http.Request) {
 	}
 	hashes, err := m.opt.SambaHashes()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/smbserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -761,6 +746,7 @@ func (m *Manager) HandleImport(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if err := m.creds.SetHash(username, hash); err != nil {
+			logger.DebugErr("fileservers/servers/smbserv", err)
 			logger.PrintAndLog(logTitle, "Could not import "+username, err)
 			continue
 		}

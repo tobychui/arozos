@@ -21,7 +21,7 @@ var (
 )
 
 func AGIInit() {
-	logger.Debug("Core", "AGIInit")
+	defer logger.Out0(logger.In0("Core", "AGIInit"))
 	//Create the version control backend used by the AGI git library and the
 	//GitApp WebApp. A failure here only disables git support, so the rest of
 	//the gateway still starts.
@@ -31,6 +31,7 @@ func AGIInit() {
 		Logger:       systemWideLogger,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("AGI", "Git support disabled", err)
 		gitManager = nil
 	}
@@ -53,6 +54,7 @@ func AGIInit() {
 		},
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("AGI", "Mail support disabled", err)
 		emailManager = nil
 	}
@@ -85,6 +87,7 @@ func AGIInit() {
 		NotificationSender:    sendUserNotification,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("AGI", "AGI Gateway Initialization Failed", err)
 	}
 
@@ -103,6 +106,7 @@ func AGIInit() {
 		//Check if token exists
 		token, err := utils.PostPara(r, "token")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("401 - Unauthorized (token is empty)"))
 			return
@@ -113,6 +117,7 @@ func AGIInit() {
 			//Valid
 			thisUsername, err := gw.Option.UserHandler.GetAuthAgent().GetTokenOwner(token)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("AGI", "Unable to validate token owner", err)
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("500 - Internal Server Error"))

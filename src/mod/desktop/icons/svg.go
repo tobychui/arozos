@@ -21,12 +21,11 @@ import (
 
 // RasterizeSVG renders an SVG into a square RGBA image of the given size,
 // preserving the aspect ratio of the source viewBox.
-func RasterizeSVG(svgContent []byte, renderSize int) (image.Image, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/icons", "RasterizeSVG: renderSize=%d", renderSize)
-	}
+func RasterizeSVG(svgContent []byte, renderSize int) (out0 image.Image, out1 error) {
+	defer logger.Out2(logger.In2("desktop/icons", "RasterizeSVG", "svgContent", svgContent, "renderSize", renderSize), &out0, &out1)
 	parsedIcon, err := oksvg.ReadIconStream(bytes.NewReader(svgContent))
 	if err != nil {
+		logger.DebugErr("desktop/icons", err)
 		return nil, err
 	}
 
@@ -64,9 +63,7 @@ func RasterizeSVG(svgContent []byte, renderSize int) (image.Image, error) {
 // makes line art module icons come out as hairlines. Pre-scaling the stroke
 // styling to match the transform restores the intended thickness.
 func ScaleSVGStrokes(parsedIcon *oksvg.SvgIcon, scale float64) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/icons", "ScaleSVGStrokes: scale=%g", scale)
-	}
+	defer logger.Out0(logger.In2("desktop/icons", "ScaleSVGStrokes", "parsedIcon", parsedIcon, "scale", scale))
 	if scale <= 0 || scale == 1 {
 		return
 	}

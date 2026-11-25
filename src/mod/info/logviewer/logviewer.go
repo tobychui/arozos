@@ -40,9 +40,7 @@ func NewLogViewer(option *ViewerOption) *Viewer {
 */
 //List all the log files in the log folder. Return in map[string]LogFile format
 func (v *Viewer) HandleListLog(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/logviewer", "Viewer.HandleListLog: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("info/logviewer", "Viewer.HandleListLog", "v", v, "r", r))
 	logFiles := v.ListLogFiles(false)
 	js, _ := json.Marshal(logFiles)
 	utils.SendJSONResponse(w, string(js))
@@ -51,23 +49,24 @@ func (v *Viewer) HandleListLog(w http.ResponseWriter, r *http.Request) {
 // Read log of a given catergory and filename
 // Require GET varaible: file and catergory
 func (v *Viewer) HandleReadLog(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("info/logviewer", "Viewer.HandleReadLog: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("info/logviewer", "Viewer.HandleReadLog", "v", v, "r", r))
 	filename, err := utils.GetPara(r, "file")
 	if err != nil {
+		logger.DebugErr("info/logviewer", err)
 		utils.SendErrorResponse(w, "invalid filename given")
 		return
 	}
 
 	catergory, err := utils.GetPara(r, "catergory")
 	if err != nil {
+		logger.DebugErr("info/logviewer", err)
 		utils.SendErrorResponse(w, "invalid catergory given")
 		return
 	}
 
 	content, err := v.LoadLogFile(strings.TrimSpace(filepath.Base(catergory)), strings.TrimSpace(filepath.Base(filename)))
 	if err != nil {
+		logger.DebugErr("info/logviewer", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -83,18 +82,14 @@ func (v *Viewer) HandleReadLog(w http.ResponseWriter, r *http.Request) {
 // directly inside a category folder of root (root/<catergory>/<file>).
 // Logs written straight into root by older versions, or nested deeper, are
 // skipped because LoadLogFile could never find them.
-func isCategoryLog(root string, path string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("info/logviewer", "isCategoryLog: root=%.120q path=%.120q", root, path)
-	}
+func isCategoryLog(root string, path string) (out0 bool) {
+	defer logger.Out1(logger.In2("info/logviewer", "isCategoryLog", "root", root, "path", path), &out0)
 	catergoryDir := filepath.Dir(path)
 	return filepath.Clean(filepath.Dir(catergoryDir)) == filepath.Clean(root)
 }
 
-func (v *Viewer) ListLogFiles(showFullpath bool) map[string][]*LogFile {
-	if logger.IsDebug() {
-		logger.Debugf("info/logviewer", "Viewer.ListLogFiles: showFullpath=%t", showFullpath)
-	}
+func (v *Viewer) ListLogFiles(showFullpath bool) (out0 map[string][]*LogFile) {
+	defer logger.Out1(logger.In2("info/logviewer", "Viewer.ListLogFiles", "v", v, "showFullpath", showFullpath), &out0)
 	result := map[string][]*LogFile{}
 	filepath.WalkDir(v.option.RootFolder, func(path string, di fs.DirEntry, err error) error {
 		if filepath.Ext(path) == v.option.Extension && isCategoryLog(v.option.RootFolder, path) {
@@ -112,6 +107,7 @@ func (v *Viewer) ListLogFiles(showFullpath bool) map[string][]*LogFile {
 
 			st, err := os.Stat(path)
 			if err != nil {
+				logger.DebugErr("info/logviewer", err)
 				return nil
 			}
 
@@ -130,15 +126,14 @@ func (v *Viewer) ListLogFiles(showFullpath bool) map[string][]*LogFile {
 	return result
 }
 
-func (v *Viewer) LoadLogFile(catergory string, filename string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("info/logviewer", "Viewer.LoadLogFile: catergory=%.120q filename=%.120q", catergory, filename)
-	}
+func (v *Viewer) LoadLogFile(catergory string, filename string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("info/logviewer", "Viewer.LoadLogFile", "v", v, "catergory", catergory, "filename", filename), &out0, &out1)
 	logFilepath := filepath.Join(v.option.RootFolder, catergory, filename)
 	if utils.FileExists(logFilepath) {
 		//Load it
 		content, err := os.ReadFile(logFilepath)
 		if err != nil {
+			logger.DebugErr("info/logviewer", err)
 			return "", err
 		}
 

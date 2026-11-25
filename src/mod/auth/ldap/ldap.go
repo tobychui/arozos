@@ -51,14 +51,13 @@ type syncorizeUserReturnInterface struct {
 }
 
 // NewLdapHandler xxx
-func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database, permissionHandler *permission.PermissionHandler, userHandler *user.UserHandler, nightlyManager *nightly.TaskManager, iconSystem string) *ldapHandler {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "NewLdapHandler: iconSystem=%.120q", iconSystem)
-	}
+func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database, permissionHandler *permission.PermissionHandler, userHandler *user.UserHandler, nightlyManager *nightly.TaskManager, iconSystem string) (out0 *ldapHandler) {
+	defer logger.Out1(logger.In7("auth/ldap", "NewLdapHandler", "register", register, "coreDb", coreDb, "permissionHandler", permissionHandler, "userHandler", userHandler, "nightlyManager", nightlyManager, "iconSystem", iconSystem, "!authAgent", authAgent), &out0)
 	//ldap handler init
 	logger.PrintAndLog("Ldap", "Starting LDAP client...", nil)
 	err := coreDb.NewTable("ldap")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		logger.PrintAndLog("Ldap", "Failed to create LDAP database. Terminating.", nil)
 		panic(err)
 	}
@@ -87,14 +86,13 @@ func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, co
 }
 
 // @para limit: -1 means unlimited
-func (ldap *ldapHandler) getAllUser(limit int) ([]UserAccount, int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.getAllUser: limit=%d", limit)
-	}
+func (ldap *ldapHandler) getAllUser(limit int) (out0 []UserAccount, out1 int, out2 error) {
+	defer logger.Out3(logger.In2("auth/ldap", "ldapHandler.getAllUser", "ldap", ldap, "limit", limit), &out0, &out1, &out2)
 	//read the user account from ldap, if limit is -1 then it will read all USERS
 	var accounts []UserAccount
 	result, err := ldap.ldapreader.GetAllUser()
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		return []UserAccount{}, 0, err
 	}
 	//loop through the result
@@ -113,8 +111,8 @@ func (ldap *ldapHandler) getAllUser(limit int) ([]UserAccount, int, error) {
 	}
 }
 
-func (ldap *ldapHandler) convertGroup(ldapUser *ldap.Entry) UserAccount {
-	logger.Debug("auth/ldap", "ldapHandler.convertGroup")
+func (ldap *ldapHandler) convertGroup(ldapUser *ldap.Entry) (out0 UserAccount) {
+	defer logger.Out1(logger.In2("auth/ldap", "ldapHandler.convertGroup", "ldap", ldap, "ldapUser", ldapUser), &out0)
 	//check the group belongs
 	var Group []string
 	var EquivGroup []string
@@ -147,22 +145,24 @@ func (ldap *ldapHandler) convertGroup(ldapUser *ldap.Entry) UserAccount {
 }
 
 func (ldap *ldapHandler) NightlySync() {
-	logger.Debug("auth/ldap", "ldapHandler.NightlySync")
+	defer logger.Out0(logger.In1("auth/ldap", "ldapHandler.NightlySync", "ldap", ldap))
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "true" {
 		err := ldap.SynchronizeUserFromLDAP()
 		if err != nil {
+			logger.DebugErr("auth/ldap", err)
 			logger.PrintAndLog("Ldap", fmt.Sprint(err), nil)
 		}
 	}
 }
 
-func (ldap *ldapHandler) SynchronizeUserFromLDAP() error {
-	logger.Debug("auth/ldap", "ldapHandler.SynchronizeUserFromLDAP")
+func (ldap *ldapHandler) SynchronizeUserFromLDAP() (out0 error) {
+	defer logger.Out1(logger.In1("auth/ldap", "ldapHandler.SynchronizeUserFromLDAP", "ldap", ldap), &out0)
 	//check if suer is admin before executing the command
 	//if user is admin then check if user will lost him/her's admin access
 	ldapUsersList, _, err := ldap.getAllUser(-1)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		return err
 	}
 	for _, ldapUser := range ldapUsersList {
@@ -172,6 +172,7 @@ func (ldap *ldapHandler) SynchronizeUserFromLDAP() error {
 			//Get the permission groups by their ids
 			userinfo, err := ldap.userHandler.GetUserInfoFromUsername(ldapUser.Username)
 			if err != nil {
+				logger.DebugErr("auth/ldap", err)
 				return err
 			}
 			newPermissionGroups := ldap.permissionHandler.GetPermissionGroupByNameList(ldapUser.EquivGroup)

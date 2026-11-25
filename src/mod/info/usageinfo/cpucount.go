@@ -19,10 +19,8 @@ func GetCPUCounts() (cores int, threads int) {
 // parsePhysicalCores counts the distinct (physical id, core id) pairs of a
 // /proc/cpuinfo dump. Boards that print neither field (many ARM SoCs) list one
 // "processor" block per core, so the processor count is used instead.
-func parsePhysicalCores(cpuinfo string) int {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "parsePhysicalCores: cpuinfo=%.120q", cpuinfo)
-	}
+func parsePhysicalCores(cpuinfo string) (out0 int) {
+	defer logger.Out1(logger.In1("info/usageinfo", "parsePhysicalCores", "cpuinfo", cpuinfo), &out0)
 	seen := map[string]bool{}
 	processors := 0
 	physicalID, coreID := "", ""
@@ -65,10 +63,8 @@ func parsePhysicalCores(cpuinfo string) int {
 // filled by the Windows GetLogicalProcessorInformation call. Each record is
 // entrySize bytes long and keeps its little endian Relationship field at
 // relOffset (right after the pointer sized ProcessorMask).
-func countCoreEntries(buf []byte, entrySize int, relOffset int) int {
-	if logger.IsDebug() {
-		logger.Debugf("info/usageinfo", "countCoreEntries: len(buf)=%d entrySize=%d relOffset=%d", len(buf), entrySize, relOffset)
-	}
+func countCoreEntries(buf []byte, entrySize int, relOffset int) (out0 int) {
+	defer logger.Out1(logger.In3("info/usageinfo", "countCoreEntries", "buf", buf, "entrySize", entrySize, "relOffset", relOffset), &out0)
 	if entrySize <= 0 || relOffset < 0 || relOffset+4 > entrySize {
 		return 0
 	}

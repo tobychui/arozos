@@ -57,8 +57,8 @@ type passwordAttempts struct {
 
 // newAccessGuard loads (or creates) the cookie signing secret. Storing it in
 // the database keeps unlocked shares unlocked across restarts.
-func (s *Manager) newAccessGuard() *accessGuard {
-	logger.Debug("share", "Manager.newAccessGuard")
+func (s *Manager) newAccessGuard() (out0 *accessGuard) {
+	defer logger.Out1(logger.In1("share", "Manager.newAccessGuard", "s", s), &out0)
 	guard := &accessGuard{attempts: map[string]*passwordAttempts{}}
 	if s.options.ShareEntryTable == nil || s.options.ShareEntryTable.Database == nil {
 		guard.secret = randomSecret()
@@ -80,10 +80,11 @@ func (s *Manager) newAccessGuard() *accessGuard {
 	return guard
 }
 
-func randomSecret() []byte {
-	logger.Debug("share", "randomSecret")
+func randomSecret() (out0 []byte) {
+	defer logger.Out1(logger.In0("share", "randomSecret"), &out0)
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
+		logger.DebugErr("share", err)
 		//crypto/rand failing is not recoverable in a meaningful way
 		panic(err)
 	}
@@ -96,10 +97,8 @@ func sessionCookieName(so *shareEntry.ShareOption) string {
 }
 
 // sign returns the session signature for the given share and expiry time
-func (g *accessGuard) sign(so *shareEntry.ShareOption, expires int64) string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "accessGuard.sign: expires=%d", expires)
-	}
+func (g *accessGuard) sign(so *shareEntry.ShareOption, expires int64) (out0 string) {
+	defer logger.Out1(logger.In3("share", "accessGuard.sign", "g", g, "so", so, "expires", expires), &out0)
 	mac := hmac.New(sha256.New, g.secret)
 	mac.Write([]byte(so.UUID + "\n" + so.PasswordHash + "\n" + strconv.FormatInt(expires, 10)))
 	return hex.EncodeToString(mac.Sum(nil))
@@ -107,9 +106,7 @@ func (g *accessGuard) sign(so *shareEntry.ShareOption, expires int64) string {
 
 // issueSession sets the cookie that unlocks a password protected share
 func (g *accessGuard) issueSession(w http.ResponseWriter, r *http.Request, so *shareEntry.ShareOption) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "accessGuard.issueSession: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("share", "accessGuard.issueSession", "g", g, "r", r, "so", so))
 	expiresAt := time.Now().Add(shareSessionLifetime)
 	if so.ExpireAt > 0 && so.ExpireAt < expiresAt.Unix() {
 		expiresAt = time.Unix(so.ExpireAt, 0)
@@ -128,12 +125,11 @@ func (g *accessGuard) issueSession(w http.ResponseWriter, r *http.Request, so *s
 
 // hasValidSession reports whether the request carries an unexpired session
 // for the share's current password.
-func (g *accessGuard) hasValidSession(r *http.Request, so *shareEntry.ShareOption) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "accessGuard.hasValidSession: r=%s", logger.RequestSummary(r))
-	}
+func (g *accessGuard) hasValidSession(r *http.Request, so *shareEntry.ShareOption) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "accessGuard.hasValidSession", "g", g, "r", r, "so", so), &out0)
 	cookie, err := r.Cookie(sessionCookieName(so))
 	if err != nil {
+		logger.DebugErr("share", err)
 		return false
 	}
 	expiresStr, signature, found := strings.Cut(cookie.Value, ".")
@@ -149,8 +145,8 @@ func (g *accessGuard) hasValidSession(r *http.Request, so *shareEntry.ShareOptio
 
 // allowAttempt reports whether the client may try another password. Failed
 // attempts are counted by recordFailure.
-func (g *accessGuard) allowAttempt(key string, now time.Time) bool {
-	logger.Debug("share", "accessGuard.allowAttempt")
+func (g *accessGuard) allowAttempt(key string, now time.Time) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "accessGuard.allowAttempt", "g", g, "&now", &now, "!key", key), &out0)
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	record, ok := g.attempts[key]
@@ -161,7 +157,7 @@ func (g *accessGuard) allowAttempt(key string, now time.Time) bool {
 }
 
 func (g *accessGuard) recordFailure(key string, now time.Time) {
-	logger.Debug("share", "accessGuard.recordFailure")
+	defer logger.Out0(logger.In3("share", "accessGuard.recordFailure", "g", g, "&now", &now, "!key", key))
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -181,28 +177,25 @@ func (g *accessGuard) recordFailure(key string, now time.Time) {
 }
 
 func (g *accessGuard) clearFailures(key string) {
-	logger.Debug("share", "accessGuard.clearFailures")
+	defer logger.Out0(logger.In2("share", "accessGuard.clearFailures", "g", g, "!key", key))
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	delete(g.attempts, key)
 }
 
-func attemptKey(r *http.Request, so *shareEntry.ShareOption) string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "attemptKey: r=%s", logger.RequestSummary(r))
-	}
+func attemptKey(r *http.Request, so *shareEntry.ShareOption) (out0 string) {
+	defer logger.Out1(logger.In2("share", "attemptKey", "r", r, "so", so), &out0)
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
+		logger.DebugErr("share", err)
 		host = r.RemoteAddr
 	}
 	return so.UUID + "|" + host
 }
 
 // lookupActiveShare returns the share with the given id if it exists and has not expired
-func (s *Manager) lookupActiveShare(id string) *shareEntry.ShareOption {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.lookupActiveShare: id=%.120q", id)
-	}
+func (s *Manager) lookupActiveShare(id string) (out0 *shareEntry.ShareOption) {
+	defer logger.Out1(logger.In2("share", "Manager.lookupActiveShare", "s", s, "id", id), &out0)
 	so := s.GetShareObjectFromUUID(id)
 	if so == nil || so.IsExpired(time.Now()) {
 		return nil
@@ -218,10 +211,8 @@ raw is true for requests that fetch content (download, preview, zip,
 upload) rather than a page, which get a status code instead of a redirect
 to the login page or the password form.
 */
-func (s *Manager) authorizeShareAccess(w http.ResponseWriter, r *http.Request, so *shareEntry.ShareOption, raw bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.authorizeShareAccess: r=%s", logger.RequestSummary(r))
-	}
+func (s *Manager) authorizeShareAccess(w http.ResponseWriter, r *http.Request, so *shareEntry.ShareOption, raw bool) (out0 bool) {
+	defer logger.Out1(logger.In4("share", "Manager.authorizeShareAccess", "s", s, "r", r, "so", so, "raw", raw), &out0)
 	if !s.checkAudience(w, r, so, raw) {
 		return false
 	}
@@ -239,10 +230,8 @@ func (s *Manager) authorizeShareAccess(w http.ResponseWriter, r *http.Request, s
 }
 
 // checkAudience checks that the visitor is someone the share is for
-func (s *Manager) checkAudience(w http.ResponseWriter, r *http.Request, so *shareEntry.ShareOption, raw bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.checkAudience: r=%s", logger.RequestSummary(r))
-	}
+func (s *Manager) checkAudience(w http.ResponseWriter, r *http.Request, so *shareEntry.ShareOption, raw bool) (out0 bool) {
+	defer logger.Out1(logger.In4("share", "Manager.checkAudience", "s", s, "r", r, "so", so, "raw", raw), &out0)
 	rejectUnauthorized := func() {
 		if raw {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -272,6 +261,7 @@ func (s *Manager) checkAudience(w http.ResponseWriter, r *http.Request, so *shar
 	case shareEntry.PermissionSameGroup, shareEntry.PermissionGroups, shareEntry.PermissionUsers:
 		thisuserinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("share", err)
 			//User not logged in. Redirect to login page
 			rejectUnauthorized()
 			return false
@@ -320,9 +310,7 @@ handlePasswordSubmit handles POST /share/auth/{uuid} from the password page.
 On success the share is unlocked and the visitor is sent back to it.
 */
 func (s *Manager) handlePasswordSubmit(w http.ResponseWriter, r *http.Request, id string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.handlePasswordSubmit: r=%s id=%.120q", logger.RequestSummary(r), id)
-	}
+	defer logger.Out0(logger.In3("share", "Manager.handlePasswordSubmit", "s", s, "r", r, "id", id))
 	so := s.lookupActiveShare(id)
 	if so == nil {
 		s.serveNotFoundPage(w, r, id)
@@ -365,9 +353,7 @@ func (s *Manager) handlePasswordSubmit(w http.ResponseWriter, r *http.Request, i
 // servePasswordPage renders the password form. It deliberately shows nothing
 // about the shared file.
 func (s *Manager) servePasswordPage(w http.ResponseWriter, r *http.Request, so *shareEntry.ShareOption, failed bool, status int) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.servePasswordPage: r=%s failed=%t status=%d", logger.RequestSummary(r), failed, status)
-	}
+	defer logger.Out0(logger.In5("share", "Manager.servePasswordPage", "s", s, "r", r, "so", so, "failed", failed, "status", status))
 	errorMessage := ""
 	if failed {
 		errorMessage = "Incorrect password, please try again."
@@ -383,6 +369,7 @@ func (s *Manager) servePasswordPage(w http.ResponseWriter, r *http.Request, so *
 		"reqtime":  strconv.Itoa(int(time.Now().Unix())),
 	})
 	if err != nil {
+		logger.DebugErr("share", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 - This share is password protected"))
 		return
@@ -396,15 +383,14 @@ func (s *Manager) servePasswordPage(w http.ResponseWriter, r *http.Request, so *
 
 // serveNotFoundPage renders the "share not found" page, also used for expired shares
 func (s *Manager) serveNotFoundPage(w http.ResponseWriter, r *http.Request, id string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.serveNotFoundPage: r=%s id=%.120q", logger.RequestSummary(r), id)
-	}
+	defer logger.Out0(logger.In3("share", "Manager.serveNotFoundPage", "s", s, "r", r, "id", id))
 	content, err := utils.Templateload("./system/share/notfound.html", map[string]string{
 		"hostname": s.options.HostName,
 		"reqid":    id,
 		"reqtime":  strconv.Itoa(int(time.Now().Unix())),
 	})
 	if err != nil {
+		logger.DebugErr("share", err)
 		http.NotFound(w, r)
 		return
 	}
@@ -414,7 +400,7 @@ func (s *Manager) serveNotFoundPage(w http.ResponseWriter, r *http.Request, id s
 }
 
 func ServePermissionDeniedPage(w http.ResponseWriter) {
-	logger.Debug("share", "ServePermissionDeniedPage")
+	defer logger.Out0(logger.In0("share", "ServePermissionDeniedPage"))
 	w.WriteHeader(http.StatusForbidden)
 	pageContent := []byte("Permissioned Denied")
 	if utils.FileExists("system/share/permissionDenied.html") {

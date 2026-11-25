@@ -22,8 +22,6 @@ func dockerServiceStatus() ServiceStatus {
 }
 
 func dockerServiceAction(action string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("docker", "dockerServiceAction: action=%.120q", action)
-	}
+	logger.DebugTrace("docker", "dockerServiceAction")
 	return errors.New(serviceUnsupportedMsg)
 }

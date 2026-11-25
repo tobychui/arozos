@@ -21,10 +21,8 @@ type AutoLoginToken struct {
 	Token string
 }
 
-func (a *AuthAgent) NewAutologinToken(username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.NewAutologinToken: username=%.120q", username)
-	}
+func (a *AuthAgent) NewAutologinToken(username string) (out0 string) {
+	defer logger.Out1(logger.In2("auth", "AuthAgent.NewAutologinToken", "a", a, "username", username), &out0)
 	//Generate a new token
 	newTokenUUID := uuid.NewV4().String() + "-" + strconv.Itoa(int(time.Now().Unix()))
 	a.autoLoginTokens = append(a.autoLoginTokens, &AutoLoginToken{
@@ -40,7 +38,7 @@ func (a *AuthAgent) NewAutologinToken(username string) string {
 }
 
 func (a *AuthAgent) RemoveAutologinToken(token string) {
-	logger.Debug("auth", "AuthAgent.RemoveAutologinToken")
+	defer logger.Out0(logger.In2("auth", "AuthAgent.RemoveAutologinToken", "a", a, "!token", token))
 	newTokenArray := []*AutoLoginToken{}
 	for _, alt := range a.autoLoginTokens {
 		if alt.Token != token {
@@ -54,9 +52,7 @@ func (a *AuthAgent) RemoveAutologinToken(token string) {
 }
 
 func (a *AuthAgent) RemoveAutologinTokenByUsername(username string) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.RemoveAutologinTokenByUsername: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("auth", "AuthAgent.RemoveAutologinTokenByUsername", "a", a, "username", username))
 	newTokenArray := []*AutoLoginToken{}
 	for _, alt := range a.autoLoginTokens {
 		if alt.Owner != username {
@@ -69,10 +65,11 @@ func (a *AuthAgent) RemoveAutologinTokenByUsername(username string) {
 	a.autoLoginTokens = newTokenArray
 }
 
-func (a *AuthAgent) LoadAutologinTokenFromDB() error {
-	logger.Debug("auth", "AuthAgent.LoadAutologinTokenFromDB")
+func (a *AuthAgent) LoadAutologinTokenFromDB() (out0 error) {
+	defer logger.Out1(logger.In1("auth", "AuthAgent.LoadAutologinTokenFromDB", "a", a), &out0)
 	entries, err := a.Database.ListTable("auth")
 	if err != nil {
+		logger.DebugErr("auth", err)
 		return err
 	}
 	for _, keypairs := range entries {
@@ -91,8 +88,8 @@ func (a *AuthAgent) LoadAutologinTokenFromDB() error {
 	return nil
 }
 
-func (a *AuthAgent) GetUsernameFromToken(token string) (string, error) {
-	logger.Debug("auth", "AuthAgent.GetUsernameFromToken")
+func (a *AuthAgent) GetUsernameFromToken(token string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("auth", "AuthAgent.GetUsernameFromToken", "a", a, "!token", token), &out0, &out1)
 	for _, alt := range a.autoLoginTokens {
 		if alt.Token == token {
 			return alt.Owner, nil
@@ -102,10 +99,8 @@ func (a *AuthAgent) GetUsernameFromToken(token string) (string, error) {
 	return "", errors.New("Invalid Token")
 }
 
-func (a *AuthAgent) GetTokensFromUsername(username string) []*AutoLoginToken {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.GetTokensFromUsername: username=%.120q", username)
-	}
+func (a *AuthAgent) GetTokensFromUsername(username string) (out0 []*AutoLoginToken) {
+	defer logger.Out1(logger.In2("auth", "AuthAgent.GetTokensFromUsername", "a", a, "username", username), &out0)
 	results := []*AutoLoginToken{}
 	for _, alt := range a.autoLoginTokens {
 		if alt.Owner == username {
@@ -116,9 +111,7 @@ func (a *AuthAgent) GetTokensFromUsername(username string) []*AutoLoginToken {
 }
 
 func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.HandleAutologinTokenLogin: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth", "AuthAgent.HandleAutologinTokenLogin", "a", a, "r", r))
 	//Get the authentication token from the request
 	if a.AllowAutoLogin == false {
 		w.WriteHeader(http.StatusForbidden)
@@ -130,6 +123,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 	token, err := utils.GetPara(r, "token")
 	if err != nil {
+		logger.DebugErr("auth", err)
 		//Username not defined
 		sendErrorResponse(w, "Token not defined or empty.")
 		return
@@ -138,11 +132,13 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	//Try to get the username from token
 	username, err := a.GetUsernameFromToken(token)
 	if err != nil {
+		logger.DebugErr("auth", err)
 		//This token is not valid
 		w.WriteHeader(http.StatusUnauthorized)
 		//Try to get the autologin error page.
 		errtemplate, err := os.ReadFile("./system/errors/invalidToken.html")
 		if err != nil {
+			logger.DebugErr("auth", err)
 			w.Write([]byte("401 - Unauthorized (Token not valid)"))
 		} else {
 			w.Write(errtemplate)
@@ -157,6 +153,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 		w.WriteHeader(http.StatusAccepted)
 		errtemplate, err := os.ReadFile("./system/errors/alreadyLoggedin.html")
 		if err != nil {
+			logger.DebugErr("auth", err)
 			w.Write([]byte("202 - Accepted (Already logged in as another user)"))
 		} else {
 			w.Write(errtemplate)
@@ -193,11 +190,12 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 }
 
 // Check if the given autologin token is valid. Autologin token is different from session token (aka token)
-func (a *AuthAgent) ValidateAutoLoginToken(token string) (bool, string) {
-	logger.Debug("auth", "AuthAgent.ValidateAutoLoginToken")
+func (a *AuthAgent) ValidateAutoLoginToken(token string) (out0 bool, out1 string) {
+	defer logger.Out2(logger.In2("auth", "AuthAgent.ValidateAutoLoginToken", "a", a, "!token", token), &out0, &out1)
 	//Try to get the username from token
 	username, err := a.GetUsernameFromToken(token)
 	if err != nil {
+		logger.DebugErr("auth", err)
 		//This token is not valid
 		return false, ""
 	}

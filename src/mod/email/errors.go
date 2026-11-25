@@ -53,17 +53,13 @@ func (e *AuthError) Unwrap() error {
 // IsAuthError reports whether err means the stored credential is wrong or
 // expired, so the UI should ask the user to sign in again.
 func IsAuthError(err error) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "IsAuthError: err=%v", err)
-	}
+	logger.DebugTrace("email", "IsAuthError")
 	return errors.Is(err, ErrAuthFailed)
 }
 
 // AuthHint returns the provider hint carried by an authentication error.
-func AuthHint(err error) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "AuthHint: err=%v", err)
-	}
+func AuthHint(err error) (out0 string) {
+	defer logger.Out1(logger.In1("email", "AuthHint", "err", err), &out0)
 	var authErr *AuthError
 	if errors.As(err, &authErr) {
 		return authErr.Hint
@@ -73,8 +69,8 @@ func AuthHint(err error) string {
 
 // looksLikeAuthFailure recognises the many ways servers word a rejected login
 // when they do not use the AUTHENTICATIONFAILED response code.
-func looksLikeAuthFailure(message string) bool {
-	logger.Debug("email", "looksLikeAuthFailure")
+func looksLikeAuthFailure(message string) (out0 bool) {
+	defer logger.Out1(logger.In1("email", "looksLikeAuthFailure", "message", message), &out0)
 	lower := strings.ToLower(message)
 	for _, marker := range []string{
 		"authenticationfailed", "authentication failed", "invalid credentials",

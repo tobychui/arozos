@@ -57,7 +57,7 @@ func (e *sharedEntry) first() *shareEntry.ShareOption {
 // permissions merges what the shares of one file allow: the user could use
 // any of their links, so the most generous of them applies.
 func (e *sharedEntry) permissions() (canBrowse bool, canDownload bool, canUpload bool) {
-	logger.Debug("share", "sharedEntry.permissions")
+	defer logger.Out3(logger.In1("share", "sharedEntry.permissions", "e", e), &canBrowse, &canDownload, &canUpload)
 	for _, so := range e.Shares {
 		canBrowse = canBrowse || (so.IsFolder && so.ShowFileList)
 		canDownload = canDownload || so.AllowDownload
@@ -68,10 +68,8 @@ func (e *sharedEntry) permissions() (canBrowse bool, canDownload bool, canUpload
 
 // isAddressedTo reports whether a share names the user as a recipient, see
 // the note at the top of this file
-func isAddressedTo(so *shareEntry.ShareOption, username string, groups []string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share", "isAddressedTo: username=%.120q len(groups)=%d", username, len(groups))
-	}
+func isAddressedTo(so *shareEntry.ShareOption, username string, groups []string) (out0 bool) {
+	defer logger.Out1(logger.In3("share", "isAddressedTo", "so", so, "username", username, "groups", groups), &out0)
 	if so.Owner == username {
 		return false
 	}
@@ -103,10 +101,11 @@ func isAddressedTo(so *shareEntry.ShareOption, username string, groups []string)
 
 // itemBaseName is the name a shared file or folder would like to have on the
 // drive: its own name, or for a whole shared drive the drive's id
-func itemBaseName(so *shareEntry.ShareOption) string {
-	logger.Debug("share", "itemBaseName")
+func itemBaseName(so *shareEntry.ShareOption) (out0 string) {
+	defer logger.Out1(logger.In1("share", "itemBaseName", "so", so), &out0)
 	vrootID, subpath, err := filesystem.GetIDFromVirtualPath(so.FileVirtualPath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		return so.UUID
 	}
 	name := path.Base(path.Clean("/" + strings.ReplaceAll(subpath, "\\", "/")))
@@ -118,10 +117,8 @@ func itemBaseName(so *shareEntry.ShareOption) string {
 
 // nameWithSuffix puts a suffix after a name, before the extension of a file:
 // "report.pdf" -> "report (bob).pdf", "Photos" -> "Photos (bob)"
-func nameWithSuffix(name string, suffix string, isDir bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "nameWithSuffix: name=%.120q suffix=%.120q isDir=%t", name, suffix, isDir)
-	}
+func nameWithSuffix(name string, suffix string, isDir bool) (out0 string) {
+	defer logger.Out1(logger.In3("share", "nameWithSuffix", "name", name, "suffix", suffix, "isDir", isDir), &out0)
 	ext := ""
 	if !isDir {
 		ext = path.Ext(name)
@@ -143,10 +140,8 @@ owner's name added for the next, then a counter. Names only depend on the
 shares, never on whether the file is reachable right now, so a drive that is
 offline for a moment does not rename everything after it.
 */
-func sharedWith(all []*shareEntry.ShareOption, username string, groups []string, now time.Time) []*sharedEntry {
-	if logger.IsDebug() {
-		logger.Debugf("share", "sharedWith: len(all)=%d username=%.120q len(groups)=%d", len(all), username, len(groups))
-	}
+func sharedWith(all []*shareEntry.ShareOption, username string, groups []string, now time.Time) (out0 []*sharedEntry) {
+	defer logger.Out1(logger.In4("share", "sharedWith", "all", all, "username", username, "groups", groups, "&now", &now), &out0)
 	addressed := []*shareEntry.ShareOption{}
 	for _, so := range all {
 		if so.IsExpired(now) || so.HasPassword() || !isAddressedTo(so, username, groups) {
@@ -205,10 +200,8 @@ type sharedDriveCache struct {
 	users map[string]sharedDriveCacheEntry
 }
 
-func (c *sharedDriveCache) get(username string, now time.Time) ([]*sharefs.Item, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "sharedDriveCache.get: username=%.120q", username)
-	}
+func (c *sharedDriveCache) get(username string, now time.Time) (out0 []*sharefs.Item, out1 bool) {
+	defer logger.Out2(logger.In3("share", "sharedDriveCache.get", "c", c, "username", username, "&now", &now), &out0, &out1)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	entry, ok := c.users[username]
@@ -219,9 +212,7 @@ func (c *sharedDriveCache) get(username string, now time.Time) ([]*sharefs.Item,
 }
 
 func (c *sharedDriveCache) put(username string, items []*sharefs.Item, now time.Time) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "sharedDriveCache.put: username=%.120q len(items)=%d", username, len(items))
-	}
+	defer logger.Out0(logger.In4("share", "sharedDriveCache.put", "c", c, "username", username, "items", items, "&now", &now))
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.users == nil {
@@ -232,17 +223,15 @@ func (c *sharedDriveCache) put(username string, items []*sharefs.Item, now time.
 
 // clear drops every user's root, after a share was created, changed or removed
 func (c *sharedDriveCache) clear() {
-	logger.Debug("share", "sharedDriveCache.clear")
+	defer logger.Out0(logger.In1("share", "sharedDriveCache.clear", "c", c))
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.users = nil
 }
 
 // Items lists what is shared with a user, for the share:/ drive
-func (s *Manager) Items(username string) []*sharefs.Item {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.Items: username=%.120q", username)
-	}
+func (s *Manager) Items(username string) (out0 []*sharefs.Item) {
+	defer logger.Out1(logger.In2("share", "Manager.Items", "s", s, "username", username), &out0)
 	now := time.Now()
 	if items, ok := s.driveCache.get(username, now); ok {
 		return items
@@ -255,10 +244,8 @@ func (s *Manager) Items(username string) []*sharefs.Item {
 // buildSharedDriveItems ties each entry shared with the user to the drive
 // its file lives on. An entry whose owner or drive cannot be resolved right
 // now is left out; its name stays reserved, see sharedWith.
-func (s *Manager) buildSharedDriveItems(username string, now time.Time) []*sharefs.Item {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.buildSharedDriveItems: username=%.120q", username)
-	}
+func (s *Manager) buildSharedDriveItems(username string, now time.Time) (out0 []*sharefs.Item) {
+	defer logger.Out1(logger.In3("share", "Manager.buildSharedDriveItems", "s", s, "username", username, "&now", &now), &out0)
 	items := []*sharefs.Item{}
 	if s.options.UserHandler == nil || s.options.ShareEntryTable == nil {
 		return items
@@ -278,6 +265,7 @@ func (s *Manager) buildSharedDriveItems(username string, now time.Time) []*share
 		so := entry.first()
 		owner, err := s.options.UserHandler.GetUserInfoFromUsername(so.Owner)
 		if err != nil {
+			logger.DebugErr("share", err)
 			continue
 		}
 		fsh, err := owner.GetFileSystemHandlerFromVirtualPath(so.FileVirtualPath)
@@ -286,6 +274,7 @@ func (s *Manager) buildSharedDriveItems(username string, now time.Time) []*share
 		}
 		root, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(so.FileVirtualPath, owner.Username)
 		if err != nil {
+			logger.DebugErr("share", err)
 			continue
 		}
 
@@ -310,8 +299,8 @@ func (s *Manager) buildSharedDriveItems(username string, now time.Time) []*share
 }
 
 // IsSharedDrive reports whether a file system handler is the share:/ drive
-func IsSharedDrive(fsh *filesystem.FileSystemHandler) bool {
-	logger.Debug("share", "IsSharedDrive")
+func IsSharedDrive(fsh *filesystem.FileSystemHandler) (out0 bool) {
+	defer logger.Out1(logger.In1("share", "IsSharedDrive", "fsh", fsh), &out0)
 	if fsh == nil {
 		return false
 	}
@@ -339,11 +328,10 @@ type SharedItemInfo struct {
 // HandleSharedDriveVisible tells the File Manager whether to show the Shared
 // with me entry to this user
 func (s *Manager) HandleSharedDriveVisible(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleSharedDriveVisible: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleSharedDriveVisible", "s", s, "r", r))
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -354,11 +342,10 @@ func (s *Manager) HandleSharedDriveVisible(w http.ResponseWriter, r *http.Reques
 // what each item allows, which the File Manager uses to offer only the file
 // operations that can work on it.
 func (s *Manager) HandleListSharedWithMe(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleListSharedWithMe: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleListSharedWithMe", "s", s, "r", r))
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("share", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}

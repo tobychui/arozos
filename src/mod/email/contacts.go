@@ -37,10 +37,11 @@ func contactKey(email string) string {
 }
 
 // Contacts lists the address book, most used first.
-func (m *Manager) Contacts(p Principal) ([]Contact, error) {
-	logger.Debug("email", "Manager.Contacts")
+func (m *Manager) Contacts(p Principal) (out0 []Contact, out1 error) {
+	defer logger.Out2(logger.In2("email", "Manager.Contacts", "m", m, "&p", &p), &out0, &out1)
 	contacts, err := listOwned[Contact](m.store, tableContacts, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	sort.SliceStable(contacts, func(i, j int) bool {
@@ -49,8 +50,8 @@ func (m *Manager) Contacts(p Principal) ([]Contact, error) {
 	return contacts, nil
 }
 
-func displayName(contact Contact) string {
-	logger.Debug("email", "displayName")
+func displayName(contact Contact) (out0 string) {
+	defer logger.Out1(logger.In1("email", "displayName", "&contact", &contact), &out0)
 	if contact.Name != "" {
 		return contact.Name
 	}
@@ -58,16 +59,15 @@ func displayName(contact Contact) string {
 }
 
 // SearchContacts returns completion candidates for a typed prefix.
-func (m *Manager) SearchContacts(p Principal, query string, limit int) ([]Contact, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.SearchContacts: limit=%d", limit)
-	}
+func (m *Manager) SearchContacts(p Principal, query string, limit int) (out0 []Contact, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.SearchContacts", "m", m, "&p", &p, "query", query, "limit", limit), &out0, &out1)
 	if limit <= 0 || limit > 50 {
 		limit = 8
 	}
 	query = strings.ToLower(strings.TrimSpace(query))
 	contacts, err := listOwned[Contact](m.store, tableContacts, p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -115,10 +115,8 @@ func (m *Manager) SearchContacts(p Principal, query string, limit int) ([]Contac
 	return results, nil
 }
 
-func wordPrefix(text string, prefix string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("email", "wordPrefix: prefix=%.120q", prefix)
-	}
+func wordPrefix(text string, prefix string) (out0 bool) {
+	defer logger.Out1(logger.In2("email", "wordPrefix", "text", text, "prefix", prefix), &out0)
 	for _, word := range strings.Fields(text) {
 		if strings.HasPrefix(word, prefix) {
 			return true
@@ -128,10 +126,11 @@ func wordPrefix(text string, prefix string) bool {
 }
 
 // SaveContact creates or edits an entry by hand.
-func (m *Manager) SaveContact(p Principal, contact Contact) (*Contact, error) {
-	logger.Debug("email", "Manager.SaveContact")
+func (m *Manager) SaveContact(p Principal, contact Contact) (out0 *Contact, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.SaveContact", "m", m, "&p", &p, "&contact", &contact), &out0, &out1)
 	parsed, err := mail.ParseAddress(strings.TrimSpace(contact.Email))
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, errors.New("please enter a valid email address")
 	}
 	contact.Email = parsed.Address
@@ -157,14 +156,15 @@ func (m *Manager) SaveContact(p Principal, contact Contact) (*Contact, error) {
 	contact.LastUsed = existing.LastUsed
 	contact.Manual = true
 	if err := m.store.db.Write(tableContacts, key, contact); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	return &contact, nil
 }
 
 // DeleteContact removes an entry.
-func (m *Manager) DeleteContact(p Principal, email string) error {
-	logger.Debug("email", "Manager.DeleteContact")
+func (m *Manager) DeleteContact(p Principal, email string) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.DeleteContact", "m", m, "&p", &p, "email", email), &out0)
 	key := ownerKey(p.Username, contactKey(email))
 	if !m.store.db.KeyExists(tableContacts, key) {
 		return nil
@@ -174,9 +174,7 @@ func (m *Manager) DeleteContact(p Principal, email string) error {
 
 // collectContacts records the recipients of a sent message.
 func (m *Manager) collectContacts(p Principal, addresses []Address) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.collectContacts: len(addresses)=%d", len(addresses))
-	}
+	defer logger.Out0(logger.In3("email", "Manager.collectContacts", "m", m, "&p", &p, "addresses", addresses))
 	if len(addresses) == 0 {
 		return
 	}
@@ -215,10 +213,8 @@ func (m *Manager) collectContacts(p Principal, addresses []Address) {
 }
 
 // ImportContacts adds many entries at once (vCard / CSV import in the UI).
-func (m *Manager) ImportContacts(p Principal, contacts []Contact) (int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.ImportContacts: len(contacts)=%d", len(contacts))
-	}
+func (m *Manager) ImportContacts(p Principal, contacts []Contact) (out0 int, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.ImportContacts", "m", m, "&p", &p, "contacts", contacts), &out0, &out1)
 	imported := 0
 	for _, contact := range contacts {
 		if _, err := m.SaveContact(p, contact); err == nil {

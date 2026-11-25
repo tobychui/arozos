@@ -45,16 +45,17 @@ import (
 )
 
 func (g *Gateway) GitLibRegister() {
-	logger.Debug("agi", "Gateway.GitLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.GitLibRegister", "g", g))
 	err := g.RegisterLib("git", g.injectGitLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectGitLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectGitLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -82,9 +83,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 		if err := checkFshSupportsGit(fsh); err != nil {
+			logger.DebugErr("agi", err)
 			return "", err
 		}
 
@@ -95,11 +98,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_git_isrepo", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
@@ -113,17 +118,20 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_git_reporoot", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
 		realRoot, err := manager.RepoRoot(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
@@ -134,6 +142,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		//the vpath and double it on the next translation.
 		rootVpath, err := repoRootVirtualPath(vpath, rpath, realRoot)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -147,10 +156,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		vpath, _ := call.Argument(0).ToString()
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.Init(rpath); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "")
@@ -164,6 +175,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
@@ -177,6 +189,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 			Token:    token,
 		})
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
@@ -191,11 +204,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		vpath, _ := call.Argument(0).ToString()
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		status, err := manager.Status(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		status.Path = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
@@ -215,11 +230,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		commits, err := manager.Log(rpath, limit)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, commits)
@@ -230,11 +247,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		vpath, _ := call.Argument(0).ToString()
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		branches, err := manager.Branches(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, branches)
@@ -248,10 +267,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.Checkout(rpath, branch, create); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "switched to "+branch)
@@ -262,11 +283,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		vpath, _ := call.Argument(0).ToString()
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		remotes, err := manager.Remotes(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, remotes)
@@ -280,10 +303,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.AddRemote(rpath, name, url); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "remote "+name+" saved")
@@ -296,10 +321,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.RemoveRemote(rpath, name); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "remote "+name+" removed")
@@ -312,10 +339,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.Add(rpath, files); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "")
@@ -326,10 +355,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		vpath, _ := call.Argument(0).ToString()
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.AddAll(rpath); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "")
@@ -342,10 +373,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.Unstage(rpath, files); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "")
@@ -358,10 +391,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.Discard(rpath, files); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "")
@@ -374,11 +409,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		added, err := manager.AddIgnoreRules(rpath, patterns)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
@@ -397,6 +434,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
@@ -413,6 +451,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 			All:     optionBool(options, "all"),
 		})
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
@@ -430,11 +469,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		diff, err := manager.Diff(rpath, file)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, diff)
@@ -448,11 +489,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		diff, err := manager.DiffCommit(rpath, hash, file)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, diff)
@@ -468,11 +511,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		content, exists, err := manager.FileBlob(rpath, file, revision)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
@@ -496,11 +541,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 
 		files, err := manager.CommitFiles(rpath, hash)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, files)
@@ -514,9 +561,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := manager.DeleteBranch(rpath, branch, force); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "deleted branch "+branch)
@@ -530,9 +579,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := manager.RenameBranch(rpath, oldName, newName); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "renamed to "+newName)
@@ -547,15 +598,18 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		request, err := g.remoteBranchRequest(u, rpath, remote, options)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.DeleteRemoteBranch(rpath, remote, branch, request); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		g.rememberGitCredentialForRemote(u, rpath, remote, options)
@@ -572,15 +626,18 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		request, err := g.remoteBranchRequest(u, rpath, remote, options)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := manager.RenameRemoteBranch(rpath, remote, oldName, newName, request); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		g.rememberGitCredentialForRemote(u, rpath, remote, options)
@@ -594,9 +651,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := manager.CheckoutCommit(rpath, hash); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "checked out "+shortHash(hash))
@@ -610,9 +669,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := manager.ResetToCommit(rpath, hash, mode); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "reset to "+shortHash(hash))
@@ -626,9 +687,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := manager.CreateBranchAt(rpath, branch, hash); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "created branch "+branch)
@@ -643,9 +706,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := manager.CreateTag(rpath, tag, hash, message, u.Username, ""); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "created tag "+tag)
@@ -659,11 +724,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		newHash, err := manager.RevertCommit(rpath, hash, commitRequestFromOptions(u, options))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitJSONValue(vm, git.OperationResult{Success: true, Hash: newHash, Message: "reverted " + shortHash(hash)})
@@ -677,11 +744,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		newHash, err := manager.CherryPickCommit(rpath, hash, commitRequestFromOptions(u, options))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitJSONValue(vm, git.OperationResult{Success: true, Hash: newHash, Message: "cherry-picked " + shortHash(hash)})
@@ -695,11 +764,13 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		rpath, err := resolveRepo(vpath, true)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		newHash, err := manager.AmendCommitMessage(rpath, message, commitRequestFromOptions(u, options))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitJSONValue(vm, git.OperationResult{Success: true, Hash: newHash, Message: "amended commit message"})
@@ -734,10 +805,12 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		store, err := g.gitCredentialStore()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 
 		if err := store.Save(u.Username, host, remoteUser, token); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "credential saved")
@@ -747,6 +820,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_git_listcredentials", func(call otto.FunctionCall) otto.Value {
 		store, err := g.gitCredentialStore()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitJSONError(vm, err)
 		}
 		return gitJSONValue(vm, store.List(u.Username))
@@ -758,6 +832,7 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		store, err := g.gitCredentialStore()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		if _, found := store.Get(u.Username, host); found {
@@ -772,9 +847,11 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 
 		store, err := g.gitCredentialStore()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		if err := store.Remove(u.Username, host); err != nil {
+			logger.DebugErr("agi", err)
 			return gitOperationFailure(vm, err)
 		}
 		return gitOperationSuccess(vm, "credential removed")
@@ -855,8 +932,8 @@ type gitTransportRunner func(rpath string, request *git.TransportRequest) (strin
 // runGitTransport wires a transport call: resolve the path, work out which
 // credential to use, run the operation and translate the outcome.
 func (g *Gateway) runGitTransport(vm *otto.Otto, u *user.User, call otto.FunctionCall,
-	resolveRepo func(string, bool) (string, error), run gitTransportRunner) otto.Value {
-	logger.Debug("agi", "Gateway.runGitTransport")
+	resolveRepo func(string, bool) (string, error), run gitTransportRunner) (out0 otto.Value) {
+	defer logger.Out1(logger.In6("agi", "Gateway.runGitTransport", "g", g, "vm", vm, "u", u, "&call", &call, "resolveRepo", resolveRepo, "&run", &run), &out0)
 
 	vpath, _ := call.Argument(0).ToString()
 	options := exportOptions(call.Argument(1))
@@ -865,12 +942,14 @@ func (g *Gateway) runGitTransport(vm *otto.Otto, u *user.User, call otto.Functio
 	//a write to the repository folder.
 	rpath, err := resolveRepo(vpath, true)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return gitOperationFailure(vm, err)
 	}
 
 	remote := optionString(options, "remote")
 	remoteURL, urlErr := g.Option.GitManager.RemoteURLForName(rpath, remote)
 	if urlErr != nil {
+		logger.DebugErr("agi", urlErr)
 		return gitOperationFailure(vm, urlErr)
 	}
 
@@ -884,6 +963,7 @@ func (g *Gateway) runGitTransport(vm *otto.Otto, u *user.User, call otto.Functio
 		SetUpstream: optionBool(options, "setUpstream"),
 	})
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return gitOperationFailure(vm, err)
 	}
 
@@ -898,12 +978,11 @@ resolving which credential applies from the remote's own URL.
 The remote-branch calls take the remote by name rather than by URL, so the URL
 has to be looked up before the stored credential can be found.
 */
-func (g *Gateway) remoteBranchRequest(u *user.User, rpath string, remote string, options map[string]interface{}) (*git.TransportRequest, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.remoteBranchRequest: rpath=%.120q remote=%.120q len(options)=%d", rpath, remote, len(options))
-	}
+func (g *Gateway) remoteBranchRequest(u *user.User, rpath string, remote string, options map[string]interface{}) (out0 *git.TransportRequest, out1 error) {
+	defer logger.Out2(logger.In5("agi", "Gateway.remoteBranchRequest", "g", g, "u", u, "rpath", rpath, "remote", remote, "options", options), &out0, &out1)
 	remoteURL, err := g.Option.GitManager.RemoteURLForName(rpath, remote)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
@@ -918,14 +997,13 @@ func (g *Gateway) remoteBranchRequest(u *user.User, rpath string, remote string,
 // rememberGitCredentialForRemote stores a credential that has just proven itself
 // against a remote addressed by name.
 func (g *Gateway) rememberGitCredentialForRemote(u *user.User, rpath string, remote string, options map[string]interface{}) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.rememberGitCredentialForRemote: rpath=%.120q remote=%.120q len(options)=%d", rpath, remote, len(options))
-	}
+	defer logger.Out0(logger.In5("agi", "Gateway.rememberGitCredentialForRemote", "g", g, "u", u, "rpath", rpath, "remote", remote, "options", options))
 	if !optionBool(options, "remember") {
 		return
 	}
 	remoteURL, err := g.Option.GitManager.RemoteURLForName(rpath, remote)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return
 	}
 	g.rememberGitCredential(u, remoteURL, options)
@@ -933,10 +1011,8 @@ func (g *Gateway) rememberGitCredentialForRemote(u *user.User, rpath string, rem
 
 // remoteOrOrigin mirrors the manager's default so status messages name the same
 // remote the operation actually used.
-func remoteOrOrigin(remote string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "remoteOrOrigin: remote=%.120q", remote)
-	}
+func remoteOrOrigin(remote string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "remoteOrOrigin", "remote", remote), &out0)
 	remote = strings.TrimSpace(remote)
 	if remote == "" {
 		return "origin"
@@ -947,10 +1023,8 @@ func remoteOrOrigin(remote string) string {
 // commitRequestFromOptions builds a CommitRequest for the history actions,
 // defaulting the author name to the calling user so a commit always has an
 // identity even when the front-end sends none.
-func commitRequestFromOptions(u *user.User, options map[string]interface{}) *git.CommitRequest {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "commitRequestFromOptions: len(options)=%d", len(options))
-	}
+func commitRequestFromOptions(u *user.User, options map[string]interface{}) (out0 *git.CommitRequest) {
+	defer logger.Out1(logger.In2("agi", "commitRequestFromOptions", "u", u, "options", options), &out0)
 	name := optionString(options, "name")
 	if name == "" && u != nil {
 		name = u.Username
@@ -964,8 +1038,8 @@ func commitRequestFromOptions(u *user.User, options map[string]interface{}) *git
 
 // shortHash abbreviates a commit hash for status messages, tolerating a hash
 // that is already short.
-func shortHash(hash string) string {
-	logger.Debug("agi", "shortHash")
+func shortHash(hash string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "shortHash", "!hash", hash), &out0)
 	hash = strings.TrimSpace(hash)
 	if len(hash) > 7 {
 		return hash[:7]
@@ -975,8 +1049,8 @@ func shortHash(hash string) string {
 
 // gitCredentialStore returns the credential store or a readable error when git
 // support was started without a database.
-func (g *Gateway) gitCredentialStore() (*git.CredentialStore, error) {
-	logger.Debug("agi", "Gateway.gitCredentialStore")
+func (g *Gateway) gitCredentialStore() (out0 *git.CredentialStore, out1 error) {
+	defer logger.Out2(logger.In1("agi", "Gateway.gitCredentialStore", "g", g), &out0, &out1)
 	if g.Option.GitManager == nil {
 		return nil, errors.New("git support is not enabled on this system")
 	}
@@ -990,10 +1064,8 @@ func (g *Gateway) gitCredentialStore() (*git.CredentialStore, error) {
 // resolveGitCredential decides which username / token a transport call should
 // use: the ones passed in the options win, otherwise the user's stored
 // credential for that host is used, otherwise the call proceeds anonymously.
-func (g *Gateway) resolveGitCredential(u *user.User, remoteURL string, options map[string]interface{}) (string, string) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.resolveGitCredential: len(options)=%d", len(options))
-	}
+func (g *Gateway) resolveGitCredential(u *user.User, remoteURL string, options map[string]interface{}) (out0 string, out1 string) {
+	defer logger.Out2(logger.In4("agi", "Gateway.resolveGitCredential", "g", g, "u", u, "remoteURL", remoteURL, "options", options), &out0, &out1)
 	username := optionString(options, "username")
 	token := optionString(options, "token")
 	if token != "" {
@@ -1002,6 +1074,7 @@ func (g *Gateway) resolveGitCredential(u *user.User, remoteURL string, options m
 
 	store, err := g.gitCredentialStore()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return username, token
 	}
 
@@ -1019,9 +1092,7 @@ func (g *Gateway) resolveGitCredential(u *user.User, remoteURL string, options m
 // rememberGitCredential persists the credential that was just proven to work,
 // but only when the caller explicitly asked for it (options.remember).
 func (g *Gateway) rememberGitCredential(u *user.User, remoteURL string, options map[string]interface{}) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.rememberGitCredential: len(options)=%d", len(options))
-	}
+	defer logger.Out0(logger.In4("agi", "Gateway.rememberGitCredential", "g", g, "u", u, "remoteURL", remoteURL, "options", options))
 	if !optionBool(options, "remember") {
 		return
 	}
@@ -1033,6 +1104,7 @@ func (g *Gateway) rememberGitCredential(u *user.User, remoteURL string, options 
 
 	store, err := g.gitCredentialStore()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return
 	}
 
@@ -1042,6 +1114,7 @@ func (g *Gateway) rememberGitCredential(u *user.User, remoteURL string, options 
 	}
 
 	if err := store.Save(u.Username, host, optionString(options, "username"), token); err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", "[AGI] Unable to store git credential for "+host, err)
 	}
 }
@@ -1056,21 +1129,22 @@ which matters because RepoRoot answers with an absolute OS path while the file
 system abstraction removes its storage root by prefix match against a relative
 one — the mismatch used to leave the absolute path embedded in the result.
 */
-func repoRootVirtualPath(vpath string, rpath string, realRoot string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "repoRootVirtualPath: vpath=%.120q rpath=%.120q realRoot=%.120q", vpath, rpath, realRoot)
-	}
+func repoRootVirtualPath(vpath string, rpath string, realRoot string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("agi", "repoRootVirtualPath", "vpath", vpath, "rpath", rpath, "realRoot", realRoot), &out0, &out1)
 	absPath, err := filepath.Abs(rpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	absRoot, err := filepath.Abs(realRoot)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 
 	relative, err := filepath.Rel(absRoot, absPath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return "", err
 	}
 	relative = filepath.ToSlash(relative)
@@ -1093,10 +1167,8 @@ Virtual paths are handled as plain strings rather than through path/filepath:
 on Windows filepath.Clean treats the "uuid:" prefix as a volume name and
 mangles it.
 */
-func trimVirtualPathSegments(vpath string, count int) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "trimVirtualPathSegments: vpath=%.120q count=%d", vpath, count)
-	}
+func trimVirtualPathSegments(vpath string, count int) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("agi", "trimVirtualPathSegments", "vpath", vpath, "count", count), &out0, &out1)
 	separator := strings.Index(vpath, ":/")
 	if separator < 0 {
 		return "", errors.New("not a virtual path: " + vpath)
@@ -1119,8 +1191,8 @@ func trimVirtualPathSegments(vpath string, count int) (string, error) {
 // checkFshSupportsGit rejects storage pools that cannot host a working tree.
 // Network-backed pools only expose streaming reads and writes, while git needs
 // ordinary random-access files.
-func checkFshSupportsGit(fsh *filesystem.FileSystemHandler) error {
-	logger.Debug("agi", "checkFshSupportsGit")
+func checkFshSupportsGit(fsh *filesystem.FileSystemHandler) (out0 error) {
+	defer logger.Out1(logger.In1("agi", "checkFshSupportsGit", "fsh", fsh), &out0)
 	if fsh == nil {
 		return errors.New("unable to resolve the storage pool for this path")
 	}
@@ -1134,14 +1206,16 @@ func checkFshSupportsGit(fsh *filesystem.FileSystemHandler) error {
 }
 
 // gitJSONValue marshals a value and hands it to the VM as a JSON string.
-func gitJSONValue(vm *otto.Otto, value interface{}) otto.Value {
-	logger.Debug("agi", "gitJSONValue")
+func gitJSONValue(vm *otto.Otto, value interface{}) (out0 otto.Value) {
+	defer logger.Out1(logger.In2("agi", "gitJSONValue", "vm", vm, "value", value), &out0)
 	encoded, err := json.Marshal(value)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return gitJSONError(vm, err)
 	}
 	result, err := vm.ToValue(string(encoded))
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return otto.FalseValue()
 	}
 	return result
@@ -1149,10 +1223,8 @@ func gitJSONValue(vm *otto.Otto, value interface{}) otto.Value {
 
 // gitJSONError returns an {error: "..."} object for the read-only calls, which
 // return their payload directly rather than a success envelope.
-func gitJSONError(vm *otto.Otto, err error) otto.Value {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "gitJSONError: err=%v", err)
-	}
+func gitJSONError(vm *otto.Otto, err error) (out0 otto.Value) {
+	defer logger.Out1(logger.In2("agi", "gitJSONError", "vm", vm, "err", err), &out0)
 	payload := map[string]interface{}{"error": err.Error()}
 	if errors.Is(err, git.ErrAuthRequired) {
 		payload["authRequired"] = true
@@ -1179,9 +1251,7 @@ func gitOperationSuccess(vm *otto.Otto, message string) otto.Value {
 // problems so the front-end knows to open its sign-in dialog, and an unmerged
 // branch so it can offer to delete anyway.
 func gitOperationFailure(vm *otto.Otto, err error) otto.Value {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("agi", "gitOperationFailure: err=%v", err)
-	}
+	logger.DebugTrace("agi", "gitOperationFailure")
 	return gitJSONValue(vm, git.OperationResult{
 		Success:      false,
 		Error:        err.Error(),
@@ -1192,14 +1262,15 @@ func gitOperationFailure(vm *otto.Otto, err error) otto.Value {
 
 // exportOptions converts a JavaScript options object into a Go map. A missing
 // or non-object argument yields an empty map so callers never need nil checks.
-func exportOptions(value otto.Value) map[string]interface{} {
-	logger.Debug("agi", "exportOptions")
+func exportOptions(value otto.Value) (out0 map[string]interface{}) {
+	defer logger.Out1(logger.In1("agi", "exportOptions", "value", value), &out0)
 	if !value.IsObject() {
 		return map[string]interface{}{}
 	}
 
 	exported, err := value.Export()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return map[string]interface{}{}
 	}
 
@@ -1212,8 +1283,8 @@ func exportOptions(value otto.Value) map[string]interface{} {
 
 // exportStringSlice converts a JavaScript array (or a single string) into a
 // string slice.
-func exportStringSlice(value otto.Value) []string {
-	logger.Debug("agi", "exportStringSlice")
+func exportStringSlice(value otto.Value) (out0 []string) {
+	defer logger.Out1(logger.In1("agi", "exportStringSlice", "value", value), &out0)
 	results := []string{}
 	if value.IsUndefined() || value.IsNull() {
 		return results
@@ -1229,6 +1300,7 @@ func exportStringSlice(value otto.Value) []string {
 
 	exported, err := value.Export()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return results
 	}
 
@@ -1246,10 +1318,8 @@ func exportStringSlice(value otto.Value) []string {
 }
 
 // optionString reads a string field from an options map.
-func optionString(options map[string]interface{}, key string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "optionString: len(options)=%d", len(options))
-	}
+func optionString(options map[string]interface{}, key string) (out0 string) {
+	defer logger.Out1(logger.In2("agi", "optionString", "options", options, "!key", key), &out0)
 	value, ok := options[key]
 	if !ok || value == nil {
 		return ""
@@ -1262,10 +1332,8 @@ func optionString(options map[string]interface{}, key string) string {
 
 // optionBool reads a boolean field from an options map, accepting the string
 // "true" as well so form values work unchanged.
-func optionBool(options map[string]interface{}, key string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "optionBool: len(options)=%d", len(options))
-	}
+func optionBool(options map[string]interface{}, key string) (out0 bool) {
+	defer logger.Out1(logger.In2("agi", "optionBool", "options", options, "!key", key), &out0)
 	value, ok := options[key]
 	if !ok || value == nil {
 		return false
@@ -1281,10 +1349,8 @@ func optionBool(options map[string]interface{}, key string) bool {
 
 // optionInt reads a numeric field from an options map. Otto hands numbers back
 // as float64, and form values arrive as strings.
-func optionInt(options map[string]interface{}, key string) int {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "optionInt: len(options)=%d", len(options))
-	}
+func optionInt(options map[string]interface{}, key string) (out0 int) {
+	defer logger.Out1(logger.In2("agi", "optionInt", "options", options, "!key", key), &out0)
 	value, ok := options[key]
 	if !ok || value == nil {
 		return 0
@@ -1299,6 +1365,7 @@ func optionInt(options map[string]interface{}, key string) int {
 	case string:
 		parsed := 0
 		if _, err := fmt.Sscanf(strings.TrimSpace(typed), "%d", &parsed); err != nil {
+			logger.DebugErr("agi", err)
 			return 0
 		}
 		return parsed

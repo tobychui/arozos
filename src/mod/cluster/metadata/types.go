@@ -86,18 +86,16 @@ type FileRecord struct {
 }
 
 // Clone returns an independent copy.
-func (f *FileRecord) Clone() *FileRecord {
-	logger.Debug("cluster/metadata", "FileRecord.Clone")
+func (f *FileRecord) Clone() (out0 *FileRecord) {
+	defer logger.Out1(logger.In1("cluster/metadata", "FileRecord.Clone", "f", f), &out0)
 	c := *f
 	c.Locations = append([]Location{}, f.Locations...)
 	return &c
 }
 
 // Location returns the copy on the given volume, if any.
-func (f *FileRecord) Location(volumeID string) (Location, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "FileRecord.Location: volumeID=%.120q", volumeID)
-	}
+func (f *FileRecord) Location(volumeID string) (out0 Location, out1 bool) {
+	defer logger.Out2(logger.In2("cluster/metadata", "FileRecord.Location", "f", f, "volumeID", volumeID), &out0, &out1)
 	for _, l := range f.Locations {
 		if l.VolumeID == volumeID {
 			return l, true
@@ -108,7 +106,7 @@ func (f *FileRecord) Location(volumeID string) (Location, bool) {
 
 // SetLocation adds or replaces the copy on the given volume.
 func (f *FileRecord) SetLocation(loc Location) {
-	logger.Debug("cluster/metadata", "FileRecord.SetLocation")
+	defer logger.Out0(logger.In2("cluster/metadata", "FileRecord.SetLocation", "f", f, "&loc", &loc))
 	loc.Updated = time.Now().Unix()
 	for i, l := range f.Locations {
 		if l.VolumeID == loc.VolumeID {
@@ -121,9 +119,7 @@ func (f *FileRecord) SetLocation(loc Location) {
 
 // RemoveLocation drops the copy on the given volume.
 func (f *FileRecord) RemoveLocation(volumeID string) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "FileRecord.RemoveLocation: volumeID=%.120q", volumeID)
-	}
+	defer logger.Out0(logger.In2("cluster/metadata", "FileRecord.RemoveLocation", "f", f, "volumeID", volumeID))
 	out := f.Locations[:0]
 	for _, l := range f.Locations {
 		if l.VolumeID != volumeID {
@@ -134,8 +130,8 @@ func (f *FileRecord) RemoveLocation(volumeID string) {
 }
 
 // HealthyLocations lists readable copies.
-func (f *FileRecord) HealthyLocations() []Location {
-	logger.Debug("cluster/metadata", "FileRecord.HealthyLocations")
+func (f *FileRecord) HealthyLocations() (out0 []Location) {
+	defer logger.Out1(logger.In1("cluster/metadata", "FileRecord.HealthyLocations", "f", f), &out0)
 	out := []Location{}
 	for _, l := range f.Locations {
 		if l.Healthy() {
@@ -233,10 +229,8 @@ type LeaseResponse struct {
 // NormalizePath turns any user supplied logical path into the canonical
 // form: forward slashes, cleaned, leading slash, no trailing slash except
 // for the root, optional "cluster:" prefix removed.
-func NormalizePath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "NormalizePath: p=%.120q", p)
-	}
+func NormalizePath(p string) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/metadata", "NormalizePath", "p", p), &out0)
 	p = strings.TrimSpace(p)
 	p = strings.ReplaceAll(p, "\\", "/")
 	if i := strings.Index(p, ":"); i >= 0 && i < 16 && !strings.Contains(p[:i], "/") {
@@ -253,10 +247,8 @@ func NormalizePath(p string) string {
 }
 
 // ParentPath returns the parent of a normalized path ("/" for the root).
-func ParentPath(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "ParentPath: p=%.120q", p)
-	}
+func ParentPath(p string) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/metadata", "ParentPath", "p", p), &out0)
 	if p == "/" {
 		return "/"
 	}
@@ -264,10 +256,8 @@ func ParentPath(p string) string {
 }
 
 // TopFolder returns "/photos" for "/photos/2026/a.jpg" ("/" for root entries).
-func TopFolder(p string) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "TopFolder: p=%.120q", p)
-	}
+func TopFolder(p string) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/metadata", "TopFolder", "p", p), &out0)
 	p = NormalizePath(p)
 	if p == "/" {
 		return "/"
@@ -277,8 +267,6 @@ func TopFolder(p string) string {
 }
 
 func nextVersion(prev int64) int64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/metadata", "nextVersion: prev=%d", prev)
-	}
+	logger.DebugTrace("cluster/metadata", "nextVersion")
 	return membership.NextVersion(prev)
 }

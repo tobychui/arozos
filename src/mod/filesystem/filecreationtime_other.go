@@ -13,7 +13,7 @@ recent kernel and is not recorded by every file system anyway. Report the
 creation time as unknown so the caller can grey the field out rather than
 guessing with ctime, which is the inode change time and not a creation time.
 */
-func getFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
-	logger.DebugTrace("filesystem", "getFileCreationTime")
+func getFileCreationTime(fileInfo os.FileInfo) (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem", "getFileCreationTime", "fileInfo", fileInfo), &out0, &out1)
 	return 0, false
 }

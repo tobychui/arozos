@@ -21,10 +21,11 @@ type CPUStats struct {
 }
 
 // getCPUStats reads and parses the CPU stats from /proc/stat
-func getCPUStats() (CPUStats, error) {
-	logger.Debug("info/usageinfo", "getCPUStats")
+func getCPUStats() (out0 CPUStats, out1 error) {
+	defer logger.Out2(logger.In0("info/usageinfo", "getCPUStats"), &out0, &out1)
 	data, err := ioutil.ReadFile("/proc/stat")
 	if err != nil {
+		logger.DebugErr("info/usageinfo", err)
 		return CPUStats{}, err
 	}
 
@@ -61,8 +62,8 @@ func getCPUStats() (CPUStats, error) {
 }
 
 // calculateCPUUsage calculates the percentage of CPU usage
-func calculateCPUUsage(prev, current CPUStats) float64 {
-	logger.Debug("info/usageinfo", "calculateCPUUsage")
+func calculateCPUUsage(prev, current CPUStats) (out0 float64) {
+	defer logger.Out1(logger.In2("info/usageinfo", "calculateCPUUsage", "&prev", &prev, "&current", &current), &out0)
 	prevTotal := prev.user + prev.nice + prev.system + prev.idle + prev.iowait + prev.irq + prev.softirq
 	currentTotal := current.user + current.nice + current.system + current.idle + current.iowait + current.irq + current.softirq
 
@@ -79,11 +80,12 @@ func calculateCPUUsage(prev, current CPUStats) float64 {
 
 // GetCPUUsage returns the current CPU usage as a percentage
 // Note this is blocking and will sleep for 1 second
-func GetCPUUsageUsingProcStat() (float64, error) {
-	logger.Debug("info/usageinfo", "GetCPUUsageUsingProcStat")
+func GetCPUUsageUsingProcStat() (out0 float64, out1 error) {
+	defer logger.Out2(logger.In0("info/usageinfo", "GetCPUUsageUsingProcStat"), &out0, &out1)
 	// Get initial CPU stats
 	prevStats, err := getCPUStats()
 	if err != nil {
+		logger.DebugErr("info/usageinfo", err)
 		return 0, err
 	}
 
@@ -93,6 +95,7 @@ func GetCPUUsageUsingProcStat() (float64, error) {
 	// Get current CPU stats after 1 second
 	currentStats, err := getCPUStats()
 	if err != nil {
+		logger.DebugErr("info/usageinfo", err)
 		return 0, err
 	}
 

@@ -38,23 +38,19 @@ func sendTextResponse(w http.ResponseWriter, msg string) {
 
 // Send JSON response, with an extra json header
 func sendJSONResponse(w http.ResponseWriter, json string) {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "sendJSONResponse: json=%.120q", json)
-	}
+	defer arozlog.Out0(arozlog.In1("subservice", "sendJSONResponse", "json", json))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
 }
 
 func sendErrorResponse(w http.ResponseWriter, errMsg string) {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "sendErrorResponse: errMsg=%.120q", errMsg)
-	}
+	defer arozlog.Out0(arozlog.In1("subservice", "sendErrorResponse", "errMsg", errMsg))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("{\"error\":\"" + errMsg + "\"}"))
 }
 
 func sendOK(w http.ResponseWriter) {
-	arozlog.Debug("subservice", "sendOK")
+	defer arozlog.Out0(arozlog.In0("subservice", "sendOK"))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
@@ -70,10 +66,8 @@ Will return
 Paramter string (if any)
 Error (if error)
 */
-func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "mv: r=%s getParamter=%.120q postMode=%t", arozlog.RequestSummary(r), getParamter, postMode)
-	}
+func mv(r *http.Request, getParamter string, postMode bool) (out0 string, out1 error) {
+	defer arozlog.Out2(arozlog.In3("subservice", "mv", "r", r, "getParamter", getParamter, "postMode", postMode), &out0, &out1)
 	if postMode == false {
 		//Access the paramter via GET
 		keys, ok := r.URL.Query()[getParamter]
@@ -99,10 +93,8 @@ func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 
 }
 
-func stringInSlice(a string, list []string) bool {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "stringInSlice: a=%.120q len(list)=%d", a, len(list))
-	}
+func stringInSlice(a string, list []string) (out0 bool) {
+	defer arozlog.Out1(arozlog.In2("subservice", "stringInSlice", "a", a, "list", list), &out0)
 	for _, b := range list {
 		if b == a {
 			return true
@@ -111,10 +103,8 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func fileExists(filename string) bool {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "fileExists: filename=%.120q", filename)
-	}
+func fileExists(filename string) (out0 bool) {
+	defer arozlog.Out1(arozlog.In1("subservice", "fileExists", "filename", filename), &out0)
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -122,15 +112,14 @@ func fileExists(filename string) bool {
 	return true
 }
 
-func isDir(path string) bool {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "isDir: path=%.120q", path)
-	}
+func isDir(path string) (out0 bool) {
+	defer arozlog.Out1(arozlog.In1("subservice", "isDir", "path", path), &out0)
 	if fileExists(path) == false {
 		return false
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
+		arozlog.DebugErr("subservice", err)
 		logger.PrintAndLog("Subservice", fmt.Sprint(err), nil)
 		os.Exit(1)
 		return false
@@ -144,10 +133,8 @@ func isDir(path string) bool {
 	return false
 }
 
-func inArray(arr []string, str string) bool {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "inArray: len(arr)=%d str=%.120q", len(arr), str)
-	}
+func inArray(arr []string, str string) (out0 bool) {
+	defer arozlog.Out1(arozlog.In2("subservice", "inArray", "arr", arr, "str", str), &out0)
 	for _, a := range arr {
 		if a == str {
 			return true
@@ -162,34 +149,27 @@ func timeToString(targetTime time.Time) string {
 }
 
 func intToString(number int) string {
-	if arozlog.IsDebugTrace() {
-		arozlog.DebugTracef("subservice", "intToString: number=%d", number)
-	}
+	arozlog.DebugTrace("subservice", "intToString")
 	return strconv.Itoa(number)
 }
 
 func stringToInt(number string) (int, error) {
-	if arozlog.IsDebugTrace() {
-		arozlog.DebugTracef("subservice", "stringToInt: number=%.120q", number)
-	}
+	arozlog.DebugTrace("subservice", "stringToInt")
 	return strconv.Atoi(number)
 }
 
-func stringToInt64(number string) (int64, error) {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "stringToInt64: number=%.120q", number)
-	}
+func stringToInt64(number string) (out0 int64, out1 error) {
+	defer arozlog.Out2(arozlog.In1("subservice", "stringToInt64", "number", number), &out0, &out1)
 	i, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
+		arozlog.DebugErr("subservice", err)
 		return -1, err
 	}
 	return i, nil
 }
 
-func int64ToString(number int64) string {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "int64ToString: number=%d", number)
-	}
+func int64ToString(number int64) (out0 string) {
+	defer arozlog.Out1(arozlog.In1("subservice", "int64ToString", "number", number), &out0)
 	convedNumber := strconv.FormatInt(number, 10)
 	return convedNumber
 }
@@ -199,10 +179,8 @@ func getUnixTime() int64 {
 	return time.Now().Unix()
 }
 
-func loadImageAsBase64(filepath string) (string, error) {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "loadImageAsBase64: filepath=%.120q", filepath)
-	}
+func loadImageAsBase64(filepath string) (out0 string, out1 error) {
+	defer arozlog.Out2(arozlog.In1("subservice", "loadImageAsBase64", "filepath", filepath), &out0, &out1)
 	if !fileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
@@ -213,10 +191,8 @@ func loadImageAsBase64(filepath string) (string, error) {
 	return string(encoded), nil
 }
 
-func pushToSliceIfNotExist(slice []string, newItem string) []string {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "pushToSliceIfNotExist: len(slice)=%d newItem=%.120q", len(slice), newItem)
-	}
+func pushToSliceIfNotExist(slice []string, newItem string) (out0 []string) {
+	defer arozlog.Out1(arozlog.In2("subservice", "pushToSliceIfNotExist", "slice", slice, "newItem", newItem), &out0)
 	itemExists := false
 	for _, item := range slice {
 		if item == newItem {
@@ -231,10 +207,8 @@ func pushToSliceIfNotExist(slice []string, newItem string) []string {
 	return slice
 }
 
-func removeFromSliceIfExists(slice []string, target string) []string {
-	if arozlog.IsDebug() {
-		arozlog.Debugf("subservice", "removeFromSliceIfExists: len(slice)=%d target=%.120q", len(slice), target)
-	}
+func removeFromSliceIfExists(slice []string, target string) (out0 []string) {
+	defer arozlog.Out1(arozlog.In2("subservice", "removeFromSliceIfExists", "slice", slice, "target", target), &out0)
 	newSlice := []string{}
 	for _, item := range slice {
 		if item != target {

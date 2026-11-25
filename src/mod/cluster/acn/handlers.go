@@ -45,10 +45,8 @@ type Server struct {
 }
 
 // NewServer builds the ACN mux with the built-in endpoints registered.
-func NewServer(verifier *Verifier, hub *TunnelHub, version string) *Server {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "NewServer: version=%.120q", version)
-	}
+func NewServer(verifier *Verifier, hub *TunnelHub, version string) (out0 *Server) {
+	defer logger.Out1(logger.In3("cluster/acn", "NewServer", "verifier", verifier, "hub", hub, "version", version), &out0)
 	s := &Server{
 		Verifier: verifier,
 		Hub:      hub,
@@ -68,20 +66,17 @@ func NewServer(verifier *Verifier, hub *TunnelHub, version string) *Server {
 
 // ServeHTTP lets the server be mounted in the main router.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "Server.ServeHTTP: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("cluster/acn", "Server.ServeHTTP")
 	s.mux.ServeHTTP(w, r)
 }
 
 // HandleFunc registers a signed endpoint. Requests failing verification get 401.
 func (s *Server) HandleFunc(path string, handler AuthenticatedHandler) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "Server.HandleFunc: path=%.120q", path)
-	}
+	logger.DebugTrace("cluster/acn", "Server.HandleFunc")
 	s.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		sender, body, err := s.Verifier.VerifyRequest(r)
 		if err != nil {
+			logger.DebugErr("cluster/acn", err)
 			status := http.StatusUnauthorized
 			if errors.Is(err, ErrBodyTooLarge) {
 				status = http.StatusRequestEntityTooLarge
@@ -96,16 +91,12 @@ func (s *Server) HandleFunc(path string, handler AuthenticatedHandler) {
 // HandleRaw registers an endpoint without verification. Only for endpoints
 // that carry their own credentials (join tokens) or are intentionally public.
 func (s *Server) HandleRaw(path string, handler http.HandlerFunc) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "Server.HandleRaw: path=%.120q", path)
-	}
+	logger.DebugTrace("cluster/acn", "Server.HandleRaw")
 	s.mux.HandleFunc(path, handler)
 }
 
 func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "Server.handleHello: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("cluster/acn", "Server.handleHello")
 	WriteJSON(w, HelloResponse{
 		ACN:       true,
 		Version:   s.Version,
@@ -117,9 +108,7 @@ func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
 // handleRelay verifies the sender and forwards the request over the tunnel of
 // the target node. The signature (made over the original path) is preserved.
 func (s *Server) handleRelay(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "Server.handleRelay: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/acn", "Server.handleRelay", "s", s, "r", r))
 	target, original, ok := StripRelayPrefix(r.URL.Path)
 	if !ok {
 		http.Error(w, "invalid relay path", http.StatusBadRequest)
@@ -131,6 +120,7 @@ func (s *Server) handleRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	_, body, err := s.Verifier.VerifyRequest(r)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -142,6 +132,7 @@ func (s *Server) handleRelay(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	resp, err := s.Hub.Do(ctx, target, r.Method, SignedTarget(original, r.URL.RawQuery), signedHeaders(r), body)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
@@ -156,9 +147,10 @@ func (s *Server) handleRelay(w http.ResponseWriter, r *http.Request) {
 
 // WriteJSON encodes v as the JSON response body.
 func WriteJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("cluster/acn", "WriteJSON")
+	defer logger.Out0(logger.In1("cluster/acn", "WriteJSON", "v", v))
 	js, err := json.Marshal(v)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -168,8 +160,6 @@ func WriteJSON(w http.ResponseWriter, v interface{}) {
 
 // WriteError sends a plain text error with the given status.
 func WriteError(w http.ResponseWriter, status int, msg string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "WriteError: status=%d", status)
-	}
+	logger.DebugTrace("cluster/acn", "WriteError")
 	http.Error(w, msg, status)
 }

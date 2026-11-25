@@ -43,14 +43,16 @@ type DockerManager struct {
 // NewDockerManager probes the host for a usable Docker installation and returns
 // a manager only when the CLI is present AND the daemon is reachable. A non-nil
 // error means Docker management should stay disabled on this host.
-func NewDockerManager(options Options) (*DockerManager, error) {
-	logger.Debug("docker", "NewDockerManager")
+func NewDockerManager(options Options) (out0 *DockerManager, out1 error) {
+	defer logger.Out2(logger.In1("docker", "NewDockerManager", "&options", &options), &out0, &out1)
 	if err := detectDockerCLI(); err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 
 	serverVersion, err := detectDockerEngine()
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return nil, err
 	}
 
@@ -81,8 +83,8 @@ func (d *DockerManager) ComposeAvailable() bool {
 // GetEngineStatus returns the current engine capability summary. The cached
 // construction-time values are used as a fallback; a fresh `docker version`
 // call enriches them with API version / OS / arch when the daemon answers.
-func (d *DockerManager) GetEngineStatus() EngineStatus {
-	logger.Debug("docker", "DockerManager.GetEngineStatus")
+func (d *DockerManager) GetEngineStatus() (out0 EngineStatus) {
+	defer logger.Out1(logger.In1("docker", "DockerManager.GetEngineStatus", "d", d), &out0)
 	status := EngineStatus{
 		Available:        true,
 		ServerVersion:    d.serverVersion,
@@ -108,9 +110,7 @@ func (d *DockerManager) GetEngineStatus() EngineStatus {
 // HandleEngineStatus serves the engine status as JSON (admin-only endpoint,
 // registered in src/docker.go).
 func (d *DockerManager) HandleEngineStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleEngineStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleEngineStatus", "d", d, "r", r))
 	status := d.GetEngineStatus()
 	js, _ := json.Marshal(status)
 	utils.SendJSONResponse(w, string(js))
@@ -119,10 +119,8 @@ func (d *DockerManager) HandleEngineStatus(w http.ResponseWriter, r *http.Reques
 // parseDockerVersionJSON unmarshals `docker version --format "{{json .}}"`
 // output. Factored out as a pure function so it is unit-testable without a
 // running docker daemon.
-func parseDockerVersionJSON(out []byte) (dockerVersionOutput, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "parseDockerVersionJSON: len(out)=%d", len(out))
-	}
+func parseDockerVersionJSON(out []byte) (out0 dockerVersionOutput, out1 error) {
+	defer logger.Out2(logger.In1("docker", "parseDockerVersionJSON", "out", out), &out0, &out1)
 	var parsed dockerVersionOutput
 	err := json.Unmarshal(out, &parsed)
 	return parsed, err
@@ -131,15 +129,14 @@ func parseDockerVersionJSON(out []byte) (dockerVersionOutput, error) {
 // runDocker runs the docker CLI with the given args and returns stdout. On a
 // non-zero exit the trimmed stderr (or the raw exec error if stderr was empty)
 // is returned as the error so callers can surface a meaningful message.
-func runDocker(args ...string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "runDocker: len(args)=%d", len(args))
-	}
+func runDocker(args ...string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("docker", "runDocker", "args", args), &out0, &out1)
 	cmd := exec.Command("docker", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
+		logger.DebugErr("docker", err)
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
 			msg = err.Error()

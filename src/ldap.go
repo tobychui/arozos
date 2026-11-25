@@ -11,7 +11,7 @@ import (
 )
 
 func ldapInit() {
-	logger.Debug("Core", "ldapInit")
+	defer logger.Out0(logger.In0("Core", "ldapInit"))
 	//ldap
 	authIcon := filepath.Join(vendorResRoot, "auth_icon.png")
 	if !fs.FileExists(authIcon) {

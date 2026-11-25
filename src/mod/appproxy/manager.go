@@ -89,9 +89,7 @@ type endpointRuntime struct {
 const maxLastLeaks = 10
 
 func (rt *endpointRuntime) recordLeak(path string) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "endpointRuntime.recordLeak: path=%.120q", path)
-	}
+	defer logger.Out0(logger.In2("appproxy", "endpointRuntime.recordLeak", "rt", rt, "path", path))
 	rt.leaks.Add(1)
 	rt.leakMu.Lock()
 	defer rt.leakMu.Unlock()
@@ -101,8 +99,8 @@ func (rt *endpointRuntime) recordLeak(path string) {
 	}
 }
 
-func (rt *endpointRuntime) stats() Stats {
-	logger.Debug("appproxy", "endpointRuntime.stats")
+func (rt *endpointRuntime) stats() (out0 Stats) {
+	defer logger.Out1(logger.In1("appproxy", "endpointRuntime.stats", "rt", rt), &out0)
 	rt.leakMu.Lock()
 	defer rt.leakMu.Unlock()
 	return Stats{
@@ -127,8 +125,8 @@ type Manager struct {
 }
 
 // NewManager loads the saved endpoints and returns a ready manager
-func NewManager(opts Options) (*Manager, error) {
-	logger.Debug("appproxy", "NewManager")
+func NewManager(opts Options) (out0 *Manager, out1 error) {
+	defer logger.Out2(logger.In1("appproxy", "NewManager", "&opts", &opts), &out0, &out1)
 	if opts.Store == nil {
 		return nil, errors.New("appproxy: a store is required")
 	}
@@ -145,6 +143,7 @@ func NewManager(opts Options) (*Manager, error) {
 		opts.LoginURL = func(string) string { return "/login.html" }
 	}
 	if err := opts.Store.NewTable(tableName); err != nil {
+		logger.DebugErr("appproxy", err)
 		return nil, err
 	}
 
@@ -159,6 +158,7 @@ func NewManager(opts Options) (*Manager, error) {
 
 	rows, err := opts.Store.ListTable(tableName)
 	if err != nil {
+		logger.DebugErr("appproxy", err)
 		return nil, err
 	}
 	for _, row := range rows {
@@ -167,6 +167,7 @@ func NewManager(opts Options) (*Manager, error) {
 		}
 		ep := Endpoint{}
 		if err := json.Unmarshal(row[1], &ep); err != nil {
+			logger.DebugErr("appproxy", err)
 			opts.Log("Skipping unreadable endpoint "+string(row[0]), err)
 			continue
 		}
@@ -175,10 +176,8 @@ func NewManager(opts Options) (*Manager, error) {
 	return m, nil
 }
 
-func newTransport(skipVerify bool) *http.Transport {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "newTransport: skipVerify=%t", skipVerify)
-	}
+func newTransport(skipVerify bool) (out0 *http.Transport) {
+	defer logger.Out1(logger.In1("appproxy", "newTransport", "skipVerify", skipVerify), &out0)
 	t := &http.Transport{
 		Proxy: nil,
 		DialContext: (&net.Dialer{
@@ -199,7 +198,7 @@ func newTransport(skipVerify bool) *http.Transport {
 
 // install builds the runtime of an endpoint and indexes it (replacing an older one)
 func (m *Manager) install(ep *Endpoint) {
-	logger.Debug("appproxy", "Manager.install")
+	defer logger.Out0(logger.In2("appproxy", "Manager.install", "m", m, "ep", ep))
 	rt := &endpointRuntime{ep: ep}
 	rt.proxy = m.newReverseProxy(rt)
 
@@ -220,19 +219,15 @@ func (m *Manager) install(ep *Endpoint) {
 	}
 }
 
-func (m *Manager) runtimeBySlug(slug string) *endpointRuntime {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.runtimeBySlug: slug=%.120q", slug)
-	}
+func (m *Manager) runtimeBySlug(slug string) (out0 *endpointRuntime) {
+	defer logger.Out1(logger.In2("appproxy", "Manager.runtimeBySlug", "m", m, "slug", slug), &out0)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.bySlug[slug]
 }
 
-func (m *Manager) runtimeByHost(host string) *endpointRuntime {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.runtimeByHost: host=%.120q", host)
-	}
+func (m *Manager) runtimeByHost(host string) (out0 *endpointRuntime) {
+	defer logger.Out1(logger.In2("appproxy", "Manager.runtimeByHost", "m", m, "host", host), &out0)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if len(m.byHost) == 0 {
@@ -242,8 +237,8 @@ func (m *Manager) runtimeByHost(host string) *endpointRuntime {
 }
 
 // List returns a copy of every endpoint, sorted by name
-func (m *Manager) List() []Endpoint {
-	logger.Debug("appproxy", "Manager.List")
+func (m *Manager) List() (out0 []Endpoint) {
+	defer logger.Out1(logger.In1("appproxy", "Manager.List", "m", m), &out0)
 	m.mu.RLock()
 	results := make([]Endpoint, 0, len(m.bySlug))
 	for _, rt := range m.bySlug {
@@ -260,10 +255,8 @@ func (m *Manager) List() []Endpoint {
 }
 
 // Get returns a copy of one endpoint
-func (m *Manager) Get(slug string) (Endpoint, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.Get: slug=%.120q", slug)
-	}
+func (m *Manager) Get(slug string) (out0 Endpoint, out1 bool) {
+	defer logger.Out2(logger.In2("appproxy", "Manager.Get", "m", m, "slug", slug), &out0, &out1)
 	rt := m.runtimeBySlug(slug)
 	if rt == nil {
 		return Endpoint{}, false
@@ -272,10 +265,8 @@ func (m *Manager) Get(slug string) (Endpoint, bool) {
 }
 
 // Stats returns the runtime counters of one endpoint
-func (m *Manager) Stats(slug string) Stats {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.Stats: slug=%.120q", slug)
-	}
+func (m *Manager) Stats(slug string) (out0 Stats) {
+	defer logger.Out1(logger.In2("appproxy", "Manager.Stats", "m", m, "slug", slug), &out0)
 	rt := m.runtimeBySlug(slug)
 	if rt == nil {
 		return Stats{}
@@ -284,8 +275,8 @@ func (m *Manager) Stats(slug string) Stats {
 }
 
 // Count returns the number of published endpoints
-func (m *Manager) Count() int {
-	logger.Debug("appproxy", "Manager.Count")
+func (m *Manager) Count() (out0 int) {
+	defer logger.Out1(logger.In1("appproxy", "Manager.Count", "m", m), &out0)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.bySlug)
@@ -294,11 +285,10 @@ func (m *Manager) Count() int {
 // Save creates (create=true) or updates an endpoint after validating it.
 // currentHost is the ArozOS host the admin is using, which an app hostname
 // must never take over
-func (m *Manager) Save(ep Endpoint, create bool, username string, currentHost string) (Endpoint, error) {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.Save: create=%t username=%.120q currentHost=%.120q", create, username, currentHost)
-	}
+func (m *Manager) Save(ep Endpoint, create bool, username string, currentHost string) (out0 Endpoint, out1 error) {
+	defer logger.Out2(logger.In5("appproxy", "Manager.Save", "m", m, "&ep", &ep, "create", create, "username", username, "currentHost", currentHost), &out0, &out1)
 	if err := ep.Normalize(m.opts.SelfPort); err != nil {
+		logger.DebugErr("appproxy", err)
 		return Endpoint{}, err
 	}
 	if ep.Mode == ModeSubdomain && currentHost != "" && NormalizeHostname(currentHost) == ep.Hostname {
@@ -334,6 +324,7 @@ func (m *Manager) Save(ep Endpoint, create bool, username string, currentHost st
 	ep.UpdatedAt = now
 
 	if err := m.opts.Store.Write(tableName, ep.Slug, ep); err != nil {
+		logger.DebugErr("appproxy", err)
 		return Endpoint{}, err
 	}
 	saved := ep
@@ -346,10 +337,8 @@ func (m *Manager) Save(ep Endpoint, create bool, username string, currentHost st
 }
 
 // Delete removes an endpoint
-func (m *Manager) Delete(slug string) error {
-	if logger.IsDebug() {
-		logger.Debugf("appproxy", "Manager.Delete: slug=%.120q", slug)
-	}
+func (m *Manager) Delete(slug string) (out0 error) {
+	defer logger.Out1(logger.In2("appproxy", "Manager.Delete", "m", m, "slug", slug), &out0)
 	m.mu.Lock()
 	rt, ok := m.bySlug[slug]
 	if ok {
@@ -367,8 +356,8 @@ func (m *Manager) Delete(slug string) error {
 }
 
 // AccessibleBy returns the endpoints a user may open
-func (m *Manager) AccessibleBy(id *Identity) []Endpoint {
-	logger.Debug("appproxy", "Manager.AccessibleBy")
+func (m *Manager) AccessibleBy(id *Identity) (out0 []Endpoint) {
+	defer logger.Out1(logger.In2("appproxy", "Manager.AccessibleBy", "m", m, "id", id), &out0)
 	results := []Endpoint{}
 	for _, ep := range m.List() {
 		if ep.CanAccess(id) {

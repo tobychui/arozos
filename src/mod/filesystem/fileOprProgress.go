@@ -52,10 +52,8 @@ type progressReporter struct {
 	lastReport  time.Time
 }
 
-func newProgressReporter(handler FileOperationProgressHandler, totalBytes int64) *progressReporter {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem", "newProgressReporter: totalBytes=%d", totalBytes)
-	}
+func newProgressReporter(handler FileOperationProgressHandler, totalBytes int64) (out0 *progressReporter) {
+	defer logger.Out1(logger.In2("filesystem", "newProgressReporter", "&handler", &handler, "totalBytes", totalBytes), &out0)
 	return &progressReporter{
 		handler:    handler,
 		totalBytes: totalBytes,
@@ -69,10 +67,8 @@ error once the user cancels the operation.
 Set force for the positions that must not be dropped, like the start and the end
 of a file. Everything else is subject to the fileOprProgressInterval rate limit.
 */
-func (p *progressReporter) report(bytesDone int64, force bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem", "progressReporter.report: bytesDone=%d force=%t", bytesDone, force)
-	}
+func (p *progressReporter) report(bytesDone int64, force bool) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem", "progressReporter.report", "p", p, "bytesDone", bytesDone, "force", force), &out0)
 	if p == nil || p.handler == nil {
 		return nil
 	}
@@ -114,10 +110,8 @@ type progressReader struct {
 // newProgressReader wraps a reader so the bytes going through it are reported.
 // baseDone is how much of the operation was already done when the stream began.
 // The reader is handed back untouched when there is nothing to report to.
-func newProgressReader(reader io.Reader, reporter *progressReporter, baseDone int64) io.Reader {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem", "newProgressReader: baseDone=%d", baseDone)
-	}
+func newProgressReader(reader io.Reader, reporter *progressReporter, baseDone int64) (out0 io.Reader) {
+	defer logger.Out1(logger.In3("filesystem", "newProgressReader", "reader", reader, "reporter", reporter, "baseDone", baseDone), &out0)
 	if reporter == nil || reporter.handler == nil {
 		return reader
 	}
@@ -129,13 +123,12 @@ func newProgressReader(reader io.Reader, reporter *progressReporter, baseDone in
 }
 
 func (p *progressReader) Read(buf []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem", "progressReader.Read: len(buf)=%d", len(buf))
-	}
+	logger.DebugTrace("filesystem", "progressReader.Read")
 	n, err := p.reader.Read(buf)
 	if n > 0 {
 		p.streamed += int64(n)
 		if reportErr := p.reporter.report(p.baseDone+p.streamed, false); reportErr != nil {
+			logger.DebugErr("filesystem", reportErr)
 			//Stop the transfer, the bytes read so far are still handed over so
 			//the writer can finish the buffer it is holding
 			return n, reportErr
@@ -146,8 +139,8 @@ func (p *progressReader) Read(buf []byte) (int, error) {
 
 // legacyProgressAdapter turns a byte level progress handler back into the
 // percentage based callback that the original FileCopy and FileMove take.
-func legacyProgressAdapter(progressUpdate func(int, string) int) FileOperationProgressHandler {
-	logger.Debug("filesystem", "legacyProgressAdapter")
+func legacyProgressAdapter(progressUpdate func(int, string) int) (out0 FileOperationProgressHandler) {
+	defer logger.Out1(logger.In1("filesystem", "legacyProgressAdapter", "progressUpdate", progressUpdate), &out0)
 	if progressUpdate == nil {
 		return nil
 	}

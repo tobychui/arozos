@@ -19,10 +19,8 @@ import (
 // injectStandardLibs injects system constants and core functions into the Otto VM.
 // It generates a UUIDv4 execution ID, sets it as EXECUTION_ID on the VM, and
 // returns it so callers can include it in external log messages.
-func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptScope string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.injectStandardLibs: scriptFile=%.120q scriptScope=%.120q", scriptFile, scriptScope)
-	}
+func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptScope string) (out0 string) {
+	defer logger.Out1(logger.In4("agi", "Gateway.injectStandardLibs", "g", g, "vm", vm, "scriptFile", scriptFile, "scriptScope", scriptScope), &out0)
 	//Define system core modules and definations
 	sysdb := g.Option.UserHandler.GetDatabase()
 
@@ -72,10 +70,12 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		argString, _ := call.Argument(0).ToString()
 		currentResp, err := vm.Get("HTTP_RESP")
 		if err != nil {
+			logger.DebugErr("agi", err)
 			vm.Set("HTTP_RESP", argString)
 		} else {
 			currentRespText, err := currentResp.ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				//Unable to parse this as string. Overwrite response
 				vm.Set("HTTP_RESP", argString)
 			}
@@ -122,6 +122,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("newDBTableIfNotExists", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -140,6 +141,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("DBTableExists", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -156,6 +158,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("dropDBTable", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -176,6 +179,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("writeDBItem", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -185,12 +189,14 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		if g.filterDBTable(tableName, true) {
 			keyString, err := call.Argument(1).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 			valueString, err := call.Argument(2).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				reply, _ := vm.ToValue(false)
 				return reply
@@ -236,6 +242,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			}
 			r, err := vm.ToValue(returnValue)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return otto.NullValue()
 			}
 			return r
@@ -252,6 +259,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		if g.filterDBTable(tableName, true) {
 			err := sysdb.Delete(tableName, keyString)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return otto.FalseValue()
 			}
 		} else {
@@ -266,6 +274,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("registerModule", func(call otto.FunctionCall) otto.Value {
 		jsonModuleConfig, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -275,6 +284,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		var moduleConfig map[string]interface{}
 		err = json.Unmarshal([]byte(jsonModuleConfig), &moduleConfig)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -304,6 +314,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			//Re-encode the modified config
 			modifiedJSON, err := json.Marshal(moduleConfig)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				reply, _ := vm.ToValue(false)
 				return reply
@@ -314,6 +325,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		//Try to decode it to a module Info
 		err = g.Option.ModuleRegisterParser(sourceFolder, jsonModuleConfig)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -367,6 +379,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			//Check if the pkg is already registered
 			scriptName, err := call.Argument(0).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -388,6 +401,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			scriptContent, _ := os.ReadFile(targetScriptPath)
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
+				logger.DebugErr("agi", err)
 				//Script execution failed
 				logger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)
@@ -403,6 +417,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("delay", func(call otto.FunctionCall) otto.Value {
 		delayTime, err := call.Argument(0).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}

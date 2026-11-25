@@ -37,12 +37,11 @@ type SFTPFileSystemAbstraction struct {
 	conn   *ssh.Client
 }
 
-func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl string, port int, mountFolder string, username string, password string) (SFTPFileSystemAbstraction, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "NewSFTPFileSystemAbstraction: uuid=%.120q hierarchy=%.120q port=%d mountFolder=%.120q username=%.120q", uuid, hierarchy, port, mountFolder, username)
-	}
+func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl string, port int, mountFolder string, username string, password string) (out0 SFTPFileSystemAbstraction, out1 error) {
+	defer logger.Out2(logger.In7("filesystem/abstractions/sftpfs", "NewSFTPFileSystemAbstraction", "uuid", uuid, "hierarchy", hierarchy, "serverUrl", serverUrl, "port", port, "mountFolder", mountFolder, "username", username, "!password", password), &out0, &out1)
 	_, err := url.Parse(serverUrl)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return SFTPFileSystemAbstraction{}, errors.New("[SFTP] to parse url: " + err.Error())
 	}
 
@@ -75,6 +74,7 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 	// Connect to server
 	conn, err := ssh.Dial("tcp", addr, &config)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		logger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Failed to connect to [%s] %v\n", addr, err), nil)
 		return SFTPFileSystemAbstraction{}, err
 	}
@@ -82,6 +82,7 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 	// Create new SFTP client
 	sc, err := sftp.NewClient(conn)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		logger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Unable to start SFTP subsystem: %v\n", err), nil)
 		return SFTPFileSystemAbstraction{}, err
 	}
@@ -99,66 +100,54 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 		conn:        conn,
 	}, nil
 }
-func (s SFTPFileSystemAbstraction) Chmod(filename string, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Chmod: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Chmod(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Chmod", "&s", &s, "filename", filename, "&mode", &mode), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.Chmod(filename, mode)
 }
-func (s SFTPFileSystemAbstraction) Chown(filename string, uid int, gid int) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Chown: filename=%.120q uid=%d gid=%d", filename, uid, gid)
-	}
+func (s SFTPFileSystemAbstraction) Chown(filename string, uid int, gid int) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Chown", "&s", &s, "filename", filename, "uid", uid, "gid", gid), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.Chown(filename, uid, gid)
 }
-func (s SFTPFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Chtimes: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Chtimes", "&s", &s, "filename", filename, "&atime", &atime, "&mtime", &mtime), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.Chtimes(filename, atime, mtime)
 }
-func (s SFTPFileSystemAbstraction) Create(filename string) (arozfs.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Create: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Create(filename string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Create", "&s", &s, "filename", filename), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 	//TODO: ADD FILE TYPE CONVERSION
 	return nil, arozfs.ErrNullOperation
 }
-func (s SFTPFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Mkdir: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Mkdir", "&s", &s, "filename", filename, "&mode", &mode), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.Mkdir(filename)
 }
-func (s SFTPFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.MkdirAll: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.MkdirAll", "&s", &s, "filename", filename, "&mode", &mode), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.MkdirAll(filename)
 }
-func (s SFTPFileSystemAbstraction) Name() string {
-	logger.DebugTrace("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Name")
+func (s SFTPFileSystemAbstraction) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Name", "&s", &s), &out0)
 	return ""
 }
-func (s SFTPFileSystemAbstraction) Open(filename string) (arozfs.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Open: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Open(filename string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Open", "&s", &s, "filename", filename), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 
 	f, err := s.client.Open(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return nil, err
 	}
 
 	stats, err := f.Stat()
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return nil, err
 	}
 
@@ -175,19 +164,19 @@ func (s SFTPFileSystemAbstraction) Open(filename string) (arozfs.File, error) {
 	wf := newSftpFsFile(f, isDir, de)
 	return wf, nil
 }
-func (s SFTPFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.OpenFile: filename=%.120q flag=%d", filename, flag)
-	}
+func (s SFTPFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.OpenFile", "&s", &s, "filename", filename, "flag", flag, "&perm", &perm), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 
 	f, err := s.client.OpenFile(filename, flag)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return nil, err
 	}
 
 	stats, err := f.Stat()
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return nil, err
 	}
 
@@ -204,17 +193,13 @@ func (s SFTPFileSystemAbstraction) OpenFile(filename string, flag int, perm os.F
 	wf := newSftpFsFile(f, isDir, de)
 	return wf, nil
 }
-func (s SFTPFileSystemAbstraction) Remove(filename string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Remove: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Remove(filename string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Remove", "&s", &s, "filename", filename), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.Remove(filename)
 }
-func (s SFTPFileSystemAbstraction) RemoveAll(filename string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.RemoveAll: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) RemoveAll(filename string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.RemoveAll", "&s", &s, "filename", filename), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	if s.IsDir(filename) {
 		return s.client.RemoveDirectory(filename)
@@ -222,30 +207,28 @@ func (s SFTPFileSystemAbstraction) RemoveAll(filename string) error {
 	return s.Remove(filename)
 
 }
-func (s SFTPFileSystemAbstraction) Rename(oldname, newname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Rename: oldname=%.120q newname=%.120q", oldname, newname)
-	}
+func (s SFTPFileSystemAbstraction) Rename(oldname, newname string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Rename", "&s", &s, "oldname", oldname, "newname", newname), &out0)
 	oldname = arozfs.GenericPathFilter(oldname)
 	newname = arozfs.GenericPathFilter(newname)
 	return s.client.Rename(oldname, newname)
 }
-func (s SFTPFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Stat: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) Stat(filename string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Stat", "&s", &s, "filename", filename), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 	return s.client.Stat(filename)
 }
-func (s SFTPFileSystemAbstraction) Close() error {
-	logger.Debug("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Close")
+func (s SFTPFileSystemAbstraction) Close() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Close", "&s", &s), &out0)
 	err := s.client.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return err
 	}
 	time.Sleep(300 * time.Millisecond)
 	err = s.conn.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return err
 	}
 	time.Sleep(500 * time.Millisecond)
@@ -256,12 +239,11 @@ func (s SFTPFileSystemAbstraction) Close() error {
 	Abstraction Utilities
 */
 
-func (s SFTPFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
-	}
+func (s SFTPFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.VirtualPathToRealPath", "&s", &s, "subpath", subpath, "username", username), &out0, &out1)
 	rpath, err := arozfs.GenericVirtualPathToRealPathTranslator(s.uuid, s.hierarchy, subpath, username)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return "", err
 	}
 	if !(len(rpath) >= len(s.mountFolder) && rpath[:len(s.mountFolder)] == s.mountFolder) {
@@ -271,10 +253,8 @@ func (s SFTPFileSystemAbstraction) VirtualPathToRealPath(subpath string, usernam
 	return rpath, nil
 }
 
-func (s SFTPFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.RealPathToVirtualPath: fullpath=%.120q username=%.120q", fullpath, username)
-	}
+func (s SFTPFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.RealPathToVirtualPath", "&s", &s, "fullpath", fullpath, "username", username), &out0, &out1)
 	if len(fullpath) >= len(s.mountFolder) && fullpath[:len(s.mountFolder)] == s.mountFolder {
 		//Trim out the mount folder path from the full path before passing into the generic path translator
 		fullpath = fullpath[len(s.mountFolder):]
@@ -282,91 +262,81 @@ func (s SFTPFileSystemAbstraction) RealPathToVirtualPath(fullpath string, userna
 	return arozfs.GenericRealPathToVirtualPathTranslator(s.uuid, s.hierarchy, fullpath, username)
 }
 
-func (s SFTPFileSystemAbstraction) FileExists(realpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.FileExists: realpath=%.120q", realpath)
-	}
+func (s SFTPFileSystemAbstraction) FileExists(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.FileExists", "&s", &s, "realpath", realpath), &out0)
 	_, err := s.Stat(realpath)
 	return err == nil
 }
 
-func (s SFTPFileSystemAbstraction) IsDir(realpath string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.IsDir: realpath=%.120q", realpath)
-	}
+func (s SFTPFileSystemAbstraction) IsDir(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.IsDir", "&s", &s, "realpath", realpath), &out0)
 	info, err := s.Stat(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return false
 	}
 
 	return info.IsDir()
 }
 
-func (s SFTPFileSystemAbstraction) Glob(realpathWildcard string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Glob: realpathWildcard=%.120q", realpathWildcard)
-	}
+func (s SFTPFileSystemAbstraction) Glob(realpathWildcard string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Glob", "&s", &s, "realpathWildcard", realpathWildcard), &out0, &out1)
 	realpathWildcard = arozfs.GenericPathFilter(realpathWildcard)
 	return s.client.Glob(realpathWildcard)
 }
 
-func (s SFTPFileSystemAbstraction) GetFileSize(realpath string) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.GetFileSize: realpath=%.120q", realpath)
-	}
+func (s SFTPFileSystemAbstraction) GetFileSize(realpath string) (out0 int64) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.GetFileSize", "&s", &s, "realpath", realpath), &out0)
 	info, err := s.Stat(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return 0
 	}
 
 	return info.Size()
 }
 
-func (s SFTPFileSystemAbstraction) GetModTime(realpath string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.GetModTime: realpath=%.120q", realpath)
-	}
+func (s SFTPFileSystemAbstraction) GetModTime(realpath string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.GetModTime", "&s", &s, "realpath", realpath), &out0, &out1)
 	info, err := s.Stat(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return 0, err
 	}
 
 	return info.ModTime().Unix(), nil
 }
 
-func (s SFTPFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.WriteFile: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.WriteFile", "&s", &s, "filename", filename, "content", content, "&mode", &mode), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	f, err := s.client.OpenFile(filename, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return err
 	}
 
 	_, err = f.Write(content)
 	return err
 }
-func (s SFTPFileSystemAbstraction) ReadFile(filename string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.ReadFile: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) ReadFile(filename string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.ReadFile", "&s", &s, "filename", filename), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 	f, err := s.client.OpenFile(filename, os.O_RDONLY)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return []byte(""), err
 	}
 
 	return io.ReadAll(f)
 }
-func (s SFTPFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.ReadDir: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) ReadDir(filename string) (out0 []fs.DirEntry, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.ReadDir", "&s", &s, "filename", filename), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 	result := []fs.DirEntry{}
 	infos, err := s.client.ReadDir(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return result, err
 	}
 
@@ -377,34 +347,30 @@ func (s SFTPFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, erro
 
 	return result, nil
 }
-func (s SFTPFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.WriteStream: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.WriteStream", "&s", &s, "filename", filename, "stream", stream, "&mode", &mode), &out0)
 	filename = arozfs.GenericPathFilter(filename)
 	f, err := s.client.OpenFile(filename, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return err
 	}
 	_, err = io.Copy(f, stream)
 	return err
 }
-func (s SFTPFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.ReadStream: filename=%.120q", filename)
-	}
+func (s SFTPFileSystemAbstraction) ReadStream(filename string) (out0 io.ReadCloser, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.ReadStream", "&s", &s, "filename", filename), &out0, &out1)
 	filename = arozfs.GenericPathFilter(filename)
 	f, err := s.client.OpenFile(filename, os.O_RDONLY)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sftpfs", err)
 		return nil, err
 	}
 	return f, nil
 }
 
-func (s SFTPFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Walk: root=%.120q", root)
-	}
+func (s SFTPFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Walk", "&s", &s, "root", root, "&walkFn", &walkFn), &out0)
 	root = arozfs.GenericPathFilter(root)
 	walker := s.client.Walk(root)
 	for walker.Step() {
@@ -412,6 +378,7 @@ func (s SFTPFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) e
 		if err == filepath.SkipDir {
 			walker.SkipDir()
 		} else if err != nil {
+			logger.DebugErr("filesystem/abstractions/sftpfs", err)
 			//The callback asked to stop, e.g. the user cancelled the operation
 			return err
 		}
@@ -419,7 +386,7 @@ func (s SFTPFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) e
 	return nil
 }
 
-func (s SFTPFileSystemAbstraction) Heartbeat() error {
-	logger.DebugTrace("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Heartbeat")
+func (s SFTPFileSystemAbstraction) Heartbeat() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sftpfs", "SFTPFileSystemAbstraction.Heartbeat", "&s", &s), &out0)
 	return nil
 }

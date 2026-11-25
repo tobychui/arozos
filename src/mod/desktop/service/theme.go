@@ -20,11 +20,10 @@ import (
 // handleTheme lists the bundled themes, gets / sets the user's theme, or lists
 // the wallpapers inside a user folder
 func (s *Service) handleTheme(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleTheme: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleTheme", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -38,11 +37,13 @@ func (s *Service) handleTheme(w http.ResponseWriter, r *http.Request) {
 		//List all the bundled themes
 		desktopThemeList, err := wallpaper.ListThemes(s.opts.WallpaperRoot)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			logger.PrintAndLog("Desktop", "Unable to search bg from destkop image root. Are you sure the web data folder exists?", err)
 			return
 		}
 		jsonString, err := json.Marshal(desktopThemeList)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			logger.PrintAndLog("Desktop", "Unable to render desktop wallpaper list", err)
 			utils.SendJSONResponse(w, "[]")
 			return
@@ -57,6 +58,7 @@ func (s *Service) handleTheme(w http.ResponseWriter, r *http.Request) {
 	case loadUserTheme != "":
 		wallpapers, err := s.listFolderWallpapers(userinfo, loadUserTheme)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -70,15 +72,14 @@ func (s *Service) handleTheme(w http.ResponseWriter, r *http.Request) {
 }
 
 // listFolderWallpapers returns the virtual paths of the wallpapers inside a user folder
-func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.listFolderWallpapers: folder=%.120q", folder)
-	}
+func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In3("desktop/service", "Service.listFolderWallpapers", "s", s, "userinfo", userinfo, "folder", folder), &out0, &out1)
 	if !userinfo.CanRead(folder) {
 		return nil, errors.New("Permission denied")
 	}
 	targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(folder)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, errors.New("Unable to resolve user root path")
 	}
 	fshAbs := targetFsh.FileSystemAbstraction
@@ -89,6 +90,7 @@ func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) ([]st
 
 	files, err := fshAbs.ReadDir(rpath)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, err
 	}
 	virtualImageList := []string{}
@@ -98,6 +100,7 @@ func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) ([]st
 		}
 		vpath, err := fshAbs.RealPathToVirtualPath(arozfs.ToSlash(filepath.Join(rpath, file.Name())), userinfo.Username)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			continue
 		}
 		virtualImageList = append(virtualImageList, vpath)
@@ -107,11 +110,10 @@ func (s *Service) listFolderWallpapers(userinfo *user.User, folder string) ([]st
 
 // handlePreference gets, sets or removes a desktop preference of the user
 func (s *Service) handlePreference(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handlePreference: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handlePreference", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}

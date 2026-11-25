@@ -28,7 +28,7 @@ import (
 */
 
 func CNNInferenceSettingInit() {
-	logger.Debug("Core", "CNNInferenceSettingInit")
+	defer logger.Out0(logger.In0("Core", "CNNInferenceSettingInit"))
 	//Register the settings tab in the "AI Integration" group.
 	registerSetting(settingModule{
 		Name:         "CNN Inference",

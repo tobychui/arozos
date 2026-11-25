@@ -22,9 +22,7 @@ import (
 
 // Handle group editing operations
 func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionHandler.HandleListGroup: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionHandler.HandleListGroup", "h", h, "r", r))
 	listPermission, _ := utils.GetPara(r, "showper")
 	if listPermission == "" {
 		//Only show the user group name
@@ -51,11 +49,10 @@ func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Reque
 
 // Listing a group's detail for editing or updating the group content
 func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionHandler.HandleGroupEdit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionHandler.HandleGroupEdit", "h", h, "r", r))
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
@@ -65,6 +62,7 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 		//Edit update mode
 		permission, err := utils.PostPara(r, "permission")
 		if err != nil {
+			logger.DebugErr("permission", err)
 			utils.SendErrorResponse(w, "Group name not defined")
 			return
 		}
@@ -72,12 +70,14 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 		permissionSlice := []string{}
 		err = json.Unmarshal([]byte(permission), &permissionSlice)
 		if err != nil {
+			logger.DebugErr("permission", err)
 			utils.SendErrorResponse(w, "Failed to parse module list")
 			return
 		}
 
 		isAdmin, err := utils.PostPara(r, "isAdmin")
 		if err != nil {
+			logger.DebugErr("permission", err)
 			utils.SendErrorResponse(w, "Admin permission not defined")
 			return
 		}
@@ -90,12 +90,14 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 
 		quota, err := utils.PostPara(r, "defaultQuota")
 		if err != nil {
+			logger.DebugErr("permission", err)
 			utils.SendErrorResponse(w, "Default Quota not defined")
 			return
 		}
 
 		interfaceModule, err := utils.PostPara(r, "interfaceModule")
 		if err != nil {
+			logger.DebugErr("permission", err)
 			utils.SendErrorResponse(w, "Default Interface Module not defined")
 			return
 		}
@@ -108,6 +110,7 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 
 		quotaInt, err := strconv.Atoi(quota)
 		if err != nil {
+			logger.DebugErr("permission", err)
 			utils.SendErrorResponse(w, "Invalid Quota.")
 			return
 		}
@@ -135,17 +138,17 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionHandler.HandleGroupCreate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionHandler.HandleGroupCreate", "h", h, "r", r))
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
 
 	permission, err := utils.PostPara(r, "permission")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
@@ -153,24 +156,28 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 	permissionSlice := []string{}
 	err = json.Unmarshal([]byte(permission), &permissionSlice)
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Failed to parse module list")
 		return
 	}
 
 	isAdmin, err := utils.PostPara(r, "isAdmin")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Admin permission not defined")
 		return
 	}
 
 	quota, err := utils.PostPara(r, "defaultQuota")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Default Quota not defined")
 		return
 	}
 
 	interfaceModule, err := utils.PostPara(r, "interfaceModule")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Default Interface Module not defined")
 		return
 	}
@@ -183,6 +190,7 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 
 	quotaInt, err := strconv.Atoi(quota)
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Invalid Quota.")
 		return
 	}
@@ -199,11 +207,10 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 }
 
 func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("permission", "PermissionHandler.HandleGroupRemove: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("permission", "PermissionHandler.HandleGroupRemove", "h", h, "r", r))
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
+		logger.DebugErr("permission", err)
 		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}

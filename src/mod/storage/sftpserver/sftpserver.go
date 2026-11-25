@@ -55,8 +55,8 @@ type Instance struct {
 // LoadOrCreateHostKey reads the server's host key, and creates one the first
 // time. Every installation has its own key: a key shared by all of them would
 // let anyone pose as any ArozOS server.
-func LoadOrCreateHostKey(keyFile string) (ssh.Signer, error) {
-	logger.Debug("storage/sftpserver", "LoadOrCreateHostKey")
+func LoadOrCreateHostKey(keyFile string) (out0 ssh.Signer, out1 error) {
+	defer logger.Out2(logger.In1("storage/sftpserver", "LoadOrCreateHostKey", "!keyFile", keyFile), &out0, &out1)
 	if data, err := os.ReadFile(keyFile); err == nil {
 		return ssh.ParsePrivateKey(data)
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -65,20 +65,25 @@ func LoadOrCreateHostKey(keyFile string) (ssh.Signer, error) {
 
 	_, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	block, err := ssh.MarshalPrivateKey(private, "ArozOS SFTP host key")
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Dir(keyFile), 0700); err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	tmp := keyFile + ".tmp"
 	if err := os.WriteFile(tmp, pem.EncodeToMemory(block), 0600); err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	if err := os.Rename(tmp, keyFile); err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		os.Remove(tmp)
 		return nil, err
 	}
@@ -87,17 +92,15 @@ func LoadOrCreateHostKey(keyFile string) (ssh.Signer, error) {
 }
 
 // Fingerprint is how clients show a host key, e.g. SHA256:abc...
-func Fingerprint(key ssh.Signer) string {
-	logger.DebugTrace("storage/sftpserver", "Fingerprint")
+func Fingerprint(key ssh.Signer) (out0 string) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "Fingerprint", "!&key", &key), &out0)
 	return ssh.FingerprintSHA256(key.PublicKey())
 }
 
 // AddressAllowed tells whether a client at addr may connect. Clients on
 // private, loopback and link local addresses always may.
-func AddressAllowed(addr net.Addr, allowPublic bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage/sftpserver", "AddressAllowed: allowPublic=%t", allowPublic)
-	}
+func AddressAllowed(addr net.Addr, allowPublic bool) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/sftpserver", "AddressAllowed", "&addr", &addr, "allowPublic", allowPublic), &out0)
 	if allowPublic {
 		return true
 	}
@@ -105,20 +108,21 @@ func AddressAllowed(addr net.Addr, allowPublic bool) bool {
 	return ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
 }
 
-func hostIP(addr net.Addr) net.IP {
-	logger.Debug("storage/sftpserver", "hostIP")
+func hostIP(addr net.Addr) (out0 net.IP) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "hostIP", "&addr", &addr), &out0)
 	if addr == nil {
 		return nil
 	}
 	host, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		host = addr.String()
 	}
 	return net.ParseIP(host)
 }
 
-func hostOf(addr net.Addr) string {
-	logger.Debug("storage/sftpserver", "hostOf")
+func hostOf(addr net.Addr) (out0 string) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "hostOf", "&addr", &addr), &out0)
 	if ip := hostIP(addr); ip != nil {
 		return ip.String()
 	}
@@ -133,14 +137,14 @@ type readOnlyAccess struct {
 	Access
 }
 
-func (readOnlyAccess) CanWrite(string) bool {
-	logger.DebugTrace("storage/sftpserver", "readOnlyAccess.CanWrite")
+func (readOnlyAccess) CanWrite(string) (out0 bool) {
+	defer logger.Out1(logger.In0("storage/sftpserver", "readOnlyAccess.CanWrite"), &out0)
 	return false
 }
 
 // Create a new SFTP Server
-func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
-	logger.Debug("storage/sftpserver", "NewSFTPServer")
+func NewSFTPServer(sftpConfig *SFTPConfig) (out0 *Instance, out1 error) {
+	defer logger.Out2(logger.In1("storage/sftpserver", "NewSFTPServer", "sftpConfig", sftpConfig), &out0, &out1)
 	if sftpConfig.HostKey == nil {
 		return nil, errors.New("no host key given")
 	}
@@ -150,6 +154,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 	config := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			if err := sftpConfig.Authenticate(c.User(), string(pass), hostOf(c.RemoteAddr())); err != nil {
+				logger.DebugErr("storage/sftpserver", err)
 				return nil, err
 			}
 			return nil, nil
@@ -159,6 +164,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 
 	listener, err := net.Listen("tcp", sftpConfig.ListeningIP)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return nil, err
 	}
 	logger.PrintAndLog("Sftpserver", fmt.Sprintf("[SFTP] Listening on %v", listener.Addr()), nil)
@@ -168,6 +174,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 		for {
 			nConn, err := listener.Accept()
 			if err != nil {
+				logger.DebugErr("storage/sftpserver", err)
 				return
 			}
 			go instance.serve(nConn, config, sftpConfig)
@@ -178,7 +185,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 
 // serve runs one client connection until it ends or the server closes
 func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *SFTPConfig) {
-	logger.Debug("storage/sftpserver", "Instance.serve")
+	defer logger.Out0(logger.In4("storage/sftpserver", "Instance.serve", "i", i, "nConn", nConn, "config", config, "sftpConfig", sftpConfig))
 	defer nConn.Close()
 	if !AddressAllowed(nConn.RemoteAddr(), sftpConfig.AllowPublic) {
 		return
@@ -188,6 +195,7 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 	nConn.SetDeadline(time.Now().Add(2 * time.Minute))
 	cx, chans, reqs, err := ssh.NewServerConn(nConn, config)
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return
 	}
 	nConn.SetDeadline(time.Time{})
@@ -195,6 +203,7 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 
 	access, err := sftpConfig.LookupUser(cx.User())
 	if err != nil {
+		logger.DebugErr("storage/sftpserver", err)
 		return
 	}
 	if sftpConfig.ReadOnly {
@@ -227,6 +236,7 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 		}
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
+			logger.DebugErr("storage/sftpserver", err)
 			continue
 		}
 
@@ -254,14 +264,14 @@ func (i *Instance) serve(nConn net.Conn, config *ssh.ServerConfig, sftpConfig *S
 }
 
 // IsClosed tells whether Close was called.
-func (i *Instance) IsClosed() bool {
-	logger.DebugTrace("storage/sftpserver", "Instance.IsClosed")
+func (i *Instance) IsClosed() (out0 bool) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "Instance.IsClosed", "i", i), &out0)
 	return i.closed.Load()
 }
 
 // Clients lists who is connected, oldest connection first.
-func (i *Instance) Clients() []ClientInfo {
-	logger.Debug("storage/sftpserver", "Instance.Clients")
+func (i *Instance) Clients() (out0 []ClientInfo) {
+	defer logger.Out1(logger.In1("storage/sftpserver", "Instance.Clients", "i", i), &out0)
 	clients := []ClientInfo{}
 	i.conns.Range(func(_, value interface{}) bool {
 		clients = append(clients, value.(*connection).info)
@@ -273,7 +283,7 @@ func (i *Instance) Clients() []ClientInfo {
 
 // Close stops listening and disconnects every client.
 func (i *Instance) Close() {
-	logger.DebugTrace("storage/sftpserver", "Instance.Close")
+	defer logger.Out0(logger.In1("storage/sftpserver", "Instance.Close", "i", i))
 	i.once.Do(func() {
 		i.closed.Store(true)
 		if i.listener != nil {

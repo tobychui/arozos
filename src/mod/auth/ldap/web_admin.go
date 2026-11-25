@@ -14,12 +14,11 @@ import (
 )
 
 func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.ReadConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.ReadConfig", "ldap", ldap, "r", r))
 	//basic components
 	enabled, err := strconv.ParseBool(ldap.readSingleConfig("enabled"))
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		// Default to false when the key has never been persisted.
 		enabled = false
 	}
@@ -38,8 +37,10 @@ func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 		BaseDN:       BaseDN,
 	})
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		empty, err := json.Marshal(Config{})
 		if err != nil {
+			logger.DebugErr("auth/ldap", err)
 			utils.SendErrorResponse(w, "Error while marshalling config")
 		}
 		utils.SendJSONResponse(w, string(empty))
@@ -48,12 +49,11 @@ func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.WriteConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.WriteConfig", "ldap", ldap, "r", r))
 	//receive the parameter
 	enabled, err := utils.PostPara(r, "enabled")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, "enabled field can't be empty")
 		return
 	}
@@ -67,6 +67,7 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	//four fields to store the LDAP authentication information
 	BindUsername, err := utils.PostPara(r, "bind_username")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		if showError {
 			utils.SendErrorResponse(w, "bind_username field can't be empty")
 			return
@@ -74,6 +75,7 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	BindPassword, err := utils.PostPara(r, "bind_password")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		if showError {
 			utils.SendErrorResponse(w, "bind_password field can't be empty")
 			return
@@ -81,6 +83,7 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	FQDN, err := utils.PostPara(r, "fqdn")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		if showError {
 			utils.SendErrorResponse(w, "fqdn field can't be empty")
 			return
@@ -88,6 +91,7 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	BaseDN, err := utils.PostPara(r, "base_dn")
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		if showError {
 			utils.SendErrorResponse(w, "base_dn field can't be empty")
 			return
@@ -109,14 +113,14 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.TestConnection: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.TestConnection", "ldap", ldap, "r", r))
 	//marshall it and return the connection status
 	userList, totalLength, err := ldap.getAllUser(10)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		errMessage, err := json.Marshal(syncorizeUserReturnInterface{Error: err.Error()})
 		if err != nil {
+			logger.DebugErr("auth/ldap", err)
 			utils.SendErrorResponse(w, "{\"error\":\"Error while marshalling information\"}")
 			return
 		}
@@ -126,8 +130,10 @@ func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) 
 	returnJSON := syncorizeUserReturnInterface{Userinfo: userList, Length: len(userList), TotalLength: totalLength, Error: ""}
 	accountJSON, err := json.Marshal(returnJSON)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		errMessage, err := json.Marshal(syncorizeUserReturnInterface{Error: err.Error()})
 		if err != nil {
+			logger.DebugErr("auth/ldap", err)
 			utils.SendErrorResponse(w, "{\"error\":\"Error while marshalling information\"}")
 			return
 		}
@@ -137,17 +143,17 @@ func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) 
 	utils.SendJSONResponse(w, string(accountJSON))
 }
 
-func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.checkCurrUserAdmin: r=%s", logger.RequestSummary(r))
-	}
+func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Request) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("auth/ldap", "ldapHandler.checkCurrUserAdmin", "ldap", ldap, "r", r), &out0, &out1)
 	//check current user is admin and new update will remove it or not
 	currentLoggedInUser, err := ldap.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		return false, err
 	}
 	ldapCurrUserInfo, err := ldap.ldapreader.GetUser(currentLoggedInUser.Username)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		return false, errors.New(err.Error() + ", probably due to your account is not in the LDAP server")
 	}
 	isAdmin := false
@@ -170,13 +176,12 @@ func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Reque
 }
 
 func (ldap *ldapHandler) SynchronizeUser(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap", "ldapHandler.SynchronizeUser: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/ldap", "ldapHandler.SynchronizeUser", "ldap", ldap, "r", r))
 	//check if suer is admin before executing the command
 	//if user is admin then check if user will lost him/her's admin access
 	consistencyCheck, err := ldap.checkCurrUserAdmin(w, r)
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		// escape " symbol manually
 		errorMsg := strings.ReplaceAll(err.Error(), "\"", "\\\"")
 		utils.SendErrorResponse(w, errorMsg)
@@ -189,6 +194,7 @@ func (ldap *ldapHandler) SynchronizeUser(w http.ResponseWriter, r *http.Request)
 
 	err = ldap.SynchronizeUserFromLDAP()
 	if err != nil {
+		logger.DebugErr("auth/ldap", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

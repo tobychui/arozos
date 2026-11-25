@@ -35,25 +35,23 @@ type joinTokenPayload struct {
 	Secret      string `json:"s"`
 }
 
-func randomHex(n int) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "randomHex: n=%d", n)
-	}
+func randomHex(n int) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/membership", "randomHex", "n", n), &out0)
 	buf := make([]byte, n)
 	rand.Read(buf)
 	return hex.EncodeToString(buf)
 }
 
-func hashSecret(secret string) string {
-	logger.Debug("cluster/membership", "hashSecret")
+func hashSecret(secret string) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/membership", "hashSecret", "!secret", secret), &out0)
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])
 }
 
 // NewJoinToken creates a token valid for ttl and the pasteable string that
 // encodes it for the issuing node at issuerURL.
-func NewJoinToken(cluster ClusterInfo, issuerURL string, ttl time.Duration) (*JoinToken, string, error) {
-	logger.Debug("cluster/membership", "NewJoinToken")
+func NewJoinToken(cluster ClusterInfo, issuerURL string, ttl time.Duration) (out0 *JoinToken, out1 string, out2 error) {
+	defer logger.Out3(logger.In3("cluster/membership", "NewJoinToken", "&cluster", &cluster, "issuerURL", issuerURL, "&ttl", &ttl), &out0, &out1, &out2)
 	if strings.TrimSpace(issuerURL) == "" {
 		return nil, "", errors.New("this node has no advertised URL; generate the join token on a node that other nodes can reach")
 	}
@@ -74,26 +72,27 @@ func NewJoinToken(cluster ClusterInfo, issuerURL string, ttl time.Duration) (*Jo
 	}
 	js, err := json.Marshal(payload)
 	if err != nil {
+		logger.DebugErr("cluster/membership", err)
 		return nil, "", err
 	}
 	return token, joinTokenPrefix + base64.RawURLEncoding.EncodeToString(js), nil
 }
 
 // DecodeJoinToken parses a pasted token string.
-func DecodeJoinToken(encoded string) (*joinTokenPayload, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "DecodeJoinToken: encoded=%.120q", encoded)
-	}
+func DecodeJoinToken(encoded string) (out0 *joinTokenPayload, out1 error) {
+	defer logger.Out2(logger.In1("cluster/membership", "DecodeJoinToken", "encoded", encoded), &out0, &out1)
 	encoded = strings.TrimSpace(encoded)
 	if !strings.HasPrefix(encoded, joinTokenPrefix) {
 		return nil, errors.New("not an ArozOS join token")
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(encoded, joinTokenPrefix))
 	if err != nil {
+		logger.DebugErr("cluster/membership", err)
 		return nil, errors.New("join token is corrupted")
 	}
 	var p joinTokenPayload
 	if err := json.Unmarshal(raw, &p); err != nil {
+		logger.DebugErr("cluster/membership", err)
 		return nil, errors.New("join token is corrupted")
 	}
 	if p.ClusterID == "" || p.URL == "" || p.TokenID == "" || p.Secret == "" {
@@ -106,8 +105,8 @@ func DecodeJoinToken(encoded string) (*joinTokenPayload, error) {
 }
 
 // Valid checks a presented secret against the stored token at time now.
-func (t *JoinToken) Valid(secret string, now time.Time) bool {
-	logger.Debug("cluster/membership", "JoinToken.Valid")
+func (t *JoinToken) Valid(secret string, now time.Time) (out0 bool) {
+	defer logger.Out1(logger.In3("cluster/membership", "JoinToken.Valid", "t", t, "&now", &now, "!secret", secret), &out0)
 	if t == nil || now.Unix() > t.Expires {
 		return false
 	}

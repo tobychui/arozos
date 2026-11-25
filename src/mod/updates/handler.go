@@ -45,23 +45,24 @@ type UpdateConfig struct {
 }
 
 func HandleUpdateCheckSize(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("updates", "HandleUpdateCheckSize: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("updates", "HandleUpdateCheckSize", "r", r))
 	webpack, err := utils.PostPara(r, "webpack")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		utils.SendErrorResponse(w, "Invalid or empty webpack download URL")
 		return
 	}
 
 	binary, err := utils.PostPara(r, "binary")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		utils.SendErrorResponse(w, "Invalid or empty binary download URL")
 		return
 	}
 
 	bsize, wsize, err := GetUpdateSizes(binary, webpack)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		utils.SendErrorResponse(w, "Failed to get update size: "+err.Error())
 		return
 	}
@@ -71,23 +72,24 @@ func HandleUpdateCheckSize(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("updates", "HandleUpdateDownloadRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("updates", "HandleUpdateDownloadRequest", "r", r))
 	webpack, err := utils.GetPara(r, "webpack")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		utils.SendErrorResponse(w, "Invalid or empty webpack download URL")
 		return
 	}
 
 	binary, err := utils.GetPara(r, "binary")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		utils.SendErrorResponse(w, "Invalid or empty binary download URL")
 		return
 	}
 
 	checksum, err := utils.PostPara(r, "checksum")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		checksum = ""
 	}
 
@@ -99,6 +101,7 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
+			logger.DebugErr("updates", err)
 			utils.SendErrorResponse(w, "Upgrade websocket failed: "+err.Error())
 			return
 		}
@@ -118,6 +121,7 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 			c.WriteMessage(1, js)
 		})
 		if err != nil {
+			logger.DebugErr("updates", err)
 			//Finish with error
 			c.WriteMessage(1, []byte("{\"error\":\""+err.Error()+"\"}"))
 		} else {
@@ -135,6 +139,7 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Downloading Update, Stage: ", stage, " Progress: ", progress, " Status: ", statusText)
 		})
 		if err != nil {
+			logger.DebugErr("updates", err)
 			utils.SendErrorResponse(w, err.Error())
 		} else {
 			utils.SendOK(w)
@@ -145,9 +150,7 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 
 // Handle getting information for vendor update
 func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("updates", "HandleGetUpdatePlatformInfo: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("updates", "HandleGetUpdatePlatformInfo", "r", r))
 	type UpdatePackageInfo struct {
 		Config UpdateConfig
 		OS     string
@@ -157,6 +160,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	//Check if update config find. If yes, parse that
 	updateFileContent, err := os.ReadFile("./system/update.json")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		utils.SendErrorResponse(w, "No vendor update config found")
 		return
 	}
@@ -165,6 +169,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	vendorUpdateConfig := UpdateConfig{}
 	err = json.Unmarshal(updateFileContent, &vendorUpdateConfig)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		logger.PrintAndLog("Updates", fmt.Sprint("[Updates] Failed to parse update config file: ", err.Error()), nil)
 		utils.SendErrorResponse(w, "Invalid or corrupted update config")
 		return
@@ -182,9 +187,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 
 // Handle check if there is a pending update
 func HandlePendingCheck(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("updates", "HandlePendingCheck: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("updates", "HandlePendingCheck", "r", r))
 	if utils.FileExists("./updates/") && utils.FileExists("./updates/web/") && utils.FileExists("./updates/system/") {
 		//Update is pending
 		utils.SendJSONResponse(w, "true")

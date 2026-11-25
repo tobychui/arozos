@@ -46,16 +46,17 @@ import (
 */
 
 func (g *Gateway) SQLiteLibRegister() {
-	logger.Debug("agi", "Gateway.SQLiteLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.SQLiteLibRegister", "g", g))
 	err := g.RegisterLib("sqlite", g.injectSQLiteLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectSQLiteLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectSQLiteLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -91,6 +92,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_sqlite_open", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -103,18 +105,21 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		_, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("IOError", err.Error()))
 		}
 
 		dsn := sqliteBuildDSN(rpath)
 		if u.CanWrite(vpath) {
 			if err := os.MkdirAll(filepath.Dir(rpath), 0755); err != nil {
+				logger.DebugErr("agi", err)
 				panic(vm.MakeCustomError("IOError", err.Error()))
 			}
 		} else {
 			//The user may only read this drive, so a database that does not
 			//exist cannot be created and an existing one stays as it is
 			if _, err := os.Stat(rpath); err != nil {
+				logger.DebugErr("agi", err)
 				panic(vm.MakeCustomError("PermissionDenied", "Path access denied: "+vpath))
 			}
 			dsn = sqliteBuildReadOnlyDSN(rpath)
@@ -122,6 +127,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		db, err := sql.Open("sqlite", dsn)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
 
@@ -135,6 +141,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 		db.SetConnMaxLifetime(0)
 
 		if err := db.Ping(); err != nil {
+			logger.DebugErr("agi", err)
 			db.Close()
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
@@ -166,6 +173,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		result, err := db.Exec(sqlStmt, params...)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
 		lastID, _ := result.LastInsertId()
@@ -196,12 +204,14 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		rows, err := db.Query(sqlStmt, params...)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
 		defer rows.Close()
 
 		cols, err := rows.Columns()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
 
@@ -213,6 +223,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 				ptrs[i] = &vals[i]
 			}
 			if err := rows.Scan(ptrs...); err != nil {
+				logger.DebugErr("agi", err)
 				panic(vm.MakeCustomError("SQLiteError", err.Error()))
 			}
 			row := make(map[string]interface{}, len(cols))
@@ -227,6 +238,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		out, err := json.Marshal(results)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -247,6 +259,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
 		defer rows.Close()
@@ -280,6 +293,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		rows, err := db.Query("PRAGMA table_info(" + sqliteQuoteIdent(tableName) + ")")
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
 		defer rows.Close()
@@ -312,6 +326,7 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 	vm.Set("_sqlite_close", func(call otto.FunctionCall) otto.Value {
 		handle, err := call.Argument(0).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		mu.Lock()
@@ -415,10 +430,8 @@ const sqliteBusyTimeoutMs = 5000
 // after the first '?' as a query string, so a path already containing '?' cannot
 // carry pragmas - in that case the bare path is returned and SQLite falls back to
 // its defaults rather than failing to open.
-func sqliteBuildDSN(rpath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "sqliteBuildDSN: rpath=%.120q", rpath)
-	}
+func sqliteBuildDSN(rpath string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "sqliteBuildDSN", "rpath", rpath), &out0)
 	if strings.Contains(rpath, "?") {
 		return rpath
 	}
@@ -444,32 +457,29 @@ func sqliteBuildDSN(rpath string) string {
 // sqliteBuildReadOnlyDSN opens a database that cannot be changed through this
 // connection. The driver only hands the query on to SQLite for a file: URI, and
 // the write oriented settings of sqliteBuildDSN would fail on such a connection.
-func sqliteBuildReadOnlyDSN(rpath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "sqliteBuildReadOnlyDSN: rpath=%.120q", rpath)
-	}
+func sqliteBuildReadOnlyDSN(rpath string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "sqliteBuildReadOnlyDSN", "rpath", rpath), &out0)
 	uri := url.URL{Path: filepath.ToSlash(rpath)}
 	return "file:" + uri.EscapedPath() + "?mode=ro&_pragma=busy_timeout(" + strconv.Itoa(sqliteBusyTimeoutMs) + ")"
 }
 
 // sqliteParseParams unmarshals a JSON array of query parameter values.
-func sqliteParseParams(paramsJSON string) []interface{} {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "sqliteParseParams: paramsJSON=%.120q", paramsJSON)
-	}
+func sqliteParseParams(paramsJSON string) (out0 []interface{}) {
+	defer logger.Out1(logger.In1("agi", "sqliteParseParams", "paramsJSON", paramsJSON), &out0)
 	if paramsJSON == "" || paramsJSON == "null" || paramsJSON == "[]" {
 		return nil
 	}
 	var raw []interface{}
 	if err := json.Unmarshal([]byte(paramsJSON), &raw); err != nil {
+		logger.DebugErr("agi", err)
 		return nil
 	}
 	return raw
 }
 
 // sqliteConvertValue normalises values scanned from SQLite rows for JSON encoding.
-func sqliteConvertValue(v interface{}) interface{} {
-	logger.Debug("agi", "sqliteConvertValue")
+func sqliteConvertValue(v interface{}) (out0 interface{}) {
+	defer logger.Out1(logger.In1("agi", "sqliteConvertValue", "v", v), &out0)
 	if b, ok := v.([]byte); ok {
 		return string(b)
 	}
@@ -478,8 +488,6 @@ func sqliteConvertValue(v interface{}) interface{} {
 
 // sqliteQuoteIdent safely double-quotes an SQL identifier.
 func sqliteQuoteIdent(name string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("agi", "sqliteQuoteIdent: name=%.120q", name)
-	}
+	logger.DebugTrace("agi", "sqliteQuoteIdent")
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }

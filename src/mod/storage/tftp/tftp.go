@@ -37,10 +37,8 @@ type tftpDriver struct {
 }
 
 // NewTFTPHandler creates a new handler for TFTP Server
-func NewTFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, tmpFolder string) (*Handler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/tftp", "NewTFTPHandler: ServerName=%.120q Port=%d tmpFolder=%.120q", ServerName, Port, tmpFolder)
-	}
+func NewTFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, tmpFolder string) (out0 *Handler, out1 error) {
+	defer logger.Out2(logger.In4("storage/tftp", "NewTFTPHandler", "userHandler", userHandler, "ServerName", ServerName, "Port", Port, "tmpFolder", tmpFolder), &out0, &out1)
 	//Create table for tftp if it doesn't exists
 	db := userHandler.GetDatabase()
 	db.NewTable("tftp")
@@ -66,8 +64,8 @@ func NewTFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, 
 }
 
 // Start the TFTP Server
-func (h *Handler) Start() error {
-	logger.Debug("storage/tftp", "Handler.Start")
+func (h *Handler) Start() (out0 error) {
+	defer logger.Out1(logger.In1("storage/tftp", "Handler.Start", "h", h), &out0)
 	if h.server != nil {
 		addr := ":" + strconv.Itoa(h.Port)
 		logger.PrintAndLog("Tftp", "[TFTP] Server Started, listening at: "+strconv.Itoa(h.Port), nil)
@@ -75,6 +73,7 @@ func (h *Handler) Start() error {
 		go func() {
 			err := h.server.ListenAndServe(addr)
 			if err != nil {
+				logger.DebugErr("storage/tftp", err)
 				logger.PrintAndLog("Tftp", fmt.Sprint("[TFTP] Server error:", err), nil)
 			}
 		}()
@@ -88,7 +87,7 @@ func (h *Handler) Start() error {
 
 // Close the TFTP Server
 func (h *Handler) Close() {
-	logger.Debug("storage/tftp", "Handler.Close")
+	defer logger.Out0(logger.In1("storage/tftp", "Handler.Close", "h", h))
 	if h.server != nil {
 		h.server.Shutdown()
 		h.ServerRunning = false
@@ -96,10 +95,8 @@ func (h *Handler) Close() {
 }
 
 // readHandler handles TFTP read requests (GET)
-func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/tftp", "tftpDriver.readHandler: filename=%.120q", filename)
-	}
+func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) (out0 error) {
+	defer logger.Out1(logger.In3("storage/tftp", "tftpDriver.readHandler", "d", d, "filename", filename, "&rf", &rf), &out0)
 	// Get default user for TFTP access
 	// Since TFTP doesn't have authentication, we use a configured default user
 	username := ""
@@ -114,6 +111,7 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 	// Get user info
 	userinfo, err := d.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		return errors.New("default user not found")
 	}
 
@@ -126,6 +124,7 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 	// Open file for reading
 	file, err := afs.Open(filename)
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Failed to open %s: %v", filename, err), nil)
 		return err
 	}
@@ -134,6 +133,7 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 	// Get file info
 	fileInfo, err := file.Stat()
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		return err
 	}
 
@@ -145,6 +145,7 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 
 	n, err := rf.ReadFrom(file)
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Transfer error for %s: %v", filename, err), nil)
 		return err
 	}
@@ -154,10 +155,8 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 }
 
 // writeHandler handles TFTP write requests (PUT)
-func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/tftp", "tftpDriver.writeHandler: filename=%.120q", filename)
-	}
+func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) (out0 error) {
+	defer logger.Out1(logger.In3("storage/tftp", "tftpDriver.writeHandler", "d", d, "filename", filename, "&wt", &wt), &out0)
 	// Get default user for TFTP access
 	username := ""
 	if d.db.KeyExists("tftp", "defaultUser") {
@@ -171,6 +170,7 @@ func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) error {
 	// Get user info
 	userinfo, err := d.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		return errors.New("default user not found")
 	}
 
@@ -183,6 +183,7 @@ func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) error {
 	// Check if user can write
 	file, err := afs.Create(filename)
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Failed to create %s: %v", filename, err), nil)
 		return err
 	}
@@ -190,6 +191,7 @@ func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) error {
 
 	n, err := wt.WriteTo(file)
 	if err != nil {
+		logger.DebugErr("storage/tftp", err)
 		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Transfer error for %s: %v", filename, err), nil)
 		return err
 	}

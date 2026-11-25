@@ -19,14 +19,13 @@ const (
 )
 
 // GetRAIDStatus scans and checks a given RAID array and returns the array status.
-func GetRAIDStatus(arrayName string) (RAIDStatus, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "GetRAIDStatus: arrayName=%.120q", arrayName)
-	}
+func GetRAIDStatus(arrayName string) (out0 RAIDStatus, out1 error) {
+	defer logger.Out2(logger.In1("disk/raid", "GetRAIDStatus", "arrayName", arrayName), &out0, &out1)
 	cmd := exec.Command("mdadm", "--detail", arrayName)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		// Error occurred while getting information about the array
 		return RAIDStatusError, fmt.Errorf("error getting RAID array status: %v", err)
 	}
@@ -52,8 +51,8 @@ func GetRAIDStatus(arrayName string) (RAIDStatus, error) {
 }
 
 // toString returns the string representation of the RAIDStatus.
-func (status RAIDStatus) toString() string {
-	logger.Debug("disk/raid", "RAIDStatus.toString")
+func (status RAIDStatus) toString() (out0 string) {
+	defer logger.Out1(logger.In1("disk/raid", "RAIDStatus.toString", "&status", &status), &out0)
 	switch status {
 	case RAIDStatusNormal:
 		return "Normal"
@@ -71,8 +70,8 @@ func (status RAIDStatus) toString() string {
 }
 
 // Report if the RAID array is healthy
-func (status RAIDStatus) isHealthy() bool {
-	logger.Debug("disk/raid", "RAIDStatus.isHealthy")
+func (status RAIDStatus) isHealthy() (out0 bool) {
+	defer logger.Out1(logger.In1("disk/raid", "RAIDStatus.isHealthy", "&status", &status), &out0)
 	switch status {
 	case RAIDStatusNormal:
 		return true

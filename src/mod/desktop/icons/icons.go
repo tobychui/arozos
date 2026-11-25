@@ -41,18 +41,14 @@ type Generator struct {
 // NewGenerator creates a generator writing into the given web root (e.g. "./web")
 // using the default rendering options.
 func NewGenerator(webRoot string) *Generator {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("desktop/icons", "NewGenerator: webRoot=%.120q", webRoot)
-	}
+	logger.DebugTrace("desktop/icons", "NewGenerator")
 	return NewGeneratorWithOptions(webRoot, DefaultOptions())
 }
 
 // NewGeneratorWithOptions creates a generator with custom rendering options.
 // Zero valued fields in the given options fall back to their defaults.
 func NewGeneratorWithOptions(webRoot string, options Options) *Generator {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("desktop/icons", "NewGeneratorWithOptions: webRoot=%.120q", webRoot)
-	}
+	logger.DebugTrace("desktop/icons", "NewGeneratorWithOptions")
 	return &Generator{
 		webRoot: webRoot,
 		options: options.withDefaults(),
@@ -73,12 +69,11 @@ func (g *Generator) Options() Options {
 //
 // The web root relative path of the desktop icon is returned, together with a
 // flag telling whether this call was the one that created it.
-func (g *Generator) EnsureDesktopIcon(moduleIconPath string) (string, bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/icons", "Generator.EnsureDesktopIcon: moduleIconPath=%.120q", moduleIconPath)
-	}
+func (g *Generator) EnsureDesktopIcon(moduleIconPath string) (out0 string, out1 bool, out2 error) {
+	defer logger.Out3(logger.In2("desktop/icons", "Generator.EnsureDesktopIcon", "g", g, "moduleIconPath", moduleIconPath), &out0, &out1, &out2)
 	moduleIconRel, err := ResolveWebAssetPath(moduleIconPath)
 	if err != nil {
+		logger.DebugErr("desktop/icons", err)
 		return "", false, err
 	}
 
@@ -97,17 +92,20 @@ func (g *Generator) EnsureDesktopIcon(moduleIconPath string) (string, bool, erro
 
 	moduleIcon, err := g.LoadWebImage(moduleIconRel)
 	if err != nil {
+		logger.DebugErr("desktop/icons", err)
 		return "", false, err
 	}
 
 	var generatedIcon bytes.Buffer
 	err = png.Encode(&generatedIcon, g.Render(moduleIcon))
 	if err != nil {
+		logger.DebugErr("desktop/icons", err)
 		return "", false, err
 	}
 
 	err = os.WriteFile(desktopIconAbs, generatedIcon.Bytes(), 0775)
 	if err != nil {
+		logger.DebugErr("desktop/icons", err)
 		return "", false, err
 	}
 
@@ -116,12 +114,11 @@ func (g *Generator) EnsureDesktopIcon(moduleIconPath string) (string, bool, erro
 
 // LoadWebImage decodes an image stored under the web root. Both the raster
 // formats used by the web apps and SVG module icons are supported.
-func (g *Generator) LoadWebImage(webRelPath string) (image.Image, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/icons", "Generator.LoadWebImage: webRelPath=%.120q", webRelPath)
-	}
+func (g *Generator) LoadWebImage(webRelPath string) (out0 image.Image, out1 error) {
+	defer logger.Out2(logger.In2("desktop/icons", "Generator.LoadWebImage", "g", g, "webRelPath", webRelPath), &out0, &out1)
 	imageContent, err := os.ReadFile(g.absPath(webRelPath))
 	if err != nil {
+		logger.DebugErr("desktop/icons", err)
 		return nil, err
 	}
 
@@ -135,18 +132,14 @@ func (g *Generator) LoadWebImage(webRelPath string) (image.Image, error) {
 
 // absPath maps a web root relative path to a path on the host filesystem.
 func (g *Generator) absPath(webRelPath string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("desktop/icons", "Generator.absPath: webRelPath=%.120q", webRelPath)
-	}
+	logger.DebugTrace("desktop/icons", "Generator.absPath")
 	return filepath.Join(g.webRoot, filepath.FromSlash(webRelPath))
 }
 
 // ResolveWebAssetPath cleans a caller supplied web root relative asset path and
 // collapses any ".." segments trying to climb out of the web root.
-func ResolveWebAssetPath(relPath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/icons", "ResolveWebAssetPath: relPath=%.120q", relPath)
-	}
+func ResolveWebAssetPath(relPath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("desktop/icons", "ResolveWebAssetPath", "relPath", relPath), &out0, &out1)
 	relPath = strings.TrimSpace(strings.ReplaceAll(relPath, "\\", "/"))
 	if relPath == "" {
 		return "", errors.New("empty asset path")
@@ -164,10 +157,8 @@ func ResolveWebAssetPath(relPath string) (string, error) {
 }
 
 // fileExists reports whether the given host path points at an existing file
-func fileExists(hostPath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/icons", "fileExists: hostPath=%.120q", hostPath)
-	}
+func fileExists(hostPath string) (out0 bool) {
+	defer logger.Out1(logger.In1("desktop/icons", "fileExists", "hostPath", hostPath), &out0)
 	_, err := os.Stat(hostPath)
 	return err == nil
 }

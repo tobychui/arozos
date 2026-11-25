@@ -94,10 +94,8 @@ type SignedIdentity struct {
 }
 
 // canonicalString builds the byte string that is signed and verified.
-func canonicalString(method, target, clusterID, nodeID, timestamp, nonce string, bodyHash []byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "canonicalString: method=%.120q target=%.120q clusterID=%.120q nodeID=%.120q timestamp=%.120q", method, target, clusterID, nodeID, timestamp)
-	}
+func canonicalString(method, target, clusterID, nodeID, timestamp, nonce string, bodyHash []byte) (out0 []byte) {
+	defer logger.Out1(logger.In7("cluster/acn", "canonicalString", "method", method, "target", target, "clusterID", clusterID, "nodeID", nodeID, "timestamp", timestamp, "!nonce", nonce, "!&bodyHash", &bodyHash), &out0)
 	var b bytes.Buffer
 	b.WriteString(strings.ToUpper(method))
 	b.WriteByte('\n')
@@ -116,10 +114,8 @@ func canonicalString(method, target, clusterID, nodeID, timestamp, nonce string,
 }
 
 // SignedTarget returns the path (plus query when present) a request is signed over.
-func SignedTarget(path string, rawQuery string) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "SignedTarget: path=%.120q", path)
-	}
+func SignedTarget(path string, rawQuery string) (out0 string) {
+	defer logger.Out1(logger.In2("cluster/acn", "SignedTarget", "path", path, "rawQuery", rawQuery), &out0)
 	if rawQuery == "" {
 		return path
 	}
@@ -130,9 +126,7 @@ func SignedTarget(path string, rawQuery string) string {
 // returns the target node ID and the original path. ok is false when the path
 // is not a relay path.
 func StripRelayPrefix(path string) (targetNode string, originalPath string, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "StripRelayPrefix: path=%.120q", path)
-	}
+	defer logger.Out3(logger.In1("cluster/acn", "StripRelayPrefix", "path", path), &targetNode, &originalPath, &ok)
 	if !strings.HasPrefix(path, RelayPrefix+"/") {
 		return "", path, false
 	}
@@ -144,8 +138,8 @@ func StripRelayPrefix(path string) (targetNode string, originalPath string, ok b
 	return rest[:idx], rest[idx:], true
 }
 
-func newNonce() string {
-	logger.Debug("cluster/acn", "newNonce")
+func newNonce() (out0 string) {
+	defer logger.Out1(logger.In0("cluster/acn", "newNonce"), &out0)
 	buf := make([]byte, 16)
 	rand.Read(buf)
 	return hex.EncodeToString(buf)
@@ -155,17 +149,13 @@ func newNonce() string {
 // (and query) the receiver will verify against, which for relayed requests is
 // the path without the relay prefix. body is the full request body.
 func (s *Signer) Sign(req *http.Request, target string, body []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "Signer.Sign: req=%s target=%.120q", logger.RequestSummary(req), target)
-	}
+	logger.DebugTrace("cluster/acn", "Signer.Sign")
 	s.SignAt(req, target, body, time.Now())
 }
 
 // SignAt is Sign with an explicit timestamp, used by tests.
 func (s *Signer) SignAt(req *http.Request, target string, body []byte, at time.Time) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "Signer.SignAt: req=%s target=%.120q", logger.RequestSummary(req), target)
-	}
+	defer logger.Out0(logger.In5("cluster/acn", "Signer.SignAt", "s", s, "req", req, "target", target, "body", body, "&at", &at))
 	ts := strconv.FormatInt(at.Unix(), 10)
 	nonce := newNonce()
 	sum := sha256.Sum256(body)
@@ -198,10 +188,8 @@ func newNonceCache(ttl time.Duration) *nonceCache {
 }
 
 // remember returns false when the nonce was already recorded.
-func (c *nonceCache) remember(nonce string, now int64) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "nonceCache.remember: now=%d", now)
-	}
+func (c *nonceCache) remember(nonce string, now int64) (out0 bool) {
+	defer logger.Out1(logger.In3("cluster/acn", "nonceCache.remember", "c", c, "now", now, "!nonce", nonce), &out0)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if now-c.lastGC > 60 || len(c.seen) > c.maxSize {
@@ -240,15 +228,14 @@ func NewVerifier(clusterID func() string, resolver PeerResolver) *Verifier {
 
 // ReadBody buffers and restores a request body so it can be hashed and then
 // consumed by the handler.
-func ReadBody(r *http.Request) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "ReadBody: r=%s", logger.RequestSummary(r))
-	}
+func ReadBody(r *http.Request) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("cluster/acn", "ReadBody", "r", r), &out0, &out1)
 	if r.Body == nil {
 		return []byte{}, nil
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, MaxSignedBody+1))
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	if len(body) > MaxSignedBody {
@@ -262,10 +249,8 @@ func ReadBody(r *http.Request) ([]byte, error) {
 // Verify validates the ACN headers of r against target (the signed path) and
 // body and returns the identity of the sender. The request body is left
 // readable for the handler.
-func (v *Verifier) Verify(r *http.Request, target string, body []byte) (*SignedIdentity, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "Verifier.Verify: r=%s target=%.120q", logger.RequestSummary(r), target)
-	}
+func (v *Verifier) Verify(r *http.Request, target string, body []byte) (out0 *SignedIdentity, out1 error) {
+	defer logger.Out2(logger.In4("cluster/acn", "Verifier.Verify", "v", v, "r", r, "target", target, "body", body), &out0, &out1)
 	nodeID := r.Header.Get(HeaderNode)
 	clusterID := r.Header.Get(HeaderCluster)
 	ts := r.Header.Get(HeaderTimestamp)
@@ -282,6 +267,7 @@ func (v *Verifier) Verify(r *http.Request, target string, body []byte) (*SignedI
 
 	tsInt, err := strconv.ParseInt(ts, 10, 64)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, ErrClockSkew
 	}
 	now := v.Now().Unix()
@@ -300,6 +286,7 @@ func (v *Verifier) Verify(r *http.Request, target string, body []byte) (*SignedI
 
 	sig, err := base64.StdEncoding.DecodeString(sigEnc)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, ErrBadSignature
 	}
 	sum := sha256.Sum256(body)
@@ -319,12 +306,11 @@ func (v *Verifier) Verify(r *http.Request, target string, body []byte) (*SignedI
 // VerifyRequest is the common entry point for HTTP handlers: it buffers the
 // body, derives the signed target (stripping the relay prefix when present)
 // and verifies the request.
-func (v *Verifier) VerifyRequest(r *http.Request) (*SignedIdentity, []byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "Verifier.VerifyRequest: r=%s", logger.RequestSummary(r))
-	}
+func (v *Verifier) VerifyRequest(r *http.Request) (out0 *SignedIdentity, out1 []byte, out2 error) {
+	defer logger.Out3(logger.In2("cluster/acn", "Verifier.VerifyRequest", "v", v, "r", r), &out0, &out1, &out2)
 	body, err := ReadBody(r)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, nil, err
 	}
 	path := r.URL.Path
@@ -333,6 +319,7 @@ func (v *Verifier) VerifyRequest(r *http.Request) (*SignedIdentity, []byte, erro
 	}
 	identity, err := v.Verify(r, SignedTarget(path, r.URL.RawQuery), body)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, nil, err
 	}
 	return identity, body, nil

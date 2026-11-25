@@ -11,8 +11,8 @@ import (
 )
 
 // macOS (HFS+ / APFS) exposes the birth time as part of stat
-func getFileCreationTime(fileInfo os.FileInfo) (int64, bool) {
-	logger.Debug("filesystem", "getFileCreationTime")
+func getFileCreationTime(fileInfo os.FileInfo) (out0 int64, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem", "getFileCreationTime", "fileInfo", fileInfo), &out0, &out1)
 	fileStat, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok || fileStat == nil {
 		return 0, false

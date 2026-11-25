@@ -17,18 +17,14 @@ import (
 */
 
 // Hide a given folder
-func HideFile(folderpath string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/hidden", "HideFile: folderpath=%.120q", folderpath)
-	}
+func HideFile(folderpath string) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/hidden", "HideFile", "folderpath", folderpath), &out0)
 	return hide(folderpath)
 }
 
 // Check if a given file is hidden. Set recursive to true if you want to check if the file located inside a hidden folder
-func IsHidden(filename string, recursive bool) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/hidden", "IsHidden: filename=%.120q recursive=%t", filename, recursive)
-	}
+func IsHidden(filename string, recursive bool) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/hidden", "IsHidden", "filename", filename, "recursive", recursive), &out0, &out1)
 	if recursive {
 		filename = filepath.ToSlash(filename)
 		chunks := strings.Split(filename, "/")

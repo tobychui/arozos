@@ -13,9 +13,7 @@ func NewRouter() *Router {
 }
 
 func (s *Router) HandleWebSocketRouting(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/websocket", "Router.HandleWebSocketRouting: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("network/websocket", "Router.HandleWebSocketRouting")
 	//WIP
 	http.NotFound(w, r)
 }

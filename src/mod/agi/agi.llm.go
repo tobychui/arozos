@@ -90,8 +90,8 @@ type LLMQuota struct {
 }
 
 // periodLabel returns a human-friendly label for the quota period.
-func (q LLMQuota) periodLabel() string {
-	logger.Debug("agi", "LLMQuota.periodLabel")
+func (q LLMQuota) periodLabel() (out0 string) {
+	defer logger.Out1(logger.In1("agi", "LLMQuota.periodLabel", "&q", &q), &out0)
 	switch q.Period {
 	case "daily":
 		return "day"
@@ -156,7 +156,7 @@ type llmCallOptions struct {
 // ── Library registration ─────────────────────────────────────────────────────
 
 func (g *Gateway) LLMLibRegister() {
-	logger.Debug("agi", "Gateway.LLMLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.LLMLibRegister", "g", g))
 	//Make sure the storage table exists before any read / write happens.
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if !sysdb.TableExists(llmDBTable) {
@@ -165,13 +165,14 @@ func (g *Gateway) LLMLibRegister() {
 
 	err := g.RegisterLib("llm", g.injectLLMFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectLLMFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectLLMFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -189,6 +190,7 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 
 		resp, err := g.llmDoRequest(opt.Model, messages, opt)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", err.Error()))
 		}
 		reply, _ := vm.ToValue(llmExtractContent(resp))
@@ -215,6 +217,7 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 		for _, vpath := range vpaths {
 			fileParts, err := g.llmBuildFileParts(scriptFsh, vm, u, vpath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				panic(vm.MakeCustomError("LLMError", err.Error()))
 			}
 			parts = append(parts, fileParts...)
@@ -228,6 +231,7 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 
 		resp, err := g.llmDoRequest(opt.Model, messages, opt)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", err.Error()))
 		}
 		reply, _ := vm.ToValue(llmExtractContent(resp))
@@ -242,11 +246,13 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 
 		var messages []llm.Message
 		if err := json.Unmarshal([]byte(messagesJSON), &messages); err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", "invalid messages array: "+err.Error()))
 		}
 
 		resp, err := g.llmDoRequest(opt.Model, messages, opt)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", err.Error()))
 		}
 		out, _ := json.Marshal(resp)
@@ -265,6 +271,7 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 
 		var messages []llm.Message
 		if err := json.Unmarshal([]byte(messagesJSON), &messages); err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", "invalid messages array: "+err.Error()))
 		}
 
@@ -283,6 +290,7 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 
 		resp, err := g.llmDoStreamRequest(opt.Model, messages, opt, cb)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", err.Error()))
 		}
 		out, _ := json.Marshal(resp)
@@ -320,6 +328,7 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 		client := llm.NewClient(cfg.Endpoint, cfg.APIKey, cfg.APIFormat, llmRequestTimeout)
 		models, err := client.ListModels()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			result["error"] = err.Error()
 		} else {
 			result["models"] = models
@@ -336,12 +345,14 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 		filesJSON := getOttoStringArg(call, 0)
 		var vpaths []string
 		if err := json.Unmarshal([]byte(filesJSON), &vpaths); err != nil {
+			logger.DebugErr("agi", err)
 			panic(vm.MakeCustomError("LLMError", "invalid files array: "+err.Error()))
 		}
 		parts := []llm.ContentPart{}
 		for _, vp := range vpaths {
 			fp, err := g.llmBuildFileParts(scriptFsh, vm, u, vp)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				panic(vm.MakeCustomError("LLMError", err.Error()))
 			}
 			parts = append(parts, fp...)
@@ -388,10 +399,8 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 // llmResolveConnection folds the admin config together with any per-call
 // overrides, validates it and returns a ready client plus the resolved model.
 // Shared by the blocking and streaming request paths.
-func (g *Gateway) llmResolveConnection(model string, opt llmCallOptions) (*llm.Client, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.llmResolveConnection: model=%.120q", model)
-	}
+func (g *Gateway) llmResolveConnection(model string, opt llmCallOptions) (out0 *llm.Client, out1 string, out2 error) {
+	defer logger.Out3(logger.In3("agi", "Gateway.llmResolveConnection", "g", g, "model", model, "&opt", &opt), &out0, &out1, &out2)
 	cfg := g.getLLMConfig()
 
 	endpoint := strings.TrimSpace(cfg.Endpoint)
@@ -426,22 +435,23 @@ func (g *Gateway) llmResolveConnection(model string, opt llmCallOptions) (*llm.C
 // llmDoRequest resolves the connection settings, enforces any usage quota,
 // dispatches the call via mod/aiservers/llm, records the resulting token
 // usage / cost and returns the unified response.
-func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCallOptions) (*llm.ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.llmDoRequest: model=%.120q len(messages)=%d", model, len(messages))
-	}
+func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCallOptions) (out0 *llm.ChatResponse, out1 error) {
+	defer logger.Out2(logger.In4("agi", "Gateway.llmDoRequest", "g", g, "model", model, "messages", messages, "&opt", &opt), &out0, &out1)
 	client, model, err := g.llmResolveConnection(model, opt)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
 	//Enforce the usage quota before spending any tokens.
 	if err := g.llmCheckQuota(); err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
 	resp, err := client.Chat(messages, llm.ChatOptions{Model: model, Temperature: opt.Temperature, MaxTokens: opt.MaxTokens})
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
@@ -451,21 +461,22 @@ func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCall
 
 // llmDoStreamRequest is the streaming counterpart of llmDoRequest: it streams
 // the completion, forwarding each delta to cb, and records usage once done.
-func (g *Gateway) llmDoStreamRequest(model string, messages []llm.Message, opt llmCallOptions, cb llm.StreamCallback) (*llm.ChatResponse, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.llmDoStreamRequest: model=%.120q len(messages)=%d", model, len(messages))
-	}
+func (g *Gateway) llmDoStreamRequest(model string, messages []llm.Message, opt llmCallOptions, cb llm.StreamCallback) (out0 *llm.ChatResponse, out1 error) {
+	defer logger.Out2(logger.In5("agi", "Gateway.llmDoStreamRequest", "g", g, "model", model, "messages", messages, "&opt", &opt, "&cb", &cb), &out0, &out1)
 	client, model, err := g.llmResolveConnection(model, opt)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
 	if err := g.llmCheckQuota(); err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
 	resp, err := client.ChatStream(messages, llm.ChatOptions{Model: model, Temperature: opt.Temperature, MaxTokens: opt.MaxTokens}, cb)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
@@ -476,9 +487,7 @@ func (g *Gateway) llmDoStreamRequest(model string, messages []llm.Message, opt l
 // recordLLMUsageFromResponse records the token usage of a completed response,
 // preferring the model name echoed back by the server.
 func (g *Gateway) recordLLMUsageFromResponse(model string, resp *llm.ChatResponse) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.recordLLMUsageFromResponse: model=%.120q", model)
-	}
+	defer logger.Out0(logger.In3("agi", "Gateway.recordLLMUsageFromResponse", "g", g, "model", model, "resp", resp))
 	usedModel := model
 	if resp != nil && strings.TrimSpace(resp.Model) != "" {
 		usedModel = resp.Model
@@ -492,10 +501,8 @@ func (g *Gateway) recordLLMUsageFromResponse(model string, resp *llm.ChatRespons
 // converts it into one or more OpenAI-compatible content parts. Images become
 // base64 data-URI image_url parts (for vision models); textual files are
 // inlined as a labelled text part.
-func (g *Gateway) llmBuildFileParts(scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, u *user.User, vpath string) ([]llm.ContentPart, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.llmBuildFileParts: vpath=%.120q", vpath)
-	}
+func (g *Gateway) llmBuildFileParts(scriptFsh *filesystem.FileSystemHandler, vm *otto.Otto, u *user.User, vpath string) (out0 []llm.ContentPart, out1 error) {
+	defer logger.Out2(logger.In5("agi", "Gateway.llmBuildFileParts", "g", g, "scriptFsh", scriptFsh, "vm", vm, "u", u, "vpath", vpath), &out0, &out1)
 	//Resolve relative paths against the script's directory
 	vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
@@ -505,6 +512,7 @@ func (g *Gateway) llmBuildFileParts(scriptFsh *filesystem.FileSystemHandler, vm 
 
 	fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 	if !fsh.FileSystemAbstraction.FileExists(rpath) {
@@ -513,6 +521,7 @@ func (g *Gateway) llmBuildFileParts(scriptFsh *filesystem.FileSystemHandler, vm 
 
 	content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 
@@ -539,8 +548,8 @@ func (g *Gateway) llmBuildFileParts(scriptFsh *filesystem.FileSystemHandler, vm 
 
 // ── Persistence helpers ──────────────────────────────────────────────────────
 
-func (g *Gateway) getLLMConfig() LLMConfig {
-	logger.Debug("agi", "Gateway.getLLMConfig")
+func (g *Gateway) getLLMConfig() (out0 LLMConfig) {
+	defer logger.Out1(logger.In1("agi", "Gateway.getLLMConfig", "g", g), &out0)
 	cfg := LLMConfig{Currency: "USD", APIFormat: "openai"}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(llmDBTable, "config") {
@@ -555,8 +564,8 @@ func (g *Gateway) getLLMConfig() LLMConfig {
 	return cfg
 }
 
-func (g *Gateway) getLLMQuota() LLMQuota {
-	logger.Debug("agi", "Gateway.getLLMQuota")
+func (g *Gateway) getLLMQuota() (out0 LLMQuota) {
+	defer logger.Out1(logger.In1("agi", "Gateway.getLLMQuota", "g", g), &out0)
 	q := LLMQuota{Period: "total"}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(llmDBTable, "quota") {
@@ -570,10 +579,8 @@ func (g *Gateway) getLLMQuota() LLMQuota {
 
 // llmWindowExpired reports whether a quota window that started at startUnix
 // has rolled over for the given period as of now.
-func llmWindowExpired(startUnix int64, period string, now time.Time) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "llmWindowExpired: startUnix=%d period=%.120q", startUnix, period)
-	}
+func llmWindowExpired(startUnix int64, period string, now time.Time) (out0 bool) {
+	defer logger.Out1(logger.In3("agi", "llmWindowExpired", "startUnix", startUnix, "period", period, "&now", &now), &out0)
 	if startUnix <= 0 {
 		return true
 	}
@@ -591,8 +598,8 @@ func llmWindowExpired(startUnix int64, period string, now time.Time) bool {
 
 // llmCurrentWindowUsage returns the effective token / cost usage for the
 // active quota window (zero if the window has rolled over).
-func (g *Gateway) llmCurrentWindowUsage() (int64, float64) {
-	logger.Debug("agi", "Gateway.llmCurrentWindowUsage")
+func (g *Gateway) llmCurrentWindowUsage() (out0 int64, out1 float64) {
+	defer logger.Out2(logger.In1("agi", "Gateway.llmCurrentWindowUsage", "g", g), &out0, &out1)
 	q := g.getLLMQuota()
 	m := g.getLLMMetrics()
 	if llmWindowExpired(m.WindowStart, q.Period, time.Now()) {
@@ -602,8 +609,8 @@ func (g *Gateway) llmCurrentWindowUsage() (int64, float64) {
 }
 
 // llmCheckQuota returns an error when a configured quota has been reached.
-func (g *Gateway) llmCheckQuota() error {
-	logger.Debug("agi", "Gateway.llmCheckQuota")
+func (g *Gateway) llmCheckQuota() (out0 error) {
+	defer logger.Out1(logger.In1("agi", "Gateway.llmCheckQuota", "g", g), &out0)
 	q := g.getLLMQuota()
 	if !q.Enabled {
 		return nil
@@ -618,8 +625,8 @@ func (g *Gateway) llmCheckQuota() error {
 	return nil
 }
 
-func (g *Gateway) getLLMPricing() map[string]LLMPricing {
-	logger.Debug("agi", "Gateway.getLLMPricing")
+func (g *Gateway) getLLMPricing() (out0 map[string]LLMPricing) {
+	defer logger.Out1(logger.In1("agi", "Gateway.getLLMPricing", "g", g), &out0)
 	pricing := map[string]LLMPricing{}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(llmDBTable, "pricing") {
@@ -628,8 +635,8 @@ func (g *Gateway) getLLMPricing() map[string]LLMPricing {
 	return pricing
 }
 
-func (g *Gateway) getLLMMetrics() *LLMMetrics {
-	logger.Debug("agi", "Gateway.getLLMMetrics")
+func (g *Gateway) getLLMMetrics() (out0 *LLMMetrics) {
+	defer logger.Out1(logger.In1("agi", "Gateway.getLLMMetrics", "g", g), &out0)
 	metrics := &LLMMetrics{PerModel: map[string]*LLMUsageRecord{}}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(llmDBTable, "metrics") {
@@ -648,9 +655,7 @@ func (g *Gateway) getLLMMetrics() *LLMMetrics {
 // genMs argument is the request's generation time, accumulated so the
 // metrics board can report an average tokens-per-second.
 func (g *Gateway) recordLLMUsage(model string, promptTokens int64, completionTokens int64, genMs ...int64) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.recordLLMUsage: model=%.120q len(genMs)=%d", model, len(genMs))
-	}
+	defer logger.Out0(logger.In5("agi", "Gateway.recordLLMUsage", "g", g, "model", model, "genMs", genMs, "!promptTokens", promptTokens, "!completionTokens", completionTokens))
 	var generationMs int64
 	if len(genMs) > 0 {
 		generationMs = genMs[0]
@@ -715,6 +720,7 @@ func (g *Gateway) recordLLMUsage(model string, promptTokens int64, completionTok
 	metrics.WindowCost += cost
 
 	if err := sysdb.Write(llmDBTable, "metrics", metrics); err != nil {
+		logger.DebugErr("agi", err)
 		agiLogger.PrintAndLog("Agi", "[AGI] Failed to persist LLM usage metrics: "+err.Error(), nil)
 	}
 }
@@ -728,9 +734,7 @@ func (g *Gateway) recordLLMUsage(model string, promptTokens int64, completionTok
 // GET  /system/aimodel/config
 // POST /system/aimodel/config  (endpoint, defaultModel, currency, apikey, clearkey)
 func (g *Gateway) HandleAIModelConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAIModelConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAIModelConfig", "g", g, "r", r))
 	if r.Method == http.MethodGet {
 		cfg := g.getLLMConfig()
 		js, _ := json.Marshal(map[string]interface{}{
@@ -770,6 +774,7 @@ func (g *Gateway) HandleAIModelConfig(w http.ResponseWriter, r *http.Request) {
 
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if err := sysdb.Write(llmDBTable, "config", cfg); err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "failed to save config: "+err.Error())
 		return
 	}
@@ -780,9 +785,7 @@ func (g *Gateway) HandleAIModelConfig(w http.ResponseWriter, r *http.Request) {
 // GET  /system/aimodel/pricing
 // POST /system/aimodel/pricing  (pricing = JSON of {model:{inputPrice,outputPrice}})
 func (g *Gateway) HandleAIModelPricing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAIModelPricing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAIModelPricing", "g", g, "r", r))
 	if r.Method == http.MethodGet {
 		js, _ := json.Marshal(g.getLLMPricing())
 		utils.SendJSONResponse(w, string(js))
@@ -791,16 +794,19 @@ func (g *Gateway) HandleAIModelPricing(w http.ResponseWriter, r *http.Request) {
 
 	raw, err := utils.PostPara(r, "pricing")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "missing pricing data")
 		return
 	}
 	pricing := map[string]LLMPricing{}
 	if err := json.Unmarshal([]byte(raw), &pricing); err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "invalid pricing JSON: "+err.Error())
 		return
 	}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if err := sysdb.Write(llmDBTable, "pricing", pricing); err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "failed to save pricing: "+err.Error())
 		return
 	}
@@ -810,9 +816,7 @@ func (g *Gateway) HandleAIModelPricing(w http.ResponseWriter, r *http.Request) {
 // HandleAIModelMetrics returns the aggregated usage metrics.
 // GET /system/aimodel/metrics
 func (g *Gateway) HandleAIModelMetrics(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAIModelMetrics: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAIModelMetrics", "g", g, "r", r))
 	js, _ := json.Marshal(g.getLLMMetrics())
 	utils.SendJSONResponse(w, string(js))
 }
@@ -820,9 +824,7 @@ func (g *Gateway) HandleAIModelMetrics(w http.ResponseWriter, r *http.Request) {
 // HandleAIModelMetricsReset clears the aggregated usage metrics.
 // POST /system/aimodel/metrics/reset
 func (g *Gateway) HandleAIModelMetricsReset(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAIModelMetricsReset: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAIModelMetricsReset", "g", g, "r", r))
 	llmMetricsMux.Lock()
 	defer llmMetricsMux.Unlock()
 
@@ -832,6 +834,7 @@ func (g *Gateway) HandleAIModelMetricsReset(w http.ResponseWriter, r *http.Reque
 	}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if err := sysdb.Write(llmDBTable, "metrics", metrics); err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "failed to reset metrics: "+err.Error())
 		return
 	}
@@ -842,9 +845,7 @@ func (g *Gateway) HandleAIModelMetricsReset(w http.ResponseWriter, r *http.Reque
 // models exposed by the endpoint. It does not consume any tokens.
 // POST /system/aimodel/test  (optional: endpoint, apikey, apiFormat to test unsaved values)
 func (g *Gateway) HandleAIModelTest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAIModelTest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAIModelTest", "g", g, "r", r))
 	cfg := g.getLLMConfig()
 	endpoint := cfg.Endpoint
 	apikey := cfg.APIKey
@@ -867,6 +868,7 @@ func (g *Gateway) HandleAIModelTest(w http.ResponseWriter, r *http.Request) {
 	client := llm.NewClient(endpoint, apikey, format, llmRequestTimeout)
 	models, err := client.ListModels()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -883,9 +885,7 @@ func (g *Gateway) HandleAIModelTest(w http.ResponseWriter, r *http.Request) {
 // GET  /system/aimodel/quota
 // POST /system/aimodel/quota  (enabled, maxTokens, maxCost, period)
 func (g *Gateway) HandleAIModelQuota(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAIModelQuota: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAIModelQuota", "g", g, "r", r))
 	if r.Method == http.MethodGet {
 		q := g.getLLMQuota()
 		usedTokens, usedCost := g.llmCurrentWindowUsage()
@@ -920,6 +920,7 @@ func (g *Gateway) HandleAIModelQuota(w http.ResponseWriter, r *http.Request) {
 
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if err := sysdb.Write(llmDBTable, "quota", q); err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "failed to save quota: "+err.Error())
 		return
 	}
@@ -928,18 +929,16 @@ func (g *Gateway) HandleAIModelQuota(w http.ResponseWriter, r *http.Request) {
 
 // ── Small helpers ────────────────────────────────────────────────────────────
 
-func llmExtractContent(resp *llm.ChatResponse) string {
-	logger.Debug("agi", "llmExtractContent")
+func llmExtractContent(resp *llm.ChatResponse) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "llmExtractContent", "resp", resp), &out0)
 	if resp == nil || len(resp.Choices) == 0 {
 		return ""
 	}
 	return resp.Choices[0].Message.Content
 }
 
-func parseLLMCallOptions(s string) llmCallOptions {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "parseLLMCallOptions: s=%.120q", s)
-	}
+func parseLLMCallOptions(s string) (out0 llmCallOptions) {
+	defer logger.Out1(logger.In1("agi", "parseLLMCallOptions", "s", s), &out0)
 	opt := llmCallOptions{}
 	s = strings.TrimSpace(s)
 	if s == "" || s == "undefined" || s == "null" {
@@ -949,8 +948,8 @@ func parseLLMCallOptions(s string) llmCallOptions {
 	return opt
 }
 
-func llmMaskKey(key string) string {
-	logger.Debug("agi", "llmMaskKey")
+func llmMaskKey(key string) (out0 string) {
+	defer logger.Out1(logger.In1("agi", "llmMaskKey", "!key", key), &out0)
 	if key == "" {
 		return ""
 	}
@@ -960,10 +959,8 @@ func llmMaskKey(key string) string {
 	return "••••" + key[len(key)-4:]
 }
 
-func llmIsImageExt(ext string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "llmIsImageExt: ext=%.120q", ext)
-	}
+func llmIsImageExt(ext string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi", "llmIsImageExt", "ext", ext), &out0)
 	switch ext {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp":
 		return true
@@ -971,10 +968,8 @@ func llmIsImageExt(ext string) bool {
 	return false
 }
 
-func llmIsTextExt(ext string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "llmIsTextExt: ext=%.120q", ext)
-	}
+func llmIsTextExt(ext string) (out0 bool) {
+	defer logger.Out1(logger.In1("agi", "llmIsTextExt", "ext", ext), &out0)
 	switch ext {
 	case ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".xml", ".yaml", ".yml",
 		".html", ".htm", ".js", ".ts", ".go", ".py", ".java", ".c", ".cpp", ".h", ".hpp",
@@ -988,16 +983,15 @@ func llmIsTextExt(ext string) bool {
 // getOttoStringArg safely reads the nth argument of a call as a string,
 // returning an empty string when the argument is absent or undefined. Shared
 // by every AGI lib file in this package (llm, cnn, ...).
-func getOttoStringArg(call otto.FunctionCall, idx int) string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "getOttoStringArg: idx=%d", idx)
-	}
+func getOttoStringArg(call otto.FunctionCall, idx int) (out0 string) {
+	defer logger.Out1(logger.In2("agi", "getOttoStringArg", "&call", &call, "idx", idx), &out0)
 	arg := call.Argument(idx)
 	if arg.IsUndefined() || arg.IsNull() {
 		return ""
 	}
 	s, err := arg.ToString()
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return ""
 	}
 	return s

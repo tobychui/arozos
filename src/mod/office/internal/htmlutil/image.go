@@ -11,8 +11,8 @@ import (
 
 // ImageSizePx mirrors the docx sizing rules (attrs/style, natural
 // aspect fallback, text-width cap)
-func ImageSizePx(n *html.Node, data []byte) (float64, float64) {
-	logger.Debug("office/internal/htmlutil", "ImageSizePx")
+func ImageSizePx(n *html.Node, data []byte) (out0 float64, out1 float64) {
+	defer logger.Out2(logger.In2("office/internal/htmlutil", "ImageSizePx", "n", n, "data", data), &out0, &out1)
 	natW, natH := 0, 0
 	if cfg, _, err := media.ImageConfig(data); err == nil {
 		natW, natH = cfg.Width, cfg.Height

@@ -27,9 +27,10 @@ import (
 )
 
 // detectDockerCLI checks whether the docker client binary is resolvable on PATH.
-func detectDockerCLI() error {
-	logger.Debug("docker", "detectDockerCLI")
+func detectDockerCLI() (out0 error) {
+	defer logger.Out1(logger.In0("docker", "detectDockerCLI"), &out0)
 	if _, err := exec.LookPath("docker"); err != nil {
+		logger.DebugErr("docker", err)
 		return errors.New("docker CLI not found in system PATH")
 	}
 	return nil
@@ -40,10 +41,11 @@ func detectDockerCLI() error {
 // non-zero exit when the daemon socket can't be reached, which is exactly the
 // "installed but not usable" case we must catch. Returns the server version on
 // success.
-func detectDockerEngine() (string, error) {
-	logger.Debug("docker", "detectDockerEngine")
+func detectDockerEngine() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("docker", "detectDockerEngine"), &out0, &out1)
 	out, err := runDocker("info", "--format", "{{json .ServerVersion}}")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", fmt.Errorf("docker daemon not reachable: %s", err.Error())
 	}
 
@@ -58,10 +60,11 @@ func detectDockerEngine() (string, error) {
 // detectComposePlugin reports the docker compose v2 plugin version, or an error
 // when the plugin is not installed. `docker compose version --short` prints just
 // the version number (e.g. "2.20.2").
-func detectComposePlugin() (string, error) {
-	logger.Debug("docker", "detectComposePlugin")
+func detectComposePlugin() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("docker", "detectComposePlugin"), &out0, &out1)
 	out, err := runDocker("compose", "version", "--short")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return "", errors.New("docker compose v2 plugin not available")
 	}
 	return strings.TrimSpace(string(out)), nil

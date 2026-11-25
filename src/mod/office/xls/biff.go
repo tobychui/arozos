@@ -113,9 +113,7 @@ type record struct {
 // readRecords splits a workbook stream into records, folding CONTINUE
 // records into the record before them
 func readRecords(stream []byte) ([]*record, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "readRecords: len(stream)=%d", len(stream))
-	}
+	logger.DebugTrace("office/xls", "readRecords")
 	var out []*record
 	pos := 0
 	for pos+4 <= len(stream) {
@@ -215,9 +213,7 @@ func (r *reader) f64() float64 {
 }
 
 func (r *reader) bytes(n int) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "reader.bytes: n=%d", n)
-	}
+	logger.DebugTrace("office/xls", "reader.bytes")
 	// against the bytes left: r.pos+n can overflow a 32-bit int
 	if n < 0 || n > len(r.b)-r.pos {
 		r.fail()
@@ -229,9 +225,7 @@ func (r *reader) bytes(n int) []byte {
 }
 
 func (r *reader) skip(n int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "reader.skip: n=%d", n)
-	}
+	logger.DebugTrace("office/xls", "reader.skip")
 	r.bytes(n)
 }
 
@@ -263,9 +257,7 @@ func (r *reader) atCont() bool {
 // chars reads cch characters that start in the given width; at a
 // CONTINUE boundary the width is re-read from a new flags byte
 func (r *reader) chars(cch int, high bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "reader.chars: cch=%d high=%t", cch, high)
-	}
+	logger.DebugTrace("office/xls", "reader.chars")
 	if cch <= 0 {
 		return ""
 	}
@@ -318,9 +310,7 @@ func (r *reader) shortString() string {
 
 // noCchString reads an XLUnicodeStringNoCch of known length - BIFF8
 func (r *reader) noCchString(cch int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "reader.noCchString: cch=%d", cch)
-	}
+	logger.DebugTrace("office/xls", "reader.noCchString")
 	flags := r.u8()
 	return r.chars(cch, flags&1 != 0)
 }
@@ -348,8 +338,6 @@ func (r *reader) richString() string {
 
 // byteString reads 8-bit characters in the workbook's code page (BIFF5)
 func (r *reader) byteString(n int, cp codepage.Decoder) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/xls", "reader.byteString: n=%d", n)
-	}
+	logger.DebugTrace("office/xls", "reader.byteString")
 	return cp.Decode(r.bytes(n))
 }

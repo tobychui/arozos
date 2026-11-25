@@ -31,12 +31,11 @@ type Theme struct {
 // ListThemes scans a wallpaper root folder (e.g. "web/img/desktop/bg") and
 // returns one Theme per sub-folder, each listing the wallpaper filenames it
 // holds. Themes are returned in a stable alphabetical order.
-func ListThemes(wallpaperRoot string) ([]Theme, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/wallpaper", "ListThemes: wallpaperRoot=%.120q", wallpaperRoot)
-	}
+func ListThemes(wallpaperRoot string) (out0 []Theme, out1 error) {
+	defer logger.Out2(logger.In1("desktop/wallpaper", "ListThemes", "wallpaperRoot", wallpaperRoot), &out0, &out1)
 	themeFolders, err := os.ReadDir(wallpaperRoot)
 	if err != nil {
+		logger.DebugErr("desktop/wallpaper", err)
 		return nil, err
 	}
 
@@ -48,6 +47,7 @@ func ListThemes(wallpaperRoot string) ([]Theme, error) {
 
 		backgrounds, err := os.ReadDir(filepath.Join(wallpaperRoot, themeFolder.Name()))
 		if err != nil {
+			logger.DebugErr("desktop/wallpaper", err)
 			//Unreadable theme folder, skip it instead of failing the whole scan
 			continue
 		}
@@ -75,10 +75,8 @@ func ListThemes(wallpaperRoot string) ([]Theme, error) {
 
 // IsSupportedWallpaper reports whether a filename carries an extension that can
 // be used as a desktop wallpaper.
-func IsSupportedWallpaper(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/wallpaper", "IsSupportedWallpaper: filename=%.120q", filename)
-	}
+func IsSupportedWallpaper(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("desktop/wallpaper", "IsSupportedWallpaper", "filename", filename), &out0)
 	fileExtension := strings.ToLower(filepath.Ext(filename))
 	for _, supportedExtension := range SupportedExtensions {
 		if fileExtension == supportedExtension {

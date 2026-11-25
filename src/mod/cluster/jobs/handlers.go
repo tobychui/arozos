@@ -43,7 +43,7 @@ type DoneReport struct {
 }
 
 func (j *Manager) registerACNHandlers() {
-	logger.Debug("cluster/jobs", "Manager.registerACNHandlers")
+	defer logger.Out0(logger.In1("cluster/jobs", "Manager.registerACNHandlers", "j", j))
 	srv := j.m.Server()
 	srv.HandleFunc(pathRun, j.handleRun)
 	srv.HandleFunc(pathDone, j.handleDone)
@@ -51,9 +51,7 @@ func (j *Manager) registerACNHandlers() {
 }
 
 func (j *Manager) handleRun(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.handleRun: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/jobs", "Manager.handleRun", "j", j, "r", r, "sender", sender, "body", body))
 	if sender.NodeID != j.meta.Leader() {
 		acn.WriteError(w, http.StatusForbidden, "only the metadata leader assigns jobs")
 		return
@@ -64,6 +62,7 @@ func (j *Manager) handleRun(w http.ResponseWriter, r *http.Request, sender *acn.
 		return
 	}
 	if err := j.Start(req.JobID); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		status := http.StatusInternalServerError
 		if err == ErrNoUser {
 			status = http.StatusConflict
@@ -77,11 +76,10 @@ func (j *Manager) handleRun(w http.ResponseWriter, r *http.Request, sender *acn.
 }
 
 func (j *Manager) handleDone(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.handleDone: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/jobs", "Manager.handleDone", "j", j, "r", r, "sender", sender, "body", body))
 	var rep DoneReport
 	if err := json.Unmarshal(body, &rep); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid report")
 		return
 	}
@@ -92,16 +90,16 @@ func (j *Manager) handleDone(w http.ResponseWriter, r *http.Request, sender *acn
 }
 
 func (j *Manager) handleSubmitNode(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.handleSubmitNode: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/jobs", "Manager.handleSubmitNode", "j", j, "r", r, "sender", sender, "body", body))
 	var spec Spec
 	if err := json.Unmarshal(body, &spec); err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		acn.WriteError(w, http.StatusBadRequest, "invalid job spec")
 		return
 	}
 	rec, err := j.Submit(spec)
 	if err != nil {
+		logger.DebugErr("cluster/jobs", err)
 		acn.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -113,7 +111,7 @@ func (j *Manager) handleSubmitNode(w http.ResponseWriter, r *http.Request, sende
 */
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("cluster/jobs", "sendJSON")
+	defer logger.Out0(logger.In1("cluster/jobs", "sendJSON", "v", v))
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
@@ -133,6 +131,7 @@ func (j *Manager) HandleStatus(resolve CallerResolver) func(http.ResponseWriter,
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := resolve(w, r)
 		if err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			utils.SendErrorResponse(w, "not logged in")
 			return
 		}
@@ -150,11 +149,13 @@ func (j *Manager) HandleGet(resolve CallerResolver) func(http.ResponseWriter, *h
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := resolve(w, r)
 		if err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			utils.SendErrorResponse(w, "not logged in")
 			return
 		}
 		id, err := utils.GetPara(r, "id")
 		if err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			utils.SendErrorResponse(w, "job id required")
 			return
 		}
@@ -173,18 +174,22 @@ func (j *Manager) HandleCancel(resolve CallerResolver) func(http.ResponseWriter,
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := resolve(w, r)
 		if err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			utils.SendErrorResponse(w, "not logged in")
 			return
 		}
 		id, err := utils.PostPara(r, "id")
 		if err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			id, err = utils.GetPara(r, "id")
 			if err != nil {
+				logger.DebugErr("cluster/jobs", err)
 				utils.SendErrorResponse(w, "job id required")
 				return
 			}
 		}
 		if err := j.Cancel(id, c.Username, c.IsAdmin); err != nil {
+			logger.DebugErr("cluster/jobs", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -217,10 +222,8 @@ type SubmitRequest struct {
 
 // SpecFrom builds a Spec from a submit request for the given owner. A
 // request carrying a dataset becomes a map/reduce job.
-func SpecFrom(req SubmitRequest, owner string) Spec {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "SpecFrom: owner=%.120q", owner)
-	}
+func SpecFrom(req SubmitRequest, owner string) (out0 Spec) {
+	defer logger.Out1(logger.In2("cluster/jobs", "SpecFrom", "&req", &req, "owner", owner), &out0)
 	spec := Spec{
 		Name:         req.Name,
 		Owner:        owner,
@@ -243,10 +246,8 @@ func SpecFrom(req SubmitRequest, owner string) Spec {
 	return spec
 }
 
-func firstNonEmpty(vals ...string) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "firstNonEmpty: len(vals)=%d", len(vals))
-	}
+func firstNonEmpty(vals ...string) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/jobs", "firstNonEmpty", "vals", vals), &out0)
 	for _, v := range vals {
 		if v != "" {
 			return v
@@ -256,10 +257,8 @@ func firstNonEmpty(vals ...string) string {
 }
 
 // WaitFor is the HTTP-friendly form of Wait.
-func (j *Manager) WaitFor(id string, seconds int) (Record, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.WaitFor: id=%.120q seconds=%d", id, seconds)
-	}
+func (j *Manager) WaitFor(id string, seconds int) (out0 Record, out1 error) {
+	defer logger.Out2(logger.In3("cluster/jobs", "Manager.WaitFor", "j", j, "id", id, "seconds", seconds), &out0, &out1)
 	if seconds <= 0 {
 		seconds = 60
 	}
@@ -269,7 +268,7 @@ func (j *Manager) WaitFor(id string, seconds int) (Record, error) {
 // RegisterUserRoutes mounts the user-facing handlers. submit is supplied by
 // the core because it must read the script from the caller's file system.
 func (j *Manager) RegisterUserRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request)), resolve CallerResolver, submit func(http.ResponseWriter, *http.Request)) {
-	logger.Debug("cluster/jobs", "Manager.RegisterUserRoutes")
+	defer logger.Out0(logger.In4("cluster/jobs", "Manager.RegisterUserRoutes", "j", j, "register", register, "&resolve", &resolve, "submit", submit))
 	register("/system/cluster/jobs/status", j.HandleStatus(resolve))
 	register("/system/cluster/jobs/get", j.HandleGet(resolve))
 	register("/system/cluster/jobs/cancel", j.HandleCancel(resolve))
@@ -277,10 +276,8 @@ func (j *Manager) RegisterUserRoutes(register func(pattern string, handler func(
 }
 
 // parseIntDefault is a small helper for query parameters.
-func parseIntDefault(s string, def int) int {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "parseIntDefault: s=%.120q def=%d", s, def)
-	}
+func parseIntDefault(s string, def int) (out0 int) {
+	defer logger.Out1(logger.In2("cluster/jobs", "parseIntDefault", "s", s, "def", def), &out0)
 	if v, err := strconv.Atoi(s); err == nil {
 		return v
 	}

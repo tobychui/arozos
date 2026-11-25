@@ -11,13 +11,14 @@ import (
 
 // hostStorageUsage reports used/total bytes of the volume holding the current
 // working directory via GetDiskFreeSpaceExW.
-func hostStorageUsage() (int64, int64, bool) {
-	logger.Debug("docker", "hostStorageUsage")
+func hostStorageUsage() (out0 int64, out1 int64, out2 bool) {
+	defer logger.Out3(logger.In0("docker", "hostStorageUsage"), &out0, &out1, &out2)
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	proc := kernel32.NewProc("GetDiskFreeSpaceExW")
 
 	pathPtr, err := syscall.UTF16PtrFromString(".")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return 0, 0, false
 	}
 	var freeAvail, total, totalFree uint64

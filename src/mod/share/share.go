@@ -76,8 +76,8 @@ type Manager struct {
 }
 
 // Create a new Share Manager
-func NewShareManager(options Options) *Manager {
-	logger.Debug("share", "NewShareManager")
+func NewShareManager(options Options) (out0 *Manager) {
+	defer logger.Out1(logger.In1("share", "NewShareManager", "&options", &options), &out0)
 	//Return a new manager object
 	manager := &Manager{
 		options: options,
@@ -87,9 +87,7 @@ func NewShareManager(options Options) *Manager {
 }
 
 func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, shareID string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleOPGServing: r=%s shareID=%.120q", logger.RequestSummary(r), shareID)
-	}
+	defer logger.Out0(logger.In3("share", "Manager.HandleOPGServing", "s", s, "r", r, "shareID", shareID))
 	shareEntry := s.lookupActiveShare(shareID)
 	if shareEntry == nil || shareEntry.HasPassword() {
 		//This share is not valid, or its name is behind a password
@@ -101,6 +99,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	//Load in base template
 	baseTemplate, err := os.Open("./system/share/default_opg.png")
 	if err != nil {
+		logger.DebugErr("share", err)
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
 		return
@@ -108,6 +107,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 	base, _, err := image.Decode(baseTemplate)
 	if err != nil {
+		logger.DebugErr("share", err)
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
 		return
@@ -121,6 +121,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	//Append filename to the image
 	fontBytes, err := os.ReadFile("./system/share/fonts/TaipeiSansTCBeta-Light.ttf")
 	if err != nil {
+		logger.DebugErr("share", err)
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
 		return
@@ -128,6 +129,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 	utf8Font, err := freetype.ParseFont(fontBytes)
 	if err != nil {
+		logger.DebugErr("share", err)
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
 		return
@@ -149,6 +151,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	//Get the file information from target fsh
 	ownerinfo, err := s.options.UserHandler.GetUserInfoFromUsername(shareEntry.Owner)
 	if err != nil {
+		logger.DebugErr("share", err)
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
 		return
@@ -156,6 +159,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 	fsh, err := ownerinfo.GetFileSystemHandlerFromVirtualPath(shareEntry.FileVirtualPath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
 		return
@@ -204,6 +208,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 			pt := freetype.Pt(100, (j+1)*60+int(ctx.PointToFixed(fontSize)>>6))
 			_, err = ctx.DrawString(line, pt)
 			if err != nil {
+				logger.DebugErr("share", err)
 				fmt.Println("[share/opg] " + err.Error())
 				return
 			}
@@ -214,6 +219,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 		pt := freetype.Pt(100, (len(lines)+1)*60+int(ctx.PointToFixed(fontSize)>>6))
 		_, err = ctx.DrawString(shareMeta, pt)
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -224,6 +230,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 		pt := freetype.Pt(100, 60+int(ctx.PointToFixed(fontSize)>>6))
 		_, err = ctx.DrawString(filenameOnly, pt)
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -234,6 +241,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 		pt = freetype.Pt(100, 120+int(ctx.PointToFixed(fontSize)>>6))
 		_, err = ctx.DrawString(shareMeta, pt)
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -247,6 +255,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 		//We got a thumbnail for this file. Render it as well
 		thumbnailFile, err := fsh.FileSystemAbstraction.ReadStream(cacheFileImagePath)
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -254,6 +263,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 		thumb, _, err := image.Decode(thumbnailFile)
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -265,6 +275,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 		//Is directory but no thumbnail. Use default foldr share thumbnail
 		thumbnailFile, err := os.Open("./system/share/folder.png")
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -272,6 +283,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 		thumb, _, err := image.Decode(thumbnailFile)
 		if err != nil {
+			logger.DebugErr("share", err)
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
 			return
@@ -288,9 +300,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 // Main function for handle share. Must be called with http.HandleFunc (No auth)
 func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.HandleShareAccess: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("share", "Manager.HandleShareAccess", "s", s, "r", r))
 	// Handle async zip status/download endpoints early — these use the job ID as an auth token
 	// and do not require a share entry lookup.
 	{
@@ -335,6 +345,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 	id, err := utils.GetPara(r, "id")
 	if err != nil {
+		logger.DebugErr("share", err)
 		//ID is not defined in the URL paramter. New ID defination is based on the subpath content
 		requestURI := filepath.ToSlash(filepath.Clean(r.URL.Path))
 		subpathElements = strings.Split(requestURI[1:], "/")
@@ -398,6 +409,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			//ID is missing. Serve the id input page
 			content, err := os.ReadFile("system/share/index.html")
 			if err != nil {
+				logger.DebugErr("share", err)
 				//Handling index not found. Is server updated correctly?
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("500 - Internal Server Error"))
@@ -459,6 +471,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 		//Resolve the fsh from the entry
 		owner, err := s.options.UserHandler.GetUserInfoFromUsername(shareOption.Owner)
 		if err != nil {
+			logger.DebugErr("share", err)
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("401 - Share account not exists"))
 			return
@@ -466,6 +479,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 		targetFsh, err := owner.GetFileSystemHandlerFromVirtualPath(shareOption.FileVirtualPath)
 		if err != nil {
+			logger.DebugErr("share", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Unable to load Shared File"))
 			return
@@ -491,6 +505,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					//User specified a specific file within the directory. Escape the relpath
 					targetFilepath, err := arozfs.ResolvePathWithinRoot(fileRuntimeAbsPath, relpath)
 					if err != nil {
+						logger.DebugErr("share", err)
 						w.WriteHeader(http.StatusBadRequest)
 						w.Write([]byte("400 - Bad Request: Invalid relative path"))
 						return
@@ -511,6 +526,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					if targetFsh.RequireBuffer {
 						f, err := targetFshAbs.ReadStream(targetFilepath)
 						if err != nil {
+							logger.DebugErr("share", err)
 							w.WriteHeader(http.StatusInternalServerError)
 							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
 							return
@@ -520,6 +536,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					} else {
 						f, err := targetFshAbs.Open(targetFilepath)
 						if err != nil {
+							logger.DebugErr("share", err)
 							w.WriteHeader(http.StatusInternalServerError)
 							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
 							return
@@ -555,16 +572,19 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 							} else {
 								f, err := targetFshAbs.ReadStream(path)
 								if err != nil {
+									logger.DebugErr("share", err)
 									logger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 								defer f.Close()
 								dest, err := os.OpenFile(localPath, os.O_CREATE|os.O_WRONLY, 0775)
 								if err != nil {
+									logger.DebugErr("share", err)
 									logger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 								defer dest.Close()
 								_, err = io.Copy(dest, f)
 								if err != nil {
+									logger.DebugErr("share", err)
 									logger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 
@@ -579,6 +599,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					//Build a filelist
 					err := filesystem.ArozZipFileWithCompressionLevel([]*filesystem.FileSystemHandler{zippingSourceFsh}, []string{zippingSource}, nil, targetZipFilename, false, compressionLevel)
 					if err != nil {
+						logger.DebugErr("share", err)
 						//Failed to create zip file
 						w.WriteHeader(http.StatusInternalServerError)
 						w.Write([]byte("500 - Internal Server Error: Zip file creation failed"))
@@ -637,6 +658,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 						os.MkdirAll(capturedLocalBuff, 0755)
 						capturedFshAbs.Walk(capturedSrcPath, func(path string, info fs.FileInfo, err error) error {
 							if err != nil {
+								logger.DebugErr("share", err)
 								return nil
 							}
 							relPath := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(capturedSrcPath))
@@ -646,11 +668,13 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 							} else {
 								f, err := capturedFshAbs.ReadStream(path)
 								if err != nil {
+									logger.DebugErr("share", err)
 									return nil
 								}
 								defer f.Close()
 								dest, err := os.OpenFile(localPath, os.O_CREATE|os.O_WRONLY, 0775)
 								if err != nil {
+									logger.DebugErr("share", err)
 									return nil
 								}
 								defer dest.Close()
@@ -676,6 +700,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 					job.mu.Lock()
 					if zipErr != nil {
+						logger.DebugErr("share", zipErr)
 						job.Status = "error"
 						job.Error = zipErr.Error()
 					} else {
@@ -711,6 +736,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				//Preview a file inside the shared folder
 				targetFilepath, err := arozfs.ResolvePathWithinRoot(fileRuntimeAbsPath, relpath)
 				if err != nil {
+					logger.DebugErr("share", err)
 					w.WriteHeader(http.StatusBadRequest)
 					w.Write([]byte("400 - Bad Request: Invalid relative path"))
 					return
@@ -733,6 +759,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				if shareOption.ShowFileList {
 					err = targetFshAbs.Walk(filepath.Clean(fileRuntimeAbsPath), func(file string, info os.FileInfo, err error) error {
 						if err != nil {
+							logger.DebugErr("share", err)
 							//If error skip this
 							return nil
 						}
@@ -765,6 +792,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if err != nil {
+					logger.DebugErr("share", err)
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte("500 - Internal Server Error"))
 					return
@@ -794,6 +822,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"sharesettings": pageSettingsJSON(shareOption),
 				})
 				if err != nil {
+					logger.DebugErr("share", err)
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte("500 - Internal Server Error"))
 					return
@@ -821,6 +850,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					if targetFsh.RequireBuffer {
 						f, err := targetFshAbs.ReadStream(fileRuntimeAbsPath)
 						if err != nil {
+							logger.DebugErr("share", err)
 							w.WriteHeader(http.StatusInternalServerError)
 							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
 							return
@@ -830,6 +860,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					} else {
 						f, err := targetFshAbs.Open(fileRuntimeAbsPath)
 						if err != nil {
+							logger.DebugErr("share", err)
 							w.WriteHeader(http.StatusInternalServerError)
 							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
 							return
@@ -845,6 +876,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				//Serve the download page
 				content, err := os.ReadFile("./system/share/downloadPage.html")
 				if err != nil {
+					logger.DebugErr("share", err)
 					http.NotFound(w, r)
 					return
 				}
@@ -852,6 +884,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				//Get file mime type
 				mime, ext, err := filesystem.GetMime(fileRuntimeAbsPath)
 				if err != nil {
+					logger.DebugErr("share", err)
 					mime = "Unknown"
 				}
 
@@ -873,6 +906,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 				tp, err := os.ReadFile(previewTemplate)
 				if err != nil {
+					logger.DebugErr("share", err)
 					tp = []byte("")
 				}
 
@@ -938,9 +972,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 // handleZipStatus returns the current status of an async zip job as JSON.
 func (s *Manager) handleZipStatus(w http.ResponseWriter, r *http.Request, jobID string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.handleZipStatus: r=%s jobID=%.120q", logger.RequestSummary(r), jobID)
-	}
+	defer logger.Out0(logger.In3("share", "Manager.handleZipStatus", "s", s, "r", r, "jobID", jobID))
 	v, ok := s.zipJobs.Load(jobID)
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
@@ -966,9 +998,7 @@ func (s *Manager) handleZipStatus(w http.ResponseWriter, r *http.Request, jobID 
 
 // handleZipDownload serves a completed async zip file.
 func (s *Manager) handleZipDownload(w http.ResponseWriter, r *http.Request, jobID string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.handleZipDownload: r=%s jobID=%.120q", logger.RequestSummary(r), jobID)
-	}
+	defer logger.Out0(logger.In3("share", "Manager.handleZipDownload", "s", s, "r", r, "jobID", jobID))
 	v, ok := s.zipJobs.Load(jobID)
 	if !ok {
 		http.NotFound(w, r)
@@ -996,10 +1026,8 @@ func (s *Manager) handleZipDownload(w http.ResponseWriter, r *http.Request, jobI
 // previewDisposition returns the Content-Disposition header for a file served
 // by /share/preview: inline, with the file name (RFC 2231 encoded when it is
 // not plain ASCII). It returns "" when no valid header can be built.
-func previewDisposition(filename string) string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "previewDisposition: filename=%.120q", filename)
-	}
+func previewDisposition(filename string) (out0 string) {
+	defer logger.Out1(logger.In1("share", "previewDisposition", "filename", filename), &out0)
 	if filename == "" || filename == "." || filename == "/" {
 		return ""
 	}
@@ -1013,9 +1041,7 @@ func previewDisposition(filename string) string {
 // skips the stat: it costs a round trip and its streaming branches cannot answer
 // a conditional request anyway.
 func setShareRevalidation(w http.ResponseWriter, targetFsh *filesystem.FileSystemHandler, realPath string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "setShareRevalidation: realPath=%.120q", realPath)
-	}
+	defer logger.Out0(logger.In2("share", "setShareRevalidation", "targetFsh", targetFsh, "realPath", realPath))
 	var info fs.FileInfo
 	if !targetFsh.RequireBuffer {
 		if st, err := targetFsh.FileSystemAbstraction.Stat(realPath); err == nil {
@@ -1029,9 +1055,7 @@ func setShareRevalidation(w http.ResponseWriter, targetFsh *filesystem.FileSyste
 // with the link opens it on this site, often while signed in, so a file that
 // could be a page (HTML, SVG) is sandboxed (utils.SetUserContentHeaders).
 func setPreviewContentType(w http.ResponseWriter, contentType string, path string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "setPreviewContentType: path=%.120q", path)
-	}
+	defer logger.Out0(logger.In2("share", "setPreviewContentType", "contentType", contentType, "path", path))
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
@@ -1040,9 +1064,7 @@ func setPreviewContentType(w http.ResponseWriter, contentType string, path strin
 
 // servePreview streams a shared file inline for in-browser viewing
 func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh *filesystem.FileSystemHandler, fileRuntimeAbsPath string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.servePreview: r=%s fileRuntimeAbsPath=%.120q", logger.RequestSummary(r), fileRuntimeAbsPath)
-	}
+	defer logger.Out0(logger.In4("share", "Manager.servePreview", "s", s, "r", r, "targetFsh", targetFsh, "fileRuntimeAbsPath", fileRuntimeAbsPath))
 	targetFshAbs := targetFsh.FileSystemAbstraction
 	contentType := mime.TypeByExtension(filepath.Ext(fileRuntimeAbsPath))
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -1059,6 +1081,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		// Convert RAW image to JPEG for browser display
 		jpegData, err := metadata.RenderRAWImage(targetFsh, fileRuntimeAbsPath)
 		if err != nil {
+			logger.DebugErr("share", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Failed to render RAW image: " + err.Error()))
 			return
@@ -1069,6 +1092,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		// HEIC only shows in Safari: convert it to JPEG for every browser
 		jpegData, err := metadata.RenderHEICImage(targetFsh, fileRuntimeAbsPath)
 		if err != nil {
+			logger.DebugErr("share", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Failed to render HEIC image: " + err.Error()))
 			return
@@ -1079,6 +1103,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		setPreviewContentType(w, contentType, fileRuntimeAbsPath)
 		f, err := targetFshAbs.ReadStream(fileRuntimeAbsPath)
 		if err != nil {
+			logger.DebugErr("share", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Internal Server Error: " + err.Error()))
 			return
@@ -1089,6 +1114,7 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 		setPreviewContentType(w, contentType, fileRuntimeAbsPath)
 		f, err := targetFshAbs.Open(fileRuntimeAbsPath)
 		if err != nil {
+			logger.DebugErr("share", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Internal Server Error: " + err.Error()))
 			return
@@ -1101,8 +1127,8 @@ func (s *Manager) servePreview(w http.ResponseWriter, r *http.Request, targetFsh
 
 // pageSettingsJSON is the share settings the public share pages need, as a
 // JSON object literal for the {{sharesettings}} template slot.
-func pageSettingsJSON(so *shareEntry.ShareOption) string {
-	logger.Debug("share", "pageSettingsJSON")
+func pageSettingsJSON(so *shareEntry.ShareOption) (out0 string) {
+	defer logger.Out1(logger.In1("share", "pageSettingsJSON", "so", so), &out0)
 	js, _ := json.Marshal(map[string]interface{}{
 		"allowDownload": so.AllowDownload,
 		"showFileList":  so.ShowFileList,

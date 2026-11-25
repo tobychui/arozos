@@ -11,11 +11,10 @@ import (
 
 // Handle AGI Exectuion Request with token, design for letting other web scripting language like php to interface with AGI
 func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleAgiExecutionRequestWithToken: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleAgiExecutionRequestWithToken", "g", g, "r", r))
 	token, err := utils.GetPara(r, "token")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		//Username not defined
 		utils.SendErrorResponse(w, "Token not defined or empty.")
 		return
@@ -23,6 +22,7 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 
 	script, err := utils.GetPara(r, "script")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		//Username not defined
 		utils.SendErrorResponse(w, "Script path not defined or empty.")
 		return
@@ -31,6 +31,7 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 	//Try to get the username from token
 	username, err := g.Option.UserHandler.GetAuthAgent().GetUsernameFromToken(token)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		//This token is not valid
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 - Unauthorized (Token not valid)"))
@@ -40,6 +41,7 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 	//Check if user exists and have access to the script
 	targetUser, err := g.Option.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		//This user not exists
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("401 - Unauthorized (User not exists)"))
@@ -57,6 +59,7 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 	//Get the content of the script
 	scriptContentByte, err := os.ReadFile(filepath.Join("./web/", script))
 	if err != nil {
+		logger.DebugErr("agi", err)
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("404 - Script Not Found"))
 		return

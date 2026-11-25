@@ -32,20 +32,22 @@ import (
 )
 
 // ToXlsx converts an Excel 97-2003 workbook into an .xlsx file
-func ToXlsx(data []byte) ([]byte, error) {
-	logger.Debug("office/xls", "ToXlsx")
+func ToXlsx(data []byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/xls", "ToXlsx", "data", data), &out0, &out1)
 	b, sheets, index, err := read(data)
 	if err != nil {
+		logger.DebugErr("office/xls", err)
 		return nil, err
 	}
 	return b.writeXlsx(sheets, index)
 }
 
 // Parse converts an Excel 97-2003 workbook into the Sheets model
-func Parse(data []byte) (*model.Workbook, error) {
-	logger.Debug("office/xls", "Parse")
+func Parse(data []byte) (out0 *model.Workbook, out1 error) {
+	defer logger.Out2(logger.In1("office/xls", "Parse", "data", data), &out0, &out1)
 	x, err := ToXlsx(data)
 	if err != nil {
+		logger.DebugErr("office/xls", err)
 		return nil, err
 	}
 	return xlsx.Parse(x)
@@ -63,6 +65,7 @@ func read(data []byte) (*book, []*sheet, []int, error) {
 	}
 	cf, err := cfb.Open(data)
 	if err != nil {
+		logger.DebugErr("office/xls", err)
 		return nil, nil, nil, err
 	}
 	var stream []byte
@@ -75,10 +78,12 @@ func read(data []byte) (*book, []*sheet, []int, error) {
 		return nil, nil, nil, errors.New("not an Excel workbook (no Workbook stream)")
 	}
 	if err != nil {
+		logger.DebugErr("office/xls", err)
 		return nil, nil, nil, err
 	}
 	recs, err := readRecords(stream)
 	if err != nil {
+		logger.DebugErr("office/xls", err)
 		return nil, nil, nil, err
 	}
 	if len(recs) == 0 || recs[0].typ != rtBOF || len(recs[0].data) < 4 {
@@ -88,6 +93,7 @@ func read(data []byte) (*book, []*sheet, []int, error) {
 	b := newBook(vers >= 0x0600)
 	b.records = recs
 	if err := b.parseGlobals(); err != nil {
+		logger.DebugErr("office/xls", err)
 		return nil, nil, nil, err
 	}
 	byPos := make(map[int]int, len(recs))

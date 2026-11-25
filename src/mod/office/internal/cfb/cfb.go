@@ -77,8 +77,8 @@ type File struct {
 }
 
 // IsCompound reports whether data starts with the compound file signature
-func IsCompound(data []byte) bool {
-	logger.Debug("office/internal/cfb", "IsCompound")
+func IsCompound(data []byte) (out0 bool) {
+	defer logger.Out1(logger.In1("office/internal/cfb", "IsCompound", "data", data), &out0)
 	if len(data) < 512 {
 		return false
 	}
@@ -91,8 +91,8 @@ func IsCompound(data []byte) bool {
 }
 
 // Open parses the header, FAT, mini FAT and directory of a compound file
-func Open(data []byte) (*File, error) {
-	logger.Debug("office/internal/cfb", "Open")
+func Open(data []byte) (out0 *File, out1 error) {
+	defer logger.Out2(logger.In1("office/internal/cfb", "Open", "data", data), &out0, &out1)
 	if !IsCompound(data) {
 		return nil, ErrNotCompound
 	}
@@ -160,6 +160,7 @@ func Open(data []byte) (*File, error) {
 	// directory
 	dir, err := f.chain(firstDir, -1)
 	if err != nil {
+		logger.DebugErr("office/internal/cfb", err)
 		return nil, err
 	}
 	type rawEntry struct {
@@ -207,6 +208,7 @@ func Open(data []byte) (*File, error) {
 	if raws[0].start != endOfChain && raws[0].size > 0 {
 		ms, err := f.chain(raws[0].start, raws[0].size)
 		if err != nil {
+			logger.DebugErr("office/internal/cfb", err)
 			return nil, err
 		}
 		f.ministream = ms
@@ -214,6 +216,7 @@ func Open(data []byte) (*File, error) {
 	if numMiniFat > 0 && firstMiniFat != endOfChain {
 		mf, err := f.chain(firstMiniFat, -1)
 		if err != nil {
+			logger.DebugErr("office/internal/cfb", err)
 			return nil, err
 		}
 		for i := 0; i+4 <= len(mf); i += 4 {
@@ -236,6 +239,7 @@ func Open(data []byte) (*File, error) {
 		visited[idx] = true
 		r := raws[idx]
 		if err := walk(r.left, prefix, depth+1); err != nil {
+			logger.DebugErr("office/internal/cfb", err)
 			return err
 		}
 		if r.typ == typeStream || r.typ == typeStorage {
@@ -248,6 +252,7 @@ func Open(data []byte) (*File, error) {
 			f.byPath[strings.ToLower(p)] = ent
 			if r.typ == typeStorage {
 				if err := walk(r.child, p, depth+1); err != nil {
+					logger.DebugErr("office/internal/cfb", err)
 					return err
 				}
 			}
@@ -256,6 +261,7 @@ func Open(data []byte) (*File, error) {
 	}
 	visited[0] = true
 	if err := walk(raws[0].child, "", 0); err != nil {
+		logger.DebugErr("office/internal/cfb", err)
 		return nil, err
 	}
 	sort.Slice(f.entries, func(i, j int) bool { return f.entries[i].Path < f.entries[j].Path })
@@ -265,9 +271,7 @@ func Open(data []byte) (*File, error) {
 // sector returns the bytes of a regular sector (sector 0 follows the
 // 512-byte header; a 4096-byte sector file pads the header to a sector)
 func (f *File) sector(n uint32) ([]byte, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/cfb", "File.sector: n=%d", n)
-	}
+	logger.DebugTrace("office/internal/cfb", "File.sector")
 	if n > maxRegSect {
 		return nil, false
 	}
@@ -288,9 +292,7 @@ func (f *File) sector(n uint32) ([]byte, bool) {
 // chain reads a chain of regular sectors, stopping at size bytes (size < 0
 // reads the whole chain)
 func (f *File) chain(start uint32, size int64) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/cfb", "File.chain: start=%d size=%d", start, size)
-	}
+	logger.DebugTrace("office/internal/cfb", "File.chain")
 	var out []byte
 	if size > 0 {
 		if size > int64(len(f.data)) {
@@ -326,9 +328,7 @@ func (f *File) chain(start uint32, size int64) ([]byte, error) {
 
 // miniChain reads a stream stored in the mini stream
 func (f *File) miniChain(start uint32, size int64) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/cfb", "File.miniChain: start=%d size=%d", start, size)
-	}
+	logger.DebugTrace("office/internal/cfb", "File.miniChain")
 	out := make([]byte, 0, size)
 	seen := 0
 	for s := start; s != endOfChain && int64(len(out)) < size; {
@@ -365,18 +365,14 @@ func (f *File) Entries() []Entry {
 
 // Has reports whether a stream of that path exists
 func (f *File) Has(path string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/cfb", "File.Has: path=%.120q", path)
-	}
+	logger.DebugTrace("office/internal/cfb", "File.Has")
 	e, ok := f.byPath[strings.ToLower(path)]
 	return ok && e.IsStream
 }
 
 // Stream returns the content of the stream at path
 func (f *File) Stream(path string) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/cfb", "File.Stream: path=%.120q", path)
-	}
+	logger.DebugTrace("office/internal/cfb", "File.Stream")
 	e, ok := f.byPath[strings.ToLower(path)]
 	if !ok || !e.IsStream {
 		return nil, errors.New("stream not found: " + path)

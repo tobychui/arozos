@@ -16,11 +16,10 @@ import (
 //   - action: one of "reassign" | "removeonly" | "deleteusers"
 //   - targetgroup: (required when action=="reassign") the group users are moved to
 func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleGroupDeleteWithUserHandling: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleGroupDeleteWithUserHandling", "r", r))
 	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "groupname not defined")
 		return
 	}
@@ -37,6 +36,7 @@ func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
 
 	action, err := utils.PostPara(r, "action")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "action not defined")
 		return
 	}
@@ -58,6 +58,7 @@ func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
 		for _, username := range allUsernames {
 			userinfo, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				continue
 			}
 			if !userinfo.UserIsInOneOfTheGroupOf([]string{groupname}) {
@@ -90,6 +91,7 @@ func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
 		for _, username := range allUsernames {
 			userinfo, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				continue
 			}
 			if !userinfo.UserIsInOneOfTheGroupOf([]string{groupname}) {
@@ -116,6 +118,7 @@ func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
 		for _, username := range allUsernames {
 			userinfo, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				continue
 			}
 			if !userinfo.UserIsInOneOfTheGroupOf([]string{groupname}) {
@@ -169,11 +172,10 @@ type groupUserPreview struct {
 }
 
 func handleGroupListUsers(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleGroupListUsers: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleGroupListUsers", "r", r))
 	groupname, err := utils.GetPara(r, "groupname")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "groupname not defined")
 		return
 	}
@@ -189,6 +191,7 @@ func handleGroupListUsers(w http.ResponseWriter, r *http.Request) {
 	for _, username := range allUsernames {
 		userinfo, err := userHandler.GetUserInfoFromUsername(username)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			continue
 		}
 		if userinfo.UserIsInOneOfTheGroupOf([]string{groupname}) {
@@ -204,9 +207,10 @@ func handleGroupListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func permissionNewHandler() {
-	logger.Debug("Core", "permissionNewHandler")
+	defer logger.Out0(logger.In0("Core", "permissionNewHandler"))
 	ph, err := permission.NewPermissionHandler(sysdb)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Permission", "Permission Handler creation failed.", err)
 		panic(err)
 	}
@@ -216,7 +220,7 @@ func permissionNewHandler() {
 }
 
 func permissionInit() {
-	logger.Debug("Core", "permissionInit")
+	defer logger.Out0(logger.In0("Core", "permissionInit"))
 	//Register the permission handler, require authentication except listgroup
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",

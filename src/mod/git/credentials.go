@@ -65,8 +65,8 @@ type CredentialStore struct {
 }
 
 // newCredentialStore prepares the table and loads (or creates) the AES key.
-func newCredentialStore(database CredentialDatabase, keyStorePath string) (*CredentialStore, error) {
-	logger.Debug("git", "newCredentialStore")
+func newCredentialStore(database CredentialDatabase, keyStorePath string) (out0 *CredentialStore, out1 error) {
+	defer logger.Out2(logger.In2("git", "newCredentialStore", "&database", &database, "!keyStorePath", keyStorePath), &out0, &out1)
 	if database == nil {
 		return nil, errors.New("credential store requires a database")
 	}
@@ -75,11 +75,13 @@ func newCredentialStore(database CredentialDatabase, keyStorePath string) (*Cred
 	}
 
 	if err := database.NewTable(credentialTable); err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	key, err := loadOrCreateKey(keyStorePath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -91,10 +93,8 @@ func newCredentialStore(database CredentialDatabase, keyStorePath string) (*Cred
 
 // Save stores (or replaces) the credential for one user and host. An empty
 // token is rejected — the caller should call Remove instead.
-func (c *CredentialStore) Save(username string, host string, remoteUser string, token string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "CredentialStore.Save: username=%.120q host=%.120q remoteUser=%.120q", username, host, remoteUser)
-	}
+func (c *CredentialStore) Save(username string, host string, remoteUser string, token string) (out0 error) {
+	defer logger.Out1(logger.In5("git", "CredentialStore.Save", "c", c, "username", username, "host", host, "remoteUser", remoteUser, "!token", token), &out0)
 	username = strings.TrimSpace(username)
 	host = normaliseHost(host)
 
@@ -113,6 +113,7 @@ func (c *CredentialStore) Save(username string, host string, remoteUser string, 
 
 	encrypted, err := encryptSecret(c.key, token)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -125,10 +126,8 @@ func (c *CredentialStore) Save(username string, host string, remoteUser string, 
 
 // Get returns the stored credential for a user and host. The second return
 // value is false when nothing is stored.
-func (c *CredentialStore) Get(username string, host string) (*Credential, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "CredentialStore.Get: username=%.120q host=%.120q", username, host)
-	}
+func (c *CredentialStore) Get(username string, host string) (out0 *Credential, out1 bool) {
+	defer logger.Out2(logger.In3("git", "CredentialStore.Get", "c", c, "username", username, "host", host), &out0, &out1)
 	username = strings.TrimSpace(username)
 	host = normaliseHost(host)
 	if username == "" || host == "" {
@@ -145,11 +144,13 @@ func (c *CredentialStore) Get(username string, host string) (*Credential, bool) 
 
 	record := storedCredential{}
 	if err := c.database.Read(credentialTable, key, &record); err != nil {
+		logger.DebugErr("git", err)
 		return nil, false
 	}
 
 	token, err := decryptSecret(c.key, record.EncryptedToken)
 	if err != nil {
+		logger.DebugErr("git", err)
 		//A key rotation or a corrupted record leaves an unusable entry. Report
 		//it as missing so the UI asks for the credential again.
 		return nil, false
@@ -163,10 +164,8 @@ func (c *CredentialStore) Get(username string, host string) (*Credential, bool) 
 }
 
 // List returns the hosts a user has credentials for, without any secrets.
-func (c *CredentialStore) List(username string) []Credential {
-	if logger.IsDebug() {
-		logger.Debugf("git", "CredentialStore.List: username=%.120q", username)
-	}
+func (c *CredentialStore) List(username string) (out0 []Credential) {
+	defer logger.Out1(logger.In2("git", "CredentialStore.List", "c", c, "username", username), &out0)
 	username = strings.TrimSpace(username)
 	results := []Credential{}
 	if username == "" {
@@ -178,6 +177,7 @@ func (c *CredentialStore) List(username string) []Credential {
 
 	entries, err := c.database.ListTable(credentialTable)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return results
 	}
 
@@ -189,6 +189,7 @@ func (c *CredentialStore) List(username string) []Credential {
 
 		record := storedCredential{}
 		if err := json.Unmarshal(entry[1], &record); err != nil {
+			logger.DebugErr("git", err)
 			continue
 		}
 		results = append(results, Credential{
@@ -205,10 +206,8 @@ func (c *CredentialStore) List(username string) []Credential {
 
 // Remove deletes a stored credential. Deleting a credential that is not there
 // is not an error.
-func (c *CredentialStore) Remove(username string, host string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "CredentialStore.Remove: username=%.120q host=%.120q", username, host)
-	}
+func (c *CredentialStore) Remove(username string, host string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "CredentialStore.Remove", "c", c, "username", username, "host", host), &out0)
 	username = strings.TrimSpace(username)
 	host = normaliseHost(host)
 	if username == "" || host == "" {
@@ -228,27 +227,21 @@ func (c *CredentialStore) Remove(username string, host string) error {
 // ResolveForRemote looks up the credential matching a remote URL, which is what
 // every transport call needs before it can build an auth method.
 func (c *CredentialStore) ResolveForRemote(username string, remoteURL string) (*Credential, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("git", "CredentialStore.ResolveForRemote: username=%.120q", username)
-	}
+	logger.DebugTrace("git", "CredentialStore.ResolveForRemote")
 	return c.Get(username, RemoteHost(remoteURL))
 }
 
 // credentialKey namespaces a record by its owning ArozOS account.
 func credentialKey(username string, host string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("git", "credentialKey: username=%.120q host=%.120q", username, host)
-	}
+	logger.DebugTrace("git", "credentialKey")
 	return username + "/" + host
 }
 
 // normaliseHost accepts either a bare host or a full remote URL and always
 // returns the lower-cased host, so "https://github.com/a/b.git" and "GitHub.com"
 // address the same record.
-func normaliseHost(host string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "normaliseHost: host=%.120q", host)
-	}
+func normaliseHost(host string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "normaliseHost", "host", host), &out0)
 	host = strings.TrimSpace(host)
 	if host == "" {
 		return ""
@@ -265,9 +258,10 @@ func normaliseHost(host string) string {
 
 // loadOrCreateKey reads the AES key from disk, generating a fresh 32-byte key
 // on first run.
-func loadOrCreateKey(keyStorePath string) ([]byte, error) {
-	logger.Debug("git", "loadOrCreateKey")
+func loadOrCreateKey(keyStorePath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("git", "loadOrCreateKey", "!keyStorePath", keyStorePath), &out0, &out1)
 	if err := os.MkdirAll(keyStorePath, 0700); err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -283,11 +277,13 @@ func loadOrCreateKey(keyStorePath string) ([]byte, error) {
 
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(key)
 	if err := os.WriteFile(keyFile, []byte(encoded), 0600); err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -295,20 +291,23 @@ func loadOrCreateKey(keyStorePath string) ([]byte, error) {
 }
 
 // encryptSecret seals plaintext with AES-GCM, returning base64(nonce||ciphertext).
-func encryptSecret(key []byte, plaintext string) (string, error) {
-	logger.Debug("git", "encryptSecret")
+func encryptSecret(key []byte, plaintext string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("git", "encryptSecret", "!&key", &key, "!plaintext", plaintext), &out0, &out1)
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	nonce := make([]byte, aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -317,22 +316,23 @@ func encryptSecret(key []byte, plaintext string) (string, error) {
 }
 
 // decryptSecret reverses encryptSecret.
-func decryptSecret(key []byte, encoded string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "decryptSecret: encoded=%.120q", encoded)
-	}
+func decryptSecret(key []byte, encoded string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("git", "decryptSecret", "encoded", encoded, "!&key", &key), &out0, &out1)
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -343,6 +343,7 @@ func decryptSecret(key []byte, encoded string) (string, error) {
 	nonce, ciphertext := raw[:aead.NonceSize()], raw[aead.NonceSize():]
 	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 	return string(plaintext), nil

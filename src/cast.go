@@ -75,8 +75,8 @@ var (
 
 // arozcastGetTurnServer returns the running relay, or nil when it is stopped or
 // unavailable. Callers must treat nil as "fall back to STUN-only".
-func arozcastGetTurnServer() *turn.Server {
-	logger.Debug("Core", "arozcastGetTurnServer")
+func arozcastGetTurnServer() (out0 *turn.Server) {
+	defer logger.Out1(logger.In0("Core", "arozcastGetTurnServer"), &out0)
 	arozcastTurnMu.RLock()
 	defer arozcastTurnMu.RUnlock()
 	return arozcastTurnServer
@@ -90,8 +90,8 @@ func arozcastTurnRunning() bool {
 
 // arozcastStartTurnRelay starts the relay from the remembered config. It is a
 // no-op (returns nil) when the relay is already running.
-func arozcastStartTurnRelay() error {
-	logger.Debug("Core", "arozcastStartTurnRelay")
+func arozcastStartTurnRelay() (out0 error) {
+	defer logger.Out1(logger.In0("Core", "arozcastStartTurnRelay"), &out0)
 	arozcastTurnMu.Lock()
 	defer arozcastTurnMu.Unlock()
 	if arozcastTurnServer != nil {
@@ -99,6 +99,7 @@ func arozcastStartTurnRelay() error {
 	}
 	ts, err := turn.NewServer(arozcastTurnConfig)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	arozcastTurnServer = ts
@@ -108,7 +109,7 @@ func arozcastStartTurnRelay() error {
 // arozcastStopTurnRelay stops the relay and releases its listeners. It is a
 // no-op when the relay is already stopped.
 func arozcastStopTurnRelay() {
-	logger.Debug("Core", "arozcastStopTurnRelay")
+	defer logger.Out0(logger.In0("Core", "arozcastStopTurnRelay"))
 	arozcastTurnMu.Lock()
 	defer arozcastTurnMu.Unlock()
 	if arozcastTurnServer == nil {
@@ -120,8 +121,8 @@ func arozcastStopTurnRelay() {
 
 // arozcastTurnEnabledPref returns the persisted relay on/off preference,
 // falling back to the -arozcast_turn flag default when nothing is stored.
-func arozcastTurnEnabledPref() bool {
-	logger.Debug("Core", "arozcastTurnEnabledPref")
+func arozcastTurnEnabledPref() (out0 bool) {
+	defer logger.Out1(logger.In0("Core", "arozcastTurnEnabledPref"), &out0)
 	if sysdb != nil && sysdb.KeyExists(arozcastDBTable, arozcastTurnEnabledKey) {
 		var stored bool
 		if err := sysdb.Read(arozcastDBTable, arozcastTurnEnabledKey, &stored); err == nil {
@@ -134,9 +135,7 @@ func arozcastTurnEnabledPref() bool {
 // arozcastSetTurnEnabledPref persists the relay on/off preference so it survives
 // a restart.
 func arozcastSetTurnEnabledPref(enabled bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "arozcastSetTurnEnabledPref: enabled=%t", enabled)
-	}
+	logger.DebugTrace("Core", "arozcastSetTurnEnabledPref")
 	return sysdb.Write(arozcastDBTable, arozcastTurnEnabledKey, enabled)
 }
 
@@ -199,7 +198,7 @@ type acRoom struct {
 }
 
 func (r *acRoom) add(c *acClient) {
-	logger.Debug("Core", "acRoom.add")
+	defer logger.Out0(logger.In2("Core", "acRoom.add", "r", r, "c", c))
 	r.mu.Lock()
 	r.clients[c] = struct{}{}
 	r.lastActivity = time.Now()
@@ -207,7 +206,7 @@ func (r *acRoom) add(c *acClient) {
 }
 
 func (r *acRoom) remove(c *acClient) {
-	logger.Debug("Core", "acRoom.remove")
+	defer logger.Out0(logger.In2("Core", "acRoom.remove", "r", r, "c", c))
 	r.mu.Lock()
 	delete(r.clients, c)
 	r.lastActivity = time.Now()
@@ -216,7 +215,7 @@ func (r *acRoom) remove(c *acClient) {
 
 // broadcast sends msg to every client except exclude (nil = send to all).
 func (r *acRoom) broadcast(msg []byte, exclude *acClient) {
-	logger.Debug("Core", "acRoom.broadcast")
+	defer logger.Out0(logger.In3("Core", "acRoom.broadcast", "r", r, "msg", msg, "exclude", exclude))
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for c := range r.clients {
@@ -246,9 +245,7 @@ var acUpgrader = websocket.Upgrader{
 // It first broadcasts roomClosedMsg so senders can react before the socket drops.
 // Safe to call even if the room no longer exists.
 func acCloseRoom(mgr *acManager, code string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "acCloseRoom: code=%.120q", code)
-	}
+	defer logger.Out0(logger.In2("Core", "acCloseRoom", "mgr", mgr, "code", code))
 	mgr.mu.Lock()
 	room, exists := mgr.rooms[code]
 	if exists {
@@ -274,7 +271,7 @@ func acCloseRoom(mgr *acManager, code string) {
 }
 
 func ArozcastInit() {
-	logger.Debug("Core", "ArozcastInit")
+	defer logger.Out0(logger.In0("Core", "ArozcastInit"))
 	mgr := &acManager{rooms: make(map[string]*acRoom)}
 
 	// ── Built-in TURN relay ───────────────────────────────────────────────
@@ -305,6 +302,7 @@ func ArozcastInit() {
 
 	if arozcastTurnEnabledPref() {
 		if err := arozcastStartTurnRelay(); err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Arozcast", "Built-in TURN relay unavailable; screen share will be LAN-only", err)
 		} else {
 			msg := "Built-in TURN relay started on port " + strconv.Itoa(*arozcast_turn_port)
@@ -381,6 +379,7 @@ func ArozcastInit() {
 	adminRouter.HandleFunc("/system/arozcast/turn/status", func(w http.ResponseWriter, r *http.Request) {
 		js, err := json.Marshal(acTurnStatus())
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Failed to build status")
 			return
 		}
@@ -391,17 +390,20 @@ func ArozcastInit() {
 	adminRouter.HandleFunc("/system/arozcast/turn/setEnabled", func(w http.ResponseWriter, r *http.Request) {
 		enable, err := utils.GetBool(r, "enable")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing or invalid enable parameter")
 			return
 		}
 
 		if err := arozcastSetTurnEnabledPref(enable); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Failed to save preference")
 			return
 		}
 
 		if enable {
 			if err := arozcastStartTurnRelay(); err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("Arozcast", "Failed to start built-in TURN relay from System Settings", err)
 				utils.SendErrorResponse(w, "Relay could not start: "+err.Error())
 				return
@@ -412,6 +414,7 @@ func ArozcastInit() {
 
 		js, err := json.Marshal(acTurnStatus())
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Failed to build status")
 			return
 		}
@@ -422,6 +425,7 @@ func ArozcastInit() {
 	router.HandleFunc("/api/arozcast/create", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
@@ -450,6 +454,7 @@ func ArozcastInit() {
 	router.HandleFunc("/api/arozcast/close", func(w http.ResponseWriter, r *http.Request) {
 		code, err := utils.GetPara(r, "code")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing code")
 			return
 		}
@@ -461,6 +466,7 @@ func ArozcastInit() {
 	router.HandleFunc("/api/arozcast/ping", func(w http.ResponseWriter, r *http.Request) {
 		code, err := utils.GetPara(r, "code")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing code")
 			return
 		}
@@ -487,6 +493,7 @@ func ArozcastInit() {
 		config := acBuildICEConfig(r, identity)
 		js, err := json.Marshal(config)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Failed to build ICE config")
 			return
 		}
@@ -498,11 +505,13 @@ func ArozcastInit() {
 	router.HandleFunc("/api/arozcast/publish", func(w http.ResponseWriter, r *http.Request) {
 		code, err := utils.PostPara(r, "code")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing code")
 			return
 		}
 		msg, err := utils.PostPara(r, "msg")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing msg")
 			return
 		}
@@ -525,6 +534,7 @@ func ArozcastInit() {
 	router.HandleFunc("/api/arozcast/ws", func(w http.ResponseWriter, r *http.Request) {
 		code, err := utils.GetPara(r, "code")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			http.Error(w, "Missing code", http.StatusBadRequest)
 			return
 		}
@@ -540,6 +550,7 @@ func ArozcastInit() {
 
 		conn, err := acUpgrader.Upgrade(w, r, nil)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			return
 		}
 
@@ -556,6 +567,7 @@ func ArozcastInit() {
 			defer conn.Close()
 			for msg := range client.send {
 				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+					logger.DebugErr("Core", err)
 					return
 				}
 			}
@@ -577,6 +589,7 @@ func ArozcastInit() {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
+				logger.DebugErr("Core", err)
 				break
 			}
 			if json.Unmarshal(msg, &topicCheck) == nil && topicCheck.Topic == "status.update" {
@@ -602,8 +615,8 @@ type acTurnStatusInfo struct {
 }
 
 // acTurnStatus snapshots the built-in TURN relay's configuration and live state.
-func acTurnStatus() acTurnStatusInfo {
-	logger.Debug("Core", "acTurnStatus")
+func acTurnStatus() (out0 acTurnStatusInfo) {
+	defer logger.Out1(logger.In0("Core", "acTurnStatus"), &out0)
 	info := acTurnStatusInfo{
 		Enabled:  arozcastTurnEnabledPref(),
 		Port:     arozcastTurnConfig.ListenPort,
@@ -624,10 +637,8 @@ func acTurnStatus() acTurnStatusInfo {
 //  1. An operator override file (system/arozcast/iceservers.json), if valid.
 //  2. Public STUN servers plus the built-in TURN relay when it is running.
 //  3. Public STUN servers only (LAN screen share still works).
-func acBuildICEConfig(r *http.Request, identity string) acICEConfig {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "acBuildICEConfig: r=%s identity=%.120q", logger.RequestSummary(r), identity)
-	}
+func acBuildICEConfig(r *http.Request, identity string) (out0 acICEConfig) {
+	defer logger.Out1(logger.In2("Core", "acBuildICEConfig", "r", r, "identity", identity), &out0)
 	if servers, ok := acLoadICEOverride(); ok {
 		return acICEConfig{ICEServers: servers}
 	}
@@ -666,14 +677,16 @@ func acBuildICEConfig(r *http.Request, identity string) acICEConfig {
 
 // acLoadICEOverride reads the optional operator override file. It returns
 // ok=false when the file is absent, unreadable, malformed, or empty.
-func acLoadICEOverride() ([]acICEServer, bool) {
-	logger.Debug("Core", "acLoadICEOverride")
+func acLoadICEOverride() (out0 []acICEServer, out1 bool) {
+	defer logger.Out2(logger.In0("Core", "acLoadICEOverride"), &out0, &out1)
 	data, err := os.ReadFile(arozcastICEOverrideFile)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, false
 	}
 	var parsed acICEConfig
 	if err := json.Unmarshal(data, &parsed); err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Arozcast", "Ignoring malformed "+arozcastICEOverrideFile, err)
 		return nil, false
 	}
@@ -687,10 +700,8 @@ func acLoadICEOverride() ([]acICEServer, bool) {
 // using the same host the client used to reach ArozOS (honouring a reverse
 // proxy's X-Forwarded-Host) so it stays reachable. The port is stripped — the
 // relay listens on its own port.
-func acDeriveTURNHost(r *http.Request) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "acDeriveTURNHost: r=%s", logger.RequestSummary(r))
-	}
+func acDeriveTURNHost(r *http.Request) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "acDeriveTURNHost", "r", r), &out0)
 	host := r.Host
 	if xfh := r.Header.Get("X-Forwarded-Host"); xfh != "" {
 		if idx := strings.Index(xfh, ","); idx >= 0 {

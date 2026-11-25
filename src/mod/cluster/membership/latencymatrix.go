@@ -42,9 +42,7 @@ type LatencyReport struct {
 
 // handleLatency answers a peer asking for this node's measurements.
 func (m *Manager) handleLatency(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "Manager.handleLatency: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In4("cluster/membership", "Manager.handleLatency", "m", m, "r", r, "sender", sender, "body", body))
 	m.markSeen(sender.NodeID)
 	acn.WriteJSON(w, LatencyReport{
 		NodeID:    m.opt.NodeID,
@@ -65,8 +63,8 @@ type latencyCache struct {
 // local row is always current; peer rows are collected at most once every
 // LatencyMatrixTTL. It never blocks longer than LatencyFetchTimeout, and it
 // returns what it has when a peer does not answer.
-func (m *Manager) LatencyMatrix() map[string]map[string]float64 {
-	logger.Debug("cluster/membership", "Manager.LatencyMatrix")
+func (m *Manager) LatencyMatrix() (out0 map[string]map[string]float64) {
+	defer logger.Out1(logger.In1("cluster/membership", "Manager.LatencyMatrix", "m", m), &out0)
 	m.latencyMx.mu.Lock()
 	fresh := time.Since(m.latencyMx.collected) < LatencyMatrixTTL
 	if fresh || m.latencyMx.busy {
@@ -92,6 +90,7 @@ func (m *Manager) LatencyMatrix() map[string]map[string]float64 {
 			defer cancel()
 			var rep LatencyReport
 			if err := m.transport.DoJSON(ctx, id, http.MethodGet, acn.BasePath+"/latency", nil, &rep); err != nil {
+				logger.DebugErr("cluster/membership", err)
 				return
 			}
 			mu.Lock()
@@ -113,10 +112,8 @@ func (m *Manager) LatencyMatrix() map[string]map[string]float64 {
 // PairLatency returns the round trip between two nodes in milliseconds, taking
 // whichever direction has been measured (the mean when both have). Two ids
 // that are the same node are zero apart.
-func PairLatency(matrix map[string]map[string]float64, a string, b string) (float64, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "PairLatency: len(matrix)=%d a=%.120q b=%.120q", len(matrix), a, b)
-	}
+func PairLatency(matrix map[string]map[string]float64, a string, b string) (out0 float64, out1 bool) {
+	defer logger.Out2(logger.In3("cluster/membership", "PairLatency", "matrix", matrix, "a", a, "b", b), &out0, &out1)
 	if a == b {
 		return 0, true
 	}
@@ -140,7 +137,7 @@ func (m *Manager) ResetLatencyMatrix() {
 }
 
 func (c *latencyCache) reset() {
-	logger.Debug("cluster/membership", "latencyCache.reset")
+	defer logger.Out0(logger.In1("cluster/membership", "latencyCache.reset", "c", c))
 	c.mu.Lock()
 	c.rows = nil
 	c.collected = time.Time{}
@@ -152,10 +149,8 @@ func usableForLatency(s NodeState) bool {
 	return s == StateOnline || s == StateDegraded || s == StateDraining
 }
 
-func copyMatrix(in map[string]map[string]float64) map[string]map[string]float64 {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/membership", "copyMatrix: len(in)=%d", len(in))
-	}
+func copyMatrix(in map[string]map[string]float64) (out0 map[string]map[string]float64) {
+	defer logger.Out1(logger.In1("cluster/membership", "copyMatrix", "in", in), &out0)
 	out := map[string]map[string]float64{}
 	for from, row := range in {
 		cp := map[string]float64{}

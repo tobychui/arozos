@@ -12,8 +12,8 @@ import (
 )
 
 // Download updates from given URL, return real time progress of stage (int),  progress (int) and status text (string)
-func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL string, progressUpdateFunction func(int, float64, string)) error {
-	logger.Debug("updates", "DownloadUpdatesFromURL")
+func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL string, progressUpdateFunction func(int, float64, string)) (out0 error) {
+	defer logger.Out1(logger.In4("updates", "DownloadUpdatesFromURL", "binaryURL", binaryURL, "webpackURL", webpackURL, "checksumURL", checksumURL, "progressUpdateFunction", progressUpdateFunction), &out0)
 	//Create the update download folder
 	os.RemoveAll("./updates")
 	os.MkdirAll("./updates", 0755)
@@ -21,6 +21,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 	//Get the total size of download expected
 	binarySize, webpackSize, err := GetUpdateSizes(binaryURL, webpackURL)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return errors.New("Unable to access given URL")
 	}
 
@@ -59,6 +60,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 	}()
 	err = downloadFile(binaryURL, binaryDownloadTarget)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		errorMessage = err.Error()
 		binaryDownloadComplete = 2
 		return err
@@ -84,6 +86,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 	}()
 	err = downloadFile(webpackURL, webpackDownloadTarget)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		errorMessage = err.Error()
 		webpackDownloadComplete = 2
 		return err
@@ -96,21 +99,25 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 	if checksumURL != "" {
 		err = downloadFile(checksumURL, checksumDownloadTarget)
 		if err != nil {
+			logger.DebugErr("updates", err)
 			errorMessage = err.Error()
 			return err
 		}
 		checksumFileContent, err := os.ReadFile(checksumDownloadTarget)
 		if err != nil {
+			logger.DebugErr("updates", err)
 			errorMessage = err.Error()
 			return err
 		}
 		binaryHash, err := getSHA1Hash(binaryDownloadTarget)
 		if err != nil {
+			logger.DebugErr("updates", err)
 			errorMessage = err.Error()
 			return err
 		}
 		webpackHash, err := getSHA1Hash(webpackDownloadTarget)
 		if err != nil {
+			logger.DebugErr("updates", err)
 			errorMessage = err.Error()
 			return err
 		}
@@ -132,12 +139,14 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 	//Try unzip webpack
 	gzipstrean, err := os.Open(webpackDownloadTarget)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return err
 	}
 	progressUpdateFunction(2, 0, "Extracting webpack")
 
 	err = extractTarGz(gzipstrean, "./updates/", progressUpdateFunction)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return err
 	}
 
@@ -150,46 +159,51 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 }
 
 // Get the update sizes, return binary size, webpack size and error if any
-func GetUpdateSizes(binaryURL string, webpackURL string) (int, int, error) {
-	logger.Debug("updates", "GetUpdateSizes")
+func GetUpdateSizes(binaryURL string, webpackURL string) (out0 int, out1 int, out2 error) {
+	defer logger.Out3(logger.In2("updates", "GetUpdateSizes", "binaryURL", binaryURL, "webpackURL", webpackURL), &out0, &out1, &out2)
 	bps, err := getDownloadFileSize(binaryURL)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return -1, -1, err
 	}
 	wps, err := getDownloadFileSize(webpackURL)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return -1, -1, err
 	}
 
 	return bps, wps, nil
 }
 
-func GetLauncherVersion() (string, error) {
-	logger.Debug("updates", "GetLauncherVersion")
+func GetLauncherVersion() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("updates", "GetLauncherVersion"), &out0, &out1)
 	//Check if there is a launcher listening to port 25576
 	client := http.Client{
 		Timeout: 3 * time.Second,
 	}
 	resp, err := client.Get("http://127.0.0.1:25576/chk")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return "", errors.New("No launcher found. Unable to restart")
 	}
 
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return "", errors.New("Read launcher response failed")
 	}
 
 	return string(content), nil
 }
 
-func CheckLauncherPortResponsive() bool {
-	logger.Debug("updates", "CheckLauncherPortResponsive")
+func CheckLauncherPortResponsive() (out0 bool) {
+	defer logger.Out1(logger.In0("updates", "CheckLauncherPortResponsive"), &out0)
 	client := http.Client{
 		Timeout: 3 * time.Second,
 	}
 	_, err := client.Get("http://127.0.0.1:25576/chk")
 	if err != nil {
+		logger.DebugErr("updates", err)
 		return false
 	}
 

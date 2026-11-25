@@ -35,10 +35,11 @@ const logoContentID = "arozoslogo"
 
 // loadLogoBytes reads the raw brand icon bytes, or nil when the asset cannot be
 // read (e.g. outside the app root, as in unit tests).
-func loadLogoBytes() []byte {
-	logger.Debug("notification/agents/smtpn", "loadLogoBytes")
+func loadLogoBytes() (out0 []byte) {
+	defer logger.Out1(logger.In0("notification/agents/smtpn", "loadLogoBytes"), &out0)
 	data, err := os.ReadFile(logoAssetPath)
 	if err != nil {
+		logger.DebugErr("notification/agents/smtpn", err)
 		return nil
 	}
 	return data
@@ -46,10 +47,8 @@ func loadLogoBytes() []byte {
 
 // wrapBase64 splits a base64 string into 76-character lines as required by
 // RFC 2045 for the base64 content transfer encoding.
-func wrapBase64(s string) string {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/smtpn", "wrapBase64: s=%.120q", s)
-	}
+func wrapBase64(s string) (out0 string) {
+	defer logger.Out1(logger.In1("notification/agents/smtpn", "wrapBase64", "s", s), &out0)
 	const width = 76
 	var b strings.Builder
 	for len(s) > width {
@@ -65,10 +64,8 @@ func wrapBase64(s string) string {
 // are provided the message is multipart/related with the icon attached inline
 // (referenced by the template as cid:arozoslogo); otherwise it is a plain
 // text/html message.
-func buildEmailMessage(from, to, subject, htmlBody string, logo []byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/smtpn", "buildEmailMessage: from=%.120q to=%.120q len(logo)=%d", from, to, len(logo))
-	}
+func buildEmailMessage(from, to, subject, htmlBody string, logo []byte) (out0 []byte) {
+	defer logger.Out1(logger.In5("notification/agents/smtpn", "buildEmailMessage", "from", from, "to", to, "subject", subject, "htmlBody", htmlBody, "logo", logo), &out0)
 	var b strings.Builder
 	b.WriteString("To: " + to + "\r\n")
 	b.WriteString("From: " + from + "\r\n")
@@ -116,13 +113,12 @@ type Agent struct {
 	UsernameToEmail       func(string) (string, error) `json:"-"`
 }
 
-func NewSMTPNotificationAgent(hostname string, configFile string, usernameToEmailFunction func(string) (string, error)) (*Agent, error) {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/smtpn", "NewSMTPNotificationAgent: hostname=%.120q configFile=%.120q", hostname, configFile)
-	}
+func NewSMTPNotificationAgent(hostname string, configFile string, usernameToEmailFunction func(string) (string, error)) (out0 *Agent, out1 error) {
+	defer logger.Out2(logger.In3("notification/agents/smtpn", "NewSMTPNotificationAgent", "hostname", hostname, "configFile", configFile, "usernameToEmailFunction", usernameToEmailFunction), &out0, &out1)
 	config, err := os.ReadFile(configFile)
 
 	if err != nil {
+		logger.DebugErr("notification/agents/smtpn", err)
 		return nil, errors.New("Unable to load config from file: " + err.Error())
 	}
 
@@ -130,6 +126,7 @@ func NewSMTPNotificationAgent(hostname string, configFile string, usernameToEmai
 	newAgent := Agent{}
 	err = json.Unmarshal(config, &newAgent)
 	if err != nil {
+		logger.DebugErr("notification/agents/smtpn", err)
 		return nil, errors.New("Unable to parse config file for SMTP authentication")
 	}
 
@@ -140,14 +137,13 @@ func NewSMTPNotificationAgent(hostname string, configFile string, usernameToEmai
 }
 
 // Generate an empty config filepath
-func GenerateEmptyConfigFile(configFilepath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/smtpn", "GenerateEmptyConfigFile: configFilepath=%.120q", configFilepath)
-	}
+func GenerateEmptyConfigFile(configFilepath string) (out0 error) {
+	defer logger.Out1(logger.In1("notification/agents/smtpn", "GenerateEmptyConfigFile", "configFilepath", configFilepath), &out0)
 	demoConfig := Agent{}
 	//Stringify the empty struct
 	js, err := json.MarshalIndent(demoConfig, "", " ")
 	if err != nil {
+		logger.DebugErr("notification/agents/smtpn", err)
 		return err
 	}
 
@@ -177,8 +173,8 @@ func (a Agent) IsProducer() bool {
 	return false
 }
 
-func (a Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) error {
-	logger.Debug("notification/agents/smtpn", "Agent.ConsumerNotification")
+func (a Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) (out0 error) {
+	defer logger.Out1(logger.In2("notification/agents/smtpn", "Agent.ConsumerNotification", "&a", &a, "incomingNotification", incomingNotification), &out0)
 	//Get a notification and send it out
 
 	//Analysis the notification, get the target user's email
@@ -219,6 +215,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 			"timestamp": time.Now().Format("2006-01-02 3:04:05 PM"),
 		})
 		if err != nil {
+			logger.DebugErr("notification/agents/smtpn", err)
 			logger.PrintAndLog("Smtpn", "[SMTP] Template load failed: "+err.Error(), nil)
 		}
 
@@ -229,6 +226,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		auth := smtp.PlainAuth("", a.SMTPSender, a.SMTPPassword, a.SMTPDomain)
 		err = smtp.SendMail(a.SMTPDomain+":"+strconv.Itoa(a.SMTPPort), auth, a.SMTPSender, []string{thisEmail}, msg)
 		if err != nil {
+			logger.DebugErr("notification/agents/smtpn", err)
 			logger.PrintAndLog("Smtpn", fmt.Sprint("[SMTPN] Email sent failed: ", err.Error()), nil)
 			return err
 		}
@@ -239,8 +237,8 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 
 // buildSubject prefixes the notification title with its priority (e.g.
 // "[High] Disk failing") when a priority is set on the payload.
-func buildSubject(n *notification.NotificationPayload) string {
-	logger.Debug("notification/agents/smtpn", "buildSubject")
+func buildSubject(n *notification.NotificationPayload) (out0 string) {
+	defer logger.Out1(logger.In1("notification/agents/smtpn", "buildSubject", "n", n), &out0)
 	if n.Priority <= 0 {
 		//No priority set on the payload; use the title as-is.
 		return n.Title

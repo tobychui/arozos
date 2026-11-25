@@ -31,9 +31,7 @@ type cffFont struct {
 }
 
 func cffIndex(b []byte, pos int) ([][]byte, int, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffIndex: len(b)=%d pos=%d", len(b), pos)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffIndex")
 	if pos < 0 || pos > len(b)-2 {
 		return nil, pos, false
 	}
@@ -76,9 +74,7 @@ func cffIndex(b []byte, pos int) ([][]byte, int, bool) {
 // cffDict parses a DICT into operator -> operands (escaped operators are
 // stored as 1200 + op)
 func cffDict(b []byte) map[int][]float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffDict: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffDict")
 	out := map[int][]float64{}
 	var ops []float64
 	for i := 0; i < len(b); {
@@ -188,9 +184,7 @@ func cffDict(b []byte) map[int][]float64 {
 }
 
 func indexByte(b []byte, c byte) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "indexByte: len(b)=%d c=%d", len(b), c)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "indexByte")
 	for i, v := range b {
 		if v == c {
 			return i
@@ -200,9 +194,7 @@ func indexByte(b []byte, c byte) int {
 }
 
 func dictInt(d map[int][]float64, op int, def int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "dictInt: len(d)=%d op=%d def=%d", len(d), op, def)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "dictInt")
 	if v, ok := d[op]; ok && len(v) > 0 {
 		return int(v[len(v)-1])
 	}
@@ -210,9 +202,7 @@ func dictInt(d map[int][]float64, op int, def int) int {
 }
 
 func parseCFF(b []byte) (*cffFont, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "parseCFF: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parseCFF")
 	if len(b) < 4 {
 		return nil, errFont
 	}
@@ -406,9 +396,7 @@ func parseCFF(b []byte) (*cffFont, error) {
 }
 
 func (f *cffFont) sidName(sid int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffFont.sidName: sid=%d", sid)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffFont.sidName")
 	if sid < len(cffStandardStrings) {
 		return cffStandardStrings[sid]
 	}
@@ -420,9 +408,7 @@ func (f *cffFont) sidName(sid int) string {
 }
 
 func (f *cffFont) glyphName(gid int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffFont.glyphName: gid=%d", gid)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffFont.glyphName")
 	if f.isCID || gid < 0 || gid >= len(f.charset) {
 		return ""
 	}
@@ -430,9 +416,7 @@ func (f *cffFont) glyphName(gid int) string {
 }
 
 func (f *cffFont) gidForName(name string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffFont.gidForName: name=%.120q", name)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffFont.gidForName")
 	if f.isCID {
 		return 0
 	}
@@ -449,9 +433,7 @@ func (f *cffFont) gidForName(name string) int {
 }
 
 func (f *cffFont) gidForCID(cid int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffFont.gidForCID: cid=%d", cid)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffFont.gidForCID")
 	if !f.isCID {
 		return cid
 	}
@@ -467,9 +449,7 @@ func (f *cffFont) gidForCID(cid int) int {
 }
 
 func subrBias(n int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "subrBias: n=%d", n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "subrBias")
 	if n < 1240 {
 		return 107
 	}
@@ -481,9 +461,7 @@ func subrBias(n int) int {
 
 // glyphPath runs a Type 2 charstring into a path in glyph units
 func (f *cffFont) glyphPath(gid int) *path {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cffFont.glyphPath: gid=%d", gid)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cffFont.glyphPath")
 	p := &path{}
 	if gid < 0 || gid >= len(f.charStrings) {
 		return p
@@ -516,9 +494,7 @@ type type2Interp struct {
 }
 
 func (t *type2Interp) moveTo(dx, dy float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.moveTo: dx=%g dy=%g", dx, dy)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.moveTo")
 	if t.open {
 		t.p.close()
 	}
@@ -529,9 +505,7 @@ func (t *type2Interp) moveTo(dx, dy float64) {
 }
 
 func (t *type2Interp) lineTo(dx, dy float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.lineTo: dx=%g dy=%g", dx, dy)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.lineTo")
 	if !t.open {
 		t.p.moveTo(t.x, t.y)
 		t.open = true
@@ -542,9 +516,7 @@ func (t *type2Interp) lineTo(dx, dy float64) {
 }
 
 func (t *type2Interp) curveTo(dx1, dy1, dx2, dy2, dx3, dy3 float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.curveTo: dx1=%g dy1=%g dx2=%g dy2=%g dx3=%g dy3=%g", dx1, dy1, dx2, dy2, dx3, dy3)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.curveTo")
 	if !t.open {
 		t.p.moveTo(t.x, t.y)
 		t.open = true
@@ -557,9 +529,7 @@ func (t *type2Interp) curveTo(dx1, dy1, dx2, dy2, dx3, dy3 float64) {
 
 // takeWidth drops the optional width operand of the first stack clearing op
 func (t *type2Interp) takeWidth(even bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.takeWidth: even=%t", even)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.takeWidth")
 	if t.seenW {
 		return
 	}
@@ -570,9 +540,7 @@ func (t *type2Interp) takeWidth(even bool) {
 }
 
 func (t *type2Interp) run(cs []byte, depth int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.run: len(cs)=%d depth=%d", len(cs), depth)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.run")
 	if depth > 10 {
 		return
 	}
@@ -774,9 +742,7 @@ func (t *type2Interp) run(cs []byte, depth int) {
 }
 
 func (t *type2Interp) escape(op int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.escape: op=%d", op)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.escape")
 	s := t.stack
 	pop := func() float64 {
 		if len(t.stack) == 0 {
@@ -871,9 +837,7 @@ func (t *type2Interp) escape(op int) {
 
 // seac draws an accented glyph from two standard encoding codes
 func (t *type2Interp) seac(adx, ady float64, bchar, achar int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type2Interp.seac: adx=%g ady=%g bchar=%d achar=%d", adx, ady, bchar, achar)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type2Interp.seac")
 	if bchar < 0 || bchar > 255 || achar < 0 || achar > 255 {
 		return
 	}
@@ -895,9 +859,7 @@ func (t *type2Interp) seac(adx, ady float64, bchar, achar int) {
 }
 
 func abs64(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "abs64: v=%g", v)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "abs64")
 	if v < 0 {
 		return -v
 	}

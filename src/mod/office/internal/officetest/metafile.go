@@ -17,36 +17,28 @@ var (
 	MfWhite = color.NRGBA{255, 255, 255, 255}
 )
 
-func Le16(v int) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "Le16: v=%d", v)
-	}
+func Le16(v int) (out0 []byte) {
+	defer logger.Out1(logger.In1("office/internal/officetest", "Le16", "v", v), &out0)
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, uint16(int16(v)))
 	return b
 }
 
-func Le32(v int64) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "Le32: v=%d", v)
-	}
+func Le32(v int64) (out0 []byte) {
+	defer logger.Out1(logger.In1("office/internal/officetest", "Le32", "v", v), &out0)
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, uint32(v))
 	return b
 }
 
 func Cat(parts ...[]byte) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officetest", "Cat: len(parts)=%d", len(parts))
-	}
+	logger.DebugTrace("office/internal/officetest", "Cat")
 	return bytes.Join(parts, nil)
 }
 
 // dib24 builds a packed bottom-up 24-bit BITMAPINFOHEADER DIB
-func Dib24(w, h int, px func(x, y int) color.NRGBA) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "Dib24: w=%d h=%d", w, h)
-	}
+func Dib24(w, h int, px func(x, y int) color.NRGBA) (out0 []byte) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "Dib24", "w", w, "h", h, "px", px), &out0)
 	stride := (w*3 + 3) &^ 3
 	hdr := Cat(Le32(40), Le32(int64(w)), Le32(int64(h)), Le16(1), Le16(24), Le32(0),
 		Le32(int64(stride*h)), Le32(0), Le32(0), Le32(0), Le32(0))
@@ -63,9 +55,7 @@ func Dib24(w, h int, px func(x, y int) color.NRGBA) []byte {
 
 // quadrants: red top-left, green top-right, blue bottom-left, white bottom-right
 func Quadrants(w, h int) func(x, y int) color.NRGBA {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officetest", "Quadrants: w=%d h=%d", w, h)
-	}
+	logger.DebugTrace("office/internal/officetest", "Quadrants")
 	return func(x, y int) color.NRGBA {
 		switch {
 		case x < w/2 && y < h/2:
@@ -80,10 +70,8 @@ func Quadrants(w, h int) func(x, y int) color.NRGBA {
 }
 
 // wmfRec builds one WMF record from 16-bit words and a byte tail
-func WmfRec(fn uint16, words []int, tail []byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "WmfRec: fn=%d len(words)=%d len(tail)=%d", fn, len(words), len(tail))
-	}
+func WmfRec(fn uint16, words []int, tail []byte) (out0 []byte) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "WmfRec", "fn", fn, "words", words, "tail", tail), &out0)
 	if len(tail)%2 == 1 {
 		tail = append(tail, 0)
 	}
@@ -104,10 +92,8 @@ func WmfColor(c color.NRGBA) []int {
 
 // buildWmf wraps records in a placeable header (box in logical units,
 // inch units per inch) and the standard header, ending with EOF
-func BuildWmf(box [4]int, inch int, recs ...[]byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "BuildWmf: inch=%d len(recs)=%d", inch, len(recs))
-	}
+func BuildWmf(box [4]int, inch int, recs ...[]byte) (out0 []byte) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "BuildWmf", "&box", &box, "inch", inch, "recs", recs), &out0)
 	var b bytes.Buffer
 	b.Write(Le32(0x9AC6CDD7))
 	b.Write(Le16(0))
@@ -126,10 +112,8 @@ func BuildWmf(box [4]int, inch int, recs ...[]byte) []byte {
 }
 
 // emfRecBytes builds one EMF record from 32-bit values and a byte tail
-func EmfRecBytes(typ int, vals []int64, tail []byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "EmfRecBytes: typ=%d len(vals)=%d len(tail)=%d", typ, len(vals), len(tail))
-	}
+func EmfRecBytes(typ int, vals []int64, tail []byte) (out0 []byte) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "EmfRecBytes", "typ", typ, "vals", vals, "tail", tail), &out0)
 	for len(tail)%4 != 0 {
 		tail = append(tail, 0)
 	}
@@ -145,10 +129,8 @@ func EmfRecBytes(typ int, vals []int64, tail []byte) []byte {
 
 // buildEmf writes a header whose frame is w x h millimetres on a 1 px per
 // 0.1 mm reference device (so a logical unit is 0.1 mm), records and EOF
-func BuildEmf(wMM, hMM int, recs ...[]byte) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("office/internal/officetest", "BuildEmf: wMM=%d hMM=%d len(recs)=%d", wMM, hMM, len(recs))
-	}
+func BuildEmf(wMM, hMM int, recs ...[]byte) (out0 []byte) {
+	defer logger.Out1(logger.In3("office/internal/officetest", "BuildEmf", "wMM", wMM, "hMM", hMM, "recs", recs), &out0)
 	devW, devH := wMM*10, hMM*10
 	hdr := Cat(Le32(1), Le32(88),
 		Le32(0), Le32(0), Le32(int64(devW-1)), Le32(int64(devH-1)),
@@ -172,9 +154,7 @@ func EmfColor(c color.NRGBA) int64 {
 
 // emfSolidBrush creates brush ih and selects it, with a null pen
 func EmfSolidBrush(ih int64, c color.NRGBA) [][]byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officetest", "EmfSolidBrush: ih=%d", ih)
-	}
+	logger.DebugTrace("office/internal/officetest", "EmfSolidBrush")
 	return [][]byte{
 		EmfRecBytes(39, []int64{ih, 0, EmfColor(c), 0}, nil),
 		EmfRecBytes(37, []int64{ih}, nil),

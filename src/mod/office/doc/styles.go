@@ -77,9 +77,7 @@ var stiNames = map[int]string{
 
 // parseStyles reads the STSH
 func parseStyles(b []byte) *styleSheet {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "parseStyles: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/doc", "parseStyles")
 	le := binary.LittleEndian
 	ss := &styleSheet{byID: map[string]bool{}}
 	if len(b) < 2 {
@@ -115,9 +113,7 @@ func parseStyles(b []byte) *styleSheet {
 }
 
 func parseStd(std []byte, cbBase, istd int) *style {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "parseStd: len(std)=%d cbBase=%d istd=%d", len(std), cbBase, istd)
-	}
+	logger.DebugTrace("office/doc", "parseStd")
 	le := binary.LittleEndian
 	if len(std) < 10 || cbBase < 10 || cbBase > len(std) {
 		return nil
@@ -201,9 +197,7 @@ func (ss *styleSheet) assignIDs() {
 }
 
 func styleIDFor(name string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "styleIDFor: name=%.120q", name)
-	}
+	logger.DebugTrace("office/doc", "styleIDFor")
 	var sb strings.Builder
 	upper := true
 	for _, r := range name {
@@ -222,9 +216,7 @@ func styleIDFor(name string) string {
 }
 
 func (ss *styleSheet) get(istd int) *style {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "styleSheet.get: istd=%d", istd)
-	}
+	logger.DebugTrace("office/doc", "styleSheet.get")
 	if istd < 0 || istd >= len(ss.styles) {
 		return nil
 	}
@@ -233,9 +225,7 @@ func (ss *styleSheet) get(istd int) *style {
 
 // chain lists a style and its bases, the style itself first
 func (ss *styleSheet) chain(istd int) []*style {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "styleSheet.chain: istd=%d", istd)
-	}
+	logger.DebugTrace("office/doc", "styleSheet.chain")
 	var out []*style
 	seen := map[int]bool{}
 	for st := ss.get(istd); st != nil && !seen[st.istd] && len(out) < 32; st = ss.get(st.base) {
@@ -248,9 +238,7 @@ func (ss *styleSheet) chain(istd int) []*style {
 // toggles resolves the toggle properties a paragraph style plus a
 // character style give a run (what a "flip" in direct formatting flips)
 func (ss *styleSheet) toggles(paraIstd, charIstd int) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "styleSheet.toggles: paraIstd=%d charIstd=%d", paraIstd, charIstd)
-	}
+	logger.DebugTrace("office/doc", "styleSheet.toggles")
 	var val uint32
 	apply := func(chain []*style) {
 		for i := len(chain) - 1; i >= 0; i-- {
@@ -278,9 +266,7 @@ type font struct {
 
 // parseFonts reads the SttbfFfn
 func parseFonts(b []byte) []font {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "parseFonts: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/doc", "parseFonts")
 	le := binary.LittleEndian
 	if len(b) < 4 {
 		return nil

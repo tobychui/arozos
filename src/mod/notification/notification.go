@@ -60,8 +60,8 @@ type NotificationQueue struct {
 	MasterQueue *list.List
 }
 
-func NewNotificationQueue() *NotificationQueue {
-	logger.Debug("notification", "NewNotificationQueue")
+func NewNotificationQueue() (out0 *NotificationQueue) {
+	defer logger.Out1(logger.In0("notification", "NewNotificationQueue"), &out0)
 	thisQueue := list.New()
 
 	return &NotificationQueue{
@@ -78,10 +78,8 @@ func (q *NotificationQueue) RegisterNotificationAgent(agent Agent) {
 
 // GetAgentByName returns the registered agent with the given name, or nil if
 // no such agent is registered.
-func (q *NotificationQueue) GetAgentByName(name string) Agent {
-	if logger.IsDebug() {
-		logger.Debugf("notification", "NotificationQueue.GetAgentByName: name=%.120q", name)
-	}
+func (q *NotificationQueue) GetAgentByName(name string) (out0 Agent) {
+	defer logger.Out1(logger.In2("notification", "NotificationQueue.GetAgentByName", "q", q, "name", name), &out0)
 	for _, agent := range q.Agents {
 		if (*agent).Name() == name {
 			return *agent
@@ -92,8 +90,8 @@ func (q *NotificationQueue) GetAgentByName(name string) Agent {
 
 // ListConsumerAgentNames returns the names of all registered agents that can
 // consume (deliver) notifications.
-func (q *NotificationQueue) ListConsumerAgentNames() []string {
-	logger.Debug("notification", "NotificationQueue.ListConsumerAgentNames")
+func (q *NotificationQueue) ListConsumerAgentNames() (out0 []string) {
+	defer logger.Out1(logger.In1("notification", "NotificationQueue.ListConsumerAgentNames", "q", q), &out0)
 	names := []string{}
 	for _, agent := range q.Agents {
 		if (*agent).IsConsumer() {
@@ -103,8 +101,8 @@ func (q *NotificationQueue) ListConsumerAgentNames() []string {
 	return names
 }
 
-func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) error {
-	logger.Debug("notification", "NotificationQueue.BroadcastNotification")
+func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) (out0 error) {
+	defer logger.Out1(logger.In2("notification", "NotificationQueue.BroadcastNotification", "q", q, "message", message), &out0)
 	//Send notification to consumer agents
 	for _, agent := range q.Agents {
 		thisAgent := *agent
@@ -125,6 +123,7 @@ func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) 
 		//Send this notification via this agent
 		err := thisAgent.ConsumerNotification(message)
 		if err != nil {
+			logger.DebugErr("notification", err)
 			logger.PrintAndLog("Notification", "[Notification] Unable to send message via notification agent: "+thisAgent.Name(), nil)
 		}
 
@@ -137,10 +136,8 @@ func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) 
 // PriorityFromString converts a human readable priority string (low / medium /
 // high, case-insensitive) into one of the Priority* constants. Any unknown
 // value falls back to PriorityMedium.
-func PriorityFromString(priority string) int {
-	if logger.IsDebug() {
-		logger.Debugf("notification", "PriorityFromString: priority=%.120q", priority)
-	}
+func PriorityFromString(priority string) (out0 int) {
+	defer logger.Out1(logger.In1("notification", "PriorityFromString", "priority", priority), &out0)
 	switch strings.ToLower(strings.TrimSpace(priority)) {
 	case "low":
 		return PriorityLow
@@ -155,10 +152,8 @@ func PriorityFromString(priority string) int {
 
 // PriorityToString converts a Priority* constant back into its human readable
 // form. Any unknown value is reported as "medium".
-func PriorityToString(priority int) string {
-	if logger.IsDebug() {
-		logger.Debugf("notification", "PriorityToString: priority=%d", priority)
-	}
+func PriorityToString(priority int) (out0 string) {
+	defer logger.Out1(logger.In1("notification", "PriorityToString", "priority", priority), &out0)
 	switch priority {
 	case PriorityLow:
 		return "low"
@@ -171,10 +166,8 @@ func PriorityToString(priority int) string {
 
 // NormalizePriority clamps an arbitrary integer into a valid Priority* value,
 // treating the zero value (unset) as PriorityMedium.
-func NormalizePriority(priority int) int {
-	if logger.IsDebug() {
-		logger.Debugf("notification", "NormalizePriority: priority=%d", priority)
-	}
+func NormalizePriority(priority int) (out0 int) {
+	defer logger.Out1(logger.In1("notification", "NormalizePriority", "priority", priority), &out0)
 	if priority < PriorityLow {
 		return PriorityMedium
 	}

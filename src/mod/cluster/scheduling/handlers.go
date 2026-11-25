@@ -14,31 +14,28 @@ import (
 )
 
 func sendJSON(w http.ResponseWriter, v interface{}) {
-	logger.Debug("cluster/scheduling", "sendJSON")
+	defer logger.Out0(logger.In1("cluster/scheduling", "sendJSON", "v", v))
 	js, _ := json.Marshal(v)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // HandleStatus returns the weights and a per-node score preview.
 func (s *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/scheduling", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("cluster/scheduling", "Manager.HandleStatus")
 	sendJSON(w, s.Status())
 }
 
 // HandleWeights reads (GET) or updates (POST) the weights. POST accepts any
 // subset of the fields; missing ones keep their current value.
 func (s *Manager) HandleWeights(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/scheduling", "Manager.HandleWeights: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/scheduling", "Manager.HandleWeights", "s", s, "r", r))
 	if r.Method != http.MethodPost {
 		sendJSON(w, s.Weights())
 		return
 	}
 	if reset, _ := utils.PostBool(r, "reset"); reset {
 		if err := s.ResetWeights(); err != nil {
+			logger.DebugErr("cluster/scheduling", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -54,6 +51,7 @@ func (s *Manager) HandleWeights(w http.ResponseWriter, r *http.Request) {
 		if raw := r.PostFormValue(name); raw != "" {
 			v, err := strconv.ParseFloat(raw, 64)
 			if err != nil {
+				logger.DebugErr("cluster/scheduling", err)
 				utils.SendErrorResponse(w, "weight "+name+" must be a number")
 				return
 			}
@@ -61,6 +59,7 @@ func (s *Manager) HandleWeights(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := s.SetWeights(cur); err != nil {
+		logger.DebugErr("cluster/scheduling", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -75,13 +74,14 @@ type Explainer func(r *http.Request) (interface{}, error)
 // /system/cluster/sched/explain and is provided by the core because it needs
 // the job records.
 func (s *Manager) RegisterAdminRoutes(register func(pattern string, handler func(http.ResponseWriter, *http.Request)), explain Explainer) {
-	logger.Debug("cluster/scheduling", "Manager.RegisterAdminRoutes")
+	defer logger.Out0(logger.In3("cluster/scheduling", "Manager.RegisterAdminRoutes", "s", s, "register", register, "!&explain", &explain))
 	register("/system/cluster/sched/status", s.HandleStatus)
 	register("/system/cluster/sched/weights", s.HandleWeights)
 	if explain != nil {
 		register("/system/cluster/sched/explain", func(w http.ResponseWriter, r *http.Request) {
 			out, err := explain(r)
 			if err != nil {
+				logger.DebugErr("cluster/scheduling", err)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}

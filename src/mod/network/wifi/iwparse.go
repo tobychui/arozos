@@ -45,10 +45,8 @@ type iwlistCell struct {
 }
 
 // parseIwlistScan parses the output of "iwlist <interface> scan"
-func parseIwlistScan(out string) []WiFiInfo {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseIwlistScan: out=%.120q", out)
-	}
+func parseIwlistScan(out string) (out0 []WiFiInfo) {
+	defer logger.Out1(logger.In1("network/wifi", "parseIwlistScan", "out", out), &out0)
 	results := []WiFiInfo{}
 	var cur *iwlistCell
 	flush := func() {
@@ -162,9 +160,7 @@ func parseIwlistScan(out string) []WiFiInfo {
 }
 
 func (c *iwlistCell) addRates(line string) {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "iwlistCell.addRates: line=%.120q", line)
-	}
+	defer logger.Out0(logger.In2("network/wifi", "iwlistCell.addRates", "c", c, "line", line))
 	for _, m := range reIwRate.FindAllStringSubmatch(line, -1) {
 		if v, err := strconv.ParseFloat(m[1], 64); err == nil && v > 0 {
 			c.rates = append(c.rates, uint16(v*2))
@@ -173,8 +169,8 @@ func (c *iwlistCell) addRates(line string) {
 }
 
 // finish combines the decoded fields with what the raw IEs reveal
-func (c *iwlistCell) finish() WiFiInfo {
-	logger.Debug("network/wifi", "iwlistCell.finish")
+func (c *iwlistCell) finish() (out0 WiFiInfo) {
+	defer logger.Out1(logger.In1("network/wifi", "iwlistCell.finish", "c", c), &out0)
 	info := c.info
 	el := parseIEs(c.rawIEs)
 	if c.hasRSN {
@@ -229,10 +225,8 @@ func (c *iwlistCell) finish() WiFiInfo {
 
 // parseIwSuiteList reads the names after the colon of an iwlist
 // "Pairwise Ciphers (n) : ..." or "Authentication Suites (n) : ..." line
-func parseIwSuiteList(line string, names map[string]uint32) []uint32 {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseIwSuiteList: line=%.120q len(names)=%d", line, len(names))
-	}
+func parseIwSuiteList(line string, names map[string]uint32) (out0 []uint32) {
+	defer logger.Out1(logger.In2("network/wifi", "parseIwSuiteList", "line", line, "names", names), &out0)
 	i := strings.Index(line, ":")
 	if i < 0 {
 		return nil
@@ -254,10 +248,8 @@ func parseIwSuiteList(line string, names map[string]uint32) []uint32 {
 }
 
 // unescapeIwString decodes the \xNN escapes iw / iwlist use for SSID bytes
-func unescapeIwString(s string) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "unescapeIwString: s=%.120q", s)
-	}
+func unescapeIwString(s string) (out0 []byte) {
+	defer logger.Out1(logger.In1("network/wifi", "unescapeIwString", "s", s), &out0)
 	out := []byte{}
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\\' && i+3 < len(s) && s[i+1] == 'x' {
@@ -273,10 +265,8 @@ func unescapeIwString(s string) []byte {
 }
 
 // parseFrequencyMHz reads "2.412 GHz", "5180 MHz", "5180" or "5180.0"
-func parseFrequencyMHz(s string) int {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseFrequencyMHz: s=%.120q", s)
-	}
+func parseFrequencyMHz(s string) (out0 int) {
+	defer logger.Out1(logger.In1("network/wifi", "parseFrequencyMHz", "s", s), &out0)
 	fields := strings.Fields(strings.TrimSpace(s))
 	if len(fields) == 0 {
 		return 0
@@ -307,10 +297,8 @@ type iwLinkInfo struct {
 }
 
 // parseIwLink parses the output of "iw dev <interface> link"
-func parseIwLink(out string) iwLinkInfo {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseIwLink: out=%.120q", out)
-	}
+func parseIwLink(out string) (out0 iwLinkInfo) {
+	defer logger.Out1(logger.In1("network/wifi", "parseIwLink", "out", out), &out0)
 	link := iwLinkInfo{}
 	for _, raw := range strings.Split(out, "\n") {
 		line := strings.TrimSpace(raw)
@@ -359,10 +347,8 @@ func parseIwLink(out string) iwLinkInfo {
 }
 
 // phyOfBitrate maps the MCS type in an iw bitrate line to the 802.11 amendment
-func phyOfBitrate(s string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "phyOfBitrate: s=%.120q", s)
-	}
+func phyOfBitrate(s string) (out0 string) {
+	defer logger.Out1(logger.In1("network/wifi", "phyOfBitrate", "s", s), &out0)
 	switch {
 	case strings.Contains(s, "EHT-MCS"):
 		return "802.11be"
@@ -378,10 +364,8 @@ func phyOfBitrate(s string) string {
 
 // parseProcRoute returns the default gateways of an interface from the
 // content of /proc/net/route
-func parseProcRoute(content string, iface string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("network/wifi", "parseProcRoute: iface=%.120q", iface)
-	}
+func parseProcRoute(content string, iface string) (out0 []string) {
+	defer logger.Out1(logger.In2("network/wifi", "parseProcRoute", "content", content, "iface", iface), &out0)
 	gateways := []string{}
 	for _, line := range strings.Split(content, "\n") {
 		f := strings.Fields(line)
@@ -403,7 +387,7 @@ func parseProcRoute(content string, iface string) []string {
 // normalizeWiFiInfo fills the numeric fields of a scan result from the
 // string fields when the platform parser did not set them
 func normalizeWiFiInfo(info *WiFiInfo) {
-	logger.Debug("network/wifi", "normalizeWiFiInfo")
+	defer logger.Out0(logger.In1("network/wifi", "normalizeWiFiInfo", "info", info))
 	if info.SignalDBm == 0 {
 		if m := reLeadingInt.FindStringSubmatch(info.SignalLevel); m != nil && strings.Contains(info.SignalLevel, "dBm") {
 			info.SignalDBm, _ = strconv.Atoi(m[1])

@@ -23,9 +23,7 @@ type type1Font struct {
 }
 
 func decryptType1(data []byte, r uint16, skip int) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "decryptType1: r=%d skip=%d", r, skip)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "decryptType1")
 	const c1, c2 = 52845, 22719
 	out := make([]byte, len(data))
 	for i, c := range data {
@@ -39,16 +37,12 @@ func decryptType1(data []byte, r uint16, skip int) []byte {
 }
 
 func isHexByte(c byte) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "isHexByte: c=%d", c)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "isHexByte")
 	return unhex(c) >= 0
 }
 
 func parseType1(data []byte, len1 int) (*type1Font, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "parseType1: len1=%d", len1)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "parseType1")
 	//PFB segments: 0x80 type length
 	if len(data) > 6 && data[0] == 0x80 {
 		var clear, enc []byte
@@ -97,9 +91,7 @@ func parseType1(data []byte, len1 int) (*type1Font, error) {
 }
 
 func (f *type1Font) parseClear(b []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Font.parseClear: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Font.parseClear")
 	if i := bytes.Index(b, []byte("/FontMatrix")); i >= 0 {
 		p := newParser(b[i+11:])
 		if obj, err := p.parseObject(0); err == nil {
@@ -157,9 +149,7 @@ func (f *type1Font) parseClear(b []byte) {
 
 // readBinaryAfter takes the n data bytes of "<n> RD <bytes>" after the RD
 func readBinaryAfter(b []byte, pos int, n int) ([]byte, int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "readBinaryAfter: len(b)=%d pos=%d n=%d", len(b), pos, n)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "readBinaryAfter")
 	//pos points just after the RD token; one space separates the data
 	pos++
 	if n < 0 || pos > len(b) || n > len(b)-pos {
@@ -169,9 +159,7 @@ func readBinaryAfter(b []byte, pos int, n int) ([]byte, int) {
 }
 
 func (f *type1Font) parsePrivate(b []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Font.parsePrivate: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Font.parsePrivate")
 	lenIV := 4
 	if i := bytes.Index(b, []byte("/lenIV")); i >= 0 {
 		l := &lexer{buf: b[i+6:]}
@@ -256,9 +244,7 @@ func (f *type1Font) parsePrivate(b []byte) {
 }
 
 func (f *type1Font) glyphPath(name string) *path {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Font.glyphPath: name=%.120q", name)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Font.glyphPath")
 	p := &path{}
 	cs, ok := f.charStrings[name]
 	if !ok {
@@ -289,9 +275,7 @@ type type1Interp struct {
 }
 
 func (t *type1Interp) moveTo(x, y float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Interp.moveTo: x=%g y=%g", x, y)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Interp.moveTo")
 	if t.flex {
 		t.flexPts = append(t.flexPts, point{x, y})
 		t.x, t.y = x, y
@@ -306,9 +290,7 @@ func (t *type1Interp) moveTo(x, y float64) {
 }
 
 func (t *type1Interp) lineTo(x, y float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Interp.lineTo: x=%g y=%g", x, y)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Interp.lineTo")
 	if !t.open {
 		t.p.moveTo(t.x+t.dx, t.y+t.dy)
 		t.open = true
@@ -318,9 +300,7 @@ func (t *type1Interp) lineTo(x, y float64) {
 }
 
 func (t *type1Interp) curveTo(x1, y1, x2, y2, x3, y3 float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Interp.curveTo: x1=%g y1=%g x2=%g y2=%g x3=%g y3=%g", x1, y1, x2, y2, x3, y3)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Interp.curveTo")
 	if !t.open {
 		t.p.moveTo(t.x+t.dx, t.y+t.dy)
 		t.open = true
@@ -330,9 +310,7 @@ func (t *type1Interp) curveTo(x1, y1, x2, y2, x3, y3 float64) {
 }
 
 func (t *type1Interp) run(cs []byte, depth int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Interp.run: len(cs)=%d depth=%d", len(cs), depth)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Interp.run")
 	if depth > 10 {
 		return
 	}
@@ -459,9 +437,7 @@ func (t *type1Interp) run(cs []byte, depth int) {
 }
 
 func (t *type1Interp) escape(op int, s []float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "type1Interp.escape: op=%d len(s)=%d", op, len(s))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "type1Interp.escape")
 	arg := func(k int) float64 {
 		if k < len(s) {
 			return s[k]

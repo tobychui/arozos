@@ -41,8 +41,8 @@ var exifLayouts = []string{
 
 // exifTime reads an EXIF date. EXIF dates carry no time zone: they are the
 // time on the camera, which is what the folders should follow.
-func exifTime(text string) (time.Time, bool) {
-	logger.Debug("fileservers/servers/syncserv", "exifTime")
+func exifTime(text string) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In1("fileservers/servers/syncserv", "exifTime", "text", text), &out0, &out1)
 	text = strings.TrimSpace(strings.TrimRight(text, "\x00 "))
 	if text == "" || strings.HasPrefix(text, "0000") {
 		return time.Time{}, false
@@ -56,15 +56,14 @@ func exifTime(text string) (time.Time, bool) {
 }
 
 // MediaDate reads when a photo or video was taken from its metadata.
-func MediaDate(r io.ReaderAt, size int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "MediaDate: size=%d", size)
-	}
+func MediaDate(r io.ReaderAt, size int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncserv", "MediaDate", "r", r, "size", size), &out0, &out1)
 	var head [12]byte
 	if size < int64(len(head)) {
 		return time.Time{}, false
 	}
 	if _, err := r.ReadAt(head[:], 0); err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return time.Time{}, false
 	}
 	switch {
@@ -84,10 +83,8 @@ func MediaDate(r io.ReaderAt, size int64) (time.Time, bool) {
 	JPEG
 */
 
-func jpegDate(r io.ReaderAt, size int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "jpegDate: size=%d", size)
-	}
+func jpegDate(r io.ReaderAt, size int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncserv", "jpegDate", "r", r, "size", size), &out0, &out1)
 	off := int64(2)
 	for i := 0; i < maxBoxes && off <= size-4; i++ {
 		var hdr [4]byte
@@ -137,15 +134,14 @@ type tiffRegion struct {
 	order      binary.ByteOrder
 }
 
-func (t *tiffRegion) read(off int64, n int) ([]byte, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "tiffRegion.read: off=%d n=%d", off, n)
-	}
+func (t *tiffRegion) read(off int64, n int) (out0 []byte, out1 bool) {
+	defer logger.Out2(logger.In3("fileservers/servers/syncserv", "tiffRegion.read", "t", t, "off", off, "n", n), &out0, &out1)
 	if off < 0 || n < 0 || off > t.end-t.start-int64(n) {
 		return nil, false
 	}
 	buf := make([]byte, n)
 	if _, err := t.r.ReadAt(buf, t.start+off); err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return nil, false
 	}
 	return buf, true
@@ -153,9 +149,7 @@ func (t *tiffRegion) read(off int64, n int) ([]byte, bool) {
 
 // entries calls fn for every entry of the IFD at off.
 func (t *tiffRegion) entries(off int64, fn func(tag, typ uint16, count uint32, value []byte)) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "tiffRegion.entries: off=%d", off)
-	}
+	defer logger.Out0(logger.In3("fileservers/servers/syncserv", "tiffRegion.entries", "t", t, "off", off, "fn", fn))
 	head, ok := t.read(off, 2)
 	if !ok {
 		return
@@ -175,10 +169,8 @@ func (t *tiffRegion) entries(off int64, fn func(tag, typ uint16, count uint32, v
 }
 
 // ascii reads an ASCII entry short enough to be a date.
-func (t *tiffRegion) ascii(typ uint16, count uint32, value []byte) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "tiffRegion.ascii: typ=%d count=%d len(value)=%d", typ, count, len(value))
-	}
+func (t *tiffRegion) ascii(typ uint16, count uint32, value []byte) (out0 string) {
+	defer logger.Out1(logger.In4("fileservers/servers/syncserv", "tiffRegion.ascii", "t", t, "typ", typ, "count", count, "value", value), &out0)
 	if typ != 2 || count == 0 || count > 64 {
 		return ""
 	}
@@ -192,10 +184,8 @@ func (t *tiffRegion) ascii(typ uint16, count uint32, value []byte) string {
 	return string(b)
 }
 
-func tiffDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "tiffDate: start=%d end=%d", start, end)
-	}
+func tiffDate(r io.ReaderAt, start, end int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In3("fileservers/servers/syncserv", "tiffDate", "r", r, "start", start, "end", end), &out0, &out1)
 	if start < 0 || end-start < 8 {
 		return time.Time{}, false
 	}
@@ -253,8 +243,8 @@ func tiffDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
 
 var xmpDatePattern = regexp.MustCompile(`(?:exif:DateTimeOriginal|photoshop:DateCreated|xmp:CreateDate)\s*(?:=\s*["']|>)\s*([0-9][0-9T:.+\- Z]{9,34})`)
 
-func xmpDate(text []byte) (time.Time, bool) {
-	logger.Debug("fileservers/servers/syncserv", "xmpDate")
+func xmpDate(text []byte) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In1("fileservers/servers/syncserv", "xmpDate", "text", text), &out0, &out1)
 	m := xmpDatePattern.FindSubmatch(text)
 	if m == nil {
 		return time.Time{}, false
@@ -262,14 +252,13 @@ func xmpDate(text []byte) (time.Time, bool) {
 	return ParseDate(strings.TrimSpace(string(m[1])))
 }
 
-func pngDate(r io.ReaderAt, size int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "pngDate: size=%d", size)
-	}
+func pngDate(r io.ReaderAt, size int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncserv", "pngDate", "r", r, "size", size), &out0, &out1)
 	off := int64(8)
 	for i := 0; i < 4096 && off <= size-12; i++ {
 		var hdr [8]byte
 		if _, err := r.ReadAt(hdr[:], off); err != nil {
+			logger.DebugErr("fileservers/servers/syncserv", err)
 			break
 		}
 		length := int64(binary.BigEndian.Uint32(hdr[:4]))
@@ -302,10 +291,8 @@ func pngDate(r io.ReaderAt, size int64) (time.Time, bool) {
 	ISO base media files: HEIF, HEIC, AVIF, MP4, MOV
 */
 
-func isoBoxType(typ string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "isoBoxType: typ=%.120q", typ)
-	}
+func isoBoxType(typ string) (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncserv", "isoBoxType", "typ", typ), &out0)
 	switch typ {
 	case "ftyp", "moov", "mdat", "wide", "free", "skip", "meta", "pnot", "uuid":
 		return true
@@ -319,15 +306,14 @@ type isoBox struct {
 }
 
 // readBox reads the header of the box at off, which must end by limit.
-func readBox(r io.ReaderAt, off, limit int64) (isoBox, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "readBox: off=%d limit=%d", off, limit)
-	}
+func readBox(r io.ReaderAt, off, limit int64) (out0 isoBox, out1 bool) {
+	defer logger.Out2(logger.In3("fileservers/servers/syncserv", "readBox", "r", r, "off", off, "limit", limit), &out0, &out1)
 	if off < 0 || off > limit-8 {
 		return isoBox{}, false
 	}
 	var h [16]byte
 	if _, err := r.ReadAt(h[:8], off); err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return isoBox{}, false
 	}
 	size := uint64(binary.BigEndian.Uint32(h[:4]))
@@ -338,6 +324,7 @@ func readBox(r io.ReaderAt, off, limit int64) (isoBox, bool) {
 			return isoBox{}, false
 		}
 		if _, err := r.ReadAt(h[8:16], off+8); err != nil {
+			logger.DebugErr("fileservers/servers/syncserv", err)
 			return isoBox{}, false
 		}
 		size = binary.BigEndian.Uint64(h[8:16])
@@ -351,10 +338,8 @@ func readBox(r io.ReaderAt, off, limit int64) (isoBox, bool) {
 	return isoBox{typ: string(h[4:8]), head: off, body: off + headLen, end: off + int64(size)}, true
 }
 
-func isoDate(r io.ReaderAt, size int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "isoDate: size=%d", size)
-	}
+func isoDate(r io.ReaderAt, size int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncserv", "isoDate", "r", r, "size", size), &out0, &out1)
 	var meta, moov *isoBox
 	off := int64(0)
 	for i := 0; i < maxBoxes && off < size; i++ {
@@ -392,10 +377,8 @@ type cursor struct {
 	bad bool
 }
 
-func (c *cursor) uint(n int) uint64 {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "cursor.uint: n=%d", n)
-	}
+func (c *cursor) uint(n int) (out0 uint64) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncserv", "cursor.uint", "c", c, "n", n), &out0)
 	if c.bad || n < 0 || n > 8 || len(c.b)-c.p < n {
 		c.bad = true
 		return 0
@@ -410,9 +393,7 @@ func (c *cursor) uint(n int) uint64 {
 
 // children calls fn with the type and body of every box in buf.
 func children(buf []byte, fn func(typ string, body []byte, bodyOff int)) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "children: len(buf)=%d", len(buf))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/syncserv", "children", "buf", buf, "fn", fn))
 	p := 0
 	for i := 0; i < maxBoxes && len(buf)-p >= 8; i++ {
 		size := uint64(binary.BigEndian.Uint32(buf[p:]))
@@ -436,18 +417,14 @@ func children(buf []byte, fn func(typ string, body []byte, bodyOff int)) {
 	}
 }
 
-func validFieldSize(n int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncserv", "validFieldSize: n=%d", n)
-	}
+func validFieldSize(n int) (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncserv", "validFieldSize", "n", n), &out0)
 	return n == 0 || n == 4 || n == 8
 }
 
 // heifDate finds the Exif item of a HEIF file and reads its date.
-func heifDate(r io.ReaderAt, meta isoBox, size int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "heifDate: size=%d", size)
-	}
+func heifDate(r io.ReaderAt, meta isoBox, size int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In3("fileservers/servers/syncserv", "heifDate", "r", r, "&meta", &meta, "size", size), &out0, &out1)
 	//meta is a full box: version and flags come first
 	bodyLen := meta.end - meta.body - 4
 	if bodyLen <= 0 || bodyLen > maxMetaBox {
@@ -455,6 +432,7 @@ func heifDate(r io.ReaderAt, meta isoBox, size int64) (time.Time, bool) {
 	}
 	buf := make([]byte, bodyLen)
 	if _, err := r.ReadAt(buf, meta.body+4); err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return time.Time{}, false
 	}
 
@@ -594,15 +572,14 @@ func heifDate(r io.ReaderAt, meta isoBox, size int64) (time.Time, bool) {
 
 // exifItemDate reads a HEIF Exif item: the offset of the TIFF header, then
 // usually "Exif\0\0", then the TIFF structure.
-func exifItemDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "exifItemDate: start=%d end=%d", start, end)
-	}
+func exifItemDate(r io.ReaderAt, start, end int64) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In3("fileservers/servers/syncserv", "exifItemDate", "r", r, "start", start, "end", end), &out0, &out1)
 	if end-start < 4+8 {
 		return time.Time{}, false
 	}
 	var head [4]byte
 	if _, err := r.ReadAt(head[:], start); err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return time.Time{}, false
 	}
 	skip := int64(binary.BigEndian.Uint32(head[:]))
@@ -616,8 +593,8 @@ func exifItemDate(r io.ReaderAt, start, end int64) (time.Time, bool) {
 const quicktimeEpoch = -2082844800
 
 // mvhdDate reads the creation time of the movie header, which is UTC.
-func mvhdDate(r io.ReaderAt, moov isoBox) (time.Time, bool) {
-	logger.Debug("fileservers/servers/syncserv", "mvhdDate")
+func mvhdDate(r io.ReaderAt, moov isoBox) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncserv", "mvhdDate", "r", r, "&moov", &moov), &out0, &out1)
 	off := moov.body
 	for i := 0; i < maxBoxes && off < moov.end; i++ {
 		b, ok := readBox(r, off, moov.end)
@@ -634,6 +611,7 @@ func mvhdDate(r io.ReaderAt, moov isoBox) (time.Time, bool) {
 				return time.Time{}, false
 			}
 			if _, err := r.ReadAt(buf[:n], b.body); err != nil {
+				logger.DebugErr("fileservers/servers/syncserv", err)
 				return time.Time{}, false
 			}
 			var secs uint64

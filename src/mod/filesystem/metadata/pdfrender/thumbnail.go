@@ -22,16 +22,16 @@ var thumbBackground = color.RGBA{0xe6, 0xe6, 0xe6, 0xff}
 //
 // A render that ran out of time still returns what it drew, together with
 // ErrTimeout.
-func Thumbnail(r io.ReaderAt, size int64, side int, timeout time.Duration) (*image.RGBA, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata/pdfrender", "Thumbnail: size=%d side=%d", size, side)
-	}
+func Thumbnail(r io.ReaderAt, size int64, side int, timeout time.Duration) (out0 *image.RGBA, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata/pdfrender", "Thumbnail", "r", r, "size", size, "side", side, "&timeout", &timeout), &out0, &out1)
 	doc, err := Open(r, size)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	pg, err := doc.Page(0)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata/pdfrender", err)
 		return nil, err
 	}
 	pw, ph := pg.Size()

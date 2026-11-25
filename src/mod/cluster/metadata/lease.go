@@ -26,8 +26,8 @@ func eligibleState(s membership.NodeState) bool {
 }
 
 // candidate returns the member that should hold the lease.
-func (mgr *Manager) candidate() string {
-	logger.Debug("cluster/metadata", "Manager.candidate")
+func (mgr *Manager) candidate() (out0 string) {
+	defer logger.Out1(logger.In1("cluster/metadata", "Manager.candidate", "mgr", mgr), &out0)
 	var best *membership.NodeView
 	for _, n := range mgr.m.NodeViews() {
 		if !eligibleState(n.State) {
@@ -44,10 +44,8 @@ func (mgr *Manager) candidate() string {
 	return best.ID
 }
 
-func (mgr *Manager) eligible(nodeID string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.eligible: nodeID=%.120q", nodeID)
-	}
+func (mgr *Manager) eligible(nodeID string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/metadata", "Manager.eligible", "mgr", mgr, "nodeID", nodeID), &out0)
 	if nodeID == "" {
 		return false
 	}
@@ -60,8 +58,8 @@ func (mgr *Manager) eligible(nodeID string) bool {
 }
 
 // IsLeader reports whether this node holds a live lease.
-func (mgr *Manager) IsLeader() bool {
-	logger.Debug("cluster/metadata", "Manager.IsLeader")
+func (mgr *Manager) IsLeader() (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/metadata", "Manager.IsLeader", "mgr", mgr), &out0)
 	if !mgr.m.InCluster() {
 		return false
 	}
@@ -70,8 +68,8 @@ func (mgr *Manager) IsLeader() bool {
 }
 
 // Leader returns the current lease holder, or "" when there is none.
-func (mgr *Manager) Leader() string {
-	logger.Debug("cluster/metadata", "Manager.Leader")
+func (mgr *Manager) Leader() (out0 string) {
+	defer logger.Out1(logger.In1("cluster/metadata", "Manager.Leader", "mgr", mgr), &out0)
 	if !mgr.m.InCluster() {
 		return ""
 	}
@@ -83,7 +81,7 @@ func (mgr *Manager) Leader() string {
 }
 
 func (mgr *Manager) leaseLoop() {
-	logger.Debug("cluster/metadata", "Manager.leaseLoop")
+	defer logger.Out0(logger.In1("cluster/metadata", "Manager.leaseLoop", "mgr", mgr))
 	defer mgr.wg.Done()
 	ticker := time.NewTicker(mgr.opt.LeaseTick)
 	defer ticker.Stop()
@@ -99,7 +97,7 @@ func (mgr *Manager) leaseLoop() {
 
 // leaseTick is one round of the election / renewal algorithm.
 func (mgr *Manager) leaseTick() {
-	logger.Debug("cluster/metadata", "Manager.leaseTick")
+	defer logger.Out0(logger.In1("cluster/metadata", "Manager.leaseTick", "mgr", mgr))
 	if !mgr.m.InCluster() {
 		return
 	}
@@ -137,7 +135,7 @@ func (mgr *Manager) leaseTick() {
 // pushLease tells every peer about the lease; a peer with a higher term
 // makes us step down.
 func (mgr *Manager) pushLease(l Lease) {
-	logger.Debug("cluster/metadata", "Manager.pushLease")
+	defer logger.Out0(logger.In2("cluster/metadata", "Manager.pushLease", "mgr", mgr, "&l", &l))
 	req := LeaseRequest{Lease: l, LastSeq: mgr.st.getLastSeq()}
 	for _, peer := range mgr.onlinePeers() {
 		go func(id string) {
@@ -158,10 +156,8 @@ func (mgr *Manager) pushLease(l Lease) {
 }
 
 // acceptLease adopts a lease when it outranks ours. Returns true if adopted.
-func (mgr *Manager) acceptLease(in Lease, leaderLastSeq uint64) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/metadata", "Manager.acceptLease: leaderLastSeq=%d", leaderLastSeq)
-	}
+func (mgr *Manager) acceptLease(in Lease, leaderLastSeq uint64) (out0 bool) {
+	defer logger.Out1(logger.In3("cluster/metadata", "Manager.acceptLease", "mgr", mgr, "&in", &in, "leaderLastSeq", leaderLastSeq), &out0)
 	if in.Holder == "" || in.Term == 0 {
 		return false
 	}

@@ -52,9 +52,7 @@ type WindowsTimeZoneStruct struct {
 }
 
 func ShowTime(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("time/timezone", "ShowTime: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("time/timezone", "ShowTime", "r", r))
 
 	now := time.Now() // current local time
 	Timezone := ""
@@ -84,10 +82,8 @@ func ShowTime(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(returnString))
 }
 
-func ConvertWinTZtoLinuxTZ(WinTZ string) string {
-	if logger.IsDebug() {
-		logger.Debugf("time/timezone", "ConvertWinTZtoLinuxTZ: WinTZ=%.120q", WinTZ)
-	}
+func ConvertWinTZtoLinuxTZ(WinTZ string) (out0 string) {
+	defer logger.Out1(logger.In1("time/timezone", "ConvertWinTZtoLinuxTZ", "WinTZ", WinTZ), &out0)
 	file, _ := os.ReadFile("./system/time/wintz.json")
 	WinTZLinuxTz := WindowsTimeZoneStruct{}
 	json.Unmarshal([]byte(file), &WinTZLinuxTz)

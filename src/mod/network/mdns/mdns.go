@@ -33,16 +33,15 @@ type NetworkHost struct {
 }
 
 // Create a new MDNS discoverer, set MacOverride to empty string for using the first NIC discovered
-func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/mdns", "NewMDNS: MacOverride=%.120q", MacOverride)
-	}
+func NewMDNS(config NetworkHost, MacOverride string) (out0 *MDNSHost, out1 error) {
+	defer logger.Out2(logger.In2("network/mdns", "NewMDNS", "&config", &config, "MacOverride", MacOverride), &out0, &out1)
 	//Get host MAC Address
 	macAddressBoardcast, _ := getMaxMacAddrString(128)
 
 	//Register the mds services
 	server, err := zeroconf.Register(config.HostName, "_http._tcp", "local.", config.Port, []string{"version_build=" + config.BuildVersion, "version_minor=" + config.MinorVersion, "vendor=" + config.Vendor, "model=" + config.Model, "uuid=" + config.UUID, "domain=" + config.Domain, "mac_addr=" + macAddressBoardcast}, nil)
 	if err != nil {
+		logger.DebugErr("network/mdns", err)
 		logger.PrintAndLog("Mdns", fmt.Sprint("[mDNS] Error when registering zeroconf broadcast message", err.Error()), nil)
 		return &MDNSHost{}, err
 	}
@@ -53,6 +52,7 @@ func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 		ifaceIp := ""
 		ifaces, err := net.Interfaces()
 		if err != nil {
+			logger.DebugErr("network/mdns", err)
 			logger.PrintAndLog("Mdns", "[mDNS] Unable to override iface MAC: "+err.Error()+". Resuming with default iface", nil)
 		}
 
@@ -104,7 +104,7 @@ func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 }
 
 func (m *MDNSHost) Close() {
-	logger.Debug("network/mdns", "MDNSHost.Close")
+	defer logger.Out0(logger.In1("network/mdns", "MDNSHost.Close", "m", m))
 	if m != nil {
 		m.MDNS.Shutdown()
 	}
@@ -113,9 +113,7 @@ func (m *MDNSHost) Close() {
 
 // Scan with given timeout and domain filter. Use m.Host.Domain for scanning similar typed devices
 func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/mdns", "MDNSHost.Scan: timeout=%d domainFilter=%.120q", timeout, domainFilter)
-	}
+	logger.DebugTrace("network/mdns", "MDNSHost.Scan")
 	// Discover all services on the network (e.g. _workstation._tcp)
 
 	var zcoption zeroconf.ClientOption = nil
@@ -125,6 +123,7 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 
 	resolver, err := zeroconf.NewResolver(zcoption)
 	if err != nil {
+		logger.DebugErr("network/mdns", err)
 		logger.PrintAndLog("Mdns", fmt.Sprint("Failed to initialize resolver:", err.Error()), nil)
 		os.Exit(1)
 	}
@@ -220,6 +219,7 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 	defer cancel()
 	err = resolver.Browse(ctx, "_http._tcp", "local.", entries)
 	if err != nil {
+		logger.DebugErr("network/mdns", err)
 		logger.PrintAndLog("Mdns", fmt.Sprint("Failed to browse:", err.Error()), nil)
 		os.Exit(1)
 	}

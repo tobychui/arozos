@@ -23,21 +23,21 @@ import (
 const defaultLogLimit = 50
 
 // Log returns up to limit commits reachable from HEAD, newest first.
-func (m *Manager) Log(realpath string, limit int) ([]CommitInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Log: realpath=%.120q limit=%d", realpath, limit)
-	}
+func (m *Manager) Log(realpath string, limit int) (out0 []CommitInfo, out1 error) {
+	defer logger.Out2(logger.In3("git", "Manager.Log", "m", m, "realpath", realpath, "limit", limit), &out0, &out1)
 	if limit <= 0 {
 		limit = defaultLogLimit
 	}
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	head, err := repo.Head()
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, plumbing.ErrReferenceNotFound) {
 			//An unborn branch simply has no history yet
 			return []CommitInfo{}, nil
@@ -47,6 +47,7 @@ func (m *Manager) Log(realpath string, limit int) ([]CommitInfo, error) {
 
 	iter, err := repo.Log(&gogit.LogOptions{From: head.Hash()})
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 	defer iter.Close()
@@ -75,12 +76,11 @@ func (m *Manager) Log(realpath string, limit int) ([]CommitInfo, error) {
 
 // Branches lists local and remote-tracking branches. The current branch is
 // flagged so the switcher can render it as selected.
-func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Branches: realpath=%.120q", realpath)
-	}
+func (m *Manager) Branches(realpath string) (out0 []BranchInfo, out1 error) {
+	defer logger.Out2(logger.In2("git", "Manager.Branches", "m", m, "realpath", realpath), &out0, &out1)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -93,6 +93,7 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 
 	localIter, err := repo.Branches()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 	err = localIter.ForEach(func(ref *plumbing.Reference) error {
@@ -109,11 +110,13 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 	})
 	localIter.Close()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	remoteIter, err := repo.References()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 	err = remoteIter.ForEach(func(ref *plumbing.Reference) error {
@@ -138,6 +141,7 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 	})
 	remoteIter.Close()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -153,20 +157,20 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 
 // Checkout switches to an existing branch, or creates it from the current HEAD
 // when create is set.
-func (m *Manager) Checkout(realpath string, branch string, create bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Checkout: realpath=%.120q branch=%.120q create=%t", realpath, branch, create)
-	}
+func (m *Manager) Checkout(realpath string, branch string, create bool) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.Checkout", "m", m, "realpath", realpath, "branch", branch, "create", create), &out0)
 	branch = strings.TrimSpace(branch)
 	if branch == "" {
 		return errors.New("branch name cannot be empty")
 	}
 	if err := validateBranchName(branch); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	repo, tree, err := m.worktree(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -193,10 +197,8 @@ func (m *Manager) Checkout(realpath string, branch string, create bool) error {
 }
 
 // findRemoteBranch resolves a "remote/branch" style name to its reference.
-func findRemoteBranch(repo *gogit.Repository, name string) (*plumbing.Reference, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "findRemoteBranch: name=%.120q", name)
-	}
+func findRemoteBranch(repo *gogit.Repository, name string) (out0 *plumbing.Reference, out1 error) {
+	defer logger.Out2(logger.In2("git", "findRemoteBranch", "repo", repo, "name", name), &out0, &out1)
 	parts := strings.SplitN(name, "/", 2)
 	if len(parts) != 2 {
 		return nil, errors.New("not a remote branch name")
@@ -205,10 +207,8 @@ func findRemoteBranch(repo *gogit.Repository, name string) (*plumbing.Reference,
 }
 
 // shortLocalName strips the remote prefix so "origin/feature" becomes "feature".
-func shortLocalName(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "shortLocalName: name=%.120q", name)
-	}
+func shortLocalName(name string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "shortLocalName", "name", name), &out0)
 	parts := strings.SplitN(name, "/", 2)
 	if len(parts) == 2 {
 		return parts[1]
@@ -218,10 +218,8 @@ func shortLocalName(name string) string {
 
 // validateBranchName rejects the ref name characters git itself forbids, since
 // the value arrives from a browser text field.
-func validateBranchName(branch string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "validateBranchName: branch=%.120q", branch)
-	}
+func validateBranchName(branch string) (out0 error) {
+	defer logger.Out1(logger.In1("git", "validateBranchName", "branch", branch), &out0)
 	//An empty name must never reach a ref operation: it would build a malformed
 	//ref such as "refs/heads/", which as a push refspec is silently accepted.
 	if strings.TrimSpace(branch) == "" {

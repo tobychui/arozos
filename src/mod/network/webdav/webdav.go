@@ -34,10 +34,8 @@ type Handler struct {
 	RequestEventListener func(path string)
 }
 
-func (h *Handler) stripPrefix(p string) (string, int, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.stripPrefix: p=%.120q", p)
-	}
+func (h *Handler) stripPrefix(p string) (out0 string, out1 int, out2 error) {
+	defer logger.Out3(logger.In2("network/webdav", "Handler.stripPrefix", "h", h, "p", p), &out0, &out1, &out2)
 	if h.Prefix == "" {
 		return p, http.StatusOK, nil
 	}
@@ -48,9 +46,7 @@ func (h *Handler) stripPrefix(p string) (string, int, error) {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.ServeHTTP: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("network/webdav", "Handler.ServeHTTP", "h", h, "r", r))
 	status, err := http.StatusBadRequest, errUnsupportedMethod
 	if h.FileSystem == nil {
 		status, err = http.StatusInternalServerError, errNoFileSystem
@@ -95,22 +91,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Check if the request was from a windows client
 func isWindowsClient(r *http.Request) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "isWindowsClient: r=%s", logger.RequestSummary(r))
-	}
+	logger.DebugTrace("network/webdav", "isWindowsClient")
 	return r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir")
 }
 
 func (h *Handler) lock(now time.Time, root string) (token string, status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.lock: root=%.120q", root)
-	}
+	defer logger.Out3(logger.In3("network/webdav", "Handler.lock", "h", h, "&now", &now, "root", root), &token, &status, &err)
 	token, err = h.LockSystem.Create(now, LockDetails{
 		Root:      root,
 		Duration:  infiniteTimeout,
 		ZeroDepth: true,
 	})
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		if err == ErrLocked {
 			return "", StatusLocked, err
 		}
@@ -120,9 +113,7 @@ func (h *Handler) lock(now time.Time, root string) (token string, status int, er
 }
 
 func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func(), status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.confirmLocks: r=%s src=%.120q dst=%.120q", logger.RequestSummary(r), src, dst)
-	}
+	defer logger.Out3(logger.In4("network/webdav", "Handler.confirmLocks", "h", h, "r", r, "src", src, "dst", dst), &release, &status, &err)
 	//Ignore lock on Windows
 	if isWindowsClient(r) {
 		return nil, 200, nil
@@ -139,12 +130,14 @@ func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func()
 		if src != "" {
 			srcToken, status, err = h.lock(now, src)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				return nil, status, err
 			}
 		}
 		if dst != "" {
 			dstToken, status, err = h.lock(now, dst)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				if srcToken != "" {
 					h.LockSystem.Unlock(now, srcToken)
 				}
@@ -174,6 +167,7 @@ func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func()
 		} else {
 			u, err := url.Parse(lsrc)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				continue
 			}
 			if u.Host != r.Host {
@@ -181,6 +175,7 @@ func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func()
 			}
 			lsrc, status, err = h.stripPrefix(u.Path)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				return nil, status, err
 			}
 		}
@@ -189,6 +184,7 @@ func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func()
 			continue
 		}
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return nil, http.StatusInternalServerError, err
 		}
 		return release, 0, nil
@@ -201,11 +197,10 @@ func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func()
 }
 
 func (h *Handler) handleOptions(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleOptions: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleOptions", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	ctx := r.Context()
@@ -226,22 +221,23 @@ func (h *Handler) handleOptions(w http.ResponseWriter, r *http.Request) (status 
 }
 
 func (h *Handler) handleGetHeadPost(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleGetHeadPost: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleGetHeadPost", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	// TODO: check locks for read-only access??
 	ctx := r.Context()
 	f, err := h.FileSystem.OpenFile(ctx, reqPath, os.O_RDONLY, 0)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusNotFound, err
 	}
 	defer f.Close()
 	fi, err := f.Stat()
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusNotFound, err
 	}
 	if fi.IsDir() {
@@ -249,6 +245,7 @@ func (h *Handler) handleGetHeadPost(w http.ResponseWriter, r *http.Request) (sta
 	}
 	etag, err := findETag(ctx, h.FileSystem, h.LockSystem, reqPath, fi)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusInternalServerError, err
 	}
 	w.Header().Set("ETag", etag)
@@ -260,15 +257,15 @@ func (h *Handler) handleGetHeadPost(w http.ResponseWriter, r *http.Request) (sta
 }
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleDelete: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleDelete", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	release, status, err := h.confirmLocks(r, reqPath, "")
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	defer func() {
@@ -285,27 +282,29 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) (status i
 	// returns nil (no error)." WebDAV semantics are that it should return a
 	// "404 Not Found". We therefore have to Stat before we RemoveAll.
 	if _, err := h.FileSystem.Stat(ctx, reqPath); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			return http.StatusNotFound, err
 		}
 		return http.StatusMethodNotAllowed, err
 	}
 	if err := h.FileSystem.RemoveAll(ctx, reqPath); err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusMethodNotAllowed, err
 	}
 	return http.StatusNoContent, nil
 }
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handlePut: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handlePut", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	release, status, err := h.confirmLocks(r, reqPath, "")
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 
@@ -321,6 +320,7 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 
 	f, err := h.FileSystem.OpenFile(ctx, reqPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusNotFound, err
 	}
 	_, copyErr := io.Copy(f, r.Body)
@@ -328,17 +328,21 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 	closeErr := f.Close()
 	// TODO(rost): Returning 405 Method Not Allowed might not be appropriate.
 	if copyErr != nil {
+		logger.DebugErr("network/webdav", copyErr)
 		return http.StatusMethodNotAllowed, copyErr
 	}
 	if statErr != nil {
+		logger.DebugErr("network/webdav", statErr)
 		return http.StatusMethodNotAllowed, statErr
 	}
 	if closeErr != nil {
+		logger.DebugErr("network/webdav", closeErr)
 		return http.StatusMethodNotAllowed, closeErr
 	}
 
 	etag, err := findETag(ctx, h.FileSystem, h.LockSystem, reqPath, fi)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusInternalServerError, err
 	}
 	w.Header().Set("ETag", etag)
@@ -347,15 +351,15 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 }
 
 func (h *Handler) handleMkcol(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleMkcol: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleMkcol", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	release, status, err := h.confirmLocks(r, reqPath, "")
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	defer func() {
@@ -370,6 +374,7 @@ func (h *Handler) handleMkcol(w http.ResponseWriter, r *http.Request) (status in
 		return http.StatusUnsupportedMediaType, nil
 	}
 	if err := h.FileSystem.Mkdir(ctx, reqPath, 0777); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			return http.StatusConflict, err
 		}
@@ -379,15 +384,14 @@ func (h *Handler) handleMkcol(w http.ResponseWriter, r *http.Request) (status in
 }
 
 func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleCopyMove: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleCopyMove", "h", h, "r", r), &status, &err)
 	hdr := r.Header.Get("Destination")
 	if hdr == "" {
 		return http.StatusBadRequest, errInvalidDestination
 	}
 	u, err := url.Parse(hdr)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusBadRequest, errInvalidDestination
 	}
 	if u.Host != "" && u.Host != r.Host {
@@ -396,11 +400,13 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 
 	src, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 
 	dst, status, err := h.stripPrefix(u.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 
@@ -421,6 +427,7 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 		// checks that COPYing a locked-by-another source is OK.
 		release, status, err := h.confirmLocks(r, "", dst)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return status, err
 		}
 		defer func() {
@@ -445,6 +452,7 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 
 	release, status, err := h.confirmLocks(r, src, dst)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	defer func() {
@@ -465,15 +473,15 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 }
 
 func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus int, retErr error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleLock: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleLock", "h", h, "r", r), &retStatus, &retErr)
 	duration, err := parseTimeout(r.Header.Get("Timeout"))
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusBadRequest, err
 	}
 	li, status, err := readLockInfo(r.Body)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 
@@ -493,6 +501,7 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 		}
 		ld, err = h.LockSystem.Refresh(now, token, duration)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			if err == ErrNoSuchLock {
 				return http.StatusPreconditionFailed, err
 			}
@@ -513,6 +522,7 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 		}
 		reqPath, status, err := h.stripPrefix(r.URL.Path)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return status, err
 		}
 		ld = LockDetails{
@@ -523,6 +533,7 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 		}
 		token, err = h.LockSystem.Create(now, ld)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			if err == ErrLocked {
 				return StatusLocked, err
 			}
@@ -530,14 +541,17 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 		}
 		defer func() {
 			if retErr != nil {
+				logger.DebugErr("network/webdav", retErr)
 				h.LockSystem.Unlock(now, token)
 			}
 		}()
 
 		// Create the resource if it didn't previously exist.
 		if _, err := h.FileSystem.Stat(ctx, reqPath); err != nil {
+			logger.DebugErr("network/webdav", err)
 			f, err := h.FileSystem.OpenFile(ctx, reqPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				// TODO: detect missing intermediate dirs and return http.StatusConflict?
 				return http.StatusInternalServerError, err
 			}
@@ -562,9 +576,7 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 }
 
 func (h *Handler) handleUnlock(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleUnlock: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleUnlock", "h", h, "r", r), &status, &err)
 	// http://www.webdav.org/specs/rfc4918.html#HEADER_Lock-Token says that the
 	// Lock-Token value is a Coded-URL. We strip its angle brackets.
 	t := r.Header.Get("Lock-Token")
@@ -588,16 +600,16 @@ func (h *Handler) handleUnlock(w http.ResponseWriter, r *http.Request) (status i
 }
 
 func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handlePropfind: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handlePropfind", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	ctx := r.Context()
 	fi, err := h.FileSystem.Stat(ctx, reqPath)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			return http.StatusNotFound, err
 		}
@@ -612,6 +624,7 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 	}
 	pf, status, err := readPropfind(r.Body)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 
@@ -619,6 +632,7 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 
 	walkFn := func(reqPath string, info os.FileInfo, err error) error {
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return nil
 		}
 
@@ -634,6 +648,7 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 		if pf.Propname != nil {
 			pnames, err := propnames(ctx, h.FileSystem, h.LockSystem, reqPath)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				return nil
 			}
 			pstat := Propstat{Status: http.StatusOK}
@@ -647,6 +662,7 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 			pstats, err = props(ctx, h.FileSystem, h.LockSystem, reqPath, pf.Prop)
 		}
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return nil
 		}
 		href := path.Join(h.Prefix, reqPath)
@@ -662,24 +678,26 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 	walkErr := walkFS(ctx, h.FileSystem, depth, reqPath, fi, walkFn)
 	closeErr := mw.close()
 	if walkErr != nil {
+		logger.DebugErr("network/webdav", walkErr)
 		return http.StatusInternalServerError, walkErr
 	}
 	if closeErr != nil {
+		logger.DebugErr("network/webdav", closeErr)
 		return http.StatusInternalServerError, closeErr
 	}
 	return 0, nil
 }
 
 func (h *Handler) handleProppatch(w http.ResponseWriter, r *http.Request) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Handler.handleProppatch: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out2(logger.In2("network/webdav", "Handler.handleProppatch", "h", h, "r", r), &status, &err)
 	reqPath, status, err := h.stripPrefix(r.URL.Path)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	release, status, err := h.confirmLocks(r, reqPath, "")
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	defer func() {
@@ -691,6 +709,7 @@ func (h *Handler) handleProppatch(w http.ResponseWriter, r *http.Request) (statu
 	ctx := r.Context()
 
 	if _, err := h.FileSystem.Stat(ctx, reqPath); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			return http.StatusNotFound, err
 		}
@@ -698,28 +717,30 @@ func (h *Handler) handleProppatch(w http.ResponseWriter, r *http.Request) (statu
 	}
 	patches, status, err := readProppatch(r.Body)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return status, err
 	}
 	pstats, err := patch(ctx, h.FileSystem, h.LockSystem, reqPath, patches)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusInternalServerError, err
 	}
 	mw := multistatusWriter{w: w}
 	writeErr := mw.write(makePropstatResponse(r.URL.Path, pstats))
 	closeErr := mw.close()
 	if writeErr != nil {
+		logger.DebugErr("network/webdav", writeErr)
 		return http.StatusInternalServerError, writeErr
 	}
 	if closeErr != nil {
+		logger.DebugErr("network/webdav", closeErr)
 		return http.StatusInternalServerError, closeErr
 	}
 	return 0, nil
 }
 
-func makePropstatResponse(href string, pstats []Propstat) *response {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "makePropstatResponse: href=%.120q len(pstats)=%d", href, len(pstats))
-	}
+func makePropstatResponse(href string, pstats []Propstat) (out0 *response) {
+	defer logger.Out1(logger.In2("network/webdav", "makePropstatResponse", "href", href, "pstats", pstats), &out0)
 	resp := response{
 		Href:     []string{(&url.URL{Path: href}).EscapedPath()},
 		Propstat: make([]propstat, 0, len(pstats)),
@@ -754,10 +775,8 @@ const (
 //   - LOCK accepts only "0" or "infinity", as per section 9.10.3.
 //
 // These constraints are enforced by the handleXxx methods.
-func parseDepth(s string) int {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "parseDepth: s=%.120q", s)
-	}
+func parseDepth(s string) (out0 int) {
+	defer logger.Out1(logger.In1("network/webdav", "parseDepth", "s", s), &out0)
 	switch s {
 	case "0":
 		return 0
@@ -778,10 +797,8 @@ const (
 	StatusInsufficientStorage = 507
 )
 
-func StatusText(code int) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "StatusText: code=%d", code)
-	}
+func StatusText(code int) (out0 string) {
+	defer logger.Out1(logger.In1("network/webdav", "StatusText", "code", code), &out0)
 	switch code {
 	case StatusMulti:
 		return "Multi-Status"

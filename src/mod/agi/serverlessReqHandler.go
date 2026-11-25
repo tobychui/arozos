@@ -18,9 +18,7 @@ import (
 */
 
 func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, scriptScope string, u *user.User, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.injectServerlessFunctions: scriptFile=%.120q scriptScope=%.120q r=%s", scriptFile, scriptScope, logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In6("agi", "Gateway.injectServerlessFunctions", "g", g, "vm", vm, "scriptFile", scriptFile, "scriptScope", scriptScope, "u", u, "r", r))
 	vm.Set("REQ_METHOD", r.Method)
 	vm.Set("getPara", func(call otto.FunctionCall) otto.Value {
 		key, _ := call.Argument(0).ToString()
@@ -29,11 +27,13 @@ func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, sc
 		}
 		value, err := utils.GetPara(r, key)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		r, err := vm.ToValue(value)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -46,11 +46,13 @@ func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, sc
 		}
 		value, err := utils.PostPara(r, key)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
 		r, err := vm.ToValue(value)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 
@@ -63,10 +65,12 @@ func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, sc
 
 		bodyContent, err := io.ReadAll(r.Body)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		r, err := vm.ToValue(string(bodyContent))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		return r

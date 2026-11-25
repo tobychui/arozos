@@ -9,17 +9,17 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
-	if logger.IsDebug() {
-		logger.Debugf("database", "newDatabase: dbfile=%.120q readOnlyMode=%t", dbfile, readOnlyMode)
-	}
+func newDatabase(dbfile string, readOnlyMode bool) (out0 *Database, out1 error) {
+	defer logger.Out2(logger.In2("database", "newDatabase", "dbfile", dbfile, "readOnlyMode", readOnlyMode), &out0, &out1)
 	db, err := bbolt.Open(dbfile, 0600, nil)
 	if err != nil {
+		logger.DebugErr("database", err)
 		return nil, err
 	}
 
 	if !readOnlyMode {
 		if err := migrateLegacyFsdb(db, dbfile); err != nil {
+			logger.DebugErr("database", err)
 			logger.PrintAndLog("Database", "Importing legacy file system database failed", err)
 		}
 	}
@@ -39,15 +39,14 @@ func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
 }
 
 // Dump the whole db into a log file
-func (d *Database) dump(filename string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.dump: filename=%.120q", filename)
-	}
+func (d *Database) dump(filename string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("database", "Database.dump", "d", d, "filename", filename), &out0, &out1)
 	results := []string{}
 
 	d.Tables.Range(func(tableName, v interface{}) bool {
 		entries, err := d.ListTable(tableName.(string))
 		if err != nil {
+			logger.DebugErr("database", err)
 			logger.PrintAndLog("Database", "Reading table "+tableName.(string)+" failed: "+err.Error(), nil)
 			return false
 		}
@@ -61,10 +60,8 @@ func (d *Database) dump(filename string) ([]string, error) {
 }
 
 // Create a new table
-func (d *Database) newTable(tableName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.newTable: tableName=%.120q", tableName)
-	}
+func (d *Database) newTable(tableName string) (out0 error) {
+	defer logger.Out1(logger.In2("database", "Database.newTable", "d", d, "tableName", tableName), &out0)
 	if d.ReadOnly == true {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
@@ -72,6 +69,7 @@ func (d *Database) newTable(tableName string) error {
 	err := d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
 		if err != nil {
+			logger.DebugErr("database", err)
 			return err
 		}
 		return nil
@@ -82,10 +80,8 @@ func (d *Database) newTable(tableName string) error {
 }
 
 // Check is table exists
-func (d *Database) tableExists(tableName string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.tableExists: tableName=%.120q", tableName)
-	}
+func (d *Database) tableExists(tableName string) (out0 bool) {
+	defer logger.Out1(logger.In2("database", "Database.tableExists", "d", d, "tableName", tableName), &out0)
 	if _, ok := d.Tables.Load(tableName); ok {
 		return true
 	}
@@ -93,10 +89,8 @@ func (d *Database) tableExists(tableName string) bool {
 }
 
 // Drop the given table
-func (d *Database) dropTable(tableName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.dropTable: tableName=%.120q", tableName)
-	}
+func (d *Database) dropTable(tableName string) (out0 error) {
+	defer logger.Out1(logger.In2("database", "Database.dropTable", "d", d, "tableName", tableName), &out0)
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
@@ -104,6 +98,7 @@ func (d *Database) dropTable(tableName string) error {
 	err := d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		err := tx.DeleteBucket([]byte(tableName))
 		if err != nil {
+			logger.DebugErr("database", err)
 			return err
 		}
 		return nil
@@ -115,21 +110,21 @@ func (d *Database) dropTable(tableName string) error {
 }
 
 // Write to table
-func (d *Database) write(tableName string, key string, value interface{}) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.write: tableName=%.120q", tableName)
-	}
+func (d *Database) write(tableName string, key string, value interface{}) (out0 error) {
+	defer logger.Out1(logger.In4("database", "Database.write", "d", d, "tableName", tableName, "!key", key, "!&value", &value), &out0)
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
 
 	jsonString, err := json.Marshal(value)
 	if err != nil {
+		logger.DebugErr("database", err)
 		return err
 	}
 	err = d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
 		if err != nil {
+			logger.DebugErr("database", err)
 			return err
 		}
 		b := tx.Bucket([]byte(tableName))
@@ -139,10 +134,8 @@ func (d *Database) write(tableName string, key string, value interface{}) error 
 	return err
 }
 
-func (d *Database) read(tableName string, key string, assignee interface{}) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.read: tableName=%.120q", tableName)
-	}
+func (d *Database) read(tableName string, key string, assignee interface{}) (out0 error) {
+	defer logger.Out1(logger.In4("database", "Database.read", "d", d, "tableName", tableName, "assignee", assignee, "!key", key), &out0)
 	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
 		v := b.Get([]byte(key))
@@ -152,10 +145,8 @@ func (d *Database) read(tableName string, key string, assignee interface{}) erro
 	return err
 }
 
-func (d *Database) keyExists(tableName string, key string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.keyExists: tableName=%.120q", tableName)
-	}
+func (d *Database) keyExists(tableName string, key string) (out0 bool) {
+	defer logger.Out1(logger.In3("database", "Database.keyExists", "d", d, "tableName", tableName, "!key", key), &out0)
 	resultIsNil := false
 	if !d.TableExists(tableName) {
 		//Table not exists. Do not proceed accessing key
@@ -172,6 +163,7 @@ func (d *Database) keyExists(tableName string, key string) bool {
 	})
 
 	if err != nil {
+		logger.DebugErr("database", err)
 		return false
 	} else {
 		if resultIsNil {
@@ -182,10 +174,8 @@ func (d *Database) keyExists(tableName string, key string) bool {
 	}
 }
 
-func (d *Database) writeBatch(ops []BatchOp) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.writeBatch: len(ops)=%d", len(ops))
-	}
+func (d *Database) writeBatch(ops []BatchOp) (out0 error) {
+	defer logger.Out1(logger.In2("database", "Database.writeBatch", "d", d, "ops", ops), &out0)
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
@@ -197,6 +187,7 @@ func (d *Database) writeBatch(ops []BatchOp) error {
 		}
 		js, err := json.Marshal(op.Value)
 		if err != nil {
+			logger.DebugErr("database", err)
 			return err
 		}
 		values[i] = js
@@ -205,15 +196,18 @@ func (d *Database) writeBatch(ops []BatchOp) error {
 		for i, op := range ops {
 			b, err := tx.CreateBucketIfNotExists([]byte(op.Table))
 			if err != nil {
+				logger.DebugErr("database", err)
 				return err
 			}
 			if op.Delete {
 				if err := b.Delete([]byte(op.Key)); err != nil {
+					logger.DebugErr("database", err)
 					return err
 				}
 				continue
 			}
 			if err := b.Put([]byte(op.Key), values[i]); err != nil {
+				logger.DebugErr("database", err)
 				return err
 			}
 		}
@@ -221,10 +215,8 @@ func (d *Database) writeBatch(ops []BatchOp) error {
 	})
 }
 
-func (d *Database) delete(tableName string, key string) error {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.delete: tableName=%.120q", tableName)
-	}
+func (d *Database) delete(tableName string, key string) (out0 error) {
+	defer logger.Out1(logger.In3("database", "Database.delete", "d", d, "tableName", tableName, "!key", key), &out0)
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
@@ -237,10 +229,8 @@ func (d *Database) delete(tableName string, key string) error {
 	return err
 }
 
-func (d *Database) listTable(tableName string) ([][][]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.listTable: tableName=%.120q", tableName)
-	}
+func (d *Database) listTable(tableName string) (out0 [][][]byte, out1 error) {
+	defer logger.Out2(logger.In2("database", "Database.listTable", "d", d, "tableName", tableName), &out0, &out1)
 	var results [][][]byte
 	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
@@ -260,10 +250,8 @@ func (d *Database) close() {
 }
 
 // listTableWithPrefix seeks the cursor to prefix and reads while keys match.
-func (d *Database) listTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("database", "Database.listTableWithPrefix: tableName=%.120q prefix=%.120q", tableName, prefix)
-	}
+func (d *Database) listTableWithPrefix(tableName string, prefix string) (out0 [][][]byte, out1 error) {
+	defer logger.Out2(logger.In3("database", "Database.listTableWithPrefix", "d", d, "tableName", tableName, "prefix", prefix), &out0, &out1)
 	var results [][][]byte = [][][]byte{}
 	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))

@@ -31,9 +31,7 @@ type Mapping struct {
 
 // cmapRank orders the Unicode subtables, best first; 0 means unusable
 func cmapRank(platform, encoding uint16) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "cmapRank: platform=%d encoding=%d", platform, encoding)
-	}
+	logger.DebugTrace("locale/fonts", "cmapRank")
 	switch {
 	case platform == 3 && encoding == 10:
 		return 6
@@ -53,12 +51,11 @@ func cmapRank(platform, encoding uint16) int {
 
 // ParseCmap returns the codepoint to glyph map of the font's best Unicode
 // subtable. Glyph ids at or beyond numGlyphs are dropped.
-func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
-	if logger.IsDebug() {
-		logger.Debugf("locale/fonts", "ParseCmap: len(table)=%d numGlyphs=%d", len(table), numGlyphs)
-	}
+func ParseCmap(table []byte, numGlyphs int) (out0 map[uint32]uint16, out1 error) {
+	defer logger.Out2(logger.In2("locale/fonts", "ParseCmap", "table", table, "numGlyphs", numGlyphs), &out0, &out1)
 	count, err := u16(table, 2)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, err
 	}
 	bestRank, bestOffset := 0, int64(-1)
@@ -71,6 +68,7 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 		}
 		format, err := u16(table, int(min(int64(offset), int64(len(table)))))
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			continue
 		}
 		if format == 14 {
@@ -105,6 +103,7 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 	case 0:
 		glyphs, err := sub(st, 6, 256)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		for c, g := range glyphs {
@@ -113,11 +112,13 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 	case 4:
 		segX2, err := u16(st, 6)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		segs := int(segX2 / 2)
 		endOff, startOff, deltaOff, rangeOff := 14, 16+2*segs, 16+4*segs, 16+6*segs
 		if _, err := sub(st, int64(rangeOff), int64(2*segs)); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		for s := 0; s < segs; s++ {
@@ -139,6 +140,7 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 					at := rangeOff + 2*s + int(ro) + 2*int(c-uint32(start))
 					raw, err := u16(st, at)
 					if err != nil {
+						logger.DebugErr("locale/fonts", err)
 						continue // points past the table; treat as unmapped
 					}
 					if raw != 0 {
@@ -146,6 +148,7 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 					}
 				}
 				if err := add(c, gid); err != nil {
+					logger.DebugErr("locale/fonts", err)
 					return nil, err
 				}
 			}
@@ -159,6 +162,7 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 		for i := 0; i < int(count); i++ {
 			gid, err := u16(st, 10+2*i)
 			if err != nil {
+				logger.DebugErr("locale/fonts", err)
 				return nil, err
 			}
 			add(uint32(first)+uint32(i), gid)
@@ -166,9 +170,11 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 	case 12, 13:
 		groups, err := u32(st, 12)
 		if err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		if _, err := sub(st, 16, int64(groups)*12); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return nil, err
 		}
 		for i := 0; i < int(groups); i++ {
@@ -188,6 +194,7 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 					break
 				}
 				if err := add(c, uint16(g)); err != nil {
+					logger.DebugErr("locale/fonts", err)
 					return nil, err
 				}
 			}
@@ -202,10 +209,8 @@ func ParseCmap(table []byte, numGlyphs int) (map[uint32]uint16, error) {
 }
 
 // BuildCmap writes a cmap table holding the given mappings
-func BuildCmap(mappings []Mapping) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("locale/fonts", "BuildCmap: len(mappings)=%d", len(mappings))
-	}
+func BuildCmap(mappings []Mapping) (out0 []byte) {
+	defer logger.Out1(logger.In1("locale/fonts", "BuildCmap", "mappings", mappings), &out0)
 	sorted := append([]Mapping(nil), mappings...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Codepoint < sorted[j].Codepoint })
 
@@ -242,9 +247,7 @@ func BuildCmap(mappings []Mapping) []byte {
 // buildFormat4 maps runs of consecutive codepoints through a glyph id array.
 // It returns nil when the subtable would not fit format 4's 16 bit length.
 func buildFormat4(bmp []Mapping) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "buildFormat4: len(bmp)=%d", len(bmp))
-	}
+	logger.DebugTrace("locale/fonts", "buildFormat4")
 	type segment struct{ start, end, first int } // first: index into bmp
 	var segs []segment
 	for i, m := range bmp {
@@ -300,9 +303,7 @@ func buildFormat4(bmp []Mapping) []byte {
 
 // buildFormat12 groups runs where both codepoints and glyph ids are consecutive
 func buildFormat12(sorted []Mapping) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "buildFormat12: len(sorted)=%d", len(sorted))
-	}
+	logger.DebugTrace("locale/fonts", "buildFormat12")
 	type group struct{ start, end, glyph uint32 }
 	var groups []group
 	for _, m := range sorted {

@@ -19,9 +19,10 @@ import (
 */
 
 func (g *Gateway) AudioLibRegister() {
-	logger.Debug("agi", "Gateway.AudioLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.AudioLibRegister", "g", g))
 	err := g.RegisterLib("audio", g.injectAudioFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}

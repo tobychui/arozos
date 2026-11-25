@@ -42,13 +42,14 @@ var (
 )
 
 func notificationInit() {
-	logger.Debug("Core", "notificationInit")
+	defer logger.Out0(logger.In0("Core", "notificationInit"))
 	//Create a new notification queue
 	notificationQueue = notification.NewNotificationQueue()
 
 	//Create the per-user preference store backed by the system database
 	store, err := preference.NewStore(userHandler.GetDatabase())
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Notification", "Unable to init notification preference store: "+err.Error(), err)
 	}
 	notificationPreferenceStore = store
@@ -65,6 +66,7 @@ func notificationInit() {
 			return registerHandler.GetUserEmail(username)
 		})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Notification", "Unable to start smtpn agent: "+err.Error(), nil)
 	} else {
 		smtpAgent.SystemUUIDProvider = systemIdGetSystemUUID
@@ -82,6 +84,7 @@ func notificationInit() {
 	}
 	telegramAgent, err := telegram.NewTelegramNotificationAgent(telegramConfigPath, telegramChatIDResolver())
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Notification", "Unable to start telegram agent: "+err.Error(), nil)
 	} else {
 		telegramNotificationAgent = telegramAgent
@@ -136,8 +139,8 @@ var errNotificationStoreUnavailable = errors.New("notification preference store 
 // resolves the delivery agents according to that user's preferences and
 // priority threshold, then broadcasts a per-user copy through the queue.
 // This is the entry point used by the AGI notification library.
-func sendUserNotification(payload *notification.NotificationPayload) error {
-	logger.Debug("Core", "sendUserNotification")
+func sendUserNotification(payload *notification.NotificationPayload) (out0 error) {
+	defer logger.Out1(logger.In1("Core", "sendUserNotification", "payload", payload), &out0)
 	if notificationQueue == nil {
 		return errors.New("notification system not initialised")
 	}
@@ -170,10 +173,8 @@ func sendUserNotification(payload *notification.NotificationPayload) error {
 }
 
 // joinStrings joins a slice with ", " without pulling in strings just for one call site.
-func joinStrings(items []string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "joinStrings: len(items)=%d", len(items))
-	}
+func joinStrings(items []string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "joinStrings", "items", items), &out0)
 	out := ""
 	for i, item := range items {
 		if i > 0 {

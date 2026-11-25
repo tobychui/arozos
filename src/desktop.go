@@ -20,7 +20,7 @@ import (
 
 // Desktop script initiation
 func DesktopInit() {
-	logger.Debug("Core", "DesktopInit")
+	defer logger.Out0(logger.In0("Core", "DesktopInit"))
 	systemWideLogger.PrintAndLog("Desktop", "Starting Desktop Services", nil)
 
 	desktopOptions := desktop.Options{
@@ -46,6 +46,7 @@ func DesktopInit() {
 
 	desktopService, err := desktop.New(desktopOptions)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("System", "Unable to start Desktop services. Please validation your installation.", err)
 		os.Exit(1)
 	}

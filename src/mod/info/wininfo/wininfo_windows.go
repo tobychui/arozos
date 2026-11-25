@@ -33,11 +33,10 @@ const (
 )
 
 // call runs a kernel32 function that returns a BOOL
-func call(proc *windows.LazyProc, args ...uintptr) error {
-	if logger.IsDebug() {
-		logger.Debugf("info/wininfo", "call: len(args)=%d", len(args))
-	}
+func call(proc *windows.LazyProc, args ...uintptr) (out0 error) {
+	defer logger.Out1(logger.In2("info/wininfo", "call", "proc", proc, "args", args), &out0)
 	if err := proc.Find(); err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return err
 	}
 	r, _, err := proc.Call(args...)
@@ -48,10 +47,11 @@ func call(proc *windows.LazyProc, args ...uintptr) error {
 }
 
 // ProcessorInfo reads the first CPU from the registry
-func ProcessorInfo() (Processor, error) {
-	logger.Debug("info/wininfo", "ProcessorInfo")
+func ProcessorInfo() (out0 Processor, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "ProcessorInfo"), &out0, &out1)
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `HARDWARE\DESCRIPTION\System\CentralProcessor\0`, registry.QUERY_VALUE)
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return Processor{}, err
 	}
 	defer k.Close()
@@ -69,15 +69,17 @@ func ProcessorInfo() (Processor, error) {
 }
 
 // OSName is the Windows edition, e.g. Microsoft Windows 11 Pro
-func OSName() (string, error) {
-	logger.Debug("info/wininfo", "OSName")
+func OSName() (out0 string, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "OSName"), &out0, &out1)
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return "", err
 	}
 	defer k.Close()
 	product, _, err := k.GetStringValue("ProductName")
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return "", err
 	}
 	build := 0
@@ -101,11 +103,12 @@ type memoryStatusEx struct {
 }
 
 // MemoryStatus is the physical memory Windows can use and how much is free
-func MemoryStatus() (Memory, error) {
-	logger.Debug("info/wininfo", "MemoryStatus")
+func MemoryStatus() (out0 Memory, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "MemoryStatus"), &out0, &out1)
 	m := memoryStatusEx{}
 	m.Length = uint32(unsafe.Sizeof(m))
 	if err := call(procGlobalMemoryStatusEx, uintptr(unsafe.Pointer(&m))); err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return Memory{}, err
 	}
 	return Memory{Total: m.TotalPhys, Available: m.AvailPhys}, nil
@@ -114,14 +117,15 @@ func MemoryStatus() (Memory, error) {
 // InstalledMemory is the memory installed in the machine in bytes, the sum
 // of its memory modules. It falls back to the usable memory when the
 // firmware does not report it (some virtual machines).
-func InstalledMemory() (uint64, error) {
-	logger.Debug("info/wininfo", "InstalledMemory")
+func InstalledMemory() (out0 uint64, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "InstalledMemory"), &out0, &out1)
 	var kb uint64
 	if err := call(procGetPhysicallyInstalledSystemMemory, uintptr(unsafe.Pointer(&kb))); err == nil && kb > 0 {
 		return kb * 1024, nil
 	}
 	m, err := MemoryStatus()
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return 0, err
 	}
 	return m.Total, nil
@@ -134,20 +138,22 @@ func filetime(f windows.Filetime) uint64 {
 
 // SystemTimes samples the system wide CPU times; compare two samples with
 // CPULoad
-func SystemTimes() (CPUTimes, error) {
-	logger.Debug("info/wininfo", "SystemTimes")
+func SystemTimes() (out0 CPUTimes, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "SystemTimes"), &out0, &out1)
 	var idle, kernel, user windows.Filetime
 	if err := call(procGetSystemTimes, uintptr(unsafe.Pointer(&idle)), uintptr(unsafe.Pointer(&kernel)), uintptr(unsafe.Pointer(&user))); err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return CPUTimes{}, err
 	}
 	return CPUTimes{Idle: filetime(idle), Kernel: filetime(kernel), User: filetime(user)}, nil
 }
 
 // LogicalDisks lists the drive letters with their file system and space
-func LogicalDisks() ([]LogicalDisk, error) {
-	logger.Debug("info/wininfo", "LogicalDisks")
+func LogicalDisks() (out0 []LogicalDisk, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "LogicalDisks"), &out0, &out1)
 	mask, err := windows.GetLogicalDrives()
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return nil, err
 	}
 	disks := []LogicalDisk{}
@@ -158,6 +164,7 @@ func LogicalDisks() ([]LogicalDisk, error) {
 		letter := string(rune('A'+i)) + ":"
 		root, err := windows.UTF16PtrFromString(letter + `\`)
 		if err != nil {
+			logger.DebugErr("info/wininfo", err)
 			continue
 		}
 		if windows.GetDriveType(root) == windows.DRIVE_NO_ROOT_DIR {
@@ -179,8 +186,8 @@ func LogicalDisks() ([]LogicalDisk, error) {
 
 // NetAdapters lists the network adapters known to the IP stack, with their
 // link state, speed and duplex
-func NetAdapters() ([]NetAdapter, error) {
-	logger.Debug("info/wininfo", "NetAdapters")
+func NetAdapters() (out0 []NetAdapter, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "NetAdapters"), &out0, &out1)
 	flags := uint32(windows.GAA_FLAG_SKIP_UNICAST | windows.GAA_FLAG_SKIP_ANYCAST | windows.GAA_FLAG_SKIP_MULTICAST | windows.GAA_FLAG_SKIP_DNS_SERVER)
 	size := uint32(16 << 10)
 	var buf []byte
@@ -231,12 +238,13 @@ PowerShell is started. The legacy NDIS query IOCTL cannot do it: it only
 passes a fixed list of OIDs, and the duplex state is not on it. Adapters
 without a value are left out, so they read as DuplexUnknown.
 */
-func adapterDuplexes() map[string]Duplex {
-	logger.Debug("info/wininfo", "adapterDuplexes")
+func adapterDuplexes() (out0 map[string]Duplex) {
+	defer logger.Out1(logger.In0("info/wininfo", "adapterDuplexes"), &out0)
 	result := map[string]Duplex{}
 	rows := []msftNetAdapter{}
 	client := &wmi.Client{PtrNil: true}
 	if err := client.Query("SELECT Name, FullDuplex FROM MSFT_NetAdapter", &rows, nil, `root\StandardCimv2`); err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return result
 	}
 	for _, row := range rows {
@@ -253,13 +261,12 @@ func adapterDuplexes() map[string]Duplex {
 }
 
 // deviceName is the first non empty registry name of a device
-func deviceName(set windows.DevInfo, data *windows.DevInfoData, properties ...windows.SPDRP) string {
-	if logger.IsDebug() {
-		logger.Debugf("info/wininfo", "deviceName: len(properties)=%d", len(properties))
-	}
+func deviceName(set windows.DevInfo, data *windows.DevInfoData, properties ...windows.SPDRP) (out0 string) {
+	defer logger.Out1(logger.In3("info/wininfo", "deviceName", "&set", &set, "data", data, "properties", properties), &out0)
 	for _, property := range properties {
 		value, err := set.DeviceRegistryProperty(data, property)
 		if err != nil {
+			logger.DebugErr("info/wininfo", err)
 			continue
 		}
 		if s, ok := value.(string); ok && strings.TrimSpace(s) != "" {
@@ -271,16 +278,18 @@ func deviceName(set windows.DevInfo, data *windows.DevInfoData, properties ...wi
 
 // eachPresentDevice calls fn for every device of a setup class that is
 // plugged in
-func eachPresentDevice(class *windows.GUID, fn func(set windows.DevInfo, data *windows.DevInfoData)) error {
-	logger.Debug("info/wininfo", "eachPresentDevice")
+func eachPresentDevice(class *windows.GUID, fn func(set windows.DevInfo, data *windows.DevInfoData)) (out0 error) {
+	defer logger.Out1(logger.In2("info/wininfo", "eachPresentDevice", "class", class, "fn", fn), &out0)
 	set, err := windows.SetupDiGetClassDevsEx(class, "", 0, windows.DIGCF_PRESENT, 0, "")
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return err
 	}
 	defer set.Close()
 	for i := 0; ; i++ {
 		data, err := set.EnumDeviceInfo(i)
 		if err != nil {
+			logger.DebugErr("info/wininfo", err)
 			//ERROR_NO_MORE_ITEMS ends the list; anything else would repeat
 			break
 		}
@@ -292,8 +301,8 @@ func eachPresentDevice(class *windows.GUID, fn func(set windows.DevInfo, data *w
 // USBDevices lists the description of every USB device and hub that is
 // plugged in, like Win32_USBHub. Host controllers (PCI devices) are left
 // out.
-func USBDevices() ([]string, error) {
-	logger.Debug("info/wininfo", "USBDevices")
+func USBDevices() (out0 []string, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "USBDevices"), &out0, &out1)
 	names := []string{}
 	err := eachPresentDevice(&guidDevClassUSB, func(set windows.DevInfo, data *windows.DevInfoData) {
 		id, err := set.DeviceInstanceID(data)
@@ -308,8 +317,8 @@ func USBDevices() ([]string, error) {
 }
 
 // PhysicalDisks lists the disk drives with their model and size
-func PhysicalDisks() ([]PhysicalDisk, error) {
-	logger.Debug("info/wininfo", "PhysicalDisks")
+func PhysicalDisks() (out0 []PhysicalDisk, out1 error) {
+	defer logger.Out2(logger.In0("info/wininfo", "PhysicalDisks"), &out0, &out1)
 	disks := []PhysicalDisk{}
 	err := eachPresentDevice(&guidDevClassDiskDrive, func(set windows.DevInfo, data *windows.DevInfoData) {
 		disk := PhysicalDisk{Model: deviceName(set, data, windows.SPDRP_FRIENDLYNAME, windows.SPDRP_DEVICEDESC)}
@@ -326,16 +335,16 @@ func PhysicalDisks() ([]PhysicalDisk, error) {
 
 // diskSize asks a disk for its size. Opening it without read or write access
 // is enough for the geometry and needs no administrator rights.
-func diskSize(devicePath string) uint64 {
-	if logger.IsDebug() {
-		logger.Debugf("info/wininfo", "diskSize: devicePath=%.120q", devicePath)
-	}
+func diskSize(devicePath string) (out0 uint64) {
+	defer logger.Out1(logger.In1("info/wininfo", "diskSize", "devicePath", devicePath), &out0)
 	path, err := windows.UTF16PtrFromString(devicePath)
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return 0
 	}
 	h, err := windows.CreateFile(path, 0, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, 0, 0)
 	if err != nil {
+		logger.DebugErr("info/wininfo", err)
 		return 0
 	}
 	defer windows.CloseHandle(h)

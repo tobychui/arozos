@@ -41,9 +41,7 @@ func (r *renderer) doXObject(n Name) {
 // runForm draws a form XObject. extra is applied after the form's /Matrix
 // (when ownMatrix is set; pattern cells have their matrix applied already).
 func (r *renderer) runForm(s *Stream, extra matrix, clipBBox bool, ownMatrix bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "renderer.runForm: clipBBox=%t ownMatrix=%t", clipBBox, ownMatrix)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "renderer.runForm")
 	if r.depth >= maxFormDepth || r.formsBusy[s] {
 		return
 	}
@@ -125,6 +123,7 @@ func (r *renderer) drawImageStream(s *Stream) {
 		var err error
 		img, err = r.d.loadImage(s, r.res, fw, fh)
 		if err != nil {
+			logger.DebugErr("filesystem/metadata/pdfrender", err)
 			img = nil
 		}
 		if len(r.shared.images) < 256 {
@@ -143,9 +142,7 @@ type imagePainter struct {
 }
 
 func (p *imagePainter) sample(x, y int) (float32, float32, float32, float32) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "imagePainter.sample: x=%d y=%d", x, y)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "imagePainter.sample")
 	ux, uy := p.inv.apply(float64(x)+0.5, float64(y)+0.5)
 	img := p.img
 	fx := ux*float64(img.w) - 0.5
@@ -197,9 +194,7 @@ func (p *imagePainter) sample(x, y int) (float32, float32, float32, float32) {
 }
 
 func (p *imagePainter) at(x, y int) (float32, float32, float32, float32) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "imagePainter.at: x=%d y=%d", x, y)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "imagePainter.at")
 	r, g, b, a := p.sample(x, y)
 	if p.img.stencil {
 		if p.tint == nil {
@@ -274,6 +269,7 @@ func (r *renderer) inlineImage(p *parser) {
 		}
 		v, err := p.parseObject(0)
 		if err != nil {
+			logger.DebugErr("filesystem/metadata/pdfrender", err)
 			return
 		}
 		dict[Name(t.s)] = v

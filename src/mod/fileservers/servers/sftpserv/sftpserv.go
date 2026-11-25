@@ -67,8 +67,8 @@ type UserStatus struct {
 	ReadOnly    bool
 }
 
-func NewSFTPServer(option *ManagerOption) *Manager {
-	logger.Debug("fileservers/servers/sftpserv", "NewSFTPServer")
+func NewSFTPServer(option *ManagerOption) (out0 *Manager) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "NewSFTPServer", "option", option), &out0)
 	option.Sysdb.NewTable(settingsTable)
 	m := &Manager{opt: option}
 
@@ -77,6 +77,7 @@ func NewSFTPServer(option *ManagerOption) *Manager {
 	if enableOnStart {
 		m.mu.Lock()
 		if err := m.start(); err != nil {
+			logger.DebugErr("fileservers/servers/sftpserv", err)
 			//Keep the choice: the next boot tries again
 			logger.PrintAndLog(logTitle, "The SFTP server could not start", err)
 		}
@@ -85,10 +86,8 @@ func NewSFTPServer(option *ManagerOption) *Manager {
 	return m
 }
 
-func (m *Manager) readBool(key string, fallback bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "Manager.readBool: fallback=%t", fallback)
-	}
+func (m *Manager) readBool(key string, fallback bool) (out0 bool) {
+	defer logger.Out1(logger.In3("fileservers/servers/sftpserv", "Manager.readBool", "m", m, "fallback", fallback, "!key", key), &out0)
 	value := fallback
 	if m.opt.Sysdb.KeyExists(settingsTable, key) {
 		m.opt.Sysdb.Read(settingsTable, key, &value)
@@ -97,8 +96,8 @@ func (m *Manager) readBool(key string, fallback bool) bool {
 }
 
 // Port returns the configured port.
-func (m *Manager) Port() int {
-	logger.Debug("fileservers/servers/sftpserv", "Manager.Port")
+func (m *Manager) Port() (out0 int) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.Port", "m", m), &out0)
 	port := DefaultPort
 	if m.opt.Sysdb.KeyExists(settingsTable, "port") {
 		m.opt.Sysdb.Read(settingsTable, "port", &port)
@@ -106,50 +105,51 @@ func (m *Manager) Port() int {
 	return port
 }
 
-func (m *Manager) upnpEnabled() bool {
-	logger.DebugTrace("fileservers/servers/sftpserv", "Manager.upnpEnabled")
+func (m *Manager) upnpEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.upnpEnabled", "m", m), &out0)
 	return m.readBool("upnp", false)
 }
 
 // Public addresses stay allowed by default, as before this setting existed
-func (m *Manager) allowPublic() bool {
-	logger.DebugTrace("fileservers/servers/sftpserv", "Manager.allowPublic")
+func (m *Manager) allowPublic() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.allowPublic", "m", m), &out0)
 	return m.readBool("public", true)
 }
-func (m *Manager) readOnly() bool {
-	logger.DebugTrace("fileservers/servers/sftpserv", "Manager.readOnly")
+func (m *Manager) readOnly() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.readOnly", "m", m), &out0)
 	return m.readBool("readonly", false)
 }
 
-func (m *Manager) hostKeyFingerprint() string {
-	logger.Debug("fileservers/servers/sftpserv", "Manager.hostKeyFingerprint")
+func (m *Manager) hostKeyFingerprint() (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.hostKeyFingerprint", "m", m), &out0)
 	key, err := sftpserver.LoadOrCreateHostKey(m.opt.KeyFile)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/sftpserv", err)
 		return ""
 	}
 	return sftpserver.Fingerprint(key)
 }
 
-func (m *Manager) authenticate(username, password, remote string) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "Manager.authenticate: username=%.120q remote=%.120q", username, remote)
-	}
+func (m *Manager) authenticate(username, password, remote string) (out0 error) {
+	defer logger.Out1(logger.In4("fileservers/servers/sftpserv", "Manager.authenticate", "m", m, "username", username, "remote", remote, "!password", password), &out0)
 	err := m.opt.CheckPassword(username, password, remote)
 	if m.opt.LogAuth != nil {
 		m.opt.LogAuth(username, remote, err == nil)
 	}
 	if err != nil {
+		logger.DebugErr("fileservers/servers/sftpserv", err)
 		return errors.New("Invalid username or password")
 	}
 	return nil
 }
 
 // start runs a new instance with the saved settings. m.mu must be held.
-func (m *Manager) start() error {
-	logger.Debug("fileservers/servers/sftpserv", "Manager.start")
+func (m *Manager) start() (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.start", "m", m), &out0)
 	m.stop()
 	key, err := sftpserver.LoadOrCreateHostKey(m.opt.KeyFile)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/sftpserv", err)
 		m.lastError = "The host key could not be read or created: " + err.Error()
 		return err
 	}
@@ -163,6 +163,7 @@ func (m *Manager) start() error {
 		LookupUser:   m.opt.LookupUser,
 	})
 	if err != nil {
+		logger.DebugErr("fileservers/servers/sftpserv", err)
 		m.lastError = err.Error()
 		return err
 	}
@@ -170,6 +171,7 @@ func (m *Manager) start() error {
 	m.lastError = ""
 	if m.upnpEnabled() && m.opt.Upnp != nil {
 		if err := m.opt.Upnp.ForwardPort(port, m.opt.Hostname+" sftp-service"); err != nil {
+			logger.DebugErr("fileservers/servers/sftpserv", err)
 			m.lastError = "UPnP could not forward port " + strconv.Itoa(port) + ": " + err.Error()
 		} else {
 			m.forwarded = port
@@ -180,7 +182,7 @@ func (m *Manager) start() error {
 
 // stop closes the running instance, if any. m.mu must be held.
 func (m *Manager) stop() {
-	logger.Debug("fileservers/servers/sftpserv", "Manager.stop")
+	defer logger.Out0(logger.In1("fileservers/servers/sftpserv", "Manager.stop", "m", m))
 	if m.instance != nil {
 		m.instance.Close()
 		m.instance = nil
@@ -196,15 +198,13 @@ func (m *Manager) stop() {
 */
 
 func sendJSON(w http.ResponseWriter, value interface{}) {
-	logger.Debug("fileservers/servers/sftpserv", "sendJSON")
+	defer logger.Out0(logger.In1("fileservers/servers/sftpserv", "sendJSON", "value", value))
 	js, _ := json.Marshal(value)
 	utils.SendJSONResponse(w, string(js))
 }
 
-func postOnly(r *http.Request, key string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "postOnly: r=%s", logger.RequestSummary(r))
-	}
+func postOnly(r *http.Request, key string) (out0 string) {
+	defer logger.Out1(logger.In2("fileservers/servers/sftpserv", "postOnly", "r", r, "!key", key), &out0)
 	if r.Method != http.MethodPost {
 		return ""
 	}
@@ -214,11 +214,10 @@ func postOnly(r *http.Request, key string) string {
 
 // HandleStatus tells a signed in user how to connect.
 func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "Manager.HandleStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/sftpserv", "Manager.HandleStatus", "m", m, "r", r))
 	username, err := m.opt.CurrentUser(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/sftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -233,9 +232,7 @@ func (m *Manager) HandleStatus(w http.ResponseWriter, r *http.Request) {
 
 // HandleConfig reads or changes the settings, and is for admins.
 func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "Manager.HandleConfig: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/sftpserv", "Manager.HandleConfig", "m", m, "r", r))
 	if r.Method != http.MethodPost {
 		m.mu.Lock()
 		config := AdminConfig{
@@ -274,6 +271,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	if m.instance != nil {
 		//Every client is disconnected, and their programs reconnect
 		if err := m.start(); err != nil {
+			logger.DebugErr("fileservers/servers/sftpserv", err)
 			utils.SendErrorResponse(w, "The settings are saved, but the server could not restart: "+err.Error())
 			return
 		}
@@ -284,9 +282,7 @@ func (m *Manager) HandleConfig(w http.ResponseWriter, r *http.Request) {
 
 // HandleClients lists who is connected, and is for admins.
 func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "Manager.HandleClients: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/sftpserv", "Manager.HandleClients", "m", m, "r", r))
 	m.mu.Lock()
 	instance := m.instance
 	m.mu.Unlock()
@@ -300,10 +296,8 @@ func (m *Manager) HandleClients(w http.ResponseWriter, r *http.Request) {
 /*
 Functions requested by the file server service router
 */
-func (m *Manager) ServerToggle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/sftpserv", "Manager.ServerToggle: enabled=%t", enabled)
-	}
+func (m *Manager) ServerToggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/sftpserv", "Manager.ServerToggle", "m", m, "enabled", enabled), &out0)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !enabled {
@@ -315,13 +309,14 @@ func (m *Manager) ServerToggle(enabled bool) error {
 		return nil
 	}
 	if err := m.start(); err != nil {
+		logger.DebugErr("fileservers/servers/sftpserv", err)
 		return err
 	}
 	return m.opt.Sysdb.Write(settingsTable, "enabled", true)
 }
 
-func (m *Manager) IsEnabled() bool {
-	logger.Debug("fileservers/servers/sftpserv", "Manager.IsEnabled")
+func (m *Manager) IsEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/sftpserv", "Manager.IsEnabled", "m", m), &out0)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.instance != nil && !m.instance.IsClosed()
@@ -329,14 +324,14 @@ func (m *Manager) IsEnabled() bool {
 
 // Close stops the server without changing whether it starts on boot.
 func (m *Manager) Close() {
-	logger.Debug("fileservers/servers/sftpserv", "Manager.Close")
+	defer logger.Out0(logger.In1("fileservers/servers/sftpserv", "Manager.Close", "m", m))
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stop()
 }
 
-func (m *Manager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	logger.DebugTrace("fileservers/servers/sftpserv", "Manager.GetEndpoints")
+func (m *Manager) GetEndpoints(userinfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/sftpserv", "Manager.GetEndpoints", "m", m, "userinfo", userinfo), &out0)
 	return []*fileservers.Endpoint{{
 		ProtocolName: "sftp://",
 		Port:         m.Port(),

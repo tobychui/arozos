@@ -44,13 +44,14 @@ var (
 )
 
 func LocaleInit() {
-	logger.Debug("Core", "LocaleInit")
+	defer logger.Out0(logger.In0("Core", "LocaleInit"))
 	lib, err := fonts.NewLibrary(fonts.Options{
 		Root:     filepath.Join(localeRoot, "fonts"),
 		CacheDir: filepath.Join("system", "cache", "fonts"),
 		DB:       sysdb,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		logger.PrintAndLog("Locale", "Font library unavailable, locale files are served without library fonts", err)
 		lib = nil
 	}
@@ -60,6 +61,7 @@ func LocaleInit() {
 		Fonts:      lib,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		logger.PrintAndLog("Locale", "Unable to serve the system locale files", err)
 		return
 	}
@@ -97,9 +99,7 @@ func LocaleInit() {
 
 // serveLocaleRequest answers /SystemAO/locale/* for a logged in user
 func serveLocaleRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "serveLocaleRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "serveLocaleRequest", "r", r))
 	username := ""
 	if userinfo, err := userHandler.GetUserInfoFromRequest(w, r); err == nil {
 		username = userinfo.Username
@@ -119,14 +119,13 @@ func serveLocaleRequest(w http.ResponseWriter, r *http.Request) {
 // handleFontFaces lists the installed families with the files of their
 // faces; the paths are relative to base
 func handleFontFaces(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleFontFaces: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleFontFaces", "r", r))
 	js, err := json.Marshal(map[string]interface{}{
 		"base":     locale.URLPrefix + "fonts/",
 		"families": fontLibrary.Sources(),
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Unable to list the fonts")
 		return
 	}
@@ -134,11 +133,10 @@ func handleFontFaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleFontList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleFontList", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -176,25 +174,26 @@ func handleFontList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontPreference(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleFontPreference: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleFontPreference", "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
 	}
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 	lang, err := utils.PostPara(r, "lang")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid language")
 		return
 	}
 	family, _ := utils.PostPara(r, "family")
 	if err := fontLibrary.SetChoice(userinfo.Username, lang, family); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -202,20 +201,20 @@ func handleFontPreference(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontDefault(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleFontDefault: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleFontDefault", "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
 	}
 	lang, err := utils.PostPara(r, "lang")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid language")
 		return
 	}
 	family, _ := utils.PostPara(r, "family")
 	if err := fontLibrary.SetDefault(lang, family); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -223,15 +222,14 @@ func handleFontDefault(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontUpload(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleFontUpload: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleFontUpload", "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4*fonts.MaxFontSize)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "The upload is too large or incomplete")
 		return
 	}
@@ -252,6 +250,7 @@ func handleFontUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		f, err := header.Open()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			res.Error = "Unable to read the upload"
 			results = append(results, res)
 			continue
@@ -265,6 +264,7 @@ func handleFontUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		face, err := fontLibrary.Install(header.Filename, data)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			res.Error = err.Error()
 		} else {
 			res.Face = &face
@@ -280,19 +280,19 @@ func handleFontUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFontDelete(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "handleFontDelete: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "handleFontDelete", "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "POST required")
 		return
 	}
 	family, err := utils.PostPara(r, "family")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Invalid family")
 		return
 	}
 	if err := fontLibrary.Delete(family); err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

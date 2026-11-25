@@ -100,10 +100,8 @@ var dataImagePattern = regexp.MustCompile(`(?i)(<img\b[^>]*?\bsrc\s*=\s*["'])dat
 
 // parseRecipients validates a recipient list, accepting "Name <a@b>",
 // bare addresses and comma / semicolon separated strings.
-func parseRecipients(values []string) ([]*mail.Address, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "parseRecipients: len(values)=%d", len(values))
-	}
+func parseRecipients(values []string) (out0 []*mail.Address, out1 error) {
+	defer logger.Out2(logger.In1("email", "parseRecipients", "values", values), &out0, &out1)
 	results := []*mail.Address{}
 	seen := map[string]bool{}
 	for _, value := range values {
@@ -114,6 +112,7 @@ func parseRecipients(values []string) ([]*mail.Address, error) {
 			}
 			address, err := mail.ParseAddress(piece)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, fmt.Errorf("%q is not a valid email address", piece)
 			}
 			key := strings.ToLower(address.Address)
@@ -128,10 +127,8 @@ func parseRecipients(values []string) ([]*mail.Address, error) {
 }
 
 // splitAddressList splits on commas and semicolons outside quotes / brackets.
-func splitAddressList(value string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "splitAddressList: value=%.120q", value)
-	}
+func splitAddressList(value string) (out0 []string) {
+	defer logger.Out1(logger.In1("email", "splitAddressList", "value", value), &out0)
 	parts := []string{}
 	var current strings.Builder
 	inQuotes, inAngle := false, false
@@ -156,20 +153,21 @@ func splitAddressList(value string) []string {
 
 // buildMessage renders a compose request. forDraft keeps Bcc in the headers
 // and allows an empty recipient list.
-func (m *Manager) buildMessage(ctx context.Context, p Principal, account *Account, request *ComposeRequest, forDraft bool) (*builtMessage, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.buildMessage: forDraft=%t", forDraft)
-	}
+func (m *Manager) buildMessage(ctx context.Context, p Principal, account *Account, request *ComposeRequest, forDraft bool) (out0 *builtMessage, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.buildMessage", "m", m, "ctx", ctx, "&p", &p, "account", account, "request", request, "forDraft", forDraft), &out0, &out1)
 	to, err := parseRecipients(request.To)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	cc, err := parseRecipients(request.Cc)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	bcc, err := parseRecipients(request.Bcc)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if !forDraft && len(to)+len(cc)+len(bcc) == 0 {
@@ -216,6 +214,7 @@ func (m *Manager) buildMessage(ctx context.Context, p Principal, account *Accoun
 		hostname = "arozos.local"
 	}
 	if err := header.GenerateMessageIDWithHostname(hostname); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	messageID, _ := header.MessageID()
@@ -254,11 +253,13 @@ func (m *Manager) buildMessage(ctx context.Context, p Principal, account *Accoun
 
 	attachments, err := m.collectAttachments(ctx, p, request)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
 	var buffer bytes.Buffer
 	if err := writeMessageBody(&buffer, header, request, attachments); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -298,8 +299,8 @@ type attachmentPayload struct {
 
 // collectAttachments gathers user files and forwarded server parts and
 // enforces the administrator's size budget.
-func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *ComposeRequest) ([]attachmentPayload, error) {
-	logger.Debug("email", "Manager.collectAttachments")
+func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *ComposeRequest) (out0 []attachmentPayload, out1 error) {
+	defer logger.Out2(logger.In4("email", "Manager.collectAttachments", "m", m, "ctx", ctx, "&p", &p, "request", request), &out0, &out1)
 	limit := m.maxAttachmentBytes()
 	var total int64
 	payloads := []attachmentPayload{}
@@ -331,6 +332,7 @@ func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *
 			//"Forward as attachment": the whole original message
 			raw, err := m.GetRaw(ctx, p, accountID, forwarded.Folder, forwarded.UID)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return nil, fmt.Errorf("could not attach the original message: %w", err)
 			}
 			total += int64(len(raw.Data))
@@ -344,6 +346,7 @@ func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *
 		}
 		part, err := m.GetPart(ctx, p, accountID, forwarded.Folder, forwarded.UID, forwarded.PartID)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, fmt.Errorf("could not include an attachment of the original message: %w", err)
 		}
 		total += int64(len(part.Data))
@@ -362,10 +365,8 @@ func (m *Manager) collectAttachments(ctx context.Context, p Principal, request *
 }
 
 // writeMessageBody writes the MIME tree described at the top of this file.
-func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest, attachments []attachmentPayload) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "writeMessageBody: len(attachments)=%d", len(attachments))
-	}
+func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest, attachments []attachmentPayload) (out0 error) {
+	defer logger.Out1(logger.In4("email", "writeMessageBody", "w", w, "&header", &header, "request", request, "attachments", attachments), &out0)
 	htmlBody := request.HTML
 	textBody := request.Text
 	if request.PlainOnly {
@@ -390,6 +391,7 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 			groups := dataImagePattern.FindStringSubmatch(match)
 			data, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(groups[3]), ""))
 			if err != nil {
+				logger.DebugErr("email", err)
 				return match
 			}
 			counter++
@@ -407,9 +409,11 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 		partHeader.Set("Content-Transfer-Encoding", "quoted-printable")
 		part, err := create(partHeader)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if _, err := io.WriteString(part, normaliseNewlines(body)); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		return part.Close()
@@ -423,9 +427,11 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 		relatedHeader.SetContentType("multipart/related", map[string]string{"type": "text/html"})
 		related, err := create(relatedHeader)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if err := writeText(related.CreatePart, "text/html", htmlBody); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		for index, image := range inlineImages {
@@ -441,12 +447,15 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 			imageHeader.Set("Content-Transfer-Encoding", "base64")
 			part, err := related.CreatePart(imageHeader)
 			if err != nil {
+				logger.DebugErr("email", err)
 				return err
 			}
 			if _, err := part.Write(image.data); err != nil {
+				logger.DebugErr("email", err)
 				return err
 			}
 			if err := part.Close(); err != nil {
+				logger.DebugErr("email", err)
 				return err
 			}
 		}
@@ -461,12 +470,15 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 		alternativeHeader.SetContentType("multipart/alternative", nil)
 		alternative, err := create(alternativeHeader)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if err := writeText(alternative.CreatePart, "text/plain", textBody); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if err := writeHTML(alternative.CreatePart); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		return alternative.Close()
@@ -489,9 +501,11 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 	mixedHeader.SetContentType("multipart/mixed", nil)
 	mixed, err := topLevel(mixedHeader)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	if err := writeContent(mixed.CreatePart); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	for _, attachment := range attachments {
@@ -507,18 +521,22 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 		}
 		part, err := mixed.CreatePart(attachmentHeader)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		reader, err := attachment.open()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return fmt.Errorf("cannot read attachment %s: %w", attachment.name, err)
 		}
 		_, copyErr := io.Copy(part, reader)
 		reader.Close()
 		if copyErr != nil {
+			logger.DebugErr("email", copyErr)
 			return copyErr
 		}
 		if err := part.Close(); err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 	}
@@ -526,8 +544,8 @@ func writeMessageBody(w io.Writer, header gomail.Header, request *ComposeRequest
 }
 
 // wrapHTMLDocument gives editor HTML a complete document with a UTF-8 hint.
-func wrapHTMLDocument(body string) string {
-	logger.Debug("email", "wrapHTMLDocument")
+func wrapHTMLDocument(body string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "wrapHTMLDocument", "body", body), &out0)
 	lower := strings.ToLower(body)
 	if strings.Contains(lower, "<html") {
 		return body
@@ -536,18 +554,16 @@ func wrapHTMLDocument(body string) string {
 		body + "</body></html>"
 }
 
-func normaliseNewlines(text string) string {
-	logger.Debug("email", "normaliseNewlines")
+func normaliseNewlines(text string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "normaliseNewlines", "text", text), &out0)
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 	return strings.ReplaceAll(text, "\n", "\r\n")
 }
 
 // contentTypeFor guesses a media type from a file name.
-func contentTypeFor(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "contentTypeFor: name=%.120q", name)
-	}
+func contentTypeFor(name string) (out0 string) {
+	defer logger.Out1(logger.In1("email", "contentTypeFor", "name", name), &out0)
 	if byExt := mime.TypeByExtension(strings.ToLower(filepath.Ext(name))); byExt != "" {
 		//Drop the charset Go appends for text types; attachments are bytes
 		if semicolon := strings.Index(byExt, ";"); semicolon > 0 {
@@ -558,10 +574,8 @@ func contentTypeFor(name string) string {
 	return "application/octet-stream"
 }
 
-func humanSize(size int64) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "humanSize: size=%d", size)
-	}
+func humanSize(size int64) (out0 string) {
+	defer logger.Out1(logger.In1("email", "humanSize", "size", size), &out0)
 	const unit = 1024
 	if size < unit {
 		return fmt.Sprintf("%d B", size)

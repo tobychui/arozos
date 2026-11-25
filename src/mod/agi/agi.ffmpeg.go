@@ -26,21 +26,23 @@ import (
 */
 
 func (g *Gateway) FFmpegLibRegister() {
-	logger.Debug("agi", "Gateway.FFmpegLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.FFmpegLibRegister", "g", g))
 	_, err := exec.LookPath("ffmpeg")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", "ffmpeg not found in PATH", nil)
 		return
 	}
 	err = g.RegisterLib("ffmpeg", g.injectFFmpegFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		return
 	}
 }
 
 func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectFFmpegFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectFFmpegFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -51,12 +53,14 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		//Get the input and output filepath
 		vinput, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		voutput, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -69,6 +73,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		compression, err := call.Argument(2).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			//Do not use compression
 			compression = 0
 		}
@@ -84,6 +89,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		//Translate the virtual path to realpath for the input file
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -91,6 +97,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		//Translate the virtual path to realpath for the output file
 		fsh, routput, err := static.VirtualPathToRealPath(voutput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -100,6 +107,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		//permission is in-scope as well as to avoid locking a file by child-process
 		bufferedFilepath, err := fsh.BufferRemoteToLocal(rinput)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -111,6 +119,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		outputBufferPath := filepath.Join(filepath.Dir(bufferedFilepath), outputTmpFilename)
 		err = ffmpegutil.FFmpeg_conv(bufferedFilepath, outputBufferPath, int(compression))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			//FFmpeg conversion failed
 			g.RaiseError(err)
 
@@ -135,6 +144,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		//Upload the converted file to target disk
 		src, err := os.OpenFile(outputBufferPath, os.O_RDONLY, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			//Delete the output buffer if failed
 			os.Remove(outputBufferPath)
@@ -144,6 +154,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		err = fsh.FileSystemAbstraction.WriteStream(routput, src, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			//Delete the output buffer if failed
 			os.Remove(outputBufferPath)
@@ -162,6 +173,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_ffmpeg_audio_conv", func(call otto.FunctionCall) otto.Value {
 		vinput, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -188,11 +200,13 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fsh, routput, err := static.VirtualPathToRealPath(voutput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -207,6 +221,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		bufferedFilepath, err := fsh.BufferRemoteToLocal(rinput)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -217,6 +232,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		err = ffmpegutil.FFmpeg_audio_conv(bufferedFilepath, outputBufferPath, int(sampleRate), rprogressFile)
 		os.Remove(bufferedFilepath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			//Remove the partial output left behind by a failed or cancelled conversion
 			os.Remove(outputBufferPath)
@@ -229,6 +245,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		src, err := os.OpenFile(outputBufferPath, os.O_RDONLY, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -236,6 +253,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		defer src.Close()
 		err = fsh.FileSystemAbstraction.WriteStream(routput, src, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -251,6 +269,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_ffmpeg_image_conv", func(call otto.FunctionCall) otto.Value {
 		vinput, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -281,11 +300,13 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fsh, routput, err := static.VirtualPathToRealPath(voutput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -300,6 +321,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		bufferedFilepath, err := fsh.BufferRemoteToLocal(rinput)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -310,6 +332,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		err = ffmpegutil.FFmpeg_image_conv(bufferedFilepath, outputBufferPath, scaleFactor, int(compressionRate), rprogressFile)
 		os.Remove(bufferedFilepath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			//Remove the partial output left behind by a failed or cancelled conversion
 			os.Remove(outputBufferPath)
@@ -322,6 +345,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		src, err := os.OpenFile(outputBufferPath, os.O_RDONLY, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -329,6 +353,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		defer src.Close()
 		err = fsh.FileSystemAbstraction.WriteStream(routput, src, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -345,6 +370,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_ffmpeg_video_conv", func(call otto.FunctionCall) otto.Value {
 		vinput, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -378,11 +404,13 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fsh, routput, err := static.VirtualPathToRealPath(voutput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -397,6 +425,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		bufferedFilepath, err := fsh.BufferRemoteToLocal(rinput)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -407,6 +436,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		err = ffmpegutil.FFmpeg_video_conv(bufferedFilepath, outputBufferPath, resolution, int(compressionRate), rprogressFile)
 		os.Remove(bufferedFilepath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			//Remove the partial output left behind by a failed or cancelled conversion
 			os.Remove(outputBufferPath)
@@ -419,6 +449,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		src, err := os.OpenFile(outputBufferPath, os.O_RDONLY, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -426,6 +457,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		defer src.Close()
 		err = fsh.FileSystemAbstraction.WriteStream(routput, src, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -441,6 +473,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 	vm.Set("_ffmpeg_conv_with_progress", func(call otto.FunctionCall) otto.Value {
 		vinput, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -463,11 +496,13 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		fsh, rinput, err := static.VirtualPathToRealPath(vinput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fsh, routput, err := static.VirtualPathToRealPath(voutput, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -482,6 +517,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		bufferedFilepath, err := fsh.BufferRemoteToLocal(rinput)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -492,6 +528,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		err = ffmpegutil.FFmpeg_conv_with_progress(bufferedFilepath, outputBufferPath, rprogressFile)
 		os.Remove(bufferedFilepath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			//Remove the partial output left behind by a failed or cancelled conversion
 			os.Remove(outputBufferPath)
@@ -504,6 +541,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 		src, err := os.OpenFile(outputBufferPath, os.O_RDONLY, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -511,6 +549,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		defer src.Close()
 		err = fsh.FileSystemAbstraction.WriteStream(routput, src, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			os.Remove(outputBufferPath)
 			return otto.FalseValue()
@@ -534,6 +573,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		vprogressFile = static.RelativeVpathRewrite(scriptFsh, vprogressFile, vm, u)
 		_, rprogressFile, err := static.VirtualPathToRealPath(vprogressFile, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}

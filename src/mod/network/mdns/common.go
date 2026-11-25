@@ -6,10 +6,8 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
-func stringInSlice(a string, list []string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("network/mdns", "stringInSlice: a=%.120q len(list)=%d", a, len(list))
-	}
+func stringInSlice(a string, list []string) (out0 bool) {
+	defer logger.Out1(logger.In2("network/mdns", "stringInSlice", "a", a, "list", list), &out0)
 	for _, b := range list {
 		if b == a {
 			return true
@@ -18,10 +16,11 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func getMacAddr() ([]string, error) {
-	logger.Debug("network/mdns", "getMacAddr")
+func getMacAddr() (out0 []string, out1 error) {
+	defer logger.Out2(logger.In0("network/mdns", "getMacAddr"), &out0, &out1)
 	ifas, err := net.Interfaces()
 	if err != nil {
+		logger.DebugErr("network/mdns", err)
 		return nil, err
 	}
 	var as []string
@@ -34,12 +33,11 @@ func getMacAddr() ([]string, error) {
 	return as, nil
 }
 
-func getMaxMacAddrString(maxLength int) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/mdns", "getMaxMacAddrString: maxLength=%d", maxLength)
-	}
+func getMaxMacAddrString(maxLength int) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("network/mdns", "getMaxMacAddrString", "maxLength", maxLength), &out0, &out1)
 	ifas, err := net.Interfaces()
 	if err != nil {
+		logger.DebugErr("network/mdns", err)
 		return "", err
 	}
 

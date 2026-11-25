@@ -122,9 +122,7 @@ type imageRequest struct {
 }
 
 func newImageRequest(image []byte, mimeType string, opt RequestOptions) imageRequest {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("aiservers/cnn", "newImageRequest: len(image)=%d", len(image))
-	}
+	logger.DebugTrace("aiservers/cnn", "newImageRequest")
 	return imageRequest{
 		Model:          opt.Model,
 		Image:          dataURI(image, mimeType),

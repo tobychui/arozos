@@ -89,8 +89,8 @@ type Service struct {
 }
 
 // New creates a desktop service and the database table it keeps its state in
-func New(opts Options) (*Service, error) {
-	logger.Debug("desktop/service", "New")
+func New(opts Options) (out0 *Service, out1 error) {
+	defer logger.Out2(logger.In1("desktop/service", "New", "&opts", &opts), &out0, &out1)
 	if opts.Database == nil {
 		return nil, errors.New("desktop service requires a database")
 	}
@@ -112,10 +112,12 @@ func New(opts Options) (*Service, error) {
 
 	layoutManager, err := layout.NewManager(opts.Database, opts.TableName)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, err
 	}
 	prefsManager, err := prefs.NewManager(opts.Database, opts.TableName)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, err
 	}
 
@@ -129,7 +131,7 @@ func New(opts Options) (*Service, error) {
 
 // RegisterRoutes registers every desktop endpoint on the given router
 func (s *Service) RegisterRoutes(router Router) {
-	logger.Debug("desktop/service", "Service.RegisterRoutes")
+	defer logger.Out0(logger.In2("desktop/service", "Service.RegisterRoutes", "s", s, "&router", &router))
 	router.HandleFunc("/system/desktop/listDesktop", s.handleListDesktop)
 	router.HandleFunc("/system/desktop/theme", s.handleTheme)
 	router.HandleFunc("/system/desktop/files", s.handleIconLocation)

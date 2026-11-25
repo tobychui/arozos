@@ -33,7 +33,7 @@ import (
 */
 
 func AIModelSettingInit() {
-	logger.Debug("Core", "AIModelSettingInit")
+	defer logger.Out0(logger.In0("Core", "AIModelSettingInit"))
 	//Register the settings tab in the "AI Integration" group.
 	registerSetting(settingModule{
 		Name:         "AI Model",

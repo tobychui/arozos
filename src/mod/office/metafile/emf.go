@@ -105,9 +105,7 @@ func (p *emfPlayer) toDevice(dc *mfDC, q mfPt) mfPt {
 type emfRec []byte
 
 func (r emfRec) u32(o int) uint32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfRec.u32: o=%d", o)
-	}
+	logger.DebugTrace("office/metafile", "emfRec.u32")
 	if o+4 > len(r) {
 		return 0
 	}
@@ -115,16 +113,12 @@ func (r emfRec) u32(o int) uint32 {
 }
 
 func (r emfRec) i32(o int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfRec.i32: o=%d", o)
-	}
+	logger.DebugTrace("office/metafile", "emfRec.i32")
 	return float64(int32(r.u32(o)))
 }
 
 func (r emfRec) i16(o int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfRec.i16: o=%d", o)
-	}
+	logger.DebugTrace("office/metafile", "emfRec.i16")
 	if o+2 > len(r) {
 		return 0
 	}
@@ -132,17 +126,13 @@ func (r emfRec) i16(o int) float64 {
 }
 
 func (r emfRec) f32(o int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfRec.f32: o=%d", o)
-	}
+	logger.DebugTrace("office/metafile", "emfRec.f32")
 	return float64(math.Float32frombits(r.u32(o)))
 }
 
 // points reads n points (32-bit or 16-bit pairs) at offset o
 func (r emfRec) points(o, n int, small bool) []mfPt {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfRec.points: o=%d n=%d small=%t", o, n, small)
-	}
+	logger.DebugTrace("office/metafile", "emfRec.points")
 	sz := 8
 	if small {
 		sz = 4
@@ -163,9 +153,7 @@ func (r emfRec) points(o, n int, small bool) []mfPt {
 
 // slice returns the [off, off+size) part of the record, or nil
 func (r emfRec) slice(off, size uint32) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfRec.slice: off=%d size=%d", off, size)
-	}
+	logger.DebugTrace("office/metafile", "emfRec.slice")
 	if size == 0 || uint64(off)+uint64(size) > uint64(len(r)) {
 		return nil
 	}
@@ -196,9 +184,7 @@ func (p *emfPlayer) play(c *mfCanvas) error {
 }
 
 func (p *emfPlayer) record(c *mfCanvas, typ uint32, r emfRec) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfPlayer.record: typ=%d", typ)
-	}
+	logger.DebugTrace("office/metafile", "emfPlayer.record")
 	switch typ {
 	case 9: // SETWINDOWEXTEX
 		c.dc.winExt = mfPt{r.i32(8), r.i32(12)}
@@ -472,9 +458,7 @@ func xfMul(a, b [6]float64) [6]float64 {
 
 // emfFont reads an EMF LOGFONTW (32-bit fields, UTF-16 face name)
 func emfFont(b []byte) *mfFont {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/metafile", "emfFont: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("office/metafile", "emfFont")
 	r := emfRec(b)
 	f := &mfFont{
 		height:     r.i32(0),

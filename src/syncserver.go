@@ -34,7 +34,7 @@ var SyncServerManager *syncserv.Manager
 
 // SyncServerInit sets up the manager, its endpoints and its list entry.
 func SyncServerInit(router, adminRouter *prout.RouterDef) {
-	logger.Debug("Core", "SyncServerInit")
+	defer logger.Out0(logger.In2("Core", "SyncServerInit", "router", router, "adminRouter", adminRouter))
 	var err error
 	SyncServerManager, err = syncserv.NewManager(&syncserv.ManagerOption{
 		Sysdb: sysdb,
@@ -82,6 +82,7 @@ func SyncServerInit(router, adminRouter *prout.RouterDef) {
 		OpenFolder: syncServerOpenFolder,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Sync Server", "The Sync Server is not available", err)
 		SyncServerManager = nil
 		return
@@ -134,16 +135,16 @@ type syncFolder struct {
 
 // syncServerOpenFolder checks a folder a user picked for uploads: the drive
 // is there and mounted, and the user can write to the folder.
-func syncServerOpenFolder(username, vpath string) (syncserv.Folder, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "syncServerOpenFolder: username=%.120q vpath=%.120q", username, vpath)
-	}
+func syncServerOpenFolder(username, vpath string) (out0 syncserv.Folder, out1 error) {
+	defer logger.Out2(logger.In2("Core", "syncServerOpenFolder", "username", username, "vpath", vpath), &out0, &out1)
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, errors.New("This drive cannot be found")
 	}
 	if fsh.Closed {
@@ -155,6 +156,7 @@ func syncServerOpenFolder(username, vpath string) (syncserv.Folder, error) {
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(vpath, username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, errors.New("This folder cannot be used")
 	}
 	if fshAbs.FileExists(rpath) && !fshAbs.IsDir(rpath) {
@@ -169,59 +171,50 @@ func syncServerOpenFolder(username, vpath string) (syncserv.Folder, error) {
 }
 
 func (f *syncFolder) VirtualPath(rel string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "syncFolder.VirtualPath: rel=%.120q", rel)
-	}
+	logger.DebugTrace("Core", "syncFolder.VirtualPath")
 	return strings.TrimSuffix(f.base, "/") + "/" + rel
 }
 
 func (f *syncFolder) realPath(rel string) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("Core", "syncFolder.realPath: rel=%.120q", rel)
-	}
+	logger.DebugTrace("Core", "syncFolder.realPath")
 	return f.fsh.FileSystemAbstraction.VirtualPathToRealPath(f.VirtualPath(rel), f.userinfo.Username)
 }
 
-func (f *syncFolder) Stat(rel string) (bool, bool, int64) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "syncFolder.Stat: rel=%.120q", rel)
-	}
+func (f *syncFolder) Stat(rel string) (out0 bool, out1 bool, out2 int64) {
+	defer logger.Out3(logger.In2("Core", "syncFolder.Stat", "f", f, "rel", rel), &out0, &out1, &out2)
 	rpath, err := f.realPath(rel)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return false, false, 0
 	}
 	info, err := f.fsh.FileSystemAbstraction.Stat(rpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return false, false, 0
 	}
 	return true, info.IsDir(), info.Size()
 }
 
-func (f *syncFolder) Open(rel string) (io.ReadCloser, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "syncFolder.Open: rel=%.120q", rel)
-	}
+func (f *syncFolder) Open(rel string) (out0 io.ReadCloser, out1 error) {
+	defer logger.Out2(logger.In2("Core", "syncFolder.Open", "f", f, "rel", rel), &out0, &out1)
 	rpath, err := f.realPath(rel)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, err
 	}
 	return f.fsh.FileSystemAbstraction.ReadStream(rpath)
 }
 
-func (f *syncFolder) HaveSpace(size int64) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "syncFolder.HaveSpace: size=%d", size)
-	}
+func (f *syncFolder) HaveSpace(size int64) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "syncFolder.HaveSpace", "f", f, "size", size), &out0)
 	if size <= 0 || f.fsh.Hierarchy != "user" || f.userinfo.StorageQuota == nil {
 		return true
 	}
 	return f.userinfo.StorageQuota.HaveSpace(size)
 }
 
-func (f *syncFolder) Place(spool string, rel string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "syncFolder.Place: spool=%.120q rel=%.120q", spool, rel)
-	}
+func (f *syncFolder) Place(spool string, rel string) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "syncFolder.Place", "f", f, "spool", spool, "rel", rel), &out0)
 	vpath := f.VirtualPath(rel)
 	//Access is asked on every write: a group or drive rule may have changed
 	//since the folder was picked
@@ -231,11 +224,13 @@ func (f *syncFolder) Place(spool string, rel string) error {
 	fshAbs := f.fsh.FileSystemAbstraction
 	rpath, err := f.realPath(rel)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return err
 	}
 	dir := arozfs.ToSlash(filepath.Dir(rpath))
 	if !fshAbs.FileExists(dir) {
 		if err := fshAbs.MkdirAll(dir, 0775); err != nil {
+			logger.DebugErr("Core", err)
 			return err
 		}
 	}
@@ -254,11 +249,13 @@ func (f *syncFolder) Place(spool string, rel string) error {
 	if !placed {
 		src, err := os.Open(spool)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			return err
 		}
 		err = fshAbs.WriteStream(rpath, src, 0775)
 		src.Close()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			fshAbs.Remove(rpath)
 			return err
 		}

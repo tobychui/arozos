@@ -44,14 +44,13 @@ type DeviceInfo struct {
 
 // GetRAIDInfo retrieves information about a RAID array using the mdadm command.
 // arrayName must be in full path (e.g. /dev/md0)
-func (m *Manager) GetRAIDInfo(arrayName string) (*RAIDInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.GetRAIDInfo: arrayName=%.120q", arrayName)
-	}
+func (m *Manager) GetRAIDInfo(arrayName string) (out0 *RAIDInfo, out1 error) {
+	defer logger.Out2(logger.In2("disk/raid", "Manager.GetRAIDInfo", "m", m, "arrayName", arrayName), &out0, &out1)
 	cmd := exec.Command("sudo", "mdadm", "--detail", arrayName)
 
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return nil, fmt.Errorf("error running mdadm command: %v", err)
 	}
 
@@ -63,10 +62,8 @@ func (m *Manager) GetRAIDInfo(arrayName string) (*RAIDInfo, error) {
 }
 
 // parseRAIDInfo parses the output of mdadm --detail command and returns the RAIDInfo struct.
-func parseRAIDInfo(output string) *RAIDInfo {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "parseRAIDInfo: output=%.120q", output)
-	}
+func parseRAIDInfo(output string) (out0 *RAIDInfo) {
+	defer logger.Out1(logger.In1("disk/raid", "parseRAIDInfo", "output", output), &out0)
 	lines := strings.Split(output, "\n")
 
 	raidInfo := &RAIDInfo{}
@@ -126,6 +123,7 @@ func parseRAIDInfo(output string) *RAIDInfo {
 					if len(fields) > 3 {
 						rdNo, err := strconv.Atoi(fields[3])
 						if err != nil {
+							logger.DebugErr("disk/raid", err)
 							rdNo = -1
 						}
 						deviceInfo.RaidDevice = rdNo
@@ -156,7 +154,7 @@ func parseRAIDInfo(output string) *RAIDInfo {
 
 // PrettyPrintRAIDInfo pretty prints the RAIDInfo struct.
 func (info *RAIDInfo) PrettyPrintRAIDInfo() {
-	logger.Debug("disk/raid", "RAIDInfo.PrettyPrintRAIDInfo")
+	defer logger.Out0(logger.In1("disk/raid", "RAIDInfo.PrettyPrintRAIDInfo", "info", info))
 	fmt.Println("RAID Array Information:")
 	fmt.Printf("  Version: %s\n", info.Version)
 	fmt.Printf("  Creation Time: %s\n", info.CreationTime.Format("Mon Jan 02 15:04:05 2006"))

@@ -72,7 +72,7 @@ func newVMRegistry() *vmRegistry {
 
 // register adds a record.  Called just before vm.Run() in each Execute* path.
 func (r *vmRegistry) register(rec *VMRecord) {
-	logger.Debug("agi", "vmRegistry.register")
+	defer logger.Out0(logger.In2("agi", "vmRegistry.register", "r", r, "rec", rec))
 	r.mu.Lock()
 	r.records[rec.ExecID] = rec
 	r.mu.Unlock()
@@ -80,9 +80,7 @@ func (r *vmRegistry) register(rec *VMRecord) {
 
 // unregister removes a record.  Always called via defer so it fires even on panic.
 func (r *vmRegistry) unregister(execID string) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "vmRegistry.unregister: execID=%.120q", execID)
-	}
+	defer logger.Out0(logger.In2("agi", "vmRegistry.unregister", "r", r, "execID", execID))
 	r.mu.Lock()
 	delete(r.records, execID)
 	r.mu.Unlock()
@@ -90,10 +88,8 @@ func (r *vmRegistry) unregister(execID string) {
 
 // list returns VMInfo for every VM visible to the requester.
 // Admins see all; regular users see only their own records.
-func (r *vmRegistry) list(requesterUsername string, isAdmin bool) []VMInfo {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "vmRegistry.list: requesterUsername=%.120q isAdmin=%t", requesterUsername, isAdmin)
-	}
+func (r *vmRegistry) list(requesterUsername string, isAdmin bool) (out0 []VMInfo) {
+	defer logger.Out1(logger.In3("agi", "vmRegistry.list", "r", r, "requesterUsername", requesterUsername, "isAdmin", isAdmin), &out0)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	result := make([]VMInfo, 0, len(r.records))
@@ -107,10 +103,8 @@ func (r *vmRegistry) list(requesterUsername string, isAdmin bool) []VMInfo {
 
 // forceStop sends an interrupt to the VM with the given execID.
 // Regular users may only stop their own VMs; admins may stop any.
-func (r *vmRegistry) forceStop(execID, requesterUsername string, isAdmin bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "vmRegistry.forceStop: execID=%.120q requesterUsername=%.120q isAdmin=%t", execID, requesterUsername, isAdmin)
-	}
+func (r *vmRegistry) forceStop(execID, requesterUsername string, isAdmin bool) (out0 error) {
+	defer logger.Out1(logger.In4("agi", "vmRegistry.forceStop", "r", r, "execID", execID, "requesterUsername", requesterUsername, "isAdmin", isAdmin), &out0)
 	r.mu.RLock()
 	rec, ok := r.records[execID]
 	r.mu.RUnlock()
@@ -135,11 +129,10 @@ func (r *vmRegistry) forceStop(execID, requesterUsername string, isAdmin bool) e
 // HandleListRuntimes returns the list of running VMs visible to the caller.
 // GET /system/ajgi/runtime/list
 func (g *Gateway) HandleListRuntimes(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleListRuntimes: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleListRuntimes", "g", g, "r", r))
 	thisuser, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -152,22 +145,23 @@ func (g *Gateway) HandleListRuntimes(w http.ResponseWriter, r *http.Request) {
 // HandleForceStopRuntime terminates a VM identified by the execid POST parameter.
 // POST /system/ajgi/runtime/stop
 func (g *Gateway) HandleForceStopRuntime(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "Gateway.HandleForceStopRuntime: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("agi", "Gateway.HandleForceStopRuntime", "g", g, "r", r))
 	thisuser, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	execID, err := utils.PostPara(r, "execid")
 	if err != nil {
+		logger.DebugErr("agi", err)
 		utils.SendErrorResponse(w, "missing execid parameter")
 		return
 	}
 
 	if stopErr := g.vmReg.forceStop(execID, thisuser.Username, thisuser.IsAdmin()); stopErr != nil {
+		logger.DebugErr("agi", stopErr)
 		utils.SendErrorResponse(w, stopErr.Error())
 		return
 	}

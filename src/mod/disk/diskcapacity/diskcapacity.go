@@ -34,20 +34,19 @@ type CapacityInfo struct {
 }
 
 // Create a new Capacity Resolver with the given user handler
-func NewCapacityResolver(u *user.UserHandler) *Resolver {
-	logger.DebugTrace("disk/diskcapacity", "NewCapacityResolver")
+func NewCapacityResolver(u *user.UserHandler) (out0 *Resolver) {
+	defer logger.Out1(logger.In1("disk/diskcapacity", "NewCapacityResolver", "u", u), &out0)
 	return &Resolver{
 		UserHandler: u,
 	}
 }
 
 func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskcapacity", "Resolver.HandleCapacityResolving: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/diskcapacity", "Resolver.HandleCapacityResolving", "cr", cr, "r", r))
 	//Check if the request user is authenticated
 	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -55,12 +54,14 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 	//Get vpath from paramter
 	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		utils.SendErrorResponse(w, "Vpath is not defined")
 		return
 	}
 
 	capinfo, err := cr.ResolveCapacityInfo(userinfo.Username, vpath)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		utils.SendErrorResponse(w, "Unable to resolve path capacity information: "+err.Error())
 		return
 	}
@@ -68,6 +69,7 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 	//Get Storage Hierarcy
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		capinfo.MountingHierarchy = "Unknown"
 	} else {
 		capinfo.MountingHierarchy = fsh.Hierarchy
@@ -80,12 +82,11 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 
 // Get the capacity in tmp folder, accessible by everyone by default
 func (cr *Resolver) HandleTmpCapacityResolving(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskcapacity", "Resolver.HandleTmpCapacityResolving: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/diskcapacity", "Resolver.HandleTmpCapacityResolving", "cr", cr, "r", r))
 	//Check if the request user is authenticated
 	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -95,23 +96,24 @@ func (cr *Resolver) HandleTmpCapacityResolving(w http.ResponseWriter, r *http.Re
 	utils.SendJSONResponse(w, string(js))
 }
 
-func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*CapacityInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskcapacity", "Resolver.ResolveCapacityInfo: username=%.120q vpath=%.120q", username, vpath)
-	}
+func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (out0 *CapacityInfo, out1 error) {
+	defer logger.Out2(logger.In3("disk/diskcapacity", "Resolver.ResolveCapacityInfo", "cr", cr, "username", username, "vpath", vpath), &out0, &out1)
 	//Resolve the vpath for this user
 	userinfo, err := cr.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		return nil, err
 	}
 
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		return nil, err
 	}
 
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, username)
 	if err != nil {
+		logger.DebugErr("disk/diskcapacity", err)
 		return nil, err
 	}
 
@@ -121,6 +123,7 @@ func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*Capacit
 		//This is a local disk
 		capinfo, err := dftool.GetCapacityInfoFromPath(realpath)
 		if err != nil {
+			logger.DebugErr("disk/diskcapacity", err)
 			return nil, err
 		}
 		return &CapacityInfo{

@@ -25,7 +25,7 @@ var (
 )
 
 func StorageInit() {
-	logger.Debug("Core", "StorageInit")
+	defer logger.Out0(logger.In0("Core", "StorageInit"))
 	//Load the default handler for the user storage root
 	if !fs.FileExists(filepath.Clean(*root_directory) + "/") {
 		os.MkdirAll(filepath.Clean(*root_directory)+"/", 0755)
@@ -34,12 +34,13 @@ func StorageInit() {
 	//Start loading the base storage pool
 	err := LoadBaseStoragePool()
 	if err != nil {
+		logger.DebugErr("Core", err)
 		panic(err)
 	}
 }
 
-func LoadBaseStoragePool() error {
-	logger.Debug("Core", "LoadBaseStoragePool")
+func LoadBaseStoragePool() (out0 error) {
+	defer logger.Out1(logger.In0("Core", "LoadBaseStoragePool"), &out0)
 	//All fsh for the base pool
 	fsHandlers := []*fs.FileSystemHandler{}
 	//Use for Debian buster local file system
@@ -60,6 +61,7 @@ func LoadBaseStoragePool() error {
 	})
 
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Storage", "Failed to initiate user root storage directory: "+*root_directory+err.Error(), err)
 		return err
 	}
@@ -78,6 +80,7 @@ func LoadBaseStoragePool() error {
 	})
 
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Storage", "Failed to initiate tmp storage directory: "+*tmp_directory+err.Error(), err)
 		return err
 	}
@@ -86,6 +89,7 @@ func LoadBaseStoragePool() error {
 	//Load all the storage config from file
 	rawConfig, err := os.ReadFile(*storage_config_file)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//File not found. Use internal storage only
 		systemWideLogger.PrintAndLog("Storage", "Storage configuration file not found. Using internal storage only.", err)
 	} else {
@@ -94,6 +98,7 @@ func LoadBaseStoragePool() error {
 			LocalBufferPath: *tmp_directory,
 		})
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to load storage configuration: "+err.Error()+" -- Skipping", err)
 		} else {
 			for _, thisHandler := range externalHandlers {
@@ -110,6 +115,7 @@ func LoadBaseStoragePool() error {
 	//Create a base storage pool for all users
 	sp, err := storage.NewStoragePool(fsHandlers, "system")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Storage", "Failed to create base Storaeg Pool", err)
 		return err
 	}
@@ -125,7 +131,7 @@ func LoadBaseStoragePool() error {
 
 // Initialize the storage connection health check for all fsh.
 func storageHeartbeatTickerInit() {
-	logger.Debug("Core", "storageHeartbeatTickerInit")
+	defer logger.Out0(logger.In0("Core", "storageHeartbeatTickerInit"))
 	ticker := time.NewTicker(60 * time.Second)
 	done := make(chan bool)
 	go func() {
@@ -144,7 +150,7 @@ func storageHeartbeatTickerInit() {
 // Perform heartbeat to all connected file system abstraction.
 // Blocking function, use with go routine if needed
 func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
-	logger.Debug("Core", "StoragePerformFileSystemAbstractionConnectionHeartbeat")
+	defer logger.Out0(logger.In0("Core", "StoragePerformFileSystemAbstractionConnectionHeartbeat"))
 	allFsh := GetAllLoadedFsh()
 	for _, thisFsh := range allFsh {
 		if isClusterOrShareDrive(thisFsh) {
@@ -154,6 +160,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 		}
 		err := thisFsh.FileSystemAbstraction.Heartbeat()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("System", "[Storage] File System Abstraction from "+thisFsh.Name+" report an error: "+err.Error(), nil)
 			//Retreive the old startup config and close the pool
 			originalStartOption := filesystem.FileSystemOption{}
@@ -165,6 +172,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 				LocalBufferPath: *tmp_directory,
 			})
 			if err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("System", "[Storage] Unable to reconnect "+thisFsh.Name+": "+err.Error(), nil)
 				continue
 			} else {
@@ -186,6 +194,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 			for _, pool := range parentsp {
 				err := pool.AttachFsHandler(newfsh)
 				if err != nil {
+					logger.DebugErr("Core", err)
 					systemWideLogger.PrintAndLog("System", "[Storage] Attach fsh to pool failed: "+err.Error(), nil)
 				}
 			}
@@ -195,12 +204,13 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 
 // Initialize group storage pool
 func GroupStoragePoolInit() {
-	logger.Debug("Core", "GroupStoragePoolInit")
+	defer logger.Out0(logger.In0("Core", "GroupStoragePoolInit"))
 	//Mount permission groups
 	for _, pg := range permissionHandler.PermissionGroups {
 		//For each group, check does this group has a config file
 		err := LoadStoragePoolForGroup(pg)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			continue
 		}
 
@@ -211,13 +221,14 @@ func GroupStoragePoolInit() {
 	StoragePoolEditorInit()
 }
 
-func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
-	logger.Debug("Core", "LoadStoragePoolForGroup")
+func LoadStoragePoolForGroup(pg *permission.PermissionGroup) (out0 error) {
+	defer logger.Out1(logger.In1("Core", "LoadStoragePoolForGroup", "pg", pg), &out0)
 	expectedConfigPath := "./system/storage/" + pg.Name + ".json"
 	if fs.FileExists(expectedConfigPath) {
 		//Read the config file
 		pgStorageConfig, err := os.ReadFile(expectedConfigPath)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to read config for "+pg.Name+": "+err.Error(), err)
 			return errors.New("Failed to read config for " + pg.Name + ": " + err.Error())
 		}
@@ -228,6 +239,7 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		})
 
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to load storage configuration: "+err.Error(), err)
 			return errors.New("Failed to load storage configuration: " + err.Error())
 		}
@@ -240,6 +252,7 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		//Create a storage pool from these handlers
 		sp, err := storage.NewStoragePool(thisGroupFsHandlers, pg.Name)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to create storage pool for "+pg.Name, err)
 			return errors.New("Failed to create storage pool for " + pg.Name)
 		}
@@ -253,6 +266,7 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		//Create a new empty storage pool for this group
 		sp, err := storage.NewStoragePool([]*fs.FileSystemHandler{}, pg.Name)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Storage", "Failed to create empty storage pool for group: "+pg.Name, err)
 		}
 		pg.StoragePool = sp
@@ -262,16 +276,14 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 }
 
 // Check if a storage pool exists by its group owner name
-func StoragePoolExists(poolOwner string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "StoragePoolExists: poolOwner=%.120q", poolOwner)
-	}
+func StoragePoolExists(poolOwner string) (out0 bool) {
+	defer logger.Out1(logger.In1("Core", "StoragePoolExists", "poolOwner", poolOwner), &out0)
 	_, err := GetStoragePoolByOwner(poolOwner)
 	return err == nil
 }
 
-func GetAllStoragePools() []*storage.StoragePool {
-	logger.Debug("Core", "GetAllStoragePools")
+func GetAllStoragePools() (out0 []*storage.StoragePool) {
+	defer logger.Out1(logger.In0("Core", "GetAllStoragePools"), &out0)
 	//Append the base pool
 	results := []*storage.StoragePool{baseStoragePool}
 
@@ -283,10 +295,8 @@ func GetAllStoragePools() []*storage.StoragePool {
 	return results
 }
 
-func GetStoragePoolByOwner(owner string) (*storage.StoragePool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "GetStoragePoolByOwner: owner=%.120q", owner)
-	}
+func GetStoragePoolByOwner(owner string) (out0 *storage.StoragePool, out1 error) {
+	defer logger.Out2(logger.In1("Core", "GetStoragePoolByOwner", "owner", owner), &out0, &out1)
 	sps := GetAllStoragePools()
 	for _, pool := range sps {
 		if pool.Owner == owner {
@@ -296,17 +306,17 @@ func GetStoragePoolByOwner(owner string) (*storage.StoragePool, error) {
 	return nil, errors.New("Storage pool owned by " + owner + " not found")
 }
 
-func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "GetFSHandlerSubpathFromVpath: vpath=%.120q", vpath)
-	}
+func GetFSHandlerSubpathFromVpath(vpath string) (out0 *fs.FileSystemHandler, out1 string, out2 error) {
+	defer logger.Out3(logger.In1("Core", "GetFSHandlerSubpathFromVpath", "vpath", vpath), &out0, &out1, &out2)
 	VirtualRootID, subpath, err := fs.GetIDFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, "", errors.New("Unable to resolve requested path: " + err.Error())
 	}
 
 	fsh, err := GetFsHandlerByUUID(VirtualRootID)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return nil, "", errors.New("Unable to resolve requested path: " + err.Error())
 	}
 
@@ -322,10 +332,8 @@ func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, 
 	return fsh, subpath, nil
 }
 
-func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "GetFsHandlerByUUID: uuid=%.120q", uuid)
-	}
+func GetFsHandlerByUUID(uuid string) (out0 *fs.FileSystemHandler, out1 error) {
+	defer logger.Out2(logger.In1("Core", "GetFsHandlerByUUID", "uuid", uuid), &out0, &out1)
 	//Filter out the :/ fropm uuid if exists
 	if strings.Contains(uuid, ":") {
 		uuid = strings.Split(uuid, ":")[0]
@@ -344,8 +352,8 @@ func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
 	}
 }
 
-func GetAllLoadedFsh() []*fs.FileSystemHandler {
-	logger.Debug("Core", "GetAllLoadedFsh")
+func GetAllLoadedFsh() (out0 []*fs.FileSystemHandler) {
+	defer logger.Out1(logger.In0("Core", "GetAllLoadedFsh"), &out0)
 	fshTmp := map[string]*fs.FileSystemHandler{}
 	allFsh := []*fs.FileSystemHandler{}
 	allStoragePools := GetAllStoragePools()
@@ -365,7 +373,7 @@ func GetAllLoadedFsh() []*fs.FileSystemHandler {
 }
 
 func RegisterStorageSettings() {
-	logger.DebugTrace("Core", "RegisterStorageSettings")
+	defer logger.Out0(logger.In0("Core", "RegisterStorageSettings"))
 	//Storage Pool Configuration
 	registerSetting(settingModule{
 		Name:         "Storage Pools",
@@ -380,12 +388,12 @@ func RegisterStorageSettings() {
 
 // CloseAllStorages Close all storage database
 func CloseAllStorages() {
-	logger.DebugTrace("Core", "CloseAllStorages")
+	defer logger.Out0(logger.In0("Core", "CloseAllStorages"))
 
 }
 
 func closeAllStoragePools() {
-	logger.Debug("Core", "closeAllStoragePools")
+	defer logger.Out0(logger.In0("Core", "closeAllStoragePools"))
 	//Stop the storage pool heartbeat
 	storageHeartbeatTickerChan <- true
 

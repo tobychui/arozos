@@ -73,6 +73,7 @@ func Marshal(v interface{}) ([]byte, error) {
 	logger.DebugTrace("network/webdav/internal/xml", "Marshal")
 	var b bytes.Buffer
 	if err := NewEncoder(&b).Encode(v); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return nil, err
 	}
 	return b.Bytes(), nil
@@ -117,13 +118,12 @@ type MarshalerAttr interface {
 // indented line that starts with prefix and is followed by one or more
 // copies of indent according to the nesting depth.
 func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "MarshalIndent: prefix=%.120q indent=%.120q", prefix, indent)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "MarshalIndent")
 	var b bytes.Buffer
 	enc := NewEncoder(&b)
 	enc.Indent(prefix, indent)
 	if err := enc.Encode(v); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return nil, err
 	}
 	return b.Bytes(), nil
@@ -146,9 +146,7 @@ func NewEncoder(w io.Writer) *Encoder {
 // begins on a new indented line that starts with prefix and is followed by
 // one or more copies of indent according to the nesting depth.
 func (enc *Encoder) Indent(prefix, indent string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Encoder.Indent: prefix=%.120q indent=%.120q", prefix, indent)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Encoder.Indent")
 	enc.p.prefix = prefix
 	enc.p.indent = indent
 }
@@ -163,6 +161,7 @@ func (enc *Encoder) Encode(v interface{}) error {
 	logger.DebugTrace("network/webdav/internal/xml", "Encoder.Encode")
 	err := enc.p.marshalValue(reflect.ValueOf(v), nil, nil)
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 	return enc.p.Flush()
@@ -179,6 +178,7 @@ func (enc *Encoder) EncodeElement(v interface{}, start StartElement) error {
 	logger.DebugTrace("network/webdav/internal/xml", "Encoder.EncodeElement")
 	err := enc.p.marshalValue(reflect.ValueOf(v), nil, &start)
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 	return enc.p.Flush()
@@ -217,10 +217,12 @@ func (enc *Encoder) EncodeToken(t Token) error {
 	switch t := t.(type) {
 	case StartElement:
 		if err := p.writeStart(&t); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 	case EndElement:
 		if err := p.writeEnd(t.Name); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 	case CharData:
@@ -344,9 +346,7 @@ type printerPrefix struct {
 }
 
 func (p *printer) prefixForNS(url string, isAttr bool) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.prefixForNS: isAttr=%t", isAttr)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.prefixForNS")
 	// The "http://www.w3.org/XML/1998/namespace" name space is predefined as "xml"
 	// and must be referred to that way.
 	// (The "http://www.w3.org/2000/xmlns/" name space is also predefined as "xmlns",
@@ -365,9 +365,7 @@ func (p *printer) prefixForNS(url string, isAttr bool) string {
 // If ignoreNonEmptyDefault is true, an xmlns="nonempty"
 // attribute will be ignored.
 func (p *printer) defineNS(attr Attr, ignoreNonEmptyDefault bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.defineNS: ignoreNonEmptyDefault=%t", ignoreNonEmptyDefault)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.defineNS")
 	var prefix string
 	if attr.Name.Local == "xmlns" {
 		if attr.Name.Space != "" && attr.Name.Space != "xml" && attr.Name.Space != xmlURL {
@@ -422,9 +420,7 @@ func (p *printer) defineNS(attr Attr, ignoreNonEmptyDefault bool) error {
 // prefix, which means that the default name space cannot
 // be used.
 func (p *printer) createNSPrefix(url string, isAttr bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.createNSPrefix: isAttr=%t", isAttr)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.createNSPrefix")
 	if _, ok := p.attrPrefix[url]; ok {
 		// We already have a prefix for the given URL.
 		return
@@ -505,9 +501,7 @@ func (p *printer) writeNamespaces() {
 // pushPrefix pushes a new prefix on the prefix stack
 // without checking to see if it is already defined.
 func (p *printer) pushPrefix(prefix, url string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.pushPrefix: prefix=%.120q", prefix)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.pushPrefix")
 	p.prefixes = append(p.prefixes, printerPrefix{
 		prefix: prefix,
 		url:    p.nsForPrefix(prefix),
@@ -520,9 +514,7 @@ func (p *printer) pushPrefix(prefix, url string) {
 // empty attribute prefix, which always has an empty
 // name space.
 func (p *printer) nsForPrefix(prefix string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.nsForPrefix: prefix=%.120q", prefix)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.nsForPrefix")
 	if prefix == "" {
 		return p.defaultNS
 	}
@@ -556,9 +548,7 @@ func (p *printer) popPrefix() {
 // If url is empty, the attribute is removed.
 // If prefix is empty, the default name space is set.
 func (p *printer) setAttrPrefix(prefix, url string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.setAttrPrefix: prefix=%.120q", prefix)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.setAttrPrefix")
 	if prefix == "" {
 		p.defaultNS = url
 		return
@@ -641,6 +631,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 	if (kind == reflect.Slice || kind == reflect.Array) && typ.Elem().Kind() != reflect.Uint8 {
 		for i, n := 0, val.Len(); i < n; i++ {
 			if err := p.marshalValue(val.Index(i), finfo, startTemplate); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 		}
@@ -649,6 +640,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 
 	tinfo, err := getTypeInfo(typ)
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 
@@ -706,6 +698,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 		}
 		attr, err := p.fieldAttr(finfo, val)
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		if attr.Name.Local == "" {
@@ -726,6 +719,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 	start.setDefaultNamespace()
 
 	if err := p.writeStart(&start); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 
@@ -734,6 +728,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 	} else {
 		s, b, err1 := p.marshalSimple(typ, val)
 		if err1 != nil {
+			logger.DebugErr("network/webdav/internal/xml", err1)
 			err = err1
 		} else if b != nil {
 			EscapeText(p, b)
@@ -742,10 +737,12 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 		}
 	}
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 
 	if err := p.writeEnd(start.Name); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 
@@ -780,6 +777,7 @@ func (p *printer) fieldAttr(finfo *fieldInfo, val reflect.Value) (Attr, error) {
 	if fv.CanInterface() && fv.Type().Implements(textMarshalerType) {
 		text, err := fv.Interface().(encoding.TextMarshaler).MarshalText()
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return Attr{}, err
 		}
 		return Attr{name, string(text)}, nil
@@ -789,6 +787,7 @@ func (p *printer) fieldAttr(finfo *fieldInfo, val reflect.Value) (Attr, error) {
 		if pv.CanInterface() && pv.Type().Implements(textMarshalerType) {
 			text, err := pv.Interface().(encoding.TextMarshaler).MarshalText()
 			if err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return Attr{}, err
 			}
 			return Attr{name, string(text)}, nil
@@ -804,6 +803,7 @@ func (p *printer) fieldAttr(finfo *fieldInfo, val reflect.Value) (Attr, error) {
 	}
 	s, b, err := p.marshalSimple(fv.Type(), fv)
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return Attr{}, err
 	}
 	if b != nil {
@@ -851,6 +851,7 @@ func (p *printer) marshalInterface(val Marshaler, start StartElement) error {
 
 	err := val.MarshalXML(p.encoder, start)
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 
@@ -866,10 +867,12 @@ func (p *printer) marshalInterface(val Marshaler, start StartElement) error {
 func (p *printer) marshalTextInterface(val encoding.TextMarshaler, start StartElement) error {
 	logger.DebugTrace("network/webdav/internal/xml", "printer.marshalTextInterface")
 	if err := p.writeStart(&start); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 	text, err := val.MarshalText()
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 	EscapeText(p, text)
@@ -892,6 +895,7 @@ func (p *printer) writeStart(start *StartElement) error {
 	ignoreNonEmptyDefault := start.Name.Space == ""
 	for _, attr := range start.Attr {
 		if err := p.defineNS(attr, ignoreNonEmptyDefault); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 	}
@@ -934,9 +938,7 @@ func (p *printer) writeStart(start *StartElement) error {
 // writeName writes the given name. It assumes
 // that p.createNSPrefix(name) has already been called.
 func (p *printer) writeName(name Name, isAttr bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.writeName: isAttr=%t", isAttr)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.writeName")
 	if prefix := p.prefixForNS(name.Space, isAttr); prefix != "" {
 		p.WriteString(prefix)
 		p.WriteByte(':')
@@ -1028,11 +1030,13 @@ func (p *printer) marshalStruct(tinfo *typeInfo, val reflect.Value) error {
 		switch finfo.flags & fMode {
 		case fCharData:
 			if err := s.setParents(&noField, reflect.Value{}); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 			if vf.CanInterface() && vf.Type().Implements(textMarshalerType) {
 				data, err := vf.Interface().(encoding.TextMarshaler).MarshalText()
 				if err != nil {
+					logger.DebugErr("network/webdav/internal/xml", err)
 					return err
 				}
 				Escape(p, data)
@@ -1043,6 +1047,7 @@ func (p *printer) marshalStruct(tinfo *typeInfo, val reflect.Value) error {
 				if pv.CanInterface() && pv.Type().Implements(textMarshalerType) {
 					data, err := pv.Interface().(encoding.TextMarshaler).MarshalText()
 					if err != nil {
+						logger.DebugErr("network/webdav/internal/xml", err)
 						return err
 					}
 					Escape(p, data)
@@ -1061,11 +1066,13 @@ func (p *printer) marshalStruct(tinfo *typeInfo, val reflect.Value) error {
 				Escape(p, strconv.AppendBool(scratch[:0], vf.Bool()))
 			case reflect.String:
 				if err := EscapeText(p, []byte(vf.String())); err != nil {
+					logger.DebugErr("network/webdav/internal/xml", err)
 					return err
 				}
 			case reflect.Slice:
 				if elem, ok := vf.Interface().([]byte); ok {
 					if err := EscapeText(p, elem); err != nil {
+						logger.DebugErr("network/webdav/internal/xml", err)
 						return err
 					}
 				}
@@ -1074,6 +1081,7 @@ func (p *printer) marshalStruct(tinfo *typeInfo, val reflect.Value) error {
 
 		case fComment:
 			if err := s.setParents(&noField, reflect.Value{}); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 			k := vf.Kind()
@@ -1128,14 +1136,17 @@ func (p *printer) marshalStruct(tinfo *typeInfo, val reflect.Value) error {
 
 		case fElement, fElement | fAny:
 			if err := s.setParents(finfo, vf); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 		}
 		if err := p.marshalValue(vf, finfo, nil); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 	}
 	if err := s.setParents(&noField, reflect.Value{}); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 	return p.cachedWriteError()
@@ -1151,9 +1162,7 @@ func (p *printer) cachedWriteError() error {
 }
 
 func (p *printer) writeIndent(depthDelta int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.writeIndent: depthDelta=%d", depthDelta)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.writeIndent")
 	if len(p.prefix) == 0 && len(p.indent) == 0 {
 		return
 	}
@@ -1213,6 +1222,7 @@ func (s *parentStack) setParents(finfo *fieldInfo, vf reflect.Value) error {
 			Space: s.xmlns,
 			Local: s.parents[i],
 		}); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 	}
@@ -1241,6 +1251,7 @@ func (s *parentStack) setParents(finfo *fieldInfo, vf reflect.Value) error {
 			start.setDefaultNamespace()
 		}
 		if err := s.p.writeStart(start); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 	}

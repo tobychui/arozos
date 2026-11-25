@@ -25,9 +25,7 @@ import (
 // during this VM's lifetime (see static.AgiLibInjectionPayload.RegisterCleanup).
 // Callers MUST defer it - it is safe to call more than once.
 func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemHandler, scriptPath string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) func() {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("agi", "Gateway.injectUserFunctions: scriptPath=%.120q scriptScope=%.120q r=%s", scriptPath, scriptScope, logger.RequestSummary(r))
-	}
+	logger.DebugTrace("agi", "Gateway.injectUserFunctions")
 	//Teardown closures registered by loadable libraries for this VM.
 	//Guarded by a mutex as a library may spawn goroutines that register late.
 	var cleanupMutex sync.Mutex
@@ -181,6 +179,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			err = u.Parent().GetAuthAgent().CreateUserAccount(username, password, []string{defaultGroup})
 
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(errors.New("User creation failed: " + err.Error()))
 				reply, _ := vm.ToValue(false)
 				return reply
@@ -229,6 +228,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//User exists. Remove it from the system
 			err = u.Parent().GetAuthAgent().UnregisterUser(username)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(errors.New("User removal failed: " + err.Error()))
 				reply, _ := vm.ToValue(false)
 				return reply
@@ -245,6 +245,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 	vm.Set("requirelib", func(call otto.FunctionCall) otto.Value {
 		libname, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(nil)
 			return reply
@@ -280,6 +281,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		//Check if the pkg is already registered
 		scriptName, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -315,6 +317,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			vm.Set("PARENT_PAYLOAD", payload)
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
+				logger.DebugErr("agi", err)
 				//Script execution failed
 				logger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)

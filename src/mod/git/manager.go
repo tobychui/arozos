@@ -48,13 +48,14 @@ type Manager struct {
 
 // NewManager builds a Manager. It only fails when the credential store cannot
 // be initialised; git operations themselves have no host prerequisites.
-func NewManager(options Options) (*Manager, error) {
-	logger.Debug("git", "NewManager")
+func NewManager(options Options) (out0 *Manager, out1 error) {
+	defer logger.Out2(logger.In1("git", "NewManager", "&options", &options), &out0, &out1)
 	manager := &Manager{options: &options}
 
 	if options.Database != nil {
 		store, err := newCredentialStore(options.Database, options.KeyStorePath)
 		if err != nil {
+			logger.DebugErr("git", err)
 			return nil, err
 		}
 		manager.credentials = store
@@ -72,22 +73,19 @@ func (m *Manager) Credentials() *CredentialStore {
 
 // IsRepo reports whether realpath is inside a git working tree. A bare .git
 // folder counts, a plain folder does not.
-func (m *Manager) IsRepo(realpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.IsRepo: realpath=%.120q", realpath)
-	}
+func (m *Manager) IsRepo(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("git", "Manager.IsRepo", "m", m, "realpath", realpath), &out0)
 	_, err := m.open(realpath)
 	return err == nil
 }
 
 // RepoRoot returns the working tree root containing realpath. Used so the UI can
 // accept any folder inside a repository and still operate on the whole repo.
-func (m *Manager) RepoRoot(realpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.RepoRoot: realpath=%.120q", realpath)
-	}
+func (m *Manager) RepoRoot(realpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("git", "Manager.RepoRoot", "m", m, "realpath", realpath), &out0, &out1)
 	current, err := filepath.Abs(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return "", err
 	}
 
@@ -105,11 +103,10 @@ func (m *Manager) RepoRoot(realpath string) (string, error) {
 
 // Init creates an empty repository at realpath, creating the folder when it
 // does not exist yet.
-func (m *Manager) Init(realpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Init: realpath=%.120q", realpath)
-	}
+func (m *Manager) Init(realpath string) (out0 error) {
+	defer logger.Out1(logger.In2("git", "Manager.Init", "m", m, "realpath", realpath), &out0)
 	if err := os.MkdirAll(realpath, 0775); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -125,8 +122,8 @@ func (m *Manager) Init(realpath string) error {
 // an empty folder — go-git refuses to clone into a populated directory, and we
 // check up front so the caller gets a readable message instead of a low level
 // one.
-func (m *Manager) Clone(req *CloneRequest) error {
-	logger.Debug("git", "Manager.Clone")
+func (m *Manager) Clone(req *CloneRequest) (out0 error) {
+	defer logger.Out1(logger.In2("git", "Manager.Clone", "m", m, "req", req), &out0)
 	if strings.TrimSpace(req.URL) == "" {
 		return errors.New("remote URL cannot be empty")
 	}
@@ -136,6 +133,7 @@ func (m *Manager) Clone(req *CloneRequest) error {
 
 	empty, err := dirIsEmpty(req.Dest)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	if !empty {
@@ -147,6 +145,7 @@ func (m *Manager) Clone(req *CloneRequest) error {
 	destExisted := isDir(req.Dest)
 
 	if err := os.MkdirAll(req.Dest, 0775); err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
@@ -162,6 +161,7 @@ func (m *Manager) Clone(req *CloneRequest) error {
 	}
 
 	if _, err := gogit.PlainClone(req.Dest, false, cloneOptions); err != nil {
+		logger.DebugErr("git", err)
 		//A failed clone leaves a half written folder behind. Clear it so the
 		//user can retry into the same path (e.g. after fixing credentials).
 		if destExisted {
@@ -176,17 +176,17 @@ func (m *Manager) Clone(req *CloneRequest) error {
 }
 
 // Remotes lists the configured remotes of the repository at realpath.
-func (m *Manager) Remotes(realpath string) ([]RemoteInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.Remotes: realpath=%.120q", realpath)
-	}
+func (m *Manager) Remotes(realpath string) (out0 []RemoteInfo, out1 error) {
+	defer logger.Out2(logger.In2("git", "Manager.Remotes", "m", m, "realpath", realpath), &out0, &out1)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
 	remotes, err := repo.Remotes()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, err
 	}
 
@@ -202,21 +202,21 @@ func (m *Manager) Remotes(realpath string) ([]RemoteInfo, error) {
 }
 
 // AddRemote registers a new remote. Passing an existing name replaces its URLs.
-func (m *Manager) AddRemote(realpath string, name string, url string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.AddRemote: realpath=%.120q name=%.120q", realpath, name)
-	}
+func (m *Manager) AddRemote(realpath string, name string, url string) (out0 error) {
+	defer logger.Out1(logger.In4("git", "Manager.AddRemote", "m", m, "realpath", realpath, "name", name, "url", url), &out0)
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(url) == "" {
 		return errors.New("remote name and URL are both required")
 	}
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 
 	if _, err := repo.Remote(name); err == nil {
 		if err := repo.DeleteRemote(name); err != nil {
+			logger.DebugErr("git", err)
 			return err
 		}
 	}
@@ -229,12 +229,11 @@ func (m *Manager) AddRemote(realpath string, name string, url string) error {
 }
 
 // RemoveRemote deletes a remote by name.
-func (m *Manager) RemoveRemote(realpath string, name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.RemoveRemote: realpath=%.120q name=%.120q", realpath, name)
-	}
+func (m *Manager) RemoveRemote(realpath string, name string) (out0 error) {
+	defer logger.Out1(logger.In3("git", "Manager.RemoveRemote", "m", m, "realpath", realpath, "name", name), &out0)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return err
 	}
 	return repo.DeleteRemote(name)
@@ -242,14 +241,13 @@ func (m *Manager) RemoveRemote(realpath string, name string) error {
 
 // open resolves realpath to a repository, walking up to the working tree root
 // so callers may pass any path inside the repo.
-func (m *Manager) open(realpath string) (*gogit.Repository, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.open: realpath=%.120q", realpath)
-	}
+func (m *Manager) open(realpath string) (out0 *gogit.Repository, out1 error) {
+	defer logger.Out2(logger.In2("git", "Manager.open", "m", m, "realpath", realpath), &out0, &out1)
 	repo, err := gogit.PlainOpenWithOptions(realpath, &gogit.PlainOpenOptions{
 		DetectDotGit: true,
 	})
 	if err != nil {
+		logger.DebugErr("git", err)
 		if errors.Is(err, gogit.ErrRepositoryNotExists) {
 			return nil, ErrNotARepo
 		}
@@ -259,29 +257,28 @@ func (m *Manager) open(realpath string) (*gogit.Repository, error) {
 }
 
 // worktree resolves realpath to a repository and its working tree in one go.
-func (m *Manager) worktree(realpath string) (*gogit.Repository, *gogit.Worktree, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.worktree: realpath=%.120q", realpath)
-	}
+func (m *Manager) worktree(realpath string) (out0 *gogit.Repository, out1 *gogit.Worktree, out2 error) {
+	defer logger.Out3(logger.In2("git", "Manager.worktree", "m", m, "realpath", realpath), &out0, &out1, &out2)
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, nil, err
 	}
 
 	tree, err := repo.Worktree()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, nil, err
 	}
 	return repo, tree, nil
 }
 
 // dirIsEmpty reports whether path is absent or an empty directory.
-func dirIsEmpty(path string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "dirIsEmpty: path=%.120q", path)
-	}
+func dirIsEmpty(path string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In1("git", "dirIsEmpty", "path", path), &out0, &out1)
 	entries, err := os.ReadDir(path)
 	if err != nil {
+		logger.DebugErr("git", err)
 		if os.IsNotExist(err) {
 			return true, nil
 		}
@@ -292,11 +289,10 @@ func dirIsEmpty(path string) (bool, error) {
 
 // emptyDir removes everything inside path but keeps the folder itself.
 func emptyDir(path string) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "emptyDir: path=%.120q", path)
-	}
+	defer logger.Out0(logger.In1("git", "emptyDir", "path", path))
 	entries, err := os.ReadDir(path)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return
 	}
 	for _, entry := range entries {
@@ -304,18 +300,14 @@ func emptyDir(path string) {
 	}
 }
 
-func isDir(path string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("git", "isDir: path=%.120q", path)
-	}
+func isDir(path string) (out0 bool) {
+	defer logger.Out1(logger.In1("git", "isDir", "path", path), &out0)
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
 }
 
-func isFile(path string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("git", "isFile: path=%.120q", path)
-	}
+func isFile(path string) (out0 bool) {
+	defer logger.Out1(logger.In1("git", "isFile", "path", path), &out0)
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }

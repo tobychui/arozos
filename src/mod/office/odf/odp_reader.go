@@ -79,10 +79,11 @@ type odpStyle struct {
 var odpDefaultStyle = odpStyle{SizePt: 18, Align: "left", Color: "#000000"}
 
 // ParseOdp converts raw .odp bytes into a Presentation
-func ParseOdp(data []byte) (*model.Presentation, error) {
-	logger.Debug("office/odf", "ParseOdp")
+func ParseOdp(data []byte) (out0 *model.Presentation, out1 error) {
+	defer logger.Out2(logger.In1("office/odf", "ParseOdp", "data", data), &out0, &out1)
 	files, mime, err := readOdfZip(data)
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, err
 	}
 	if mime != "" && mime != odpMime {
@@ -94,6 +95,7 @@ func ParseOdp(data []byte) (*model.Presentation, error) {
 	}
 	tree, err := parseOdfXML(content)
 	if err != nil {
+		logger.DebugErr("office/odf", err)
 		return nil, errors.New("cannot parse content.xml: " + err.Error())
 	}
 	root := tree.first("document-content")
@@ -270,9 +272,7 @@ func (cv *odpConverter) hiddenPage(page *onode) bool {
 // placeholders are skipped: on a master page they are prototypes that
 // state where a slide's title and body go, not content of their own.
 func (cv *odpConverter) walkPage(page *onode, slide *model.Slide, masterOnly bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.walkPage: masterOnly=%t", masterOnly)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.walkPage")
 	for _, c := range page.children {
 		if c.el == nil {
 			continue
@@ -287,9 +287,7 @@ func (cv *odpConverter) walkPage(page *onode, slide *model.Slide, masterOnly boo
 // drawShape converts one drawing element, recursing into groups. ox/oy and
 // kx/ky carry the transform a draw:g imposes on its children.
 func (cv *odpConverter) drawShape(n *onode, slide *model.Slide, ox, oy, kx, ky float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.drawShape: ox=%g oy=%g kx=%g ky=%g", ox, oy, kx, ky)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.drawShape")
 	switch n.name {
 	case "frame":
 		cv.frame(n, slide, ox, oy, kx, ky)
@@ -312,9 +310,7 @@ func (cv *odpConverter) drawShape(n *onode, slide *model.Slide, ox, oy, kx, ky f
 
 // resolveStyle folds a style and its parent chain into one odpStyle
 func (cv *odpConverter) resolveStyle(name string, base odpStyle) odpStyle {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.resolveStyle: name=%.120q", name)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.resolveStyle")
 	if name == "" {
 		return base
 	}
@@ -483,9 +479,7 @@ func (cv *odpConverter) applyOdfGraphicProps(dst *odpStyle, gp *onode) {
 
 // odfFontSizePt reads a font size, which may be relative ("120%")
 func odfFontSizePt(v string, current float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odfFontSizePt: v=%.120q current=%g", v, current)
-	}
+	logger.DebugTrace("office/odf", "odfFontSizePt")
 	if strings.HasSuffix(v, "%") {
 		return current * units.ParseNum(v) / 100
 	}
@@ -501,9 +495,7 @@ func odfFontSizePt(v string, current float64) float64 {
 /* ---------------- geometry ---------------- */
 
 func (cv *odpConverter) geom(n *onode, ox, oy, kx, ky float64) (x, y, w, h float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.geom: ox=%g oy=%g kx=%g ky=%g", ox, oy, kx, ky)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.geom")
 	x = ox + odfLenToPx(n.attr("x"))*cv.sx*kx
 	y = oy + odfLenToPx(n.attr("y"))*cv.sy*ky
 	w = odfLenToPx(n.attr("width")) * cv.sx * kx
@@ -574,9 +566,7 @@ func (cv *odpConverter) styleOf(n *onode) odpStyle {
 
 // masterFrame finds the placeholder frame of a given class on the master
 func (cv *odpConverter) masterFrame(class string) *onode {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.masterFrame: class=%.120q", class)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.masterFrame")
 	if cv.master == nil {
 		return nil
 	}
@@ -591,9 +581,7 @@ func (cv *odpConverter) masterFrame(class string) *onode {
 /* ---------------- shapes ---------------- */
 
 func (cv *odpConverter) frame(n *onode, slide *model.Slide, ox, oy, kx, ky float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.frame: ox=%g oy=%g kx=%g ky=%g", ox, oy, kx, ky)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.frame")
 	x, y, w, h := cv.geom(n, ox, oy, kx, ky)
 	if (w <= 0 || h <= 0) && n.attr("class") != "" {
 		// a placeholder with no geometry of its own takes the master's
@@ -677,9 +665,7 @@ func odpLineHeight(st odpStyle) float64 {
 }
 
 func (cv *odpConverter) shape(n *onode, slide *model.Slide, ox, oy, kx, ky float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.shape: ox=%g oy=%g kx=%g ky=%g", ox, oy, kx, ky)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.shape")
 	x, y, w, h := cv.geom(n, ox, oy, kx, ky)
 	if w <= 0 || h <= 0 {
 		return
@@ -927,9 +913,7 @@ func odpCustomShapeKind(n *onode) string {
 }
 
 func (cv *odpConverter) line(n *onode, slide *model.Slide, ox, oy, kx, ky float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.line: ox=%g oy=%g kx=%g ky=%g", ox, oy, kx, ky)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.line")
 	x1 := ox + odfLenToPx(n.attr("x1"))*cv.sx*kx
 	y1 := oy + odfLenToPx(n.attr("y1"))*cv.sy*ky
 	x2 := ox + odfLenToPx(n.attr("x2"))*cv.sx*kx
@@ -949,9 +933,7 @@ func (cv *odpConverter) line(n *onode, slide *model.Slide, ox, oy, kx, ky float6
 }
 
 func (cv *odpConverter) table(tbl *onode, slide *model.Slide, x, y, w, h float64, st odpStyle) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.table: x=%g y=%g w=%g h=%g", x, y, w, h)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.table")
 	var rows [][]string
 	var fills [][]string
 	// relative column widths, so a table keeps its proportions
@@ -1095,9 +1077,7 @@ func (cv *odpConverter) buildText(container *onode, base odpStyle) odpText {
 
 // paragraphHTML renders one text:p / text:h into a storage-HTML block
 func (cv *odpConverter) paragraphHTML(p *onode, ps odpStyle, bullet string, depth int) (string, string, odpStyle) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpConverter.paragraphHTML: bullet=%.120q depth=%d", bullet, depth)
-	}
+	logger.DebugTrace("office/odf", "odpConverter.paragraphHTML")
 	var runs strings.Builder
 	var text strings.Builder
 	firstRun := ps
@@ -1235,9 +1215,7 @@ func odpRunCSS(st odpStyle) string {
 // odpListMarker renders the marker of a list level, advancing the counter
 // of a numbered list
 func odpListMarker(listStyle *onode, depth int, counters map[int]int) (string, map[int]int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odpListMarker: depth=%d len(counters)=%d", depth, len(counters))
-	}
+	logger.DebugTrace("office/odf", "odpListMarker")
 	bullet := "•"
 	if listStyle != nil {
 		for _, lvl := range listStyle.children {
@@ -1262,9 +1240,7 @@ func odpListMarker(listStyle *onode, depth int, counters map[int]int) (string, m
 }
 
 func numberedMarker(lvl *onode, n int) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "numberedMarker: n=%d", n)
-	}
+	logger.DebugTrace("office/odf", "numberedMarker")
 	format := lvl.attr("num-format")
 	prefix := lvl.attr("num-prefix")
 	suffix := lvl.attr("num-suffix")
@@ -1291,9 +1267,7 @@ func numberedMarker(lvl *onode, n int) string {
 // ODF states the clip as inset lengths, which is only convertible into
 // fractions when the frame states them as percentages.
 func odfClipFractions(clip string) []float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/odf", "odfClipFractions: clip=%.120q", clip)
-	}
+	logger.DebugTrace("office/odf", "odfClipFractions")
 	clip = strings.TrimSpace(clip)
 	if !strings.HasPrefix(clip, "rect(") || !strings.HasSuffix(clip, ")") {
 		return nil

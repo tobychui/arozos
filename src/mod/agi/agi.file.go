@@ -30,16 +30,17 @@ import (
 */
 
 func (g *Gateway) FileLibRegister() {
-	logger.Debug("agi", "Gateway.FileLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.FileLibRegister", "g", g))
 	err := g.RegisterLib("filelib", g.injectFileLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectFileLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectFileLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -51,6 +52,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_writeFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -65,6 +67,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		content, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -79,6 +82,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the virtual path to realpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -96,6 +100,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Create and write to file using ioutil
 		err = fsh.FileSystemAbstraction.WriteFile(rpath, []byte(content), 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -110,6 +115,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_deleteFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -125,6 +131,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the virtual path to realpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -153,6 +160,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_readFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -168,6 +176,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the virtual path to realpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -175,6 +184,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Create and write to file using ioUtil
 		content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -189,11 +199,13 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_walk", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		mode, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			mode = "all"
 		}
 
@@ -202,17 +214,20 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		results := []string{}
 		fsh.FileSystemAbstraction.Walk(rpath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
+				logger.DebugErr("agi", err)
 				//Ignore this error file and continue
 				return nil
 			}
 			thisVpath, err := static.RealpathToVirtualpath(fsh, path, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return nil
 			}
 			if mode == "file" {
@@ -242,6 +257,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_glob", func(call otto.FunctionCall) otto.Value {
 		regex, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -294,12 +310,14 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 			//Translate the virtual path to realpath
 			fsh, rrootPath, err := static.VirtualPathToRealPath(vrootPath, u)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
 			suitableFiles, err := fsh.FileSystemAbstraction.Glob(filepath.Join(rrootPath, regexFilename))
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -337,6 +355,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_aglob", func(call otto.FunctionCall) otto.Value {
 		regex, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -373,6 +392,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the virtual path to realpath
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vrootPath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -380,6 +400,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		rrootPath, _ := fshAbs.VirtualPathToRealPath(vrootPath, u.Username)
 		suitableFiles, err := fshAbs.Glob(filepath.Join(rrootPath, regexFilename))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -415,6 +436,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_readdir", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -450,18 +472,21 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		dirEntry, err := fshAbs.ReadDir(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -512,6 +537,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_filesize", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -526,12 +552,14 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -539,6 +567,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get filesize of file
 		rawsize := fshAbs.GetFileSize(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -551,6 +580,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_fileExists", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -565,12 +595,14 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -586,6 +618,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_isDir", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -601,6 +634,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the virtual path to realpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -621,6 +655,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_mkdir", func(call otto.FunctionCall) otto.Value {
 		vdir, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 
@@ -632,6 +667,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the path to realpath
 		fsh, rdir, err := static.VirtualPathToRealPath(vdir, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
@@ -639,6 +675,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Create the directory at rdir location
 		err = fsh.FileSystemAbstraction.MkdirAll(rdir, 0755)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
@@ -650,6 +687,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_md5", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -664,18 +702,21 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		f, err := fshAbs.ReadStream(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -683,6 +724,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		defer f.Close()
 		h := md5.New()
 		if _, err := io.Copy(h, f); err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -697,6 +739,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get virtual path from the function input
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -707,6 +750,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get fs handler from the vpath
 		fsHandler, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -720,6 +764,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_mtime", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -734,17 +779,20 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		parseToUnix, err := call.Argument(1).ToBoolean()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			parseToUnix = false
 		}
 
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
 		info, err := fsh.FileSystemAbstraction.Stat(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
@@ -766,6 +814,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_writeBinaryFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -780,6 +829,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		hexContent, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -787,6 +837,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get the target vpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
@@ -794,6 +845,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Decode the hex content to bytes
 		hexContentInByte, err := hex.DecodeString(hexContent)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -801,6 +853,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Write the file to target file
 		err = fsh.FileSystemAbstraction.WriteFile(rpath, hexContentInByte, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -813,6 +866,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 	vm.Set("_filelib_readBinaryFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -828,6 +882,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get the target vpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -840,6 +895,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}

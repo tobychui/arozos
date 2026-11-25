@@ -107,9 +107,7 @@ func decodeEmbeddedFont(data []byte) (out []byte, mime string, ok bool) {
 // families in "used", smallest first so the cap spends its budget on the
 // faces most likely to matter
 func (d *pptxDoc) embeddedFontFaces(used map[string]bool) []*model.EmbeddedFont {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "pptxDoc.embeddedFontFaces: len(used)=%d", len(used))
-	}
+	logger.DebugTrace("office/pptx", "pptxDoc.embeddedFontFaces")
 	lst := d.pres.First("embeddedFontLst")
 	if lst == nil {
 		return nil
@@ -208,9 +206,7 @@ var fontAscentRatios = map[string]float64{
 // ascentRatio is fontAscentRatios for a family, 0.8 for one it does not
 // know (a value most text faces sit close to)
 func ascentRatio(family string) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pptx", "ascentRatio: family=%.120q", family)
-	}
+	logger.DebugTrace("office/pptx", "ascentRatio")
 	if r, ok := fontAscentRatios[strings.ToLower(strings.TrimSpace(family))]; ok {
 		return r
 	}

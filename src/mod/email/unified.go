@@ -35,13 +35,12 @@ const (
 
 // UnifiedList merges one view across accounts. accountIDs limits the
 // accounts (empty means all).
-func (m *Manager) UnifiedList(ctx context.Context, p Principal, view string, accountIDs []string, query ListQuery) (*MessageList, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.UnifiedList: view=%.120q len(accountIDs)=%d", view, len(accountIDs))
-	}
+func (m *Manager) UnifiedList(ctx context.Context, p Principal, view string, accountIDs []string, query ListQuery) (out0 *MessageList, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.UnifiedList", "m", m, "ctx", ctx, "&p", &p, "view", view, "accountIDs", accountIDs, "&query", &query), &out0, &out1)
 	query.normalise()
 	accounts, err := m.store.listAccounts(p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if len(accountIDs) > 0 {
@@ -85,6 +84,7 @@ func (m *Manager) UnifiedList(ctx context.Context, p Principal, view string, acc
 				if strings.HasPrefix(view, "role:") {
 					folders, err := m.foldersQuick(c, poolKey(p.Username, account.ID))
 					if err != nil {
+						logger.DebugErr("email", err)
 						return err
 					}
 					folder, ok := folderByRole(folders, strings.TrimPrefix(view, "role:"))
@@ -169,9 +169,7 @@ func (m *Manager) UnifiedList(ctx context.Context, p Principal, view string, acc
 // previewsForMixed fills previews of a page that spans several accounts and
 // folders, grouping fetches per account and folder.
 func (m *Manager) previewsForMixed(ctx context.Context, p Principal, accounts []*Account, messages []MessageSummary) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.previewsForMixed: len(accounts)=%d len(messages)=%d", len(accounts), len(messages))
-	}
+	defer logger.Out0(logger.In5("email", "Manager.previewsForMixed", "m", m, "ctx", ctx, "&p", &p, "accounts", accounts, "messages", messages))
 	byAccount := map[string]*Account{}
 	for _, account := range accounts {
 		byAccount[account.ID] = account
@@ -209,6 +207,7 @@ func (m *Manager) previewsForMixed(ctx context.Context, p Principal, accounts []
 				for folder, group := range folders {
 					selected, err := selectFolder(c, folder)
 					if err != nil {
+						logger.DebugErr("email", err)
 						continue
 					}
 					uids := []imap.UID{}
@@ -219,6 +218,7 @@ func (m *Manager) previewsForMixed(ctx context.Context, p Principal, accounts []
 						UID: true, BodyStructure: &imap.FetchItemBodyStructure{Extended: true},
 					}).Collect()
 					if err != nil {
+						logger.DebugErr("email", err)
 						continue
 					}
 					previews := make([]MessageSummary, len(buffers))
@@ -252,10 +252,11 @@ type InboxStatus struct {
 
 // CheckInboxes runs STATUS on every account's INBOX. The browser compares
 // UIDNext with the previous poll to find newly arrived mail.
-func (m *Manager) CheckInboxes(ctx context.Context, p Principal) ([]InboxStatus, error) {
-	logger.Debug("email", "Manager.CheckInboxes")
+func (m *Manager) CheckInboxes(ctx context.Context, p Principal) (out0 []InboxStatus, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.CheckInboxes", "m", m, "ctx", ctx, "&p", &p), &out0, &out1)
 	accounts, err := m.store.listAccounts(p.Username)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	m.wakeSnoozed(p)
@@ -274,6 +275,7 @@ func (m *Manager) CheckInboxes(ctx context.Context, p Principal) ([]InboxStatus,
 				}
 				data, err := c.Status("INBOX", &imap.StatusOptions{NumMessages: true, NumUnseen: true, UIDNext: true}).Wait()
 				if err != nil {
+					logger.DebugErr("email", err)
 					return err
 				}
 				if data.NumUnseen != nil {
@@ -286,6 +288,7 @@ func (m *Manager) CheckInboxes(ctx context.Context, p Principal) ([]InboxStatus,
 				return nil
 			})
 			if err != nil {
+				logger.DebugErr("email", err)
 				status.Error = err.Error()
 				status.AuthFailed = IsAuthError(err)
 			} else {
@@ -300,12 +303,11 @@ func (m *Manager) CheckInboxes(ctx context.Context, p Principal) ([]InboxStatus,
 
 // NewSince lists INBOX messages with a UID at or above since, used to word
 // new-mail notifications.
-func (m *Manager) NewSince(ctx context.Context, p Principal, accountID string, since uint32, limit int) ([]MessageSummary, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.NewSince: accountID=%.120q since=%d limit=%d", accountID, since, limit)
-	}
+func (m *Manager) NewSince(ctx context.Context, p Principal, accountID string, since uint32, limit int) (out0 []MessageSummary, out1 error) {
+	defer logger.Out2(logger.In6("email", "Manager.NewSince", "m", m, "ctx", ctx, "&p", &p, "accountID", accountID, "since", since, "limit", limit), &out0, &out1)
 	account, err := m.account(p, accountID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if limit <= 0 || limit > 20 {
@@ -315,6 +317,7 @@ func (m *Manager) NewSince(ctx context.Context, p Principal, accountID string, s
 	err = m.withIMAP(ctx, p, account, func(c *imapclient.Client) error {
 		selected, err := selectFolder(c, "INBOX")
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		if since == 0 {
@@ -324,6 +327,7 @@ func (m *Manager) NewSince(ctx context.Context, p Principal, accountID string, s
 		set.AddRange(imap.UID(since), 0)
 		data, err := c.UIDSearch(&imap.SearchCriteria{UID: []imap.UIDSet{set}, NotFlag: []imap.Flag{imap.FlagSeen}}, nil).Wait()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		uids := data.AllUIDs()
@@ -342,6 +346,7 @@ func (m *Manager) NewSince(ctx context.Context, p Principal, accountID string, s
 		}
 		buffers, err := c.Fetch(imap.UIDSetNum(filtered...), listFetchOptions).Collect()
 		if err != nil {
+			logger.DebugErr("email", err)
 			return err
 		}
 		for _, buffer := range buffers {

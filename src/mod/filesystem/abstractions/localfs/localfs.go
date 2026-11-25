@@ -27,10 +27,8 @@ type LocalFileSystemAbstraction struct {
 	ReadOnly  bool
 }
 
-func NewLocalFileSystemAbstraction(uuid, root, hierarchy string, readonly bool) LocalFileSystemAbstraction {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "NewLocalFileSystemAbstraction: uuid=%.120q root=%.120q hierarchy=%.120q readonly=%t", uuid, root, hierarchy, readonly)
-	}
+func NewLocalFileSystemAbstraction(uuid, root, hierarchy string, readonly bool) (out0 LocalFileSystemAbstraction) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/localfs", "NewLocalFileSystemAbstraction", "uuid", uuid, "root", root, "hierarchy", hierarchy, "readonly", readonly), &out0)
 	return LocalFileSystemAbstraction{
 		UUID:      uuid,
 		Rootpath:  root,
@@ -39,84 +37,60 @@ func NewLocalFileSystemAbstraction(uuid, root, hierarchy string, readonly bool) 
 	}
 }
 
-func (l LocalFileSystemAbstraction) Chmod(filename string, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Chmod: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Chmod(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Chmod", "&l", &l, "filename", filename, "&mode", &mode), &out0)
 	return os.Chmod(filename, mode)
 }
-func (l LocalFileSystemAbstraction) Chown(filename string, uid int, gid int) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Chown: filename=%.120q uid=%d gid=%d", filename, uid, gid)
-	}
+func (l LocalFileSystemAbstraction) Chown(filename string, uid int, gid int) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Chown", "&l", &l, "filename", filename, "uid", uid, "gid", gid), &out0)
 	return os.Chown(filename, uid, gid)
 }
-func (l LocalFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Chtimes: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Chtimes", "&l", &l, "filename", filename, "&atime", &atime, "&mtime", &mtime), &out0)
 	return os.Chtimes(filename, atime, mtime)
 }
-func (l LocalFileSystemAbstraction) Create(filename string) (arozfs.File, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Create: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Create(filename string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Create", "&l", &l, "filename", filename), &out0, &out1)
 	return os.Create(filename)
 }
-func (l LocalFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Mkdir: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Mkdir", "&l", &l, "filename", filename, "&mode", &mode), &out0)
 	return os.Mkdir(filename, mode)
 }
-func (l LocalFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.MkdirAll: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.MkdirAll", "&l", &l, "filename", filename, "&mode", &mode), &out0)
 	return os.MkdirAll(filename, mode)
 }
-func (l LocalFileSystemAbstraction) Name() string {
-	logger.DebugTrace("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Name")
+func (l LocalFileSystemAbstraction) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Name", "&l", &l), &out0)
 	return ""
 }
-func (l LocalFileSystemAbstraction) Open(filename string) (arozfs.File, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Open: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Open(filename string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Open", "&l", &l, "filename", filename), &out0, &out1)
 	return os.Open(filename)
 }
-func (l LocalFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.OpenFile: filename=%.120q flag=%d", filename, flag)
-	}
+func (l LocalFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.OpenFile", "&l", &l, "filename", filename, "flag", flag, "&perm", &perm), &out0, &out1)
 	return os.OpenFile(filename, flag, perm)
 }
-func (l LocalFileSystemAbstraction) Remove(filename string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Remove: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Remove(filename string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Remove", "&l", &l, "filename", filename), &out0)
 	return os.Remove(filename)
 }
-func (l LocalFileSystemAbstraction) RemoveAll(path string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.RemoveAll: path=%.120q", path)
-	}
+func (l LocalFileSystemAbstraction) RemoveAll(path string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.RemoveAll", "&l", &l, "path", path), &out0)
 	return os.RemoveAll(path)
 }
-func (l LocalFileSystemAbstraction) Rename(oldname, newname string) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Rename: oldname=%.120q newname=%.120q", oldname, newname)
-	}
+func (l LocalFileSystemAbstraction) Rename(oldname, newname string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Rename", "&l", &l, "oldname", oldname, "newname", newname), &out0)
 	return os.Rename(oldname, newname)
 }
-func (l LocalFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Stat: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) Stat(filename string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Stat", "&l", &l, "filename", filename), &out0, &out1)
 	return os.Stat(filename)
 }
-func (l LocalFileSystemAbstraction) Close() error {
-	logger.DebugTrace("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Close")
+func (l LocalFileSystemAbstraction) Close() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Close", "&l", &l), &out0)
 	return nil
 }
 
@@ -124,12 +98,11 @@ func (l LocalFileSystemAbstraction) Close() error {
 	Abstraction Utilities
 */
 
-func (l LocalFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
-	}
+func (l LocalFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.VirtualPathToRealPath", "&l", &l, "subpath", subpath, "username", username), &out0, &out1)
 	rpath, err := arozfs.GenericVirtualPathToRealPathTranslator(l.UUID, l.Hierarchy, subpath, username)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return "", err
 	}
 
@@ -140,10 +113,8 @@ func (l LocalFileSystemAbstraction) VirtualPathToRealPath(subpath string, userna
 	return rpath, nil
 }
 
-func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.RealPathToVirtualPath: fullpath=%.120q username=%.120q", fullpath, username)
-	}
+func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.RealPathToVirtualPath", "&l", &l, "fullpath", fullpath, "username", username), &out0, &out1)
 	//Trim the absolute / relative path before passing into generic translator
 	fullpath = arozfs.ToSlash(fullpath)
 	if strings.HasPrefix(fullpath, arozfs.ToSlash(filepath.Clean(l.Rootpath))) {
@@ -155,22 +126,19 @@ func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, usern
 	return vpath, err
 }
 
-func (l LocalFileSystemAbstraction) FileExists(realpath string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.FileExists: realpath=%.120q", realpath)
-	}
+func (l LocalFileSystemAbstraction) FileExists(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.FileExists", "&l", &l, "realpath", realpath), &out0)
 	return utils.FileExists(realpath)
 }
 
-func (l LocalFileSystemAbstraction) IsDir(realpath string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.IsDir: realpath=%.120q", realpath)
-	}
+func (l LocalFileSystemAbstraction) IsDir(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.IsDir", "&l", &l, "realpath", realpath), &out0)
 	if !l.FileExists(realpath) {
 		return false
 	}
 	fi, err := l.Stat(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return false
 	}
 	switch mode := fi.Mode(); {
@@ -182,12 +150,11 @@ func (l LocalFileSystemAbstraction) IsDir(realpath string) bool {
 	return false
 }
 
-func (l LocalFileSystemAbstraction) Glob(realpathWildcard string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Glob: realpathWildcard=%.120q", realpathWildcard)
-	}
+func (l LocalFileSystemAbstraction) Glob(realpathWildcard string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Glob", "&l", &l, "realpathWildcard", realpathWildcard), &out0, &out1)
 	files, err := filepath.Glob(realpathWildcard)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return files, err
 	}
 
@@ -210,56 +177,47 @@ func (l LocalFileSystemAbstraction) Glob(realpathWildcard string) ([]string, err
 	return files, err
 }
 
-func (l LocalFileSystemAbstraction) GetFileSize(realpath string) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.GetFileSize: realpath=%.120q", realpath)
-	}
+func (l LocalFileSystemAbstraction) GetFileSize(realpath string) (out0 int64) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.GetFileSize", "&l", &l, "realpath", realpath), &out0)
 	fi, err := os.Stat(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return 0
 	}
 	// get the size
 	return fi.Size()
 }
 
-func (l LocalFileSystemAbstraction) GetModTime(realpath string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.GetModTime: realpath=%.120q", realpath)
-	}
+func (l LocalFileSystemAbstraction) GetModTime(realpath string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.GetModTime", "&l", &l, "realpath", realpath), &out0, &out1)
 	f, err := os.Open(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return -1, err
 	}
 	statinfo, err := f.Stat()
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return -1, err
 	}
 	f.Close()
 	return statinfo.ModTime().Unix(), nil
 }
 
-func (l LocalFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.WriteFile: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.WriteFile", "&l", &l, "filename", filename, "content", content, "&mode", &mode), &out0)
 	return os.WriteFile(filename, content, mode)
 }
-func (l LocalFileSystemAbstraction) ReadFile(filename string) ([]byte, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.ReadFile: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) ReadFile(filename string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.ReadFile", "&l", &l, "filename", filename), &out0, &out1)
 	return os.ReadFile(filename)
 }
-func (l LocalFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.ReadDir: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) ReadDir(filename string) (out0 []fs.DirEntry, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.ReadDir", "&l", &l, "filename", filename), &out0, &out1)
 	return os.ReadDir(filename)
 }
-func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.WriteStream: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.WriteStream", "&l", &l, "filename", filename, "stream", stream, "&mode", &mode), &out0)
 	// O_TRUNC: WriteStream replaces the file. Without it, writing fewer
 	// bytes than the file already holds leaves the old tail behind and
 	// corrupts structured formats (zip containers like .pptx read their
@@ -267,31 +225,29 @@ func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reade
 	// stale document - or fail to open at all)
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return err
 	}
 	_, err = io.Copy(f, stream)
 	f.Close()
 	return err
 }
-func (l LocalFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.ReadStream: filename=%.120q", filename)
-	}
+func (l LocalFileSystemAbstraction) ReadStream(filename string) (out0 io.ReadCloser, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.ReadStream", "&l", &l, "filename", filename), &out0, &out1)
 	f, err := os.OpenFile(filename, os.O_RDONLY, 0644)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/localfs", err)
 		return nil, err
 	}
 	return f, nil
 }
 
-func (l LocalFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Walk: root=%.120q", root)
-	}
+func (l LocalFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Walk", "&l", &l, "root", root, "&walkFn", &walkFn), &out0)
 	return filepath.Walk(root, walkFn)
 }
 
-func (l LocalFileSystemAbstraction) Heartbeat() error {
-	logger.DebugTrace("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Heartbeat")
+func (l LocalFileSystemAbstraction) Heartbeat() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/localfs", "LocalFileSystemAbstraction.Heartbeat", "&l", &l), &out0)
 	return nil
 }

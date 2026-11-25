@@ -17,10 +17,8 @@ META header for upload. If FALSE, please extract the relative filepath from the 
 Example Firefox userAgent header:
 Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.02021/11/23
 */
-func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("compatibility", "FirefoxBrowserVersionForBypassUploadMetaHeaderCheck: userAgent=%.120q", userAgent)
-	}
+func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) (out0 bool) {
+	defer logger.Out1(logger.In1("compatibility", "FirefoxBrowserVersionForBypassUploadMetaHeaderCheck", "userAgent", userAgent), &out0)
 	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
 		userAgentSegment := strings.Split(userAgent, " ")
 		for _, u := range userAgentSegment {
@@ -29,6 +27,7 @@ func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool 
 				versionCode := strings.TrimSpace(u)[3 : len(u)-1]
 				vcodeNumeric, err := strconv.ParseFloat(versionCode, 64)
 				if err != nil {
+					logger.DebugErr("compatibility", err)
 					//Unknown version of Firefox. Just check for META anyway
 					return false
 				}
@@ -48,10 +47,8 @@ func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool 
 }
 
 // Handle browser compatibility issue regarding some special format type
-func BrowserCompatibilityOverrideContentType(userAgent string, filename string, contentType string) string {
-	if logger.IsDebug() {
-		logger.Debugf("compatibility", "BrowserCompatibilityOverrideContentType: userAgent=%.120q filename=%.120q", userAgent, filename)
-	}
+func BrowserCompatibilityOverrideContentType(userAgent string, filename string, contentType string) (out0 string) {
+	defer logger.Out1(logger.In3("compatibility", "BrowserCompatibilityOverrideContentType", "userAgent", userAgent, "filename", filename, "contentType", contentType), &out0)
 	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
 		//Firefox. Handle specal content-type serving
 		if filepath.Ext(filename) == ".ai" {

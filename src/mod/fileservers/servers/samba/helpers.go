@@ -12,8 +12,8 @@ import (
 )
 
 // convertShareConfigToString converts a ShareConfig to its string representation for smb.conf
-func convertShareConfigToString(share *ShareConfig) string {
-	logger.Debug("fileservers/servers/samba", "convertShareConfigToString")
+func convertShareConfigToString(share *ShareConfig) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "convertShareConfigToString", "share", share), &out0)
 	var builder strings.Builder
 
 	builder.WriteString(fmt.Sprintf("\n[%s]\n", share.Name))
@@ -39,10 +39,8 @@ func convertShareConfigToString(share *ShareConfig) string {
 }
 
 // Get the folder owner for samba to know which user to use for accessing the folder permission
-func getOwner(folderPath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "getOwner: folderPath=%.120q", folderPath)
-	}
+func getOwner(folderPath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("fileservers/servers/samba", "getOwner", "folderPath", folderPath), &out0, &out1)
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("ls -ld %s", folderPath))
 
 	var out bytes.Buffer
@@ -50,6 +48,7 @@ func getOwner(folderPath string) (string, error) {
 
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return "", fmt.Errorf("failed to execute command: %v", err)
 	}
 
@@ -64,10 +63,8 @@ func getOwner(folderPath string) (string, error) {
 }
 
 // boolToYesNo converts a boolean to "yes" or "no"
-func boolToYesNo(value bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "boolToYesNo: value=%t", value)
-	}
+func boolToYesNo(value bool) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "boolToYesNo", "value", value), &out0)
 	if value {
 		return "yes"
 	}
@@ -75,23 +72,23 @@ func boolToYesNo(value bool) string {
 }
 
 // RestartSmbd restarts the smbd service using systemctl
-func restartSmbd() error {
-	logger.Debug("fileservers/servers/samba", "restartSmbd")
+func restartSmbd() (out0 error) {
+	defer logger.Out1(logger.In0("fileservers/servers/samba", "restartSmbd"), &out0)
 	cmd := exec.Command("sudo", "systemctl", "restart", "smbd")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return fmt.Errorf("failed to restart smbd: %v - %s", err, output)
 	}
 	return nil
 }
 
 // Check if a samba username exists (unix username only)
-func (s *ShareManager) SambaUserExists(username string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.SambaUserExists: username=%.120q", username)
-	}
+func (s *ShareManager) SambaUserExists(username string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("fileservers/servers/samba", "ShareManager.SambaUserExists", "s", s, "username", username), &out0, &out1)
 	userInfos, err := s.ListSambaUsersInfo()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return false, err
 	}
 
@@ -122,10 +119,8 @@ var importantFolders = []string{
 }
 
 // IsPathInsideImportantFolders checks if the given path is inside one of the important folders
-func isPathInsideImportantFolders(path string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "isPathInsideImportantFolders: path=%.120q", path)
-	}
+func isPathInsideImportantFolders(path string) (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "isPathInsideImportantFolders", "path", path), &out0)
 	// Clean the given path
 	cleanedPath := filepath.Clean(path)
 
@@ -142,10 +137,8 @@ func isPathInsideImportantFolders(path string) bool {
 }
 
 // Clean and make sure the share name is valid
-func sanitizeShareName(input string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "sanitizeShareName: input=%.120q", input)
-	}
+func sanitizeShareName(input string) (out0 string) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "sanitizeShareName", "input", input), &out0)
 	var result strings.Builder
 	for _, char := range input {
 		if unicode.IsLetter(char) || unicode.IsDigit(char) {
@@ -164,12 +157,11 @@ func sanitizeShareName(input string) string {
 // Sometime the share name in file doesnt match for sharename in smb.conf
 // this function load the smb.conf and get the correct case for the name of the share
 // return empty string if not found
-func (s *ShareManager) getCorrectCaseForShareName(sharename string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.getCorrectCaseForShareName: sharename=%.120q", sharename)
-	}
+func (s *ShareManager) getCorrectCaseForShareName(sharename string) (out0 string) {
+	defer logger.Out1(logger.In2("fileservers/servers/samba", "ShareManager.getCorrectCaseForShareName", "s", s, "sharename", sharename), &out0)
 	targetShare, err := s.GetShareByName(sharename)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		return ""
 	}
 

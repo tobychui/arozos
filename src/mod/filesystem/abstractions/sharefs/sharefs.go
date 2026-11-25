@@ -68,10 +68,11 @@ const userTagLength = 24
 // pathKey signs the user segment of real paths, see above
 var pathKey = newPathKey()
 
-func newPathKey() []byte {
-	logger.Debug("filesystem/abstractions/sharefs", "newPathKey")
+func newPathKey() (out0 []byte) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "newPathKey"), &out0)
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		//No randomness at all: fall back to a key that at least differs per run
 		key = []byte(fmt.Sprintf("sharefs-%d", time.Now().UnixNano()))
 	}
@@ -127,10 +128,8 @@ type ShareFileSystem struct {
 }
 
 // New creates the drive.
-func New(uuid string, resolver Resolver, options Options) *ShareFileSystem {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/sharefs", "New: uuid=%.120q", uuid)
-	}
+func New(uuid string, resolver Resolver, options Options) (out0 *ShareFileSystem) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sharefs", "New", "uuid", uuid, "&resolver", &resolver, "&options", &options), &out0)
 	return &ShareFileSystem{UUID: uuid, resolver: resolver, options: options}
 }
 
@@ -145,14 +144,14 @@ type location struct {
 	sub      string //"" for the item itself, otherwise "/a/b" below it
 }
 
-func (l *location) isRoot() bool {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "location.isRoot")
+func (l *location) isRoot() (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "location.isRoot", "l", l), &out0)
 	return l.item == nil
 }
 
 // target is the real path of the location on the drive the item lives on
-func (l *location) target() string {
-	logger.Debug("filesystem/abstractions/sharefs", "location.target")
+func (l *location) target() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "location.target", "l", l), &out0)
 	if l.sub == "" {
 		return l.item.Root
 	}
@@ -160,38 +159,30 @@ func (l *location) target() string {
 }
 
 // joinReal appends a cleaned, slash separated sub path to a real path
-func joinReal(root string, sub string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "joinReal: root=%.120q sub=%.120q", root, sub)
-	}
+func joinReal(root string, sub string) (out0 string) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sharefs", "joinReal", "root", root, "sub", sub), &out0)
 	root = strings.TrimRight(arozfs.ToSlash(root), "/")
 	return root + path.Clean("/"+sub)
 }
 
 // validUsername rejects anything that could not be a single path segment
-func validUsername(username string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/sharefs", "validUsername: username=%.120q", username)
-	}
+func validUsername(username string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "validUsername", "username", username), &out0)
 	return username != "" && username != "." && username != ".." &&
 		!strings.ContainsAny(username, "/\\")
 }
 
 // userSegment is the signed form of a username used in real paths
-func userSegment(username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "userSegment: username=%.120q", username)
-	}
+func userSegment(username string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "userSegment", "username", username), &out0)
 	mac := hmac.New(sha256.New, pathKey)
 	mac.Write([]byte(username))
 	return hex.EncodeToString(mac.Sum(nil))[:userTagLength] + "-" + username
 }
 
 // parseUserSegment returns the username of a user segment made by userSegment
-func parseUserSegment(segment string) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "parseUserSegment: segment=%.120q", segment)
-	}
+func parseUserSegment(segment string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/sharefs", "parseUserSegment", "segment", segment), &out0, &out1)
 	if len(segment) <= userTagLength+1 || segment[userTagLength] != '-' {
 		return "", false
 	}
@@ -203,10 +194,8 @@ func parseUserSegment(segment string) (string, bool) {
 }
 
 // realPath builds the real path of a virtual sub path ("/Photos/a.jpg")
-func realPath(username string, sub string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "realPath: username=%.120q sub=%.120q", username, sub)
-	}
+func realPath(username string, sub string) (out0 string) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sharefs", "realPath", "username", username, "sub", sub), &out0)
 	clean := path.Clean("/" + sub)
 	if clean == "/" {
 		return realPrefix + "/" + userSegment(username)
@@ -217,9 +206,7 @@ func realPath(username string, sub string) string {
 // parseRealPath splits a real path into its user, item name and the path
 // below the item.
 func parseRealPath(rpath string) (username string, name string, sub string, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "parseRealPath: rpath=%.120q", rpath)
-	}
+	defer logger.Out4(logger.In1("filesystem/abstractions/sharefs", "parseRealPath", "rpath", rpath), &username, &name, &sub, &err)
 	p := path.Clean(arozfs.ToSlash(strings.TrimSpace(rpath)))
 	if !strings.HasPrefix(p, realPrefix+"/") {
 		return "", "", "", arozfs.ErrRpathResolveFailed
@@ -239,10 +226,8 @@ func parseRealPath(rpath string) (username string, name string, sub string, err 
 }
 
 // findItem looks an item up by name among what is shared with the user
-func (s *ShareFileSystem) findItem(username string, name string) *Item {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.findItem: username=%.120q name=%.120q", username, name)
-	}
+func (s *ShareFileSystem) findItem(username string, name string) (out0 *Item) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.findItem", "s", s, "username", username, "name", name), &out0)
 	if s.resolver == nil {
 		return nil
 	}
@@ -257,12 +242,11 @@ func (s *ShareFileSystem) findItem(username string, name string) *Item {
 // resolve checks a real path against what is shared with its user. Below an
 // item only a folder whose owner allows listing it can be reached; anything
 // else does not exist, the same as on the share link page.
-func (s *ShareFileSystem) resolve(rpath string) (*location, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.resolve: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) resolve(rpath string) (out0 *location, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.resolve", "s", s, "rpath", rpath), &out0, &out1)
 	username, name, sub, err := parseRealPath(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	loc := &location{username: username, sub: sub}
@@ -280,12 +264,11 @@ func (s *ShareFileSystem) resolve(rpath string) (*location, error) {
 }
 
 // resolveItem is resolve for calls that have no meaning at the drive root
-func (s *ShareFileSystem) resolveItem(rpath string) (*location, filesystem.FileSystemAbstraction, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.resolveItem: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) resolveItem(rpath string) (out0 *location, out1 filesystem.FileSystemAbstraction, out2 error) {
+	defer logger.Out3(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.resolveItem", "s", s, "rpath", rpath), &out0, &out1, &out2)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, nil, err
 	}
 	if loc.isRoot() {
@@ -296,16 +279,16 @@ func (s *ShareFileSystem) resolveItem(rpath string) (*location, filesystem.FileS
 
 // ItemOf returns the shared item a virtual path is inside of, or nil at the
 // drive root. It is what callers check an item's permissions with.
-func (s *ShareFileSystem) ItemOf(vpath string, username string) (*Item, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.ItemOf: vpath=%.120q username=%.120q", vpath, username)
-	}
+func (s *ShareFileSystem) ItemOf(vpath string, username string) (out0 *Item, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.ItemOf", "s", s, "vpath", vpath, "username", username), &out0, &out1)
 	rpath, err := s.VirtualPathToRealPath(vpath, username)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	return loc.item, nil
@@ -318,28 +301,28 @@ func (s *ShareFileSystem) ItemOf(vpath string, username string) (*Item, error) {
 // rootInfo describes the drive root
 type rootInfo struct{}
 
-func (rootInfo) Name() string {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "rootInfo.Name")
+func (rootInfo) Name() (out0 string) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "rootInfo.Name"), &out0)
 	return "share"
 }
-func (rootInfo) Size() int64 {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "rootInfo.Size")
+func (rootInfo) Size() (out0 int64) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "rootInfo.Size"), &out0)
 	return 0
 }
-func (rootInfo) Mode() os.FileMode {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "rootInfo.Mode")
+func (rootInfo) Mode() (out0 os.FileMode) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "rootInfo.Mode"), &out0)
 	return os.ModeDir | 0555
 }
-func (rootInfo) ModTime() time.Time {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "rootInfo.ModTime")
+func (rootInfo) ModTime() (out0 time.Time) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "rootInfo.ModTime"), &out0)
 	return time.Now()
 }
-func (rootInfo) IsDir() bool {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "rootInfo.IsDir")
+func (rootInfo) IsDir() (out0 bool) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "rootInfo.IsDir"), &out0)
 	return true
 }
-func (rootInfo) Sys() interface{} {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "rootInfo.Sys")
+func (rootInfo) Sys() (out0 interface{}) {
+	defer logger.Out1(logger.In0("filesystem/abstractions/sharefs", "rootInfo.Sys"), &out0)
 	return nil
 }
 
@@ -350,35 +333,36 @@ type renamedInfo struct {
 	name string
 }
 
-func (r renamedInfo) Name() string {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "renamedInfo.Name")
+func (r renamedInfo) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "renamedInfo.Name", "&r", &r), &out0)
 	return r.name
 }
 
 type dirEntry struct{ info os.FileInfo }
 
-func (d dirEntry) Name() string {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "dirEntry.Name")
+func (d dirEntry) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "dirEntry.Name", "&d", &d), &out0)
 	return d.info.Name()
 }
-func (d dirEntry) IsDir() bool {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "dirEntry.IsDir")
+func (d dirEntry) IsDir() (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "dirEntry.IsDir", "&d", &d), &out0)
 	return d.info.IsDir()
 }
-func (d dirEntry) Type() fs.FileMode {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "dirEntry.Type")
+func (d dirEntry) Type() (out0 fs.FileMode) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "dirEntry.Type", "&d", &d), &out0)
 	return d.info.Mode().Type()
 }
-func (d dirEntry) Info() (fs.FileInfo, error) {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "dirEntry.Info")
+func (d dirEntry) Info() (out0 fs.FileInfo, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/sharefs", "dirEntry.Info", "&d", &d), &out0, &out1)
 	return d.info, nil
 }
 
 // itemInfo stats a shared item and gives it its name on this drive
-func itemInfo(item *Item) (os.FileInfo, error) {
-	logger.Debug("filesystem/abstractions/sharefs", "itemInfo")
+func itemInfo(item *Item) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/sharefs", "itemInfo", "item", item), &out0, &out1)
 	info, err := item.Fsh.FileSystemAbstraction.Stat(item.Root)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	return renamedInfo{FileInfo: info, name: item.Name}, nil
@@ -391,61 +375,61 @@ func itemInfo(item *Item) (os.FileInfo, error) {
 	only as well, which is what the File Manager and the AGI check first.
 */
 
-func (s *ShareFileSystem) Chmod(string, os.FileMode) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Chmod")
+func (s *ShareFileSystem) Chmod(string, os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Chmod", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) Chown(string, int, int) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Chown")
+func (s *ShareFileSystem) Chown(string, int, int) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Chown", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) Chtimes(string, time.Time, time.Time) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Chtimes")
+func (s *ShareFileSystem) Chtimes(string, time.Time, time.Time) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Chtimes", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) Create(string) (arozfs.File, error) {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Create")
+func (s *ShareFileSystem) Create(string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Create", "s", s), &out0, &out1)
 	return nil, errReadOnly
 }
-func (s *ShareFileSystem) Mkdir(string, os.FileMode) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Mkdir")
+func (s *ShareFileSystem) Mkdir(string, os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Mkdir", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) MkdirAll(string, os.FileMode) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.MkdirAll")
+func (s *ShareFileSystem) MkdirAll(string, os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.MkdirAll", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) Remove(string) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Remove")
+func (s *ShareFileSystem) Remove(string) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Remove", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) RemoveAll(string) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.RemoveAll")
+func (s *ShareFileSystem) RemoveAll(string) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.RemoveAll", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) Rename(string, string) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Rename")
+func (s *ShareFileSystem) Rename(string, string) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Rename", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) WriteFile(string, []byte, os.FileMode) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.WriteFile")
+func (s *ShareFileSystem) WriteFile(string, []byte, os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.WriteFile", "s", s), &out0)
 	return errReadOnly
 }
-func (s *ShareFileSystem) WriteStream(string, io.Reader, os.FileMode) error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.WriteStream")
+func (s *ShareFileSystem) WriteStream(string, io.Reader, os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.WriteStream", "s", s), &out0)
 	return errReadOnly
 }
 
-func (s *ShareFileSystem) Name() string {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Name")
+func (s *ShareFileSystem) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Name", "s", s), &out0)
 	return "share"
 }
-func (s *ShareFileSystem) Close() error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Close")
+func (s *ShareFileSystem) Close() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Close", "s", s), &out0)
 	return nil
 }
-func (s *ShareFileSystem) Heartbeat() error {
-	logger.DebugTrace("filesystem/abstractions/sharefs", "ShareFileSystem.Heartbeat")
+func (s *ShareFileSystem) Heartbeat() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "ShareFileSystem.Heartbeat", "s", s), &out0)
 	return nil
 }
 
@@ -453,12 +437,11 @@ func (s *ShareFileSystem) Heartbeat() error {
 	FileSystemAbstraction: reads
 */
 
-func (s *ShareFileSystem) Open(rpath string) (arozfs.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.Open: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) Open(rpath string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.Open", "s", s, "rpath", rpath), &out0, &out1)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	if loc.item.Fsh.RequireBuffer {
@@ -467,22 +450,19 @@ func (s *ShareFileSystem) Open(rpath string) (arozfs.File, error) {
 	return abs.Open(loc.target())
 }
 
-func (s *ShareFileSystem) OpenFile(rpath string, flag int, perm os.FileMode) (arozfs.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.OpenFile: rpath=%.120q flag=%d", rpath, flag)
-	}
+func (s *ShareFileSystem) OpenFile(rpath string, flag int, perm os.FileMode) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/abstractions/sharefs", "ShareFileSystem.OpenFile", "s", s, "rpath", rpath, "flag", flag, "&perm", &perm), &out0, &out1)
 	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_APPEND|os.O_TRUNC) != 0 {
 		return nil, errReadOnly
 	}
 	return s.Open(rpath)
 }
 
-func (s *ShareFileSystem) Stat(rpath string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.Stat: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) Stat(rpath string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.Stat", "s", s, "rpath", rpath), &out0, &out1)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	if loc.isRoot() {
@@ -494,10 +474,8 @@ func (s *ShareFileSystem) Stat(rpath string) (os.FileInfo, error) {
 	return loc.item.Fsh.FileSystemAbstraction.Stat(loc.target())
 }
 
-func (s *ShareFileSystem) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
-	}
+func (s *ShareFileSystem) VirtualPathToRealPath(subpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.VirtualPathToRealPath", "s", s, "subpath", subpath, "username", username), &out0, &out1)
 	if !validUsername(username) {
 		return "", arozfs.ErrVpathResolveFailed
 	}
@@ -506,12 +484,11 @@ func (s *ShareFileSystem) VirtualPathToRealPath(subpath string, username string)
 	return realPath(username, subpath), nil
 }
 
-func (s *ShareFileSystem) RealPathToVirtualPath(rpath string, username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.RealPathToVirtualPath: rpath=%.120q username=%.120q", rpath, username)
-	}
+func (s *ShareFileSystem) RealPathToVirtualPath(rpath string, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.RealPathToVirtualPath", "s", s, "rpath", rpath, "username", username), &out0, &out1)
 	owner, name, sub, err := parseRealPath(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return "", err
 	}
 	if owner != username {
@@ -523,12 +500,11 @@ func (s *ShareFileSystem) RealPathToVirtualPath(rpath string, username string) (
 	return s.UUID + ":/" + name + sub, nil
 }
 
-func (s *ShareFileSystem) FileExists(rpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.FileExists: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) FileExists(rpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.FileExists", "s", s, "rpath", rpath), &out0)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return false
 	}
 	if loc.isRoot() {
@@ -537,12 +513,11 @@ func (s *ShareFileSystem) FileExists(rpath string) bool {
 	return loc.item.Fsh.FileSystemAbstraction.FileExists(loc.target())
 }
 
-func (s *ShareFileSystem) IsDir(rpath string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/sharefs", "ShareFileSystem.IsDir: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) IsDir(rpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.IsDir", "s", s, "rpath", rpath), &out0)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return false
 	}
 	if loc.isRoot() {
@@ -551,23 +526,21 @@ func (s *ShareFileSystem) IsDir(rpath string) bool {
 	return loc.item.Fsh.FileSystemAbstraction.IsDir(loc.target())
 }
 
-func (s *ShareFileSystem) GetFileSize(rpath string) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.GetFileSize: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) GetFileSize(rpath string) (out0 int64) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.GetFileSize", "s", s, "rpath", rpath), &out0)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return 0
 	}
 	return abs.GetFileSize(loc.target())
 }
 
-func (s *ShareFileSystem) GetModTime(rpath string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.GetModTime: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) GetModTime(rpath string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.GetModTime", "s", s, "rpath", rpath), &out0, &out1)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return 0, err
 	}
 	if loc.isRoot() {
@@ -576,34 +549,31 @@ func (s *ShareFileSystem) GetModTime(rpath string) (int64, error) {
 	return loc.item.Fsh.FileSystemAbstraction.GetModTime(loc.target())
 }
 
-func (s *ShareFileSystem) ReadFile(rpath string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.ReadFile: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) ReadFile(rpath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.ReadFile", "s", s, "rpath", rpath), &out0, &out1)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	return abs.ReadFile(loc.target())
 }
 
-func (s *ShareFileSystem) ReadStream(rpath string) (io.ReadCloser, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.ReadStream: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) ReadStream(rpath string) (out0 io.ReadCloser, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.ReadStream", "s", s, "rpath", rpath), &out0, &out1)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	return abs.ReadStream(loc.target())
 }
 
-func (s *ShareFileSystem) ReadDir(rpath string) ([]fs.DirEntry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.ReadDir: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) ReadDir(rpath string) (out0 []fs.DirEntry, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.ReadDir", "s", s, "rpath", rpath), &out0, &out1)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	if loc.isRoot() {
@@ -620,10 +590,8 @@ func (s *ShareFileSystem) ReadDir(rpath string) ([]fs.DirEntry, error) {
 
 // readRoot lists the items shared with a user. An item whose file is gone
 // (or whose drive is offline) is left out rather than failing the listing.
-func (s *ShareFileSystem) readRoot(username string) []fs.DirEntry {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.readRoot: username=%.120q", username)
-	}
+func (s *ShareFileSystem) readRoot(username string) (out0 []fs.DirEntry) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.readRoot", "s", s, "username", username), &out0)
 	entries := []fs.DirEntry{}
 	if s.resolver == nil {
 		return entries
@@ -634,6 +602,7 @@ func (s *ShareFileSystem) readRoot(username string) []fs.DirEntry {
 		}
 		info, err := itemInfo(item)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/sharefs", err)
 			continue
 		}
 		entries = append(entries, dirEntry{info})
@@ -643,12 +612,11 @@ func (s *ShareFileSystem) readRoot(username string) []fs.DirEntry {
 
 // Glob matches like filepath.Glob: the item segment against the names on the
 // drive root, everything below it on the drive the item lives on.
-func (s *ShareFileSystem) Glob(wildcard string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.Glob: wildcard=%.120q", wildcard)
-	}
+func (s *ShareFileSystem) Glob(wildcard string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.Glob", "s", s, "wildcard", wildcard), &out0, &out1)
 	username, namePattern, subPattern, err := parseRealPath(wildcard)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	if namePattern == "" {
@@ -658,6 +626,7 @@ func (s *ShareFileSystem) Glob(wildcard string) ([]string, error) {
 	for _, item := range s.resolver.Items(username) {
 		matched, err := path.Match(namePattern, item.Name)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/sharefs", err)
 			return nil, err
 		}
 		if !matched || item.Fsh == nil || item.Fsh.FileSystemAbstraction == nil {
@@ -675,6 +644,7 @@ func (s *ShareFileSystem) Glob(wildcard string) ([]string, error) {
 		}
 		matches, err := item.Fsh.FileSystemAbstraction.Glob(joinReal(item.Root, subPattern))
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/sharefs", err)
 			continue
 		}
 		for _, match := range matches {
@@ -688,10 +658,8 @@ func (s *ShareFileSystem) Glob(wildcard string) ([]string, error) {
 
 // relativeTo returns p below root as "/a/b" ("" for root itself). Both are
 // cleaned first: a drive may hand back "files/x" for a root of "./files".
-func relativeTo(root string, p string) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "relativeTo: root=%.120q p=%.120q", root, p)
-	}
+func relativeTo(root string, p string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "relativeTo", "root", root, "p", p), &out0, &out1)
 	root = path.Clean(arozfs.ToSlash(root))
 	p = path.Clean(arozfs.ToSlash(p))
 	if p == root {
@@ -706,17 +674,17 @@ func relativeTo(root string, p string) (string, bool) {
 
 // Walk walks the drive like filepath.Walk, handing walkFn real paths of this
 // drive. Folders whose owner does not allow listing them are not entered.
-func (s *ShareFileSystem) Walk(root string, walkFn filepath.WalkFunc) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.Walk: root=%.120q", root)
-	}
+func (s *ShareFileSystem) Walk(root string, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.Walk", "s", s, "root", root, "&walkFn", &walkFn), &out0)
 	loc, err := s.resolve(root)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return walkFn(root, nil, err)
 	}
 	if loc.isRoot() {
 		base := realPath(loc.username, "/")
 		if err := walkFn(base, rootInfo{}, nil); err != nil {
+			logger.DebugErr("filesystem/abstractions/sharefs", err)
 			if err == filepath.SkipDir {
 				return nil
 			}
@@ -728,6 +696,7 @@ func (s *ShareFileSystem) Walk(root string, walkFn filepath.WalkFunc) error {
 			}
 			itemLoc := &location{username: loc.username, item: item}
 			if err := s.walkItem(itemLoc, walkFn); err != nil {
+				logger.DebugErr("filesystem/abstractions/sharefs", err)
 				if err == filepath.SkipDir {
 					//Returned for a file: skip the rest of the root
 					return nil
@@ -741,13 +710,14 @@ func (s *ShareFileSystem) Walk(root string, walkFn filepath.WalkFunc) error {
 }
 
 // walkItem walks one item, or a folder below one
-func (s *ShareFileSystem) walkItem(loc *location, walkFn filepath.WalkFunc) error {
-	logger.Debug("filesystem/abstractions/sharefs", "ShareFileSystem.walkItem")
+func (s *ShareFileSystem) walkItem(loc *location, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.walkItem", "s", s, "loc", loc, "&walkFn", &walkFn), &out0)
 	base := realPath(loc.username, "/"+loc.item.Name+loc.sub)
 	if !(loc.item.IsDir && loc.item.CanBrowse) {
 		//A file, or a folder that may not be listed: only the item itself
 		info, err := itemInfo(loc.item)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/sharefs", err)
 			return walkFn(base, nil, err)
 		}
 		err = walkFn(base, info, nil)
@@ -782,20 +752,19 @@ type stagedFile struct {
 	*os.File
 }
 
-func (f *stagedFile) Close() error {
-	logger.Debug("filesystem/abstractions/sharefs", "stagedFile.Close")
+func (f *stagedFile) Close() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/sharefs", "stagedFile.Close", "f", f), &out0)
 	name := f.File.Name()
 	err := f.File.Close()
 	os.Remove(name)
 	return err
 }
 
-func (s *ShareFileSystem) openBuffered(abs filesystem.FileSystemAbstraction, rpath string) (arozfs.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.openBuffered: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) openBuffered(abs filesystem.FileSystemAbstraction, rpath string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/sharefs", "ShareFileSystem.openBuffered", "s", s, "&abs", &abs, "rpath", rpath), &out0, &out1)
 	src, err := abs.ReadStream(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	defer src.Close()
@@ -805,18 +774,22 @@ func (s *ShareFileSystem) openBuffered(abs filesystem.FileSystemAbstraction, rpa
 		dir = os.TempDir()
 	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	tmp, err := os.CreateTemp(dir, "sharefs-*"+path.Ext(arozfs.ToSlash(rpath)))
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	if _, err := io.Copy(tmp, src); err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return nil, err
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return nil, err
@@ -833,12 +806,11 @@ func (s *ShareFileSystem) openBuffered(abs filesystem.FileSystemAbstraction, rpa
 */
 
 // ThumbnailKey identifies the content of a shared file.
-func (s *ShareFileSystem) ThumbnailKey(rpath string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.ThumbnailKey: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) ThumbnailKey(rpath string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.ThumbnailKey", "s", s, "rpath", rpath), &out0, &out1)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return "", err
 	}
 	if r, ok := abs.(arozfs.ThumbnailRenderer); ok {
@@ -846,6 +818,7 @@ func (s *ShareFileSystem) ThumbnailKey(rpath string) (string, error) {
 	}
 	info, err := abs.Stat(loc.target())
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return "", err
 	}
 	if info.IsDir() {
@@ -856,12 +829,11 @@ func (s *ShareFileSystem) ThumbnailKey(rpath string) (string, error) {
 }
 
 // RenderThumbnail renders the thumbnail of a shared file where it lives.
-func (s *ShareFileSystem) RenderThumbnail(rpath string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.RenderThumbnail: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) RenderThumbnail(rpath string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.RenderThumbnail", "s", s, "rpath", rpath), &out0, &out1)
 	loc, abs, err := s.resolveItem(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return nil, err
 	}
 	if r, ok := abs.(arozfs.ThumbnailRenderer); ok {
@@ -881,12 +853,11 @@ func (s *ShareFileSystem) RenderThumbnail(rpath string) ([]byte, error) {
 */
 
 // StorageInfo describes the share a file was received through.
-func (s *ShareFileSystem) StorageInfo(rpath string) (arozfs.StorageInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/sharefs", "ShareFileSystem.StorageInfo: rpath=%.120q", rpath)
-	}
+func (s *ShareFileSystem) StorageInfo(rpath string) (out0 arozfs.StorageInfo, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/sharefs", "ShareFileSystem.StorageInfo", "s", s, "rpath", rpath), &out0, &out1)
 	loc, err := s.resolve(rpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/sharefs", err)
 		return arozfs.StorageInfo{}, err
 	}
 	if loc.isRoot() {

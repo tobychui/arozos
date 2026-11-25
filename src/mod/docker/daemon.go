@@ -39,13 +39,12 @@ type daemonConfigSaveRequest struct {
 
 // daemonConfigEditable reports whether the config directory is writable by the
 // arozos process, by creating and removing a probe file.
-func daemonConfigEditable(path string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "daemonConfigEditable: path=%.120q", path)
-	}
+func daemonConfigEditable(path string) (out0 bool) {
+	defer logger.Out1(logger.In1("docker", "daemonConfigEditable", "path", path), &out0)
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".arozos-docker-*")
 	if err != nil {
+		logger.DebugErr("docker", err)
 		return false
 	}
 	tmp.Close()
@@ -54,8 +53,8 @@ func daemonConfigEditable(path string) bool {
 }
 
 // GetDaemonConfig reads the current daemon.json (if any) and reports editability.
-func (d *DockerManager) GetDaemonConfig() DaemonConfig {
-	logger.Debug("docker", "DockerManager.GetDaemonConfig")
+func (d *DockerManager) GetDaemonConfig() (out0 DaemonConfig) {
+	defer logger.Out1(logger.In1("docker", "DockerManager.GetDaemonConfig", "d", d), &out0)
 	path := daemonConfigPath()
 	cfg := DaemonConfig{Path: path}
 	if data, err := os.ReadFile(path); err == nil {
@@ -69,8 +68,8 @@ func (d *DockerManager) GetDaemonConfig() DaemonConfig {
 // SaveDaemonConfig validates and writes daemon.json. It does NOT restart the
 // daemon — callers/UI must surface that the change applies on the next daemon
 // restart.
-func (d *DockerManager) SaveDaemonConfig(content string) error {
-	logger.Debug("docker", "DockerManager.SaveDaemonConfig")
+func (d *DockerManager) SaveDaemonConfig(content string) (out0 error) {
+	defer logger.Out1(logger.In2("docker", "DockerManager.SaveDaemonConfig", "d", d, "content", content), &out0)
 	path := daemonConfigPath()
 	if !daemonConfigEditable(path) {
 		return errors.New("daemon.json is not editable on this host (insufficient permission)")
@@ -79,6 +78,7 @@ func (d *DockerManager) SaveDaemonConfig(content string) error {
 		return errors.New("daemon.json must be valid JSON")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		logger.DebugErr("docker", err)
 		return err
 	}
 	return os.WriteFile(path, []byte(content), 0644)
@@ -88,9 +88,7 @@ func (d *DockerManager) SaveDaemonConfig(content string) error {
 
 // HandleDaemonGet serves the daemon config view as JSON.
 func (d *DockerManager) HandleDaemonGet(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleDaemonGet: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleDaemonGet", "d", d, "r", r))
 	js, _ := json.Marshal(d.GetDaemonConfig())
 	utils.SendJSONResponse(w, string(js))
 }
@@ -98,19 +96,19 @@ func (d *DockerManager) HandleDaemonGet(w http.ResponseWriter, r *http.Request) 
 // HandleDaemonSave persists daemon.json (POST JSON: content). Returns a clear
 // "not editable" error when the host does not permit it.
 func (d *DockerManager) HandleDaemonSave(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("docker", "DockerManager.HandleDaemonSave: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("docker", "DockerManager.HandleDaemonSave", "d", d, "r", r))
 	if r.Method != http.MethodPost {
 		utils.SendErrorResponse(w, "method not allowed")
 		return
 	}
 	var req daemonConfigSaveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, "invalid request body")
 		return
 	}
 	if err := d.SaveDaemonConfig(req.Content); err != nil {
+		logger.DebugErr("docker", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

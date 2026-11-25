@@ -47,7 +47,7 @@ var (
 )
 
 func NetworkServiceInit() {
-	logger.Debug("Core", "NetworkServiceInit")
+	defer logger.Out0(logger.In0("Core", "NetworkServiceInit"))
 	systemWideLogger.PrintAndLog("Network", "Starting ArOZ Network Services", nil)
 
 	//Create a router that allow users with System Setting access to access these api endpoints
@@ -124,7 +124,7 @@ func NetworkServiceInit() {
 }
 
 func StartNetworkServices() {
-	logger.Debug("Core", "StartNetworkServices")
+	defer logger.Out0(logger.In0("Core", "StartNetworkServices"))
 
 	/*
 		MDNS Services
@@ -142,6 +142,7 @@ func StartNetworkServices() {
 		}, *force_mac)
 
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Network", "MDNS Startup Failed. Running in Offline Mode.", err)
 		} else {
 			MDNS = m
@@ -156,6 +157,7 @@ func StartNetworkServices() {
 		//Get outbound ip
 		obip, err := network.GetOutboundIP()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Network", "SSDP Startup Failed. Running in Offline Mode.", err)
 		} else {
 			thisIp := obip.String()
@@ -171,6 +173,7 @@ func StartNetworkServices() {
 			})
 
 			if err != nil {
+				logger.DebugErr("Core", err)
 				systemWideLogger.PrintAndLog("Network", "SSDP Startup Failed. Running in Offline Mode.", err)
 			} else {
 				//OK! Start SSDP Service
@@ -194,6 +197,7 @@ func StartNetworkServices() {
 		}
 
 		if err != nil {
+			logger.DebugErr("Core", err)
 			systemWideLogger.PrintAndLog("Network", "UPnP Startup Failed: "+err.Error(), err)
 		} else {
 
@@ -214,7 +218,7 @@ func StartNetworkServices() {
 			obip, err := network.GetOutboundIP()
 			obipstring := "[Outbound IP]"
 			if err != nil {
-
+				logger.DebugErr("Core", err)
 			} else {
 				obipstring = obip.String()
 			}
@@ -228,7 +232,7 @@ func StartNetworkServices() {
 }
 
 func StopNetworkServices() {
-	logger.Debug("Core", "StopNetworkServices")
+	defer logger.Out0(logger.In0("Core", "StopNetworkServices"))
 	//systemWideLogger.PrintAndLog("Shutting Down Network Services...",nil)
 	//Shutdown uPNP service if enabled
 	if *allow_upnp {
@@ -259,7 +263,7 @@ var networkFileServerDaemon []*fileservers.Server = []*fileservers.Server{}
 
 // Initiate all File Server services
 func FileServerInit() {
-	logger.Debug("Core", "FileServerInit")
+	defer logger.Out0(logger.In0("Core", "FileServerInit"))
 	//Register System Setting
 	registerSetting(settingModule{
 		Name:         "File Servers",
@@ -367,6 +371,7 @@ func FileServerInit() {
 	var err error
 	SambaShareManager, err = samba.NewSambaShareManager(userHandler)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		//Disable samba if not installed or platform not supported
 		systemWideLogger.PrintAndLog("System", "[INFO] Samba Share Manager Disabled: "+err.Error(), nil)
 	}
@@ -530,12 +535,11 @@ func FileServerInit() {
 }
 
 // fileServerCurrentUser names the signed in user of a request
-func fileServerCurrentUser(w http.ResponseWriter, r *http.Request) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "fileServerCurrentUser: r=%s", logger.RequestSummary(r))
-	}
+func fileServerCurrentUser(w http.ResponseWriter, r *http.Request) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("Core", "fileServerCurrentUser", "r", r), &out0, &out1)
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return "", err
 	}
 	return userinfo.Username, nil
@@ -543,10 +547,8 @@ func fileServerCurrentUser(w http.ResponseWriter, r *http.Request) (string, erro
 
 // fileServerCheckPassword checks a sign in from an FTP or SFTP client: the
 // login IP rules first, then the password. remote is the client's IP address.
-func fileServerCheckPassword(username, password, remote string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "fileServerCheckPassword: username=%.120q remote=%.120q", username, remote)
-	}
+func fileServerCheckPassword(username, password, remote string) (out0 error) {
+	defer logger.Out1(logger.In3("Core", "fileServerCheckPassword", "username", username, "remote", remote, "!password", password), &out0)
 	if allowed, err := authAgent.ValidateLoginIpAccess(remote); !allowed {
 		if err == nil {
 			err = errors.New("This address may not sign in")
@@ -571,17 +573,17 @@ var _ sftpserver.Access = (*user.User)(nil)
 
 // Toggle the target File Server Services
 func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "NetworkHandleFileServerToggle: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "NetworkHandleFileServerToggle", "r", r))
 	servid, err := utils.PostPara(r, "id")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "invalid service id given")
 		return
 	}
 
 	newState, err := utils.PostPara(r, "enable")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "undefined enable state")
 		return
 	}
@@ -596,12 +598,14 @@ func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {
 		//Start up the target service
 		err = targetfserv.ToggleFunc(true)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "startup failed: "+err.Error())
 			return
 		}
 	} else if newState == "false" {
 		err = targetfserv.ToggleFunc(false)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "shutdown failed: "+err.Error())
 			return
 		}
@@ -614,18 +618,14 @@ func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {
 
 // Return a list of supported File Server Services
 func NetworkHandleGetFileServerServiceList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "NetworkHandleGetFileServerServiceList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "NetworkHandleGetFileServerServiceList", "r", r))
 	js, _ := json.Marshal(networkFileServerDaemon)
 	utils.SendJSONResponse(w, string(js))
 }
 
 // Get the status of a file server type.
 func NetworkHandleGetFileServerStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "NetworkHandleGetFileServerStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "NetworkHandleGetFileServerStatus", "r", r))
 	servid, _ := utils.GetPara(r, "id")
 	if servid == "" {
 		//List all state in map
@@ -651,11 +651,10 @@ func NetworkHandleGetFileServerStatus(w http.ResponseWriter, r *http.Request) {
 
 // Get a list of endpoint usable by this service
 func NetworkHandleGetFileServerEndpoints(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "NetworkHandleGetFileServerEndpoints: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "NetworkHandleGetFileServerEndpoints", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "user not logged in")
 		return
 	}

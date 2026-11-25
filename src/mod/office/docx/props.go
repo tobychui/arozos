@@ -70,9 +70,7 @@ func onOff(n *xmltree.Node) optBool {
 
 // numAttr reads a numeric attribute (Google Docs writes "100.0")
 func numAttr(n *xmltree.Node, name string) optNum {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "numAttr: name=%.120q", name)
-	}
+	logger.DebugTrace("office/docx", "numAttr")
 	if n == nil {
 		return optNum{}
 	}
@@ -82,6 +80,7 @@ func numAttr(n *xmltree.Node, name string) optNum {
 	}
 	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return optNum{}
 	}
 	return optNum{set: true, v: v}
@@ -333,9 +332,7 @@ func parsePPr(n *xmltree.Node) docxPPr {
 }
 
 func onOff2(s string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "onOff2: s=%.120q", s)
-	}
+	logger.DebugTrace("office/docx", "onOff2")
 	switch strings.ToLower(s) {
 	case "1", "true", "on":
 		return true
@@ -562,6 +559,7 @@ func parseStyleSheet(raw []byte) *docxStyleSheet {
 	}
 	tree, err := xmltree.Parse(raw)
 	if err != nil {
+		logger.DebugErr("office/docx", err)
 		return ss
 	}
 	if dd := tree.First("docDefaults"); dd != nil {
@@ -597,9 +595,7 @@ func parseStyleSheet(raw []byte) *docxStyleSheet {
 
 // chain returns the style and its basedOn ancestors, root first
 func (ss *docxStyleSheet) chain(id string) []*docxStyle {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxStyleSheet.chain: id=%.120q", id)
-	}
+	logger.DebugTrace("office/docx", "docxStyleSheet.chain")
 	var out []*docxStyle
 	seen := map[string]bool{}
 	for id != "" && !seen[id] {
@@ -617,9 +613,7 @@ func (ss *docxStyleSheet) chain(id string) []*docxStyle {
 // paraStyle resolves a paragraph style (the default one when id is empty)
 // into the pPr/rPr it contributes on top of docDefaults
 func (ss *docxStyleSheet) paraStyle(id string) (*docxPPr, *docxRPr) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxStyleSheet.paraStyle: id=%.120q", id)
-	}
+	logger.DebugTrace("office/docx", "docxStyleSheet.paraStyle")
 	if id == "" || ss.styles[id] == nil {
 		id = ss.defPara
 	}
@@ -640,9 +634,7 @@ func (ss *docxStyleSheet) paraStyle(id string) (*docxPPr, *docxRPr) {
 
 // charStyle returns what a character style chain contributes
 func (ss *docxStyleSheet) charStyle(id string) docxRPr {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxStyleSheet.charStyle: id=%.120q", id)
-	}
+	logger.DebugTrace("office/docx", "docxStyleSheet.charStyle")
 	r := docxRPr{}
 	for _, st := range ss.chain(id) {
 		r.merge(st.rPr)
@@ -652,9 +644,7 @@ func (ss *docxStyleSheet) charStyle(id string) docxRPr {
 
 // tableStyle resolves a table style (TableNormal behind it)
 func (ss *docxStyleSheet) tableStyle(id string) *docxTblPr {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxStyleSheet.tableStyle: id=%.120q", id)
-	}
+	logger.DebugTrace("office/docx", "docxStyleSheet.tableStyle")
 	key := "tbl:" + id
 	if t, ok := ss.resolvedTbl[key]; ok {
 		return t
@@ -675,9 +665,7 @@ func (ss *docxStyleSheet) tableStyle(id string) *docxTblPr {
 // headingLevel reports which heading (1-6) a paragraph style is, 0 for none.
 // Title and Subtitle come back as -1 and -2.
 func (ss *docxStyleSheet) headingLevel(id string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "docxStyleSheet.headingLevel: id=%.120q", id)
-	}
+	logger.DebugTrace("office/docx", "docxStyleSheet.headingLevel")
 	// walk from the style itself towards its roots: a custom style based
 	// on a heading is that heading
 	chain := ss.chain(id)
@@ -693,9 +681,7 @@ func (ss *docxStyleSheet) headingLevel(id string) int {
 }
 
 func styleNameLevel(id, name string) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/docx", "styleNameLevel: id=%.120q name=%.120q", id, name)
-	}
+	logger.DebugTrace("office/docx", "styleNameLevel")
 	n := strings.ToLower(id)
 	if name != "" {
 		n = strings.ToLower(name)

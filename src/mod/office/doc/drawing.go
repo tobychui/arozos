@@ -45,6 +45,7 @@ func usable(b *officeart.Blip) ([]byte, string, bool) {
 	case "tiff":
 		png, err := metafile.TIFFToPNG(b.Data)
 		if err != nil {
+			logger.DebugErr("office/doc", err)
 			return nil, "", false
 		}
 		return png, "png", true
@@ -64,9 +65,7 @@ func cropOf(props officeart.Props) [4]float64 {
 
 // inlinePicture reads the picture of a 0x01 character
 func (d *docFile) inlinePicture(loc int) *picture {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.inlinePicture: loc=%d", loc)
-	}
+	logger.DebugTrace("office/doc", "docFile.inlinePicture")
 	le := binary.LittleEndian
 	b := d.data
 	// against the bytes left: loc+n can overflow a 32-bit int
@@ -214,6 +213,7 @@ func (d *docFile) readDrawings() {
 	}
 	dgg, next, err := officeart.ParseOne(content, 0)
 	if err != nil {
+		logger.DebugErr("office/doc", err)
 		return
 	}
 	dr.store = officeart.BStore(dgg, d.wd)
@@ -257,9 +257,7 @@ func (d *docFile) shapePicture(sh *officeart.Shape) *picture {
 
 // floating returns the object anchored at cp (nil when none)
 func (d *docFile) floating(cp int) *floatObj {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/doc", "docFile.floating: cp=%d", cp)
-	}
+	logger.DebugTrace("office/doc", "docFile.floating")
 	if d.draw == nil {
 		return nil
 	}

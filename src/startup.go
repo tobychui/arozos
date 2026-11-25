@@ -29,18 +29,20 @@ type vendorInfo struct {
 // deviceVendor / deviceVendorURL / deviceModel / deviceModelDesc globals when
 // the file is present and valid.  Missing fields are left at their defaults.
 func loadVendorInfo() {
-	logger.Debug("Core", "loadVendorInfo")
+	defer logger.Out0(logger.In0("Core", "loadVendorInfo"))
 	vendorInfoPath := filepath.Join(vendorResRoot, "vendor_info.json")
 	if !fs.FileExists(vendorInfoPath) {
 		return
 	}
 	content, err := os.ReadFile(vendorInfoPath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		logger.PrintAndLog("Vendor", "Failed to read vendor_info.json", err)
 		return
 	}
 	var info vendorInfo
 	if err := json.Unmarshal(content, &info); err != nil {
+		logger.DebugErr("Core", err)
 		logger.PrintAndLog("Vendor", "Failed to parse vendor_info.json", err)
 		return
 	}
@@ -60,9 +62,10 @@ func loadVendorInfo() {
 }
 
 func RunStartup() {
-	logger.Debug("Core", "RunStartup")
+	defer logger.Out0(logger.In0("Core", "RunStartup"))
 	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
 	logger.SetDefaultLogger(systemWideLogger)
+	systemWideLogger.CaptureCrashes() //Fatal panics land in the system log with their stack
 	loadVendorInfo()
 	//1. Initiate the main system database
 
@@ -71,6 +74,7 @@ func RunStartup() {
 		systemWideLogger.PrintAndLog("System", "[Update] Unzipping system critical files from archive", nil)
 		extErr := filesystem.ExtractTarGzipFile("./web.tar.gz", "./")
 		if extErr != nil {
+			logger.DebugErr("Core", extErr)
 			//Extract failed
 			fmt.Println("▒▒ ERROR: UNABLE TO EXTRACT CRITICAL SYSTEM FOLDERS ▒▒")
 			fmt.Println(extErr)
@@ -80,6 +84,7 @@ func RunStartup() {
 		//Extract success
 		extErr = os.Remove("./web.tar.gz")
 		if extErr != nil {
+			logger.DebugErr("Core", extErr)
 			systemWideLogger.PrintAndLog("Update", "Unable to remove web.tar.gz: "+extErr.Error(), extErr)
 		}
 	}
@@ -96,6 +101,7 @@ func RunStartup() {
 
 	dbconn, err := db.NewDatabase("system/ao.db", false)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		panic(err)
 	}
 	sysdb = dbconn

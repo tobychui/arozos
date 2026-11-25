@@ -36,10 +36,8 @@ var qualityPresets = map[TranscodeOutputResolution]qualityPreset{
 // ParseTranscodeResolution maps a request parameter onto a known resolution.
 // Anything unrecognised means the source resolution, matching the behaviour the
 // transcode endpoints have always had for an unknown value.
-func ParseTranscodeResolution(value string) TranscodeOutputResolution {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ParseTranscodeResolution: value=%.120q", value)
-	}
+func ParseTranscodeResolution(value string) (out0 TranscodeOutputResolution) {
+	defer logger.Out1(logger.In1("media/transcoder", "ParseTranscodeResolution", "value", value), &out0)
 	resolution := TranscodeOutputResolution(strings.ToLower(strings.TrimSpace(value)))
 	if _, ok := qualityPresets[resolution]; ok {
 		return resolution
@@ -57,8 +55,8 @@ func ParseTranscodeResolution(value string) TranscodeOutputResolution {
 // odd width outright). This is spelt out as expressions rather than with
 // force_original_aspect_ratio / force_divisible_by because the latter needs
 // ffmpeg 4.3, newer than several distributions still ship.
-func resolutionScaleFilter(resolution TranscodeOutputResolution) (string, error) {
-	logger.Debug("media/transcoder", "resolutionScaleFilter")
+func resolutionScaleFilter(resolution TranscodeOutputResolution) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "resolutionScaleFilter", "&resolution", &resolution), &out0, &out1)
 	if resolution == TranscodeResolution_original {
 		return "", nil
 	}
@@ -76,10 +74,8 @@ func resolutionScaleFilter(resolution TranscodeOutputResolution) (string, error)
 // libx264 stays on constant quality and only falls back to the ceiling where a
 // scene needs more than it allows. Hardware encoders share no common quality
 // mode, so they get a target bitrate under the same ceiling instead.
-func rateControlArgs(resolution TranscodeOutputResolution, hardware bool) []string {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "rateControlArgs: hardware=%t", hardware)
-	}
+func rateControlArgs(resolution TranscodeOutputResolution, hardware bool) (out0 []string) {
+	defer logger.Out1(logger.In2("media/transcoder", "rateControlArgs", "&resolution", &resolution, "hardware", hardware), &out0)
 	preset, ok := qualityPresets[resolution]
 	if !ok {
 		return nil

@@ -14,8 +14,8 @@ var procGetLogicalProcessorInformation = windows.NewLazySystemDLL("kernel32.dll"
 
 // physicalCores asks kernel32 for the processor topology and counts the core
 // records. Returns 0 when the call is unavailable or fails.
-func physicalCores() int {
-	logger.Debug("info/usageinfo", "physicalCores")
+func physicalCores() (out0 int) {
+	defer logger.Out1(logger.In0("info/usageinfo", "physicalCores"), &out0)
 	if procGetLogicalProcessorInformation.Find() != nil {
 		return 0
 	}

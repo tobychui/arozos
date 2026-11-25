@@ -26,8 +26,8 @@ type FileSystemOption struct {
 }
 
 // Parse a list of StorageConfig from the given json content
-func loadConfigFromJSON(jsonContent []byte) ([]FileSystemOption, error) {
-	logger.Debug("filesystem", "loadConfigFromJSON")
+func loadConfigFromJSON(jsonContent []byte) (out0 []FileSystemOption, out1 error) {
+	defer logger.Out2(logger.In1("filesystem", "loadConfigFromJSON", "jsonContent", jsonContent), &out0, &out1)
 	storageInConfig := []FileSystemOption{}
 	//Try to parse the JSON content
 	err := json.Unmarshal(jsonContent, &storageInConfig)
@@ -35,8 +35,8 @@ func loadConfigFromJSON(jsonContent []byte) ([]FileSystemOption, error) {
 }
 
 // Validate if the given options are correct
-func ValidateOption(options *FileSystemOption) error {
-	logger.Debug("filesystem", "ValidateOption")
+func ValidateOption(options *FileSystemOption) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem", "ValidateOption", "options", options), &out0)
 	//Check if path exists
 	if options.Name == "" {
 		return errors.New("File System Handler name cannot be empty")

@@ -86,8 +86,8 @@ type CPUTimes struct {
 }
 
 // CPULoad is the busy share of all CPUs between two samples, in percent
-func CPULoad(prev CPUTimes, cur CPUTimes) float64 {
-	logger.Debug("info/wininfo", "CPULoad")
+func CPULoad(prev CPUTimes, cur CPUTimes) (out0 float64) {
+	defer logger.Out1(logger.In2("info/wininfo", "CPULoad", "&prev", &prev, "&cur", &cur), &out0)
 	if cur.Idle < prev.Idle || cur.Kernel < prev.Kernel || cur.User < prev.User {
 		return 0
 	}
@@ -102,10 +102,8 @@ func CPULoad(prev CPUTimes, cur CPUTimes) float64 {
 // osDisplayName words the product name like Win32_OperatingSystem.Caption.
 // The registry still says Windows 10 on Windows 11, which starts at build
 // 22000.
-func osDisplayName(product string, build int) string {
-	if logger.IsDebug() {
-		logger.Debugf("info/wininfo", "osDisplayName: product=%.120q build=%d", product, build)
-	}
+func osDisplayName(product string, build int) (out0 string) {
+	defer logger.Out1(logger.In2("info/wininfo", "osDisplayName", "product", product, "build", build), &out0)
 	name := strings.TrimSpace(product)
 	if name == "" {
 		return ""
@@ -122,10 +120,8 @@ func osDisplayName(product string, build int) string {
 // FormatLinkSpeed shows a link speed in bits per second the way
 // Get-NetAdapter does ("1 Gbps", "866.7 Mbps"). An unknown or zero speed,
 // as a disconnected adapter reports, is "N/A".
-func FormatLinkSpeed(bps uint64) string {
-	if logger.IsDebug() {
-		logger.Debugf("info/wininfo", "FormatLinkSpeed: bps=%d", bps)
-	}
+func FormatLinkSpeed(bps uint64) (out0 string) {
+	defer logger.Out1(logger.In1("info/wininfo", "FormatLinkSpeed", "bps", bps), &out0)
 	if bps == 0 || bps == ^uint64(0) {
 		return "N/A"
 	}
@@ -146,10 +142,8 @@ func FormatLinkSpeed(bps uint64) string {
 
 // OperStateName maps an IF_OPER_STATUS to the state names the network page
 // uses on every platform: up, down, dormant, testing or unknown.
-func OperStateName(status uint32) string {
-	if logger.IsDebug() {
-		logger.Debugf("info/wininfo", "OperStateName: status=%d", status)
-	}
+func OperStateName(status uint32) (out0 string) {
+	defer logger.Out1(logger.In1("info/wininfo", "OperStateName", "status", status), &out0)
 	switch status {
 	case 1:
 		return "up"
@@ -164,8 +158,8 @@ func OperStateName(status uint32) string {
 }
 
 // DuplexName is how the network page shows a duplex state
-func DuplexName(d Duplex) string {
-	logger.Debug("info/wininfo", "DuplexName")
+func DuplexName(d Duplex) (out0 string) {
+	defer logger.Out1(logger.In1("info/wininfo", "DuplexName", "&d", &d), &out0)
 	switch d {
 	case DuplexFull:
 		return "Full"

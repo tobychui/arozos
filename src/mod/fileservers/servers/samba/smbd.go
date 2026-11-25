@@ -8,11 +8,12 @@ import (
 )
 
 // IsSmbdRunning checks if smbd is running on the current Linux host
-func IsSmbdRunning() (bool, error) {
-	logger.Debug("fileservers/servers/samba", "IsSmbdRunning")
+func IsSmbdRunning() (out0 bool, out1 error) {
+	defer logger.Out2(logger.In0("fileservers/servers/samba", "IsSmbdRunning"), &out0, &out1)
 	cmd := exec.Command("systemctl", "is-active", "--quiet", "smbd")
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		// If the command returns a non-zero exit code, smbd is not running
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			return exitErr.ExitCode() == 0, nil
@@ -24,10 +25,8 @@ func IsSmbdRunning() (bool, error) {
 }
 
 // SetSmbdEnableState enables or disables smbd via systemctl
-func SetSmbdEnableState(enable bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "SetSmbdEnableState: enable=%t", enable)
-	}
+func SetSmbdEnableState(enable bool) (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/samba", "SetSmbdEnableState", "enable", enable), &out0)
 	var cmd *exec.Cmd
 	if enable {
 		//Enable smbd
@@ -35,6 +34,7 @@ func SetSmbdEnableState(enable bool) error {
 
 		err := cmd.Run()
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			return fmt.Errorf("failed to start smbd: %v", err)
 		}
 
@@ -43,6 +43,7 @@ func SetSmbdEnableState(enable bool) error {
 
 		err = cmd.Run()
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			return fmt.Errorf("failed to set smbd enable state: %v", err)
 		}
 	} else {
@@ -50,6 +51,7 @@ func SetSmbdEnableState(enable bool) error {
 		cmd = exec.Command("sudo", "systemctl", "stop", "smbd")
 		err := cmd.Run()
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			return fmt.Errorf("failed to stop smbd: %v", err)
 		}
 		cmd = exec.Command("sudo", "systemctl", "disable", "smbd")
@@ -57,6 +59,7 @@ func SetSmbdEnableState(enable bool) error {
 		//Disable service
 		err = cmd.Run()
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			return fmt.Errorf("failed to set smbd enable state: %v", err)
 		}
 

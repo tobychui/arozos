@@ -45,10 +45,8 @@ var privateRanges = []ipRange{
 	},
 }
 
-func checkIfLAN(r *http.Request) bool {
-	if logger.IsDebug() {
-		logger.Debugf("prouter", "checkIfLAN: r=%s", logger.RequestSummary(r))
-	}
+func checkIfLAN(r *http.Request) (out0 bool) {
+	defer logger.Out1(logger.In1("prouter", "checkIfLAN", "r", r), &out0)
 	PredictedClientIP := []net.IP{}
 	forwarded := r.Header.Get("X-FORWARDED-FOR")
 	rip := r.Header.Get("X-Real-Ip") //Not that kind of RIP
@@ -62,7 +60,7 @@ func checkIfLAN(r *http.Request) bool {
 	} else {
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-
+			logger.DebugErr("prouter", err)
 		} else {
 			userIP := net.ParseIP(ip)
 			PredictedClientIP = append(PredictedClientIP, userIP)
@@ -92,8 +90,8 @@ func checkIfLAN(r *http.Request) bool {
 	return IsLocal
 }
 
-func isPrivateSubnet(ipAddress net.IP) bool {
-	logger.Debug("prouter", "isPrivateSubnet")
+func isPrivateSubnet(ipAddress net.IP) (out0 bool) {
+	defer logger.Out1(logger.In1("prouter", "isPrivateSubnet", "&ipAddress", &ipAddress), &out0)
 	// my use case is only concerned with ipv4 atm
 	if ipCheck := ipAddress.To4(); ipCheck != nil {
 		// iterate over all our ranges
@@ -107,8 +105,8 @@ func isPrivateSubnet(ipAddress net.IP) bool {
 	return false
 }
 
-func inRange(r ipRange, ipAddress net.IP) bool {
-	logger.Debug("prouter", "inRange")
+func inRange(r ipRange, ipAddress net.IP) (out0 bool) {
+	defer logger.Out1(logger.In2("prouter", "inRange", "&r", &r, "&ipAddress", &ipAddress), &out0)
 	// strcmp type byte comparison
 	if bytes.Compare(ipAddress, r.start) >= 0 && bytes.Compare(ipAddress, r.end) < 0 {
 		return true

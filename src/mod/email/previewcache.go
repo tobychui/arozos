@@ -31,21 +31,17 @@ type previewCache struct {
 }
 
 func newPreviewCache(capacity int) *previewCache {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "newPreviewCache: capacity=%d", capacity)
-	}
+	logger.DebugTrace("email", "newPreviewCache")
 	return &previewCache{capacity: capacity, order: list.New(), entries: map[string]*list.Element{}}
 }
 
 func previewKey(owner string, accountID string, folder string, uidValidity uint32, uid uint32) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "previewKey: owner=%.120q accountID=%.120q folder=%.120q uidValidity=%d uid=%d", owner, accountID, folder, uidValidity, uid)
-	}
+	logger.DebugTrace("email", "previewKey")
 	return owner + "/" + accountID + "\x00" + folder + "\x00" + strconv.FormatUint(uint64(uidValidity), 10) + "\x00" + strconv.FormatUint(uint64(uid), 10)
 }
 
-func (c *previewCache) get(key string) (string, bool) {
-	logger.Debug("email", "previewCache.get")
+func (c *previewCache) get(key string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In2("email", "previewCache.get", "c", c, "!key", key), &out0, &out1)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if element, ok := c.entries[key]; ok {
@@ -56,9 +52,7 @@ func (c *previewCache) get(key string) (string, bool) {
 }
 
 func (c *previewCache) put(key string, preview string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "previewCache.put: preview=%.120q", preview)
-	}
+	defer logger.Out0(logger.In3("email", "previewCache.put", "c", c, "preview", preview, "!key", key))
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if element, ok := c.entries[key]; ok {
@@ -76,9 +70,7 @@ func (c *previewCache) put(key string, preview string) {
 
 // dropAccount forgets every preview of an account.
 func (c *previewCache) dropAccount(owner string, accountID string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "previewCache.dropAccount: owner=%.120q accountID=%.120q", owner, accountID)
-	}
+	defer logger.Out0(logger.In3("email", "previewCache.dropAccount", "c", c, "owner", owner, "accountID", accountID))
 	prefix := owner + "/" + accountID + "\x00"
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

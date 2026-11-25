@@ -197,6 +197,7 @@ func (p *Decoder) unmarshalInterface(val Unmarshaler, start *StartElement) error
 	err := val.UnmarshalXML(p, *start)
 	p.unmarshalDepth--
 	if err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		p.popEOF()
 		return err
 	}
@@ -218,6 +219,7 @@ func (p *Decoder) unmarshalTextInterface(val encoding.TextUnmarshaler, start *St
 	for depth > 0 {
 		t, err := p.Token()
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		switch t := t.(type) {
@@ -287,6 +289,7 @@ func (p *Decoder) unmarshal(val reflect.Value, start *StartElement) error {
 		for {
 			tok, err := p.Token()
 			if err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 			if t, ok := tok.(StartElement); ok {
@@ -384,6 +387,7 @@ func (p *Decoder) unmarshal(val reflect.Value, start *StartElement) error {
 
 		// Recur to read element into slice.
 		if err := p.unmarshal(v.Index(n), start); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			v.SetLen(n)
 			return err
 		}
@@ -402,6 +406,7 @@ func (p *Decoder) unmarshal(val reflect.Value, start *StartElement) error {
 		sv = v
 		tinfo, err = getTypeInfo(typ)
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 
@@ -437,6 +442,7 @@ func (p *Decoder) unmarshal(val reflect.Value, start *StartElement) error {
 				for _, a := range start.Attr {
 					if a.Name.Local == finfo.name && (finfo.xmlns == "" || finfo.xmlns == a.Name.Space) {
 						if err := p.unmarshalAttr(strv, a); err != nil {
+							logger.DebugErr("network/webdav/internal/xml", err)
 							return err
 						}
 						break
@@ -482,6 +488,7 @@ Loop:
 		}
 		tok, err := p.Token()
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		switch t := tok.(type) {
@@ -490,17 +497,20 @@ Loop:
 			if sv.IsValid() {
 				consumed, err = p.unmarshalPath(tinfo, sv, nil, &t)
 				if err != nil {
+					logger.DebugErr("network/webdav/internal/xml", err)
 					return err
 				}
 				if !consumed && saveAny.IsValid() {
 					consumed = true
 					if err := p.unmarshal(saveAny, &t); err != nil {
+						logger.DebugErr("network/webdav/internal/xml", err)
 						return err
 					}
 				}
 			}
 			if !consumed {
 				if err := p.Skip(); err != nil {
+					logger.DebugErr("network/webdav/internal/xml", err)
 					return err
 				}
 			}
@@ -528,6 +538,7 @@ Loop:
 
 	if saveData.IsValid() && saveData.CanInterface() && saveData.Type().Implements(textUnmarshalerType) {
 		if err := saveData.Interface().(encoding.TextUnmarshaler).UnmarshalText(data); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		saveData = reflect.Value{}
@@ -537,6 +548,7 @@ Loop:
 		pv := saveData.Addr()
 		if pv.CanInterface() && pv.Type().Implements(textUnmarshalerType) {
 			if err := pv.Interface().(encoding.TextUnmarshaler).UnmarshalText(data); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 			saveData = reflect.Value{}
@@ -544,6 +556,7 @@ Loop:
 	}
 
 	if err := copyValue(saveData, data); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 
@@ -565,9 +578,7 @@ Loop:
 }
 
 func copyValue(dst reflect.Value, src []byte) (err error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "copyValue: len(src)=%d", len(src))
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "copyValue")
 	dst0 := dst
 
 	if dst.Kind() == reflect.Ptr {
@@ -586,24 +597,28 @@ func copyValue(dst reflect.Value, src []byte) (err error) {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		itmp, err := strconv.ParseInt(string(src), 10, dst.Type().Bits())
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		dst.SetInt(itmp)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		utmp, err := strconv.ParseUint(string(src), 10, dst.Type().Bits())
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		dst.SetUint(utmp)
 	case reflect.Float32, reflect.Float64:
 		ftmp, err := strconv.ParseFloat(string(src), dst.Type().Bits())
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		dst.SetFloat(ftmp)
 	case reflect.Bool:
 		value, err := strconv.ParseBool(strings.TrimSpace(string(src)))
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		dst.SetBool(value)
@@ -625,9 +640,7 @@ func copyValue(dst reflect.Value, src []byte) (err error) {
 // from the Decoder until start's matching end element, or if it's
 // still untouched because start is uninteresting for sv's fields.
 func (p *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []string, start *StartElement) (consumed bool, err error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Decoder.unmarshalPath: len(parents)=%d", len(parents))
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.unmarshalPath")
 	recurse := false
 Loop:
 	for i := range tinfo.fields {
@@ -667,16 +680,19 @@ Loop:
 		var tok Token
 		tok, err = p.Token()
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return true, err
 		}
 		switch t := tok.(type) {
 		case StartElement:
 			consumed2, err := p.unmarshalPath(tinfo, sv, parents, &t)
 			if err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return true, err
 			}
 			if !consumed2 {
 				if err := p.Skip(); err != nil {
+					logger.DebugErr("network/webdav/internal/xml", err)
 					return true, err
 				}
 			}
@@ -697,11 +713,13 @@ func (d *Decoder) Skip() error {
 	for {
 		tok, err := d.Token()
 		if err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		switch tok.(type) {
 		case StartElement:
 			if err := d.Skip(); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return err
 			}
 		case EndElement:

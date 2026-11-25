@@ -38,16 +38,17 @@ import (
 */
 
 func (g *Gateway) ImageLibRegister() {
-	logger.Debug("agi", "Gateway.ImageLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.ImageLibRegister", "g", g))
 	err := g.RegisterLib("imagelib", g.injectImageLibFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
 
 func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectImageLibFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectImageLibFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	//scriptFsh := payload.ScriptFsh
@@ -58,12 +59,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_getImageDimension", func(call otto.FunctionCall) otto.Value {
 		imageFileVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		fsh, imagePath, err := static.VirtualPathToRealPath(imageFileVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -82,6 +85,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			defer closerFunc()
 			c, err := fsh.FileSystemAbstraction.ReadFile(imagePath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(errors.New("Read from file system failed: " + err.Error()))
 				return otto.FalseValue()
 			}
@@ -90,12 +94,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 
 			file, err = os.Open(openingPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 		} else {
 			file, err = fsh.FileSystemAbstraction.Open(openingPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -103,6 +109,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 
 		image, _, err := image.DecodeConfig(file)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -116,24 +123,28 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_resizeImage", func(call otto.FunctionCall) otto.Value {
 		vsrc, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		vdest, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		width, err := call.Argument(2).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		height, err := call.Argument(3).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -146,11 +157,13 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//Convert the virtual paths to real paths
 		srcfsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destfsh, rdest, err := static.VirtualPathToRealPath(vdest, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -164,6 +177,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if destfsh.FileSystemAbstraction.FileExists(rdest) {
 			err := destfsh.FileSystemAbstraction.Remove(rdest)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -176,18 +190,21 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if srcfsh.RequireBuffer {
 			resizeOpeningFile, _, err = g.bufferRemoteResourcesToLocal(srcfsh, u, rsrc)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
 			srcFile, err = os.Open(resizeOpeningFile)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 		} else {
 			srcFile, err = srcfsh.FileSystemAbstraction.Open(resizeOpeningFile)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -197,18 +214,21 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if destfsh.RequireBuffer {
 			resizeWritingFile, _, err = g.bufferRemoteResourcesToLocal(destfsh, u, rdest)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
 			destFile, err = os.OpenFile(resizeWritingFile, os.O_CREATE|os.O_WRONLY, 0775)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 		} else {
 			destFile, err = destfsh.FileSystemAbstraction.OpenFile(resizeWritingFile, os.O_CREATE|os.O_WRONLY, 0775)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -219,6 +239,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//src, err := imaging.Open(resizeOpeningFile)
 		src, err := imaging.Decode(srcFile)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			//Opening failed
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -227,12 +248,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//err = imaging.Save(src, resizeWritingFile)
 		f, err := imaging.FormatFromFilename(resizeWritingFile)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		err = imaging.Encode(destFile, src, f)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -249,18 +272,21 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_resizeImageBase64", func(call otto.FunctionCall) otto.Value {
 		vsrc, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		width, err := call.Argument(1).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		height, err := call.Argument(2).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -269,6 +295,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if !call.Argument(3).IsUndefined() {
 			format, err = call.Argument(3).ToString()
 			if err != nil {
+				logger.DebugErr("agi", err)
 				format = "jpeg"
 			}
 		}
@@ -276,6 +303,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//Convert the virtual path to real path
 		srcfsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -285,18 +313,21 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if srcfsh.RequireBuffer {
 			resizeOpeningFile, _, err = g.bufferRemoteResourcesToLocal(srcfsh, u, rsrc)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
 			srcFile, err = os.Open(resizeOpeningFile)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 		} else {
 			srcFile, err = srcfsh.FileSystemAbstraction.Open(resizeOpeningFile)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -306,6 +337,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//Decode and resize the image
 		src, err := imaging.Decode(srcFile)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -319,6 +351,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			err = jpeg.Encode(&buf, src, &jpeg.Options{Quality: 85})
 		}
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -335,34 +368,40 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_cropImage", func(call otto.FunctionCall) otto.Value {
 		vsrc, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		vdest, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		posx, err := call.Argument(2).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			posx = 0
 		}
 
 		posy, err := call.Argument(3).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			posy = 0
 		}
 
 		width, err := call.Argument(4).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(errors.New("Image width not defined"))
 			return otto.FalseValue()
 		}
 
 		height, err := call.Argument(5).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(errors.New("Image height not defined"))
 			return otto.FalseValue()
 		}
@@ -376,12 +415,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 
 		srcFsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		srcFshAbs := srcFsh.FileSystemAbstraction
 		destFsh, rdest, err := static.VirtualPathToRealPath(vdest, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -389,6 +430,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//Try to read the source image
 		imageBytes, err := srcFshAbs.ReadFile(rsrc)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			fmt.Println(err)
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -396,6 +438,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 
 		img, _, err := image.Decode(bytes.NewReader(imageBytes))
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -417,6 +460,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			//Create the new image in buffer file
 			out, err = os.Create(destWritePath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -426,6 +470,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			//Create the target file via FSA
 			out, err = destFsh.FileSystemAbstraction.Create(rdest)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -446,6 +491,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			c, _ := os.ReadFile(destWritePath)
 			err := destFsh.FileSystemAbstraction.WriteFile(rdest, c, 0775)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				fmt.Println(">", err.Error())
 			}
 		}
@@ -457,12 +503,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_loadThumbString", func(call otto.FunctionCall) otto.Value {
 		vsrc, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vsrc)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -471,6 +519,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//Get the files' thumb base64 string
 		base64String, err := g.Option.FileSystemRender.LoadCache(fsh, rpath, false)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		} else {
 			value, _ := vm.ToValue(base64String)
@@ -482,12 +531,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_hasExif", func(call otto.FunctionCall) otto.Value {
 		imageFileVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		fsh, imagePath, err := static.VirtualPathToRealPath(imageFileVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -505,6 +556,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			defer closerFunc()
 			c, err := fsh.FileSystemAbstraction.ReadFile(imagePath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(errors.New("Read from file system failed: " + err.Error()))
 				return otto.FalseValue()
 			}
@@ -517,6 +569,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if fsh.RequireBuffer {
 			file, err := os.Open(openingPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return otto.FalseValue()
 			}
 			defer file.Close()
@@ -524,6 +577,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		} else {
 			file, err := fsh.FileSystemAbstraction.Open(openingPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				return otto.FalseValue()
 			}
 			defer file.Close()
@@ -531,10 +585,12 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		}
 		reader, err = exifSource(reader, imagePath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		_, err = exif.Decode(reader)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -544,12 +600,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_getExif", func(call otto.FunctionCall) otto.Value {
 		imageFileVpath, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		fsh, imagePath, err := static.VirtualPathToRealPath(imageFileVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -567,6 +625,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 			defer closerFunc()
 			c, err := fsh.FileSystemAbstraction.ReadFile(imagePath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(errors.New("Read from file system failed: " + err.Error()))
 				return otto.FalseValue()
 			}
@@ -579,6 +638,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		if fsh.RequireBuffer {
 			file, err := os.Open(openingPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -587,6 +647,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		} else {
 			file, err := fsh.FileSystemAbstraction.Open(openingPath)
 			if err != nil {
+				logger.DebugErr("agi", err)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}
@@ -595,11 +656,13 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		}
 		reader, err = exifSource(reader, imagePath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		x, err := exif.Decode(reader)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -616,6 +679,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		}
 		jsonBytes, err := json.Marshal(exifInfo)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -627,12 +691,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 	vm.Set("_imagelib_rawToJPEG", func(call otto.FunctionCall) otto.Value {
 		vsrc, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		vdest, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -645,11 +711,13 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		//Convert the virtual paths to real paths
 		srcfsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		destfsh, rdest, err := static.VirtualPathToRealPath(vdest, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -661,6 +729,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 
 		err = convertRawToJPEG(srcfsh, rsrc, destfsh, rdest)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -685,15 +754,14 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 // exifSource returns what exif.Decode should read for the image at path. A
 // HEIC file keeps its Exif as an item of the container, so its TIFF payload
 // is taken out first; other formats are read as they are.
-func exifSource(r io.Reader, path string) (io.Reader, error) {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "exifSource: path=%.120q", path)
-	}
+func exifSource(r io.Reader, path string) (out0 io.Reader, out1 error) {
+	defer logger.Out2(logger.In2("agi", "exifSource", "r", r, "path", path), &out0, &out1)
 	if !metadata.IsHEICImageFile(path) {
 		return r, nil
 	}
 	tiff, err := heic.RawExif(r)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return nil, err
 	}
 	return bytes.NewReader(tiff), nil
@@ -705,10 +773,8 @@ func exifSource(r io.Reader, path string) (io.Reader, error) {
 // supported RAW format, when the output is not a .jpg/.jpeg file, or when any
 // read / render / write step fails. WriteFile is used for the output so this
 // works on every filesystem abstraction, including buffered ones (S3, FTP, WebDAV).
-func convertRawToJPEG(srcFsh *filesystem.FileSystemHandler, srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) error {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "convertRawToJPEG: srcRpath=%.120q destRpath=%.120q", srcRpath, destRpath)
-	}
+func convertRawToJPEG(srcFsh *filesystem.FileSystemHandler, srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) (out0 error) {
+	defer logger.Out1(logger.In4("agi", "convertRawToJPEG", "srcFsh", srcFsh, "srcRpath", srcRpath, "destFsh", destFsh, "destRpath", destRpath), &out0)
 	if !metadata.IsRawImageFile(srcRpath) {
 		return errors.New("source is not a supported RAW image: " + filepath.Base(srcRpath))
 	}
@@ -720,6 +786,7 @@ func convertRawToJPEG(srcFsh *filesystem.FileSystemHandler, srcRpath string, des
 
 	jpegData, err := metadata.RenderRAWImage(srcFsh, srcRpath)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		return err
 	}
 

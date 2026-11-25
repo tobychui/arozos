@@ -28,10 +28,8 @@ type Matcher struct {
 	excludeList   []string
 }
 
-func NewFuzzyMatcher(fuzzyInput string, caseSensitive bool) *Matcher {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fuzzy", "NewFuzzyMatcher: fuzzyInput=%.120q caseSensitive=%t", fuzzyInput, caseSensitive)
-	}
+func NewFuzzyMatcher(fuzzyInput string, caseSensitive bool) (out0 *Matcher) {
+	defer logger.Out1(logger.In2("filesystem/fuzzy", "NewFuzzyMatcher", "fuzzyInput", fuzzyInput, "caseSensitive", caseSensitive), &out0)
 	m, e := buildFuzzyChunks(fuzzyInput, caseSensitive)
 	return &Matcher{
 		caseSensitive: caseSensitive,
@@ -40,10 +38,8 @@ func NewFuzzyMatcher(fuzzyInput string, caseSensitive bool) *Matcher {
 	}
 }
 
-func (m *Matcher) Match(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fuzzy", "Matcher.Match: filename=%.120q", filename)
-	}
+func (m *Matcher) Match(filename string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/fuzzy", "Matcher.Match", "m", m, "filename", filename), &out0)
 	if !m.caseSensitive {
 		filename = strings.ToLower(filename)
 	}
@@ -65,10 +61,8 @@ func (m *Matcher) Match(filename string) bool {
 }
 
 // Check if a fuzzyKey require precise searching
-func buildFuzzyChunks(fuzzyInput string, caseSensitive bool) ([]string, []string) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fuzzy", "buildFuzzyChunks: fuzzyInput=%.120q caseSensitive=%t", fuzzyInput, caseSensitive)
-	}
+func buildFuzzyChunks(fuzzyInput string, caseSensitive bool) (out0 []string, out1 []string) {
+	defer logger.Out2(logger.In2("filesystem/fuzzy", "buildFuzzyChunks", "fuzzyInput", fuzzyInput, "caseSensitive", caseSensitive), &out0, &out1)
 	includeList := []string{}
 	excludeList := []string{}
 	preciseExclude := false //Exclude precise word from buffer

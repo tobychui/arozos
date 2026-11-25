@@ -106,8 +106,8 @@ type docPdf struct {
 }
 
 // BuildDoc renders a Document into PDF bytes
-func BuildDoc(doc *model.Document) ([]byte, error) {
-	logger.Debug("office/pdf", "BuildDoc")
+func BuildDoc(doc *model.Document) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In1("office/pdf", "BuildDoc", "doc", doc), &out0, &out1)
 	// page geometry
 	wMM, hMM := 210.0, 297.0
 	mT, mR, mB, mL := 25.4, 25.4, 25.4, 25.4
@@ -184,6 +184,7 @@ func BuildDoc(doc *model.Document) ([]byte, error) {
 
 	root, err := html.Parse(strings.NewReader("<body>" + doc.HTML + "</body>"))
 	if err != nil {
+		logger.DebugErr("office/pdf", err)
 		return nil, err
 	}
 	var bodyNode *html.Node
@@ -221,9 +222,7 @@ func BuildDoc(doc *model.Document) ([]byte, error) {
 // whole block moves to the next page when it does not fit on the rest of this
 // one (and would fit on an empty page) - the preview's rule.
 func (d *docPdf) place(gap float64, items []pdfItem) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.place: gap=%g len(items)=%d", gap, len(items))
-	}
+	logger.DebugTrace("office/pdf", "docPdf.place")
 	total := 0.0
 	for _, it := range items {
 		total += it.h
@@ -264,9 +263,7 @@ type pdfBox struct {
 // runs of inline content between them become anonymous paragraphs, exactly
 // like a browser builds anonymous block boxes
 func (d *docPdf) boxes(n *html.Node, x, w float64, base pdfSeg) []pdfBox {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.boxes: x=%g w=%g", x, w)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.boxes")
 	var out []pdfBox
 	var inline []*html.Node
 	flushInline := func() {
@@ -303,9 +300,7 @@ func (d *docPdf) boxes(n *html.Node, x, w float64, base pdfSeg) []pdfBox {
 // quote, a list item) the outermost margins stay inside it; otherwise they
 // collapse through its edges and are returned to the caller instead.
 func (d *docPdf) flow(n *html.Node, x, w float64, base pdfSeg, bfc bool) ([]pdfItem, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.flow: x=%g w=%g bfc=%t", x, w, bfc)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.flow")
 	var out []pdfItem
 	mt, pending := 0.0, 0.0
 	for i, bx := range d.boxes(n, x, w, base) {
@@ -333,9 +328,7 @@ func (d *docPdf) flow(n *html.Node, x, w float64, base pdfSeg, bfc bool) ([]pdfI
 
 // blockBox lays out one block element into items plus its CSS margins
 func (d *docPdf) blockBox(n *html.Node, x, w float64) ([]pdfItem, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.blockBox: x=%g w=%g", x, w)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.blockBox")
 	class := " " + htmlutil.Attr(n, "class") + " "
 	if strings.Contains(class, " doc-pagebreak ") {
 		return []pdfItem{{brk: true}}, 0, 0
@@ -405,9 +398,7 @@ func (d *docPdf) blockBox(n *html.Node, x, w float64) ([]pdfItem, float64, float
 // keeps fpdf's outline, whose depth may only grow one step at a time, well
 // formed. The Title paragraph is no heading, as in the table of contents.
 func (d *docPdf) bookmark(items []pdfItem, n *html.Node, level int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.bookmark: len(items)=%d level=%d", len(items), level)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.bookmark")
 	text := headingText(n)
 	if text == "" || len(items) == 0 {
 		return
@@ -457,9 +448,7 @@ func headingText(n *html.Node) string {
 // containerBox renders a wrapper element: its block children when it has
 // any, otherwise its inline content as one paragraph
 func (d *docPdf) containerBox(n *html.Node, x, w float64, base pdfSeg, bfc bool) ([]pdfItem, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.containerBox: x=%g w=%g bfc=%t", x, w, bfc)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.containerBox")
 	if htmlutil.HasBlockChild(n) {
 		return d.flow(n, x, w, base, bfc)
 	}
@@ -468,18 +457,14 @@ func (d *docPdf) containerBox(n *html.Node, x, w float64, base pdfSeg, bfc bool)
 
 // container is containerBox for the callers that keep every margin inside
 func (d *docPdf) container(n *html.Node, x, w float64, base pdfSeg) []pdfItem {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.container: x=%g w=%g", x, w)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.container")
 	items, _, _ := d.containerBox(n, x, w, base, true)
 	return items
 }
 
 // preItems lays out a <pre> block: Courier 10pt / 1.45 on a light card
 func (d *docPdf) preItems(n *html.Node, x, w float64) []pdfItem {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.preItems: x=%g w=%g", x, w)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.preItems")
 	// padding 10px 12px on a 1px bordered card
 	padV, padH, bw := 10*pxToMM, 12*pxToMM, pxToMM
 	d.pre = true
@@ -506,9 +491,7 @@ func (d *docPdf) preItems(n *html.Node, x, w float64) []pdfItem {
 // listItems lays out <ul>/<ol>: 28px content indent with a hanging marker,
 // 4pt/8pt outer margins and 2pt between items (all collapsed as CSS does)
 func (d *docPdf) listItems(n *html.Node, x, w float64, numbered bool) ([]pdfItem, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.listItems: x=%g w=%g numbered=%t", x, w, numbered)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.listItems")
 	indent := 28 * pxToMM
 	checklist := strings.Contains(" "+htmlutil.Attr(n, "class")+" ", " of-checklist ")
 	liGap := 2 * ptToMM // li { margin: 2pt 0 } - 3pt on checklists
@@ -551,9 +534,7 @@ func (d *docPdf) listItems(n *html.Node, x, w float64, numbered bool) ([]pdfItem
 // attachMarker draws a list marker right-aligned just before the first line
 // of an item, without disturbing that line's own drawing
 func (d *docPdf) attachMarker(it *pdfItem, marker string, contentX float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.attachMarker: marker=%.120q", marker)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.attachMarker")
 	inner := it.draw
 	it.draw = func(y float64) {
 		d.pdf.SetFont("Arial", "", docBaseSizePt)
@@ -570,9 +551,7 @@ func (d *docPdf) attachMarker(it *pdfItem, marker string, contentX float64) {
 // attachCheckbox draws a checklist item's box (and its tick when done) the
 // way the editor's ::before rule paints it - never an emoji glyph
 func (d *docPdf) attachCheckbox(it *pdfItem, contentX float64, checked bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.attachCheckbox: checked=%t", checked)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.attachCheckbox")
 	inner := it.draw
 	it.draw = func(y float64) {
 		pdf := d.pdf
@@ -603,9 +582,7 @@ func (d *docPdf) attachCheckbox(it *pdfItem, contentX float64, checked bool) {
 
 // lineItems turns laid-out lines into page items
 func (d *docPdf) lineItems(lines []pdfLine, x, w float64, align string) []pdfItem {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.lineItems: len(lines)=%d x=%g w=%g align=%.120q", len(lines), x, w, align)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.lineItems")
 	out := make([]pdfItem, 0, len(lines))
 	for _, ln := range lines {
 		l := ln
@@ -618,9 +595,7 @@ func (d *docPdf) lineItems(lines []pdfLine, x, w float64, align string) []pdfIte
 
 // paraItems lays out one paragraph and wraps its lines into page items
 func (d *docPdf) paraItems(n *html.Node, x, w float64, base pdfSeg, factor float64) []pdfItem {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.paraItems: x=%g w=%g factor=%g", x, w, factor)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.paraItems")
 	if lh := htmlutil.StyleProp(htmlutil.Attr(n, "style"), "line-height"); lh != "" {
 		if v, err := strconv.ParseFloat(strings.TrimSuffix(lh, "px"), 64); err == nil && v > 0 && v < 5 {
 			factor = v
@@ -671,9 +646,7 @@ func (s pdfSeg) fontFamily() string {
 // a browser does. Without it the hard newlines that pasted markup is full of
 // would each become a real line break in the PDF.
 func collapseWS(s string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "collapseWS: s=%.120q", s)
-	}
+	logger.DebugTrace("office/pdf", "collapseWS")
 	var sb strings.Builder
 	sb.Grow(len(s))
 	sp := false
@@ -699,9 +672,7 @@ func collapseWS(s string) string {
 
 // cssFontFamily maps a CSS font stack onto the PDF core font that is closest
 func cssFontFamily(f string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "cssFontFamily: f=%.120q", f)
-	}
+	logger.DebugTrace("office/pdf", "cssFontFamily")
 	f = strings.ToLower(f)
 	switch {
 	case f == "":
@@ -726,9 +697,7 @@ func (d *docPdf) collectSegs(n *html.Node, cur pdfSeg, out *[]pdfSeg) {
 
 // segsOf flattens a list of sibling inline nodes (an anonymous block)
 func (d *docPdf) segsOf(nodes []*html.Node, base pdfSeg) []pdfSeg {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.segsOf: len(nodes)=%d", len(nodes))
-	}
+	logger.DebugTrace("office/pdf", "docPdf.segsOf")
 	var out []pdfSeg
 	for _, n := range nodes {
 		d.collectNode(n, base, &out)
@@ -825,9 +794,7 @@ func (d *docPdf) collectNode(c *html.Node, cur pdfSeg, out *[]pdfSeg) {
 
 // lineMetrics returns the line-box height and baseline offset of one run
 func lineMetrics(sizeMM, factor float64) (h, ascent float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "lineMetrics: sizeMM=%g factor=%g", sizeMM, factor)
-	}
+	logger.DebugTrace("office/pdf", "lineMetrics")
 	h = sizeMM * factor
 	ascent = (h-(fontAscentEm+fontDescentEm)*sizeMM)/2 + fontAscentEm*sizeMM
 	return
@@ -836,9 +803,7 @@ func lineMetrics(sizeMM, factor float64) (h, ascent float64) {
 // paraLines collects the inline content of n and breaks it into lines that
 // fit availW, the way the browser's line breaker does
 func (d *docPdf) paraLines(n *html.Node, availW float64, base pdfSeg, factor float64) []pdfLine {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.paraLines: availW=%g factor=%g", availW, factor)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.paraLines")
 	if base.sizePt <= 0 {
 		base.sizePt = docBaseSizePt
 	}
@@ -851,9 +816,7 @@ func (d *docPdf) paraLines(n *html.Node, availW float64, base pdfSeg, factor flo
 // rules for near-empty blocks: a block with no content at all has no line
 // box (height 0), while a lone or trailing <br> still leaves one empty line
 func (d *docPdf) linesOf(segs []pdfSeg, availW float64, base pdfSeg, factor float64) []pdfLine {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.linesOf: len(segs)=%d availW=%g factor=%g", len(segs), availW, factor)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.linesOf")
 	content := false
 	for _, s := range segs {
 		if s.img != nil || s.brk || strings.TrimSpace(s.text) != "" {
@@ -872,9 +835,7 @@ func (d *docPdf) linesOf(segs []pdfSeg, availW float64, base pdfSeg, factor floa
 }
 
 func (d *docPdf) layoutSegs(segs []pdfSeg, availW float64, base pdfSeg, factor float64) []pdfLine {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.layoutSegs: len(segs)=%d availW=%g factor=%g", len(segs), availW, factor)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.layoutSegs")
 	baseH, baseAsc := lineMetrics(base.sizePt*ptToMM, factor)
 	if availW < 1 {
 		availW = 1
@@ -981,9 +942,7 @@ func (d *docPdf) layoutSegs(segs []pdfSeg, availW float64, base pdfSeg, factor f
 // splitTokens cuts text into wrap tokens: words and the single spaces that
 // separate them (inside <pre>, runs of spaces are kept as one token)
 func splitTokens(s string, pre bool) []string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "splitTokens: s=%.120q pre=%t", s, pre)
-	}
+	logger.DebugTrace("office/pdf", "splitTokens")
 	var out []string
 	i := 0
 	for i < len(s) {
@@ -1017,9 +976,7 @@ type wordPiece struct {
 
 // breakWord splits a word that cannot fit on one line into line-sized pieces
 func (d *docPdf) breakWord(tok string, availW float64, used *float64) []wordPiece {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.breakWord: tok=%.120q availW=%g", tok, availW)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.breakWord")
 	var out []wordPiece
 	start, w := 0, 0.0
 	for i := 0; i < len(tok); i++ {
@@ -1040,9 +997,7 @@ func (d *docPdf) breakWord(tok string, availW float64, used *float64) []wordPiec
 
 // inlineImage registers an image and returns its placed size
 func (d *docPdf) inlineImage(n *html.Node, availW float64) *pdfImg {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.inlineImage: availW=%g", availW)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.inlineImage")
 	src := htmlutil.Attr(n, "src")
 	name, _, ok := pdfImageFromDataURL(d.pdf, src, &d.imgSeq)
 	if !ok {
@@ -1069,9 +1024,7 @@ func (d *docPdf) inlineImage(n *html.Node, availW float64) *pdfImg {
 
 // drawLine paints one laid-out line with its top edge at y
 func (d *docPdf) drawLine(ln pdfLine, x, y, availW float64, align string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.drawLine: x=%g y=%g availW=%g align=%.120q", x, y, availW, align)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.drawLine")
 	pdf := d.pdf
 	extra := 0.0 // per-space padding for justified text
 	switch align {
@@ -1145,9 +1098,7 @@ func sameStyle(a, b pdfRun) bool {
 // tableItems lays out a table as one item per row (CSS: border-collapse,
 // 1px #b9bec7 borders, 4px/8px cell padding, top aligned cells)
 func (d *docPdf) tableItems(n *html.Node, x, w float64) []pdfItem {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/pdf", "docPdf.tableItems: x=%g w=%g", x, w)
-	}
+	logger.DebugTrace("office/pdf", "docPdf.tableItems")
 	cols := 0
 	var count func(node *html.Node)
 	count = func(node *html.Node) {

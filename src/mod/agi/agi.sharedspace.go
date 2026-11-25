@@ -36,9 +36,10 @@ import (
 const agiOriginTag = "agi"
 
 func (g *Gateway) SharedSpaceLibRegister() {
-	logger.Debug("agi", "Gateway.SharedSpaceLibRegister")
+	defer logger.Out0(logger.In1("agi", "Gateway.SharedSpaceLibRegister", "g", g))
 	err := g.RegisterLib("sharedspace", g.injectSharedSpaceFunctions)
 	if err != nil {
+		logger.DebugErr("agi", err)
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
@@ -78,8 +79,8 @@ func agiDescribeItem(item *sharedspace.Item) map[string]interface{} {
 }
 
 // agiDescribeDoc renders a document snapshot for AGI scripts.
-func agiDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[string]interface{} {
-	logger.Debug("agi", "agiDescribeDoc")
+func agiDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) (out0 map[string]interface{}) {
+	defer logger.Out1(logger.In2("agi", "agiDescribeDoc", "doc", doc, "includeContent", includeContent), &out0)
 	desc := map[string]interface{}{
 		"docid":     doc.ID,
 		"name":      doc.Name,
@@ -100,10 +101,8 @@ func agiDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[strin
 // set (nil = every member), and always drops the sender and anyone currently
 // connected to the space (they are already receiving the live message). The
 // result is sorted for deterministic delivery and testing.
-func resolveNotifyRecipients(members map[string]string, present map[string]bool, sender string, requested []string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("agi", "resolveNotifyRecipients: len(members)=%d len(present)=%d sender=%.120q len(requested)=%d", len(members), len(present), sender, len(requested))
-	}
+func resolveNotifyRecipients(members map[string]string, present map[string]bool, sender string, requested []string) (out0 []string) {
+	defer logger.Out1(logger.In4("agi", "resolveNotifyRecipients", "members", members, "present", present, "sender", sender, "requested", requested), &out0)
 	var requestedSet map[string]bool
 	if requested != nil {
 		requestedSet = make(map[string]bool, len(requested))
@@ -131,7 +130,7 @@ func resolveNotifyRecipients(members map[string]string, present map[string]bool,
 }
 
 func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayload) {
-	logger.Debug("agi", "Gateway.injectSharedSpaceFunctions")
+	defer logger.Out0(logger.In2("agi", "Gateway.injectSharedSpaceFunctions", "g", g, "payload", payload))
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
@@ -150,6 +149,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 	jsonReply := func(v interface{}) otto.Value {
 		js, err := json.Marshal(v)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		val, _ := vm.ToValue(string(js))
@@ -161,6 +161,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 	getSpace := func(call otto.FunctionCall) (*sharedspace.Space, bool) {
 		spaceID, err := call.Argument(0).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return nil, false
 		}
 		return manager.GetSpace(spaceID)
@@ -214,6 +215,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 			Metadata:   options.Metadata,
 		})
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -283,6 +285,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 			return otto.FalseValue()
 		}
 		if err := space.JoinPublic(u.Username); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -295,6 +298,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 			return otto.FalseValue()
 		}
 		if err := space.RemoveMember(u.Username, u.Username); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -308,9 +312,11 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		access, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		if err := space.SetAccess(u.Username, access); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -324,10 +330,12 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		key, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		value := optionalString(call, 2)
 		if err := space.SetMeta(u.Username, key, value); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -350,6 +358,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		target, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		role := optionalString(call, 2)
@@ -357,6 +366,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 			role = sharedspace.RoleMember
 		}
 		if err := space.AddMember(u.Username, target, role); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -370,9 +380,11 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		target, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		if err := space.RemoveMember(u.Username, target); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -398,10 +410,12 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		text, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		item, err := space.AddText(u.Username, text, agiOriginTag)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		val, _ := vm.ToValue(item.ID)
@@ -463,6 +477,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 
 		if err := g.buildAndSendNotification(senderLabel, recipients, title, message, priority); err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return intReply(-1)
 		}
@@ -477,6 +492,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		vpath, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
@@ -485,11 +501,13 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
 		src, err := fsh.FileSystemAbstraction.ReadStream(rpath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -502,6 +520,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		item, err := space.SaveBlob(itemType, name, u.Username, agiOriginTag, src, g.Option.SharedSpaceManager.MaxUpload())
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.NullValue()
 		}
@@ -531,6 +550,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		itemID, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		item, ok := space.GetItem(itemID)
@@ -549,6 +569,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		itemID, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		item, ok := space.GetItem(itemID)
@@ -557,6 +578,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		destVpath, err := call.Argument(2).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		destVpath = static.RelativeVpathRewrite(scriptFsh, destVpath, vm, u)
@@ -565,17 +587,20 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		fsh, rpath, err := static.VirtualPathToRealPath(destVpath, u)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		src, err := os.Open(item.DiskPath)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		defer src.Close()
 		err = fsh.FileSystemAbstraction.WriteStream(rpath, src, 0775)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
@@ -590,9 +615,11 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		itemID, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		if err := space.RemoveItem(itemID, u.Username); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -607,6 +634,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		name := optionalString(call, 1)
 		doc, err := space.CreateDoc(u.Username, name)
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		return jsonReply(agiDescribeDoc(doc, true))
@@ -634,6 +662,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		docID, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		doc, ok := space.GetDoc(docID)
@@ -651,10 +680,12 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		docID, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		baseRev, err := call.Argument(2).ToInteger()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		content, _ := call.Argument(3).ToString()
@@ -673,6 +704,7 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 			})
 		}
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.NullValue()
 		}
 		return jsonReply(map[string]interface{}{
@@ -689,9 +721,11 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		}
 		docID, err := call.Argument(1).ToString()
 		if err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		if err := space.DeleteDoc(u.Username, docID); err != nil {
+			logger.DebugErr("agi", err)
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()

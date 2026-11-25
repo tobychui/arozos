@@ -39,10 +39,8 @@ var legacyExts = map[string]string{
 // AppForFile maps an extension the suite can open - its own formats and
 // the legacy binary ones it imports - to the app that opens it, or "".
 // Use AppForExt for where a document can be saved.
-func AppForFile(ext string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "AppForFile: ext=%.120q", ext)
-	}
+func AppForFile(ext string) (out0 string) {
+	defer logger.Out1(logger.In1("office", "AppForFile", "ext", ext), &out0)
 	ext = strings.ToLower(ext)
 	if app := AppForExt(ext); app != "" {
 		return app
@@ -52,23 +50,22 @@ func AppForFile(ext string) string {
 
 // IsLegacyExt reports an Office 97-2003 extension (opened by conversion,
 // never written)
-func IsLegacyExt(ext string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("office", "IsLegacyExt: ext=%.120q", ext)
-	}
+func IsLegacyExt(ext string) (out0 bool) {
+	defer logger.Out1(logger.In1("office", "IsLegacyExt", "ext", ext), &out0)
 	_, ok := legacyExts[strings.ToLower(ext)]
 	return ok
 }
 
 // LegacyApp names the app a legacy binary file belongs to by its content
 // ("" when data is not one of the three Office 97-2003 formats)
-func LegacyApp(data []byte) string {
-	logger.Debug("office", "LegacyApp")
+func LegacyApp(data []byte) (out0 string) {
+	defer logger.Out1(logger.In1("office", "LegacyApp", "data", data), &out0)
 	if !cfb.IsCompound(data) {
 		return ""
 	}
 	f, err := cfb.Open(data)
 	if err != nil {
+		logger.DebugErr("office", err)
 		return ""
 	}
 	switch {
@@ -84,8 +81,8 @@ func LegacyApp(data []byte) string {
 
 // ConvertLegacy converts a Word, Excel or PowerPoint 97-2003 file into the
 // app's own format (.docx, .xlsx or .pptx); it returns the app as well
-func ConvertLegacy(data []byte) (string, []byte, error) {
-	logger.Debug("office", "ConvertLegacy")
+func ConvertLegacy(data []byte) (out0 string, out1 []byte, out2 error) {
+	defer logger.Out3(logger.In1("office", "ConvertLegacy", "data", data), &out0, &out1, &out2)
 	app := LegacyApp(data)
 	var out []byte
 	var err error
@@ -100,6 +97,7 @@ func ConvertLegacy(data []byte) (string, []byte, error) {
 		return "", nil, errors.New("not a Word, Excel or PowerPoint 97-2003 file")
 	}
 	if err != nil {
+		logger.DebugErr("office", err)
 		return "", nil, err
 	}
 	return app, out, nil
@@ -107,12 +105,13 @@ func ConvertLegacy(data []byte) (string, []byte, error) {
 
 // ImportLegacy converts a legacy binary file straight into the editor body
 // JSON of its app
-func ImportLegacy(data []byte) (string, string, error) {
-	logger.Debug("office", "ImportLegacy")
+func ImportLegacy(data []byte) (out0 string, out1 string, out2 error) {
+	defer logger.Out3(logger.In1("office", "ImportLegacy", "data", data), &out0, &out1, &out2)
 	switch LegacyApp(data) {
 	case AppDocument:
 		d, err := doc.Parse(data)
 		if err != nil {
+			logger.DebugErr("office", err)
 			return "", "", err
 		}
 		body, err := model.DocumentToJSON(d)
@@ -120,6 +119,7 @@ func ImportLegacy(data []byte) (string, string, error) {
 	case AppSpreadsheet:
 		wb, err := xls.Parse(data)
 		if err != nil {
+			logger.DebugErr("office", err)
 			return "", "", err
 		}
 		body, err := model.WorkbookToJSON(wb)
@@ -127,6 +127,7 @@ func ImportLegacy(data []byte) (string, string, error) {
 	case AppPresentation:
 		p, err := ppt.Parse(data)
 		if err != nil {
+			logger.DebugErr("office", err)
 			return "", "", err
 		}
 		body, err := model.PresentationToJSON(p)
@@ -136,10 +137,8 @@ func ImportLegacy(data []byte) (string, string, error) {
 }
 
 // legacyKind names a legacy format for messages
-func legacyKind(app string) string {
-	if logger.IsDebug() {
-		logger.Debugf("office", "legacyKind: app=%.120q", app)
-	}
+func legacyKind(app string) (out0 string) {
+	defer logger.Out1(logger.In1("office", "legacyKind", "app", app), &out0)
 	switch app {
 	case AppDocument:
 		return "Word 97-2003 document"

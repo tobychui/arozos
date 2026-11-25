@@ -8,8 +8,8 @@ import (
 	"imuslab.com/arozos/mod/network/websocketproxy"
 )
 
-func (router *Router) getTargetProxyEndpointFromRequestURI(requestURI string) *ProxyEndpoint {
-	logger.Debug("network/dynamicproxy", "Router.getTargetProxyEndpointFromRequestURI")
+func (router *Router) getTargetProxyEndpointFromRequestURI(requestURI string) (out0 *ProxyEndpoint) {
+	defer logger.Out1(logger.In2("network/dynamicproxy", "Router.getTargetProxyEndpointFromRequestURI", "router", router, "requestURI", requestURI), &out0)
 	var targetProxyEndpoint *ProxyEndpoint = nil
 	router.ProxyEndpoints.Range(func(key, value interface{}) bool {
 		rootname := key.(string)
@@ -23,10 +23,8 @@ func (router *Router) getTargetProxyEndpointFromRequestURI(requestURI string) *P
 	return targetProxyEndpoint
 }
 
-func (router *Router) getSubdomainProxyEndpointFromHostname(hostname string) *SubdomainEndpoint {
-	if logger.IsDebug() {
-		logger.Debugf("network/dynamicproxy", "Router.getSubdomainProxyEndpointFromHostname: hostname=%.120q", hostname)
-	}
+func (router *Router) getSubdomainProxyEndpointFromHostname(hostname string) (out0 *SubdomainEndpoint) {
+	defer logger.Out1(logger.In2("network/dynamicproxy", "Router.getSubdomainProxyEndpointFromHostname", "router", router, "hostname", hostname), &out0)
 	var targetSubdomainEndpoint *SubdomainEndpoint = nil
 	ep, ok := router.SubdomainEndpoint.Load(hostname)
 	if ok {
@@ -36,8 +34,8 @@ func (router *Router) getSubdomainProxyEndpointFromHostname(hostname string) *Su
 	return targetSubdomainEndpoint
 }
 
-func (router *Router) rewriteURL(rooturl string, requestURL string) string {
-	logger.Debug("network/dynamicproxy", "Router.rewriteURL")
+func (router *Router) rewriteURL(rooturl string, requestURL string) (out0 string) {
+	defer logger.Out1(logger.In3("network/dynamicproxy", "Router.rewriteURL", "router", router, "rooturl", rooturl, "requestURL", requestURL), &out0)
 	if len(requestURL) > len(rooturl) {
 		return requestURL[len(rooturl):]
 	}
@@ -45,9 +43,7 @@ func (router *Router) rewriteURL(rooturl string, requestURL string) string {
 }
 
 func (h *ProxyHandler) subdomainRequest(w http.ResponseWriter, r *http.Request, target *SubdomainEndpoint) {
-	if logger.IsDebug() {
-		logger.Debugf("network/dynamicproxy", "ProxyHandler.subdomainRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("network/dynamicproxy", "ProxyHandler.subdomainRequest", "h", h, "r", r, "target", target))
 	r.Header.Set("X-Forwarded-Host", r.Host)
 	requestURL := r.URL.String()
 	if r.Header["Upgrade"] != nil && r.Header["Upgrade"][0] == "websocket" {
@@ -74,15 +70,14 @@ func (h *ProxyHandler) subdomainRequest(w http.ResponseWriter, r *http.Request, 
 	r.Host = r.URL.Host
 	err := target.Proxy.ServeHTTP(w, r)
 	if err != nil {
+		logger.DebugErr("network/dynamicproxy", err)
 		logger.PrintAndLog("Dynamicproxy", err.Error(), nil)
 	}
 
 }
 
 func (h *ProxyHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *ProxyEndpoint) {
-	if logger.IsDebug() {
-		logger.Debugf("network/dynamicproxy", "ProxyHandler.proxyRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("network/dynamicproxy", "ProxyHandler.proxyRequest", "h", h, "r", r, "target", target))
 	rewriteURL := h.Parent.rewriteURL(target.Root, r.RequestURI)
 	r.URL, _ = url.Parse(rewriteURL)
 	r.Header.Set("X-Forwarded-Host", r.Host)
@@ -105,6 +100,7 @@ func (h *ProxyHandler) proxyRequest(w http.ResponseWriter, r *http.Request, targ
 	r.Host = r.URL.Host
 	err := target.Proxy.ServeHTTP(w, r)
 	if err != nil {
+		logger.DebugErr("network/dynamicproxy", err)
 		logger.PrintAndLog("Dynamicproxy", err.Error(), nil)
 	}
 }

@@ -26,18 +26,14 @@ const (
 )
 
 // versionTime reads a snapshot folder name, in the server's local time.
-func versionTime(name string) (time.Time, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "versionTime: name=%.120q", name)
-	}
+func versionTime(name string) (out0 time.Time, out1 bool) {
+	defer logger.Out2(logger.In1("storage/smbserver/aroz", "versionTime", "name", name), &out0, &out1)
 	t, err := time.ParseInLocation(versionLayout, name, time.Local)
 	return t, err == nil
 }
 
-func joinShare(parts ...string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "joinShare: len(parts)=%d", len(parts))
-	}
+func joinShare(parts ...string) (out0 string) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "joinShare", "parts", parts), &out0)
 	out := path.Join(parts...)
 	if out == "." {
 		return ""
@@ -47,10 +43,8 @@ func joinShare(parts ...string) string {
 
 // Snapshots lists when versions of p were taken. For a folder that is any
 // version of a file directly in it, so Windows can look each one up.
-func (s *share) Snapshots(p string) []time.Time {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.Snapshots: p=%.120q", p)
-	}
+func (s *share) Snapshots(p string) (out0 []time.Time) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.Snapshots", "s", s, "p", p), &out0)
 	info, err := s.Stat(p)
 	isDir := err == nil && info.IsDir
 	if err != nil && p == "" {
@@ -65,6 +59,7 @@ func (s *share) Snapshots(p string) []time.Time {
 	}
 	entries, err := s.ReadDir(joinShare(dir, versionFolder))
 	if err != nil {
+		logger.DebugErr("storage/smbserver/aroz", err)
 		return nil
 	}
 	out := []time.Time{}
@@ -78,6 +73,7 @@ func (s *share) Snapshots(p string) []time.Time {
 		}
 		if name != "" {
 			if _, err := s.Stat(joinShare(dir, versionFolder, e.Name, name)); err != nil {
+				logger.DebugErr("storage/smbserver/aroz", err)
 				continue
 			}
 		}
@@ -87,10 +83,8 @@ func (s *share) Snapshots(p string) []time.Time {
 }
 
 // SnapshotPath finds the version of p taken at t.
-func (s *share) SnapshotPath(p string, t time.Time) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.SnapshotPath: p=%.120q", p)
-	}
+func (s *share) SnapshotPath(p string, t time.Time) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In3("storage/smbserver/aroz", "share.SnapshotPath", "s", s, "p", p, "&t", &t), &out0, &out1)
 	id := t.In(time.Local).Format(versionLayout)
 	//A folder: the snapshot folder itself, listing the versions taken then
 	if info, err := s.Stat(p); (err == nil && info.IsDir) || p == "" {

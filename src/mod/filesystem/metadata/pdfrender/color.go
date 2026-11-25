@@ -33,9 +33,7 @@ func (csGray) initial() []float64 {
 	return []float64{0}
 }
 func (csGray) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csGray.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csGray.toRGB")
 	v := comp(c, 0)
 	return v, v, v
 }
@@ -49,9 +47,7 @@ func (csRGB) initial() []float64 {
 	return []float64{0, 0, 0}
 }
 func (csRGB) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csRGB.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csRGB.toRGB")
 	return comp(c, 0), comp(c, 1), comp(c, 2)
 }
 
@@ -64,25 +60,19 @@ func (csCMYK) initial() []float64 {
 	return []float64{0, 0, 0, 1}
 }
 func (csCMYK) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csCMYK.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csCMYK.toRGB")
 	return cmykToRGB(comp(c, 0), comp(c, 1), comp(c, 2), comp(c, 3))
 }
 
 // cmykToRGB is the naive conversion; without the output profile anything
 // better is a guess
 func cmykToRGB(c, m, y, k float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "cmykToRGB: c=%g m=%g y=%g k=%g", c, m, y, k)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "cmykToRGB")
 	return (1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k)
 }
 
 func comp(c []float64, i int) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "comp: len(c)=%d i=%d", len(c), i)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "comp")
 	if i < len(c) {
 		return clamp(c[i], 0, 1)
 	}
@@ -104,9 +94,7 @@ func (cs *csLab) initial() []float64 {
 	return []float64{0, 0, 0}
 }
 func (cs *csLab) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csLab.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csLab.toRGB")
 	L := 0.0
 	a, b := 0.0, 0.0
 	if len(c) > 2 {
@@ -134,9 +122,7 @@ func (cs *csLab) toRGB(c []float64) (float64, float64, float64) {
 }
 
 func gammaSRGB(v float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "gammaSRGB: v=%g", v)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "gammaSRGB")
 	v = clamp(v, 0, 1)
 	if v <= 0.0031308 {
 		return 12.92 * v
@@ -159,9 +145,7 @@ func (cs *csIndexed) initial() []float64 {
 	return []float64{0}
 }
 func (cs *csIndexed) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csIndexed.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csIndexed.toRGB")
 	i := 0
 	if len(c) > 0 {
 		i = int(c[0] + 0.5)
@@ -202,9 +186,7 @@ func (cs *csTint) initial() []float64 {
 	return out
 }
 func (cs *csTint) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csTint.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csTint.toRGB")
 	if cs.all {
 		v := 1 - comp(c, 0)
 		return v, v, v
@@ -243,9 +225,7 @@ func (cs *csPattern) initial() []float64 {
 	return nil
 }
 func (cs *csPattern) toRGB(c []float64) (float64, float64, float64) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "csPattern.toRGB: len(c)=%d", len(c))
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "csPattern.toRGB")
 	if cs.base != nil {
 		return cs.base.toRGB(c)
 	}
@@ -255,9 +235,7 @@ func (cs *csPattern) toRGB(c []float64) (float64, float64, float64) {
 // loadColorSpace resolves a colour space by value. Names are looked up in
 // the resources' /ColorSpace dictionary first.
 func (d *Document) loadColorSpace(o Object, res Dict, depth int) colorSpace {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/metadata/pdfrender", "Document.loadColorSpace: depth=%d", depth)
-	}
+	logger.DebugTrace("filesystem/metadata/pdfrender", "Document.loadColorSpace")
 	if depth > 8 {
 		return nil
 	}

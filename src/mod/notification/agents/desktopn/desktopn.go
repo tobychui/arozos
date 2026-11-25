@@ -72,8 +72,8 @@ func (a *Agent) IsProducer() bool {
 	return false
 }
 
-func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) error {
-	logger.Debug("notification/agents/desktopn", "Agent.ConsumerNotification")
+func (a *Agent) ConsumerNotification(incomingNotification *notification.NotificationPayload) (out0 error) {
+	defer logger.Out1(logger.In2("notification/agents/desktopn", "Agent.ConsumerNotification", "a", a, "incomingNotification", incomingNotification), &out0)
 	stored := StoredNotification{
 		ID:        incomingNotification.ID,
 		Title:     incomingNotification.Title,
@@ -100,10 +100,8 @@ func (a *Agent) ConsumerNotification(incomingNotification *notification.Notifica
 // PollNotifications returns and clears all pending notifications for the given
 // user. The desktop calls this on a timer so that each notification is shown
 // exactly once.
-func (a *Agent) PollNotifications(username string) []StoredNotification {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/desktopn", "Agent.PollNotifications: username=%.120q", username)
-	}
+func (a *Agent) PollNotifications(username string) (out0 []StoredNotification) {
+	defer logger.Out1(logger.In2("notification/agents/desktopn", "Agent.PollNotifications", "a", a, "username", username), &out0)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	queue := a.pending[username]
@@ -116,10 +114,8 @@ func (a *Agent) PollNotifications(username string) []StoredNotification {
 
 // PeekCount returns the number of pending notifications for a user without
 // clearing them. Primarily used for testing and diagnostics.
-func (a *Agent) PeekCount(username string) int {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/desktopn", "Agent.PeekCount: username=%.120q", username)
-	}
+func (a *Agent) PeekCount(username string) (out0 int) {
+	defer logger.Out1(logger.In2("notification/agents/desktopn", "Agent.PeekCount", "a", a, "username", username), &out0)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return len(a.pending[username])
@@ -128,9 +124,7 @@ func (a *Agent) PeekCount(username string) int {
 // Clear removes any pending notifications for the given user without returning
 // them.
 func (a *Agent) Clear(username string) {
-	if logger.IsDebug() {
-		logger.Debugf("notification/agents/desktopn", "Agent.Clear: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("notification/agents/desktopn", "Agent.Clear", "a", a, "username", username))
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	delete(a.pending, username)

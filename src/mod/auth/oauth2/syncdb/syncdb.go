@@ -19,8 +19,8 @@ type dbStructure struct {
 	value     string
 }
 
-func NewSyncDB() *SyncDB {
-	logger.Debug("auth/oauth2/syncdb", "NewSyncDB")
+func NewSyncDB() (out0 *SyncDB) {
+	defer logger.Out1(logger.In0("auth/oauth2/syncdb", "NewSyncDB"), &out0)
 	//Create a new SyncMap for this SyncDB Object
 	newDB := sync.Map{}
 	//Put the newly craeted syncmap into the db object
@@ -31,7 +31,7 @@ func NewSyncDB() *SyncDB {
 }
 
 func (p SyncDB) AutoCleaning() {
-	logger.Debug("auth/oauth2/syncdb", "SyncDB.AutoCleaning")
+	defer logger.Out0(logger.In1("auth/oauth2/syncdb", "SyncDB.AutoCleaning", "&p", &p))
 	//create the routine for auto clean trash
 	go func() {
 		for {
@@ -46,10 +46,8 @@ func (p SyncDB) AutoCleaning() {
 	}()
 }
 
-func (p SyncDB) Store(value string) string {
-	if logger.IsDebug() {
-		logger.Debugf("auth/oauth2/syncdb", "SyncDB.Store: value=%.120q", value)
-	}
+func (p SyncDB) Store(value string) (out0 string) {
+	defer logger.Out1(logger.In2("auth/oauth2/syncdb", "SyncDB.Store", "&p", &p, "value", value), &out0)
 	uid := uuid.NewV4().String()
 	NewField := dbStructure{
 		timestamp: time.Now(),
@@ -60,9 +58,7 @@ func (p SyncDB) Store(value string) string {
 }
 
 func (p SyncDB) Read(uuid string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("auth/oauth2/syncdb", "SyncDB.Read: uuid=%.120q", uuid)
-	}
+	logger.DebugTrace("auth/oauth2/syncdb", "SyncDB.Read")
 	value, ok := p.db.Load(uuid)
 	if !ok {
 		return ""
@@ -72,9 +68,7 @@ func (p SyncDB) Read(uuid string) string {
 }
 
 func (p SyncDB) Delete(uuid string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("auth/oauth2/syncdb", "SyncDB.Delete: uuid=%.120q", uuid)
-	}
+	logger.DebugTrace("auth/oauth2/syncdb", "SyncDB.Delete")
 	p.db.Delete(uuid)
 }
 

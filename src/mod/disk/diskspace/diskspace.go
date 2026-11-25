@@ -29,20 +29,19 @@ type LogicalDiskSpaceInfo struct {
 }
 
 func HandleDiskSpaceList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskspace", "HandleDiskSpaceList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("disk/diskspace", "HandleDiskSpaceList", "r", r))
 	allDisksVolume := GetAllLogicDiskInfo()
 	jsonString, _ := json.Marshal(allDisksVolume)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonString)
 }
 
-func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
-	logger.Debug("disk/diskspace", "GetAllLogicDiskInfo")
+func GetAllLogicDiskInfo() (out0 []LogicalDiskSpaceInfo) {
+	defer logger.Out1(logger.In0("disk/diskspace", "GetAllLogicDiskInfo"), &out0)
 	if runtime.GOOS == "windows" {
 		disks, err := wininfo.LogicalDisks()
 		if err != nil {
+			logger.DebugErr("disk/diskspace", err)
 			logger.PrintAndLog("Diskspace", "Could not list the drives", err)
 			return []LogicalDiskSpaceInfo{}
 		}
@@ -53,6 +52,7 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 		cmd := exec.Command("bash", "-c", cmdin)
 		dev, err := cmd.Output()
 		if err != nil {
+			logger.DebugErr("disk/diskspace", err)
 			dev = []byte{}
 		}
 
@@ -100,20 +100,16 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 	}
 }
 
-func stringToInt64(value string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskspace", "stringToInt64: value=%.120q", value)
-	}
+func stringToInt64(value string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskspace", "stringToInt64", "value", value), &out0, &out1)
 	n, err := strconv.Atoi(value)
 	return int64(n), err
 }
 
 // logicalDiskSpace words the Windows drive letters for the disk space page.
 // A drive without a readable volume (an empty card reader) is "Not Mounted".
-func logicalDiskSpace(disks []wininfo.LogicalDisk) []LogicalDiskSpaceInfo {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskspace", "logicalDiskSpace: len(disks)=%d", len(disks))
-	}
+func logicalDiskSpace(disks []wininfo.LogicalDisk) (out0 []LogicalDiskSpaceInfo) {
+	defer logger.Out1(logger.In1("disk/diskspace", "logicalDiskSpace", "disks", disks), &out0)
 	results := []LogicalDiskSpaceInfo{}
 	for _, disk := range disks {
 		if !disk.Ready || disk.Size == 0 {

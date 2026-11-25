@@ -23,7 +23,7 @@ PLEASE ALWAYS USE URLENCODE IN THE LINK PASSED INTO THE /media ENDPOINT
 */
 
 func mediaServer_init() {
-	logger.Debug("Core", "mediaServer_init")
+	defer logger.Out0(logger.In0("Core", "mediaServer_init"))
 	//Create a media server
 	mediaServer = mediaserver.NewMediaServer(&mediaserver.Options{
 		BufferPoolSize:      *bufferPoolSize,
@@ -73,6 +73,7 @@ func mediaServer_init() {
 			// Parse the new base URL
 			newURL, err := url.Parse(newBaseURL)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}

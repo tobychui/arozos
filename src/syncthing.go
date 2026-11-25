@@ -28,7 +28,7 @@ var SyncthingManager *syncthingserv.Manager
 
 // SyncthingInit sets up the manager, its endpoints and its list entry.
 func SyncthingInit(router, adminRouter *prout.RouterDef) {
-	logger.Debug("Core", "SyncthingInit")
+	defer logger.Out0(logger.In2("Core", "SyncthingInit", "router", router, "adminRouter", adminRouter))
 	if !syncthingserv.Available() {
 		return
 	}
@@ -40,6 +40,7 @@ func SyncthingInit(router, adminRouter *prout.RouterDef) {
 		CurrentUser: func(w http.ResponseWriter, r *http.Request) (string, error) {
 			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return "", err
 			}
 			return userinfo.Username, nil
@@ -66,6 +67,7 @@ func SyncthingInit(router, adminRouter *prout.RouterDef) {
 		ResolveFolder: syncthingResolveFolder,
 	})
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("Syncthing", "The Syncthing server is not available", err)
 		SyncthingManager = nil
 		return
@@ -103,7 +105,7 @@ func SyncthingInit(router, adminRouter *prout.RouterDef) {
 
 // SyncthingShutdown stops Syncthing if it is running.
 func SyncthingShutdown() {
-	logger.Debug("Core", "SyncthingShutdown")
+	defer logger.Out0(logger.In0("Core", "SyncthingShutdown"))
 	if SyncthingManager != nil {
 		SyncthingManager.Close()
 	}
@@ -129,17 +131,17 @@ func (s syncthingQuota) Recount() {
 // file operations of the web desktop would make: the user can write to it,
 // it is on a local disk (not a network, cloud, cluster or shared drive), and
 // no symbolic link carries it off its drive or into the system folder.
-func syncthingResolveFolder(username, vpath string, create bool) (syncthingserv.Location, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "syncthingResolveFolder: username=%.120q vpath=%.120q create=%t", username, vpath, create)
-	}
+func syncthingResolveFolder(username, vpath string, create bool) (out0 syncthingserv.Location, out1 error) {
+	defer logger.Out2(logger.In3("Core", "syncthingResolveFolder", "username", username, "vpath", vpath, "create", create), &out0, &out1)
 	none := syncthingserv.Location{}
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return none, err
 	}
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return none, errors.New("This drive cannot be found")
 	}
 	if fsh.Closed {
@@ -154,14 +156,17 @@ func syncthingResolveFolder(username, vpath string, create bool) (syncthingserv.
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(vpath, username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return none, err
 	}
 	root, err := fshAbs.VirtualPathToRealPath(fsh.UUID+":/", username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return none, err
 	}
 	if create && !fshAbs.FileExists(rpath) {
 		if err := fshAbs.MkdirAll(rpath, 0775); err != nil {
+			logger.DebugErr("Core", err)
 			return none, errors.New("The folder could not be created")
 		}
 	}
@@ -171,10 +176,12 @@ func syncthingResolveFolder(username, vpath string, create bool) (syncthingserv.
 
 	resolved, err := resolvedAbs(rpath)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return none, err
 	}
 	resolvedRoot, err := resolvedAbs(root)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return none, err
 	}
 	if !pathWithin(resolved, resolvedRoot) {
@@ -191,22 +198,19 @@ func syncthingResolveFolder(username, vpath string, create bool) (syncthingserv.
 	return location, nil
 }
 
-func resolvedAbs(p string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "resolvedAbs: p=%.120q", p)
-	}
+func resolvedAbs(p string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("Core", "resolvedAbs", "p", p), &out0, &out1)
 	resolved, err := filepath.EvalSymlinks(p)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return "", err
 	}
 	return filepath.Abs(resolved)
 }
 
 // pathWithin reports p being dir or inside it.
-func pathWithin(p, dir string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "pathWithin: p=%.120q dir=%.120q", p, dir)
-	}
+func pathWithin(p, dir string) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "pathWithin", "p", p, "dir", dir), &out0)
 	p, dir = filepath.Clean(p), filepath.Clean(dir)
 	if strings.EqualFold(p, dir) {
 		return p == dir || filepath.Separator == '\\'

@@ -56,8 +56,8 @@ func ProxyHandler(target *url.URL) http.Handler {
 
 // NewProxy returns a new Websocket reverse proxy that rewrites the
 // URL's to the scheme, host and base path provider in target.
-func NewProxy(target *url.URL) *WebsocketProxy {
-	logger.Debug("network/websocketproxy", "NewProxy")
+func NewProxy(target *url.URL) (out0 *WebsocketProxy) {
+	defer logger.Out1(logger.In1("network/websocketproxy", "NewProxy", "target", target), &out0)
 	backend := func(r *http.Request) *url.URL {
 		// Shallow copy
 		u := *target
@@ -71,9 +71,7 @@ func NewProxy(target *url.URL) *WebsocketProxy {
 
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("network/websocketproxy", "WebsocketProxy.ServeHTTP: req=%s", logger.RequestSummary(req))
-	}
+	defer logger.Out0(logger.In2("network/websocketproxy", "WebsocketProxy.ServeHTTP", "w", w, "req", req))
 	if w.Backend == nil {
 		logger.PrintAndLog("Websocketproxy", "websocketproxy: backend function is not defined", nil)
 		http.Error(rw, "internal server error (code: 1)", http.StatusInternalServerError)
@@ -144,12 +142,14 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// http://tools.ietf.org/html/draft-ietf-hybi-websocket-multiplexing-01
 	connBackend, resp, err := dialer.Dial(backendURL.String(), requestHeader)
 	if err != nil {
+		logger.DebugErr("network/websocketproxy", err)
 		logger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't dial to remote backend url %s", err), nil)
 		if resp != nil {
 			// If the WebSocket handshake fails, ErrBadHandshake is returned
 			// along with a non-nil *http.Response so that callers can handle
 			// redirects, authentication, etcetera.
 			if err := copyResponse(rw, resp); err != nil {
+				logger.DebugErr("network/websocketproxy", err)
 				logger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't write response after failed remote backend handshake: %s", err), nil)
 			}
 		} else {
@@ -178,6 +178,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	connPub, err := upgrader.Upgrade(rw, req, upgradeHeader)
 	if err != nil {
+		logger.DebugErr("network/websocketproxy", err)
 		logger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't upgrade %s", err), nil)
 		return
 	}
@@ -189,6 +190,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		for {
 			msgType, msg, err := src.ReadMessage()
 			if err != nil {
+				logger.DebugErr("network/websocketproxy", err)
 				m := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%v", err))
 				if e, ok := err.(*websocket.CloseError); ok {
 					if e.Code != websocket.CloseNoStatusReceived {
@@ -201,6 +203,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			}
 			err = dst.WriteMessage(msgType, msg)
 			if err != nil {
+				logger.DebugErr("network/websocketproxy", err)
 				errc <- err
 				break
 			}
@@ -224,7 +227,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func copyHeader(dst, src http.Header) {
-	logger.Debug("network/websocketproxy", "copyHeader")
+	defer logger.Out0(logger.In2("network/websocketproxy", "copyHeader", "&dst", &dst, "&src", &src))
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
@@ -232,8 +235,8 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-func copyResponse(rw http.ResponseWriter, resp *http.Response) error {
-	logger.Debug("network/websocketproxy", "copyResponse")
+func copyResponse(rw http.ResponseWriter, resp *http.Response) (out0 error) {
+	defer logger.Out1(logger.In1("network/websocketproxy", "copyResponse", "resp", resp), &out0)
 	copyHeader(rw.Header(), resp.Header)
 	rw.WriteHeader(resp.StatusCode)
 	defer resp.Body.Close()

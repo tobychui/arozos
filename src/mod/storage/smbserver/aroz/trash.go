@@ -21,10 +21,8 @@ import (
 */
 
 // wantsTrash reports whether deleting p should move it to the trash bin.
-func (s *share) wantsTrash(p string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "share.wantsTrash: p=%.120q", p)
-	}
+func (s *share) wantsTrash(p string) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "share.wantsTrash", "s", s, "p", p), &out0)
 	opt := s.v.opt
 	if opt == nil || opt.Trash == nil || opt.UseTrash == nil || !opt.UseTrash() {
 		return false
@@ -50,10 +48,8 @@ func (s *share) wantsTrash(p string) bool {
 }
 
 // isScratchFile spots the helper files programs delete by themselves.
-func isScratchFile(name string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "isScratchFile: name=%.120q", name)
-	}
+func isScratchFile(name string) (out0 bool) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "isScratchFile", "name", name), &out0)
 	lower := strings.ToLower(name)
 	switch lower {
 	case ".ds_store", "thumbs.db", "desktop.ini", ".localized":

@@ -51,14 +51,15 @@ type store struct {
 	mutex sync.Mutex //Serialises read-modify-write sequences
 }
 
-func newStore(db KVStore) (*store, error) {
-	logger.Debug("email", "newStore")
+func newStore(db KVStore) (out0 *store, out1 error) {
+	defer logger.Out2(logger.In1("email", "newStore", "&db", &db), &out0, &out1)
 	if db == nil {
 		return nil, errors.New("mail store requires a database")
 	}
 	for _, table := range []string{tableAccounts, tableSettings, tableContacts, tableLabels,
 		tableLabelMap, tableSnooze, tableOutbox, tableConfig} {
 		if err := db.NewTable(table); err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 	}
@@ -66,19 +67,16 @@ func newStore(db KVStore) (*store, error) {
 }
 
 func ownerKey(owner string, id string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "ownerKey: owner=%.120q id=%.120q", owner, id)
-	}
+	logger.DebugTrace("email", "ownerKey")
 	return owner + "/" + id
 }
 
 // listOwned decodes every record of a table that belongs to owner.
-func listOwned[T any](s *store, table string, owner string) ([]T, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "listOwned: table=%.120q owner=%.120q", table, owner)
-	}
+func listOwned[T any](s *store, table string, owner string) (out0 []T, out1 error) {
+	defer logger.Out2(logger.In3("email", "listOwned", "s", s, "table", table, "owner", owner), &out0, &out1)
 	entries, err := s.db.ListTable(table)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	prefix := owner + "/"
@@ -89,6 +87,7 @@ func listOwned[T any](s *store, table string, owner string) ([]T, error) {
 		}
 		var record T
 		if err := json.Unmarshal(entry[1], &record); err != nil {
+			logger.DebugErr("email", err)
 			continue
 		}
 		results = append(results, record)
@@ -100,12 +99,11 @@ func listOwned[T any](s *store, table string, owner string) ([]T, error) {
 	Accounts
 */
 
-func (s *store) listAccounts(owner string) ([]*Account, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "store.listAccounts: owner=%.120q", owner)
-	}
+func (s *store) listAccounts(owner string) (out0 []*Account, out1 error) {
+	defer logger.Out2(logger.In2("email", "store.listAccounts", "s", s, "owner", owner), &out0, &out1)
 	records, err := listOwned[Account](s, tableAccounts, owner)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	accounts := make([]*Account, 0, len(records))
@@ -124,16 +122,15 @@ func (s *store) listAccounts(owner string) ([]*Account, error) {
 	return accounts, nil
 }
 
-func (s *store) getAccount(owner string, id string) (*Account, error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "store.getAccount: owner=%.120q id=%.120q", owner, id)
-	}
+func (s *store) getAccount(owner string, id string) (out0 *Account, out1 error) {
+	defer logger.Out2(logger.In3("email", "store.getAccount", "s", s, "owner", owner, "id", id), &out0, &out1)
 	key := ownerKey(owner, id)
 	if id == "" || !s.db.KeyExists(tableAccounts, key) {
 		return nil, ErrAccountNotFound
 	}
 	account := Account{}
 	if err := s.db.Read(tableAccounts, key, &account); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 	if account.Owner != owner || account.ID != id {
@@ -142,18 +139,16 @@ func (s *store) getAccount(owner string, id string) (*Account, error) {
 	return &account, nil
 }
 
-func (s *store) saveAccount(account *Account) error {
-	logger.Debug("email", "store.saveAccount")
+func (s *store) saveAccount(account *Account) (out0 error) {
+	defer logger.Out1(logger.In2("email", "store.saveAccount", "s", s, "account", account), &out0)
 	if account.Owner == "" || account.ID == "" {
 		return errors.New("account owner and id are required")
 	}
 	return s.db.Write(tableAccounts, ownerKey(account.Owner, account.ID), account)
 }
 
-func (s *store) deleteAccount(owner string, id string) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "store.deleteAccount: owner=%.120q id=%.120q", owner, id)
-	}
+func (s *store) deleteAccount(owner string, id string) (out0 error) {
+	defer logger.Out1(logger.In3("email", "store.deleteAccount", "s", s, "owner", owner, "id", id), &out0)
 	key := ownerKey(owner, id)
 	if !s.db.KeyExists(tableAccounts, key) {
 		return ErrAccountNotFound
@@ -165,10 +160,8 @@ func (s *store) deleteAccount(owner string, id string) error {
 	Settings
 */
 
-func (s *store) getSettings(owner string) UserSettings {
-	if logger.IsDebug() {
-		logger.Debugf("email", "store.getSettings: owner=%.120q", owner)
-	}
+func (s *store) getSettings(owner string) (out0 UserSettings) {
+	defer logger.Out1(logger.In2("email", "store.getSettings", "s", s, "owner", owner), &out0)
 	settings := DefaultUserSettings()
 	if s.db.KeyExists(tableSettings, owner) {
 		stored := DefaultUserSettings()
@@ -180,10 +173,8 @@ func (s *store) getSettings(owner string) UserSettings {
 	return settings
 }
 
-func (s *store) saveSettings(owner string, settings UserSettings) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "store.saveSettings: owner=%.120q", owner)
-	}
+func (s *store) saveSettings(owner string, settings UserSettings) (out0 error) {
+	defer logger.Out1(logger.In3("email", "store.saveSettings", "s", s, "owner", owner, "&settings", &settings), &out0)
 	settings.normalise()
 	return s.db.Write(tableSettings, owner, settings)
 }
@@ -192,8 +183,8 @@ func (s *store) saveSettings(owner string, settings UserSettings) error {
 	Admin configuration
 */
 
-func (s *store) getAdminConfig() AdminConfig {
-	logger.Debug("email", "store.getAdminConfig")
+func (s *store) getAdminConfig() (out0 AdminConfig) {
+	defer logger.Out1(logger.In1("email", "store.getAdminConfig", "s", s), &out0)
 	config := defaultAdminConfig()
 	if s.db.KeyExists(tableConfig, adminConfigKey) {
 		stored := defaultAdminConfig()
@@ -205,8 +196,8 @@ func (s *store) getAdminConfig() AdminConfig {
 	return config
 }
 
-func (s *store) saveAdminConfig(config AdminConfig) error {
-	logger.Debug("email", "store.saveAdminConfig")
+func (s *store) saveAdminConfig(config AdminConfig) (out0 error) {
+	defer logger.Out1(logger.In2("email", "store.saveAdminConfig", "s", s, "&config", &config), &out0)
 	config.normalise()
 	return s.db.Write(tableConfig, adminConfigKey, config)
 }
@@ -214,11 +205,10 @@ func (s *store) saveAdminConfig(config AdminConfig) error {
 // deleteOwnedWithPrefix removes every record of owner whose id starts with
 // prefix (used when an account is removed).
 func (s *store) deleteOwnedWithPrefix(table string, owner string, idPrefix string) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "store.deleteOwnedWithPrefix: table=%.120q owner=%.120q idPrefix=%.120q", table, owner, idPrefix)
-	}
+	defer logger.Out0(logger.In4("email", "store.deleteOwnedWithPrefix", "s", s, "table", table, "owner", owner, "idPrefix", idPrefix))
 	entries, err := s.db.ListTable(table)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	prefix := owner + "/" + idPrefix

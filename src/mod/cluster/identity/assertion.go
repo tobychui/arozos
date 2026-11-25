@@ -50,10 +50,8 @@ type Assertion struct {
 }
 
 // Issue creates an assertion for a user known on this node.
-func (i *Manager) Issue(username string, ttl time.Duration) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.Issue: username=%.120q", username)
-	}
+func (i *Manager) Issue(username string, ttl time.Duration) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("cluster/identity", "Manager.Issue", "i", i, "username", username, "&ttl", &ttl), &out0, &out1)
 	if !validUsername(username) {
 		return "", errors.New("invalid username")
 	}
@@ -78,6 +76,7 @@ func (i *Manager) Issue(username string, ttl time.Duration) (string, error) {
 		Expires:  now.Add(ttl).Unix(),
 	})
 	if err != nil {
+		logger.DebugErr("cluster/identity", err)
 		return "", err
 	}
 	sig := i.m.Sign(payload)
@@ -90,14 +89,15 @@ func (i *Manager) Verify(token string) (*Assertion, error) {
 	return i.verifyAt(token, time.Now())
 }
 
-func (i *Manager) verifyAt(token string, now time.Time) (*Assertion, error) {
-	logger.Debug("cluster/identity", "Manager.verifyAt")
+func (i *Manager) verifyAt(token string, now time.Time) (out0 *Assertion, out1 error) {
+	defer logger.Out2(logger.In3("cluster/identity", "Manager.verifyAt", "i", i, "&now", &now, "!token", token), &out0, &out1)
 	parts := strings.SplitN(strings.TrimSpace(token), ".", 2)
 	if len(parts) != 2 {
 		return nil, ErrAssertionInvalid
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
+		logger.DebugErr("cluster/identity", err)
 		return nil, ErrAssertionInvalid
 	}
 	sig, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -134,12 +134,11 @@ func (i *Manager) verifyAt(token string, now time.Time) (*Assertion, error) {
 }
 
 // Attach adds a fresh assertion for username to an outgoing request.
-func (i *Manager) Attach(req *http.Request, username string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.Attach: req=%s username=%.120q", logger.RequestSummary(req), username)
-	}
+func (i *Manager) Attach(req *http.Request, username string) (out0 error) {
+	defer logger.Out1(logger.In3("cluster/identity", "Manager.Attach", "i", i, "req", req, "username", username), &out0)
 	token, err := i.Issue(username, DefaultAssertionTTL)
 	if err != nil {
+		logger.DebugErr("cluster/identity", err)
 		return err
 	}
 	req.Header.Set(HeaderUser, token)
@@ -147,10 +146,8 @@ func (i *Manager) Attach(req *http.Request, username string) error {
 }
 
 // FromRequest verifies the assertion carried by an incoming node request.
-func (i *Manager) FromRequest(r *http.Request) (*Assertion, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/identity", "Manager.FromRequest: r=%s", logger.RequestSummary(r))
-	}
+func (i *Manager) FromRequest(r *http.Request) (out0 *Assertion, out1 error) {
+	defer logger.Out2(logger.In2("cluster/identity", "Manager.FromRequest", "i", i, "r", r), &out0, &out1)
 	token := r.Header.Get(HeaderUser)
 	if token == "" {
 		return nil, ErrAssertionInvalid

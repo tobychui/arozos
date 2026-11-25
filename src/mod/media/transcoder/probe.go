@@ -67,10 +67,8 @@ var browserAudioCodecs = map[string]bool{
 
 // tenBitPixelFormats are the high-depth formats browsers generally refuse for
 // H.264. Even where the codec is supported, 10-bit H.264 (High 10) is not.
-func isHighBitDepth(pixFmt string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "isHighBitDepth: pixFmt=%.120q", pixFmt)
-	}
+func isHighBitDepth(pixFmt string) (out0 bool) {
+	defer logger.Out1(logger.In1("media/transcoder", "isHighBitDepth", "pixFmt", pixFmt), &out0)
 	f := strings.ToLower(pixFmt)
 	return strings.Contains(f, "10le") || strings.Contains(f, "10be") ||
 		strings.Contains(f, "12le") || strings.Contains(f, "12be") ||
@@ -78,10 +76,8 @@ func isHighBitDepth(pixFmt string) bool {
 }
 
 // ProbeMediaCodecs inspects a file and reports its primary streams.
-func ProbeMediaCodecs(inputFile string) (*MediaCodecInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "ProbeMediaCodecs: inputFile=%.120q", inputFile)
-	}
+func ProbeMediaCodecs(inputFile string) (out0 *MediaCodecInfo, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "ProbeMediaCodecs", "inputFile", inputFile), &out0, &out1)
 	ctx, cancel := context.WithTimeout(context.Background(), codecProbeTimeout)
 	defer cancel()
 
@@ -94,6 +90,7 @@ func ProbeMediaCodecs(inputFile string) (*MediaCodecInfo, error) {
 	)
 	output, err := cmd.Output()
 	if err != nil {
+		logger.DebugErr("media/transcoder", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, errors.New("codec probe timed out")
 		}
@@ -104,10 +101,8 @@ func ProbeMediaCodecs(inputFile string) (*MediaCodecInfo, error) {
 
 // parseMediaCodecs maps ffprobe output onto a playability verdict. Separated
 // from the exec call so the rules can be unit-tested without ffmpeg present.
-func parseMediaCodecs(probeJSON []byte) (*MediaCodecInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("media/transcoder", "parseMediaCodecs: len(probeJSON)=%d", len(probeJSON))
-	}
+func parseMediaCodecs(probeJSON []byte) (out0 *MediaCodecInfo, out1 error) {
+	defer logger.Out2(logger.In1("media/transcoder", "parseMediaCodecs", "probeJSON", probeJSON), &out0, &out1)
 	var parsed struct {
 		Streams []struct {
 			CodecName string `json:"codec_name"`
@@ -125,6 +120,7 @@ func parseMediaCodecs(probeJSON []byte) (*MediaCodecInfo, error) {
 		} `json:"format"`
 	}
 	if err := json.Unmarshal(probeJSON, &parsed); err != nil {
+		logger.DebugErr("media/transcoder", err)
 		return nil, fmt.Errorf("could not parse ffprobe output: %w", err)
 	}
 

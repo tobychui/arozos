@@ -22,11 +22,10 @@ func NewAutoLoginHandler(uh *user.UserHandler) *AutoLoginHandler {
 
 // List the token given the username
 func (a *AutoLoginHandler) HandleUserTokensListing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/autologin", "AutoLoginHandler.HandleUserTokensListing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/autologin", "AutoLoginHandler.HandleUserTokensListing", "a", a, "r", r))
 	username, err := utils.GetPara(r, "username")
 	if err != nil {
+		logger.DebugErr("auth/autologin", err)
 		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}
@@ -47,11 +46,10 @@ func (a *AutoLoginHandler) HandleUserTokensListing(w http.ResponseWriter, r *htt
 
 // Handle User Token Creation, require username. Please use adminrouter to handle this function
 func (a *AutoLoginHandler) HandleUserTokenCreation(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/autologin", "AutoLoginHandler.HandleUserTokenCreation: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/autologin", "AutoLoginHandler.HandleUserTokenCreation", "a", a, "r", r))
 	username, err := utils.GetPara(r, "username")
 	if err != nil {
+		logger.DebugErr("auth/autologin", err)
 		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}
@@ -71,11 +69,10 @@ func (a *AutoLoginHandler) HandleUserTokenCreation(w http.ResponseWriter, r *htt
 
 // Remove the user token given the token
 func (a *AutoLoginHandler) HandleUserTokenRemoval(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/autologin", "AutoLoginHandler.HandleUserTokenRemoval: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/autologin", "AutoLoginHandler.HandleUserTokenRemoval", "a", a, "r", r))
 	token, err := utils.GetPara(r, "token")
 	if err != nil {
+		logger.DebugErr("auth/autologin", err)
 		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}

@@ -31,8 +31,8 @@ type ReconcileResult struct {
 }
 
 // ReconcileAll rescans every local volume.
-func (s *Service) ReconcileAll() []ReconcileResult {
-	logger.Debug("cluster/storage", "Service.ReconcileAll")
+func (s *Service) ReconcileAll() (out0 []ReconcileResult) {
+	defer logger.Out1(logger.In1("cluster/storage", "Service.ReconcileAll", "s", s), &out0)
 	out := []ReconcileResult{}
 	if !s.Ready() {
 		return out
@@ -43,11 +43,12 @@ func (s *Service) ReconcileAll() []ReconcileResult {
 	return out
 }
 
-func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
-	logger.Debug("cluster/storage", "Service.reconcileVolume")
+func (s *Service) reconcileVolume(vol metadata.Volume) (out0 ReconcileResult) {
+	defer logger.Out1(logger.In2("cluster/storage", "Service.reconcileVolume", "s", s, "&vol", &vol), &out0)
 	res := ReconcileResult{VolumeID: vol.ID, Time: time.Now().Unix()}
 	root, err := s.volumeRoot(&vol)
 	if err != nil {
+		logger.DebugErr("cluster/storage", err)
 		res.Error = err.Error()
 		return res
 	}
@@ -57,6 +58,7 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 
 	walkErr := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return nil
 		}
 		if p == root {
@@ -71,11 +73,13 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 		}
 		rel, err := filepath.Rel(root, p)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return nil
 		}
 		logical := metadata.NormalizePath(filepath.ToSlash(rel))
 		if d.IsDir() {
 			if _, err := s.meta.Stat(logical); err != nil {
+				logger.DebugErr("cluster/storage", err)
 				s.ensureDirs(logical, "")
 			}
 			return nil
@@ -84,16 +88,20 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 		seen[logical] = true
 		fi, err := d.Info()
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return nil
 		}
 		rec, err := s.meta.Stat(logical)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			//No record: adopt the file
 			sum, size, err := fileChecksum(p)
 			if err != nil {
+				logger.DebugErr("cluster/storage", err)
 				return nil
 			}
 			if err := s.ensureDirs(metadata.ParentPath(logical), ""); err != nil {
+				logger.DebugErr("cluster/storage", err)
 				return nil
 			}
 			newRec := &metadata.FileRecord{
@@ -119,6 +127,7 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 		}
 		sum, size, err := fileChecksum(p)
 		if err != nil {
+			logger.DebugErr("cluster/storage", err)
 			return nil
 		}
 		if sum == rec.Checksum && size == rec.Size {
@@ -151,6 +160,7 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 		return nil
 	})
 	if walkErr != nil {
+		logger.DebugErr("cluster/storage", walkErr)
 		res.Error = walkErr.Error()
 	}
 
@@ -176,10 +186,8 @@ func (s *Service) reconcileVolume(vol metadata.Volume) ReconcileResult {
 	return res
 }
 
-func itoa(v int) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/storage", "itoa: v=%d", v)
-	}
+func itoa(v int) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/storage", "itoa", "v", v), &out0)
 	if v == 0 {
 		return "0"
 	}

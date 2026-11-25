@@ -73,12 +73,13 @@ type Manager struct {
 
 // NewManager opens (or creates) the mail data folder and starts the
 // background janitor.
-func NewManager(options Options) (*Manager, error) {
-	logger.Debug("email", "NewManager")
+func NewManager(options Options) (out0 *Manager, out1 error) {
+	defer logger.Out2(logger.In1("email", "NewManager", "&options", &options), &out0, &out1)
 	if strings.TrimSpace(options.DataDir) == "" {
 		return nil, errors.New("mail data directory is required")
 	}
 	if err := os.MkdirAll(options.DataDir, 0700); err != nil {
+		logger.DebugErr("email", err)
 		return nil, err
 	}
 
@@ -93,6 +94,7 @@ func NewManager(options Options) (*Manager, error) {
 	if db == nil {
 		opened, err := database.NewDatabase(filepath.Join(options.DataDir, "mail.db"), false)
 		if err != nil {
+			logger.DebugErr("email", err)
 			return nil, err
 		}
 		manager.ownedDB = opened
@@ -101,6 +103,7 @@ func NewManager(options Options) (*Manager, error) {
 
 	st, err := newStore(db)
 	if err != nil {
+		logger.DebugErr("email", err)
 		manager.closeDB()
 		return nil, err
 	}
@@ -108,6 +111,7 @@ func NewManager(options Options) (*Manager, error) {
 
 	box, err := loadSecretBox(options.DataDir)
 	if err != nil {
+		logger.DebugErr("email", err)
 		manager.closeDB()
 		return nil, err
 	}
@@ -116,6 +120,7 @@ func NewManager(options Options) (*Manager, error) {
 
 	spool := filepath.Join(options.DataDir, "outbox")
 	if err := os.MkdirAll(spool, 0700); err != nil {
+		logger.DebugErr("email", err)
 		manager.closeDB()
 		return nil, err
 	}
@@ -130,7 +135,7 @@ func NewManager(options Options) (*Manager, error) {
 
 // Close stops background work and releases connections and the database.
 func (m *Manager) Close() {
-	logger.Debug("email", "Manager.Close")
+	defer logger.Out0(logger.In1("email", "Manager.Close", "m", m))
 	m.stopOnce.Do(func() {
 		close(m.stop)
 	})
@@ -140,7 +145,7 @@ func (m *Manager) Close() {
 }
 
 func (m *Manager) closeDB() {
-	logger.Debug("email", "Manager.closeDB")
+	defer logger.Out0(logger.In1("email", "Manager.closeDB", "m", m))
 	if m.ownedDB != nil {
 		m.ownedDB.Close()
 		m.ownedDB = nil
@@ -148,7 +153,7 @@ func (m *Manager) closeDB() {
 }
 
 func (m *Manager) backgroundLoop() {
-	logger.Debug("email", "Manager.backgroundLoop")
+	defer logger.Out0(logger.In1("email", "Manager.backgroundLoop", "m", m))
 	defer m.wg.Done()
 	janitor := time.NewTicker(time.Minute)
 	outboxTicker := time.NewTicker(5 * time.Second)
@@ -169,8 +174,8 @@ func (m *Manager) backgroundLoop() {
 }
 
 // AdminConfig returns the administrator configuration with secrets hidden.
-func (m *Manager) AdminConfig() AdminConfigView {
-	logger.Debug("email", "Manager.AdminConfig")
+func (m *Manager) AdminConfig() (out0 AdminConfigView) {
+	defer logger.Out1(logger.In1("email", "Manager.AdminConfig", "m", m), &out0)
 	config := m.store.getAdminConfig()
 	return AdminConfigView{
 		Google:            config.Google.view(),
@@ -198,8 +203,8 @@ type AdminConfigInput struct {
 
 // SetAdminConfig stores a new administrator configuration. Only admins may
 // call it; the AGI layer enforces that and passes the principal along.
-func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) error {
-	logger.Debug("email", "Manager.SetAdminConfig")
+func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.SetAdminConfig", "m", m, "&p", &p, "&input", &input), &out0)
 	if !p.Admin {
 		return errors.New("only administrators can change mail settings")
 	}
@@ -211,6 +216,7 @@ func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) error {
 		if secretSet {
 			sealed, err := m.box.Seal(strings.TrimSpace(incoming.ClientSecret))
 			if err != nil {
+				logger.DebugErr("email", err)
 				return result, err
 			}
 			result.ClientSecret = sealed
@@ -220,10 +226,12 @@ func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) error {
 
 	google, err := update(current.Google, input.Google, input.GoogleSecretSet)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	microsoft, err := update(current.Microsoft, input.Microsoft, input.MicrosoftSecretSet)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 
@@ -236,6 +244,7 @@ func (m *Manager) SetAdminConfig(p Principal, input AdminConfigInput) error {
 		MaxAccounts:       input.MaxAccounts,
 	}
 	if err := m.store.saveAdminConfig(next); err != nil {
+		logger.DebugErr("email", err)
 		return err
 	}
 	m.oauth.resetTokenCache()
@@ -250,20 +259,19 @@ func (m *Manager) Settings(p Principal) UserSettings {
 }
 
 // SaveSettings replaces a user's preferences.
-func (m *Manager) SaveSettings(p Principal, settings UserSettings) (UserSettings, error) {
-	logger.Debug("email", "Manager.SaveSettings")
+func (m *Manager) SaveSettings(p Principal, settings UserSettings) (out0 UserSettings, out1 error) {
+	defer logger.Out2(logger.In3("email", "Manager.SaveSettings", "m", m, "&p", &p, "&settings", &settings), &out0, &out1)
 	settings.normalise()
 	if err := m.store.saveSettings(p.Username, settings); err != nil {
+		logger.DebugErr("email", err)
 		return settings, err
 	}
 	return settings, nil
 }
 
 // TrustSender adds an address or domain to the remote-content allow list.
-func (m *Manager) TrustSender(p Principal, sender string) error {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.TrustSender: sender=%.120q", sender)
-	}
+func (m *Manager) TrustSender(p Principal, sender string) (out0 error) {
+	defer logger.Out1(logger.In3("email", "Manager.TrustSender", "m", m, "&p", &p, "sender", sender), &out0)
 	sender = strings.ToLower(strings.TrimSpace(sender))
 	if sender == "" {
 		return errors.New("sender is empty")
@@ -279,8 +287,8 @@ func (m *Manager) TrustSender(p Principal, sender string) error {
 }
 
 // allowPrivate decides whether p may reach LAN / loopback servers.
-func (m *Manager) allowPrivate(p Principal) bool {
-	logger.Debug("email", "Manager.allowPrivate")
+func (m *Manager) allowPrivate(p Principal) (out0 bool) {
+	defer logger.Out1(logger.In2("email", "Manager.allowPrivate", "m", m, "&p", &p), &out0)
 	if p.Admin {
 		return true
 	}
@@ -288,8 +296,8 @@ func (m *Manager) allowPrivate(p Principal) bool {
 }
 
 // allowInsecure decides whether p may use unencrypted connections.
-func (m *Manager) allowInsecure(p Principal) bool {
-	logger.Debug("email", "Manager.allowInsecure")
+func (m *Manager) allowInsecure(p Principal) (out0 bool) {
+	defer logger.Out1(logger.In2("email", "Manager.allowInsecure", "m", m, "&p", &p), &out0)
 	if p.Admin {
 		return true
 	}
@@ -303,20 +311,19 @@ func (m *Manager) maxAttachmentBytes() int64 {
 }
 
 func poolKey(owner string, accountID string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("email", "poolKey: owner=%.120q accountID=%.120q", owner, accountID)
-	}
+	logger.DebugTrace("email", "poolKey")
 	return owner + "/" + accountID
 }
 
 // withIMAP runs fn on a pooled, authenticated connection of an account.
-func (m *Manager) withIMAP(ctx context.Context, p Principal, account *Account, fn func(c *imapclient.Client) error) error {
-	logger.Debug("email", "Manager.withIMAP")
+func (m *Manager) withIMAP(ctx context.Context, p Principal, account *Account, fn func(c *imapclient.Client) error) (out0 error) {
+	defer logger.Out1(logger.In5("email", "Manager.withIMAP", "m", m, "ctx", ctx, "&p", &p, "account", account, "fn", fn), &out0)
 	key := poolKey(p.Username, account.ID)
 	conn, err := m.pool.acquire(ctx, key, func() (*imapclient.Client, error) {
 		return m.dialIMAP(ctx, p, account)
 	})
 	if err != nil {
+		logger.DebugErr("email", err)
 		m.noteAuthError(p, account, err)
 		return err
 	}
@@ -329,10 +336,8 @@ func (m *Manager) withIMAP(ctx context.Context, p Principal, account *Account, f
 // connectionBroken decides whether a connection may go back to the pool.
 // Protocol-level "NO"/"BAD" answers and our own lookup errors leave it
 // usable; network failures and closed connections do not.
-func connectionBroken(client *imapclient.Client, err error) bool {
-	if logger.IsDebug() {
-		logger.Debugf("email", "connectionBroken: err=%v", err)
-	}
+func connectionBroken(client *imapclient.Client, err error) (out0 bool) {
+	defer logger.Out1(logger.In2("email", "connectionBroken", "client", client, "err", err), &out0)
 	if isClosed(client) {
 		return true
 	}
@@ -355,9 +360,7 @@ func connectionBroken(client *imapclient.Client, err error) bool {
 // noteAuthError records (or clears) the authentication problem shown on an
 // account in the sidebar.
 func (m *Manager) noteAuthError(p Principal, account *Account, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("email", "Manager.noteAuthError: err=%v", err)
-	}
+	defer logger.Out0(logger.In4("email", "Manager.noteAuthError", "m", m, "&p", &p, "account", account, "err", err))
 	if !IsAuthError(err) {
 		return
 	}
@@ -372,7 +375,7 @@ func (m *Manager) noteAuthError(p Principal, account *Account, err error) {
 }
 
 func (m *Manager) clearAuthError(p Principal, account *Account) {
-	logger.Debug("email", "Manager.clearAuthError")
+	defer logger.Out0(logger.In3("email", "Manager.clearAuthError", "m", m, "&p", &p, "account", account))
 	if account.AuthError == "" {
 		return
 	}
@@ -380,6 +383,7 @@ func (m *Manager) clearAuthError(p Principal, account *Account) {
 	defer m.store.mutex.Unlock()
 	stored, err := m.store.getAccount(p.Username, account.ID)
 	if err != nil {
+		logger.DebugErr("email", err)
 		return
 	}
 	stored.AuthError = ""
@@ -393,12 +397,11 @@ func (m *Manager) now() time.Time {
 }
 
 // randomID returns n random bytes as hex.
-func randomID(n int) string {
-	if logger.IsDebug() {
-		logger.Debugf("email", "randomID: n=%d", n)
-	}
+func randomID(n int) (out0 string) {
+	defer logger.Out1(logger.In1("email", "randomID", "n", n), &out0)
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
+		logger.DebugErr("email", err)
 		return hex.EncodeToString([]byte(time.Now().Format("150405.000000")))
 	}
 	return hex.EncodeToString(buf)

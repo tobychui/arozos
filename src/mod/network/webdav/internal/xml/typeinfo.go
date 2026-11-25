@@ -76,6 +76,7 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 				if t.Kind() == reflect.Struct {
 					inner, err := getTypeInfo(t)
 					if err != nil {
+						logger.DebugErr("network/webdav/internal/xml", err)
 						return nil, err
 					}
 					if tinfo.xmlname == nil {
@@ -84,6 +85,7 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 					for _, finfo := range inner.fields {
 						finfo.idx = append([]int{i}, finfo.idx...)
 						if err := addFieldInfo(typ, tinfo, &finfo); err != nil {
+							logger.DebugErr("network/webdav/internal/xml", err)
 							return nil, err
 						}
 					}
@@ -93,6 +95,7 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 
 			finfo, err := structFieldInfo(typ, &f)
 			if err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return nil, err
 			}
 
@@ -103,6 +106,7 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 
 			// Add the field if it doesn't conflict with other fields.
 			if err := addFieldInfo(typ, tinfo, finfo); err != nil {
+				logger.DebugErr("network/webdav/internal/xml", err)
 				return nil, err
 			}
 		}
@@ -264,9 +268,7 @@ func lookupXMLName(typ reflect.Type) (xmlname *fieldInfo) {
 }
 
 func min(a, b int) int {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "min: a=%d b=%d", a, b)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "min")
 	if a <= b {
 		return a
 	}

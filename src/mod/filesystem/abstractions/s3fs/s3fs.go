@@ -80,10 +80,8 @@ type S3FSAbstraction struct {
 // NewS3FSAbstraction creates and validates a new S3 filesystem abstraction.
 // The caller should NOT include a scheme in endpoint; pass useSSL to control
 // http vs https.
-func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, secretKey string, useSSL bool) (*S3FSAbstraction, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "NewS3FSAbstraction: uuid=%.120q hierarchy=%.120q endpoint=%.120q bucket=%.120q prefix=%.120q useSSL=%t", uuid, hierarchy, endpoint, bucket, prefix, useSSL)
-	}
+func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, secretKey string, useSSL bool) (out0 *S3FSAbstraction, out1 error) {
+	defer logger.Out2(logger.In8("filesystem/abstractions/s3fs", "NewS3FSAbstraction", "uuid", uuid, "hierarchy", hierarchy, "endpoint", endpoint, "bucket", bucket, "prefix", prefix, "useSSL", useSSL, "!accessKey", accessKey, "!secretKey", secretKey), &out0, &out1)
 	scheme := "https"
 	if !useSSL {
 		scheme = "http"
@@ -98,6 +96,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 			awsconfig.WithCredentialsProvider(credProvider),
 		)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/s3fs", err)
 			return nil, err
 		}
 		return s3.NewFromConfig(cfg, func(o *s3.Options) {
@@ -115,6 +114,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 	// Bootstrap with the default signing region.
 	client, err := newClient("us-east-1")
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return nil, err
 	}
 
@@ -140,6 +140,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 		Bucket: aws.String(bucket),
 	})
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		var nf *types.NotFound
 		if errors.As(err, &nf) {
 			return nil, os.ErrNotExist
@@ -173,10 +174,8 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 
 // realPathToKey converts a filesystem real-path (e.g. "/videos/movie.mp4")
 // to an S3 object key (e.g. "myprefix/videos/movie.mp4").
-func (s *S3FSAbstraction) realPathToKey(realPath string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.realPathToKey: realPath=%.120q", realPath)
-	}
+func (s *S3FSAbstraction) realPathToKey(realPath string) (out0 string) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.realPathToKey", "s", s, "realPath", realPath), &out0)
 	realPath = strings.TrimPrefix(filterFilepath(realPath), "/")
 	if realPath == "" || realPath == "." {
 		return s.prefix
@@ -188,8 +187,8 @@ func (s *S3FSAbstraction) realPathToKey(realPath string) string {
 }
 
 // keyToRealPath is the inverse of realPathToKey.
-func (s *S3FSAbstraction) keyToRealPath(key string) string {
-	logger.Debug("filesystem/abstractions/s3fs", "S3FSAbstraction.keyToRealPath")
+func (s *S3FSAbstraction) keyToRealPath(key string) (out0 string) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.keyToRealPath", "s", s, "!key", key), &out0)
 	key = strings.TrimSuffix(key, "/")
 	if s.prefix != "" {
 		key = strings.TrimPrefix(key, s.prefix+"/")
@@ -204,30 +203,28 @@ func (s *S3FSAbstraction) keyToRealPath(key string) string {
 // Fundamental Functions (FileSystemAbstraction interface)
 // ---------------------------------------------------------------------------
 
-func (s *S3FSAbstraction) Chmod(_ string, _ os.FileMode) error {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Chmod")
+func (s *S3FSAbstraction) Chmod(_ string, _ os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Chmod", "s", s), &out0)
 	return arozfs.ErrOperationNotSupported
 }
-func (s *S3FSAbstraction) Chown(_ string, _, _ int) error {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Chown")
+func (s *S3FSAbstraction) Chown(_ string, _, _ int) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Chown", "s", s), &out0)
 	return arozfs.ErrOperationNotSupported
 }
-func (s *S3FSAbstraction) Chtimes(_ string, _, _ time.Time) error {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Chtimes")
+func (s *S3FSAbstraction) Chtimes(_ string, _, _ time.Time) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Chtimes", "s", s), &out0)
 	return arozfs.ErrOperationNotSupported
 }
 
 // Create is not supported; use WriteStream instead.
-func (s *S3FSAbstraction) Create(_ string) (arozfs.File, error) {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Create")
+func (s *S3FSAbstraction) Create(_ string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Create", "s", s), &out0, &out1)
 	return nil, arozfs.ErrOperationNotSupported
 }
 
 // Mkdir creates a zero-byte S3 "directory marker" object whose key ends with "/".
-func (s *S3FSAbstraction) Mkdir(filename string, _ os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.Mkdir: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) Mkdir(filename string, _ os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.Mkdir", "s", s, "filename", filename), &out0)
 	key := s.realPathToKey(filename)
 	if !strings.HasSuffix(key, "/") {
 		key += "/"
@@ -243,35 +240,31 @@ func (s *S3FSAbstraction) Mkdir(filename string, _ os.FileMode) error {
 	return err
 }
 
-func (s *S3FSAbstraction) MkdirAll(filename string, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/s3fs", "S3FSAbstraction.MkdirAll: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) MkdirAll(filename string, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.MkdirAll", "s", s, "filename", filename, "&mode", &mode), &out0)
 	return s.Mkdir(filename, mode)
 }
 
-func (s *S3FSAbstraction) Name() string {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Name")
+func (s *S3FSAbstraction) Name() (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Name", "s", s), &out0)
 	return s.bucket
 }
 
 // Open is not supported; use ReadStream instead.
-func (s *S3FSAbstraction) Open(_ string) (arozfs.File, error) {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Open")
+func (s *S3FSAbstraction) Open(_ string) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Open", "s", s), &out0, &out1)
 	return nil, arozfs.ErrOperationNotSupported
 }
 
 // OpenFile is not supported; use ReadStream / WriteStream instead.
-func (s *S3FSAbstraction) OpenFile(_ string, _ int, _ os.FileMode) (arozfs.File, error) {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.OpenFile")
+func (s *S3FSAbstraction) OpenFile(_ string, _ int, _ os.FileMode) (out0 arozfs.File, out1 error) {
+	defer logger.Out2(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.OpenFile", "s", s), &out0, &out1)
 	return nil, arozfs.ErrOperationNotSupported
 }
 
 // Remove deletes a single object or an entire virtual directory (recursively).
-func (s *S3FSAbstraction) Remove(filename string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.Remove: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) Remove(filename string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.Remove", "s", s, "filename", filename), &out0)
 	if s.IsDir(filename) {
 		return s.RemoveAll(filename)
 	}
@@ -286,10 +279,8 @@ func (s *S3FSAbstraction) Remove(filename string) error {
 }
 
 // RemoveAll deletes every object whose key starts with the given path prefix.
-func (s *S3FSAbstraction) RemoveAll(path string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.RemoveAll: path=%.120q", path)
-	}
+func (s *S3FSAbstraction) RemoveAll(path string) (out0 error) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.RemoveAll", "s", s, "path", path), &out0)
 	defer s.cache.clear()
 	prefix := s.realPathToKey(path)
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
@@ -305,6 +296,7 @@ func (s *S3FSAbstraction) RemoveAll(path string) error {
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/s3fs", err)
 			return err
 		}
 		for _, obj := range page.Contents {
@@ -313,6 +305,7 @@ func (s *S3FSAbstraction) RemoveAll(path string) error {
 				Key:    obj.Key,
 			})
 			if err != nil {
+				logger.DebugErr("filesystem/abstractions/s3fs", err)
 				return err
 			}
 		}
@@ -328,10 +321,8 @@ func (s *S3FSAbstraction) RemoveAll(path string) error {
 
 // Rename copies all objects from oldname to newname then removes the originals.
 // S3 has no native rename; this is a copy-then-delete sequence.
-func (s *S3FSAbstraction) Rename(oldname, newname string) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.Rename: oldname=%.120q newname=%.120q", oldname, newname)
-	}
+func (s *S3FSAbstraction) Rename(oldname, newname string) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.Rename", "s", s, "oldname", oldname, "newname", newname), &out0)
 	defer s.cache.clear()
 	ctx := context.Background()
 
@@ -352,6 +343,7 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 		for paginator.HasMorePages() {
 			page, err := paginator.NextPage(ctx)
 			if err != nil {
+				logger.DebugErr("filesystem/abstractions/s3fs", err)
 				return err
 			}
 			for _, obj := range page.Contents {
@@ -363,12 +355,14 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 					Key:        aws.String(newKey),
 				})
 				if err != nil {
+					logger.DebugErr("filesystem/abstractions/s3fs", err)
 					return err
 				}
 				if _, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: aws.String(s.bucket),
 					Key:    obj.Key,
 				}); err != nil {
+					logger.DebugErr("filesystem/abstractions/s3fs", err)
 					return err
 				}
 			}
@@ -384,6 +378,7 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 		Key:        aws.String(newKey),
 	})
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return notExist(err)
 	}
 	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
@@ -396,10 +391,8 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 // Stat returns object metadata.  Virtual directories are synthesised when any
 // objects exist under the path as a prefix.  The object is asked for first,
 // so a file costs one request, and answers are cached (statcache.go).
-func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.Stat: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) Stat(filename string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.Stat", "s", s, "filename", filename), &out0, &out1)
 	key := s.realPathToKey(filename)
 	if key == "" || key == s.prefix {
 		return NewS3FileInfo(arozfs.Base(filename), 0, true, time.Now()), nil
@@ -436,6 +429,7 @@ func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
 	//No such object, but it may be a folder
 	isDir, dirErr := s.dirExists(key)
 	if dirErr != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", dirErr)
 		return nil, dirErr
 	}
 	if isDir {
@@ -447,8 +441,8 @@ func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
 	return nil, err
 }
 
-func (s *S3FSAbstraction) Close() error {
-	logger.DebugTrace("filesystem/abstractions/s3fs", "S3FSAbstraction.Close")
+func (s *S3FSAbstraction) Close() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Close", "s", s), &out0)
 	return nil
 }
 
@@ -456,26 +450,20 @@ func (s *S3FSAbstraction) Close() error {
 // Utility Functions (FileSystemAbstraction interface)
 // ---------------------------------------------------------------------------
 
-func (s *S3FSAbstraction) VirtualPathToRealPath(subpath, username string) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/s3fs", "S3FSAbstraction.VirtualPathToRealPath: subpath=%.120q username=%.120q", subpath, username)
-	}
+func (s *S3FSAbstraction) VirtualPathToRealPath(subpath, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.VirtualPathToRealPath", "s", s, "subpath", subpath, "username", username), &out0, &out1)
 	return arozfs.GenericVirtualPathToRealPathTranslator(s.uuid, s.hierarchy, subpath, username)
 }
 
-func (s *S3FSAbstraction) RealPathToVirtualPath(fullpath, username string) (string, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/s3fs", "S3FSAbstraction.RealPathToVirtualPath: fullpath=%.120q username=%.120q", fullpath, username)
-	}
+func (s *S3FSAbstraction) RealPathToVirtualPath(fullpath, username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.RealPathToVirtualPath", "s", s, "fullpath", fullpath, "username", username), &out0, &out1)
 	return arozfs.GenericRealPathToVirtualPathTranslator(s.uuid, s.hierarchy, fullpath, username)
 }
 
 // FileExists returns true if an exact object exists with this key, or if the
 // path is a virtual directory (i.e. objects exist under it as a prefix).
-func (s *S3FSAbstraction) FileExists(realpath string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.FileExists: realpath=%.120q", realpath)
-	}
+func (s *S3FSAbstraction) FileExists(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.FileExists", "s", s, "realpath", realpath), &out0)
 	_, err := s.Stat(realpath)
 	return err == nil
 }
@@ -483,10 +471,8 @@ func (s *S3FSAbstraction) FileExists(realpath string) bool {
 // IsDir returns true when the path represents a virtual S3 "directory":
 // either an explicit directory-marker object exists, or at least one object
 // has this path as a key prefix.
-func (s *S3FSAbstraction) IsDir(realpath string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/s3fs", "S3FSAbstraction.IsDir: realpath=%.120q", realpath)
-	}
+func (s *S3FSAbstraction) IsDir(realpath string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.IsDir", "s", s, "realpath", realpath), &out0)
 	key := s.realPathToKey(realpath)
 	// Bucket root (or configured prefix root) is always a directory.
 	if key == "" || key == s.prefix {
@@ -498,6 +484,7 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 	gen := s.cache.generation()
 	isDir, err := s.dirExists(key)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return false
 	}
 	if isDir {
@@ -508,8 +495,8 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 
 // dirExists asks the bucket whether key is a folder: a directory marker
 // object, or any object under it.
-func (s *S3FSAbstraction) dirExists(key string) (bool, error) {
-	logger.Debug("filesystem/abstractions/s3fs", "S3FSAbstraction.dirExists")
+func (s *S3FSAbstraction) dirExists(key string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.dirExists", "s", s, "!key", key), &out0, &out1)
 	prefix := key
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
@@ -535,6 +522,7 @@ func (s *S3FSAbstraction) dirExists(key string) (bool, error) {
 		MaxKeys: aws.Int32(1),
 	})
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return false, err
 	}
 	return len(resp.Contents) > 0, nil
@@ -542,13 +530,12 @@ func (s *S3FSAbstraction) dirExists(key string) (bool, error) {
 
 // Glob lists all entries in the same directory as realpathWildcard whose names
 // match the wildcard pattern.  It uses ReadDir so it works on all FS types.
-func (s *S3FSAbstraction) Glob(realpathWildcard string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.Glob: realpathWildcard=%.120q", realpathWildcard)
-	}
+func (s *S3FSAbstraction) Glob(realpathWildcard string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.Glob", "s", s, "realpathWildcard", realpathWildcard), &out0, &out1)
 	dir := arozfs.ToSlash(filepath.Dir(realpathWildcard))
 	entries, err := s.ReadDir(dir)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return nil, err
 	}
 	var matches []string
@@ -556,6 +543,7 @@ func (s *S3FSAbstraction) Glob(realpathWildcard string) ([]string, error) {
 		fullPath := arozfs.ToSlash(filepath.Join(dir, entry.Name()))
 		matched, err := filepath.Match(realpathWildcard, fullPath)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/s3fs", err)
 			return nil, err
 		}
 		if matched {
@@ -565,10 +553,8 @@ func (s *S3FSAbstraction) Glob(realpathWildcard string) ([]string, error) {
 	return matches, nil
 }
 
-func (s *S3FSAbstraction) GetFileSize(realpath string) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.GetFileSize: realpath=%.120q", realpath)
-	}
+func (s *S3FSAbstraction) GetFileSize(realpath string) (out0 int64) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.GetFileSize", "s", s, "realpath", realpath), &out0)
 	info, err := s.Stat(realpath)
 	if err != nil || info.IsDir() {
 		return 0
@@ -576,30 +562,26 @@ func (s *S3FSAbstraction) GetFileSize(realpath string) int64 {
 	return info.Size()
 }
 
-func (s *S3FSAbstraction) GetModTime(realpath string) (int64, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.GetModTime: realpath=%.120q", realpath)
-	}
+func (s *S3FSAbstraction) GetModTime(realpath string) (out0 int64, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.GetModTime", "s", s, "realpath", realpath), &out0, &out1)
 	info, err := s.Stat(realpath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return 0, err
 	}
 	return info.ModTime().Unix(), nil
 }
 
-func (s *S3FSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/s3fs", "S3FSAbstraction.WriteFile: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("filesystem/abstractions/s3fs", "S3FSAbstraction.WriteFile", "s", s, "filename", filename, "content", content, "&mode", &mode), &out0)
 	return s.WriteStream(filename, bytes.NewReader(content), mode)
 }
 
-func (s *S3FSAbstraction) ReadFile(filename string) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.ReadFile: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) ReadFile(filename string) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.ReadFile", "s", s, "filename", filename), &out0, &out1)
 	rc, err := s.ReadStream(filename)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return nil, err
 	}
 	defer rc.Close()
@@ -609,10 +591,8 @@ func (s *S3FSAbstraction) ReadFile(filename string) ([]byte, error) {
 // ReadDir lists the immediate children of a virtual S3 directory.
 // Uses ListObjectsV2 with Delimiter "/" so that only the direct contents of
 // the requested level are returned (files and virtual sub-directories).
-func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.ReadDir: dirname=%.120q", dirname)
-	}
+func (s *S3FSAbstraction) ReadDir(dirname string) (out0 []fs.DirEntry, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.ReadDir", "s", s, "dirname", dirname), &out0, &out1)
 	results := []fs.DirEntry{}
 
 	dirKey := s.realPathToKey(dirname)
@@ -632,6 +612,7 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
+			logger.DebugErr("filesystem/abstractions/s3fs", err)
 			return results, err
 		}
 
@@ -690,10 +671,8 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 // exceeds the part threshold (default 5 MiB per part).  The full file is
 // NEVER held in RAM, which is safe on memory-constrained devices (e.g. a
 // Raspberry Pi) even for multi-GiB files.
-func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.WriteStream: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.WriteStream", "s", s, "filename", filename, "stream", stream), &out0)
 	key := s.realPathToKey(filename)
 	defer s.cache.changed(key)
 	_, err := s.uploader.Upload(context.Background(), &s3.PutObjectInput{
@@ -710,16 +689,15 @@ func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.Fi
 // The body is the raw HTTP response from S3; no data is loaded into memory
 // until the caller calls Read().  This allows serving or copying arbitrarily
 // large files on memory-constrained devices.
-func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.ReadStream: filename=%.120q", filename)
-	}
+func (s *S3FSAbstraction) ReadStream(filename string) (out0 io.ReadCloser, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/abstractions/s3fs", "S3FSAbstraction.ReadStream", "s", s, "filename", filename), &out0, &out1)
 	key := s.realPathToKey(filename)
 	resp, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return nil, notExist(err)
 	}
 	return resp.Body, nil // io.ReadCloser backed directly by the S3 HTTP response
@@ -728,23 +706,21 @@ func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 // Walk visits every node reachable from root (files and virtual directories),
 // calling walkFn for each.  It builds the tree level by level via ReadDir so
 // that virtual directory entries are naturally included.
-func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "S3FSAbstraction.Walk: root=%.120q", root)
-	}
+func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.Walk", "s", s, "root", root, "&walkFn", &walkFn), &out0)
 	rootInfo := NewS3FileInfo(arozfs.Base(root), 0, true, time.Now())
 	if err := walkFn(root, rootInfo, nil); err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		return err
 	}
 	return s.walkDir(root, walkFn)
 }
 
-func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/abstractions/s3fs", "S3FSAbstraction.walkDir: dirPath=%.120q", dirPath)
-	}
+func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) (out0 error) {
+	defer logger.Out1(logger.In3("filesystem/abstractions/s3fs", "S3FSAbstraction.walkDir", "s", s, "dirPath", dirPath, "&walkFn", &walkFn), &out0)
 	entries, err := s.ReadDir(dirPath)
 	if err != nil {
+		logger.DebugErr("filesystem/abstractions/s3fs", err)
 		_ = walkFn(dirPath, nil, err)
 		return err
 	}
@@ -752,10 +728,12 @@ func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) erro
 		fullPath := arozfs.ToSlash(filepath.Join(dirPath, entry.Name()))
 		info, _ := entry.Info()
 		if err := walkFn(fullPath, info, nil); err != nil {
+			logger.DebugErr("filesystem/abstractions/s3fs", err)
 			return err
 		}
 		if entry.IsDir() {
 			if err := s.walkDir(fullPath, walkFn); err != nil {
+				logger.DebugErr("filesystem/abstractions/s3fs", err)
 				return err
 			}
 		}
@@ -764,8 +742,8 @@ func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) erro
 }
 
 // Heartbeat checks that the bucket is still reachable within 5 seconds.
-func (s *S3FSAbstraction) Heartbeat() error {
-	logger.Debug("filesystem/abstractions/s3fs", "S3FSAbstraction.Heartbeat")
+func (s *S3FSAbstraction) Heartbeat() (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "S3FSAbstraction.Heartbeat", "s", s), &out0)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
@@ -783,10 +761,8 @@ func (s *S3FSAbstraction) Heartbeat() error {
 // to be percent-encoded (with %20 for spaces, etc.) while "/" separators
 // are kept as-is.  Using url.PathEscape on the whole key would encode "/" too,
 // so we encode each segment individually.
-func s3CopySource(bucket, key string) string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "s3CopySource: bucket=%.120q", bucket)
-	}
+func s3CopySource(bucket, key string) (out0 string) {
+	defer logger.Out1(logger.In2("filesystem/abstractions/s3fs", "s3CopySource", "bucket", bucket, "!key", key), &out0)
 	segments := strings.Split(key, "/")
 	encoded := make([]string, len(segments))
 	for i, seg := range segments {
@@ -800,10 +776,8 @@ func s3CopySource(bucket, key string) string {
 // for a missing file with errors.Is, the way they do on a local disk: the SMB
 // server must answer "not found" for File Explorer to create a new file.
 // HEAD answers NotFound and GET NoSuchKey; a missing bucket is not included.
-func notExist(err error) error {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/abstractions/s3fs", "notExist: err=%v", err)
-	}
+func notExist(err error) (out0 error) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "notExist", "err", err), &out0)
 	if err == nil {
 		return nil
 	}
@@ -819,8 +793,8 @@ func notExist(err error) error {
 	return fmt.Errorf("%w: %w", os.ErrNotExist, err)
 }
 
-func filterFilepath(rawpath string) string {
-	logger.Debug("filesystem/abstractions/s3fs", "filterFilepath")
+func filterFilepath(rawpath string) (out0 string) {
+	defer logger.Out1(logger.In1("filesystem/abstractions/s3fs", "filterFilepath", "rawpath", rawpath), &out0)
 	rawpath = arozfs.ToSlash(filepath.Clean(strings.TrimSpace(rawpath)))
 	if strings.HasPrefix(rawpath, "./") {
 		return rawpath[1:]

@@ -61,8 +61,8 @@ func DefaultWeights() Weights {
 }
 
 // Validate rejects nonsense weights.
-func (w Weights) Validate() error {
-	logger.Debug("cluster/scheduling", "Weights.Validate")
+func (w Weights) Validate() (out0 error) {
+	defer logger.Out1(logger.In1("cluster/scheduling", "Weights.Validate", "&w", &w), &out0)
 	vals := map[string]float64{
 		"locality": w.Locality, "cpu": w.CPU, "memory": w.Memory, "disk": w.Disk,
 		"queue": w.Queue, "latency": w.Latency, "degraded": w.Degraded, "preferred": w.Preferred,
@@ -125,8 +125,8 @@ type Manager struct {
 }
 
 // New creates the scorer.
-func New(m *membership.Manager, meta *metadata.Manager) (*Manager, error) {
-	logger.Debug("cluster/scheduling", "New")
+func New(m *membership.Manager, meta *metadata.Manager) (out0 *Manager, out1 error) {
+	defer logger.Out2(logger.In2("cluster/scheduling", "New", "m", m, "meta", meta), &out0, &out1)
 	if m == nil || meta == nil {
 		return nil, errors.New("membership and metadata are required")
 	}
@@ -134,8 +134,8 @@ func New(m *membership.Manager, meta *metadata.Manager) (*Manager, error) {
 }
 
 // Weights returns the cluster-wide weights (defaults until an admin sets them).
-func (s *Manager) Weights() Weights {
-	logger.Debug("cluster/scheduling", "Manager.Weights")
+func (s *Manager) Weights() (out0 Weights) {
+	defer logger.Out1(logger.In1("cluster/scheduling", "Manager.Weights", "s", s), &out0)
 	if st, ok := s.meta.Setting(SettingKey); ok {
 		//Start from the defaults so a record written by an older version,
 		//which did not know a weight yet, keeps that weight's default
@@ -153,16 +153,19 @@ func (s *Manager) Weights() Weights {
 }
 
 // SetWeights replicates new weights to the whole cluster.
-func (s *Manager) SetWeights(w Weights) error {
-	logger.Debug("cluster/scheduling", "Manager.SetWeights")
+func (s *Manager) SetWeights(w Weights) (out0 error) {
+	defer logger.Out1(logger.In2("cluster/scheduling", "Manager.SetWeights", "s", s, "&w", &w), &out0)
 	if err := w.Validate(); err != nil {
+		logger.DebugErr("cluster/scheduling", err)
 		return err
 	}
 	js, err := json.Marshal(w)
 	if err != nil {
+		logger.DebugErr("cluster/scheduling", err)
 		return err
 	}
 	if err := s.meta.Submit(metadata.KindSetting, &metadata.Setting{Key: SettingKey, Value: js}); err != nil {
+		logger.DebugErr("cluster/scheduling", err)
 		return err
 	}
 	s.mu.Lock()
@@ -181,10 +184,8 @@ func (s *Manager) ResetWeights() error {
 	Scoring
 */
 
-func clamp01(v float64) float64 {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/scheduling", "clamp01: v=%g", v)
-	}
+func clamp01(v float64) (out0 float64) {
+	defer logger.Out1(logger.In1("cluster/scheduling", "clamp01", "v", v), &out0)
 	if v < 0 {
 		return 0
 	}
@@ -196,8 +197,8 @@ func clamp01(v float64) float64 {
 
 // cpuFree is the share of the node's processor that is idle. A node that has
 // not reported health yet counts as idle so a fresh node is not punished.
-func cpuFree(n membership.NodeView) float64 {
-	logger.Debug("cluster/scheduling", "cpuFree")
+func cpuFree(n membership.NodeView) (out0 float64) {
+	defer logger.Out1(logger.In1("cluster/scheduling", "cpuFree", "&n", &n), &out0)
 	if n.Health.Timestamp == 0 {
 		return 1
 	}
@@ -205,8 +206,8 @@ func cpuFree(n membership.NodeView) float64 {
 }
 
 // Score rates one candidate and explains the result.
-func (s *Manager) Score(c Candidate) (float64, []Factor) {
-	logger.Debug("cluster/scheduling", "Manager.Score")
+func (s *Manager) Score(c Candidate) (out0 float64, out1 []Factor) {
+	defer logger.Out2(logger.In2("cluster/scheduling", "Manager.Score", "s", s, "&c", &c), &out0, &out1)
 	w := s.Weights()
 	factors := []Factor{}
 	add := func(name string, value float64, weight float64) {
@@ -281,10 +282,8 @@ func (s *Manager) Score(c Candidate) (float64, []Factor) {
 
 // Rank scores every candidate and returns them best first. Candidates that
 // are not eligible keep their reason and sort last.
-func (s *Manager) Rank(candidates []Candidate, eligible func(Candidate) (bool, string)) []Result {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/scheduling", "Manager.Rank: len(candidates)=%d", len(candidates))
-	}
+func (s *Manager) Rank(candidates []Candidate, eligible func(Candidate) (bool, string)) (out0 []Result) {
+	defer logger.Out1(logger.In3("cluster/scheduling", "Manager.Rank", "s", s, "candidates", candidates, "eligible", eligible), &out0)
 	out := []Result{}
 	anyOnline := false
 	for _, c := range candidates {
@@ -318,10 +317,8 @@ func (s *Manager) Rank(candidates []Candidate, eligible func(Candidate) (bool, s
 }
 
 // Best returns the winning node of a ranking, or "" with the first reason.
-func Best(results []Result) (string, string) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/scheduling", "Best: len(results)=%d", len(results))
-	}
+func Best(results []Result) (out0 string, out1 string) {
+	defer logger.Out2(logger.In1("cluster/scheduling", "Best", "results", results), &out0, &out1)
 	for _, r := range results {
 		if r.Eligible {
 			return r.NodeID, ""
@@ -363,8 +360,8 @@ type Status struct {
 
 // Status builds a preview: every node scored with no locality and no queue,
 // which is what an admin wants to see when tuning the weights.
-func (s *Manager) Status() Status {
-	logger.Debug("cluster/scheduling", "Manager.Status")
+func (s *Manager) Status() (out0 Status) {
+	defer logger.Out1(logger.In1("cluster/scheduling", "Manager.Status", "s", s), &out0)
 	st := Status{InCluster: s.m.InCluster(), Weights: s.Weights(), Defaults: DefaultWeights(), Nodes: []NodeStatus{}, Updated: time.Now().Unix()}
 	for _, n := range s.m.NodeViews() {
 		c := Candidate{Node: n, FreeDisk: -1, LatencyToData: -1, Diversity: -1}
@@ -391,10 +388,8 @@ func (s *Manager) Status() Status {
 }
 
 // ParseFeatures splits a comma separated feature list.
-func ParseFeatures(s string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/scheduling", "ParseFeatures: s=%.120q", s)
-	}
+func ParseFeatures(s string) (out0 []string) {
+	defer logger.Out1(logger.In1("cluster/scheduling", "ParseFeatures", "s", s), &out0)
 	out := []string{}
 	for _, p := range strings.Split(s, ",") {
 		if v := strings.TrimSpace(p); v != "" {

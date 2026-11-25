@@ -2,10 +2,8 @@ package shareEntry
 
 import "imuslab.com/arozos/mod/info/logger"
 
-func stringInSlice(e string, s []string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("share/shareEntry", "stringInSlice: e=%.120q len(s)=%d", e, len(s))
-	}
+func stringInSlice(e string, s []string) (out0 bool) {
+	defer logger.Out1(logger.In2("share/shareEntry", "stringInSlice", "e", e, "s", s), &out0)
 	for _, a := range s {
 		if a == e {
 			return true

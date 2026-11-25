@@ -29,8 +29,8 @@ type Manager struct {
 }
 
 // Create a new WebDAV Manager for handling related requests
-func NewWebDAVManager(option *ManagerOption) *Manager {
-	logger.Debug("fileservers/servers/webdavserv", "NewWebDAVManager")
+func NewWebDAVManager(option *ManagerOption) (out0 *Manager) {
+	defer logger.Out1(logger.In1("fileservers/servers/webdavserv", "NewWebDAVManager", "option", option), &out0)
 	m := Manager{
 		option: option,
 	}
@@ -53,9 +53,7 @@ func NewWebDAVManager(option *ManagerOption) *Manager {
 }
 
 func (m *Manager) HandleStatusChange(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/webdavserv", "Manager.HandleStatusChange: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/webdavserv", "Manager.HandleStatusChange", "m", m, "r", r))
 	//Show status for every user, only allow change if admin
 	userinfo, _ := m.option.UserHandler.GetUserInfoFromRequest(w, r)
 	isAdmin := userinfo.IsAdmin()
@@ -82,17 +80,15 @@ func (m *Manager) HandleStatusChange(w http.ResponseWriter, r *http.Request) {
 /*
 Functions required by new service mounting infrastructure
 */
-func (m *Manager) WebDavToogle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/webdavserv", "Manager.WebDavToogle: enabled=%t", enabled)
-	}
+func (m *Manager) WebDavToogle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In2("fileservers/servers/webdavserv", "Manager.WebDavToogle", "m", m, "enabled", enabled), &out0)
 	m.WebDavHandler.Enabled = enabled
 	m.option.Sysdb.Write("webdav", "enabled", enabled)
 	return nil
 }
 
-func (m *Manager) WebDavGetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
-	logger.Debug("fileservers/servers/webdavserv", "Manager.WebDavGetEndpoints")
+func (m *Manager) WebDavGetEndpoints(userinfo *user.User) (out0 []*fileservers.Endpoint) {
+	defer logger.Out1(logger.In2("fileservers/servers/webdavserv", "Manager.WebDavGetEndpoints", "m", m, "userinfo", userinfo), &out0)
 	protocolName := "http://"
 	if m.option.UseTls {
 		protocolName = "https://"
@@ -107,35 +103,27 @@ func (m *Manager) WebDavGetEndpoints(userinfo *user.User) []*fileservers.Endpoin
 	}
 }
 
-func (m *Manager) GetWebDavEnabled() bool {
-	logger.DebugTrace("fileservers/servers/webdavserv", "Manager.GetWebDavEnabled")
+func (m *Manager) GetWebDavEnabled() (out0 bool) {
+	defer logger.Out1(logger.In1("fileservers/servers/webdavserv", "Manager.GetWebDavEnabled", "m", m), &out0)
 	return m.WebDavHandler.Enabled
 }
 
 // Mapper of the original Connection related features
 func (m *Manager) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandleConnectionList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/webdavserv", "Manager.HandleConnectionList", "m", m, "r", r))
 	m.WebDavHandler.HandleConnectionList(w, r)
 }
 
 func (m *Manager) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandlePermissionEdit: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/webdavserv", "Manager.HandlePermissionEdit", "m", m, "r", r))
 	m.WebDavHandler.HandlePermissionEdit(w, r)
 }
 
 func (m *Manager) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandleClearAllPending: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/webdavserv", "Manager.HandleClearAllPending", "m", m, "r", r))
 	m.WebDavHandler.HandleClearAllPending(w, r)
 }
 func (m *Manager) HandleRequest(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/webdavserv", "Manager.HandleRequest: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/webdavserv", "Manager.HandleRequest", "m", m, "r", r))
 	m.WebDavHandler.HandleRequest(w, r)
 }

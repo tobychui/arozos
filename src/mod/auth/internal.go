@@ -15,32 +15,26 @@ func sendTextResponse(w http.ResponseWriter, msg string) {
 
 // Send JSON response, with an extra json header
 func sendJSONResponse(w http.ResponseWriter, json string) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "sendJSONResponse: json=%.120q", json)
-	}
+	defer logger.Out0(logger.In1("auth", "sendJSONResponse", "json", json))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
 }
 
 func sendErrorResponse(w http.ResponseWriter, errMsg string) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "sendErrorResponse: errMsg=%.120q", errMsg)
-	}
+	defer logger.Out0(logger.In1("auth", "sendErrorResponse", "errMsg", errMsg))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("{\"error\":\"" + errMsg + "\"}"))
 }
 
 func sendOK(w http.ResponseWriter) {
-	logger.Debug("auth", "sendOK")
+	defer logger.Out0(logger.In0("auth", "sendOK"))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
 
 // TODO: Deprecate this Mv
-func Mv(r *http.Request, getParamter string, postMode bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "Mv: r=%s getParamter=%.120q postMode=%t", logger.RequestSummary(r), getParamter, postMode)
-	}
+func Mv(r *http.Request, getParamter string, postMode bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("auth", "Mv", "r", r, "getParamter", getParamter, "postMode", postMode), &out0, &out1)
 	if postMode == false {
 		//Access the paramter via GET
 		keys, ok := r.URL.Query()[getParamter]
@@ -66,10 +60,8 @@ func Mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 
 }
 
-func inSlice(list []string, a string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "inSlice: len(list)=%d a=%.120q", len(list), a)
-	}
+func inSlice(list []string, a string) (out0 bool) {
+	defer logger.Out1(logger.In2("auth", "inSlice", "list", list, "a", a), &out0)
 	for _, b := range list {
 		if b == a {
 			return true

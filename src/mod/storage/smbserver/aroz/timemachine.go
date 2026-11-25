@@ -33,8 +33,8 @@ const (
 // backups: a local drive the user may write to. Drives that only move whole
 // files (cloud and remote ones) cannot flush a write in place, and tmp:/ is
 // emptied at every boot.
-func TimeMachineEligible(fsh *filesystem.FileSystemHandler, account Account) bool {
-	logger.Debug("storage/smbserver/aroz", "TimeMachineEligible")
+func TimeMachineEligible(fsh *filesystem.FileSystemHandler, account Account) (out0 bool) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "TimeMachineEligible", "fsh", fsh, "&account", &account), &out0)
 	if fsh == nil || fsh.Closed || fsh.ReadOnly || fsh.RequireBuffer || fsh.IsNetworkDrive() {
 		return false
 	}
@@ -46,10 +46,8 @@ func TimeMachineEligible(fsh *filesystem.FileSystemHandler, account Account) boo
 
 // TimeMachinePath is the folder of a user's backups on a drive, relative to
 // the drive root.
-func TimeMachinePath(fsh *filesystem.FileSystemHandler, username string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/smbserver/aroz", "TimeMachinePath: username=%.120q", username)
-	}
+func TimeMachinePath(fsh *filesystem.FileSystemHandler, username string) (out0 string) {
+	defer logger.Out1(logger.In2("storage/smbserver/aroz", "TimeMachinePath", "fsh", fsh, "username", username), &out0)
 	if fsh.Hierarchy == "user" {
 		return TimeMachineFolder
 	}
@@ -59,8 +57,8 @@ func TimeMachinePath(fsh *filesystem.FileSystemHandler, username string) string 
 // timeMachineShare is the user's TimeMachine share, or nil when they picked
 // no drive, the drive is gone or no longer eligible, or one of their drives
 // already has the share's name.
-func (v *view) timeMachineShare() *share {
-	logger.Debug("storage/smbserver/aroz", "view.timeMachineShare")
+func (v *view) timeMachineShare() (out0 *share) {
+	defer logger.Out1(logger.In1("storage/smbserver/aroz", "view.timeMachineShare", "v", v), &out0)
 	if v.opt == nil || v.opt.TimeMachine == nil {
 		return nil
 	}
@@ -90,8 +88,8 @@ func (v *view) timeMachineShare() *share {
 // TimeMachine implements smbsrv.TimeMachineShare. The limit is asked again
 // each time, as Macs ask for the free space, so a change applies at once; a
 // share whose user has since picked another drive takes no more backups.
-func (s *share) TimeMachine() (bool, uint64) {
-	logger.Debug("storage/smbserver/aroz", "share.TimeMachine")
+func (s *share) TimeMachine() (out0 bool, out1 uint64) {
+	defer logger.Out2(logger.In1("storage/smbserver/aroz", "share.TimeMachine", "s", s), &out0, &out1)
 	if !s.timeMachine {
 		return false, 0
 	}

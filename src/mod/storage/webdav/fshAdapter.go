@@ -32,15 +32,13 @@ type BufferFsIoHandler struct {
 	reader    *bytes.Reader
 }
 
-func (b BufferFsIoHandler) Close() error {
-	logger.DebugTrace("storage/webdav", "BufferFsIoHandler.Close")
+func (b BufferFsIoHandler) Close() (out0 error) {
+	defer logger.Out1(logger.In1("storage/webdav", "BufferFsIoHandler.Close", "&b", &b), &out0)
 	return nil
 }
 
-func newBufferFsIoHandler(fsa filesystem.FileSystemAbstraction, realpath string) (*BufferFsIoHandler, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "newBufferFsIoHandler: realpath=%.120q", realpath)
-	}
+func newBufferFsIoHandler(fsa filesystem.FileSystemAbstraction, realpath string) (out0 *BufferFsIoHandler, out1 error) {
+	defer logger.Out2(logger.In2("storage/webdav", "newBufferFsIoHandler", "&fsa", &fsa, "realpath", realpath), &out0, &out1)
 	if !fsa.FileExists(realpath) {
 		return nil, os.ErrExist
 	}
@@ -54,6 +52,7 @@ func newBufferFsIoHandler(fsa filesystem.FileSystemAbstraction, realpath string)
 
 	s, err := b.fsa.Stat(b.realpath)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return nil, err
 	}
 
@@ -66,6 +65,7 @@ func newBufferFsIoHandler(fsa filesystem.FileSystemAbstraction, realpath string)
 	if !s.IsDir() {
 		c, err := b.fsa.ReadFile(b.realpath)
 		if err != nil {
+			logger.DebugErr("storage/webdav", err)
 			return nil, err
 		}
 		b.filebytes = c
@@ -76,28 +76,23 @@ func newBufferFsIoHandler(fsa filesystem.FileSystemAbstraction, realpath string)
 }
 
 func (b BufferFsIoHandler) Read(p []byte) (n int, err error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/webdav", "BufferFsIoHandler.Read: len(p)=%d", len(p))
-	}
+	logger.DebugTrace("storage/webdav", "BufferFsIoHandler.Read")
 	//fmt.Println("READ", b.realpath)
 	return b.reader.Read(p)
 }
 
 func (b BufferFsIoHandler) Seek(offset int64, whence int) (int64, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/webdav", "BufferFsIoHandler.Seek: offset=%d whence=%d", offset, whence)
-	}
+	logger.DebugTrace("storage/webdav", "BufferFsIoHandler.Seek")
 	//fmt.Println("SEEK", b.realpath)
 	return b.reader.Seek(offset, whence)
 }
 
-func (b BufferFsIoHandler) Readdir(count int) ([]fs.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "BufferFsIoHandler.Readdir: count=%d", count)
-	}
+func (b BufferFsIoHandler) Readdir(count int) (out0 []fs.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("storage/webdav", "BufferFsIoHandler.Readdir", "&b", &b, "count", count), &out0, &out1)
 	//fmt.Println("READDIR", b.realpath)
 	de, err := b.fsa.ReadDir(b.realpath)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return []fs.FileInfo{}, err
 	}
 
@@ -109,6 +104,7 @@ func (b BufferFsIoHandler) Readdir(count int) ([]fs.FileInfo, error) {
 	for _, e := range de {
 		i, err := e.Info()
 		if err != nil {
+			logger.DebugErr("storage/webdav", err)
 			continue
 		}
 		results = append(results, i)
@@ -117,29 +113,26 @@ func (b BufferFsIoHandler) Readdir(count int) ([]fs.FileInfo, error) {
 	return results, nil
 }
 
-func (b BufferFsIoHandler) Stat() (fs.FileInfo, error) {
-	logger.DebugTrace("storage/webdav", "BufferFsIoHandler.Stat")
+func (b BufferFsIoHandler) Stat() (out0 fs.FileInfo, out1 error) {
+	defer logger.Out2(logger.In1("storage/webdav", "BufferFsIoHandler.Stat", "&b", &b), &out0, &out1)
 	//fmt.Println("FSTAT", b.realpath)
 	return b.fsa.Stat(b.realpath)
 }
 
 func (b BufferFsIoHandler) Write(p []byte) (n int, err error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/webdav", "BufferFsIoHandler.Write: len(p)=%d", len(p))
-	}
+	logger.DebugTrace("storage/webdav", "BufferFsIoHandler.Write")
 	//fmt.Println("WRITE", b.realpath)
 	r := bytes.NewReader(p)
 	err = b.fsa.WriteStream(b.realpath, r, 0777)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return 0, err
 	}
 	return len(p), nil
 }
 
-func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, canWrite WriteChecker) *FshWebDAVAdapter {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("storage/webdav", "NewFshWebDAVAdapter: username=%.120q", username)
-	}
+func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, canWrite WriteChecker) (out0 *FshWebDAVAdapter) {
+	defer logger.Out1(logger.In3("storage/webdav", "NewFshWebDAVAdapter", "fsh", fsh, "username", username, "&canWrite", &canWrite), &out0)
 	return &FshWebDAVAdapter{
 		fsh,
 		username,
@@ -148,10 +141,8 @@ func NewFshWebDAVAdapter(fsh *filesystem.FileSystemHandler, username string, can
 }
 
 // requestPathToVpath merges a request path into the virtual path of this drive
-func (a *FshWebDAVAdapter) requestPathToVpath(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.requestPathToVpath: name=%.120q", name)
-	}
+func (a *FshWebDAVAdapter) requestPathToVpath(name string) (out0 string) {
+	defer logger.Out1(logger.In2("storage/webdav", "FshWebDAVAdapter.requestPathToVpath", "a", a, "name", name), &out0)
 	if len(name) == 0 || name[0:1] != "/" {
 		name = "/" + name
 	}
@@ -159,23 +150,20 @@ func (a *FshWebDAVAdapter) requestPathToVpath(name string) string {
 }
 
 // checkWrite returns an error unless the user may change this request path
-func (a *FshWebDAVAdapter) checkWrite(name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.checkWrite: name=%.120q", name)
-	}
+func (a *FshWebDAVAdapter) checkWrite(name string) (out0 error) {
+	defer logger.Out1(logger.In2("storage/webdav", "FshWebDAVAdapter.checkWrite", "a", a, "name", name), &out0)
 	if !a.canWrite(a.requestPathToVpath(name)) {
 		return os.ErrPermission
 	}
 	return nil
 }
 
-func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.requestPathToRealPath: name=%.120q", name)
-	}
+func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("storage/webdav", "FshWebDAVAdapter.requestPathToRealPath", "a", a, "name", name), &out0, &out1)
 	fullVpath := a.requestPathToVpath(name)
 	realRequestPath, err := a.fsh.FileSystemAbstraction.VirtualPathToRealPath(fullVpath, a.username)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return "", err
 	}
 
@@ -183,25 +171,24 @@ func (a *FshWebDAVAdapter) requestPathToRealPath(name string) (string, error) {
 	return realRequestPath, nil
 }
 
-func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.Mkdir: name=%.120q", name)
-	}
+func (a *FshWebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("storage/webdav", "FshWebDAVAdapter.Mkdir", "a", a, "ctx", ctx, "name", name, "&perm", &perm), &out0)
 	if err := a.checkWrite(name); err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 	return a.fsh.FileSystemAbstraction.Mkdir(realRequestPath, perm)
 }
-func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.OpenFile: name=%.120q flag=%d", name, flag)
-	}
+func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (out0 webdav.File, out1 error) {
+	defer logger.Out2(logger.In5("storage/webdav", "FshWebDAVAdapter.OpenFile", "a", a, "ctx", ctx, "name", name, "flag", flag, "&perm", &perm), &out0, &out1)
 	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
 		if err := a.checkWrite(name); err != nil {
+			logger.DebugErr("storage/webdav", err)
 			return nil, err
 		}
 	}
@@ -210,6 +197,7 @@ func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, 
 	//Merge it into a proper vpath and perform abstraction path translation
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		logger.PrintAndLog("Webdav", fmt.Sprint(err), nil)
 		return nil, err
 	}
@@ -221,47 +209,48 @@ func (a *FshWebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, 
 		return a.fsh.FileSystemAbstraction.OpenFile(realRequestPath, flag, perm)
 	}
 }
-func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.RemoveAll: name=%.120q", name)
-	}
+func (a *FshWebDAVAdapter) RemoveAll(ctx context.Context, name string) (out0 error) {
+	defer logger.Out1(logger.In3("storage/webdav", "FshWebDAVAdapter.RemoveAll", "a", a, "ctx", ctx, "name", name), &out0)
 	if err := a.checkWrite(name); err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 	return a.fsh.FileSystemAbstraction.RemoveAll(realRequestPath)
 }
-func (a *FshWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.Rename: oldName=%.120q newName=%.120q", oldName, newName)
-	}
+func (a *FshWebDAVAdapter) Rename(ctx context.Context, oldName, newName string) (out0 error) {
+	defer logger.Out1(logger.In4("storage/webdav", "FshWebDAVAdapter.Rename", "a", a, "ctx", ctx, "oldName", oldName, "newName", newName), &out0)
 	if err := a.checkWrite(oldName); err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 	if err := a.checkWrite(newName); err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 	realOldname, err := a.requestPathToRealPath(oldName)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 
 	realNewname, err := a.requestPathToRealPath(newName)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return err
 	}
 
 	return a.fsh.FileSystemAbstraction.Rename(realOldname, realNewname)
 }
-func (a *FshWebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("storage/webdav", "FshWebDAVAdapter.Stat: name=%.120q", name)
-	}
+func (a *FshWebDAVAdapter) Stat(ctx context.Context, name string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In3("storage/webdav", "FshWebDAVAdapter.Stat", "a", a, "ctx", ctx, "name", name), &out0, &out1)
 	realRequestPath, err := a.requestPathToRealPath(name)
 	if err != nil {
+		logger.DebugErr("storage/webdav", err)
 		return nil, err
 	}
 

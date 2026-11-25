@@ -79,8 +79,8 @@ func DefaultOptions() Options {
 
 // withDefaults fills in any unset field with its default so a caller can
 // override just the parameters it cares about.
-func (o Options) withDefaults() Options {
-	logger.Debug("desktop/icons", "Options.withDefaults")
+func (o Options) withDefaults() (out0 Options) {
+	defer logger.Out1(logger.In1("desktop/icons", "Options.withDefaults", "&o", &o), &out0)
 	defaults := DefaultOptions()
 	if o.SquircleFactor <= 0 {
 		o.SquircleFactor = defaults.SquircleFactor

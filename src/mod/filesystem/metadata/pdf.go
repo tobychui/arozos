@@ -17,10 +17,8 @@ const pdfThumbnailTimeout = 15 * time.Second
 
 // generateThumbnailForPDF draws the first page of a PDF with the built-in
 // renderer (metadata/pdfrender), so no external tool is needed on the host
-func generateThumbnailForPDF(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/metadata", "generateThumbnailForPDF: cacheFolder=%.120q file=%.120q generateOnly=%t", cacheFolder, file, generateOnly)
-	}
+func generateThumbnailForPDF(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (out0 string, out1 error) {
+	defer logger.Out2(logger.In4("filesystem/metadata", "generateThumbnailForPDF", "fsh", fsh, "cacheFolder", cacheFolder, "file", file, "generateOnly", generateOnly), &out0, &out1)
 	if fsh.RequireBuffer {
 		return "", nil
 	}
@@ -32,10 +30,12 @@ func generateThumbnailForPDF(fsh *filesystem.FileSystemHandler, cacheFolder stri
 
 	f, err := fshAbs.Open(file)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	info, err := f.Stat()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		f.Close()
 		return "", err
 	}
@@ -52,11 +52,13 @@ func generateThumbnailForPDF(fsh *filesystem.FileSystemHandler, cacheFolder stri
 	outputFile := cacheFolder + filepath.Base(file) + ".jpg"
 	out, err := fshAbs.Create(outputFile)
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 	err = jpeg.Encode(out, img, &jpeg.Options{Quality: 90})
 	out.Close()
 	if err != nil {
+		logger.DebugErr("filesystem/metadata", err)
 		return "", err
 	}
 

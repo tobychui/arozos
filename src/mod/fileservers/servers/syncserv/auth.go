@@ -31,10 +31,8 @@ const (
 
 var errRefused = errors.New(refusedSignIn)
 
-func firstHeader(r *http.Request, names ...string) string {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "firstHeader: r=%s len(names)=%d", logger.RequestSummary(r), len(names))
-	}
+func firstHeader(r *http.Request, names ...string) (out0 string) {
+	defer logger.Out1(logger.In2("fileservers/servers/syncserv", "firstHeader", "r", r, "names", names), &out0)
 	for _, name := range names {
 		if value := strings.TrimSpace(r.Header.Get(name)); value != "" {
 			return value
@@ -44,10 +42,8 @@ func firstHeader(r *http.Request, names ...string) string {
 }
 
 // stripBearer drops a "Bearer " in front of a password.
-func stripBearer(value string) (string, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "stripBearer: value=%.120q", value)
-	}
+func stripBearer(value string) (out0 string, out1 bool) {
+	defer logger.Out2(logger.In1("fileservers/servers/syncserv", "stripBearer", "value", value), &out0, &out1)
 	value = strings.TrimSpace(value)
 	if len(value) > 7 && strings.EqualFold(value[:7], "bearer ") {
 		return strings.TrimSpace(value[7:]), true
@@ -61,10 +57,8 @@ func stripBearer(value string) (string, bool) {
 // (Cloudflare Access, a tunnel) may remove the Authorization header or put
 // its own in it, and these headers pass untouched. X-User-Cred holds the
 // password alone; a "Bearer " in front is tolerated.
-func credentials(r *http.Request) (string, string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "credentials: r=%s", logger.RequestSummary(r))
-	}
+func credentials(r *http.Request) (out0 string, out1 string) {
+	defer logger.Out2(logger.In1("fileservers/servers/syncserv", "credentials", "r", r), &out0, &out1)
 	username := firstHeader(r, "X-User-Name", "Username", "X-Username")
 	if cred := r.Header.Get("X-User-Cred"); strings.TrimSpace(cred) != "" {
 		password, _ := stripBearer(cred)
@@ -84,8 +78,8 @@ func credentials(r *http.Request) (string, string) {
 }
 
 // ValidateSyncPassword checks a new sync password.
-func ValidateSyncPassword(password string) error {
-	logger.Debug("fileservers/servers/syncserv", "ValidateSyncPassword")
+func ValidateSyncPassword(password string) (out0 error) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncserv", "ValidateSyncPassword", "!password", password), &out0)
 	if len(password) < minPasswordLen {
 		return errors.New("The sync password must be at least 8 characters long")
 	}
@@ -104,15 +98,15 @@ func ValidateSyncPassword(password string) error {
 }
 
 // setSyncPassword stores the hash of a user's sync password.
-func (m *Manager) setSyncPassword(username, password string) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "Manager.setSyncPassword: username=%.120q", username)
-	}
+func (m *Manager) setSyncPassword(username, password string) (out0 error) {
+	defer logger.Out1(logger.In3("fileservers/servers/syncserv", "Manager.setSyncPassword", "m", m, "username", username, "!password", password), &out0)
 	if err := ValidateSyncPassword(password); err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/syncserv", err)
 		return err
 	}
 	m.cache.forget(username)
@@ -120,10 +114,8 @@ func (m *Manager) setSyncPassword(username, password string) error {
 }
 
 // checkPassword decides the password of an upload request.
-func (m *Manager) checkPassword(username, password string, settings UserSettings) error {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "Manager.checkPassword: username=%.120q", username)
-	}
+func (m *Manager) checkPassword(username, password string, settings UserSettings) (out0 error) {
+	defer logger.Out1(logger.In4("fileservers/servers/syncserv", "Manager.checkPassword", "m", m, "username", username, "&settings", &settings, "!password", password), &out0)
 	if password == "" {
 		return errRefused
 	}
@@ -169,15 +161,13 @@ type passwordCache struct {
 	m   map[string]verified
 }
 
-func newPasswordCache(key []byte) *passwordCache {
-	logger.DebugTrace("fileservers/servers/syncserv", "newPasswordCache")
+func newPasswordCache(key []byte) (out0 *passwordCache) {
+	defer logger.Out1(logger.In1("fileservers/servers/syncserv", "newPasswordCache", "!&key", &key), &out0)
 	return &passwordCache{key: key, m: map[string]verified{}}
 }
 
-func (c *passwordCache) sum(username, password string) []byte {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "passwordCache.sum: username=%.120q", username)
-	}
+func (c *passwordCache) sum(username, password string) (out0 []byte) {
+	defer logger.Out1(logger.In3("fileservers/servers/syncserv", "passwordCache.sum", "c", c, "username", username, "!password", password), &out0)
 	mac := hmac.New(sha256.New, c.key)
 	mac.Write([]byte(username))
 	mac.Write([]byte{0})
@@ -185,10 +175,8 @@ func (c *passwordCache) sum(username, password string) []byte {
 	return mac.Sum(nil)
 }
 
-func (c *passwordCache) match(username, password string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "passwordCache.match: username=%.120q", username)
-	}
+func (c *passwordCache) match(username, password string) (out0 bool) {
+	defer logger.Out1(logger.In3("fileservers/servers/syncserv", "passwordCache.match", "c", c, "username", username, "!password", password), &out0)
 	c.mu.Lock()
 	entry, ok := c.m[username]
 	c.mu.Unlock()
@@ -199,9 +187,7 @@ func (c *passwordCache) match(username, password string) bool {
 }
 
 func (c *passwordCache) store(username, password string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "passwordCache.store: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In3("fileservers/servers/syncserv", "passwordCache.store", "c", c, "username", username, "!password", password))
 	sum := c.sum(username, password)
 	c.mu.Lock()
 	c.m[username] = verified{sum: sum, until: time.Now().Add(verifiedFor)}
@@ -209,9 +195,7 @@ func (c *passwordCache) store(username, password string) {
 }
 
 func (c *passwordCache) forget(username string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "passwordCache.forget: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/syncserv", "passwordCache.forget", "c", c, "username", username))
 	c.mu.Lock()
 	delete(c.m, username)
 	c.mu.Unlock()
@@ -244,23 +228,19 @@ type limiter struct {
 	m  map[string]*strike
 }
 
-func newLimiter() *limiter {
-	logger.DebugTrace("fileservers/servers/syncserv", "newLimiter")
+func newLimiter() (out0 *limiter) {
+	defer logger.Out1(logger.In0("fileservers/servers/syncserv", "newLimiter"), &out0)
 	return &limiter{m: map[string]*strike{}}
 }
 
-func limiterKeys(username, address string) (string, string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("fileservers/servers/syncserv", "limiterKeys: username=%.120q", username)
-	}
+func limiterKeys(username, address string) (out0 string, out1 string) {
+	defer logger.Out2(logger.In2("fileservers/servers/syncserv", "limiterKeys", "username", username, "address", address), &out0, &out1)
 	return "a/" + address + "/" + username, "u/" + username
 }
 
 // wait is how long requests for this user from this address must wait.
-func (l *limiter) wait(username, address string, now time.Time) time.Duration {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "limiter.wait: username=%.120q", username)
-	}
+func (l *limiter) wait(username, address string, now time.Time) (out0 time.Duration) {
+	defer logger.Out1(logger.In4("fileservers/servers/syncserv", "limiter.wait", "l", l, "username", username, "address", address, "&now", &now), &out0)
 	byAddress, byUser := limiterKeys(username, address)
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -274,9 +254,7 @@ func (l *limiter) wait(username, address string, now time.Time) time.Duration {
 }
 
 func (l *limiter) miss(username, address string, now time.Time) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "limiter.miss: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In4("fileservers/servers/syncserv", "limiter.miss", "l", l, "username", username, "address", address, "&now", &now))
 	byAddress, byUser := limiterKeys(username, address)
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -309,9 +287,7 @@ func (l *limiter) miss(username, address string, now time.Time) {
 }
 
 func (l *limiter) clear(username, address string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/syncserv", "limiter.clear: username=%.120q", username)
-	}
+	defer logger.Out0(logger.In3("fileservers/servers/syncserv", "limiter.clear", "l", l, "username", username, "address", address))
 	byAddress, byUser := limiterKeys(username, address)
 	l.mu.Lock()
 	delete(l.m, byAddress)

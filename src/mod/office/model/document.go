@@ -57,10 +57,8 @@ const (
 
 // HFOnPage reports whether the header/footer text shows on the given
 // 1-based page number under mode
-func HFOnPage(mode string, page int) bool {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "HFOnPage: mode=%.120q page=%d", mode, page)
-	}
+func HFOnPage(mode string, page int) (out0 bool) {
+	defer logger.Out1(logger.In2("office/model", "HFOnPage", "mode", mode, "page", page), &out0)
 	switch mode {
 	case HFModeNone:
 		return false
@@ -74,9 +72,7 @@ func HFOnPage(mode string, page int) bool {
 // it is its own page-setup option, but a suppressed first page suppresses
 // its number too (the same thing Word's titlePg does)
 func HFPageNumberOn(doc *Document, page int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/model", "HFPageNumberOn: page=%d", page)
-	}
+	logger.DebugTrace("office/model", "HFPageNumberOn")
 	return doc.PageNumbers && (doc.HFMode != HFModeExceptFirst || page > 1)
 }
 
@@ -102,25 +98,25 @@ type MarginsMM struct {
 }
 
 // ParseDocumentJSON decodes the Docs body JSON into a Document
-func ParseDocumentJSON(jsonStr string) (*Document, error) {
-	if logger.IsDebug() {
-		logger.Debugf("office/model", "ParseDocumentJSON: jsonStr=%.120q", jsonStr)
-	}
+func ParseDocumentJSON(jsonStr string) (out0 *Document, out1 error) {
+	defer logger.Out2(logger.In1("office/model", "ParseDocumentJSON", "jsonStr", jsonStr), &out0, &out1)
 	d := Document{}
 	if err := json.Unmarshal([]byte(jsonStr), &d); err != nil {
+		logger.DebugErr("office/model", err)
 		return nil, errors.New("invalid document JSON: " + err.Error())
 	}
 	return &d, nil
 }
 
 // DocumentToJSON serializes a Document back to the Docs body JSON
-func DocumentToJSON(d *Document) (string, error) {
-	logger.Debug("office/model", "DocumentToJSON")
+func DocumentToJSON(d *Document) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("office/model", "DocumentToJSON", "d", d), &out0, &out1)
 	if d == nil {
 		return "", errors.New("nil document")
 	}
 	out, err := json.Marshal(d)
 	if err != nil {
+		logger.DebugErr("office/model", err)
 		return "", err
 	}
 	return string(out), nil

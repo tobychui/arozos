@@ -63,12 +63,11 @@ type frameHeader struct {
 	Headers map[string][]string `json:"h,omitempty"`
 }
 
-func encodeFrame(kind byte, hdr frameHeader, body []byte) ([]byte, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "encodeFrame: kind=%d", kind)
-	}
+func encodeFrame(kind byte, hdr frameHeader, body []byte) (out0 []byte, out1 error) {
+	defer logger.Out2(logger.In3("cluster/acn", "encodeFrame", "kind", kind, "&hdr", &hdr, "body", body), &out0, &out1)
 	hj, err := json.Marshal(hdr)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	if len(hj)+len(body)+5 > TunnelMaxFrame {
@@ -82,8 +81,8 @@ func encodeFrame(kind byte, hdr frameHeader, body []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func decodeFrame(data []byte) (byte, frameHeader, []byte, error) {
-	logger.Debug("cluster/acn", "decodeFrame")
+func decodeFrame(data []byte) (out0 byte, out1 frameHeader, out2 []byte, out3 error) {
+	defer logger.Out4(logger.In1("cluster/acn", "decodeFrame", "data", data), &out0, &out1, &out2, &out3)
 	var hdr frameHeader
 	if len(data) < 5 {
 		return 0, hdr, nil, errors.New("tunnel frame too short")
@@ -94,6 +93,7 @@ func decodeFrame(data []byte) (byte, frameHeader, []byte, error) {
 		return 0, hdr, nil, errors.New("tunnel frame header length invalid")
 	}
 	if err := json.Unmarshal(data[5:5+hlen], &hdr); err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return 0, hdr, nil, err
 	}
 	return kind, hdr, data[5+hlen:], nil
@@ -133,8 +133,8 @@ type tunnelConn struct {
 	seq     uint64
 }
 
-func newTunnelConn(ws *websocket.Conn) *tunnelConn {
-	logger.Debug("cluster/acn", "newTunnelConn")
+func newTunnelConn(ws *websocket.Conn) (out0 *tunnelConn) {
+	defer logger.Out1(logger.In1("cluster/acn", "newTunnelConn", "ws", ws), &out0)
 	ws.SetReadLimit(TunnelMaxFrame)
 	return &tunnelConn{
 		ws:      ws,
@@ -143,12 +143,11 @@ func newTunnelConn(ws *websocket.Conn) *tunnelConn {
 	}
 }
 
-func (c *tunnelConn) write(kind byte, hdr frameHeader, body []byte) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "tunnelConn.write: kind=%d", kind)
-	}
+func (c *tunnelConn) write(kind byte, hdr frameHeader, body []byte) (out0 error) {
+	defer logger.Out1(logger.In4("cluster/acn", "tunnelConn.write", "c", c, "kind", kind, "&hdr", &hdr, "body", body), &out0)
 	frame, err := encodeFrame(kind, hdr, body)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return err
 	}
 	c.writeMu.Lock()
@@ -162,8 +161,8 @@ func (c *tunnelConn) write(kind byte, hdr frameHeader, body []byte) error {
 	return c.ws.WriteMessage(websocket.BinaryMessage, frame)
 }
 
-func (c *tunnelConn) ping() error {
-	logger.Debug("cluster/acn", "tunnelConn.ping")
+func (c *tunnelConn) ping() (out0 error) {
+	defer logger.Out1(logger.In1("cluster/acn", "tunnelConn.ping", "c", c), &out0)
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	return c.ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
@@ -183,8 +182,8 @@ func (c *tunnelConn) close() {
 	})
 }
 
-func (c *tunnelConn) isClosed() bool {
-	logger.Debug("cluster/acn", "tunnelConn.isClosed")
+func (c *tunnelConn) isClosed() (out0 bool) {
+	defer logger.Out1(logger.In1("cluster/acn", "tunnelConn.isClosed", "c", c), &out0)
 	select {
 	case <-c.closed:
 		return true
@@ -194,10 +193,8 @@ func (c *tunnelConn) isClosed() bool {
 }
 
 // roundTrip sends a request frame and waits for its response frame.
-func (c *tunnelConn) roundTrip(ctx context.Context, method string, target string, headers http.Header, body []byte) (*Response, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "tunnelConn.roundTrip: method=%.120q target=%.120q", method, target)
-	}
+func (c *tunnelConn) roundTrip(ctx context.Context, method string, target string, headers http.Header, body []byte) (out0 *Response, out1 error) {
+	defer logger.Out2(logger.In6("cluster/acn", "tunnelConn.roundTrip", "c", c, "ctx", ctx, "method", method, "target", target, "&headers", &headers, "body", body), &out0, &out1)
 	c.pmu.Lock()
 	c.seq++
 	id := newNonce()
@@ -218,6 +215,7 @@ func (c *tunnelConn) roundTrip(ctx context.Context, method string, target string
 		Headers: map[string][]string(headers),
 	}, body)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		cleanup()
 		return nil, err
 	}
@@ -241,7 +239,7 @@ func (c *tunnelConn) roundTrip(ctx context.Context, method string, target string
 // serveRequest executes an incoming request frame against handler and writes
 // the response frame back.
 func (c *tunnelConn) serveRequest(handler http.Handler, hdr frameHeader, body []byte) {
-	logger.Debug("cluster/acn", "tunnelConn.serveRequest")
+	defer logger.Out0(logger.In4("cluster/acn", "tunnelConn.serveRequest", "c", c, "handler", handler, "&hdr", &hdr, "body", body))
 	u, err := url.ParseRequestURI(hdr.Target)
 	if err != nil || !strings.HasPrefix(hdr.Target, "/") {
 		c.write(frameKindResponse, frameHeader{ID: hdr.ID, Status: http.StatusBadRequest}, []byte("invalid tunnel target"))
@@ -249,6 +247,7 @@ func (c *tunnelConn) serveRequest(handler http.Handler, hdr frameHeader, body []
 	}
 	req, err := http.NewRequest(hdr.Method, hdr.Target, bytes.NewReader(body))
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		c.write(frameKindResponse, frameHeader{ID: hdr.ID, Status: http.StatusBadRequest}, []byte(err.Error()))
 		return
 	}
@@ -275,7 +274,7 @@ func (c *tunnelConn) serveRequest(handler http.Handler, hdr frameHeader, body []
 // pending round trips; request frames are served through handler (nil when
 // this end never expects requests).
 func (c *tunnelConn) readLoop(handler http.Handler) {
-	logger.Debug("cluster/acn", "tunnelConn.readLoop")
+	defer logger.Out0(logger.In2("cluster/acn", "tunnelConn.readLoop", "c", c, "handler", handler))
 	defer c.close()
 	c.ws.SetReadDeadline(time.Now().Add(TunnelReadTimeout))
 	c.ws.SetPongHandler(func(string) error {
@@ -292,6 +291,7 @@ func (c *tunnelConn) readLoop(handler http.Handler) {
 	for {
 		mt, data, err := c.ws.ReadMessage()
 		if err != nil {
+			logger.DebugErr("cluster/acn", err)
 			if !c.isClosed() && !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				logger.PrintAndLog("Cluster", "Tunnel read ended: "+err.Error(), nil)
 			}
@@ -303,6 +303,7 @@ func (c *tunnelConn) readLoop(handler http.Handler) {
 		}
 		kind, hdr, body, err := decodeFrame(data)
 		if err != nil {
+			logger.DebugErr("cluster/acn", err)
 			continue
 		}
 		switch kind {
@@ -323,7 +324,7 @@ func (c *tunnelConn) readLoop(handler http.Handler) {
 
 // pingLoop keeps the socket alive through proxies until it closes.
 func (c *tunnelConn) pingLoop() {
-	logger.Debug("cluster/acn", "tunnelConn.pingLoop")
+	defer logger.Out0(logger.In1("cluster/acn", "tunnelConn.pingLoop", "c", c))
 	ticker := time.NewTicker(TunnelPingInterval)
 	defer ticker.Stop()
 	for {
@@ -332,6 +333,7 @@ func (c *tunnelConn) pingLoop() {
 			return
 		case <-ticker.C:
 			if err := c.ping(); err != nil {
+				logger.DebugErr("cluster/acn", err)
 				c.close()
 				return
 			}
@@ -352,16 +354,12 @@ func (r *responseRecorder) Header() http.Header {
 	return r.header
 }
 func (r *responseRecorder) Write(b []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "responseRecorder.Write: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("cluster/acn", "responseRecorder.Write")
 	r.wrote = true
 	return r.body.Write(b)
 }
 func (r *responseRecorder) WriteHeader(status int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/acn", "responseRecorder.WriteHeader: status=%d", status)
-	}
+	logger.DebugTrace("cluster/acn", "responseRecorder.WriteHeader")
 	if !r.wrote {
 		r.status = status
 	}
@@ -399,16 +397,16 @@ func NewTunnelHub(v *Verifier) *TunnelHub {
 // HandleTunnel is the HTTP handler for TunnelPath. The upgrade request must be
 // signed by a cluster member.
 func (h *TunnelHub) HandleTunnel(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "TunnelHub.HandleTunnel: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("cluster/acn", "TunnelHub.HandleTunnel", "h", h, "r", r))
 	identity, _, err := h.Verifier.VerifyRequest(r)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	ws, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return
 	}
 	conn := newTunnelConn(ws)
@@ -439,10 +437,8 @@ func (h *TunnelHub) HandleTunnel(w http.ResponseWriter, r *http.Request) {
 }
 
 // Connected reports whether nodeID currently has a live tunnel here.
-func (h *TunnelHub) Connected(nodeID string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "TunnelHub.Connected: nodeID=%.120q", nodeID)
-	}
+func (h *TunnelHub) Connected(nodeID string) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/acn", "TunnelHub.Connected", "h", h, "nodeID", nodeID), &out0)
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	c, ok := h.conns[nodeID]
@@ -450,8 +446,8 @@ func (h *TunnelHub) Connected(nodeID string) bool {
 }
 
 // ConnectedNodes lists the node IDs with a live tunnel.
-func (h *TunnelHub) ConnectedNodes() []string {
-	logger.Debug("cluster/acn", "TunnelHub.ConnectedNodes")
+func (h *TunnelHub) ConnectedNodes() (out0 []string) {
+	defer logger.Out1(logger.In1("cluster/acn", "TunnelHub.ConnectedNodes", "h", h), &out0)
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	ids := []string{}
@@ -464,10 +460,8 @@ func (h *TunnelHub) ConnectedNodes() []string {
 }
 
 // Do forwards an already signed request to the tunnelled node.
-func (h *TunnelHub) Do(ctx context.Context, nodeID string, method string, target string, headers http.Header, body []byte) (*Response, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "TunnelHub.Do: nodeID=%.120q method=%.120q target=%.120q", nodeID, method, target)
-	}
+func (h *TunnelHub) Do(ctx context.Context, nodeID string, method string, target string, headers http.Header, body []byte) (out0 *Response, out1 error) {
+	defer logger.Out2(logger.In7("cluster/acn", "TunnelHub.Do", "h", h, "ctx", ctx, "nodeID", nodeID, "method", method, "target", target, "&headers", &headers, "body", body), &out0, &out1)
 	h.mu.RLock()
 	c, ok := h.conns[nodeID]
 	h.mu.RUnlock()
@@ -479,7 +473,7 @@ func (h *TunnelHub) Do(ctx context.Context, nodeID string, method string, target
 
 // Close drops every tunnel.
 func (h *TunnelHub) Close() {
-	logger.Debug("cluster/acn", "TunnelHub.Close")
+	defer logger.Out0(logger.In1("cluster/acn", "TunnelHub.Close", "h", h))
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for id, c := range h.conns {
@@ -518,7 +512,7 @@ type TunnelClient struct {
 
 // Start begins the connect / serve / reconnect loop in the background.
 func (c *TunnelClient) Start() {
-	logger.Debug("cluster/acn", "TunnelClient.Start")
+	defer logger.Out0(logger.In1("cluster/acn", "TunnelClient.Start", "c", c))
 	c.mu.Lock()
 	if c.running {
 		c.mu.Unlock()
@@ -533,7 +527,7 @@ func (c *TunnelClient) Start() {
 
 // Stop closes the current tunnel and halts reconnection.
 func (c *TunnelClient) Stop() {
-	logger.Debug("cluster/acn", "TunnelClient.Stop")
+	defer logger.Out0(logger.In1("cluster/acn", "TunnelClient.Stop", "c", c))
 	c.mu.Lock()
 	if !c.running {
 		c.mu.Unlock()
@@ -551,7 +545,7 @@ func (c *TunnelClient) Stop() {
 // Reconnect drops the current tunnel so the loop picks a host again, used
 // after the preferred host changes.
 func (c *TunnelClient) Reconnect() {
-	logger.Debug("cluster/acn", "TunnelClient.Reconnect")
+	defer logger.Out0(logger.In1("cluster/acn", "TunnelClient.Reconnect", "c", c))
 	c.mu.Lock()
 	cur := c.current
 	c.mu.Unlock()
@@ -561,15 +555,15 @@ func (c *TunnelClient) Reconnect() {
 }
 
 // Status reports whether the tunnel is up and through which host.
-func (c *TunnelClient) Status() (bool, TunnelHost) {
-	logger.Debug("cluster/acn", "TunnelClient.Status")
+func (c *TunnelClient) Status() (out0 bool, out1 TunnelHost) {
+	defer logger.Out2(logger.In1("cluster/acn", "TunnelClient.Status", "c", c), &out0, &out1)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.connected, c.host
 }
 
 func (c *TunnelClient) setState(connected bool, host TunnelHost, conn *tunnelConn) {
-	logger.Debug("cluster/acn", "TunnelClient.setState")
+	defer logger.Out0(logger.In4("cluster/acn", "TunnelClient.setState", "c", c, "connected", connected, "&host", &host, "conn", conn))
 	c.mu.Lock()
 	c.connected = connected
 	c.host = host
@@ -581,17 +575,19 @@ func (c *TunnelClient) setState(connected bool, host TunnelHost, conn *tunnelCon
 	}
 }
 
-func (c *TunnelClient) dial(host TunnelHost) (*websocket.Conn, error) {
-	logger.Debug("cluster/acn", "TunnelClient.dial")
+func (c *TunnelClient) dial(host TunnelHost) (out0 *websocket.Conn, out1 error) {
+	defer logger.Out2(logger.In2("cluster/acn", "TunnelClient.dial", "c", c, "&host", &host), &out0, &out1)
 	if c.dialer != nil {
 		return c.dialer(host)
 	}
 	wsURL, err := WebSocketURL(host.URL, TunnelPath)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	req, err := http.NewRequest(http.MethodGet, wsURL, nil)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	c.Signer.Sign(req, TunnelPath, []byte{})
@@ -601,6 +597,7 @@ func (c *TunnelClient) dial(host TunnelHost) (*websocket.Conn, error) {
 	}
 	ws, resp, err := dialer.Dial(wsURL, req.Header)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		if resp != nil && resp.Body != nil {
 			msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 			resp.Body.Close()
@@ -614,7 +611,7 @@ func (c *TunnelClient) dial(host TunnelHost) (*websocket.Conn, error) {
 }
 
 func (c *TunnelClient) loop(stop chan struct{}) {
-	logger.Debug("cluster/acn", "TunnelClient.loop")
+	defer logger.Out0(logger.In2("cluster/acn", "TunnelClient.loop", "c", c, "stop", stop))
 	backoff := 2 * time.Second
 	for {
 		select {
@@ -633,6 +630,7 @@ func (c *TunnelClient) loop(stop chan struct{}) {
 
 		ws, err := c.dial(host)
 		if err != nil {
+			logger.DebugErr("cluster/acn", err)
 			logger.PrintAndLog("Cluster", "Tunnel to "+host.NodeID+" failed: "+err.Error(), nil)
 			if !sleepOrStop(stop, backoff) {
 				return
@@ -656,8 +654,8 @@ func (c *TunnelClient) loop(stop chan struct{}) {
 	}
 }
 
-func sleepOrStop(stop chan struct{}, d time.Duration) bool {
-	logger.Debug("cluster/acn", "sleepOrStop")
+func sleepOrStop(stop chan struct{}, d time.Duration) (out0 bool) {
+	defer logger.Out1(logger.In2("cluster/acn", "sleepOrStop", "stop", stop, "&d", &d), &out0)
 	select {
 	case <-stop:
 		return false
@@ -667,12 +665,11 @@ func sleepOrStop(stop chan struct{}, d time.Duration) bool {
 }
 
 // WebSocketURL converts a node base URL plus path into a ws:// or wss:// URL.
-func WebSocketURL(baseURL string, path string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "WebSocketURL: path=%.120q", path)
-	}
+func WebSocketURL(baseURL string, path string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("cluster/acn", "WebSocketURL", "baseURL", baseURL, "path", path), &out0, &out1)
 	u, err := url.Parse(strings.TrimRight(baseURL, "/"))
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return "", err
 	}
 	switch u.Scheme {

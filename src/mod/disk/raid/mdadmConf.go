@@ -23,11 +23,12 @@ import (
 
 // Force mdadm to stop all RAID and load fresh from config file
 // on some Linux distro this is required as mdadm start too early
-func (m *Manager) FlushReload() error {
-	logger.Debug("disk/raid", "Manager.FlushReload")
+func (m *Manager) FlushReload() (out0 error) {
+	defer logger.Out1(logger.In1("disk/raid", "Manager.FlushReload", "m", m), &out0)
 	//Get a list of currently running RAID devices
 	raidDevices, err := m.GetRAIDDevicesFromProcMDStat()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return err
 	}
 
@@ -47,6 +48,7 @@ func (m *Manager) FlushReload() error {
 		// Run the command and capture its output
 		_, err = cmdMdadm.Output()
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			logger.PrintAndLog("Raid", "[RAID] Unable to stop "+rd.Name+". Skipping", nil)
 			continue
 		}
@@ -57,6 +59,7 @@ func (m *Manager) FlushReload() error {
 	//Assemble mdadm array again
 	err = m.RestartRAIDService()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return err
 	}
 
@@ -64,10 +67,8 @@ func (m *Manager) FlushReload() error {
 }
 
 // removeDevicesEntry remove device hardcode from mdadm config file
-func removeDevicesEntry(configLine string) string {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "removeDevicesEntry: configLine=%.120q", configLine)
-	}
+func removeDevicesEntry(configLine string) (out0 string) {
+	defer logger.Out1(logger.In1("disk/raid", "removeDevicesEntry", "configLine", configLine), &out0)
 	// Split the config line by space character
 	tokens := strings.Fields(configLine)
 
@@ -89,19 +90,21 @@ func removeDevicesEntry(configLine string) string {
 // Updates the mdadm configuration file with the details of RAID arrays
 // so the RAID drive will still be seen after a reboot (hopefully)
 // this will automatically add / remove config base on current runtime setup
-func (m *Manager) UpdateMDADMConfig() error {
-	logger.Debug("disk/raid", "Manager.UpdateMDADMConfig")
+func (m *Manager) UpdateMDADMConfig() (out0 error) {
+	defer logger.Out1(logger.In1("disk/raid", "Manager.UpdateMDADMConfig", "m", m), &out0)
 	cmdMdadm := exec.Command("sudo", "mdadm", "--detail", "--scan", "--verbose")
 
 	// Run the command and capture its output
 	output, err := cmdMdadm.Output()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("error running mdadm command: %v", err)
 	}
 
 	//Load the config from system
 	currentConfigBytes, err := os.ReadFile("/etc/mdadm/mdadm.conf")
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("unable to open mdadm.conf: %w", err)
 	}
 	currentConf := string(currentConfigBytes)
@@ -163,6 +166,7 @@ func (m *Manager) UpdateMDADMConfig() error {
 		for _, volumeUUID := range poolUUIDToBeRemoved {
 			err = m.RemoveVolumeFromMDADMConfig(volumeUUID)
 			if err != nil {
+				logger.DebugErr("disk/raid", err)
 				logger.PrintAndLog("Raid", "[RAID] Error when trying to remove old RAID volume from config: "+err.Error(), nil)
 				return err
 			} else {
@@ -185,6 +189,7 @@ func (m *Manager) UpdateMDADMConfig() error {
 		// Run the command
 		err := cmd.Run()
 		if err != nil {
+			logger.DebugErr("disk/raid", err)
 			return fmt.Errorf("error injecting line into mdadm.conf: %v", err)
 		}
 	}
@@ -195,10 +200,8 @@ func (m *Manager) UpdateMDADMConfig() error {
 // Removes a RAID volume from the mdadm configuration file given its volume UUID.
 // Note that this only remove a single line of config. If your line consists of multiple lines
 // you might need to remove it manually
-func (m *Manager) RemoveVolumeFromMDADMConfig(volumeUUID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("disk/raid", "Manager.RemoveVolumeFromMDADMConfig: volumeUUID=%.120q", volumeUUID)
-	}
+func (m *Manager) RemoveVolumeFromMDADMConfig(volumeUUID string) (out0 error) {
+	defer logger.Out1(logger.In2("disk/raid", "Manager.RemoveVolumeFromMDADMConfig", "m", m, "volumeUUID", volumeUUID), &out0)
 	// Construct the sed command to remove the line containing the volume UUID from mdadm.conf
 	sedCommand := fmt.Sprintf(`sudo sed -i '/UUID=%s/d' /etc/mdadm/mdadm.conf`, volumeUUID)
 
@@ -206,6 +209,7 @@ func (m *Manager) RemoveVolumeFromMDADMConfig(volumeUUID string) error {
 	cmd := exec.Command("bash", "-c", sedCommand)
 	err := cmd.Run()
 	if err != nil {
+		logger.DebugErr("disk/raid", err)
 		return fmt.Errorf("error removing volume from mdadm.conf: %v", err)
 	}
 

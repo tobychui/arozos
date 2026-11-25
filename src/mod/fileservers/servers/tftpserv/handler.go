@@ -11,11 +11,10 @@ import (
 
 // Start the TFTP Server by request
 func (m *Manager) HandleTFTPServerStart(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStart: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStart", "m", m, "r", r))
 	err := m.StartTftpServer()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/tftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -24,20 +23,17 @@ func (m *Manager) HandleTFTPServerStart(w http.ResponseWriter, r *http.Request) 
 
 // Stop the TFTP server by request
 func (m *Manager) HandleTFTPServerStop(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStop: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStop", "m", m, "r", r))
 	m.StopTftpServer()
 	utils.SendOK(w)
 }
 
 // Get the TFTP server status
 func (m *Manager) HandleTFTPServerStatus(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStatus: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/tftpserv", "Manager.HandleTFTPServerStatus", "m", m, "r", r))
 	status, err := m.GetTftpServerStatus()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/tftpserv", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -48,9 +44,7 @@ func (m *Manager) HandleTFTPServerStatus(w http.ResponseWriter, r *http.Request)
 
 // Handle TFTP Server Port number change
 func (m *Manager) HandleTFTPPort(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPPort: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/tftpserv", "Manager.HandleTFTPPort", "m", m, "r", r))
 	newport, _ := utils.GetPara(r, "port")
 	if newport == "" {
 		//Get current port
@@ -64,6 +58,7 @@ func (m *Manager) HandleTFTPPort(w http.ResponseWriter, r *http.Request) {
 		//Set new port
 		newPortInt, err := strconv.Atoi(newport)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/tftpserv", err)
 			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
@@ -82,9 +77,7 @@ func (m *Manager) HandleTFTPPort(w http.ResponseWriter, r *http.Request) {
 
 // Handle setting the default user for TFTP access
 func (m *Manager) HandleTFTPDefaultUser(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/tftpserv", "Manager.HandleTFTPDefaultUser: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/tftpserv", "Manager.HandleTFTPDefaultUser", "m", m, "r", r))
 	username, _ := utils.PostPara(r, "username")
 	if r.Method == http.MethodGet || username == "" {
 		//Get current default user
@@ -99,6 +92,7 @@ func (m *Manager) HandleTFTPDefaultUser(w http.ResponseWriter, r *http.Request) 
 		// Validate that the user exists
 		_, err := m.option.UserManager.GetUserInfoFromUsername(username)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/tftpserv", err)
 			utils.SendErrorResponse(w, "User not found")
 			return
 		}

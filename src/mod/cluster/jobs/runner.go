@@ -64,10 +64,8 @@ var RecordWait = 5 * time.Second
 
 // awaitRecord polls the local store for a job record until it appears or the
 // wait runs out.
-func (j *Manager) awaitRecord(jobID string, wait time.Duration) (Record, bool) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.awaitRecord: jobID=%.120q", jobID)
-	}
+func (j *Manager) awaitRecord(jobID string, wait time.Duration) (out0 Record, out1 bool) {
+	defer logger.Out2(logger.In3("cluster/jobs", "Manager.awaitRecord", "j", j, "jobID", jobID, "&wait", &wait), &out0, &out1)
 	deadline := time.Now().Add(wait)
 	for time.Now().Before(deadline) {
 		time.Sleep(100 * time.Millisecond)
@@ -79,10 +77,8 @@ func (j *Manager) awaitRecord(jobID string, wait time.Duration) (Record, bool) {
 }
 
 // Start runs a job that was assigned to this node.
-func (j *Manager) Start(jobID string) error {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.Start: jobID=%.120q", jobID)
-	}
+func (j *Manager) Start(jobID string) (out0 error) {
+	defer logger.Out1(logger.In2("cluster/jobs", "Manager.Start", "j", j, "jobID", jobID), &out0)
 	if j.exec == nil {
 		return ErrNoExecutor
 	}
@@ -116,7 +112,7 @@ func (j *Manager) Start(jobID string) error {
 }
 
 func (j *Manager) run(rec Record) {
-	logger.Debug("cluster/jobs", "Manager.run")
+	defer logger.Out0(logger.In2("cluster/jobs", "Manager.run", "j", j, "&rec", &rec))
 	defer func() {
 		j.mu.Lock()
 		delete(j.accepted, rec.Spec.ID)
@@ -226,9 +222,7 @@ func (j *Manager) run(rec Record) {
 
 // renewLoop keeps the lease alive and pushes progress while the job runs.
 func (j *Manager) renewLoop(id string, stop chan struct{}) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "Manager.renewLoop: id=%.120q", id)
-	}
+	defer logger.Out0(logger.In3("cluster/jobs", "Manager.renewLoop", "j", j, "id", id, "stop", stop))
 	ticker := time.NewTicker(j.opt.LeaseRenew)
 	defer ticker.Stop()
 	for {
@@ -262,7 +256,7 @@ func (j *Manager) renewLoop(id string, stop chan struct{}) {
 // reportDone lets the leader know immediately (the record is replicated
 // anyway; this only shortens the delay when the leader is elsewhere).
 func (j *Manager) reportDone(rec Record) {
-	logger.Debug("cluster/jobs", "Manager.reportDone")
+	defer logger.Out0(logger.In2("cluster/jobs", "Manager.reportDone", "j", j, "&rec", &rec))
 	if j.meta.IsLeader() {
 		return
 	}
@@ -275,10 +269,8 @@ func (j *Manager) reportDone(rec Record) {
 	j.m.Transport().DoJSON(ctx, leader, "POST", pathDone, DoneReport{JobID: rec.Spec.ID, Status: rec.State.Status}, nil)
 }
 
-func itoa(v int) string {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "itoa: v=%d", v)
-	}
+func itoa(v int) (out0 string) {
+	defer logger.Out1(logger.In1("cluster/jobs", "itoa", "v", v), &out0)
 	if v == 0 {
 		return "0"
 	}
@@ -301,10 +293,8 @@ func itoa(v int) string {
 }
 
 // ContextFor builds the JOB object handed to the script.
-func ContextFor(rec Record, nodeID string) JobContext {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/jobs", "ContextFor: nodeID=%.120q", nodeID)
-	}
+func ContextFor(rec Record, nodeID string) (out0 JobContext) {
+	defer logger.Out1(logger.In2("cluster/jobs", "ContextFor", "&rec", &rec, "nodeID", nodeID), &out0)
 	inputs := rec.Spec.Inputs
 	if inputs == nil {
 		inputs = []string{}
@@ -320,8 +310,6 @@ var ErrScriptNoRun = errors.New("this job script defines no run(job) function")
 
 // IsCancelled reports whether an execution error means "cancelled".
 func IsCancelled(err error) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("cluster/jobs", "IsCancelled: err=%v", err)
-	}
+	logger.DebugTrace("cluster/jobs", "IsCancelled")
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "cancel")
 }

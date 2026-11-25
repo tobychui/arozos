@@ -39,17 +39,17 @@ The second return value reports whether the path existed in that revision at
 all, which lets the caller distinguish "added in this change" from a genuine
 read failure.
 */
-func (m *Manager) FileBlob(realpath string, file string, revision string) ([]byte, bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("git", "Manager.FileBlob: realpath=%.120q file=%.120q revision=%.120q", realpath, file, revision)
-	}
+func (m *Manager) FileBlob(realpath string, file string, revision string) (out0 []byte, out1 bool, out2 error) {
+	defer logger.Out3(logger.In4("git", "Manager.FileBlob", "m", m, "realpath", realpath, "file", file, "revision", revision), &out0, &out1, &out2)
 	cleaned, err := cleanRepoPath(file)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, false, err
 	}
 
 	repo, err := m.open(realpath)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, false, err
 	}
 
@@ -75,11 +75,13 @@ func (m *Manager) FileBlob(realpath string, file string, revision string) ([]byt
 
 	commit, err := repo.CommitObject(hash)
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, false, err
 	}
 
 	treeFile, err := commit.File(cleaned)
 	if err != nil {
+		logger.DebugErr("git", err)
 		//Absent from this revision, which is a normal answer rather than a fault
 		return nil, false, nil
 	}
@@ -89,6 +91,7 @@ func (m *Manager) FileBlob(realpath string, file string, revision string) ([]byt
 
 	content, err := treeFile.Contents()
 	if err != nil {
+		logger.DebugErr("git", err)
 		return nil, true, err
 	}
 	return []byte(content), true, nil
@@ -102,10 +105,8 @@ The table is explicit rather than delegating to mime.TypeByExtension: that
 consults the Windows registry and /etc/mime.types, so the same repository could
 otherwise preview differently on two machines.
 */
-func PreviewMimeType(path string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "PreviewMimeType: path=%.120q", path)
-	}
+func PreviewMimeType(path string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "PreviewMimeType", "path", path), &out0)
 	extension := strings.ToLower(path)
 	if index := strings.LastIndex(extension, "."); index >= 0 {
 		extension = extension[index:]
@@ -163,10 +164,8 @@ func PreviewMimeType(path string) string {
 
 // PreviewKind groups a media type into the element the front-end should use.
 // Returns "image", "pdf", "video", "audio" or "" when there is no preview.
-func PreviewKind(path string) string {
-	if logger.IsDebug() {
-		logger.Debugf("git", "PreviewKind: path=%.120q", path)
-	}
+func PreviewKind(path string) (out0 string) {
+	defer logger.Out1(logger.In1("git", "PreviewKind", "path", path), &out0)
 	mimeType := PreviewMimeType(path)
 	switch {
 	case mimeType == "":

@@ -21,7 +21,7 @@ import (
 )
 
 func RAIDServiceInit() {
-	logger.Debug("Core", "RAIDServiceInit")
+	defer logger.Out0(logger.In0("Core", "RAIDServiceInit"))
 	/*
 		RAID Management
 
@@ -45,6 +45,7 @@ func RAIDServiceInit() {
 			if !*skip_mdadm_reload {
 				err := raidManager.FlushReload()
 				if err != nil {
+					logger.DebugErr("Core", err)
 					systemWideLogger.PrintAndLog("RAID", "mdadm reload failed: "+err.Error(), err)
 				}
 			}
@@ -53,7 +54,7 @@ func RAIDServiceInit() {
 }
 
 func DiskServiceInit() {
-	logger.Debug("Core", "DiskServiceInit")
+	defer logger.Out0(logger.In0("Core", "DiskServiceInit"))
 	//Register Disk Utilities under System Setting
 	//Disk info are only viewable by administrator
 	router := prout.NewModuleRouter(prout.RouterOption{
@@ -119,6 +120,7 @@ func DiskServiceInit() {
 		if *allow_hardware_management {
 			smartListener, err := smart.NewSmartListener()
 			if err != nil {
+				logger.DebugErr("Core", err)
 				//Listener creation failed
 				systemWideLogger.PrintAndLog("Disk", "Failed to create SMART listener: "+err.Error(), err)
 			} else {

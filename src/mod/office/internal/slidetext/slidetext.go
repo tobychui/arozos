@@ -82,8 +82,8 @@ type Style struct {
 
 // Parse turns the editor's stored HTML into paragraphs. A
 // document with no block markup at all comes back as a single paragraph.
-func Parse(html string, base Style) []Para {
-	logger.Debug("office/internal/slidetext", "Parse")
+func Parse(html string, base Style) (out0 []Para) {
+	defer logger.Out1(logger.In2("office/internal/slidetext", "Parse", "html", html, "&base", &base), &out0)
 	dec := xml.NewDecoder(strings.NewReader("<root>" + html + "</root>"))
 	dec.Strict = false
 	dec.AutoClose = xml.HTMLAutoClose
@@ -111,6 +111,7 @@ func Parse(html string, base Style) []Para {
 	for {
 		tok, err := dec.Token()
 		if err != nil {
+			logger.DebugErr("office/internal/slidetext", err)
 			break
 		}
 		switch t := tok.(type) {

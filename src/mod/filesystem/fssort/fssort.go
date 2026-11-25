@@ -21,10 +21,8 @@ var ValidSortModes = []string{"default", "reverse", "smallToLarge", "largeToSmal
 /*
 Quick utilties to sort file list according to different modes
 */
-func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode string) []string {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fssort", "SortFileList: len(filelistRealpath)=%d len(fileInfos)=%d sortMode=%.120q", len(filelistRealpath), len(fileInfos), sortMode)
-	}
+func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode string) (out0 []string) {
+	defer logger.Out1(logger.In3("filesystem/fssort", "SortFileList", "filelistRealpath", filelistRealpath, "fileInfos", fileInfos, "sortMode", sortMode), &out0)
 	//Build a filelist with information based on the given filelist
 	parsedFilelist := []*sortBufferedStructure{}
 	if len(filelistRealpath) != len(fileInfos) {
@@ -110,10 +108,8 @@ func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode s
 	return results
 }
 
-func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fssort", "SortDirEntryList: len(dirEntries)=%d sortMode=%.120q", len(dirEntries), sortMode)
-	}
+func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) (out0 []fs.DirEntry) {
+	defer logger.Out1(logger.In2("filesystem/fssort", "SortDirEntryList", "dirEntries", dirEntries, "sortMode", sortMode), &out0)
 	entries := map[string]fs.DirEntry{}
 	fnames := []string{}
 	fis := []fs.FileInfo{}
@@ -138,17 +134,13 @@ func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
 	return newDirEntry
 }
 
-func SortModeIsSupported(sortMode string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("filesystem/fssort", "SortModeIsSupported: sortMode=%.120q", sortMode)
-	}
+func SortModeIsSupported(sortMode string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/fssort", "SortModeIsSupported", "sortMode", sortMode), &out0)
 	return contains(sortMode, ValidSortModes)
 }
 
-func contains(item string, slice []string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/fssort", "contains: item=%.120q len(slice)=%d", item, len(slice))
-	}
+func contains(item string, slice []string) (out0 bool) {
+	defer logger.Out1(logger.In2("filesystem/fssort", "contains", "item", item, "slice", slice), &out0)
 	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {
 		set[s] = struct{}{}

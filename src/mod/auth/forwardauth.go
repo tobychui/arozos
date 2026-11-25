@@ -32,10 +32,8 @@ type ForwardAuthResult struct {
 type ForwardAuthHandler func(username string, passwordHash string) ForwardAuthResult
 
 // ValidateUsernameAndPasswordHash checks an already hashed password.
-func (a *AuthAgent) ValidateUsernameAndPasswordHash(username string, passwordHash string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.ValidateUsernameAndPasswordHash: username=%.120q", username)
-	}
+func (a *AuthAgent) ValidateUsernameAndPasswordHash(username string, passwordHash string) (out0 bool) {
+	defer logger.Out1(logger.In3("auth", "AuthAgent.ValidateUsernameAndPasswordHash", "a", a, "username", username, "!passwordHash", passwordHash), &out0)
 	stored, err := a.GetPasswordHash(username)
 	if err != nil || stored == "" {
 		return false
@@ -44,12 +42,11 @@ func (a *AuthAgent) ValidateUsernameAndPasswordHash(username string, passwordHas
 }
 
 // GetPasswordHash returns the stored password hash of a user.
-func (a *AuthAgent) GetPasswordHash(username string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.GetPasswordHash: username=%.120q", username)
-	}
+func (a *AuthAgent) GetPasswordHash(username string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In2("auth", "AuthAgent.GetPasswordHash", "a", a, "username", username), &out0, &out1)
 	hash := ""
 	if err := a.Database.Read("auth", "passhash/"+username, &hash); err != nil {
+		logger.DebugErr("auth", err)
 		return "", err
 	}
 	if hash == "" {
@@ -60,10 +57,8 @@ func (a *AuthAgent) GetPasswordHash(username string) (string, error) {
 
 // SetPasswordHash stores an already hashed password for a user, creating the
 // password entry when it does not exist yet.
-func (a *AuthAgent) SetPasswordHash(username string, passwordHash string) error {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.SetPasswordHash: username=%.120q", username)
-	}
+func (a *AuthAgent) SetPasswordHash(username string, passwordHash string) (out0 error) {
+	defer logger.Out1(logger.In3("auth", "AuthAgent.SetPasswordHash", "a", a, "username", username, "!passwordHash", passwordHash), &out0)
 	if username == "" || passwordHash == "" {
 		return errors.New("username and password hash are required")
 	}
@@ -71,15 +66,14 @@ func (a *AuthAgent) SetPasswordHash(username string, passwordHash string) error 
 }
 
 // GetUserGroups returns the permission group names of a user.
-func (a *AuthAgent) GetUserGroups(username string) ([]string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.GetUserGroups: username=%.120q", username)
-	}
+func (a *AuthAgent) GetUserGroups(username string) (out0 []string, out1 error) {
+	defer logger.Out2(logger.In2("auth", "AuthAgent.GetUserGroups", "a", a, "username", username), &out0, &out1)
 	if !a.Database.KeyExists("auth", "group/"+username) {
 		return nil, errors.New("user not found")
 	}
 	groups := []string{}
 	if err := a.Database.Read("auth", "group/"+username, &groups); err != nil {
+		logger.DebugErr("auth", err)
 		return nil, err
 	}
 	if groups == nil {
@@ -89,10 +83,8 @@ func (a *AuthAgent) GetUserGroups(username string) ([]string, error) {
 }
 
 // SetUserGroups replaces the permission group names of a user.
-func (a *AuthAgent) SetUserGroups(username string, groups []string) error {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.SetUserGroups: username=%.120q len(groups)=%d", username, len(groups))
-	}
+func (a *AuthAgent) SetUserGroups(username string, groups []string) (out0 error) {
+	defer logger.Out1(logger.In3("auth", "AuthAgent.SetUserGroups", "a", a, "username", username, "groups", groups), &out0)
 	if username == "" {
 		return errors.New("username is required")
 	}
@@ -103,10 +95,8 @@ func (a *AuthAgent) SetUserGroups(username string, groups []string) error {
 }
 
 // validateLogin decides a login, consulting the forward auth hook first.
-func (a *AuthAgent) validateLogin(username string, password string) (bool, string) {
-	if logger.IsDebug() {
-		logger.Debugf("auth", "AuthAgent.validateLogin: username=%.120q", username)
-	}
+func (a *AuthAgent) validateLogin(username string, password string) (out0 bool, out1 string) {
+	defer logger.Out2(logger.In3("auth", "AuthAgent.validateLogin", "a", a, "username", username, "!password", password), &out0, &out1)
 	if a.ForwardAuth != nil {
 		if res := a.ForwardAuth(username, Hash(password)); res.Decided {
 			return res.Accepted, res.Reason

@@ -110,8 +110,8 @@ type Props struct {
 
 // ParseProps decodes an FOPT, SecondaryFOPT or TertiaryFOPT record (nil
 // gives an empty table)
-func ParseProps(r *Record) Props {
-	logger.Debug("office/internal/officeart", "ParseProps")
+func ParseProps(r *Record) (out0 Props) {
+	defer logger.Out1(logger.In1("office/internal/officeart", "ParseProps", "r", r), &out0)
 	p := Props{vals: map[uint16]uint32{}, complex: map[uint16][]byte{}, blip: map[uint16]bool{}}
 	if r == nil {
 		return p
@@ -186,27 +186,21 @@ func (p Props) Merge(o Props) Props {
 
 // Has reports whether the property is present
 func (p Props) Has(id uint16) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Has: id=%d", id)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Has")
 	_, ok := p.vals[id]
 	return ok
 }
 
 // Get returns a property's value
 func (p Props) Get(id uint16) (uint32, bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Get: id=%d", id)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Get")
 	v, ok := p.vals[id]
 	return v, ok
 }
 
 // Int returns a property as a signed integer, def when absent
 func (p Props) Int(id uint16, def int32) int32 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Int: id=%d def=%d", id, def)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Int")
 	if v, ok := p.vals[id]; ok {
 		return int32(v)
 	}
@@ -215,9 +209,7 @@ func (p Props) Int(id uint16, def int32) int32 {
 
 // Fixed returns a 16.16 fixed point property, def when absent
 func (p Props) Fixed(id uint16, def float64) float64 {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Fixed: id=%d def=%g", id, def)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Fixed")
 	if v, ok := p.vals[id]; ok {
 		return float64(int32(v)) / 65536
 	}
@@ -226,17 +218,13 @@ func (p Props) Fixed(id uint16, def float64) float64 {
 
 // Complex returns the bytes of a complex property
 func (p Props) Complex(id uint16) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Complex: id=%d", id)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Complex")
 	return p.complex[id]
 }
 
 // String decodes a complex property holding a UTF-16 string
 func (p Props) String(id uint16) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.String: id=%d", id)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.String")
 	b := p.complex[id]
 	u := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
@@ -252,9 +240,7 @@ func (p Props) String(id uint16) string {
 // Bool reads one flag of a boolean property set: the value, and whether
 // the table states it at all
 func (p Props) Bool(id uint16, bit uint) (value, set bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Bool: id=%d bit=%d", id, bit)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Bool")
 	v, ok := p.vals[id]
 	if !ok {
 		return false, false
@@ -267,9 +253,7 @@ func (p Props) Bool(id uint16, bit uint) (value, set bool) {
 
 // BoolDefault reads a flag, def when the table does not state it
 func (p Props) BoolDefault(id uint16, bit uint, def bool) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.BoolDefault: id=%d bit=%d def=%t", id, bit, def)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.BoolDefault")
 	if v, set := p.Bool(id, bit); set {
 		return v
 	}
@@ -279,9 +263,7 @@ func (p Props) BoolDefault(id uint16, bit uint, def bool) bool {
 // Array decodes an IMsoArray complex property (vertices, segments,
 // shade colours) into its elements
 func (p Props) Array(id uint16) [][]byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "Props.Array: id=%d", id)
-	}
+	logger.DebugTrace("office/internal/officeart", "Props.Array")
 	b := p.complex[id]
 	if len(b) < 6 {
 		return nil
@@ -320,9 +302,7 @@ type ColorRef struct {
 
 // DecodeColor splits a colour property value
 func DecodeColor(v uint32) ColorRef {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("office/internal/officeart", "DecodeColor: v=%d", v)
-	}
+	logger.DebugTrace("office/internal/officeart", "DecodeColor")
 	return ColorRef{R: uint8(v), G: uint8(v >> 8), B: uint8(v >> 16), Flags: uint8(v >> 24)}
 }
 

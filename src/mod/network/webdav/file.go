@@ -22,10 +22,8 @@ import (
 
 // slashClean is equivalent to but slightly more efficient than
 // path.Clean("/" + name).
-func slashClean(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "slashClean: name=%.120q", name)
-	}
+func slashClean(name string) (out0 string) {
+	defer logger.Out1(logger.In1("network/webdav", "slashClean", "name", name), &out0)
 	if name == "" || name[0] != '/' {
 		name = "/" + name
 	}
@@ -70,10 +68,8 @@ type File interface {
 // An empty Dir is treated as ".".
 type Dir string
 
-func (d Dir) resolve(name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Dir.resolve: name=%.120q", name)
-	}
+func (d Dir) resolve(name string) (out0 string) {
+	defer logger.Out1(logger.In2("network/webdav", "Dir.resolve", "&d", &d, "name", name), &out0)
 	// This implementation is based on Dir.Open's code in the standard net/http package.
 	if filepath.Separator != '/' && strings.IndexRune(name, filepath.Separator) >= 0 ||
 		strings.Contains(name, "\x00") {
@@ -86,34 +82,29 @@ func (d Dir) resolve(name string) string {
 	return filepath.Join(dir, filepath.FromSlash(slashClean(name)))
 }
 
-func (d Dir) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Dir.Mkdir: name=%.120q", name)
-	}
+func (d Dir) Mkdir(ctx context.Context, name string, perm os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("network/webdav", "Dir.Mkdir", "&d", &d, "ctx", ctx, "name", name, "&perm", &perm), &out0)
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
 	return os.Mkdir(name, perm)
 }
 
-func (d Dir) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Dir.OpenFile: name=%.120q flag=%d", name, flag)
-	}
+func (d Dir) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (out0 File, out1 error) {
+	defer logger.Out2(logger.In5("network/webdav", "Dir.OpenFile", "&d", &d, "ctx", ctx, "name", name, "flag", flag, "&perm", &perm), &out0, &out1)
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
 	f, err := os.OpenFile(name, flag, perm)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return nil, err
 	}
 	return f, nil
 }
 
-func (d Dir) RemoveAll(ctx context.Context, name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Dir.RemoveAll: name=%.120q", name)
-	}
+func (d Dir) RemoveAll(ctx context.Context, name string) (out0 error) {
+	defer logger.Out1(logger.In3("network/webdav", "Dir.RemoveAll", "&d", &d, "ctx", ctx, "name", name), &out0)
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
@@ -124,10 +115,8 @@ func (d Dir) RemoveAll(ctx context.Context, name string) error {
 	return os.RemoveAll(name)
 }
 
-func (d Dir) Rename(ctx context.Context, oldName, newName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Dir.Rename: oldName=%.120q newName=%.120q", oldName, newName)
-	}
+func (d Dir) Rename(ctx context.Context, oldName, newName string) (out0 error) {
+	defer logger.Out1(logger.In4("network/webdav", "Dir.Rename", "&d", &d, "ctx", ctx, "oldName", oldName, "newName", newName), &out0)
 	if oldName = d.resolve(oldName); oldName == "" {
 		return os.ErrNotExist
 	}
@@ -141,10 +130,8 @@ func (d Dir) Rename(ctx context.Context, oldName, newName string) error {
 	return os.Rename(oldName, newName)
 }
 
-func (d Dir) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "Dir.Stat: name=%.120q", name)
-	}
+func (d Dir) Stat(ctx context.Context, name string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In3("network/webdav", "Dir.Stat", "&d", &d, "ctx", ctx, "name", name), &out0, &out1)
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
@@ -190,10 +177,8 @@ type memFS struct {
 //
 // The frag argument will be empty only if dir is the root node and the walk
 // ends at that root node.
-func (fs *memFS) walk(op, fullname string, f func(dir *memFSNode, frag string, final bool) error) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.walk: op=%.120q fullname=%.120q", op, fullname)
-	}
+func (fs *memFS) walk(op, fullname string, f func(dir *memFSNode, frag string, final bool) error) (out0 error) {
+	defer logger.Out1(logger.In4("network/webdav", "memFS.walk", "fs", fs, "op", op, "fullname", fullname, "f", f), &out0)
 	original := fullname
 	fullname = slashClean(fullname)
 
@@ -215,6 +200,7 @@ func (fs *memFS) walk(op, fullname string, f func(dir *memFSNode, frag string, f
 			panic("webdav: empty path fragment for a clean path")
 		}
 		if err := f(dir, frag, final); err != nil {
+			logger.DebugErr("network/webdav", err)
 			return &os.PathError{
 				Op:   op,
 				Path: original,
@@ -255,9 +241,7 @@ func (fs *memFS) walk(op, fullname string, f func(dir *memFSNode, frag string, f
 // not already exist. The error returned is either nil or an *os.PathError
 // whose Op is op.
 func (fs *memFS) find(op, fullname string) (parent *memFSNode, frag string, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.find: op=%.120q fullname=%.120q", op, fullname)
-	}
+	defer logger.Out3(logger.In3("network/webdav", "memFS.find", "fs", fs, "op", op, "fullname", fullname), &parent, &frag, &err)
 	err = fs.walk(op, fullname, func(parent0 *memFSNode, frag0 string, final bool) error {
 		if !final {
 			return nil
@@ -270,15 +254,14 @@ func (fs *memFS) find(op, fullname string) (parent *memFSNode, frag string, err 
 	return parent, frag, err
 }
 
-func (fs *memFS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.Mkdir: name=%.120q", name)
-	}
+func (fs *memFS) Mkdir(ctx context.Context, name string, perm os.FileMode) (out0 error) {
+	defer logger.Out1(logger.In4("network/webdav", "memFS.Mkdir", "fs", fs, "ctx", ctx, "name", name, "&perm", &perm), &out0)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	dir, frag, err := fs.find("mkdir", name)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	if dir == nil {
@@ -296,15 +279,14 @@ func (fs *memFS) Mkdir(ctx context.Context, name string, perm os.FileMode) error
 	return nil
 }
 
-func (fs *memFS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (File, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.OpenFile: name=%.120q flag=%d", name, flag)
-	}
+func (fs *memFS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (out0 File, out1 error) {
+	defer logger.Out2(logger.In5("network/webdav", "memFS.OpenFile", "fs", fs, "ctx", ctx, "name", name, "flag", flag, "&perm", &perm), &out0, &out1)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	dir, frag, err := fs.find("open", name)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return nil, err
 	}
 	var n *memFSNode
@@ -359,15 +341,14 @@ func (fs *memFS) OpenFile(ctx context.Context, name string, flag int, perm os.Fi
 	}, nil
 }
 
-func (fs *memFS) RemoveAll(ctx context.Context, name string) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.RemoveAll: name=%.120q", name)
-	}
+func (fs *memFS) RemoveAll(ctx context.Context, name string) (out0 error) {
+	defer logger.Out1(logger.In3("network/webdav", "memFS.RemoveAll", "fs", fs, "ctx", ctx, "name", name), &out0)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	dir, frag, err := fs.find("remove", name)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	if dir == nil {
@@ -378,10 +359,8 @@ func (fs *memFS) RemoveAll(ctx context.Context, name string) error {
 	return nil
 }
 
-func (fs *memFS) Rename(ctx context.Context, oldName, newName string) error {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.Rename: oldName=%.120q newName=%.120q", oldName, newName)
-	}
+func (fs *memFS) Rename(ctx context.Context, oldName, newName string) (out0 error) {
+	defer logger.Out1(logger.In4("network/webdav", "memFS.Rename", "fs", fs, "ctx", ctx, "oldName", oldName, "newName", newName), &out0)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -397,6 +376,7 @@ func (fs *memFS) Rename(ctx context.Context, oldName, newName string) error {
 
 	oDir, oFrag, err := fs.find("rename", oldName)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	if oDir == nil {
@@ -406,6 +386,7 @@ func (fs *memFS) Rename(ctx context.Context, oldName, newName string) error {
 
 	nDir, nFrag, err := fs.find("rename", newName)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	if nDir == nil {
@@ -432,15 +413,14 @@ func (fs *memFS) Rename(ctx context.Context, oldName, newName string) error {
 	return nil
 }
 
-func (fs *memFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFS.Stat: name=%.120q", name)
-	}
+func (fs *memFS) Stat(ctx context.Context, name string) (out0 os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In3("network/webdav", "memFS.Stat", "fs", fs, "ctx", ctx, "name", name), &out0, &out1)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	dir, frag, err := fs.find("stat", name)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return nil, err
 	}
 	if dir == nil {
@@ -466,10 +446,8 @@ type memFSNode struct {
 	deadProps map[xml.Name]Property
 }
 
-func (n *memFSNode) stat(name string) *memFileInfo {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFSNode.stat: name=%.120q", name)
-	}
+func (n *memFSNode) stat(name string) (out0 *memFileInfo) {
+	defer logger.Out1(logger.In2("network/webdav", "memFSNode.stat", "n", n, "name", name), &out0)
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return &memFileInfo{
@@ -480,8 +458,8 @@ func (n *memFSNode) stat(name string) *memFileInfo {
 	}
 }
 
-func (n *memFSNode) DeadProps() (map[xml.Name]Property, error) {
-	logger.Debug("network/webdav", "memFSNode.DeadProps")
+func (n *memFSNode) DeadProps() (out0 map[xml.Name]Property, out1 error) {
+	defer logger.Out2(logger.In1("network/webdav", "memFSNode.DeadProps", "n", n), &out0, &out1)
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if len(n.deadProps) == 0 {
@@ -494,10 +472,8 @@ func (n *memFSNode) DeadProps() (map[xml.Name]Property, error) {
 	return ret, nil
 }
 
-func (n *memFSNode) Patch(patches []Proppatch) ([]Propstat, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFSNode.Patch: len(patches)=%d", len(patches))
-	}
+func (n *memFSNode) Patch(patches []Proppatch) (out0 []Propstat, out1 error) {
+	defer logger.Out2(logger.In2("network/webdav", "memFSNode.Patch", "n", n, "patches", patches), &out0, &out1)
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	pstat := Propstat{Status: http.StatusOK}
@@ -568,9 +544,7 @@ func (f *memFile) DeadProps() (map[xml.Name]Property, error) {
 	return f.n.DeadProps()
 }
 func (f *memFile) Patch(patches []Proppatch) ([]Propstat, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "memFile.Patch: len(patches)=%d", len(patches))
-	}
+	logger.DebugTrace("network/webdav", "memFile.Patch")
 	return f.n.Patch(patches)
 }
 
@@ -580,9 +554,7 @@ func (f *memFile) Close() error {
 }
 
 func (f *memFile) Read(p []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "memFile.Read: len(p)=%d", len(p))
-	}
+	logger.DebugTrace("network/webdav", "memFile.Read")
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
 	if f.n.mode.IsDir() {
@@ -596,10 +568,8 @@ func (f *memFile) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (f *memFile) Readdir(count int) ([]os.FileInfo, error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "memFile.Readdir: count=%d", count)
-	}
+func (f *memFile) Readdir(count int) (out0 []os.FileInfo, out1 error) {
+	defer logger.Out2(logger.In2("network/webdav", "memFile.Readdir", "f", f, "count", count), &out0, &out1)
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
 	if !f.n.mode.IsDir() {
@@ -627,9 +597,7 @@ func (f *memFile) Readdir(count int) ([]os.FileInfo, error) {
 }
 
 func (f *memFile) Seek(offset int64, whence int) (int64, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "memFile.Seek: offset=%d whence=%d", offset, whence)
-	}
+	logger.DebugTrace("network/webdav", "memFile.Seek")
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
 	npos := f.pos
@@ -657,9 +625,7 @@ func (f *memFile) Stat() (os.FileInfo, error) {
 }
 
 func (f *memFile) Write(p []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "memFile.Write: len(p)=%d", len(p))
-	}
+	logger.DebugTrace("network/webdav", "memFile.Write")
 	lenp := len(p)
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
@@ -701,11 +667,10 @@ func (f *memFile) Write(p []byte) (int, error) {
 //
 // See section 9.9.4 for when various HTTP status codes apply.
 func moveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bool) (status int, err error) {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "moveFiles: src=%.120q dst=%.120q overwrite=%t", src, dst, overwrite)
-	}
+	defer logger.Out2(logger.In5("network/webdav", "moveFiles", "ctx", ctx, "&fs", &fs, "src", src, "dst", dst, "overwrite", overwrite), &status, &err)
 	created := false
 	if _, err := fs.Stat(ctx, dst); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if !os.IsNotExist(err) {
 			return http.StatusForbidden, err
 		}
@@ -716,12 +681,14 @@ func moveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		// the server must perform a DELETE with "Depth: infinity" on the
 		// destination resource.
 		if err := fs.RemoveAll(ctx, dst); err != nil {
+			logger.DebugErr("network/webdav", err)
 			return http.StatusForbidden, err
 		}
 	} else {
 		return http.StatusPreconditionFailed, os.ErrExist
 	}
 	if err := fs.Rename(ctx, src, dst); err != nil {
+		logger.DebugErr("network/webdav", err)
 		return http.StatusForbidden, err
 	}
 	if created {
@@ -730,8 +697,8 @@ func moveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 	return http.StatusNoContent, nil
 }
 
-func copyProps(dst, src File) error {
-	logger.Debug("network/webdav", "copyProps")
+func copyProps(dst, src File) (out0 error) {
+	defer logger.Out1(logger.In2("network/webdav", "copyProps", "&dst", &dst, "&src", &src), &out0)
 	d, ok := dst.(DeadPropsHolder)
 	if !ok {
 		return nil
@@ -742,6 +709,7 @@ func copyProps(dst, src File) error {
 	}
 	m, err := s.DeadProps()
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	props := make([]Property, 0, len(m))
@@ -756,9 +724,7 @@ func copyProps(dst, src File) error {
 //
 // See section 9.8.5 for when various HTTP status codes apply.
 func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bool, depth int, recursion int) (status int, err error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "copyFiles: src=%.120q dst=%.120q overwrite=%t depth=%d recursion=%d", src, dst, overwrite, depth, recursion)
-	}
+	logger.DebugTrace("network/webdav", "copyFiles")
 	if recursion == 1000 {
 		return http.StatusInternalServerError, errRecursionTooDeep
 	}
@@ -769,6 +735,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 
 	srcFile, err := fs.OpenFile(ctx, src, os.O_RDONLY, 0)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			return http.StatusNotFound, err
 		}
@@ -777,6 +744,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 	defer srcFile.Close()
 	srcStat, err := srcFile.Stat()
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			return http.StatusNotFound, err
 		}
@@ -786,6 +754,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 
 	created := false
 	if _, err := fs.Stat(ctx, dst); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if os.IsNotExist(err) {
 			created = true
 		} else {
@@ -802,11 +771,13 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 
 	if srcStat.IsDir() {
 		if err := fs.Mkdir(ctx, dst, srcPerm); err != nil {
+			logger.DebugErr("network/webdav", err)
 			return http.StatusForbidden, err
 		}
 		if depth == infiniteDepth {
 			children, err := srcFile.Readdir(-1)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				return http.StatusForbidden, err
 			}
 			for _, c := range children {
@@ -815,6 +786,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 				d := path.Join(dst, name)
 				cStatus, cErr := copyFiles(ctx, fs, s, d, overwrite, depth, recursion)
 				if cErr != nil {
+					logger.DebugErr("network/webdav", cErr)
 					// TODO: MultiStatus.
 					return cStatus, cErr
 				}
@@ -824,6 +796,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 	} else {
 		dstFile, err := fs.OpenFile(ctx, dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcPerm)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			if os.IsNotExist(err) {
 				return http.StatusConflict, err
 			}
@@ -834,12 +807,15 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		propsErr := copyProps(dstFile, srcFile)
 		closeErr := dstFile.Close()
 		if copyErr != nil {
+			logger.DebugErr("network/webdav", copyErr)
 			return http.StatusInternalServerError, copyErr
 		}
 		if propsErr != nil {
+			logger.DebugErr("network/webdav", propsErr)
 			return http.StatusInternalServerError, propsErr
 		}
 		if closeErr != nil {
+			logger.DebugErr("network/webdav", closeErr)
 			return http.StatusInternalServerError, closeErr
 		}
 	}
@@ -856,12 +832,11 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 // walkFS calls walkFn. If a visited file system node is a directory and
 // walkFn returns filepath.SkipDir, walkFS will skip traversal of this node.
 func walkFS(ctx context.Context, fs FileSystem, depth int, name string, info os.FileInfo, walkFn filepath.WalkFunc) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "walkFS: depth=%d name=%.120q", depth, name)
-	}
+	logger.DebugTrace("network/webdav", "walkFS")
 	// This implementation is based on Walk's code in the standard path/filepath package.
 	err := walkFn(name, info, nil)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		if info.IsDir() && err == filepath.SkipDir {
 			return nil
 		}
@@ -877,11 +852,13 @@ func walkFS(ctx context.Context, fs FileSystem, depth int, name string, info os.
 	// Read directory names.
 	f, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return walkFn(name, info, err)
 	}
 	fileInfos, err := f.Readdir(0)
 	f.Close()
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return walkFn(name, info, err)
 	}
 
@@ -889,12 +866,14 @@ func walkFS(ctx context.Context, fs FileSystem, depth int, name string, info os.
 		filename := path.Join(name, fileInfo.Name())
 		fileInfo, err := fs.Stat(ctx, filename)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			if err := walkFn(filename, fileInfo, err); err != nil && err != filepath.SkipDir {
 				return err
 			}
 		} else {
 			err = walkFS(ctx, fs, depth, filename, fileInfo, walkFn)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				if !fileInfo.IsDir() || err != filepath.SkipDir {
 					return err
 				}

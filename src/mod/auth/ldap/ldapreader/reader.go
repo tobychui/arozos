@@ -17,10 +17,8 @@ type LdapReader struct {
 }
 
 // NewOauthHandler xxx
-func NewLDAPReader(username string, password string, server string, basedn string) *LdapReader {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap/ldapreader", "NewLDAPReader: username=%.120q server=%.120q basedn=%.120q", username, server, basedn)
-	}
+func NewLDAPReader(username string, password string, server string, basedn string) (out0 *LdapReader) {
+	defer logger.Out1(logger.In4("auth/ldap/ldapreader", "NewLDAPReader", "username", username, "server", server, "basedn", basedn, "!password", password), &out0)
 
 	LDAPHandler := LdapReader{
 		username: username,
@@ -32,12 +30,11 @@ func NewLDAPReader(username string, password string, server string, basedn strin
 	return &LDAPHandler
 }
 
-func (handler *LdapReader) GetUser(username string) (*ldap.Entry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap/ldapreader", "LdapReader.GetUser: username=%.120q", username)
-	}
+func (handler *LdapReader) GetUser(username string) (out0 *ldap.Entry, out1 error) {
+	defer logger.Out2(logger.In2("auth/ldap/ldapreader", "LdapReader.GetUser", "handler", handler, "username", username), &out0, &out1)
 	returnVal, err := handler.retrieveInformation("uid="+username+","+handler.basedn, "(objectClass=person)", ldap.ScopeWholeSubtree, handler.username, handler.password)
 	if err != nil {
+		logger.DebugErr("auth/ldap/ldapreader", err)
 		return nil, err
 	}
 	if len(returnVal) == 0 {
@@ -51,12 +48,11 @@ func (handler *LdapReader) GetAllUser() ([]*ldap.Entry, error) {
 	return handler.retrieveInformation(handler.basedn, "(objectClass=person)", ldap.ScopeWholeSubtree, handler.username, handler.password)
 }
 
-func (handler *LdapReader) Authenticate(username string, password string) (bool, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap/ldapreader", "LdapReader.Authenticate: username=%.120q", username)
-	}
+func (handler *LdapReader) Authenticate(username string, password string) (out0 bool, out1 error) {
+	defer logger.Out2(logger.In3("auth/ldap/ldapreader", "LdapReader.Authenticate", "handler", handler, "username", username, "!password", password), &out0, &out1)
 	userInformation, err := handler.retrieveInformation("uid="+username+","+handler.basedn, "(objectClass=person)", ldap.ScopeBaseObject, "uid="+username+","+handler.basedn, password)
 	if err != nil {
+		logger.DebugErr("auth/ldap/ldapreader", err)
 		if strings.Contains(err.Error(), "LDAP Result Code 32") {
 			return false, nil
 		}
@@ -76,12 +72,11 @@ func (handler *LdapReader) Authenticate(username string, password string) (bool,
 	return false, nil
 }
 
-func (handler *LdapReader) retrieveInformation(dn string, filter string, typeOfSearch int, username string, password string) ([]*ldap.Entry, error) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/ldap/ldapreader", "LdapReader.retrieveInformation: dn=%.120q filter=%.120q typeOfSearch=%d username=%.120q", dn, filter, typeOfSearch, username)
-	}
+func (handler *LdapReader) retrieveInformation(dn string, filter string, typeOfSearch int, username string, password string) (out0 []*ldap.Entry, out1 error) {
+	defer logger.Out2(logger.In6("auth/ldap/ldapreader", "LdapReader.retrieveInformation", "handler", handler, "dn", dn, "filter", filter, "typeOfSearch", typeOfSearch, "username", username, "!password", password), &out0, &out1)
 	ldapURL, err := ldap.DialURL(fmt.Sprintf("ldap://%s:389", handler.server))
 	if err != nil {
+		logger.DebugErr("auth/ldap/ldapreader", err)
 		return nil, err
 	}
 	defer ldapURL.Close()
@@ -101,6 +96,7 @@ func (handler *LdapReader) retrieveInformation(dn string, filter string, typeOfS
 	)
 	result, err := ldapURL.Search(searchReq)
 	if err != nil {
+		logger.DebugErr("auth/ldap/ldapreader", err)
 		return nil, fmt.Errorf("search Error: %s", err)
 	}
 

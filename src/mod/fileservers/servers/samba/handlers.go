@@ -12,14 +12,14 @@ import (
 
 // Get current samba service status
 func (s *ShareManager) SmbdStates(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.SmbdStates: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.SmbdStates", "s", s, "r", r))
 	set, err := utils.PostPara(r, "set")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		//return the current smbd states
 		smbdRunning, err := IsSmbdRunning()
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -31,6 +31,7 @@ func (s *ShareManager) SmbdStates(w http.ResponseWriter, r *http.Request) {
 		//Set smbd to enable
 		err = SetSmbdEnableState(true)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -41,6 +42,7 @@ func (s *ShareManager) SmbdStates(w http.ResponseWriter, r *http.Request) {
 		//Set smbd to disable
 		err = SetSmbdEnableState(false)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -54,11 +56,10 @@ func (s *ShareManager) SmbdStates(w http.ResponseWriter, r *http.Request) {
 
 // List all the samba shares
 func (s *ShareManager) ListSambaShares(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.ListSambaShares: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.ListSambaShares", "s", s, "r", r))
 	shares, err := s.ReadSambaShares()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -72,11 +73,10 @@ func (s *ShareManager) ListSambaShares(w http.ResponseWriter, r *http.Request) {
 
 // Add a samba share
 func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.AddSambaShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.AddSambaShare", "s", s, "r", r))
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "share name not given")
 		return
 	}
@@ -86,6 +86,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Check if this share name already been used
 	shareNameExists, err := s.ShareNameExists(shareName)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -96,6 +97,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 
 	sharePath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "share path not given")
 		return
 	}
@@ -103,6 +105,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Parse the path to absolute path
 	absoluteSharePath, err := filepath.Abs(sharePath)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -127,6 +130,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 
 	validUsersJSON, err := utils.PostPara(r, "users")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "no valid user givens")
 		return
 	}
@@ -135,6 +139,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	validUsers := []string{}
 	err = json.Unmarshal([]byte(validUsersJSON), &validUsers)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "unable to parse JSON for valid users")
 		return
 	}
@@ -143,6 +148,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	for _, validUser := range validUsers {
 		thisUnixUserExists, err := s.SambaUserExists(validUser)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -156,16 +162,19 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 
 	readOnly, err := utils.PostBool(r, "readonly")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		readOnly = false
 	}
 
 	browseable, err := utils.PostBool(r, "browseable")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		browseable = true
 	}
 
 	allowGuest, err := utils.PostBool(r, "guestok")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		allowGuest = false
 	}
 
@@ -181,6 +190,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Add the new share to smb.conf
 	err = s.CreateNewSambaShare(&shareToCreate)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -188,6 +198,7 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Restart smbd
 	err = restartSmbd()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -197,18 +208,18 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 
 // Delete a user samba share, that share must only contains the current user / owner
 func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.DelUserSambaShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.DelUserSambaShare", "s", s, "r", r))
 	//Get the user info
 	userInfo, err := s.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "permission denied")
 		return
 	}
 
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "share name not given")
 		return
 	}
@@ -216,6 +227,7 @@ func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request)
 	//Check if share exists
 	targetShare, err := s.GetShareByName(shareName)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -232,6 +244,7 @@ func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request)
 		//remove user access will create trash in the smb.conf folder. Remove the whole folder entirely.
 		err = s.RemoveSambaShareConfig(targetShare.Name)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -242,6 +255,7 @@ func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request)
 	//Share also contains other users. Only remove user to that share
 	err = s.RemoveUserFromSambaShare(targetShare.Name, userInfo.Username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -252,11 +266,10 @@ func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request)
 // Remove a samba share by name, can remove any share by name, should be for admin only
 // call to DelUserSambaShare for non-admin uses
 func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.DelSambaShare: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.DelSambaShare", "s", s, "r", r))
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "share name not given")
 		return
 	}
@@ -264,6 +277,7 @@ func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Check if share exists
 	shareExists, err := s.ShareExists(shareName)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -276,6 +290,7 @@ func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Remove the share from config file
 	err = s.RemoveSambaShareConfig(shareName)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -283,6 +298,7 @@ func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
 	//Restart smbd
 	err = restartSmbd()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -292,23 +308,24 @@ func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
 
 // Add a new samba user
 func (s *ShareManager) NewSambaUser(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.NewSambaUser: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.NewSambaUser", "s", s, "r", r))
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "username not given")
 		return
 	}
 
 	password, err := utils.PostPara(r, "password")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "password not set")
 		return
 	}
 
 	err = s.AddSambaUser(username, password)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -318,11 +335,10 @@ func (s *ShareManager) NewSambaUser(w http.ResponseWriter, r *http.Request) {
 
 // Remove a samba user, check for admin before calling
 func (s *ShareManager) DelSambaUser(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.DelSambaUser: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.DelSambaUser", "s", s, "r", r))
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "username not given")
 		return
 	}
@@ -330,6 +346,7 @@ func (s *ShareManager) DelSambaUser(w http.ResponseWriter, r *http.Request) {
 	//Remove the samba user
 	err = s.RemoveSmbUser(username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -339,9 +356,7 @@ func (s *ShareManager) DelSambaUser(w http.ResponseWriter, r *http.Request) {
 
 // List all samba users info
 func (s *ShareManager) ListSambaUsers(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.ListSambaUsers: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.ListSambaUsers", "s", s, "r", r))
 	type SimplifiedUserInfo struct {
 		UnixUsername string
 		Domain       string
@@ -350,6 +365,7 @@ func (s *ShareManager) ListSambaUsers(w http.ResponseWriter, r *http.Request) {
 	results := []*SimplifiedUserInfo{}
 	userInfo, err := s.ListSambaUsersInfo()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -369,14 +385,13 @@ func (s *ShareManager) ListSambaUsers(w http.ResponseWriter, r *http.Request) {
 
 // Activate a user account from arozos into samba user
 func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Request, password string) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.ActivateUserAccount: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In3("fileservers/servers/samba", "ShareManager.ActivateUserAccount", "s", s, "r", r, "!password", password))
 	userInfo, _ := s.UserHandler.GetUserInfoFromRequest(w, r)
 
 	//Register this user to samba if not exists
 	sambaUserExists, err := s.SambaUserExists(userInfo.Username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -385,6 +400,7 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 		//This user account not activated yet. Activate it
 		err = s.AddSambaUser(userInfo.Username, password)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -393,6 +409,7 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 	//Create the user root share folders
 	err = s.syncUserShares(userInfo)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		logger.PrintAndLog("Samba", "[Samba] Failed to create shares for "+userInfo.Username+": "+err.Error(), nil)
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -400,6 +417,7 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 
 	err = restartSmbd()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -409,9 +427,7 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 
 // Get if the user share has been enabled
 func (s *ShareManager) HandleUserSmbStatusList(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.HandleUserSmbStatusList: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.HandleUserSmbStatusList", "s", s, "r", r))
 	type UserStatus struct {
 		SmbdEnabled         bool
 		UserSmbShareEnabled bool
@@ -426,11 +442,13 @@ func (s *ShareManager) HandleUserSmbStatusList(w http.ResponseWriter, r *http.Re
 
 	userInfo, err := s.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	userAccessibleShares, err := s.GetUsersShare(userInfo.Username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		//User never used smb service
 		js, _ := json.Marshal(result)
 		utils.SendJSONResponse(w, string(js))
@@ -450,16 +468,16 @@ func (s *ShareManager) HandleUserSmbStatusList(w http.ResponseWriter, r *http.Re
 
 // Deactivate the user account by removing user access to all shares
 func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.DeactiveUserAccount: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.DeactiveUserAccount", "s", s, "r", r))
 	userInfo, err := s.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	userAccessibleShares, err := s.GetUsersShare(userInfo.Username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -468,6 +486,7 @@ func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Reques
 	for _, userAccessibleShare := range userAccessibleShares {
 		err = s.RemoveUserFromSambaShare(userAccessibleShare.Name, userInfo.Username)
 		if err != nil {
+			logger.DebugErr("fileservers/servers/samba", err)
 			logger.PrintAndLog("Samba", "[Samba] Unable to remove user "+userInfo.Username+" from share: "+err.Error(), nil)
 			continue
 		}
@@ -476,12 +495,14 @@ func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Reques
 	//Remove this samba user
 	err = s.RemoveSmbUser(userInfo.Username)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "Samba user remove failed: "+err.Error())
 		return
 	}
 
 	err = restartSmbd()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -492,17 +513,17 @@ func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Reques
 
 // Handle update to accessible users
 func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.HandleAccessUserUpdate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.HandleAccessUserUpdate", "s", s, "r", r))
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "share name not given")
 		return
 	}
 
 	newUserListJSON, err := utils.PostPara(r, "users")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "list of new users not given")
 		return
 	}
@@ -511,6 +532,7 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 	newUserList := []string{}
 	err = json.Unmarshal([]byte(newUserListJSON), &newUserList)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		logger.PrintAndLog("Samba", "[Samba] Parse new user list failed: "+err.Error(), nil)
 		utils.SendErrorResponse(w, "failed to parse the new user list")
 		return
@@ -519,6 +541,7 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 	//read the target share from smb.conf
 	targetShare, err := s.GetShareByName(shareName)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -535,6 +558,7 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 		if !s.UserCanAccessShare(targetShare, newUsername) {
 			err = s.AddUserToSambaShare(targetShare.Name, newUsername)
 			if err != nil {
+				logger.DebugErr("fileservers/servers/samba", err)
 				utils.SendErrorResponse(w, err.Error())
 				return
 			}
@@ -543,6 +567,7 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 
 	err = restartSmbd()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -552,17 +577,17 @@ func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Req
 
 // Handle changing path of share
 func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("fileservers/servers/samba", "ShareManager.HandleSharePathChange: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("fileservers/servers/samba", "ShareManager.HandleSharePathChange", "s", s, "r", r))
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "share name not given")
 		return
 	}
 
 	newSharePath, err := utils.PostPara(r, "path")
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, "list of new users not given")
 		return
 	}
@@ -570,6 +595,7 @@ func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Requ
 	//Convert path to absolute and check if folder exists
 	newSharePathAbsolute, err := filepath.Abs(newSharePath)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -588,6 +614,7 @@ func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Requ
 	//read the target share from smb.conf
 	targetShare, err := s.GetShareByName(shareName)
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -596,6 +623,7 @@ func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Requ
 	targetShare.Path = newSharePathAbsolute
 	err = targetShare.SaveToConfig()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -603,6 +631,7 @@ func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Requ
 	//Restart smbd
 	err = restartSmbd()
 	if err != nil {
+		logger.DebugErr("fileservers/servers/samba", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

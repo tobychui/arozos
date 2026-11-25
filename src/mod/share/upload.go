@@ -29,9 +29,7 @@ import (
 
 // handleShareUpload handles POST /share/upload/{uuid}/{subfolder...}
 func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id string, subfolder string) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "Manager.handleShareUpload: r=%s id=%.120q subfolder=%.120q", logger.RequestSummary(r), id, subfolder)
-	}
+	defer logger.Out0(logger.In4("share", "Manager.handleShareUpload", "s", s, "r", r, "id", id, "subfolder", subfolder))
 	so := s.lookupActiveShare(id)
 	if so == nil {
 		http.NotFound(w, r)
@@ -62,6 +60,7 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 
 	owner, err := s.shareOwnerOf(so)
 	if err != nil {
+		logger.DebugErr("share", err)
 		w.WriteHeader(http.StatusForbidden)
 		utils.SendErrorResponse(w, "Share account not exists")
 		return
@@ -76,6 +75,7 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 
 	targetFsh, err := owner.GetFileSystemHandlerFromVirtualPath(so.FileVirtualPath)
 	if err != nil {
+		logger.DebugErr("share", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		utils.SendErrorResponse(w, "Unable to load shared folder")
 		return
@@ -107,6 +107,7 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 
 	reader, err := r.MultipartReader()
 	if err != nil {
+		logger.DebugErr("share", err)
 		w.WriteHeader(http.StatusBadRequest)
 		utils.SendErrorResponse(w, "Invalid upload request")
 		return
@@ -116,6 +117,7 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 	for {
 		part, err := reader.NextPart()
 		if err != nil {
+			logger.DebugErr("share", err)
 			//io.EOF: all parts read. Anything else is a broken request.
 			if !errors.Is(err, io.EOF) {
 				logger.PrintAndLog("Share", "Share upload interrupted", err)
@@ -130,6 +132,7 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 
 		filename, err := sanitizeUploadFilename(part.FileName())
 		if err != nil {
+			logger.DebugErr("share", err)
 			part.Close()
 			w.WriteHeader(http.StatusBadRequest)
 			utils.SendErrorResponse(w, err.Error())
@@ -140,6 +143,7 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 		err = fshAbs.WriteStream(destination, part, 0775)
 		part.Close()
 		if err != nil {
+			logger.DebugErr("share", err)
 			logger.PrintAndLog("Share", "Unable to write uploaded file to share "+so.UUID, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			utils.SendErrorResponse(w, "Unable to write uploaded file")
@@ -165,10 +169,8 @@ func (s *Manager) handleShareUpload(w http.ResponseWriter, r *http.Request, id s
 
 // sanitizeUploadFilename keeps only the base name of an uploaded file and
 // refuses names that cannot be stored safely.
-func sanitizeUploadFilename(name string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("share", "sanitizeUploadFilename: name=%.120q", name)
-	}
+func sanitizeUploadFilename(name string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In1("share", "sanitizeUploadFilename", "name", name), &out0, &out1)
 	//Browsers may send a path (e.g. from a folder upload). Keep the last element.
 	name = strings.ReplaceAll(name, "\\", "/")
 	name = strings.TrimSpace(path.Base(name))
@@ -184,10 +186,8 @@ func sanitizeUploadFilename(name string) (string, error) {
 }
 
 // uniqueDestination returns dir/name, or dir/name (n).ext if that is taken
-func uniqueDestination(exists func(string) bool, dir string, name string) string {
-	if logger.IsDebug() {
-		logger.Debugf("share", "uniqueDestination: dir=%.120q name=%.120q", dir, name)
-	}
+func uniqueDestination(exists func(string) bool, dir string, name string) (out0 string) {
+	defer logger.Out1(logger.In3("share", "uniqueDestination", "exists", exists, "dir", dir, "name", name), &out0)
 	candidate := arozfs.ToSlash(filepath.Join(dir, name))
 	if !exists(candidate) {
 		return candidate

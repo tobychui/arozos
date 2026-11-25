@@ -12,10 +12,8 @@ import (
 )
 
 // capacityOf finds the logical disk an absolute path is on, such as C:.
-func capacityOf(rpathAbs string) (*Capacity, error) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/diskcapacity/dftool", "capacityOf: rpathAbs=%.120q", rpathAbs)
-	}
+func capacityOf(rpathAbs string) (out0 *Capacity, out1 error) {
+	defer logger.Out2(logger.In1("disk/diskcapacity/dftool", "capacityOf", "rpathAbs", rpathAbs), &out0, &out1)
 	rpathAbs = filepath.ToSlash(filepath.Clean(rpathAbs))
 	diskRoot := strings.Split(rpathAbs, "/")[0]
 	for _, ldi := range diskspace.GetAllLogicDiskInfo() {

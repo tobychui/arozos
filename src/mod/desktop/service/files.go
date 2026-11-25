@@ -47,9 +47,10 @@ type desktopObject struct {
 // File Manager, System Setting and the trash are reached from the launcher and
 // the dock, so a new desktop no longer gets shortcuts to them.
 func (s *Service) initUserFolderStructure(userinfo *user.User) {
-	logger.Debug("desktop/service", "Service.initUserFolderStructure")
+	defer logger.Out0(logger.In2("desktop/service", "Service.initUserFolderStructure", "s", s, "userinfo", userinfo))
 	userfsh, err := userinfo.GetHomeFileSystemHandler()
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		logger.PrintAndLog("Desktop", "Unable to initiate user desktop folder", err)
 		return
 	}
@@ -65,18 +66,15 @@ func (s *Service) initUserFolderStructure(userinfo *user.User) {
 
 // isHiddenFile reports whether a desktop entry should be skipped
 func isHiddenFile(name string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("desktop/service", "isHiddenFile: name=%.120q", name)
-	}
+	logger.DebugTrace("desktop/service", "isHiddenFile")
 	return strings.HasPrefix(filepath.Base(name), ".")
 }
 
 func (s *Service) handleListDesktop(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleListDesktop: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleListDesktop", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "user not logged in!")
 		return
 	}
@@ -87,18 +85,21 @@ func (s *Service) handleListDesktop(w http.ResponseWriter, r *http.Request) {
 	//List all files inside the user desktop directory
 	fsh, subpath, err := s.opts.ResolveVirtualPath(desktopVpath)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "Desktop file load failed")
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
 	userDesktopRealpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	files, err := fshAbs.Glob(userDesktopRealpath + "/*")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "Desktop file load failed")
 		return
 	}
@@ -134,6 +135,7 @@ func (s *Service) handleListDesktop(w http.ResponseWriter, r *http.Request) {
 			shortcutInfo, _ := fshAbs.ReadFile(this)
 			shortcutData, err := shortcut.ReadShortcut(shortcutInfo)
 			if err != nil {
+				logger.DebugErr("desktop/service", err)
 				thisFileObject.ShortcutType = "invalid"
 			} else {
 				thisFileObject.ShortcutType = shortcutData.Type
@@ -162,17 +164,17 @@ func (s *Service) handleListDesktop(w http.ResponseWriter, r *http.Request) {
 }
 
 // setIconLocation stores the icon position of a file that exists on the user's desktop
-func (s *Service) setIconLocation(userinfo *user.User, filename string, x int, y int) error {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.setIconLocation: filename=%.120q x=%d y=%d", filename, x, y)
-	}
+func (s *Service) setIconLocation(userinfo *user.User, filename string, x int, y int) (out0 error) {
+	defer logger.Out1(logger.In5("desktop/service", "Service.setIconLocation", "s", s, "userinfo", userinfo, "filename", filename, "x", x, "y", y), &out0)
 	fsh, subpath, err := s.opts.ResolveVirtualPath(desktopVpath)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return err
 	}
 	fshAbs := fsh.FileSystemAbstraction
 	desktoppath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return err
 	}
 	targetFilepath := filepath.Join(desktoppath, filename)
@@ -182,6 +184,7 @@ func (s *Service) setIconLocation(userinfo *user.User, filename string, x int, y
 
 	err = s.layout.SetIconLocation(userinfo.Username, filename, x, y)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		logger.PrintAndLog("Desktop", "Unable to store new file location on desktop for file: "+targetFilepath, err)
 		return err
 	}
@@ -190,11 +193,10 @@ func (s *Service) setIconLocation(userinfo *user.User, filename string, x int, y
 
 // handleIconLocation gets, sets or deletes the desktop position of an icon
 func (s *Service) handleIconLocation(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleIconLocation: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleIconLocation", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -208,15 +210,18 @@ func (s *Service) handleIconLocation(w http.ResponseWriter, r *http.Request) {
 		sy, _ := utils.PostPara(r, "y")
 		x, err := strconv.Atoi(sx)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			x = 0
 		}
 		y, err := strconv.Atoi(sy)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			y = 0
 		}
 
 		err = s.setIconLocation(userinfo, set, x, y)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}

@@ -14,10 +14,8 @@ import (
 // read through the IP Helper API and an in-process WMI query
 // (mod/info/wininfo). It used to start PowerShell's Get-NetAdapter, which
 // shared the console ArozOS runs in.
-func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
-	if logger.IsDebug() {
-		logger.Debugf("network", "nicExtraAll: len(ifaces)=%d", len(ifaces))
-	}
+func nicExtraAll(ifaces []net.Interface) (out0 map[string]nicExtraInfo) {
+	defer logger.Out1(logger.In1("network", "nicExtraAll", "ifaces", ifaces), &out0)
 	result := make(map[string]nicExtraInfo, len(ifaces))
 
 	// Flag-based fallback for interfaces the API does not report
@@ -31,6 +29,7 @@ func nicExtraAll(ifaces []net.Interface) map[string]nicExtraInfo {
 
 	adapters, err := wininfo.NetAdapters()
 	if err != nil {
+		logger.DebugErr("network", err)
 		return result
 	}
 	for _, a := range adapters {

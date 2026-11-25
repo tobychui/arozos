@@ -123,9 +123,7 @@ type EndElement struct {
 type CharData []byte
 
 func makeCopy(b []byte) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "makeCopy: len(b)=%d", len(b))
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "makeCopy")
 	b1 := make([]byte, len(b))
 	copy(b1, b)
 	return b1
@@ -301,6 +299,7 @@ func (d *Decoder) Token() (t Token, err error) {
 		t = d.nextToken
 		d.nextToken = nil
 	} else if t, err = d.rawToken(); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return
 	}
 
@@ -353,9 +352,7 @@ const xmlURL = "http://www.w3.org/XML/1998/namespace"
 // The default name space (for Space=="")
 // applies only to element names, not to attribute names.
 func (d *Decoder) translate(n *Name, isElementName bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Decoder.translate: isElementName=%t", isElementName)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.translate")
 	switch {
 	case n.Space == "xmlns":
 		return
@@ -404,9 +401,7 @@ const (
 )
 
 func (d *Decoder) push(kind int) *stack {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Decoder.push: kind=%d", kind)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.push")
 	s := d.free
 	if s != nil {
 		d.free = s.next
@@ -479,9 +474,7 @@ func (d *Decoder) pushElement(name Name) {
 // Record that we are changing the value of ns[local].
 // The old value is url, ok.
 func (d *Decoder) pushNs(local string, url string, ok bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Decoder.pushNs: local=%.120q ok=%t", local, ok)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.pushNs")
 	s := d.push(stkNs)
 	s.name.Local = local
 	s.name.Space = url
@@ -662,6 +655,7 @@ func (d *Decoder) rawToken() (Token, error) {
 				}
 				newr, err := d.CharsetReader(enc, d.r.(io.Reader))
 				if err != nil {
+					logger.DebugErr("network/webdav/internal/xml", err)
 					d.err = fmt.Errorf("xml: opening charset %q: %v", enc, err)
 					return nil, d.err
 				}
@@ -986,9 +980,7 @@ func (d *Decoder) mustgetc() (b byte, ok bool) {
 
 // Unread a single byte.
 func (d *Decoder) ungetc(b byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Decoder.ungetc: b=%d", b)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.ungetc")
 	if b == '\n' {
 		d.line--
 	}
@@ -1009,9 +1001,7 @@ var entity = map[string]rune{
 // If cdata == true, we are in a <![CDATA[ section and need to find ]]>.
 // On failure return nil and leave the error in d.err.
 func (d *Decoder) text(quote int, cdata bool) []byte {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Decoder.text: quote=%d cdata=%t", quote, cdata)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Decoder.text")
 	var b0, b1 byte
 	var trunc int
 	d.buf.Reset()
@@ -1180,9 +1170,7 @@ Input:
 // the Char production of http://www.xml.com/axml/testaxml.htm,
 // Section 2.2 Characters.
 func isInCharacterRange(r rune) (inrange bool) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "isInCharacterRange: r=%d", r)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "isInCharacterRange")
 	return r == 0x09 ||
 		r == 0x0A ||
 		r == 0x0D ||
@@ -1257,9 +1245,7 @@ func (d *Decoder) readName() (ok bool) {
 }
 
 func isNameByte(c byte) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "isNameByte: c=%d", c)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "isNameByte")
 	return 'A' <= c && c <= 'Z' ||
 		'a' <= c && c <= 'z' ||
 		'0' <= c && c <= '9' ||
@@ -1267,9 +1253,7 @@ func isNameByte(c byte) bool {
 }
 
 func isName(s []byte) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "isName: len(s)=%d", len(s))
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "isName")
 	if len(s) == 0 {
 		return false
 	}
@@ -1294,9 +1278,7 @@ func isName(s []byte) bool {
 }
 
 func isNameString(s string) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "isNameString: s=%.120q", s)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "isNameString")
 	if len(s) == 0 {
 		return false
 	}
@@ -1943,9 +1925,7 @@ var (
 // EscapeText writes to w the properly escaped XML equivalent
 // of the plain text data s.
 func EscapeText(w io.Writer, s []byte) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "EscapeText: len(s)=%d", len(s))
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "EscapeText")
 	return escapeText(w, s, true)
 }
 
@@ -1953,9 +1933,7 @@ func EscapeText(w io.Writer, s []byte) error {
 // of the plain text data s. If escapeNewline is true, newline
 // characters will be escaped.
 func escapeText(w io.Writer, s []byte, escapeNewline bool) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "escapeText: len(s)=%d escapeNewline=%t", len(s), escapeNewline)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "escapeText")
 	var esc []byte
 	last := 0
 	for i := 0; i < len(s); {
@@ -1989,14 +1967,17 @@ func escapeText(w io.Writer, s []byte, escapeNewline bool) error {
 			continue
 		}
 		if _, err := w.Write(s[last : i-width]); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		if _, err := w.Write(esc); err != nil {
+			logger.DebugErr("network/webdav/internal/xml", err)
 			return err
 		}
 		last = i
 	}
 	if _, err := w.Write(s[last:]); err != nil {
+		logger.DebugErr("network/webdav/internal/xml", err)
 		return err
 	}
 	return nil
@@ -2005,9 +1986,7 @@ func escapeText(w io.Writer, s []byte, escapeNewline bool) error {
 // EscapeString writes to p the properly escaped XML equivalent
 // of the plain text data s.
 func (p *printer) EscapeString(s string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "printer.EscapeString: s=%.120q", s)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "printer.EscapeString")
 	var esc []byte
 	last := 0
 	for i := 0; i < len(s); {
@@ -2048,18 +2027,14 @@ func (p *printer) EscapeString(s string) {
 // It is provided for backwards compatibility with Go 1.0.
 // Code targeting Go 1.1 or later should use EscapeText.
 func Escape(w io.Writer, s []byte) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "Escape: len(s)=%d", len(s))
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "Escape")
 	EscapeText(w, s)
 }
 
 // procInst parses the `param="..."` or `param='...'`
 // value out of the provided string, returning "" if not found.
 func procInst(param, s string) string {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav/internal/xml", "procInst: param=%.120q s=%.120q", param, s)
-	}
+	logger.DebugTrace("network/webdav/internal/xml", "procInst")
 	// TODO: this parsing is somewhat lame and not exact.
 	// It works for all actual cases, though.
 	param = param + "="

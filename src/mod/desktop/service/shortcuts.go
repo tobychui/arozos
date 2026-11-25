@@ -41,10 +41,8 @@ type shortcutEdit struct {
 }
 
 // uniqueShortcutFilename returns a free "<name>.shortcut" path in dir, adding (n) on collisions
-func uniqueShortcutFilename(dir string, name string, exists func(string) bool) string {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "uniqueShortcutFilename: dir=%.120q name=%.120q", dir, name)
-	}
+func uniqueShortcutFilename(dir string, name string, exists func(string) bool) (out0 string) {
+	defer logger.Out1(logger.In3("desktop/service", "uniqueShortcutFilename", "dir", dir, "name", name, "exists", exists), &out0)
 	filename := dir + "/" + name + ".shortcut"
 	for counter := 1; exists(filename); counter++ {
 		filename = dir + "/" + name + "(" + strconv.Itoa(counter) + ").shortcut"
@@ -54,12 +52,11 @@ func uniqueShortcutFilename(dir string, name string, exists func(string) bool) s
 
 // ensureModuleDesktopIcon renders the padded desktop icon of a web app if it
 // does not ship one, returning its web path (or "" when that failed)
-func (s *Service) ensureModuleDesktopIcon(moduleIcon string) string {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.ensureModuleDesktopIcon: moduleIcon=%.120q", moduleIcon)
-	}
+func (s *Service) ensureModuleDesktopIcon(moduleIcon string) (out0 string) {
+	defer logger.Out1(logger.In2("desktop/service", "Service.ensureModuleDesktopIcon", "s", s, "moduleIcon", moduleIcon), &out0)
 	desktopIconPath, generated, err := s.icons.EnsureDesktopIcon(moduleIcon)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		logger.PrintAndLog("Desktop", "Unable to generate desktop icon for "+moduleIcon, err)
 		return ""
 	}
@@ -70,32 +67,35 @@ func (s *Service) ensureModuleDesktopIcon(moduleIcon string) string {
 }
 
 func (s *Service) handleShortcutCreate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleShortcutCreate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleShortcutCreate", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	shortcutType, err := utils.PostPara(r, "stype")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	shortcutText, err := utils.PostPara(r, "stext")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	shortcutPath, err := utils.PostPara(r, "spath")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	shortcutIcon, err := utils.PostPara(r, "sicon")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -105,6 +105,7 @@ func (s *Service) handleShortcutCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	shortcutCreationDest, err := utils.PostPara(r, "sdest")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		//Default create on desktop
 		shortcutCreationDest = desktopVpath
 	}
@@ -116,12 +117,14 @@ func (s *Service) handleShortcutCreate(w http.ResponseWriter, r *http.Request) {
 
 	fsh, subpath, err := s.opts.ResolveVirtualPath(shortcutCreationDest)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
 	shortcutRealDest, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -143,6 +146,7 @@ func (s *Service) handleShortcutCreate(w http.ResponseWriter, r *http.Request) {
 	shortcutContent := shortcut.GenerateShortcutBytes(shortcutPath, shortcutType, shortcutText, shortcutIcon)
 	err = fshAbs.WriteFile(shortcutFilename, shortcutContent, 0775)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -150,10 +154,8 @@ func (s *Service) handleShortcutCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // resolveShortcutFile checks the vpath points to an existing .shortcut file the user may access
-func (s *Service) resolveShortcutFile(userinfo *user.User, vpath string, write bool) (*filesystem.FileSystemHandler, string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.resolveShortcutFile: vpath=%.120q write=%t", vpath, write)
-	}
+func (s *Service) resolveShortcutFile(userinfo *user.User, vpath string, write bool) (out0 *filesystem.FileSystemHandler, out1 string, out2 error) {
+	defer logger.Out3(logger.In4("desktop/service", "Service.resolveShortcutFile", "s", s, "userinfo", userinfo, "vpath", vpath, "write", write), &out0, &out1, &out2)
 	if !strings.EqualFold(filepath.Ext(vpath), ".shortcut") {
 		return nil, "", errors.New("Target is not a shortcut file")
 	}
@@ -166,10 +168,12 @@ func (s *Service) resolveShortcutFile(userinfo *user.User, vpath string, write b
 
 	fsh, subpath, err := s.opts.ResolveVirtualPath(vpath)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, "", err
 	}
 	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, "", err
 	}
 	if !fsh.FileSystemAbstraction.FileExists(rpath) || fsh.FileSystemAbstraction.IsDir(rpath) {
@@ -179,37 +183,38 @@ func (s *Service) resolveShortcutFile(userinfo *user.User, vpath string, write b
 }
 
 // readShortcutFile loads and parses a shortcut the user may access
-func (s *Service) readShortcutFile(userinfo *user.User, vpath string, write bool) (*filesystem.FileSystemHandler, string, *arozfs.ShortcutData, error) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.readShortcutFile: vpath=%.120q write=%t", vpath, write)
-	}
+func (s *Service) readShortcutFile(userinfo *user.User, vpath string, write bool) (out0 *filesystem.FileSystemHandler, out1 string, out2 *arozfs.ShortcutData, out3 error) {
+	defer logger.Out4(logger.In4("desktop/service", "Service.readShortcutFile", "s", s, "userinfo", userinfo, "vpath", vpath, "write", write), &out0, &out1, &out2, &out3)
 	fsh, rpath, err := s.resolveShortcutFile(userinfo, vpath, write)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, "", nil, err
 	}
 	content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, "", nil, errors.New("Shortcut file read failed")
 	}
 	data, err := shortcut.ReadShortcut(content)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		return nil, "", nil, err
 	}
 	return fsh, rpath, data, nil
 }
 
 func (s *Service) handleShortcutRename(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleShortcutRename: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleShortcutRename", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	target, err := utils.GetPara(r, "src")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "Invalid shortcut file path given")
 		return
 	}
@@ -225,6 +230,7 @@ func (s *Service) handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 
 	fsh, rpath, data, err := s.readShortcutFile(userinfo, target, true)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -233,6 +239,7 @@ func (s *Service) handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 	data.Name = strings.TrimSpace(newName)
 	err = fsh.FileSystemAbstraction.WriteFile(rpath, shortcut.EncodeShortcut(data), 0755)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -240,23 +247,24 @@ func (s *Service) handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleShortcutGet(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleShortcutGet: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleShortcutGet", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	target, err := utils.GetPara(r, "src")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "Invalid shortcut file path given")
 		return
 	}
 
 	_, _, data, err := s.readShortcutFile(userinfo, target, false)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -271,8 +279,8 @@ func (s *Service) handleShortcutGet(w http.ResponseWriter, r *http.Request) {
 
 // applyShortcutEdit validates an edit and applies it to the shortcut data.
 // canUseModule reports whether the editing user may launch the given web app.
-func (s *Service) applyShortcutEdit(data *arozfs.ShortcutData, edit shortcutEdit, canUseModule func(name string) bool) error {
-	logger.Debug("desktop/service", "Service.applyShortcutEdit")
+func (s *Service) applyShortcutEdit(data *arozfs.ShortcutData, edit shortcutEdit, canUseModule func(name string) bool) (out0 error) {
+	defer logger.Out1(logger.In4("desktop/service", "Service.applyShortcutEdit", "s", s, "data", data, "&edit", &edit, "canUseModule", canUseModule), &out0)
 	name := strings.TrimSpace(edit.Name)
 	if name == "" {
 		return errors.New("Shortcut name cannot be empty")
@@ -344,23 +352,24 @@ func (s *Service) applyShortcutEdit(data *arozfs.ShortcutData, edit shortcutEdit
 }
 
 func (s *Service) handleShortcutUpdate(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("desktop/service", "Service.handleShortcutUpdate: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("desktop/service", "Service.handleShortcutUpdate", "s", s, "r", r))
 	userinfo, err := s.opts.Users.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	target, err := utils.PostPara(r, "src")
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, "Invalid shortcut file path given")
 		return
 	}
 
 	fsh, rpath, data, err := s.readShortcutFile(userinfo, target, true)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -384,6 +393,7 @@ func (s *Service) handleShortcutUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		customIcon, err = decodeCustomIcon(iconData)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -393,6 +403,7 @@ func (s *Service) handleShortcutUpdate(w http.ResponseWriter, r *http.Request) {
 
 	err = s.applyShortcutEdit(data, edit, userinfo.GetModuleAccessPermission)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -400,6 +411,7 @@ func (s *Service) handleShortcutUpdate(w http.ResponseWriter, r *http.Request) {
 	if customIcon != nil {
 		err = writeCustomIcon(fsh, rpath, customIconName, customIcon)
 		if err != nil {
+			logger.DebugErr("desktop/service", err)
 			utils.SendErrorResponse(w, "Unable to save icon: "+err.Error())
 			return
 		}
@@ -407,6 +419,7 @@ func (s *Service) handleShortcutUpdate(w http.ResponseWriter, r *http.Request) {
 
 	err = fsh.FileSystemAbstraction.WriteFile(rpath, shortcut.EncodeShortcut(data), 0775)
 	if err != nil {
+		logger.DebugErr("desktop/service", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

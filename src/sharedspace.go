@@ -119,10 +119,8 @@ var (
 
 // ssConfInt64 reads an integer admin setting, falling back when unset or
 // out of range.
-func ssConfInt64(key string, fallback int64) int64 {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssConfInt64: fallback=%d", fallback)
-	}
+func ssConfInt64(key string, fallback int64) (out0 int64) {
+	defer logger.Out1(logger.In2("Core", "ssConfInt64", "fallback", fallback, "!key", key), &out0)
 	if sysdb == nil || !sysdb.KeyExists(ssDBTable, key) {
 		return fallback
 	}
@@ -135,10 +133,8 @@ func ssConfInt64(key string, fallback int64) int64 {
 }
 
 // ssConfBool reads a boolean admin setting, falling back when unset.
-func ssConfBool(key string, fallback bool) bool {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssConfBool: fallback=%t", fallback)
-	}
+func ssConfBool(key string, fallback bool) (out0 bool) {
+	defer logger.Out1(logger.In2("Core", "ssConfBool", "fallback", fallback, "!key", key), &out0)
 	if sysdb == nil || !sysdb.KeyExists(ssDBTable, key) {
 		return fallback
 	}
@@ -151,10 +147,8 @@ func ssConfBool(key string, fallback bool) bool {
 
 // ssDescribeSpace renders the space fields shared with clients. When a
 // username is given the caller's own role is included.
-func ssDescribeSpace(space *sharedspace.Space, username string) map[string]interface{} {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssDescribeSpace: username=%.120q", username)
-	}
+func ssDescribeSpace(space *sharedspace.Space, username string) (out0 map[string]interface{}) {
+	defer logger.Out1(logger.In2("Core", "ssDescribeSpace", "space", space, "username", username), &out0)
 	desc := map[string]interface{}{
 		"spaceid":    space.ID,
 		"name":       space.Name,
@@ -192,8 +186,8 @@ func ssDescribeItem(item *sharedspace.Item) map[string]interface{} {
 
 // ssDescribeDoc renders a document snapshot for clients. includeContent
 // controls whether the body travels with it.
-func ssDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[string]interface{} {
-	logger.Debug("Core", "ssDescribeDoc")
+func ssDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) (out0 map[string]interface{}) {
+	defer logger.Out1(logger.In2("Core", "ssDescribeDoc", "doc", doc, "includeContent", includeContent), &out0)
 	desc := map[string]interface{}{
 		"docid":     doc.ID,
 		"name":      doc.Name,
@@ -213,10 +207,8 @@ func ssDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[string
 
 // ssRequestParam reads a request parameter from POST form or query string
 // depending on the endpoint's method convention.
-func ssRequestParam(r *http.Request, post bool, key string) (string, error) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssRequestParam: r=%s post=%t", logger.RequestSummary(r), post)
-	}
+func ssRequestParam(r *http.Request, post bool, key string) (out0 string, out1 error) {
+	defer logger.Out2(logger.In3("Core", "ssRequestParam", "r", r, "post", post, "!key", key), &out0, &out1)
 	if post {
 		return utils.PostPara(r, key)
 	}
@@ -227,16 +219,16 @@ func ssRequestParam(r *http.Request, post bool, key string) (string, error) {
 // parameter to a live space the caller may read. On failure the error
 // response is already written and ok is false.
 func ssResolveSpaceRequest(w http.ResponseWriter, r *http.Request, post bool) (username string, space *sharedspace.Space, ok bool) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssResolveSpaceRequest: r=%s post=%t", logger.RequestSummary(r), post)
-	}
+	defer logger.Out3(logger.In2("Core", "ssResolveSpaceRequest", "r", r, "post", post), &username, &space, &ok)
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Not logged in")
 		return "", nil, false
 	}
 	spaceID, err := ssRequestParam(r, post, "spaceid")
 	if err != nil {
+		logger.DebugErr("Core", err)
 		utils.SendErrorResponse(w, "Missing space ID")
 		return "", nil, false
 	}
@@ -252,9 +244,7 @@ func ssResolveSpaceRequest(w http.ResponseWriter, r *http.Request, post bool) (u
 // ssCloseSpace announces the shutdown to live subscribers and deletes the
 // space (used by the user delete endpoint and the admin surface).
 func ssCloseSpace(spaceID string) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssCloseSpace: spaceID=%.120q", spaceID)
-	}
+	defer logger.Out0(logger.In1("Core", "ssCloseSpace", "spaceID", spaceID))
 	space, ok := sharedSpaceManager.GetSpace(spaceID)
 	if !ok {
 		return
@@ -266,8 +256,8 @@ func ssCloseSpace(spaceID string) {
 // ssBroadcastSpaceEvent builds the event listener that fans space mutations
 // out to the space's channel as protocol frames. Registered once per space
 // under a fixed key, so repeated registration is idempotent.
-func ssBroadcastSpaceEvent(space *sharedspace.Space) func(*sharedspace.SpaceEvent) {
-	logger.Debug("Core", "ssBroadcastSpaceEvent")
+func ssBroadcastSpaceEvent(space *sharedspace.Space) (out0 func(*sharedspace.SpaceEvent)) {
+	defer logger.Out1(logger.In1("Core", "ssBroadcastSpaceEvent", "space", space), &out0)
 	channel := space.Channel()
 	return func(event *sharedspace.SpaceEvent) {
 		var frame []byte
@@ -324,13 +314,14 @@ func ssBroadcastSpaceEvent(space *sharedspace.Space) func(*sharedspace.SpaceEven
 // layout under system/ is migrated over once. Blob disk paths are always
 // recomputed from this root at load time (see mod/sharedspace/persistence.go),
 // so relocating the tree is safe.
-func ssResolvePersistRoot() string {
-	logger.Debug("Core", "ssResolvePersistRoot")
+func ssResolvePersistRoot() (out0 string) {
+	defer logger.Out1(logger.In0("Core", "ssResolvePersistRoot"), &out0)
 	persistRoot := filepath.Join(*root_directory, "sharedspace")
 	legacyRoot := filepath.Join("system", "sharedspace")
 	if utils.FileExists(legacyRoot) && !utils.FileExists(persistRoot) {
 		os.MkdirAll(filepath.Dir(persistRoot), 0775)
 		if err := os.Rename(legacyRoot, persistRoot); err != nil {
+			logger.DebugErr("Core", err)
 			//e.g. the user root sits on another mount - keep the data usable
 			systemWideLogger.PrintAndLog("SharedSpace", "Could not move shared space storage to "+persistRoot+", keeping "+legacyRoot, err)
 			return legacyRoot
@@ -344,7 +335,7 @@ func ssResolvePersistRoot() string {
 // and wires up its HTTP / WebSocket endpoints and the admin surface.
 // Must be initiated before MeetRoomInit and AGIInit (see startup.go).
 func SharedSpaceInit() {
-	logger.Debug("Core", "SharedSpaceInit")
+	defer logger.Out0(logger.In0("Core", "SharedSpaceInit"))
 	sharedSpaceManager = sharedspace.NewManagerWithOptions(sharedspace.ManagerOptions{
 		PersistentRoot:  ssResolvePersistRoot(),
 		Database:        sysdb,
@@ -382,6 +373,7 @@ func SharedSpaceInit() {
 	router.HandleFunc("/system/sharedspace/create", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
@@ -394,6 +386,7 @@ func SharedSpaceInit() {
 			Persistent: persistent == "true",
 		})
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -434,6 +427,7 @@ func SharedSpaceInit() {
 	router.HandleFunc("/system/sharedspace/list", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
@@ -450,6 +444,7 @@ func SharedSpaceInit() {
 	router.HandleFunc("/system/sharedspace/listpublic", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
@@ -469,6 +464,7 @@ func SharedSpaceInit() {
 			return
 		}
 		if err := space.JoinPublic(username); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -482,6 +478,7 @@ func SharedSpaceInit() {
 			return
 		}
 		if err := space.RemoveMember(username, username); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -496,6 +493,7 @@ func SharedSpaceInit() {
 		}
 		target, err := utils.PostPara(r, "username")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing username")
 			return
 		}
@@ -505,10 +503,12 @@ func SharedSpaceInit() {
 		}
 		//The invitee must be a real user on this host
 		if _, err := userHandler.GetUserInfoFromUsername(target); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "User not found")
 			return
 		}
 		if err := space.AddMember(username, target, role); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -523,10 +523,12 @@ func SharedSpaceInit() {
 		}
 		target, err := utils.PostPara(r, "username")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing username")
 			return
 		}
 		if err := space.RemoveMember(username, target); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -541,15 +543,18 @@ func SharedSpaceInit() {
 		}
 		target, err := utils.PostPara(r, "username")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing username")
 			return
 		}
 		role, err := utils.PostPara(r, "role")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing role")
 			return
 		}
 		if err := space.SetMemberRole(username, target, role); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -564,10 +569,12 @@ func SharedSpaceInit() {
 		}
 		access, err := utils.PostPara(r, "access")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing access mode")
 			return
 		}
 		if err := space.SetAccess(username, access); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -582,11 +589,13 @@ func SharedSpaceInit() {
 		}
 		key, err := utils.PostPara(r, "key")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing key")
 			return
 		}
 		value, _ := utils.PostPara(r, "value")
 		if err := space.SetMeta(username, key, value); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -616,11 +625,13 @@ func SharedSpaceInit() {
 		}
 		text, err := utils.PostPara(r, "text")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing text")
 			return
 		}
 		item, err := space.AddText(username, text, "http")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -632,10 +643,12 @@ func SharedSpaceInit() {
 	router.HandleFunc("/system/sharedspace/upload", func(w http.ResponseWriter, r *http.Request) {
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Not logged in")
 			return
 		}
 		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid upload")
 			return
 		}
@@ -646,6 +659,7 @@ func SharedSpaceInit() {
 		}
 		file, header, err := r.FormFile("file")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing file")
 			return
 		}
@@ -657,6 +671,7 @@ func SharedSpaceInit() {
 		}
 		item, err := space.SaveBlob(itemType, header.Filename, userinfo.Username, "http", file, sharedSpaceManager.MaxUpload())
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -678,6 +693,7 @@ func SharedSpaceInit() {
 		}
 		itemID, err := utils.GetPara(r, "itemid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing item ID")
 			return
 		}
@@ -688,6 +704,7 @@ func SharedSpaceInit() {
 		}
 		f, err := os.Open(item.DiskPath)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			http.NotFound(w, r)
 			return
 		}
@@ -723,10 +740,12 @@ func SharedSpaceInit() {
 		}
 		itemID, err := utils.PostPara(r, "itemid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing item ID")
 			return
 		}
 		if err := space.RemoveItem(itemID, username); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -742,6 +761,7 @@ func SharedSpaceInit() {
 		name, _ := utils.PostPara(r, "name")
 		doc, err := space.CreateDoc(username, name)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -772,6 +792,7 @@ func SharedSpaceInit() {
 		}
 		docID, err := utils.GetPara(r, "docid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing document ID")
 			return
 		}
@@ -792,16 +813,19 @@ func SharedSpaceInit() {
 		}
 		docID, err := utils.PostPara(r, "docid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing document ID")
 			return
 		}
 		baseRevStr, err := utils.PostPara(r, "baserev")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing base revision")
 			return
 		}
 		baseRev, err := strconv.ParseInt(baseRevStr, 10, 64)
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Invalid base revision")
 			return
 		}
@@ -823,6 +847,7 @@ func SharedSpaceInit() {
 			return
 		}
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -841,10 +866,12 @@ func SharedSpaceInit() {
 		}
 		docID, err := utils.PostPara(r, "docid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing document ID")
 			return
 		}
 		if err := space.DeleteDoc(username, docID); err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
@@ -882,6 +909,7 @@ func SharedSpaceInit() {
 	adminRouter.HandleFunc("/system/sharedspace/admin/delete", func(w http.ResponseWriter, r *http.Request) {
 		spaceID, err := utils.PostPara(r, "spaceid")
 		if err != nil {
+			logger.DebugErr("Core", err)
 			utils.SendErrorResponse(w, "Missing space ID")
 			return
 		}
@@ -946,11 +974,10 @@ func SharedSpaceInit() {
 // ssHandleWebSocket upgrades the request and joins the caller to the
 // space's realtime channel.
 func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "ssHandleWebSocket: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In1("Core", "ssHandleWebSocket", "r", r))
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		http.Error(w, "Not logged in", http.StatusUnauthorized)
 		return
 	}
@@ -963,6 +990,7 @@ func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := ssUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		return
 	}
 	conn.SetReadLimit(ssMaxSocketFrame)
@@ -978,6 +1006,7 @@ func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	channel := space.Channel()
 	sub, err := channel.Join(username)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		conn.Close()
 		return
 	}
@@ -1000,11 +1029,13 @@ func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				}
 				conn.SetWriteDeadline(time.Now().Add(ssWriteTimeout))
 				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+					logger.DebugErr("Core", err)
 					return
 				}
 			case <-pinger.C:
 				conn.SetWriteDeadline(time.Now().Add(ssWriteTimeout))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					logger.DebugErr("Core", err)
 					return
 				}
 			}
@@ -1052,6 +1083,7 @@ func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
+			logger.DebugErr("Core", err)
 			return
 		}
 		conn.SetReadDeadline(time.Now().Add(ssReadTimeout))
@@ -1095,6 +1127,7 @@ func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			//Persisted: delivery to every subscriber happens through the
 			//item-added event fan-out (no double send)
 			if _, err := space.AddText(username, text, "ws"); err != nil {
+				logger.DebugErr("Core", err)
 				sendError(err.Error())
 			}
 		case "doc-update":
@@ -1111,6 +1144,7 @@ func ssHandleWebSocket(w http.ResponseWriter, r *http.Request) {
 					"revision": revision,
 				}))
 			} else if err != nil {
+				logger.DebugErr("Core", err)
 				sendError(err.Error())
 			}
 			//Success needs no direct reply: the doc-updated event fan-out

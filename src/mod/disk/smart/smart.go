@@ -33,8 +33,8 @@ type SMARTListener struct {
 }
 
 // DiskSmartInit Desktop script initiation
-func NewSmartListener() (*SMARTListener, error) {
-	logger.Debug("disk/smart", "NewSmartListener")
+func NewSmartListener() (out0 *SMARTListener, out1 error) {
+	defer logger.Out2(logger.In0("disk/smart", "NewSmartListener"), &out0, &out1)
 	smartExec := getBinary()
 
 	logger.PrintAndLog("Smart", "Starting SMART mointoring", nil)
@@ -65,10 +65,8 @@ func NewSmartListener() (*SMARTListener, error) {
 }
 
 // this function used for fetch available devices by using smartctl
-func scanAvailableDevices(smartExec string) DevicesList {
-	if logger.IsDebug() {
-		logger.Debugf("disk/smart", "scanAvailableDevices: smartExec=%.120q", smartExec)
-	}
+func scanAvailableDevices(smartExec string) (out0 DevicesList) {
+	defer logger.Out1(logger.In1("disk/smart", "scanAvailableDevices", "smartExec", smartExec), &out0)
 	rawInfo := execCommand(smartExec, "--scan", "--json=c")
 	devicesList := new(DevicesList)
 	json.Unmarshal([]byte(rawInfo), &devicesList)
@@ -85,9 +83,7 @@ func scanAvailableDevices(smartExec string) DevicesList {
 
 // this function used for merge SMART Information into devicesList
 func readSMARTDevices(smartExec string, devicesList *DevicesList) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/smart", "readSMARTDevices: smartExec=%.120q", smartExec)
-	}
+	defer logger.Out0(logger.In2("disk/smart", "readSMARTDevices", "smartExec", smartExec, "devicesList", devicesList))
 	for i, device := range devicesList.Devices {
 		rawInfo := execCommand(smartExec, device.Name, "--info", "--all", "--json=c")
 		deviceSMART := new(DeviceSMART)
@@ -98,7 +94,7 @@ func readSMARTDevices(smartExec string, devicesList *DevicesList) {
 
 // used for fill the healthy status to the array
 func fillHealthyStatus(devicesList *DevicesList) {
-	logger.Debug("disk/smart", "fillHealthyStatus")
+	defer logger.Out0(logger.In1("disk/smart", "fillHealthyStatus", "devicesList", devicesList))
 	devicesList.Healthy = "Normal"
 	for i, device := range devicesList.Devices {
 		for j, smartTableElement := range device.Smart.AtaSmartAttributes.Table {
@@ -123,12 +119,13 @@ func fillHealthyStatus(devicesList *DevicesList) {
 // fillCapacity fills the capacity smartctl left at zero on Windows from the
 // disk drives Windows reports (mod/info/wininfo, no wmic or PowerShell)
 func fillCapacity(devicesList *DevicesList) {
-	logger.Debug("disk/smart", "fillCapacity")
+	defer logger.Out0(logger.In1("disk/smart", "fillCapacity", "devicesList", devicesList))
 	if runtime.GOOS != "windows" {
 		return
 	}
 	disks, err := wininfo.PhysicalDisks()
 	if err != nil {
+		logger.DebugErr("disk/smart", err)
 		return
 	}
 	applyDiskCapacities(devicesList, disks)
@@ -137,9 +134,7 @@ func fillCapacity(devicesList *DevicesList) {
 // applyDiskCapacities gives each device without a capacity the size of the
 // disk with the same model name
 func applyDiskCapacities(devicesList *DevicesList, disks []wininfo.PhysicalDisk) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/smart", "applyDiskCapacities: len(disks)=%d", len(disks))
-	}
+	defer logger.Out0(logger.In2("disk/smart", "applyDiskCapacities", "devicesList", devicesList, "disks", disks))
 	for i, device := range devicesList.Devices {
 		if device.Smart.UserCapacity.Bytes != 0 {
 			continue
@@ -157,15 +152,13 @@ func applyDiskCapacities(devicesList *DevicesList, disks []wininfo.PhysicalDisk)
 }
 
 func (s *SMARTListener) GetSMART(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("disk/smart", "SMARTListener.GetSMART: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("disk/smart", "SMARTListener.GetSMART", "s", s, "r", r))
 	jsonText, _ := json.Marshal(s.DriveList)
 	utils.SendJSONResponse(w, string(jsonText))
 }
 
-func getBinary() string {
-	logger.Debug("disk/smart", "getBinary")
+func getBinary() (out0 string) {
+	defer logger.Out1(logger.In0("disk/smart", "getBinary"), &out0)
 	// Prefer system-installed smartctl (more up-to-date, supports newer drives).
 	if path, err := exec.LookPath("smartctl"); err == nil {
 		logger.PrintAndLog("Smart", fmt.Sprint("[SMART] Using system-installed smartctl:", path), nil)

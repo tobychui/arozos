@@ -30,10 +30,8 @@ import (
 var SMBManager *smbserv.Manager
 
 // netbiosName turns the host name into a NetBIOS style name.
-func netbiosName(host string) string {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "netbiosName: host=%.120q", host)
-	}
+func netbiosName(host string) (out0 string) {
+	defer logger.Out1(logger.In1("Core", "netbiosName", "host", host), &out0)
 	var b strings.Builder
 	for _, r := range strings.ToUpper(host) {
 		if b.Len() == 15 {
@@ -52,7 +50,7 @@ func netbiosName(host string) string {
 // SMBServerInit sets up the manager, its endpoints and its list entry. It runs
 // after the Samba wrapper, which it has to share port 445 with.
 func SMBServerInit(router, adminRouter *prout.RouterDef) {
-	logger.Debug("Core", "SMBServerInit")
+	defer logger.Out0(logger.In2("Core", "SMBServerInit", "router", router, "adminRouter", adminRouter))
 	//Windows keeps port 445 for its own file sharing, and only Windows 11 24H2
 	//and newer clients can reach another port, so on a Windows host the
 	//server, its settings and its endpoints are left out altogether
@@ -61,6 +59,7 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
+		logger.DebugErr("Core", err)
 		hostname = *host_name
 	}
 	resolver := diskcapacity.NewCapacityResolver(userHandler)
@@ -82,6 +81,7 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 		CurrentUser: func(w http.ResponseWriter, r *http.Request) (string, error) {
 			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return "", err
 			}
 			return userinfo.Username, nil
@@ -92,6 +92,7 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 		LookupUser: func(username string) (aroz.Account, aroz.Quota, error) {
 			userinfo, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
+				logger.DebugErr("Core", err)
 				return nil, nil, err
 			}
 			return userinfo, userinfo.StorageQuota, nil
@@ -124,6 +125,7 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 
 	SMBManager, err = smbserv.NewManager(option)
 	if err != nil {
+		logger.DebugErr("Core", err)
 		systemWideLogger.PrintAndLog("SMB", "The SMB server is not available", err)
 		return
 	}
@@ -156,10 +158,8 @@ func SMBServerInit(router, adminRouter *prout.RouterDef) {
 
 // sambaToggle starts or stops Samba, which cannot run beside a built in server
 // on the same port.
-func sambaToggle(enabled bool) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "sambaToggle: enabled=%t", enabled)
-	}
+func sambaToggle(enabled bool) (out0 error) {
+	defer logger.Out1(logger.In1("Core", "sambaToggle", "enabled", enabled), &out0)
 	if enabled && SMBManager != nil && SMBManager.HoldsDefaultPort() {
 		return errors.New("the built in SMB server holds port 445. Only one of them can run at a time")
 	}
@@ -168,7 +168,7 @@ func sambaToggle(enabled bool) error {
 
 // SMBServerShutdown stops the SMB server if it is running.
 func SMBServerShutdown() {
-	logger.Debug("Core", "SMBServerShutdown")
+	defer logger.Out0(logger.In0("Core", "SMBServerShutdown"))
 	if SMBManager != nil {
 		SMBManager.Close()
 	}
@@ -176,10 +176,8 @@ func SMBServerShutdown() {
 
 // smbTrash moves a file deleted over SMB into the trash bin, as the File
 // Manager does, so it can be restored from there.
-func smbTrash(fsh *filesystem.FileSystemHandler, subpath, rpath, username string) error {
-	if logger.IsDebug() {
-		logger.Debugf("Core", "smbTrash: subpath=%.120q rpath=%.120q username=%.120q", subpath, rpath, username)
-	}
+func smbTrash(fsh *filesystem.FileSystemHandler, subpath, rpath, username string) (out0 error) {
+	defer logger.Out1(logger.In4("Core", "smbTrash", "fsh", fsh, "subpath", subpath, "rpath", rpath, "username", username), &out0)
 	err := system_fs_moveToTrash(fsh, subpath, rpath, username)
 	if errors.Is(err, errTrashQuota) {
 		return aroz.ErrTrashFull

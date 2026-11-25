@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -51,6 +52,7 @@ type Logger struct {
 	CurrentLogFile string   //Current writing filename
 	file           *os.File //File, empty if LogToFile is false
 	debugMu        sync.Mutex
+	crashCapture   bool //Fatal panics are also written to the log file
 }
 
 type jsonLogEntry struct {
@@ -189,6 +191,22 @@ func (l *Logger) ValidateAndUpdateLogFilepath() {
 		}
 		l.CurrentLogFile = expectedCurrentLogFilepath
 		l.file = f
+		if l.crashCapture {
+			debug.SetCrashOutput(f, debug.CrashOptions{})
+		}
+	}
+}
+
+// CaptureCrashes also writes the report of a fatal panic or runtime error,
+// with its stack, to the log file, which otherwise only reaches the console.
+// It follows the log file when the month changes.
+func (l *Logger) CaptureCrashes() {
+	if l == nil || !l.LogToFile || l.file == nil {
+		return
+	}
+	l.crashCapture = true
+	if err := debug.SetCrashOutput(l.file, debug.CrashOptions{}); err != nil {
+		l.PrintAndLog("Logger", "Unable to write crash reports to the log file", err)
 	}
 }
 

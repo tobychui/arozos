@@ -41,28 +41,28 @@ type Renderer struct {
 	Option RenderOption
 }
 
-func NewRenderer(option RenderOption) *Renderer {
-	logger.DebugTrace("filesystem/renderer", "NewRenderer")
+func NewRenderer(option RenderOption) (out0 *Renderer) {
+	defer logger.Out1(logger.In1("filesystem/renderer", "NewRenderer", "&option", &option), &out0)
 	return &Renderer{
 		Option: option,
 	}
 }
 
-func (r *Renderer) RenderModel(filename string) (image.Image, error) {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/renderer", "Renderer.RenderModel: filename=%.120q", filename)
-	}
+func (r *Renderer) RenderModel(filename string) (out0 image.Image, out1 error) {
+	defer logger.Out2(logger.In2("filesystem/renderer", "Renderer.RenderModel", "r", r, "filename", filename), &out0, &out1)
 	// load a mesh
 	var mesh *Mesh
 	if strings.ToLower(filepath.Ext(filename)) == ".stl" {
 		m, err := LoadSTL(filename)
 		if err != nil {
+			logger.DebugErr("filesystem/renderer", err)
 			return nil, err
 		}
 		mesh = m
 	} else if strings.ToLower(filepath.Ext(filename)) == ".obj" {
 		m, err := LoadOBJ(filename)
 		if err != nil {
+			logger.DebugErr("filesystem/renderer", err)
 			return nil, err
 		}
 		mesh = m
@@ -100,10 +100,8 @@ func (r *Renderer) RenderModel(filename string) (image.Image, error) {
 	return image, nil
 }
 
-func fileExists(filename string) bool {
-	if logger.IsDebug() {
-		logger.Debugf("filesystem/renderer", "fileExists: filename=%.120q", filename)
-	}
+func fileExists(filename string) (out0 bool) {
+	defer logger.Out1(logger.In1("filesystem/renderer", "fileExists", "filename", filename), &out0)
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false

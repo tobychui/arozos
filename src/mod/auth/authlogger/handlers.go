@@ -19,22 +19,20 @@ func (s summaryDate) Len() int {
 	return len(s)
 }
 func (s summaryDate) Swap(i, j int) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("auth/authlogger", "summaryDate.Swap: i=%d j=%d", i, j)
-	}
+	logger.DebugTrace("auth/authlogger", "summaryDate.Swap")
 	s[i], s[j] = s[j], s[i]
 }
 func (s summaryDate) Less(i, j int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("auth/authlogger", "summaryDate.Less: i=%d j=%d", i, j)
-	}
+	logger.DebugTrace("auth/authlogger", "summaryDate.Less")
 	layout := "Jan-2006"
 	timei, err := time.Parse(layout, s[i])
 	if err != nil {
+		logger.DebugErr("auth/authlogger", err)
 		logger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
 	}
 	timej, err := time.Parse(layout, s[j])
 	if err != nil {
+		logger.DebugErr("auth/authlogger", err)
 		logger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
 	}
 	return timei.Unix() > timej.Unix()
@@ -42,13 +40,12 @@ func (s summaryDate) Less(i, j int) bool {
 
 // Handle of listing of the logger index (months)
 func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/authlogger", "Logger.HandleIndexListing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/authlogger", "Logger.HandleIndexListing", "l", l, "r", r))
 	indexes := l.ListSummary()
 	sort.Sort(summaryDate(indexes))
 	js, err := json.Marshal(indexes)
 	if err != nil {
+		logger.DebugErr("auth/authlogger", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -58,18 +55,18 @@ func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
 
 // Handle of the listing of a given index (month)
 func (l *Logger) HandleTableListing(w http.ResponseWriter, r *http.Request) {
-	if logger.IsDebug() {
-		logger.Debugf("auth/authlogger", "Logger.HandleTableListing: r=%s", logger.RequestSummary(r))
-	}
+	defer logger.Out0(logger.In2("auth/authlogger", "Logger.HandleTableListing", "l", l, "r", r))
 	//Get the record name request for listing
 	month, err := utils.PostPara(r, "record")
 	if err != nil {
+		logger.DebugErr("auth/authlogger", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	records, err := l.ListRecords(month)
 	if err != nil {
+		logger.DebugErr("auth/authlogger", err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}

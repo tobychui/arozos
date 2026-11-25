@@ -35,7 +35,7 @@ var (
 )
 
 func SubserviceInit() {
-	logger.Debug("Core", "SubserviceInit")
+	defer logger.Out0(logger.In0("Core", "SubserviceInit"))
 	//If subservice is disabled, do not register endpoints
 	if *disable_subservices {
 		return
@@ -81,7 +81,7 @@ func SubserviceInit() {
 
 // Stop all the subprocess correctly
 func SubserviceHandleShutdown() {
-	logger.Debug("Core", "SubserviceHandleShutdown")
+	defer logger.Out0(logger.In0("Core", "SubserviceHandleShutdown"))
 	if ssRouter != nil {
 		ssRouter.Close()
 	}

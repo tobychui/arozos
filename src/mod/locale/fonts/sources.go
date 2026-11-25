@@ -127,14 +127,13 @@ func (l *Library) embeddedFace(key string) *Face {
 // glyphsAligned reports whether every glyph of a TrueType font starts on an
 // even offset; a font without glyf / loca has nothing to align
 func glyphsAligned(font *Font, numGlyphs int) bool {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "glyphsAligned: numGlyphs=%d", numGlyphs)
-	}
+	logger.DebugTrace("locale/fonts", "glyphsAligned")
 	if font.Table("glyf") == nil || font.Table("loca") == nil {
 		return true
 	}
 	offsets, err := glyphOffsets(font, numGlyphs)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return true // a damaged loca is not ours to rewrite
 	}
 	for _, o := range offsets {
@@ -148,9 +147,7 @@ func glyphsAligned(font *Font, numGlyphs int) bool {
 // padGlyphs rewrites glyf so every glyph starts on a 4-byte boundary, with
 // a long loca to match. Only the padding between glyphs changes.
 func padGlyphs(tables map[string][]byte) error {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "padGlyphs: len(tables)=%d", len(tables))
-	}
+	logger.DebugTrace("locale/fonts", "padGlyphs")
 	maxp := tables["maxp"]
 	if len(maxp) < 6 || len(tables["head"]) < 54 {
 		return errors.New("the maxp or head table is damaged")
@@ -159,6 +156,7 @@ func padGlyphs(tables map[string][]byte) error {
 	font := &Font{Tables: tables}
 	offsets, err := glyphOffsets(font, n)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return err
 	}
 	glyf := tables["glyf"]
@@ -215,10 +213,12 @@ func (l *Library) FilePath(key string) (string, string, error) {
 
 	data, err := os.ReadFile(face.path)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return "", "", err
 	}
 	font, _, err := Decode(data)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return "", "", err
 	}
 	tables := make(map[string][]byte, len(font.Tables))
@@ -227,21 +227,26 @@ func (l *Library) FilePath(key string) (string, string, error) {
 	}
 	if !face.aligned {
 		if err := padGlyphs(tables); err != nil {
+			logger.DebugErr("locale/fonts", err)
 			return "", "", err
 		}
 	}
 	sfnt, err := AssembleSFNT(font.Flavor, tables)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return "", "", err
 	}
 	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return "", "", err
 	}
 	tmp := target + ".tmp"
 	if err := os.WriteFile(tmp, sfnt, 0644); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return "", "", err
 	}
 	if err := os.Rename(tmp, target); err != nil {
+		logger.DebugErr("locale/fonts", err)
 		os.Remove(tmp)
 		return "", "", err
 	}
@@ -254,10 +259,12 @@ func (l *Library) FileData(key string) ([]byte, string, error) {
 	logger.DebugTrace("locale/fonts", "Library.FileData")
 	file, ext, err := l.FilePath(key)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, "", err
 	}
 	data, err := os.ReadFile(file)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		return nil, "", err
 	}
 	return data, ext, nil
@@ -266,9 +273,7 @@ func (l *Library) FileData(key string) ([]byte, string, error) {
 // ServeFile answers a request for a whole font, named "<key>.ttf" or
 // "<key>.otf" as Sources lists it
 func (l *Library) ServeFile(w http.ResponseWriter, r *http.Request, name string) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("locale/fonts", "Library.ServeFile: r=%s name=%.120q", logger.RequestSummary(r), name)
-	}
+	logger.DebugTrace("locale/fonts", "Library.ServeFile")
 	key, ext, ok := strings.Cut(name, ".")
 	face := l.embeddedFace(key)
 	if !ok || face == nil || "."+ext != fileExt(face) {
@@ -277,17 +282,20 @@ func (l *Library) ServeFile(w http.ResponseWriter, r *http.Request, name string)
 	}
 	file, _, err := l.FilePath(key)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		http.NotFound(w, r)
 		return
 	}
 	f, err := os.Open(file)
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		http.NotFound(w, r)
 		return
 	}
 	defer f.Close()
 	st, err := f.Stat()
 	if err != nil {
+		logger.DebugErr("locale/fonts", err)
 		http.NotFound(w, r)
 		return
 	}

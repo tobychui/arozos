@@ -51,9 +51,10 @@ type owner struct {
 }
 
 func readLockInfo(r io.Reader) (li lockInfo, status int, err error) {
-	logger.Debug("network/webdav", "readLockInfo")
+	defer logger.Out3(logger.In1("network/webdav", "readLockInfo", "r", r), &li, &status, &err)
 	c := &countingReader{r: r}
 	if err = ixml.NewDecoder(c).Decode(&li); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if err == io.EOF {
 			if c.n == 0 {
 				// An empty body means to refresh the lock.
@@ -78,16 +79,14 @@ type countingReader struct {
 }
 
 func (c *countingReader) Read(p []byte) (int, error) {
-	if logger.IsDebugTrace() {
-		logger.DebugTracef("network/webdav", "countingReader.Read: len(p)=%d", len(p))
-	}
+	logger.DebugTrace("network/webdav", "countingReader.Read")
 	n, err := c.r.Read(p)
 	c.n += n
 	return n, err
 }
 
-func writeLockInfo(w io.Writer, token string, ld LockDetails) (int, error) {
-	logger.Debug("network/webdav", "writeLockInfo")
+func writeLockInfo(w io.Writer, token string, ld LockDetails) (out0 int, out1 error) {
+	defer logger.Out2(logger.In3("network/webdav", "writeLockInfo", "w", w, "&ld", &ld, "!token", token), &out0, &out1)
 	depth := "infinity"
 	if ld.ZeroDepth {
 		depth = "0"
@@ -107,10 +106,8 @@ func writeLockInfo(w io.Writer, token string, ld LockDetails) (int, error) {
 	)
 }
 
-func escape(s string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "escape: s=%.120q", s)
-	}
+func escape(s string) (out0 string) {
+	defer logger.Out1(logger.In1("network/webdav", "escape", "s", s), &out0)
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case '"', '&', '\'', '<', '>':
@@ -127,11 +124,12 @@ func escape(s string) string {
 // and directives.
 // http://www.webdav.org/specs/rfc4918.html#property_values
 // http://www.webdav.org/specs/rfc4918.html#xml-extensibility
-func next(d *ixml.Decoder) (ixml.Token, error) {
-	logger.Debug("network/webdav", "next")
+func next(d *ixml.Decoder) (out0 ixml.Token, out1 error) {
+	defer logger.Out2(logger.In1("network/webdav", "next", "d", d), &out0, &out1)
 	for {
 		t, err := d.Token()
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return t, err
 		}
 		switch t.(type) {
@@ -155,6 +153,7 @@ func (pn *propfindProps) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement) 
 	for {
 		t, err := next(d)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return err
 		}
 		switch t.(type) {
@@ -167,6 +166,7 @@ func (pn *propfindProps) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement) 
 			name := t.(ixml.StartElement).Name
 			t, err = next(d)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				return err
 			}
 			if _, ok := t.(ixml.EndElement); !ok {
@@ -187,9 +187,10 @@ type propfind struct {
 }
 
 func readPropfind(r io.Reader) (pf propfind, status int, err error) {
-	logger.Debug("network/webdav", "readPropfind")
+	defer logger.Out3(logger.In1("network/webdav", "readPropfind", "r", r), &pf, &status, &err)
 	c := countingReader{r: r}
 	if err = ixml.NewDecoder(&c).Decode(&pf); err != nil {
+		logger.DebugErr("network/webdav", err)
 		if err == io.EOF {
 			if c.n == 0 {
 				// An empty body means to propfind allprop.
@@ -338,8 +339,8 @@ type multistatusWriter struct {
 // first, valid response to be written, Write prepends the XML representation
 // of r with a multistatus tag. Callers must call close after the last response
 // has been written.
-func (w *multistatusWriter) write(r *response) error {
-	logger.Debug("network/webdav", "multistatusWriter.write")
+func (w *multistatusWriter) write(r *response) (out0 error) {
+	defer logger.Out1(logger.In2("network/webdav", "multistatusWriter.write", "w", w, "r", r), &out0)
 	switch len(r.Href) {
 	case 0:
 		return errInvalidResponse
@@ -354,6 +355,7 @@ func (w *multistatusWriter) write(r *response) error {
 	}
 	err := w.writeHeader()
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	return w.enc.Encode(r)
@@ -362,8 +364,8 @@ func (w *multistatusWriter) write(r *response) error {
 // writeHeader writes a XML multistatus start element on w's underlying
 // http.ResponseWriter and returns the result of the write operation.
 // After the first write attempt, writeHeader becomes a no-op.
-func (w *multistatusWriter) writeHeader() error {
-	logger.Debug("network/webdav", "multistatusWriter.writeHeader")
+func (w *multistatusWriter) writeHeader() (out0 error) {
+	defer logger.Out1(logger.In1("network/webdav", "multistatusWriter.writeHeader", "w", w), &out0)
 	if w.enc != nil {
 		return nil
 	}
@@ -371,6 +373,7 @@ func (w *multistatusWriter) writeHeader() error {
 	w.w.WriteHeader(StatusMulti)
 	_, err := fmt.Fprintf(w.w, `<?xml version="1.0" encoding="UTF-8"?>`)
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	w.enc = ixml.NewEncoder(w.w)
@@ -390,8 +393,8 @@ func (w *multistatusWriter) writeHeader() error {
 // an error if the multistatus response could not be completed. If both the
 // return value and field enc of w are nil, then no multistatus response has
 // been written.
-func (w *multistatusWriter) close() error {
-	logger.Debug("network/webdav", "multistatusWriter.close")
+func (w *multistatusWriter) close() (out0 error) {
+	defer logger.Out1(logger.In1("network/webdav", "multistatusWriter.close", "w", w), &out0)
 	if w.enc == nil {
 		return nil
 	}
@@ -410,6 +413,7 @@ func (w *multistatusWriter) close() error {
 	for _, t := range end {
 		err := w.enc.EncodeToken(t)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return err
 		}
 	}
@@ -418,10 +422,8 @@ func (w *multistatusWriter) close() error {
 
 var xmlLangName = ixml.Name{Space: "http://www.w3.org/XML/1998/namespace", Local: "lang"}
 
-func xmlLang(s ixml.StartElement, d string) string {
-	if logger.IsDebug() {
-		logger.Debugf("network/webdav", "xmlLang: d=%.120q", d)
-	}
+func xmlLang(s ixml.StartElement, d string) (out0 string) {
+	defer logger.Out1(logger.In2("network/webdav", "xmlLang", "&s", &s, "d", d), &out0)
 	for _, attr := range s.Attr {
 		if attr.Name == xmlLangName {
 			return attr.Value
@@ -443,17 +445,20 @@ func (v *xmlValue) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement) error 
 	for {
 		t, err := next(d)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return err
 		}
 		if e, ok := t.(ixml.EndElement); ok && e.Name == start.Name {
 			break
 		}
 		if err = e.EncodeToken(t); err != nil {
+			logger.DebugErr("network/webdav", err)
 			return err
 		}
 	}
 	err := e.Flush()
 	if err != nil {
+		logger.DebugErr("network/webdav", err)
 		return err
 	}
 	*v = b.Bytes()
@@ -477,6 +482,7 @@ func (ps *proppatchProps) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement)
 	for {
 		t, err := next(d)
 		if err != nil {
+			logger.DebugErr("network/webdav", err)
 			return err
 		}
 		switch elem := t.(type) {
@@ -492,6 +498,7 @@ func (ps *proppatchProps) UnmarshalXML(d *ixml.Decoder, start ixml.StartElement)
 			}
 			err = d.DecodeElement(((*xmlValue)(&p.InnerXML)), &elem)
 			if err != nil {
+				logger.DebugErr("network/webdav", err)
 				return err
 			}
 			*ps = append(*ps, p)
@@ -515,9 +522,10 @@ type propertyupdate struct {
 }
 
 func readProppatch(r io.Reader) (patches []Proppatch, status int, err error) {
-	logger.Debug("network/webdav", "readProppatch")
+	defer logger.Out3(logger.In1("network/webdav", "readProppatch", "r", r), &patches, &status, &err)
 	var pu propertyupdate
 	if err = ixml.NewDecoder(r).Decode(&pu); err != nil {
+		logger.DebugErr("network/webdav", err)
 		return nil, http.StatusBadRequest, err
 	}
 	for _, op := range pu.SetRemove {

@@ -31,10 +31,11 @@ type NodeKey struct {
 }
 
 // GenerateNodeKey creates a brand new random node key pair.
-func GenerateNodeKey() (*NodeKey, error) {
-	logger.Debug("cluster/acn", "GenerateNodeKey")
+func GenerateNodeKey() (out0 *NodeKey, out1 error) {
+	defer logger.Out2(logger.In0("cluster/acn", "GenerateNodeKey"), &out0, &out1)
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	return &NodeKey{Private: priv, Public: pub}, nil
@@ -42,8 +43,8 @@ func GenerateNodeKey() (*NodeKey, error) {
 
 // LoadOrCreateNodeKey loads the node key stored at keyfile, creating and
 // persisting a new one when the file does not exist yet.
-func LoadOrCreateNodeKey(keyfile string) (*NodeKey, error) {
-	logger.Debug("cluster/acn", "LoadOrCreateNodeKey")
+func LoadOrCreateNodeKey(keyfile string) (out0 *NodeKey, out1 error) {
+	defer logger.Out2(logger.In1("cluster/acn", "LoadOrCreateNodeKey", "!keyfile", keyfile), &out0, &out1)
 	content, err := os.ReadFile(keyfile)
 	if err == nil {
 		return ParseNodeKey(strings.TrimSpace(string(content)))
@@ -54,22 +55,26 @@ func LoadOrCreateNodeKey(keyfile string) (*NodeKey, error) {
 
 	key, err := GenerateNodeKey()
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Dir(keyfile), 0700); err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	if err := os.WriteFile(keyfile, []byte(key.Encode()), 0600); err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, err
 	}
 	return key, nil
 }
 
 // ParseNodeKey rebuilds a key pair from the hex encoded seed produced by Encode.
-func ParseNodeKey(hexSeed string) (*NodeKey, error) {
-	logger.Debug("cluster/acn", "ParseNodeKey")
+func ParseNodeKey(hexSeed string) (out0 *NodeKey, out1 error) {
+	defer logger.Out2(logger.In1("cluster/acn", "ParseNodeKey", "!hexSeed", hexSeed), &out0, &out1)
 	seed, err := hex.DecodeString(strings.TrimSpace(hexSeed))
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, errors.New("invalid node key encoding: " + err.Error())
 	}
 	if len(seed) != ed25519.SeedSize {
@@ -102,12 +107,11 @@ func EncodePublicKey(pub ed25519.PublicKey) string {
 }
 
 // DecodePublicKey parses the base64 public key of a peer.
-func DecodePublicKey(encoded string) (ed25519.PublicKey, error) {
-	if logger.IsDebug() {
-		logger.Debugf("cluster/acn", "DecodePublicKey: encoded=%.120q", encoded)
-	}
+func DecodePublicKey(encoded string) (out0 ed25519.PublicKey, out1 error) {
+	defer logger.Out2(logger.In1("cluster/acn", "DecodePublicKey", "encoded", encoded), &out0, &out1)
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 	if err != nil {
+		logger.DebugErr("cluster/acn", err)
 		return nil, errors.New("invalid public key encoding: " + err.Error())
 	}
 	if len(raw) != ed25519.PublicKeySize {
