@@ -16,6 +16,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // StoragePool is where the drives of the system or of one permission group are
@@ -37,9 +38,13 @@ func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StorageP
 	storageHandlers := []*fs.FileSystemHandler{}
 	for _, fsHandler := range fsHandlers {
 		//Move the handler pointer to the target
+		if fsHandler == nil || fsHandler.FileSystemAbstraction == nil {
+			logger.Debugf("Storage", "NewStoragePool(%s): drive %s has no abstraction; looking up any drive in this pool by id panics on it", owner, fsHandler.Describe())
+		}
 		storageHandlers = append(storageHandlers, fsHandler)
 	}
 
+	logger.Debugf("Storage", "NewStoragePool(%s): %d drive(s) %s", owner, len(storageHandlers), fs.DebugHandlerList(storageHandlers))
 	return &StoragePool{
 		Owner:    owner,
 		Storages: storageHandlers,
@@ -89,7 +94,9 @@ func (s *StoragePool) GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, er
 
 // Attach a file system handler to this pool
 func (s *StoragePool) AttachFsHandler(fsh *filesystem.FileSystemHandler) error {
+	logger.Debugf("Storage", "AttachFsHandler(pool %s): %s, pool holds %s", s.Owner, fsh.Describe(), fs.DebugHandlerList(s.Storages))
 	if s.ContainDiskID(fsh.UUID) {
+		logger.Debugf("Storage", "AttachFsHandler(pool %s): refused, %s:/ is already in the pool", s.Owner, fsh.UUID)
 		return errors.New("file system handler with same uuid already exists in this pool")
 	}
 
@@ -106,11 +113,13 @@ func (s *StoragePool) DetachFsHandler(uuid string) {
 		}
 	}
 
+	logger.Debugf("Storage", "DetachFsHandler(pool %s): %s:/ detached, pool goes from %s to %s", s.Owner, uuid, fs.DebugHandlerList(s.Storages), fs.DebugHandlerList(newFshList))
 	s.Storages = newFshList
 }
 
 // Close all fsHandler under this storage pool
 func (s *StoragePool) Close() {
+	logger.Debugf("Storage", "StoragePool.Close(%s): closing %s", s.Owner, fs.DebugHandlerList(s.Storages))
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
 		if !fsh.Closed {

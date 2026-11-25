@@ -635,6 +635,17 @@ instance. A library that takes a `*slog.Logger` gets `logger.NewSlog("Title")`,
 which writes its records through `PrintAndLog`. The only file allowed to wrap the standard `log` package is the logger
 implementation itself ([`src/mod/info/logger/`](src/mod/info/logger/)).
 
+For tracing, `logger.Debug(title, msg)` and `logger.Debugf(title, format, args...)`
+write `[DEBUG]` lines only when ArozOS starts with `-debug` (slog debug records
+follow the same flag). They are written to the log file before the call
+returns and name their goroutine and source line, as
+`(goroutine 42, storage/storage.go:57)`, to match the `goroutine 42 [running]:`
+header of a panic trace. Arguments are evaluated even while debug is off, so
+pass `fsh.Describe()` rather than `fsh.DebugString()` and put heavier work
+behind `logger.DebugEnabled()`. `defer logger.TracePanic(title, during)` at the
+top of a goroutine or handler logs a panic with its stack (debug only) and
+panics again with the same value, so behaviour does not change.
+
 *Enforced as an ERROR* (blocks CI) on added `log.Print*` / `log.Fatal*` /
 `log.Panic*` calls.
 

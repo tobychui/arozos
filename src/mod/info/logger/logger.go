@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -49,13 +50,16 @@ type Logger struct {
 	LogFolder      string   //Folder to store the log  file
 	CurrentLogFile string   //Current writing filename
 	file           *os.File //File, empty if LogToFile is false
+	mu             sync.Mutex
 }
 
 type jsonLogEntry struct {
-	Time    string `json:"time"`
-	Level   string `json:"level"`
-	Title   string `json:"title"`
-	Message string `json:"message"`
+	Time      string `json:"time"`
+	Level     string `json:"level"`
+	Title     string `json:"title"`
+	Message   string `json:"message"`
+	Goroutine uint64 `json:"goroutine,omitempty"` //Debug lines only
+	Caller    string `json:"caller,omitempty"`    //Debug lines only
 }
 
 // Create a default logger
@@ -130,7 +134,15 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 
 func (l *Logger) Log(title string, errorMessage string, originalError error) {
 	if l != nil && l.LogToFile {
-		l.ValidateAndUpdateLogFilepath()
+		//INFO and ERROR lines are written from their own goroutines and
+		//DEBUG lines from the caller's, so writes and the monthly file
+		//change take turns
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.validateAndUpdateLogFilepath()
+		if l.file == nil {
+			return
+		}
 		if originalError == nil {
 			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [INFO]" + errorMessage + "\n")
 		} else {
@@ -142,6 +154,14 @@ func (l *Logger) Log(title string, errorMessage string, originalError error) {
 
 // Validate if the logging target is still valid (detect any months change)
 func (l *Logger) ValidateAndUpdateLogFilepath() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.validateAndUpdateLogFilepath()
+}
+
+// validateAndUpdateLogFilepath is ValidateAndUpdateLogFilepath for callers
+// holding l.mu
+func (l *Logger) validateAndUpdateLogFilepath() {
 	expectedCurrentLogFilepath := l.getLogFilepath()
 	if l.CurrentLogFile != expectedCurrentLogFilepath {
 		//Change of month. Update to a new log file
@@ -158,5 +178,7 @@ func (l *Logger) ValidateAndUpdateLogFilepath() {
 }
 
 func (l *Logger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.file.Close()
 }

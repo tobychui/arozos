@@ -37,6 +37,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/localversion"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
+	"imuslab.com/arozos/mod/info/logger"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/share"
@@ -300,6 +301,8 @@ func FileSystemInit() {
 
 	//Clear file version history that is more than 30 days
 	go func() {
+		//A panic in this goroutine stops the whole server
+		defer logger.TracePanic("File System", "cleaning file version histories at startup")
 		//Start version history cleaning in background
 		system_fs_clearVersionHistories()
 		systemWideLogger.PrintAndLog("File System", "Startup File Version History Cleaning Completed", nil)
@@ -562,6 +565,8 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	} else {
 		os.MkdirAll(uploadFolder, 0700)
 	}
+	defer logger.TracePanic("File System", "low memory upload "+uploadUUID+" of "+filename+" to "+uploadTarget+" by "+userinfo.Username)
+	logger.Debugf("File System", "LowMemoryUpload %s: %q by %q to %q (%q on %s), huge file %v, chunks in %q", uploadUUID, filename, userinfo.Username, uploadTarget, targetUploadLocation, fsh.Describe(), isHugeFile, uploadFolder)
 
 	//Start websocket connection
 	var upgrader = websocket.Upgrader{}
@@ -849,6 +854,10 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		//The merge file location can be local or remote that support OpenFile.
 		out, err = fshAbs.OpenFile(mergeFileLocation, os.O_CREATE|os.O_WRONLY, 0755)
 	}
+	logger.Debugf("File System", "LowMemoryUpload %s: merging %d chunk(s) into %q (buffered locally: %v), open error: %v", uploadUUID, len(chunkName), mergeFileLocation, fsh.RequireBuffer, err)
+	if out == nil {
+		logger.Debugf("File System", "LowMemoryUpload %s: the merge file is a nil interface; the deferred out.Close() panics with a nil pointer dereference when this handler returns", uploadUUID)
+	}
 	defer out.Close()
 
 	if err != nil {
@@ -906,6 +915,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		c.WriteMessage(1, []byte(`{"error":"Failed to validate uploaded file"}`))
 		return
 	}
+	logger.Debugf("File System", "LowMemoryUpload %s: merged %d bytes, quota manager set=%v", uploadUUID, fi.Size(), userinfo.StorageQuota != nil)
 	if !userinfo.StorageQuota.HaveSpace(fi.Size()) {
 		c.WriteMessage(1, []byte(`{"error":"User Storage Quota Exceeded"}`))
 		if fsh.RequireBuffer {
@@ -919,6 +929,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	//Upload it to remote side if it fits the user quota && is buffer file
 	if fsh.RequireBuffer {
 		//This is local buffer file. Upload to dest fsh
+		logger.Debugf("File System", "LowMemoryUpload %s: uploading buffer %q to %q on %s:/", uploadUUID, mergeFileLocation, targetUploadLocation, fsh.UUID)
 		f, err := os.Open(mergeFileLocation)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to open buffered file at "+mergeFileLocation+" with error "+err.Error(), err)
@@ -1070,6 +1081,8 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Check for storage quota
 	uploadFileSize := handler.Size
+	defer logger.TracePanic("File System", "upload of "+storeFilename+" to "+uploadTarget+" by "+userinfo.Username)
+	logger.Debugf("File System", "Upload: %q (%d bytes) by %q to %q, %q on %s, access %s, quota manager set=%v", storeFilename, uploadFileSize, userinfo.Username, uploadTarget, destFilepath, fsh.Describe(), accmode, userinfo.StorageQuota != nil)
 	if !userinfo.StorageQuota.HaveSpace(uploadFileSize) {
 		utils.SendErrorResponse(w, "User Storage Quota Exceeded")
 		return
@@ -1082,6 +1095,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = targetFs.WriteStream(destFilepath, file, 0775)
+	logger.Debugf("File System", "Upload: wrote %q on %s:/, error: %v", destFilepath, fsh.UUID, err)
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Write stream to destination file system abstraction from upload failed", err)
 		utils.SendErrorResponse(w, "Write upload to destination disk failed")
@@ -1377,6 +1391,7 @@ it and can restore it. Used by the File Manager and the SMB server.
 	file system abstraction.
 */
 func system_fs_moveToTrash(fsh *filesystem.FileSystemHandler, subpath string, rpath string, username string) error {
+	logger.Debugf("File System", "moveToTrash: %q (%q) of %q on %s", subpath, rpath, username, fsh.Describe())
 	fshAbs := fsh.FileSystemAbstraction
 	if system_fs_isInTrash(subpath) {
 		return errAlreadyInTrash
@@ -1424,6 +1439,7 @@ func system_fs_moveToTrash(fsh *filesystem.FileSystemHandler, subpath string, rp
 	fshAbs.MkdirAll(path.Dir(filepath.ToSlash(trashPath)), 0755)
 	hidden.HideFile(trashRoot)
 	err = fshAbs.Rename(rpath, trashPath)
+	logger.Debugf("File System", "moveToTrash: %q -> %q on %s:/, error: %v", rpath, trashPath, fsh.UUID, err)
 	if err != nil {
 		//Do not leave the folders made for it behind
 		system_fs_pruneTrashParents(fsh, username, path.Dir(filepath.ToSlash(trashPath)))
@@ -1714,6 +1730,7 @@ func system_fs_clearExpiredTrash() {
 		cutoff := time.Now().Unix() - int64(retentionDays)*86400
 		removed := 0
 		for _, fsh := range system_fs_trashRootsOf(userinfo) {
+			logger.Debugf("File System", "clearExpiredTrash: %q (keeps %d days) on %s, maintained here: %v", username, retentionDays, fsh.Describe(), nightlyShouldMaintainFsh(fsh))
 			if !nightlyShouldMaintainFsh(fsh) {
 				//Trash inside a drive shared by the cluster is emptied by the
 				//master node, so it is not purged once per member
@@ -2292,12 +2309,19 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 // runFileOperationTask executes the file operation described by the given task record.
 // onUpdate is optional and, when given, is called on every progress update.
 func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFiles []string, vdestFile string, existsOpr string, onUpdate func(fileOprProgressUpdate)) {
+	//The async endpoint runs this in its own goroutine, where a panic stops
+	//the whole server
+	defer logger.TracePanic("File System", "running file operation "+task.ID+" ("+task.Operation+") of "+userinfo.Username+" to "+vdestFile)
 	if existsOpr == "" {
 		existsOpr = "keep"
 	}
 
 	oprId := task.ID
 	operation := task.Operation
+	logger.Debugf("File System", "FileOperation %s: %s by %q of %d source(s) %q to %q, exists rule %q, websocket=%v", oprId, operation, userinfo.Username, len(sourceFiles), sourceFiles, vdestFile, existsOpr, onUpdate != nil)
+	if len(sourceFiles) == 0 {
+		logger.Debugf("File System", "FileOperation %s: no source files; zip and the shared drive check read sourceFiles[0] and panic with index out of range", oprId)
+	}
 
 	pushUpdate := func(update fileOprProgressUpdate) {
 		if onUpdate != nil {
@@ -2306,6 +2330,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 	}
 
 	failTask := func(filename string, errmsg string) {
+		logger.Debugf("File System", "FileOperation %s: failed at %q: %s", oprId, filename, errmsg)
 		SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Error, errmsg)
 		pushUpdate(fileOprProgressUpdate{
 			LatestFile: filename,
@@ -2322,7 +2347,8 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		return
 	}
 	destFshAbs := destFsh.FileSystemAbstraction
-	rdestFile, _ := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	rdestFile, rdestErr := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	logger.Debugf("File System", "FileOperation %s: destination %q is %q on %s (resolve error: %v)", oprId, vdestFile, rdestFile, destFsh.Describe(), rdestErr)
 
 	if !userinfo.CanWrite(vdestFile) {
 		failTask(filepath.Base(vdestFile), "Access Denied: No Write Permission")
@@ -2380,6 +2406,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			zipDestPath = getFsBufferFilepath(outputFilename, false)
 			zipDestFsh = nil
 		}
+		logger.Debugf("File System", "FileOperation %s: zipping %q into %q (buffered locally: %v)", oprId, realSourceFiles, zipDestPath, destFsh.RequireBuffer)
 
 		//Create the zip file
 		err = filesystem.ArozZipFileWithProgress(sourceFileFsh, realSourceFiles, zipDestFsh, zipDestPath, false, func(currentFilename string, _ int, _ int, progress float64) int {
@@ -2405,7 +2432,8 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			}
 		} else if destFsh.RequireBuffer {
 			//Move the buffer result to remote
-			f, _ := os.Open(zipDestPath)
+			f, openErr := os.Open(zipDestPath)
+			logger.Debugf("File System", "FileOperation %s: uploading buffered zip %q to %q on %s:/ (open error: %v)", oprId, zipDestPath, outputFilename, destFsh.UUID, openErr)
 			err = destFshAbs.WriteStream(outputFilename, f, 0775)
 			if err != nil {
 				systemWideLogger.PrintAndLog("File System", "Zip write to remote file system with driver"+destFsh.Filesystem+" failed", err)
@@ -2450,9 +2478,10 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		if destFsh.RequireBuffer {
 			unzipDest = getFsBufferFilepath(rdestFile, true)
 		}
+		logger.Debugf("File System", "FileOperation %s: unzipping %q into %q (buffered locally: %v)", oprId, realSourceFiles, unzipDest, destFsh.RequireBuffer)
 
 		//Unzip the files
-		filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) int {
+		unzipErr := filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) int {
 			//Generate the status update struct
 			sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(progress))
 			pushUpdate(fileOprProgressUpdate{
@@ -2465,11 +2494,16 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 			return sig
 		})
 
+		logger.Debugf("File System", "FileOperation %s: unzip finished, error (not reported to the user): %v", oprId, unzipErr)
 		if destFsh.RequireBuffer {
 			//Push the unzip results back to remote fs
+			logger.Debugf("File System", "FileOperation %s: uploading unzipped files from %q to %q on %s:/", oprId, unzipDest, rdestFile, destFsh.UUID)
 			filepath.Walk(unzipDest, func(path string, info os.FileInfo, err error) error {
 				path = filepath.ToSlash(path)
 				relpath := strings.TrimPrefix(path, filepath.ToSlash(unzipDest))
+				if info == nil {
+					logger.Debugf("File System", "FileOperation %s: upload walk got NO file info for %q (walk error: %v); info.IsDir() below panics with a nil pointer dereference", oprId, path, err)
+				}
 				if info.IsDir() {
 					destFshAbs.MkdirAll(filepath.Join(rdestFile, relpath), 0775)
 				} else {
@@ -2496,7 +2530,8 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 				return
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
-			rsrcFile, _ := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+			rsrcFile, rsrcErr := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+			logger.Debugf("File System", "FileOperation %s: source %d of %d %q is %q on %s (resolve error: %v)", oprId, i+1, len(sourceFiles), vsrcFile, rsrcFile, thisSrcFsh.Describe(), rsrcErr)
 
 			if !thisSrcFshAbs.FileExists(rsrcFile) {
 				//This source file not exists. Report Error and Stop
@@ -2554,6 +2589,7 @@ func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFi
 		endingSignal = filesystem.FsOpr_Cancel
 	}
 
+	logger.Debugf("File System", "FileOperation %s: %s ended, signal %d", oprId, operation, endingSignal)
 	SetFileOperationTaskEnded(oprId, endingSignal, "")
 }
 
@@ -2593,6 +2629,8 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	vsrcFiles, _ := utils.PostPara(r, "src")
 	vdestFile, _ := utils.PostPara(r, "dest")
 	vnfilenames, _ := utils.PostPara(r, "new") //Only use when rename or create new file / folder
+	defer logger.TracePanic("File System", "file operation "+operation+" by "+userinfo.Username+" of "+vsrcFiles+" to "+vdestFile)
+	logger.Debugf("File System", "handleOpr: %s by %q src=%s dest=%q new=%s", operation, userinfo.Username, vsrcFiles, vdestFile, vnfilenames)
 
 	//Check if operation valid.
 	if operation == "" {
@@ -2733,6 +2771,10 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				destFshAbs = destFsh.FileSystemAbstraction
 				rdestFile, _ = destFshAbs.VirtualPathToRealPath(destSubpath, userinfo.Username)
+			}
+			logger.Debugf("File System", "handleOpr: %s source %d of %d %q is %q on %s, destination %q is %q on %s (error: %v)", operation, i+1, len(sourceFiles), vsrcFile, rsrcFile, srcFsh.Describe(), vdestFile, rdestFile, destFsh.Describe(), err)
+			if destFshAbs == nil && (operation == "move" || operation == "copy" || operation == "unzip") {
+				logger.Debugf("File System", "handleOpr: %s has no destination drive for %q; using it panics with a nil pointer dereference", operation, vdestFile)
 			}
 
 			//Check if the source file exists
@@ -2930,6 +2972,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 				err = srcFshAbs.RemoveAll(rsrcFile)
+				logger.Debugf("File System", "handleOpr: delete %q on %s:/, error: %v", rsrcFile, srcFsh.UUID, err)
 				if err != nil {
 					systemWideLogger.PrintAndLog("File System", "Unable to remove file from "+srcFsh.UUID, err)
 					utils.SendErrorResponse(w, err.Error())
@@ -3017,9 +3060,13 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				if destFsh.RequireBuffer {
 					//Push the buffer to target fs
+					logger.Debugf("File System", "handleOpr: uploading unzipped files from %q to %q on %s:/", unzipDest, rdestFile, destFsh.UUID)
 					filepath.Walk(unzipDest, func(path string, info os.FileInfo, err error) error {
 						path = filepath.ToSlash(path)
 						relpath := strings.TrimPrefix(path, filepath.ToSlash(unzipDest))
+						if info == nil {
+							logger.Debugf("File System", "handleOpr: upload walk got NO file info for %q (walk error: %v); info.IsDir() below panics with a nil pointer dereference", path, err)
+						}
 						if info.IsDir() {
 							destFshAbs.MkdirAll(filepath.Join(rdestFile, relpath), 0775)
 						} else {
@@ -3511,9 +3558,12 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	realpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
+		logger.Debugf("File System", "handleList(%q, %q): path not resolved on %s: %v", userinfo.Username, currentDir, fsh.Describe(), err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
+	defer logger.TracePanic("File System", "listing "+currentDir+" ("+realpath+" on "+fsh.UUID+":/) for "+userinfo.Username)
+	logger.Debugf("File System", "handleList(%q, %q): %q on %s, sort %q", userinfo.Username, currentDir, realpath, fsh.Describe(), sortMode)
 
 	if !fshAbs.FileExists(realpath) {
 		//Path not exists
@@ -3544,6 +3594,18 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, "Readdir Failed: "+strings.ReplaceAll(err.Error(), "\\", "/"))
 		systemWideLogger.PrintAndLog("File System", "Unable to read dir: "+err.Error(), err)
 		return
+	}
+	if logger.DebugEnabled() {
+		nilEntries := 0
+		for _, f := range files {
+			if f == nil {
+				nilEntries++
+			}
+		}
+		logger.Debugf("File System", "handleList(%q): ReadDir gave %d entries", realpath, len(files))
+		if nilEntries > 0 {
+			logger.Debugf("File System", "handleList(%q): %d of them are nil; f.Name() below panics with a nil pointer dereference", realpath, nilEntries)
+		}
 	}
 
 	//Remapping use parsed list
@@ -3873,6 +3935,9 @@ stops and reports the cancellation as an error, and finishTmpZipTask turns that
 back into a cancelled record.
 */
 func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, realSourcePaths []string, zipDestFsh *filesystem.FileSystemHandler, zipOutput string, destFsh *filesystem.FileSystemHandler, rdest string) {
+	//Runs in its own goroutine, where a panic stops the whole server
+	defer logger.TracePanic("File System", "zipping in the background for operation "+oprId+" into "+zipOutput)
+	logger.Debugf("File System", "TmpZip %s: %q into %q, destination %q on %s", oprId, realSourcePaths, zipOutput, rdest, destFsh.Describe())
 	err := filesystem.ArozZipFileWithProgress(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false, func(currentFilename string, _ int, _ int, progress float64) int {
 		sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
 		return sig
@@ -3886,8 +3951,9 @@ func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, rea
 
 	if destFsh.RequireBuffer {
 		//Write the buffer zip file to destination
-		f, _ := os.Open(zipOutput)
+		f, openErr := os.Open(zipOutput)
 		err = destFsh.FileSystemAbstraction.WriteStream(rdest, f, 0775)
+		logger.Debugf("File System", "TmpZip %s: uploaded buffered %q to %q on %s:/ (open error: %v, write error: %v)", oprId, zipOutput, rdest, destFsh.UUID, openErr, err)
 		f.Close()
 		os.Remove(zipOutput)
 		if err != nil {
@@ -4023,7 +4089,10 @@ func system_fs_clearVersionHistories() {
 			//A drive shared by the cluster is cleaned by the master node
 			continue
 		}
+		started := time.Now()
+		logger.Debugf("File System", "clearVersionHistories: walking %q on %s", fsh.Path, fsh.Describe())
 		localversion.CleanExpiredVersionBackups(fsh, fsh.Path, 30*86400)
+		logger.Debugf("File System", "clearVersionHistories: %s:/ done in %v", fsh.UUID, time.Since(started))
 	}
 }
 

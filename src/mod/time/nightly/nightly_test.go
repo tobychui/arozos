@@ -1,6 +1,7 @@
 package nightly
 
 import (
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -156,5 +157,27 @@ func TestRegisterNightlyTaskWithOption(t *testing.T) {
 	}
 	if atomic.LoadInt32(&everyNodeRuns) != 2 {
 		t.Errorf("Expected the plain task to run again, ran %d time(s)", everyNodeRuns)
+	}
+}
+
+func namedNightlyTask() {}
+
+// TestTaskName names tasks by their option, else by their function.
+func TestTaskName(t *testing.T) {
+	tests := []struct {
+		name   string
+		option TaskOption
+		task   func()
+		want   string
+	}{
+		{"option name", TaskOption{Name: "Trash purge"}, namedNightlyTask, "Trash purge"},
+		{"function name", TaskOption{}, namedNightlyTask, "nightly.namedNightlyTask"},
+		{"no task", TaskOption{}, nil, "unnamed task"},
+	}
+	for _, tt := range tests {
+		got := taskName(tt.option, tt.task)
+		if !strings.HasSuffix(got, tt.want) {
+			t.Errorf("%s: taskName() = %q, want it to end with %q", tt.name, got, tt.want)
+		}
 	}
 }

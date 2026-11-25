@@ -121,8 +121,10 @@ func (b *Backend) LookupHash(username string) (string, []byte, bool) {
 func (b *Backend) Login(username string) (smbsrv.UserView, error) {
 	account, quota, err := b.opt.LookupUser(username)
 	if err != nil {
+		logger.Debugf("SMB", "Login(%q): user not looked up: %v", username, err)
 		return nil, err
 	}
+	logger.Debugf("SMB", "Login(%q): account set=%v, quota set=%v", username, account != nil, quota != nil)
 	return &view{username: username, account: account, quota: quota, capacity: b.opt.Capacity, opt: &b.opt}, nil
 }
 
@@ -180,6 +182,9 @@ func (v *view) Shares() []smbsrv.Share {
 		if fsh.Closed {
 			continue
 		}
+		//The share keeps this handler: after a pool reload it still points at
+		//the old, closed one until the client lists the shares again
+		logger.Debugf("SMB", "Shares(%q): %s", v.username, fsh.Describe())
 		out = append(out, newShare(fsh, v))
 	}
 	if tm := v.timeMachineShare(); tm != nil {
@@ -363,11 +368,14 @@ func (s *share) Stat(p string) (smbsrv.FileInfo, error) {
 }
 
 func (s *share) ReadDir(p string) ([]smbsrv.FileInfo, error) {
+	defer logger.TracePanic("SMB", "listing "+p+" on "+s.fsh.UUID+":/ for "+s.v.username)
 	rpath, err := s.real(p)
 	if err != nil {
+		logger.Debugf("SMB", "ReadDir(%q) on %s for %q: path refused: %v", p, s.fsh.Describe(), s.v.username, err)
 		return nil, err
 	}
 	entries, err := s.fsh.FileSystemAbstraction.ReadDir(rpath)
+	logger.Debugf("SMB", "ReadDir(%q) on %s for %q: %d entries, error: %v", rpath, s.fsh.Describe(), s.v.username, len(entries), err)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +427,9 @@ func (s *share) stage() stageConfig {
 }
 
 func (s *share) Open(p string, flag int) (smbsrv.File, error) {
+	defer logger.TracePanic("SMB", "opening "+p+" on "+s.fsh.UUID+":/ for "+s.v.username)
 	rpath, err := s.real(p)
+	logger.Debugf("SMB", "Open(%q, flag %#x) on %s for %q: %q, buffered: %v, error: %v", p, flag, s.fsh.Describe(), s.v.username, rpath, s.fsh.RequireBuffer, err)
 	if err != nil {
 		return nil, err
 	}
@@ -443,11 +453,15 @@ func (s *share) Mkdir(p string) error {
 	if err != nil {
 		return err
 	}
-	return s.fsh.FileSystemAbstraction.Mkdir(rpath, 0775)
+	err = s.fsh.FileSystemAbstraction.Mkdir(rpath, 0775)
+	logger.Debugf("SMB", "Mkdir(%q) on %s for %q, error: %v", rpath, s.fsh.Describe(), s.v.username, err)
+	return err
 }
 
 func (s *share) Remove(p string) error {
+	defer logger.TracePanic("SMB", "removing "+p+" on "+s.fsh.UUID+":/ for "+s.v.username)
 	rpath, err := s.real(p)
+	logger.Debugf("SMB", "Remove(%q) on %s for %q: %q, quota set: %v, error: %v", p, s.fsh.Describe(), s.v.username, rpath, s.v.quota != nil, err)
 	if err != nil {
 		return err
 	}
@@ -492,6 +506,7 @@ func (s *share) Remove(p string) error {
 }
 
 func (s *share) Rename(oldPath, newPath string) error {
+	defer logger.TracePanic("SMB", "renaming "+oldPath+" to "+newPath+" on "+s.fsh.UUID+":/ for "+s.v.username)
 	source, err := s.real(oldPath)
 	if err != nil {
 		return err
@@ -500,6 +515,7 @@ func (s *share) Rename(oldPath, newPath string) error {
 	if err != nil {
 		return err
 	}
+	logger.Debugf("SMB", "Rename(%q -> %q) on %s for %q", source, target, s.fsh.Describe(), s.v.username)
 	//A rename can replace a file, whose space comes back
 	replaced := int64(0)
 	if s.tracksQuota() && !strings.EqualFold(oldPath, newPath) {

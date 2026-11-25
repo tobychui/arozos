@@ -208,7 +208,8 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 			cmd := exec.Command("mount", "-t", filesystem, mountdev, filepath.Clean(mountpt))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			cmd.Run()
+			err := cmd.Run()
+			logger.Debugf("Filesystem", "MountDevice: mount -t %s %s %s finished, error: %v", filesystem, mountdev, filepath.Clean(mountpt), err)
 		}
 
 		//Check if the path exists

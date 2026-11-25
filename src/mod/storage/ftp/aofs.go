@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/afero"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -115,7 +116,9 @@ func (a aofs) Open(name string) (afero.File, error) {
 		return nil, errors.New("Permission denied")
 	}
 
-	return fsh.FileSystemAbstraction.Open(rewritePath)
+	f, err := fsh.FileSystemAbstraction.Open(rewritePath)
+	logger.Debugf("Ftp", "Open(%q) for %q: %q on %s, error: %v", name, a.userinfo.Username, rewritePath, fsh.Describe(), err)
+	return f, err
 }
 
 func (a aofs) Stat(name string) (os.FileInfo, error) {
@@ -149,7 +152,9 @@ func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 	if !a.checkAllowAccess(fsh, rewritePath, mode) {
 		return nil, errors.New("Permission denied")
 	}
-	return fsh.FileSystemAbstraction.OpenFile(rewritePath, flag, perm)
+	f, err := fsh.FileSystemAbstraction.OpenFile(rewritePath, flag, perm)
+	logger.Debugf("Ftp", "OpenFile(%q, flag %#x) for %q: %q on %s, error: %v", name, flag, a.userinfo.Username, rewritePath, fsh.Describe(), err)
+	return f, err
 }
 
 func (a aofs) AllocateSpace(size int) error {
@@ -271,6 +276,7 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 
 		fsh, err := a.userinfo.GetFileSystemHandlerFromVirtualPath(fsHandlerUUID + ":")
 		if err != nil {
+			logger.Debugf("Ftp", "pathRewrite(%q) for %q: drive %q not found: %v", path, a.userinfo.Username, fsHandlerUUID, err)
 			return nil, "", errors.New("File System Abstraction not found")
 		}
 

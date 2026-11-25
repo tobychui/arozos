@@ -272,6 +272,8 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	fs := s.getRootFs(userinfo.GetAllFileSystemHandler(), userinfo.Username, userinfo.CanWrite)
 
 	//Serve the content
+	defer logger.TracePanic("Webdav", "serving "+r.Method+" "+r.URL.Path+" for "+userinfo.Username)
+	logger.Debugf("Webdav", "%s %q for %q from %s (depth %q, destination %q)", r.Method, r.URL.Path, userinfo.Username, r.RemoteAddr, r.Header.Get("Depth"), r.Header.Get("Destination"))
 	fs.ServeHTTP(w, r)
 
 }
@@ -341,8 +343,11 @@ func (s *Server) getRootFs(fshs []*filesystem.FileSystemHandler, username string
 			return
 		}
 		go func() {
+			//A panic in this goroutine stops the whole server
+			defer logger.TracePanic("Webdav", "building thumbnails of "+vpath+" for "+username)
 			isHidden, _ := hidden.IsHidden(vpath, false)
 			if !isHidden {
+				logger.Debugf("Webdav", "building thumbnails of %q on %s for %q", vpath, fsh.Describe(), username)
 				metadata.NewRenderHandler().BuildCacheForFolder(fsh, vpath, username)
 			}
 

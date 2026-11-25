@@ -136,6 +136,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 	_, err = client.HeadBucket(valCtx, &s3.HeadBucketInput{
 		Bucket: aws.String(bucket),
 	})
+	logger.Debugf("S3fs", "%s:/ HeadBucket %q at %s://%s, error: %v", uuid, bucket, scheme, endpoint, err)
 	if err != nil {
 		var nf *types.NotFound
 		if errors.As(err, &nf) {
@@ -631,6 +632,7 @@ func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.Fi
 		Body:        stream,
 		ContentType: aws.String("application/octet-stream"),
 	})
+	logger.Debugf("S3fs", "%s:/ WriteStream(%q) key %q, error: %v", s.uuid, filename, key, err)
 	return err
 }
 
@@ -645,6 +647,7 @@ func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
+	logger.Debugf("S3fs", "%s:/ ReadStream(%q) key %q, error: %v", s.uuid, filename, key, err)
 	if err != nil {
 		return nil, notExist(err)
 	}
@@ -655,6 +658,7 @@ func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 // calling walkFn for each.  It builds the tree level by level via ReadDir so
 // that virtual directory entries are naturally included.
 func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
+	logger.Debugf("S3fs", "%s:/ Walk(%q)", s.uuid, root)
 	rootInfo := NewS3FileInfo(arozfs.Base(root), 0, true, time.Now())
 	if err := walkFn(root, rootInfo, nil); err != nil {
 		return err
@@ -665,6 +669,7 @@ func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) error {
 	entries, err := s.ReadDir(dirPath)
 	if err != nil {
+		logger.Debugf("S3fs", "%s:/ Walk: ReadDir(%q) failed (%v), handing the callback NO file info; a callback that reads it without checking the error panics", s.uuid, dirPath, err)
 		_ = walkFn(dirPath, nil, err)
 		return err
 	}
@@ -690,6 +695,9 @@ func (s *S3FSAbstraction) Heartbeat() error {
 	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(s.bucket),
 	})
+	if err != nil {
+		logger.Debugf("S3fs", "%s:/ heartbeat to bucket %q failed: %v", s.uuid, s.bucket, err)
+	}
 	return err
 }
 

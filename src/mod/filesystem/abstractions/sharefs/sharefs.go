@@ -56,6 +56,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // First segment of every real path on this drive, see above
@@ -240,7 +241,13 @@ func (s *ShareFileSystem) resolve(rpath string) (*location, error) {
 	}
 	loc.item = s.findItem(username, name)
 	if loc.item == nil || loc.item.Fsh == nil || loc.item.Fsh.FileSystemAbstraction == nil {
+		if loc.item != nil {
+			logger.Debugf("Sharefs", "resolve(%q): shared item %q of %q is on a drive that is not loaded: %s", rpath, name, loc.item.Owner, loc.item.Fsh.Describe())
+		}
 		return nil, os.ErrNotExist
+	}
+	if loc.item.Fsh.Closed {
+		logger.Debugf("Sharefs", "resolve(%q): shared item %q of %q is on a CLOSED drive, reading it through %s", rpath, name, loc.item.Owner, loc.item.Fsh.Describe())
 	}
 	if sub != "" && !(loc.item.IsDir && loc.item.CanBrowse) {
 		return nil, os.ErrNotExist

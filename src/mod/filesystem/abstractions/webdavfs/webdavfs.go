@@ -36,6 +36,7 @@ type WebDAVFileSystem struct {
 func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, password string) (*WebDAVFileSystem, error) {
 	//Connect to webdav server
 	c := gowebdav.NewClient(root, user, password)
+	logger.Debugf("Webdavfs", "%s:/ connecting to %q as %q", UUID, root, user)
 	err := c.Connect()
 	if err != nil {
 		logger.PrintAndLog("Webdavfs", fmt.Sprint("[WebDAV FS] Unable to connect to remote: ", err.Error()), nil)
@@ -226,8 +227,10 @@ func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	fis, err := e.c.ReadDir(filename)
 	if err != nil {
+		logger.Debugf("Webdavfs", "%s:/ ReadDir(%q) failed: %v", e.UUID, filename, err)
 		return []fs.DirEntry{}, classify(err)
 	}
+	logger.Debugf("Webdavfs", "%s:/ ReadDir(%q): %d entries", e.UUID, filename, len(fis))
 
 	dirEntires := []fs.DirEntry{}
 	for _, fi := range fis {
@@ -237,18 +240,25 @@ func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 }
 func (e WebDAVFileSystem) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
-	return e.c.WriteStream(filename, stream, mode)
+	err := e.c.WriteStream(filename, stream, mode)
+	logger.Debugf("Webdavfs", "%s:/ WriteStream(%q), error: %v", e.UUID, filename, err)
+	return err
 
 }
 func (e WebDAVFileSystem) ReadStream(filename string) (io.ReadCloser, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	rc, err := e.c.ReadStream(filename)
+	logger.Debugf("Webdavfs", "%s:/ ReadStream(%q), error: %v", e.UUID, filename, err)
 	return rc, classify(err)
 }
 
 func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error {
 	rootpath = filepath.ToSlash(filepath.Clean(rootpath))
 	rootStat, err := e.Stat(rootpath)
+	logger.Debugf("Webdavfs", "%s:/ Walk(%q), root stat error: %v", e.UUID, rootpath, err)
+	if rootStat == nil {
+		logger.Debugf("Webdavfs", "%s:/ Walk(%q) hands the callback NO file info; a callback that reads it without checking the error panics", e.UUID, rootpath)
+	}
 	err = walkFn(rootpath, rootStat, err)
 	if err != nil {
 		return err
@@ -257,12 +267,19 @@ func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error 
 }
 
 func (e WebDAVFileSystem) Close() error {
+	logger.Debugf("Webdavfs", "%s:/ Close (%q): the client has no connection to close", e.UUID, e.root)
 	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
 func (e WebDAVFileSystem) Heartbeat() error {
+	if e.c == nil {
+		logger.Debugf("Webdavfs", "%s:/ heartbeat with no client (nil) panics with a nil pointer dereference", e.UUID)
+	}
 	_, err := e.c.ReadDir("/")
+	if err != nil {
+		logger.Debugf("Webdavfs", "%s:/ heartbeat to %q failed: %v", e.UUID, e.root, err)
+	}
 	return err
 }
 

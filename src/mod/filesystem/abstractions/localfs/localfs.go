@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -192,21 +193,28 @@ func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reade
 	// stale document - or fail to open at all)
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
+		logger.Debugf("Localfs", "%s:/ WriteStream(%q) open failed: %v", l.UUID, filename, err)
 		return err
 	}
-	_, err = io.Copy(f, stream)
+	written, err := io.Copy(f, stream)
 	f.Close()
+	logger.Debugf("Localfs", "%s:/ WriteStream(%q): %d bytes, error: %v", l.UUID, filename, written, err)
 	return err
 }
 func (l LocalFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	f, err := os.OpenFile(filename, os.O_RDONLY, 0644)
 	if err != nil {
+		logger.Debugf("Localfs", "%s:/ ReadStream(%q) failed: %v", l.UUID, filename, err)
 		return nil, err
 	}
 	return f, nil
 }
 
 func (l LocalFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
+	//filepath.Walk hands the callback a nil FileInfo, along with the error,
+	//for any entry it cannot stat: the root itself, or a file that is gone
+	//or unreadable by the time it is reached
+	logger.Debugf("Localfs", "%s:/ Walk(%q)", l.UUID, root)
 	return filepath.Walk(root, walkFn)
 }
 

@@ -70,6 +70,7 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 	addr := fmt.Sprintf("%s:%d", serverUrl, port)
 
 	// Connect to server
+	logger.Debugf("Sftpfs", "%s:/ dialing %s as %q (password set=%v), mount folder %q", uuid, addr, username, password != "", mountFolder)
 	conn, err := ssh.Dial("tcp", addr, &config)
 	if err != nil {
 		logger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Failed to connect to [%s] %v\n", addr, err), nil)
@@ -80,6 +81,7 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 	sc, err := sftp.NewClient(conn)
 	if err != nil {
 		logger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Unable to start SFTP subsystem: %v\n", err), nil)
+		logger.Debugf("Sftpfs", "%s:/ SFTP subsystem failed, the SSH connection to %s is left open", uuid, addr)
 		return SFTPFileSystemAbstraction{}, err
 	}
 
@@ -198,16 +200,24 @@ func (s SFTPFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
 	return s.client.Stat(filename)
 }
 func (s SFTPFileSystemAbstraction) Close() error {
+	defer logger.TracePanic("Sftpfs", "closing the SFTP connection of "+s.uuid+":/")
+	logger.Debugf("Sftpfs", "%s:/ closing %s:%d (client set=%v conn set=%v). Copies of this abstraction still in use keep the closed client", s.uuid, s.url, s.port, s.client != nil, s.conn != nil)
+	if s.client == nil || s.conn == nil {
+		logger.Debugf("Sftpfs", "%s:/ was never connected; closing it panics with a nil pointer dereference", s.uuid)
+	}
 	err := s.client.Close()
 	if err != nil {
+		logger.Debugf("Sftpfs", "%s:/ SFTP client close failed, the SSH connection is left open: %v", s.uuid, err)
 		return err
 	}
 	time.Sleep(300 * time.Millisecond)
 	err = s.conn.Close()
 	if err != nil {
+		logger.Debugf("Sftpfs", "%s:/ SSH connection close failed: %v", s.uuid, err)
 		return err
 	}
 	time.Sleep(500 * time.Millisecond)
+	logger.Debugf("Sftpfs", "%s:/ closed", s.uuid)
 	return nil
 }
 
@@ -296,8 +306,10 @@ func (s SFTPFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, erro
 	result := []fs.DirEntry{}
 	infos, err := s.client.ReadDir(filename)
 	if err != nil {
+		logger.Debugf("Sftpfs", "%s:/ ReadDir(%q) failed: %v", s.uuid, filename, err)
 		return result, err
 	}
+	logger.Debugf("Sftpfs", "%s:/ ReadDir(%q): %d entries", s.uuid, filename, len(infos))
 
 	for _, finfo := range infos {
 		de := newDirEntryFromFileInfo(finfo)
@@ -310,14 +322,17 @@ func (s SFTPFileSystemAbstraction) WriteStream(filename string, stream io.Reader
 	filename = arozfs.GenericPathFilter(filename)
 	f, err := s.client.OpenFile(filename, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
+		logger.Debugf("Sftpfs", "%s:/ WriteStream(%q) open failed: %v", s.uuid, filename, err)
 		return err
 	}
-	_, err = io.Copy(f, stream)
+	written, err := io.Copy(f, stream)
+	logger.Debugf("Sftpfs", "%s:/ WriteStream(%q): %d bytes, error: %v", s.uuid, filename, written, err)
 	return err
 }
 func (s SFTPFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	filename = arozfs.GenericPathFilter(filename)
 	f, err := s.client.OpenFile(filename, os.O_RDONLY)
+	logger.Debugf("Sftpfs", "%s:/ ReadStream(%q), error: %v", s.uuid, filename, err)
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +341,12 @@ func (s SFTPFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, e
 
 func (s SFTPFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 	root = arozfs.GenericPathFilter(root)
+	logger.Debugf("Sftpfs", "%s:/ Walk(%q)", s.uuid, root)
 	walker := s.client.Walk(root)
 	for walker.Step() {
+		if walker.Stat() == nil {
+			logger.Debugf("Sftpfs", "%s:/ Walk(%q) hands the callback NO file info for %q (walk error: %v); a callback that reads it without checking the error panics", s.uuid, root, walker.Path(), walker.Err())
+		}
 		err := walkFn(walker.Path(), walker.Stat(), walker.Err())
 		if err == filepath.SkipDir {
 			walker.SkipDir()

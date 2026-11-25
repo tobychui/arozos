@@ -24,6 +24,7 @@ import (
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/clusterfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/neighbour"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -355,11 +356,13 @@ func clusterMountDrive() {
 	clusterMountMu.Lock()
 	defer clusterMountMu.Unlock()
 	if clusterStorage == nil || baseStoragePool == nil || !clusterManager.InCluster() {
+		logger.Debugf("Cluster", "clusterMountDrive: not mounted, storage set=%v base pool set=%v", clusterStorage != nil, baseStoragePool != nil)
 		return
 	}
 	if baseStoragePool.ContainDiskID("cluster") {
 		return
 	}
+	logger.Debugf("Cluster", "clusterMountDrive: mounting cluster:/ in base pool %p", baseStoragePool)
 	handler := &fs.FileSystemHandler{
 		Name:                  "Cluster",
 		UUID:                  "cluster",
@@ -390,6 +393,7 @@ func clusterUnmountDrive() {
 	if baseStoragePool == nil || !baseStoragePool.ContainDiskID("cluster") {
 		return
 	}
+	logger.Debugf("Cluster", "clusterUnmountDrive: detaching cluster:/ from base pool %p; requests holding it keep using it", baseStoragePool)
 	baseStoragePool.DetachFsHandler("cluster")
 	systemWideLogger.PrintAndLog("Cluster", "cluster:/ unmounted", nil)
 }

@@ -3,6 +3,7 @@ package user
 import (
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/storage/access"
 )
@@ -25,6 +26,9 @@ func (u *User) GetHomeDirectory() (string, error) {
 
 // Get the user home file system handler, aka user:/
 func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
+	if u.HomeDirectories == nil {
+		logger.Debugf("User", "GetHomeFileSystemHandler(%q): the user has no home pool (nil), reading its drives panics with a nil pointer dereference", u.Username)
+	}
 	return getHandlerFromID(u.HomeDirectories.Storages, "user")
 }
 
@@ -116,19 +120,36 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	results := []*fs.FileSystemHandler{}
 	listed := map[string]bool{}
 	subject := u.accessSubject()
+	debug := logger.DebugEnabled()
+	skipped := []string{}
 	for _, dp := range u.drivePools() {
 		for _, store := range dp.pool.Storages {
+			if debug && store == nil {
+				logger.Debugf("User", "GetAllFileSystemHandler(%q): pool %q holds a nil drive handler, reading it panics with a nil pointer dereference", u.Username, dp.pool.Owner)
+			}
 			if store.Closed || listed[store.UUID] {
+				if debug && store.Closed {
+					skipped = append(skipped, store.UUID+":/(closed)")
+				}
 				continue
 			}
 			if u.explainDrive(store, dp.home, subject).Level == arozfs.FsDenied {
+				if debug {
+					skipped = append(skipped, store.UUID+":/(denied)")
+				}
 				continue
+			}
+			if debug && store.FileSystemAbstraction == nil {
+				logger.Debugf("User", "GetAllFileSystemHandler(%q): %s has no abstraction; using it panics", u.Username, store.Describe())
 			}
 			results = append(results, store)
 			listed[store.UUID] = true
 		}
 	}
 
+	if debug {
+		logger.Debugf("User", "GetAllFileSystemHandler(%q): %d drive(s) %s, skipped %v", u.Username, len(results), fs.DebugHandlerList(results), skipped)
+	}
 	return results
 }
 
@@ -290,6 +311,11 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, error) {
 	fsHandlers := u.GetAllFileSystemHandler()
 	handler, err := getHandlerFromVirtualPath(fsHandlers, vpath)
+	if err != nil {
+		logger.Debugf("User", "GetFileSystemHandlerFromVirtualPath(%q, %q): %v. Returned an EMPTY handler with no abstraction; a caller ignoring the error panics on it", u.Username, vpath, err)
+	} else {
+		logger.Debugf("User", "GetFileSystemHandlerFromVirtualPath(%q, %q): %s", u.Username, vpath, handler.Describe())
+	}
 	return handler, err
 }
 

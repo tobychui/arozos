@@ -102,6 +102,7 @@ func main() {
 	//Parse startup flags and paramters
 	flag.Parse()
 	logger.SetGlobalJSONOutput(*log_format == "json")
+	logger.SetDebug(*enable_debug)
 
 	//Handle version printing
 	if *show_version {
@@ -128,6 +129,9 @@ func main() {
 	//Print copyRight information
 	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)
 	systemWideLogger.PrintAndLog("System", "ArozOS "+build_version+" Revision "+internal_version, nil)
+	if logger.DebugEnabled() {
+		systemWideLogger.PrintAndLog("System", "DEBUG logging is on (-debug): storage and file operations are traced verbosely", nil)
+	}
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020

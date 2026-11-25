@@ -122,23 +122,32 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 		return []*FileSystemHandler{}, err
 	}
 
+	logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: %d drive option(s) in a %d byte config", len(options), len(jsonContent))
 	resultingHandlers := []*FileSystemHandler{}
-	for _, option := range options {
+	for i, option := range options {
+		logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: opening drive %d of %d: %s", i+1, len(options), option.DebugString())
 		thisHandler, err := NewFileSystemHandler(option, runtimePersistenceConfig)
 		if err != nil {
 			logger.PrintAndLog("Filesystem", "[File System] Failed to create system handler for "+option.Name, nil)
+			logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: skipped %s:/ (%s): %v", option.Uuid, option.Name, err)
 			//log.Println(err.Error())
 			continue
+		}
+		if thisHandler == nil || thisHandler.FileSystemAbstraction == nil {
+			logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: %s:/ returned no error but %s, it will be put in the pool as is", option.Uuid, thisHandler.Describe())
 		}
 		resultingHandlers = append(resultingHandlers, thisHandler)
 	}
 
+	logger.Debugf("Filesystem", "NewFileSystemHandlersFromJSON: opened %d of %d drive(s): %s", len(resultingHandlers), len(options), DebugHandlerList(resultingHandlers))
 	return resultingHandlers, nil
 }
 
 // Create a new file system handler with the given config
 func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig RuntimePersistenceConfig) (*FileSystemHandler, error) {
+	defer logger.TracePanic("Filesystem", "creating the drive handler of "+option.Uuid+":/ ("+option.Filesystem+")")
 	fstype := strings.ToLower(option.Filesystem)
+	logger.Debugf("Filesystem", "NewFileSystemHandler: %s (buffer folder %q)", option.DebugString(), RuntimePersistenceConfig.LocalBufferPath)
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
 		//Check if the target fs require mounting
 		if option.Automount == true {
@@ -154,14 +163,18 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 					logger.PrintAndLog("Filesystem", "[Storage] UUID lookup failed for "+option.DiskUUID+", falling back to device path "+option.Mountdev, nil)
 				}
 			}
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ mounting device %q (%s) at %q", option.Uuid, actualMountDev, option.Filesystem, option.Mountpt)
 			err := MountDevice(option.Mountpt, actualMountDev, option.Filesystem)
 			if err != nil {
+				logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ mount of %q failed: %v. Returning an EMPTY handler with no abstraction along with the error; a caller that uses it anyway panics on a nil FileSystemAbstraction", option.Uuid, actualMountDev, err)
 				return &FileSystemHandler{}, err
 			}
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ mounted %q at %q", option.Uuid, actualMountDev, option.Mountpt)
 		}
 
 		//Check if the path exists
 		if !FileExists(option.Path) {
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ root %q does not exist. Returning an EMPTY handler with no abstraction along with the error; a caller that uses it anyway panics on a nil FileSystemAbstraction", option.Uuid, option.Path)
 			return &FileSystemHandler{}, errors.New("Mount point not exists!")
 		}
 
@@ -172,6 +185,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		}
 
 		rootpath := filepath.ToSlash(filepath.Clean(option.Path)) + "/"
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ is a local drive rooted at %q (%s hierarchy)", option.Uuid, rootpath, option.Hierarchy)
 		return &FileSystemHandler{
 			Name:                     option.Name,
 			UUID:                     option.Uuid,
@@ -194,10 +208,13 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		user := option.Username
 		password := option.Password
 
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ connecting to WebDAV %q", option.Uuid, root)
 		webdavfs, err := webdavfs.NewWebDAVMount(option.Uuid, option.Hierarchy, root, user, password)
 		if err != nil {
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ WebDAV connection failed: %v", option.Uuid, err)
 			return nil, err
 		}
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ WebDAV connected (%s)", option.Uuid, DebugAbstractionType(webdavfs))
 		return &FileSystemHandler{
 			Name:                  option.Name,
 			UUID:                  option.Uuid,
@@ -225,6 +242,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		rootShare := strings.Join(pathChunks[1:], "/")
 		user := option.Username
 		password := option.Password
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ connecting to SMB host %q share %q", option.Uuid, ipAddr, rootShare)
 		smbfs, err := smbfs.NewServerMessageBlockFileSystemAbstraction(
 			option.Uuid,
 			option.Hierarchy,
@@ -234,8 +252,10 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			password,
 		)
 		if err != nil {
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ SMB connection failed: %v", option.Uuid, err)
 			return nil, err
 		}
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ SMB connected (%s)", option.Uuid, DebugAbstractionType(smbfs))
 
 		thisFsh := FileSystemHandler{
 			Name:                  option.Name,
@@ -270,6 +290,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		rootShare := pathChunks[1:]
 		user := option.Username
 		password := option.Password
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ connecting to SFTP %s:%d root %q", option.Uuid, ipAddr, port, "/"+strings.Join(rootShare, "/"))
 		sftpfs, err := sftpfs.NewSFTPFileSystemAbstraction(
 			option.Uuid,
 			option.Hierarchy,
@@ -281,8 +302,10 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		)
 		if err != nil {
 			fmt.Println(err.Error())
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ SFTP connection failed: %v", option.Uuid, err)
 			return nil, err
 		}
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ SFTP connected (%s)", option.Uuid, DebugAbstractionType(sftpfs))
 
 		thisFsh := FileSystemHandler{
 			Name:                  option.Name,
@@ -302,10 +325,13 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		return &thisFsh, nil
 	} else if fstype == "ftp" {
 
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ connecting to FTP %q", option.Uuid, option.Path)
 		ftpfs, err := ftpfs.NewFTPFSAbstraction(option.Uuid, option.Hierarchy, option.Path, option.Username, option.Password)
 		if err != nil {
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ FTP connection failed: %v", option.Uuid, err)
 			return nil, err
 		}
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ FTP connected (%s)", option.Uuid, DebugAbstractionType(ftpfs))
 		return &FileSystemHandler{
 			Name:                  option.Name,
 			UUID:                  option.Uuid,
@@ -354,6 +380,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			prefix = strings.Trim(pathChunks[2], "/")
 		}
 
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ connecting to S3 endpoint %q bucket %q prefix %q ssl=%v", option.Uuid, endpoint, bucket, prefix, useSSL)
 		s3fsh, err := s3fs.NewS3FSAbstraction(
 			option.Uuid,
 			option.Hierarchy,
@@ -365,8 +392,10 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			useSSL,
 		)
 		if err != nil {
+			logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ S3 connection failed: %v", option.Uuid, err)
 			return nil, err
 		}
+		logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ S3 connected (%s)", option.Uuid, DebugAbstractionType(s3fsh))
 
 		return &FileSystemHandler{
 			Name:                  option.Name,
@@ -388,6 +417,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		logger.PrintAndLog("Filesystem", "[File System] Deprecated file system type: Virtual", nil)
 	}
 
+	logger.Debugf("Filesystem", "NewFileSystemHandler: %s:/ has unsupported file system %q, no handler created", option.Uuid, fstype)
 	return nil, errors.New("Not supported file system: " + fstype)
 }
 
@@ -413,6 +443,8 @@ func (fsh *FileSystemHandler) IsLocalDrive() bool {
 
 // Buffer a file to local tmp folder and return the tmp location for further processing
 func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) {
+	defer logger.TracePanic("Filesystem", "buffering "+rpath+" to the local disk")
+	logger.Debugf("Filesystem", "BufferRemoteToLocal: %q from %s", rpath, fsh.Describe())
 	//Check if the remote file exists
 	fsa := fsh.FileSystemAbstraction
 	if !fsa.FileExists(rpath) {
@@ -449,12 +481,14 @@ func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) 
 	}
 	defer dest.Close()
 
-	_, err = io.Copy(dest, src)
+	copied, err := io.Copy(dest, src)
 	if err != nil {
+		logger.Debugf("Filesystem", "BufferRemoteToLocal: %q failed after %d bytes: %v", rpath, copied, err)
 		return "", errors.New("file buffer failed: " + err.Error())
 	}
 
 	//Return the buffered filepath on local disk
+	logger.Debugf("Filesystem", "BufferRemoteToLocal: %q buffered to %q (%d bytes)", rpath, tmpFilepath, copied)
 	return tmpFilepath, nil
 }
 
@@ -516,7 +550,9 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 
 // Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
+	defer logger.TracePanic("Filesystem", "reloading the abstraction of "+fsh.UUID+":/")
 	logger.PrintAndLog("Filesystem", "[File System] Reloading File System Abstraction for "+fsh.Name, nil)
+	logger.Debugf("Filesystem", "ReloadFileSystelAbstraction: closing %s. Until the reload ends it stays closed, and calls already holding it use the old abstraction", fsh.Describe())
 	//Load the start option for this fsh
 	originalStartOption := fsh.StartOptions
 	runtimePersistenceConfig := fsh.RuntimePersistenceConfig
@@ -529,12 +565,14 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	//Generate a new fsh from original start option
 	reloadedFsh, err := NewFileSystemHandler(originalStartOption, runtimePersistenceConfig)
 	if err != nil {
+		logger.Debugf("Filesystem", "ReloadFileSystelAbstraction: %s:/ could not be opened again: %v. It stays CLOSED with its old, closed abstraction", fsh.UUID, err)
 		return err
 	}
 
 	//Overwrite the pointers to target fsa
 	fsh.FileSystemAbstraction = reloadedFsh.FileSystemAbstraction
 	fsh.Closed = false
+	logger.Debugf("Filesystem", "ReloadFileSystelAbstraction: %s reopened", fsh.Describe())
 	return nil
 }
 
@@ -545,6 +583,11 @@ func (fsh *FileSystemHandler) RequierUserIsolation() bool {
 
 // Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
+	defer logger.TracePanic("Filesystem", "closing drive handler "+fsh.DebugString())
+	logger.Debugf("Filesystem", "Close: %s", fsh.Describe())
+	if fsh.FileSystemAbstraction == nil {
+		logger.Debugf("Filesystem", "Close: %s:/ has no abstraction, closing it panics with a nil pointer dereference", fsh.UUID)
+	}
 	//Set the close flag to true so others function wont access it
 	fsh.Closed = true
 
@@ -552,6 +595,7 @@ func (fsh *FileSystemHandler) Close() {
 	err := fsh.FileSystemAbstraction.Close()
 	if err != nil {
 		logger.PrintAndLog("Filesystem", "[File System]  Unable to close File System Abstraction for Handler: "+fsh.UUID+". Skipping.", nil)
+		logger.Debugf("Filesystem", "Close: %s:/ abstraction close error: %v", fsh.UUID, err)
 	}
 }
 

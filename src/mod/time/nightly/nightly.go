@@ -1,8 +1,12 @@
 package nightly
 
 import (
+	"reflect"
+	"runtime"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -67,9 +71,12 @@ func NewNightlyTaskManager(nightlyTaskRunTime int) *TaskManager {
 }
 
 func (tm *TaskManager) NightlyTaskRun() {
-	for _, nightlyTask := range tm.NightlTasks {
+	logger.Debugf("Nightly", "running %d nightly task(s)", len(tm.NightlTasks))
+	for i, nightlyTask := range tm.NightlTasks {
+		logger.Debugf("Nightly", "nightly task %d of %d", i+1, len(tm.NightlTasks))
 		nightlyTask()
 	}
+	logger.Debug("Nightly", "nightly tasks done")
 }
 
 func (tm *TaskManager) RegisterNightlyTask(task func()) {
@@ -78,12 +85,34 @@ func (tm *TaskManager) RegisterNightlyTask(task func()) {
 
 // Register a nightly task that only runs where its option allows it
 func (tm *TaskManager) RegisterNightlyTaskWithOption(option TaskOption, task func()) {
+	name := taskName(option, task)
 	tm.NightlTasks = append(tm.NightlTasks, func() {
 		if !tm.ShouldRun(option) {
+			logger.Debugf("Nightly", "%s skipped, it runs on the master node only", name)
 			return
 		}
+		//The nightly timer runs every task in one goroutine, where a panic
+		//stops the whole server
+		defer logger.TracePanic("Nightly", "running nightly task "+name)
+		started := time.Now()
+		logger.Debugf("Nightly", "%s started", name)
 		task()
+		logger.Debugf("Nightly", "%s finished in %v", name, time.Since(started))
 	})
+}
+
+// taskName names a nightly task for log lines: its option's name, else the
+// name of the registered function, as "main.system_fs_clearExpiredTrash"
+func taskName(option TaskOption, task func()) string {
+	if option.Name != "" {
+		return option.Name
+	}
+	if task != nil {
+		if fn := runtime.FuncForPC(reflect.ValueOf(task).Pointer()); fn != nil {
+			return fn.Name()
+		}
+	}
+	return "unnamed task"
 }
 
 /*

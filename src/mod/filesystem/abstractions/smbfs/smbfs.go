@@ -46,6 +46,7 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 		ipaddr = ipaddr + ":445" //Default port for SMB
 	}
 	nd := net.Dialer{Timeout: 10 * time.Second}
+	logger.Debugf("Smbfs", "%s:/ dialing %s as %q", uuid, ipaddr, username)
 	conn, err := nd.Dial("tcp", ipaddr)
 	if err != nil {
 		logger.PrintAndLog("Smbfs", fmt.Sprint("[SMB-FS] Unable to connect to remote: ", err.Error()), nil)
@@ -62,8 +63,10 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 	s, err := d.Dial(conn)
 	if err != nil {
 		logger.PrintAndLog("Smbfs", fmt.Sprint("[SMB-FS] Unable to connect to remote: ", err.Error()), nil)
+		logger.Debugf("Smbfs", "%s:/ SMB session setup failed, the TCP connection to %s is left open: %v", uuid, ipaddr, err)
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
+	logger.Debugf("Smbfs", "%s:/ session established with %s", uuid, ipaddr)
 
 	thisSmbRoot := rootShare
 	thisFsaRoot := ""
@@ -77,8 +80,10 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 	fs, err := s.Mount(thisSmbRoot)
 	if err != nil {
 		logger.PrintAndLog("Smbfs", fmt.Sprint("[SMB-FS] Unable to connect to remote: ", err.Error()), nil)
+		logger.Debugf("Smbfs", "%s:/ mounting share %q failed: %v", uuid, thisSmbRoot, err)
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
+	logger.Debugf("Smbfs", "%s:/ share %q mounted, abstraction root %q", uuid, thisSmbRoot, thisFsaRoot)
 	logger.PrintAndLog("Smbfs", "[SMB-FS] Mounted SMB Root Share: "+thisSmbRoot, nil)
 
 	done := make(chan bool)
@@ -173,6 +178,11 @@ func (a ServerMessageBlockFileSystemAbstraction) Stat(filename string) (os.FileI
 	return a.share.Stat(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Close() error {
+	defer logger.TracePanic("Smbfs", "closing the SMB connection of "+a.UUID+":/")
+	logger.Debugf("Smbfs", "%s:/ closing share %q on %s (share set=%v session set=%v conn set=%v). Copies of this abstraction still in use keep the closed share", a.UUID, a.smbRoot, a.ipaddr, a.share != nil, a.session != nil, a.conn != nil)
+	if a.share == nil || a.session == nil || a.conn == nil {
+		logger.Debugf("Smbfs", "%s:/ was never connected; closing it panics with a nil pointer dereference", a.UUID)
+	}
 	//Stop connection checker
 	go func() {
 		a.tickerChan <- true
@@ -180,13 +190,14 @@ func (a ServerMessageBlockFileSystemAbstraction) Close() error {
 
 	//Unmount the smb folder
 	time.Sleep(300 * time.Millisecond)
-	a.share.Umount()
+	umountErr := a.share.Umount()
 	time.Sleep(300 * time.Millisecond)
-	a.session.Logoff()
+	logoffErr := a.session.Logoff()
 	time.Sleep(300 * time.Millisecond)
 	conn := *(a.conn)
-	conn.Close()
+	closeErr := conn.Close()
 	time.Sleep(500 * time.Millisecond)
+	logger.Debugf("Smbfs", "%s:/ closed: umount %v, logoff %v, conn close %v", a.UUID, umountErr, logoffErr, closeErr)
 	return nil
 }
 
@@ -277,8 +288,10 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadDir(filename string) ([]fs.
 	filename = toWinPath(a.filterFilepath(filename))
 	fis, err := a.share.ReadDir(filename)
 	if err != nil {
+		logger.Debugf("Smbfs", "%s:/ ReadDir(%q) failed: %v", a.UUID, filename, err)
 		return []fs.DirEntry{}, err
 	}
+	logger.Debugf("Smbfs", "%s:/ ReadDir(%q): %d entries", a.UUID, filename, len(fis))
 	dirEntires := []fs.DirEntry{}
 	for _, fi := range fis {
 		if fi.Name() == "System Volume Information" || fi.Name() == "$RECYCLE.BIN" || fi.Name() == "$MFT" {
@@ -292,8 +305,10 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadDir(filename string) ([]fs.
 
 func (a ServerMessageBlockFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
 	filename = toWinPath(a.filterFilepath(filename))
+	logger.Debugf("Smbfs", "%s:/ WriteStream(%q)", a.UUID, filename)
 	f, err := a.share.OpenFile(filename, os.O_CREATE|os.O_WRONLY, mode)
 	if err != nil {
+		logger.Debugf("Smbfs", "%s:/ WriteStream(%q) open failed: %v", a.UUID, filename, err)
 		return err
 	}
 
@@ -318,6 +333,7 @@ func (a ServerMessageBlockFileSystemAbstraction) WriteStream(filename string, st
 func (a ServerMessageBlockFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, os.O_RDONLY, 0755)
+	logger.Debugf("Smbfs", "%s:/ ReadStream(%q), error: %v", a.UUID, filename, err)
 	if err != nil {
 		return nil, err
 	}
@@ -327,6 +343,7 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadStream(filename string) (io
 // Note that walk on SMB is super slow. Avoid using this if possible.
 func (a ServerMessageBlockFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 	root = toWinPath(a.filterFilepath(root))
+	logger.Debugf("Smbfs", "%s:/ Walk(%q)", a.UUID, root)
 	err := fs.WalkDir(a.share.DirFS(root), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -342,7 +359,13 @@ func (a ServerMessageBlockFileSystemAbstraction) Walk(root string, walkFn filepa
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) Heartbeat() error {
+	if a.share == nil {
+		logger.Debugf("Smbfs", "%s:/ heartbeat on a share that was never mounted (nil) panics with a nil pointer dereference", a.UUID)
+	}
 	_, err := a.share.Stat("")
+	if err != nil {
+		logger.Debugf("Smbfs", "%s:/ heartbeat to %s failed: %v", a.UUID, a.ipaddr, err)
+	}
 	return err
 }
 

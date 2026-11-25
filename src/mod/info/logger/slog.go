@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime"
 	"strings"
 )
 
@@ -16,23 +17,41 @@ import (
 */
 
 // NewSlog returns a *slog.Logger whose records go to PrintAndLog under title.
-// Debug records are dropped. The first attribute holding an error is passed
-// as the error, the others are added to the message as key=value. A
+// Debug records become DEBUG lines when debug is enabled (the -debug start
+// flag) and are dropped otherwise. The first attribute holding an error is
+// passed as the error, the others are added to the message as key=value. A
 // "component" attribute is left out, because the title already names the
 // part of the system that logged.
 func NewSlog(title string) *slog.Logger {
-	return slog.New(&slogHandler{title: title, emit: PrintAndLog})
+	return slog.New(&slogHandler{title: title, emit: PrintAndLog, debug: slogDebug})
 }
 
 type slogHandler struct {
 	title  string
 	emit   func(title string, message string, originalError error)
-	prefix string      //Group prefix of later attributes, such as "req."
-	attrs  []slog.Attr //Attributes added by WithAttrs, keys already prefixed
+	debug  func(title string, message string, pc uintptr) //Debug records, nil drops them
+	prefix string                                         //Group prefix of later attributes, such as "req."
+	attrs  []slog.Attr                                    //Attributes added by WithAttrs, keys already prefixed
+}
+
+// slogDebug writes a debug record to the system log, naming the source line
+// of the record instead of the handler's
+func slogDebug(title string, message string, pc uintptr) {
+	caller := ""
+	if pc != 0 {
+		frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
+		if frame.File != "" {
+			caller = shortCaller(frame.File, frame.Line)
+		}
+	}
+	defaultLogger.writeDebug(title, message, caller, goroutineID())
 }
 
 func (h *slogHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= slog.LevelInfo
+	if level < slog.LevelInfo {
+		return h.debug != nil && DebugEnabled()
+	}
+	return true
 }
 
 func (h *slogHandler) Handle(_ context.Context, r slog.Record) error {
@@ -47,6 +66,16 @@ func (h *slogHandler) Handle(_ context.Context, r slog.Record) error {
 		origErr = appendAttr(&b, a, h.prefix, origErr)
 		return true
 	})
+	if r.Level < slog.LevelInfo {
+		if h.debug == nil || !DebugEnabled() {
+			return nil
+		}
+		if origErr != nil {
+			b.WriteString(" err=" + origErr.Error())
+		}
+		h.debug(h.title, b.String(), r.PC)
+		return nil
+	}
 	h.emit(h.title, b.String(), origErr)
 	return nil
 }
